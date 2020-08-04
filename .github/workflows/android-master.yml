@@ -18,7 +18,7 @@ jobs:
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       # Sets up a JDK on the job so that we can run Java code
       - name: Set up JDK 1.8
@@ -37,7 +37,7 @@ jobs:
 
       steps:
         # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
-        - uses: actions/checkout@v1
+        - uses: actions/checkout@v2
 
         # Sets up a JDK on the job so that we can run Java code
         - name: Set up JDK 1.8
@@ -51,7 +51,7 @@ jobs:
 
         # Stores the generated AAR to an outputs folder
         - name: Store AAR
-          uses: actions/upload-artifact@v1
+          uses: actions/upload-artifact@v2
           with:
             name: sdk
             path: app/build/outputs/aar/debug/aar-debug.aar
