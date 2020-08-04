@@ -14,17 +14,17 @@ jobs:
     name: Run Unit Tests
 
     # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
       - uses: actions/checkout@v1
 
       # Sets up a JDK on the job so that we can run Java code
-      - name: Set up JDK 11
+      - name: Set up JDK 1.8
         uses: actions/setup-java@v1
         with:
-          java-version: 11
+          java-version: 1.8
 
       # Call Gradle to run the unit tests
       - name: Unit Tests
@@ -33,17 +33,17 @@ jobs:
     aar:
       name: Generate AAR
       # The type of runner that the job will run on
-      runs-on: ubuntu-latest
+      runs-on: ubuntu-20.04
 
       steps:
         # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
         - uses: actions/checkout@v1
 
         # Sets up a JDK on the job so that we can run Java code
-        - name: Set up JDK 11
+        - name: Set up JDK 1.8
           uses: actions/setup-java@v1
           with:
-              java-version: 11
+              java-version: 1.8
 
         # Call Gradle to build our our debug AAR
         - name: Build debug AAR
