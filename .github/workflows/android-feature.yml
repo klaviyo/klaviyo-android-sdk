@@ -2,13 +2,9 @@
 
 name: Android SDK Feature CI
 
-# Triggers the workflow on push to our working branches
+# Triggers the workflow whenever a pull request is opened, reopened or has commits pushed to it
 on:
-  push:
-    branches: 
-      - '*'
-      - '!master'
-      - '!release'
+  pull_request
 
 jobs:
   # This workflow contains a single job for running our tests
