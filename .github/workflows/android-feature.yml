@@ -1,6 +1,6 @@
 # A workflow for controlling the acions taken by CI whenever we push a commit to an open pull request
 
-name: Branch CI
+name: Android SDK Feature CI
 
 # Triggers the workflow on push to our working branches
 on:
