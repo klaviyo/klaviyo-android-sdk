@@ -20,7 +20,7 @@ jobs:
       with:
         java-version: 1.8
 
-    # Call Gradle to run the unit tests
-    - name: Unit Tests
+    # Set up a APK for testing
+    - name: Set up APK
       run: bash ./example :example:assembleDebug --stacktrace
     
