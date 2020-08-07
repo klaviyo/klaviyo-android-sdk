@@ -25,6 +25,7 @@ jobs:
       run: bash ./example :example:assembleDebug --stacktrace
 
     # Run tests
+    - name: Unit Tests
       run: bash ./gradlew test --stacktrace
     
     
