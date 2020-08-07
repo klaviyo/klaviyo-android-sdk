@@ -2,6 +2,8 @@
 
 name: Android SDK Example Build
 
+on: [workflow_dispatch]
+
 jobs:
   # This workflow contains a single job for running our tests
   test:
