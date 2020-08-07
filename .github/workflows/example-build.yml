@@ -23,4 +23,8 @@ jobs:
     # Compile the APK for testing
     - name: Compile APK
       run: bash ./example :example:assembleDebug --stacktrace
+
+    # Run tests
+      run: bash ./gradlew test --stacktrace
+    
     
