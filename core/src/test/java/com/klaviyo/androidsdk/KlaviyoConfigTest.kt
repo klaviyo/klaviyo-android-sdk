@@ -1,6 +1,7 @@
 package com.klaviyo.androidsdk
 
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.KlaviyoMissingAPIKeyException
 import org.junit.Test
 
 class KlaviyoConfigTest {
@@ -28,7 +29,7 @@ class KlaviyoConfigTest {
         assert(config.networkFlushInterval == 60000)
     }
 
-    @Test(expected = UninitializedPropertyAccessException::class)
+    @Test(expected = KlaviyoMissingAPIKeyException::class)
     fun `Build Configuration throws expected exception on missing API key!`() {
         KlaviyoConfig.Builder()
                 .networkTimeout(500)
