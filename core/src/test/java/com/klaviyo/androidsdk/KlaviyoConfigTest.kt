@@ -6,7 +6,7 @@ import org.junit.Test
 
 class KlaviyoConfigTest {
     @Test
-    fun `Build Configuration works properly!`() {
+    fun `KlaviyoConfig Builder sets variables successfully`() {
         val config = KlaviyoConfig.Builder()
                 .apiKey("Fake_Key")
                 .networkTimeout(1000)
@@ -19,7 +19,7 @@ class KlaviyoConfigTest {
     }
 
     @Test
-    fun `Build Configuration networking defaults work properly!`() {
+    fun `KlaviyoConfig Builder missing variables uses default values successfully`() {
         val config = KlaviyoConfig.Builder()
                 .apiKey("Fake_Key")
                 .build()
@@ -30,7 +30,7 @@ class KlaviyoConfigTest {
     }
 
     @Test(expected = KlaviyoMissingAPIKeyException::class)
-    fun `Build Configuration throws expected exception on missing API key!`() {
+    fun `KlaviyoConfig Builder missing API key throws expected exception`() {
         KlaviyoConfig.Builder()
                 .networkTimeout(500)
                 .networkFlushInterval(60000)
