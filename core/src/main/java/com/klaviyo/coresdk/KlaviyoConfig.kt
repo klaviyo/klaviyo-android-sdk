@@ -7,33 +7,15 @@ class KlaviyoMissingAPIKeyException: Exception("You must declare an API key for 
 
 class KlaviyoMissingContextException: Exception("You must add your application context to the Klaviyo SDK")
 
-class KlaviyoConfig private constructor(
-        apiKey: String,
-        applicationContext: Context?,
-        networkTimeout: Int,
-        networkFlushInterval: Int) {
-    companion object {
+class KlaviyoConfig {
+    internal companion object {
         private const val NETWORK_TIMEOUT_DEFAULT: Int = 500
         private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
-    }
 
-    val apiKey: String
-    val applicationContext: Context?
-    val networkTimeout: Int
-    val networkFlushInterval: Int
-
-    init {
-        if (apiKey.isNullOrEmpty()) {
-            throw KlaviyoMissingAPIKeyException()
-        }
-        if (applicationContext == null) {
-            throw KlaviyoMissingContextException()
-        }
-
-        this.apiKey = apiKey
-        this.applicationContext = applicationContext
-        this.networkTimeout = networkTimeout
-        this.networkFlushInterval = networkFlushInterval
+        var apiKey: String = ""
+        var applicationContext: Context? = null
+        var networkTimeout = NETWORK_TIMEOUT_DEFAULT
+        var networkFlushInterval = NETWORK_FLUSH_INTERVAL_DEFAULT
     }
 
     class Builder {
@@ -67,11 +49,18 @@ class KlaviyoConfig private constructor(
             }
         }
 
-        fun build() = KlaviyoConfig(
-                apiKey,
-                applicationContext,
-                networkTimeout,
-                networkFlushInterval
-        )
+        fun build() {
+            if (apiKey.isEmpty()) {
+                throw KlaviyoMissingAPIKeyException()
+            }
+            if (applicationContext == null) {
+                throw KlaviyoMissingContextException()
+            }
+
+            KlaviyoConfig.apiKey = apiKey
+            KlaviyoConfig.applicationContext = applicationContext
+            KlaviyoConfig.networkTimeout = networkTimeout
+            KlaviyoConfig.networkFlushInterval = networkFlushInterval
+        }
     }
 }

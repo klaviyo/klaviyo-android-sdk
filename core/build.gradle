@@ -22,12 +22,24 @@ android {
 }
 
 dependencies {
+    /***** Main Dependencies *****/
     implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'androidx.appcompat:appcompat:1.2.0'
+    //Kotlin Dependencies
     implementation "androidx.core:core-ktx:1.3.1"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.3.72"
-    implementation 'androidx.appcompat:appcompat:1.2.0'
+
+    /***** Testing Dependencies *****/
     testImplementation 'junit:junit:4.12'
+    testImplementation 'androidx.test:runner:1.2.0'
+    testImplementation 'androidx.test:rules:1.2.0'
+    // Mocking Dependencies - Mockito-inline is needed to navigate around Kotlin final class errors
+    testImplementation 'org.mockito:mockito-inline:3.4.0'
     testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0"
+    // JSON is bundled with the Android SDK so we need real objects to test against
+    testImplementation "org.json:json:20200518"
+
+    /***** Instrumentation Testing Dependencies *****/
     androidTestImplementation 'androidx.test:runner:1.2.0'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
 }

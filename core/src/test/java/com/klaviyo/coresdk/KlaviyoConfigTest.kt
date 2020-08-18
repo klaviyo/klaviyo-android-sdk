@@ -9,42 +9,42 @@ class KlaviyoConfigTest {
 
     @Test
     fun `KlaviyoConfig Builder sets variables successfully`() {
-        val config = KlaviyoConfig.Builder()
+        KlaviyoConfig.Builder()
                 .apiKey("Fake_Key")
                 .applicationContext(contextMock)
                 .networkTimeout(1000)
                 .networkFlushInterval(10000)
                 .build()
 
-        assert(config.apiKey == "Fake_Key")
-        assert(config.networkTimeout == 1000)
-        assert(config.networkFlushInterval == 10000)
+        assert(KlaviyoConfig.apiKey == "Fake_Key")
+        assert(KlaviyoConfig.networkTimeout == 1000)
+        assert(KlaviyoConfig.networkFlushInterval == 10000)
     }
 
     @Test
     fun `KlaviyoConfig Builder missing variables uses default values successfully`() {
-        val config = KlaviyoConfig.Builder()
+        KlaviyoConfig.Builder()
                 .apiKey("Fake_Key")
                 .applicationContext(contextMock)
                 .build()
 
-        assert(config.apiKey == "Fake_Key")
-        assert(config.networkTimeout == 500)
-        assert(config.networkFlushInterval == 60000)
+        assert(KlaviyoConfig.apiKey == "Fake_Key")
+        assert(KlaviyoConfig.networkTimeout == 500)
+        assert(KlaviyoConfig.networkFlushInterval == 60000)
     }
 
     @Test
     fun `KlaviyoConfig Builder negative variables uses default values successfully`() {
-        val config = KlaviyoConfig.Builder()
+        KlaviyoConfig.Builder()
                 .apiKey("Fake_Key")
                 .applicationContext(contextMock)
                 .networkTimeout(-5000)
                 .networkFlushInterval(-5000)
                 .build()
 
-        assert(config.apiKey == "Fake_Key")
-        assert(config.networkTimeout == 500)
-        assert(config.networkFlushInterval == 60000)
+        assert(KlaviyoConfig.apiKey == "Fake_Key")
+        assert(KlaviyoConfig.networkTimeout == 500)
+        assert(KlaviyoConfig.networkFlushInterval == 60000)
     }
 
     @Test(expected = KlaviyoMissingAPIKeyException::class)
