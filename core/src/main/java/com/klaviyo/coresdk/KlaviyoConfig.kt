@@ -12,8 +12,8 @@ class KlaviyoConfig {
         private const val NETWORK_TIMEOUT_DEFAULT: Int = 500
         private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
 
-        var apiKey: String = ""
-        var applicationContext: Context? = null
+        lateinit var apiKey: String
+        lateinit var applicationContext: Context
         var networkTimeout = NETWORK_TIMEOUT_DEFAULT
         var networkFlushInterval = NETWORK_FLUSH_INTERVAL_DEFAULT
     }
@@ -58,7 +58,7 @@ class KlaviyoConfig {
             }
 
             KlaviyoConfig.apiKey = apiKey
-            KlaviyoConfig.applicationContext = applicationContext
+            KlaviyoConfig.applicationContext = applicationContext as Context
             KlaviyoConfig.networkTimeout = networkTimeout
             KlaviyoConfig.networkFlushInterval = networkFlushInterval
         }
