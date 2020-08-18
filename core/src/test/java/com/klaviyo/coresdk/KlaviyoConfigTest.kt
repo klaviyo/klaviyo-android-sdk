@@ -1,7 +1,5 @@
-package com.klaviyo.androidsdk
+package com.klaviyo.coresdk
 
-import com.klaviyo.coresdk.KlaviyoConfig
-import com.klaviyo.coresdk.KlaviyoMissingAPIKeyException
 import org.junit.Test
 
 class KlaviyoConfigTest {
