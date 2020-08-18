@@ -27,6 +27,19 @@ class KlaviyoConfigTest {
         assert(config.networkFlushInterval == 60000)
     }
 
+    @Test
+    fun `KlaviyoConfig Builder negative variables uses default values successfully`() {
+        val config = KlaviyoConfig.Builder()
+                .apiKey("Fake_Key")
+                .networkTimeout(-5000)
+                .networkFlushInterval(-5000)
+                .build()
+
+        assert(config.apiKey == "Fake_Key")
+        assert(config.networkTimeout == 500)
+        assert(config.networkFlushInterval == 60000)
+    }
+
     @Test(expected = KlaviyoMissingAPIKeyException::class)
     fun `KlaviyoConfig Builder missing API key throws expected exception`() {
         KlaviyoConfig.Builder()

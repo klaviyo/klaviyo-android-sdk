@@ -29,12 +29,6 @@ class KlaviyoConfig private constructor(
         if (applicationContext == null) {
             throw KlaviyoMissingContextException()
         }
-        if (networkTimeout < 0) {
-            // TODO: When Timber is installed, log warning here
-        }
-        if (networkFlushInterval < 0) {
-            // TODO: When Timber is installed, log warning here
-        }
 
         this.apiKey = apiKey
         this.applicationContext = applicationContext
@@ -57,11 +51,20 @@ class KlaviyoConfig private constructor(
         }
 
         fun networkTimeout(networkTimeout: Int)  = apply {
-            this.networkTimeout = networkTimeout
+            if (networkTimeout < 0) {
+                // TODO: When Timber is installed, log warning here
+            } else {
+                this.networkTimeout = networkTimeout
+            }
         }
 
         fun networkFlushInterval(networkFlushInterval: Int)  = apply {
-            this.networkFlushInterval = networkFlushInterval
+            if (networkFlushInterval < 0) {
+                // TODO: When Timber is installed, log warning here
+
+            } else {
+                this.networkFlushInterval = networkFlushInterval
+            }
         }
 
         fun build() = KlaviyoConfig(
