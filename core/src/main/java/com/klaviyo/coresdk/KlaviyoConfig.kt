@@ -7,22 +7,23 @@ class KlaviyoMissingAPIKeyException: Exception("You must declare an API key for 
 
 class KlaviyoMissingContextException: Exception("You must add your application context to the Klaviyo SDK")
 
-class KlaviyoConfig {
-    internal companion object {
-        private const val NETWORK_TIMEOUT_DEFAULT: Int = 500
-        private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
+object KlaviyoConfig {
+    private const val NETWORK_TIMEOUT_DEFAULT: Int = 500
+    private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
+    private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 20
 
-        lateinit var apiKey: String
-        lateinit var applicationContext: Context
-        var networkTimeout = NETWORK_TIMEOUT_DEFAULT
-        var networkFlushInterval = NETWORK_FLUSH_INTERVAL_DEFAULT
-    }
+    lateinit var apiKey: String
+    lateinit var applicationContext: Context
+    var networkTimeout = NETWORK_TIMEOUT_DEFAULT
+    var networkFlushInterval = NETWORK_FLUSH_INTERVAL_DEFAULT
+    var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
 
     class Builder {
         private var apiKey: String = ""
         private var applicationContext: Context? = null
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
         private var networkFlushInterval: Int = NETWORK_FLUSH_INTERVAL_DEFAULT
+        private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
 
         fun apiKey(apiKey: String) = apply {
             this.apiKey = apiKey
@@ -49,6 +50,14 @@ class KlaviyoConfig {
             }
         }
 
+        fun networkFlushDepth(networkFlushDepth: Int) = apply {
+            if (networkFlushDepth < 0) {
+                // TODO: When Timber is installed, log warning here
+            } else {
+                this.networkFlushDepth = networkFlushDepth
+            }
+        }
+
         fun build() {
             if (apiKey.isEmpty()) {
                 throw KlaviyoMissingAPIKeyException()
@@ -61,6 +70,7 @@ class KlaviyoConfig {
             KlaviyoConfig.applicationContext = applicationContext as Context
             KlaviyoConfig.networkTimeout = networkTimeout
             KlaviyoConfig.networkFlushInterval = networkFlushInterval
+            KlaviyoConfig.networkFlushDepth = networkFlushDepth
         }
     }
 }

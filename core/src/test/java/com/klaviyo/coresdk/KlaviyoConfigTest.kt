@@ -14,11 +14,13 @@ class KlaviyoConfigTest {
                 .applicationContext(contextMock)
                 .networkTimeout(1000)
                 .networkFlushInterval(10000)
+                .networkFlushDepth(10)
                 .build()
 
         assert(KlaviyoConfig.apiKey == "Fake_Key")
         assert(KlaviyoConfig.networkTimeout == 1000)
         assert(KlaviyoConfig.networkFlushInterval == 10000)
+        assert(KlaviyoConfig.networkFlushDepth == 10)
     }
 
     @Test
@@ -31,6 +33,7 @@ class KlaviyoConfigTest {
         assert(KlaviyoConfig.apiKey == "Fake_Key")
         assert(KlaviyoConfig.networkTimeout == 500)
         assert(KlaviyoConfig.networkFlushInterval == 60000)
+        assert(KlaviyoConfig.networkFlushDepth == 20)
     }
 
     @Test
@@ -40,11 +43,13 @@ class KlaviyoConfigTest {
                 .applicationContext(contextMock)
                 .networkTimeout(-5000)
                 .networkFlushInterval(-5000)
+                .networkFlushDepth(-10)
                 .build()
 
         assert(KlaviyoConfig.apiKey == "Fake_Key")
         assert(KlaviyoConfig.networkTimeout == 500)
         assert(KlaviyoConfig.networkFlushInterval == 60000)
+        assert(KlaviyoConfig.networkFlushDepth == 20)
     }
 
     @Test(expected = KlaviyoMissingAPIKeyException::class)
@@ -53,6 +58,7 @@ class KlaviyoConfigTest {
                 .applicationContext(contextMock)
                 .networkTimeout(500)
                 .networkFlushInterval(60000)
+                .networkFlushDepth(20)
                 .build()
     }
 
@@ -62,6 +68,7 @@ class KlaviyoConfigTest {
                 .apiKey("Fake_Key")
                 .networkTimeout(500)
                 .networkFlushInterval(60000)
+                .networkFlushDepth(20)
                 .build()
     }
 }
