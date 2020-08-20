@@ -13,10 +13,15 @@ object KlaviyoConfig {
     private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 20
 
     lateinit var apiKey: String
+        private set
     lateinit var applicationContext: Context
+        private set
     var networkTimeout = NETWORK_TIMEOUT_DEFAULT
+        private set
     var networkFlushInterval = NETWORK_FLUSH_INTERVAL_DEFAULT
+        private set
     var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
+        private set
 
     class Builder {
         private var apiKey: String = ""
