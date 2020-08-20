@@ -56,7 +56,7 @@ object KlaviyoConfig {
         }
 
         fun networkFlushDepth(networkFlushDepth: Int) = apply {
-            if (networkFlushDepth < 0) {
+            if (networkFlushDepth <= 0) {
                 // TODO: When Timber is installed, log warning here
             } else {
                 this.networkFlushDepth = networkFlushDepth
