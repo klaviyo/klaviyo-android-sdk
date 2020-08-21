@@ -2,14 +2,12 @@ package com.klaviyo.coresdk.networking
 
 import android.content.Context
 import com.klaviyo.coresdk.KlaviyoConfig
-import com.klaviyo.coresdk.networking.IdentifyRequest.Companion.IDENTIFY_ENDPOINT
 import com.klaviyo.coresdk.networking.KlaviyoRequest.Companion.BASE_URL
 import com.klaviyo.coresdk.networking.TrackRequest.Companion.TRACK_ENDPOINT
 import com.nhaarman.mockitokotlin2.mock
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
-import java.net.URL
 
 class TrackRequestTest {
     private val contextMock = mock<Context>()
@@ -32,11 +30,11 @@ class TrackRequestTest {
         val expectedJsonString = "{\"customer_properties\":{\"\$phone_number\":\"+12223334444\",\"\$email\":\"test@test.com\"},\"event\":\"Test Event\",\"token\":\"Fake_Key\"}"
 
         val request = TrackRequest(event, customerProperties)
-        request.headerData = request.buildKlaviyoJsonHeader()
+        request.queryData = request.buildKlaviyoJsonQuery()
 
-        Assert.assertEquals(URL("$BASE_URL/$TRACK_ENDPOINT"), request.url)
+        Assert.assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)
         Assert.assertEquals(RequestMethod.GET, request.requestMethod)
-        Assert.assertEquals(expectedJsonString, request.headerData)
+        Assert.assertEquals(expectedJsonString, request.queryData)
         Assert.assertEquals(null, request.payload)
     }
 
@@ -49,11 +47,11 @@ class TrackRequestTest {
         val expectedJsonString = "{\"customer_properties\":{\"\$phone_number\":\"+12223334444\",\"\$email\":\"test@test.com\"},\"event\":\"Test Event\",\"properties\":{\"custom_value\":\"200\"},\"token\":\"Fake_Key\"}"
 
         val request = TrackRequest(event, customerProperties, properties)
-        request.headerData = request.buildKlaviyoJsonHeader()
+        request.queryData = request.buildKlaviyoJsonQuery()
 
-        Assert.assertEquals(URL("$BASE_URL/$TRACK_ENDPOINT"), request.url)
+        Assert.assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)
         Assert.assertEquals(RequestMethod.GET, request.requestMethod)
-        Assert.assertEquals(expectedJsonString, request.headerData)
+        Assert.assertEquals(expectedJsonString, request.queryData)
         Assert.assertEquals(null, request.payload)
     }
 }

@@ -2,7 +2,6 @@ package com.klaviyo.coresdk.networking
 
 import com.klaviyo.coresdk.KlaviyoConfig
 import org.json.JSONObject
-import java.net.URL
 
 class IdentifyRequest (
         private var event: String,
@@ -12,10 +11,10 @@ class IdentifyRequest (
         internal const val IDENTIFY_ENDPOINT = "api/identify"
     }
 
-    override var url = URL("$BASE_URL/$IDENTIFY_ENDPOINT")
+    override var urlString = "$BASE_URL/$IDENTIFY_ENDPOINT"
     override var requestMethod = RequestMethod.GET
 
-    override fun buildKlaviyoJsonHeader(): String {
+    override fun buildKlaviyoJsonQuery(): String {
         val json = JSONObject()
 
         json.put("token", KlaviyoConfig.apiKey)

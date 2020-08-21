@@ -2,7 +2,6 @@ package com.klaviyo.coresdk.networking
 
 import com.klaviyo.coresdk.KlaviyoConfig
 import org.json.JSONObject
-import java.net.URL
 
 class TrackRequest (
         private var event: String,
@@ -15,11 +14,11 @@ class TrackRequest (
 
     private var timestamp: Long? = null
 
-    override var url = URL("$BASE_URL/$TRACK_ENDPOINT")
+    override var urlString = "$BASE_URL/$TRACK_ENDPOINT"
     override var requestMethod = RequestMethod.GET
 
 
-    override fun buildKlaviyoJsonHeader(): String {
+    override fun buildKlaviyoJsonQuery(): String {
         val json = JSONObject()
 
         json.put("token", KlaviyoConfig.apiKey)
@@ -46,7 +45,7 @@ class TrackRequest (
         return json.toString()
     }
 
-    internal fun generateUnixTimestamp() {
+    fun generateUnixTimestamp() {
         timestamp = System.currentTimeMillis() / 1000L
     }
 }

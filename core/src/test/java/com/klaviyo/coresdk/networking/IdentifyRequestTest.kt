@@ -6,7 +6,6 @@ import com.nhaarman.mockitokotlin2.mock
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
-import java.net.URL
 
 class IdentifyRequestTest {
     private val contextMock = mock<Context>()
@@ -29,11 +28,11 @@ class IdentifyRequestTest {
         val expectedJsonString = "{\"event\":\"Test Event\",\"properties\":{\"custom_value\":\"200\"},\"token\":\"Fake_Key\"}"
 
         val request = IdentifyRequest(event, properties = properties)
-        request.headerData = request.buildKlaviyoJsonHeader()
+        request.queryData = request.buildKlaviyoJsonQuery()
 
-        Assert.assertEquals(URL("${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}"), request.url)
+        Assert.assertEquals("${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}", request.urlString)
         Assert.assertEquals(RequestMethod.GET, request.requestMethod)
-        Assert.assertEquals(expectedJsonString, request.headerData)
+        Assert.assertEquals(expectedJsonString, request.queryData)
         Assert.assertEquals(null, request.payload)
     }
 }

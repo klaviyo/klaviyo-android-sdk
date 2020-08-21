@@ -68,7 +68,7 @@ class NetworkRequestTest {
     }
 
     @Test
-    fun `Send network request with header information successfully`() {
+    fun `Send network request with query information successfully`() {
         val jsonString = "{\"customer_properties\":{\"\$phone_number\":\"+12223334444\",\"\$email\":\"test@test.com\"},\"time\":\"200\",\"event\":\"test_event\",\"properties\":{\"custom_value\":\"200\"}}"
         val encodedData = "eyJjdXN0b21lcl9wcm9wZXJ0aWVzIjp7IiRwaG9uZV9udW1iZXIiOiIrMTIyMjMzMzQ0NDQiLCIkZW1haWwiOiJ0ZXN0QHRlc3QuY29tIn0sInRpbWUiOiIyMDAiLCJldmVudCI6InRlc3RfZXZlbnQiLCJwcm9wZXJ0aWVzIjp7ImN1c3RvbV92YWx1ZSI6IjIwMCJ9fQ=="
 
@@ -77,9 +77,9 @@ class NetworkRequestTest {
         val connectionMock = mock<HttpsURLConnection>()
 
 
-        doReturn(urlMock).whenever(requestSpy).url
+        doReturn(urlMock).whenever(requestSpy).buildURL()
         doReturn(RequestMethod.GET).whenever(requestSpy).requestMethod
-        doReturn(jsonString).whenever(requestSpy).headerData
+        doReturn(jsonString).whenever(requestSpy).queryData
 
         doReturn(true).whenever(requestSpy).isInternetConnected(any())
         whenever(urlMock.openConnection()).thenReturn(connectionMock)
@@ -89,16 +89,15 @@ class NetworkRequestTest {
         val response = requestSpy.sendNetworkRequest()
 
         assertEquals("1", response)
-        verify(requestSpy, times(1)).encodeToBase64(jsonString)
     }
 
     @Test
-    fun `Send network request without header information successfully`() {
+    fun `Send network request without query information successfully`() {
         val requestSpy = spy<NetworkRequest>()
         val urlMock = mock<URL>()
         val connectionMock = mock<HttpsURLConnection>()
 
-        doReturn(urlMock).whenever(requestSpy).url
+        doReturn(urlMock).whenever(requestSpy).buildURL()
         doReturn(RequestMethod.GET).whenever(requestSpy).requestMethod
 
         doReturn(true).whenever(requestSpy).isInternetConnected(contextMock)
@@ -108,7 +107,6 @@ class NetworkRequestTest {
         val response = requestSpy.sendNetworkRequest()
 
         assertEquals("1", response)
-        verify(requestSpy, times(0)).encodeToBase64(any())
     }
 
     @Test

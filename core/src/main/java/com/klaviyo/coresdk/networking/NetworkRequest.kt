@@ -13,9 +13,9 @@ import javax.net.ssl.HttpsURLConnection
 
 
 abstract class NetworkRequest {
-    internal abstract var url: URL
+    internal abstract var urlString: String
     internal abstract var requestMethod: RequestMethod
-    internal abstract var headerData: String?
+    internal abstract var queryData: String?
     internal abstract var payload: String?
 
     internal fun isInternetConnected(context: Context): Boolean {
@@ -33,6 +33,15 @@ abstract class NetworkRequest {
         return usingInternet && networkInfo.isConnectedOrConnecting
     }
 
+    internal fun buildURL(): URL {
+        if (!queryData.isNullOrEmpty()) {
+            val query = "data=${encodeToBase64(queryData!!)}"
+            urlString += "?$query"
+        }
+
+        return URL(urlString)
+    }
+
     internal fun encodeToBase64(data: String): String {
         val dataBytes = data.toByteArray()
         return Base64.encodeToString(dataBytes, Base64.NO_WRAP)
@@ -43,25 +52,22 @@ abstract class NetworkRequest {
             return null
         }
 
+        val url = buildURL()
         val connection: HttpsURLConnection = url.openConnection() as HttpsURLConnection
 
         connection.readTimeout = KlaviyoConfig.networkTimeout
         connection.connectTimeout = KlaviyoConfig.networkTimeout
         connection.requestMethod = requestMethod.name
-        connection.setRequestProperty("Content-Type", "application/json; utf-8")
-        connection.setRequestProperty("Accept", "application/json")
-        connection.doOutput = true
-        connection.setRequestProperty("User-agent", System.getProperty("http.agent"))
 
-        if (!headerData.isNullOrEmpty()) {
-            connection.setRequestProperty("data", encodeToBase64(headerData!!))
-        }
+        if (connection.requestMethod == RequestMethod.POST.name) {
+            connection.doOutput = true
 
-        if (connection.requestMethod == RequestMethod.POST.name && !payload.isNullOrEmpty()) {
-            val outputStream = connection.outputStream
-            val writer = BufferedWriter(OutputStreamWriter(outputStream, "UTF-8"))
-            writer.use {
-                it.write(payload)
+            if(!payload.isNullOrEmpty()) {
+                val outputStream = connection.outputStream
+                val writer = BufferedWriter(OutputStreamWriter(outputStream, "UTF-8"))
+                writer.use {
+                    it.write(payload)
+                }
             }
         }
 
