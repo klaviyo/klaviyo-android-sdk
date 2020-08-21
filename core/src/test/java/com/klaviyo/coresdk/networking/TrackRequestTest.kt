@@ -23,11 +23,11 @@ class TrackRequestTest {
     }
 
     @Test
-    fun `Build Track request successfully`() {
+    fun `Build Track request with no properties successfully`() {
         val event = "Test Event"
         val customerProperties = hashMapOf("\$email" to "test@test.com", "\$phone_number" to "+12223334444")
 
-        val expectedJsonString = "{\"customer_properties\":{\"\$phone_number\":\"+12223334444\",\"\$email\":\"test@test.com\"},\"event\":\"Test Event\",\"token\":\"Fake_Key\"}"
+        val expectedJsonString = "{\"event\":\"Test Event\",\"customer_properties\":{\"\$email\":\"test@test.com\",\"\$phone_number\":\"+12223334444\"},\"token\":\"Fake_Key\"}"
 
         val request = TrackRequest(event, customerProperties)
         request.queryData = request.buildKlaviyoJsonQuery()
@@ -39,12 +39,12 @@ class TrackRequestTest {
     }
 
     @Test
-    fun `Build Track request with no properties`() {
+    fun `Build Track request successfully`() {
         val event = "Test Event"
         val customerProperties = hashMapOf("\$email" to "test@test.com", "\$phone_number" to "+12223334444")
         val properties = hashMapOf("custom_value" to "200")
 
-        val expectedJsonString = "{\"customer_properties\":{\"\$phone_number\":\"+12223334444\",\"\$email\":\"test@test.com\"},\"event\":\"Test Event\",\"properties\":{\"custom_value\":\"200\"},\"token\":\"Fake_Key\"}"
+        val expectedJsonString = "{\"event\":\"Test Event\",\"customer_properties\":{\"\$email\":\"test@test.com\",\"\$phone_number\":\"+12223334444\"},\"properties\":{\"custom_value\":\"200\"},\"token\":\"Fake_Key\"}"
 
         val request = TrackRequest(event, customerProperties, properties)
         request.queryData = request.buildKlaviyoJsonQuery()
