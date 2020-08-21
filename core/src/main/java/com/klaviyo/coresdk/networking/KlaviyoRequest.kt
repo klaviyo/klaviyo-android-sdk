@@ -15,6 +15,8 @@ abstract class KlaviyoRequest: NetworkRequest() {
         return super.sendNetworkRequest()
     }
 
+    // TODO: Potentially remove this later
+    //  This is a function for testing individual requests made instantly
     fun process(): Boolean {
         val response = sendNetworkRequest()
         return response == "1"

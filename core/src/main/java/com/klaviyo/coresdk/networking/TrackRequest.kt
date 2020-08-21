@@ -18,28 +18,31 @@ class TrackRequest (
     override var requestMethod = RequestMethod.GET
 
 
+    /**
+     * Example request:
+     * {
+        "token" : "apikey",
+        "properties" : {
+        "$email" : "myemail@domain.com",
+        "$first_name" : "Me",
+        "$last_name" : "You",
+        "Plan" : "Premium",
+        "SignUpDate" : "2016-05-01 10:10:00"
+        }
+        }
+     */
     override fun buildKlaviyoJsonQuery(): String {
-        val json = JSONObject()
+        val json = JSONObject(
+            mapOf(
+                "token" to KlaviyoConfig.apiKey,
+                "event" to event,
+                "customer_properties" to JSONObject(customerProperties)
+            )
+        )
 
-        json.put("token", KlaviyoConfig.apiKey)
-        json.put("event", event)
-
-        val customerPropsJson = JSONObject()
-        customerProperties.forEach {
-            customerPropsJson.putOpt(it.key, it.value)
+        if (properties != null) {
+            json.put("properties", JSONObject(properties))
         }
-        if (customerPropsJson.length() > 0) {
-            json.putOpt("customer_properties", customerPropsJson)
-        }
-
-        val propsJson = JSONObject()
-        properties?.forEach {
-            propsJson.putOpt(it.key, it.value)
-        }
-        if (propsJson.length() > 0) {
-            json.putOpt("properties", propsJson)
-        }
-
         json.putOpt("time", timestamp)
 
         return json.toString()

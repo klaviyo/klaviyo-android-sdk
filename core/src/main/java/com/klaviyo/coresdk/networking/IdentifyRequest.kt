@@ -14,20 +14,30 @@ class IdentifyRequest (
     override var urlString = "$BASE_URL/$IDENTIFY_ENDPOINT"
     override var requestMethod = RequestMethod.GET
 
+    /**
+     * Example request:
+     * {
+        "token" : "apikey",
+        "event" : "Test Event",
+        "customer_properties" : {
+        "$email" : "myemail@domain.com"
+        },
+        "properties" : {
+        "$event_id" : 10001234,
+        "$value" : 11250000,
+        "From" : "France",
+        "SquareMiles" : 828000
+        },
+        "time" : 1598038143
+        }
+     */
     override fun buildKlaviyoJsonQuery(): String {
-        val json = JSONObject()
-
-        json.put("token", KlaviyoConfig.apiKey)
-        json.put("event", event)
-
-        val propsJson = JSONObject()
-        properties.forEach {
-            propsJson.putOpt(it.key, it.value)
-        }
-        if (propsJson.length() > 0) {
-            json.putOpt("properties", propsJson)
-        }
-
-        return json.toString()
+        return JSONObject(
+            mapOf(
+                "token" to KlaviyoConfig.apiKey,
+                "event" to event,
+                "properties" to JSONObject(properties)
+            )
+        ).toString()
     }
 }
