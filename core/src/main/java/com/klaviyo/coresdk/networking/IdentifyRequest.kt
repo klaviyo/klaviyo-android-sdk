@@ -4,7 +4,6 @@ import com.klaviyo.coresdk.KlaviyoConfig
 import org.json.JSONObject
 
 class IdentifyRequest (
-        private var event: String,
         private var properties: Map<String, String>
 ): KlaviyoRequest() {
     companion object {
@@ -18,12 +17,8 @@ class IdentifyRequest (
      * Example request:
      * {
         "token" : "apikey",
-        "event" : "Test Event",
-        "customer_properties" : {
-        "$email" : "myemail@domain.com"
-        },
         "properties" : {
-        "$event_id" : 10001234,
+        "$email" : "sdktest@test.com",
         "$value" : 11250000,
         "From" : "France",
         "SquareMiles" : 828000
@@ -35,7 +30,6 @@ class IdentifyRequest (
         return JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,
-                "event" to event,
                 "properties" to JSONObject(properties)
             )
         ).toString()

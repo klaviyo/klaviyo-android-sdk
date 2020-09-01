@@ -36,14 +36,11 @@ class TrackRequest (
             mapOf(
                 "token" to KlaviyoConfig.apiKey,
                 "event" to event,
-                "customer_properties" to JSONObject(customerProperties)
-            )
+                "customer_properties" to JSONObject(customerProperties),
+                "properties" to properties?.let { JSONObject(properties) },
+                "time" to timestamp?.let { it }
+            ).filterValues { it != null }
         )
-
-        if (properties != null) {
-            json.put("properties", JSONObject(properties))
-        }
-        json.putOpt("time", timestamp)
 
         return json.toString()
     }
