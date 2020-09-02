@@ -1,6 +1,7 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
+import com.klaviyo.coresdk.networking.NetworkBatcher
 import java.lang.Exception
 
 class KlaviyoMissingAPIKeyException: Exception("You must declare an API key for the Klaviyo SDK")
@@ -11,6 +12,7 @@ object KlaviyoConfig {
     private const val NETWORK_TIMEOUT_DEFAULT: Int = 500
     private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
     private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 20
+    private const val NETWORK_FLUSH_CHECK_INTERVAL: Long = 2000
 
     lateinit var apiKey: String
         private set
@@ -22,6 +24,8 @@ object KlaviyoConfig {
         private set
     var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private set
+    var networkFlushCheckInterval = NETWORK_FLUSH_CHECK_INTERVAL
+        private set
 
     class Builder {
         private var apiKey: String = ""
@@ -29,6 +33,7 @@ object KlaviyoConfig {
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
         private var networkFlushInterval: Int = NETWORK_FLUSH_INTERVAL_DEFAULT
         private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
+        private var networkFlushCheckInterval = NETWORK_FLUSH_CHECK_INTERVAL
 
         fun apiKey(apiKey: String) = apply {
             this.apiKey = apiKey
@@ -63,6 +68,14 @@ object KlaviyoConfig {
             }
         }
 
+        fun networkFlushCheckInterval(networkFlushCheckInterval: Long) = apply {
+            if (networkFlushCheckInterval < 0) {
+                // TODO: When Timber is installed, log warning here
+            } else {
+                this.networkFlushCheckInterval = networkFlushCheckInterval
+            }
+        }
+
         fun build() {
             if (apiKey.isEmpty()) {
                 throw KlaviyoMissingAPIKeyException()
@@ -76,6 +89,7 @@ object KlaviyoConfig {
             KlaviyoConfig.networkTimeout = networkTimeout
             KlaviyoConfig.networkFlushInterval = networkFlushInterval
             KlaviyoConfig.networkFlushDepth = networkFlushDepth
+            KlaviyoConfig.networkFlushCheckInterval = networkFlushCheckInterval
         }
     }
 }

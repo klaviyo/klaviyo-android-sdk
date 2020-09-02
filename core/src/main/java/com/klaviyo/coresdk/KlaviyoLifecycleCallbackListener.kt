@@ -8,30 +8,29 @@ import com.klaviyo.coresdk.networking.NetworkBatcher
 class KlaviyoLifecycleCallbackListener: Application.ActivityLifecycleCallbacks {
     private var activitiesActive = 0
 
-    override fun onActivityPaused(p0: Activity) {
+    override fun onActivityCreated(activity: Activity, bundle: Bundle?) {
     }
 
-    override fun onActivityStarted(p0: Activity) {
+    override fun onActivityStarted(activity: Activity) {
+        activitiesActive++
     }
 
-    override fun onActivityDestroyed(p0: Activity) {
+    override fun onActivityResumed(activity: Activity) {
     }
 
-    override fun onActivitySaveInstanceState(p0: Activity, p1: Bundle) {
+    override fun onActivitySaveInstanceState(activity: Activity, bundle: Bundle) {
     }
 
-    override fun onActivityStopped(p0: Activity) {
+    override fun onActivityPaused(activity: Activity) {
+    }
+
+    override fun onActivityStopped(activity: Activity) {
         activitiesActive--
         if (activitiesActive == 0) {
             NetworkBatcher.forceEmptyQueue()
         }
     }
 
-    override fun onActivityCreated(p0: Activity, p1: Bundle?) {
-        activitiesActive++
+    override fun onActivityDestroyed(activity: Activity) {
     }
-
-    override fun onActivityResumed(p0: Activity) {
-    }
-
 }

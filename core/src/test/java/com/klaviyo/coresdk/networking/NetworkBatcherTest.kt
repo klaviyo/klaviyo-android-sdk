@@ -24,7 +24,7 @@ class NetworkBatcherTest {
     fun `Network Batcher empties the queue when full`() {
         val batcherSpy = spy<NetworkBatcher>()
 
-        doNothing().`when`(batcherSpy).initBatcher()
+        doNothing().whenever(batcherSpy).initBatcher()
 
         for (i in 0..8) {
             val requestMock = mock<KlaviyoRequest>()
@@ -47,7 +47,7 @@ class NetworkBatcherTest {
         val batcherSpy = spy<NetworkBatcher>()
         val requestMock = mock<KlaviyoRequest>()
 
-        doNothing().`when`(batcherSpy).initBatcher()
+        doNothing().whenever(batcherSpy).initBatcher()
 
         batcherSpy.batchRequests(requestMock)
         Thread.sleep(1000)
@@ -64,7 +64,7 @@ class NetworkBatcherTest {
         val requestMock2 = mock<KlaviyoRequest>()
         val requestMock3 = mock<KlaviyoRequest>()
 
-        doNothing().`when`(batcherSpy).initBatcher()
+        doNothing().whenever(batcherSpy).initBatcher()
 
         batcherSpy.batchRequests(requestMock, requestMock2, requestMock3)
         assertEquals(3, NetworkBatcher.getBatchQueueSize())

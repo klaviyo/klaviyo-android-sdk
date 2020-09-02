@@ -29,7 +29,7 @@ object NetworkBatcher {
     }
 
     internal fun batchRequests(vararg requests: NetworkRequest) {
-        if (batchQueue.size == 0) {
+        if (batchQueue.isEmpty()) {
             initBatcher()
             queueInitTime = System.currentTimeMillis()
 
@@ -39,7 +39,7 @@ object NetworkBatcher {
             if (request is TrackRequest) {
                 request.generateUnixTimestamp()
             }
-            batchQueue.add(request)
+            batchQueue.offer(request)
         }
     }
 
@@ -47,7 +47,7 @@ object NetworkBatcher {
         override fun run() {
             val emptied = emptyRequestQueue(forceEmpty)
             if (!emptied) {
-                handler?.postDelayed(this, 2000)
+                handler?.postDelayed(this, KlaviyoConfig.networkFlushCheckInterval)
             }
         }
 
@@ -55,8 +55,8 @@ object NetworkBatcher {
             val queueTimePassed = System.currentTimeMillis() - queueInitTime
             val readyToEmpty = batchQueue.size >= KlaviyoConfig.networkFlushDepth || queueTimePassed >= KlaviyoConfig.networkFlushInterval
             if (forceEmpty || readyToEmpty) {
-                while(batchQueue.size > 0) {
-                    val request = batchQueue.remove()
+                var request: NetworkRequest? = null
+                while(batchQueue.poll().also { request = it } != null) {
                     request?.sendNetworkRequest()
                 }
                 return true
