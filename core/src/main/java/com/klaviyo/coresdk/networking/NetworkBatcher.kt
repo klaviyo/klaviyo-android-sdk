@@ -32,7 +32,6 @@ object NetworkBatcher {
         if (batchQueue.isEmpty()) {
             initBatcher()
             queueInitTime = System.currentTimeMillis()
-
         }
 
         for (request in requests) {
