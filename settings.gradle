@@ -1,1 +1,4 @@
 include ':app'
+
+include ":core"
+project(":core").projectDir = file("../klaviyo-android-sdk/core")

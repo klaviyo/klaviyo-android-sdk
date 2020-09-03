@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">SDKTestApp</string>
+
+    <string name="event_name_input">Event Name</string>
 </resources>
