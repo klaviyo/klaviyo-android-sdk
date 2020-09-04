@@ -1,9 +1,9 @@
-package com.klaviyo.coresdk.networking
+package com.klaviyo.coresdk.networking.requests
 
 import android.content.Context
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.networking.RequestMethod
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest.Companion.BASE_URL
-import com.klaviyo.coresdk.networking.requests.TrackRequest
 import com.klaviyo.coresdk.networking.requests.TrackRequest.Companion.TRACK_ENDPOINT
 import com.nhaarman.mockitokotlin2.mock
 import org.junit.Assert

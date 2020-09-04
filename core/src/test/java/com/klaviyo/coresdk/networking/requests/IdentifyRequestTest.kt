@@ -1,9 +1,8 @@
-package com.klaviyo.coresdk.networking
+package com.klaviyo.coresdk.networking.requests
 
 import android.content.Context
 import com.klaviyo.coresdk.KlaviyoConfig
-import com.klaviyo.coresdk.networking.requests.IdentifyRequest
-import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
+import com.klaviyo.coresdk.networking.RequestMethod
 import com.nhaarman.mockitokotlin2.mock
 import org.junit.Assert
 import org.junit.Before
