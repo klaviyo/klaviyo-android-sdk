@@ -4,7 +4,7 @@ import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
 
-class TrackRequest (
+internal class TrackRequest (
         private var event: String,
         private var customerProperties: Map<String, String>,
         private var properties: Map<String, String>? = null

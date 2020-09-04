@@ -2,7 +2,7 @@ package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.networking.NetworkBatcher
 
-abstract class KlaviyoRequest: NetworkRequest() {
+internal abstract class KlaviyoRequest: NetworkRequest() {
     companion object {
         internal const val BASE_URL = "https://a.klaviyo.com"
     }

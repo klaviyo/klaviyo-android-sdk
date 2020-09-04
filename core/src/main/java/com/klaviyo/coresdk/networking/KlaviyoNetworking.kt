@@ -11,16 +11,8 @@ fun track(event: KlaviyoEvent, customerProperties: Map<String, String>, properti
     processRequest(request)
 }
 
-fun track(request: TrackRequest) {
-    processRequest(request)
-}
-
 fun identify(properties: Map<String, String>) {
     val request = IdentifyRequest(properties)
-    processRequest(request)
-}
-
-fun identify(request: IdentifyRequest) {
     processRequest(request)
 }
 

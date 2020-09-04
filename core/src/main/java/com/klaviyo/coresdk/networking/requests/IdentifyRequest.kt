@@ -4,7 +4,7 @@ import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
 
-class IdentifyRequest (
+internal class IdentifyRequest (
         private var properties: Map<String, String>
 ): KlaviyoRequest() {
     internal companion object {

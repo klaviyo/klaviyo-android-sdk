@@ -13,7 +13,7 @@ import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
 
-abstract class NetworkRequest {
+internal abstract class NetworkRequest {
     internal abstract var urlString: String
     internal abstract var requestMethod: RequestMethod
     internal abstract var queryData: String?
