@@ -2,6 +2,7 @@ package com.klaviyo.coresdk.networking
 
 import android.content.Context
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
 import com.nhaarman.mockitokotlin2.*
 import org.junit.Assert.assertEquals
 import org.junit.Before

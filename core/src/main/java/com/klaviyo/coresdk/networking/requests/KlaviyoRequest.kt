@@ -1,4 +1,6 @@
-package com.klaviyo.coresdk.networking
+package com.klaviyo.coresdk.networking.requests
+
+import com.klaviyo.coresdk.networking.NetworkBatcher
 
 abstract class KlaviyoRequest: NetworkRequest() {
     companion object {
@@ -17,8 +19,12 @@ abstract class KlaviyoRequest: NetworkRequest() {
 
     // TODO: Potentially remove this later
     //  This is a function for testing individual requests made instantly
-    fun process(): Boolean {
+    internal fun process(): Boolean {
         val response = sendNetworkRequest()
         return response == "1"
+    }
+
+    internal fun batch() {
+        NetworkBatcher.batchRequests(this)
     }
 }

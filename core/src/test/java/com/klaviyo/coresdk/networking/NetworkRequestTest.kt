@@ -7,12 +7,12 @@ import android.net.NetworkCapabilities
 import android.net.NetworkInfo
 import androidx.test.filters.SdkSuppress
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.networking.requests.NetworkRequest
 import com.nhaarman.mockitokotlin2.*
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import java.io.ByteArrayInputStream
-import java.io.InputStream
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
