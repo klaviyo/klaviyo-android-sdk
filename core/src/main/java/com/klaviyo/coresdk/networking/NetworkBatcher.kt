@@ -37,9 +37,6 @@ object NetworkBatcher {
         }
 
         for (request in requests) {
-            if (request is TrackRequest) {
-                request.generateUnixTimestamp()
-            }
             batchQueue.offer(request)
         }
     }
