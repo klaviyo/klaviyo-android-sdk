@@ -1,12 +1,13 @@
 package com.klaviyo.coresdk.networking.requests
 
+import com.klaviyo.coresdk.ConfigFileUtils
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
 
 internal class TrackRequest (
         private var event: String,
-        private var customerProperties: Map<String, String>,
+        private var customerProperties: MutableMap<String, String>,
         private var properties: Map<String, String>? = null
 ): KlaviyoRequest() {
     internal companion object {
@@ -17,6 +18,10 @@ internal class TrackRequest (
 
     override var urlString = "$BASE_URL/$TRACK_ENDPOINT"
     override var requestMethod = RequestMethod.GET
+
+    override fun addAnonymousIdToProps() {
+        customerProperties[ANON_KEY] = "Android:${ConfigFileUtils.readOrCreateUUID()}"
+    }
 
     /**
      * Example request:
@@ -36,7 +41,7 @@ internal class TrackRequest (
             mapOf(
                 "token" to KlaviyoConfig.apiKey,
                 "event" to event,
-                "customer_properties" to JSONObject(customerProperties),
+                "customer_properties" to JSONObject(customerProperties.toMap()),
                 "properties" to properties?.let { JSONObject(properties) },
                 "time" to timestamp?.let { it }
             ).filterValues { it != null }

@@ -3,9 +3,13 @@ package com.klaviyo.coresdk.networking.requests
 import android.content.Context
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
+import com.klaviyo.coresdk.networking.requests.KlaviyoRequest.Companion.ANON_KEY
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest.Companion.BASE_URL
 import com.klaviyo.coresdk.networking.requests.TrackRequest.Companion.TRACK_ENDPOINT
+import com.nhaarman.mockitokotlin2.doAnswer
 import com.nhaarman.mockitokotlin2.mock
+import com.nhaarman.mockitokotlin2.spy
+import com.nhaarman.mockitokotlin2.whenever
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
@@ -54,5 +58,20 @@ class TrackRequestTest {
         Assert.assertEquals(RequestMethod.GET, request.requestMethod)
         Assert.assertEquals(expectedJsonString, request.queryData)
         Assert.assertEquals(null, request.payload)
+    }
+
+    @Test
+    fun `Add anonymous ID to property map successfully`() {
+        val event = "Test Event"
+        val customerProperties = hashMapOf("\$email" to "test@test.com")
+        val request = TrackRequest(event, customerProperties)
+
+        val requestSpy = spy(request)
+
+        doAnswer { customerProperties[ANON_KEY] = "Android:a123" }.whenever(requestSpy).addAnonymousIdToProps()
+
+        requestSpy.addAnonymousIdToProps()
+
+        Assert.assertEquals("{\$email=test@test.com, \$anonymous=Android:a123}", customerProperties.toString())
     }
 }

@@ -1,11 +1,12 @@
 package com.klaviyo.coresdk.networking.requests
 
+import com.klaviyo.coresdk.ConfigFileUtils
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
 
 internal class IdentifyRequest (
-        private var properties: Map<String, String>
+        private var properties: MutableMap<String, String>
 ): KlaviyoRequest() {
     internal companion object {
         const val IDENTIFY_ENDPOINT = "api/identify"
@@ -13,6 +14,10 @@ internal class IdentifyRequest (
 
     override var urlString = "$BASE_URL/$IDENTIFY_ENDPOINT"
     override var requestMethod = RequestMethod.GET
+
+    override fun addAnonymousIdToProps() {
+        properties[ANON_KEY] = "Android:${ConfigFileUtils.readOrCreateUUID()}"
+    }
 
     /**
      * Example request:
@@ -31,7 +36,7 @@ internal class IdentifyRequest (
         return JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,
-                "properties" to JSONObject(properties)
+                "properties" to JSONObject(properties.toMap())
             )
         ).toString()
     }
