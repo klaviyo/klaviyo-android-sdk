@@ -1,15 +1,21 @@
 package com.klaviyo.sdktestapp
 
 import android.app.Application
-import android.content.Context
+import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.KlaviyoLifecycleCallbackListener
 
 class TestApp: Application() {
-    companion object {
-        lateinit var applicationContext: Context
-    }
-
     override fun onCreate() {
         super.onCreate()
-        TestApp.applicationContext = applicationContext
+
+        KlaviyoConfig.Builder()
+            .apiKey("LuYLmF")
+            .applicationContext(applicationContext)
+            .networkFlushDepth(2)
+            .networkFlushInterval(10000)
+            .networkUseAnalyticsBatchQueue(true)
+            .build()
+
+        registerActivityLifecycleCallbacks(KlaviyoLifecycleCallbackListener())
     }
 }
