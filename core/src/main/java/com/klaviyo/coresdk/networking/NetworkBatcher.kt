@@ -3,6 +3,8 @@ package com.klaviyo.coresdk.networking
 import android.os.Handler
 import android.os.HandlerThread
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.networking.requests.NetworkRequest
+import com.klaviyo.coresdk.networking.requests.TrackRequest
 import java.util.concurrent.ConcurrentLinkedQueue
 
 object NetworkBatcher {
@@ -46,7 +48,7 @@ object NetworkBatcher {
         override fun run() {
             val emptied = emptyRequestQueue(forceEmpty)
             if (!emptied) {
-                handler?.postDelayed(this, KlaviyoConfig.networkFlushCheckInterval)
+                handler?.postDelayed(this, KlaviyoConfig.networkFlushCheckInterval.toLong())
             }
         }
 

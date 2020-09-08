@@ -1,13 +1,14 @@
-package com.klaviyo.coresdk.networking
+package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
 
-class IdentifyRequest (
+internal class IdentifyRequest (
         private var properties: Map<String, String>
 ): KlaviyoRequest() {
-    companion object {
-        internal const val IDENTIFY_ENDPOINT = "api/identify"
+    internal companion object {
+        const val IDENTIFY_ENDPOINT = "api/identify"
     }
 
     override var urlString = "$BASE_URL/$IDENTIFY_ENDPOINT"

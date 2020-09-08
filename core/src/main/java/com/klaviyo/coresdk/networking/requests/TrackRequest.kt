@@ -1,22 +1,22 @@
-package com.klaviyo.coresdk.networking
+package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
 
-class TrackRequest (
+internal class TrackRequest (
         private var event: String,
         private var customerProperties: Map<String, String>,
         private var properties: Map<String, String>? = null
 ): KlaviyoRequest() {
-    companion object {
-        internal const val TRACK_ENDPOINT = "api/track"
+    internal companion object {
+        const val TRACK_ENDPOINT = "api/track"
     }
 
     private var timestamp: Long? = null
 
     override var urlString = "$BASE_URL/$TRACK_ENDPOINT"
     override var requestMethod = RequestMethod.GET
-
 
     /**
      * Example request:
@@ -45,7 +45,7 @@ class TrackRequest (
         return json.toString()
     }
 
-    fun generateUnixTimestamp() {
+    internal fun generateUnixTimestamp() {
         timestamp = System.currentTimeMillis() / 1000L
     }
 }

@@ -1,4 +1,4 @@
-package com.klaviyo.coresdk.networking
+package com.klaviyo.coresdk.networking.requests
 
 import android.content.Context
 import android.net.ConnectivityManager
@@ -6,13 +6,14 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Base64
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.networking.RequestMethod
 import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
 
-abstract class NetworkRequest {
+internal abstract class NetworkRequest {
     internal abstract var urlString: String
     internal abstract var requestMethod: RequestMethod
     internal abstract var queryData: String?

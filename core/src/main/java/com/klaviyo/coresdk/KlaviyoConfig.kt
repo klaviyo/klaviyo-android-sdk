@@ -1,7 +1,6 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
-import com.klaviyo.coresdk.networking.NetworkBatcher
 import java.lang.Exception
 
 class KlaviyoMissingAPIKeyException: Exception("You must declare an API key for the Klaviyo SDK")
@@ -12,7 +11,8 @@ object KlaviyoConfig {
     private const val NETWORK_TIMEOUT_DEFAULT: Int = 500
     private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
     private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 20
-    private const val NETWORK_FLUSH_CHECK_INTERVAL: Long = 2000
+    private const val NETWORK_FLUSH_CHECK_INTERVAL: Int = 2000
+    private const val NETWORK_USE_ANALYTICS_BATCH_QUEUE: Boolean = true
 
     lateinit var apiKey: String
         private set
@@ -26,6 +26,8 @@ object KlaviyoConfig {
         private set
     var networkFlushCheckInterval = NETWORK_FLUSH_CHECK_INTERVAL
         private set
+    var networkUseAnalyticsBatchQueue = NETWORK_USE_ANALYTICS_BATCH_QUEUE
+        private set
 
     class Builder {
         private var apiKey: String = ""
@@ -34,6 +36,7 @@ object KlaviyoConfig {
         private var networkFlushInterval: Int = NETWORK_FLUSH_INTERVAL_DEFAULT
         private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private var networkFlushCheckInterval = NETWORK_FLUSH_CHECK_INTERVAL
+        private var networkUseAnalyticsBatchQueue = NETWORK_USE_ANALYTICS_BATCH_QUEUE
 
         fun apiKey(apiKey: String) = apply {
             this.apiKey = apiKey
@@ -68,12 +71,16 @@ object KlaviyoConfig {
             }
         }
 
-        fun networkFlushCheckInterval(networkFlushCheckInterval: Long) = apply {
+        fun networkFlushCheckInterval(networkFlushCheckInterval: Int) = apply {
             if (networkFlushCheckInterval < 0) {
                 // TODO: When Timber is installed, log warning here
             } else {
                 this.networkFlushCheckInterval = networkFlushCheckInterval
             }
+        }
+
+        fun networkUseAnalyticsBatchQueue(networkUseAnalyticsBatchQueue: Boolean) = apply {
+            this.networkUseAnalyticsBatchQueue = networkUseAnalyticsBatchQueue
         }
 
         fun build() {
@@ -90,6 +97,7 @@ object KlaviyoConfig {
             KlaviyoConfig.networkFlushInterval = networkFlushInterval
             KlaviyoConfig.networkFlushDepth = networkFlushDepth
             KlaviyoConfig.networkFlushCheckInterval = networkFlushCheckInterval
+            KlaviyoConfig.networkUseAnalyticsBatchQueue = networkUseAnalyticsBatchQueue
         }
     }
 }
