@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.klaviyo.coresdk">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <meta-data android:name="hostName" android:value="https://a.klaviyo.com" />
 </manifest>

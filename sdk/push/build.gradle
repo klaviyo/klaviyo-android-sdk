@@ -1,0 +1,6 @@
+project.description = 'Push functionality for the Klaviyo SDK suite'
+evaluationDependsOn(':sdk')
+
+dependencies {
+    implementation project(':sdk:core')
+}
