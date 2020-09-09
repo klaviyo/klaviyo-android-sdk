@@ -1,5 +1,6 @@
 package com.klaviyo.coresdk.networking.requests
 
+import com.klaviyo.coresdk.ConfigFileUtils
 import com.klaviyo.coresdk.networking.NetworkBatcher
 
 internal abstract class KlaviyoRequest: NetworkRequest() {
@@ -19,7 +20,6 @@ internal abstract class KlaviyoRequest: NetworkRequest() {
     internal abstract fun buildKlaviyoJsonQuery(): String
 
     override fun sendNetworkRequest(): String? {
-        addAnonymousIdToProps()
         queryData = buildKlaviyoJsonQuery()
         return super.sendNetworkRequest()
     }

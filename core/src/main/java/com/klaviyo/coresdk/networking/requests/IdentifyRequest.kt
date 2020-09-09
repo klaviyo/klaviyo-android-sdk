@@ -1,6 +1,5 @@
 package com.klaviyo.coresdk.networking.requests
 
-import com.klaviyo.coresdk.ConfigFileUtils
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
