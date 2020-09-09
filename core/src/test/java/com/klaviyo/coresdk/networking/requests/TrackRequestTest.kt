@@ -6,10 +6,7 @@ import com.klaviyo.coresdk.networking.RequestMethod
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest.Companion.ANON_KEY
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest.Companion.BASE_URL
 import com.klaviyo.coresdk.networking.requests.TrackRequest.Companion.TRACK_ENDPOINT
-import com.nhaarman.mockitokotlin2.doAnswer
-import com.nhaarman.mockitokotlin2.mock
-import com.nhaarman.mockitokotlin2.spy
-import com.nhaarman.mockitokotlin2.whenever
+import com.nhaarman.mockitokotlin2.*
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
@@ -49,29 +46,17 @@ class TrackRequestTest {
         val customerProperties = hashMapOf("\$email" to "test@test.com", "\$phone_number" to "+12223334444")
         val properties = hashMapOf("custom_value" to "200")
 
-        val expectedJsonString = "{\"event\":\"Test Event\",\"customer_properties\":{\"\$email\":\"test@test.com\",\"\$phone_number\":\"+12223334444\"},\"properties\":{\"custom_value\":\"200\"},\"token\":\"Fake_Key\"}"
+        val expectedJsonString = "{\"event\":\"Test Event\",\"customer_properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"Android:a123\",\"\$phone_number\":\"+12223334444\"},\"properties\":{\"custom_value\":\"200\"},\"token\":\"Fake_Key\"}"
 
-        val request = TrackRequest(event, customerProperties, properties)
-        request.queryData = request.buildKlaviyoJsonQuery()
+        val requestSpy = spy(TrackRequest(event, customerProperties, properties))
 
-        Assert.assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)
-        Assert.assertEquals(RequestMethod.GET, request.requestMethod)
-        Assert.assertEquals(expectedJsonString, request.queryData)
-        Assert.assertEquals(null, request.payload)
-    }
+        doAnswer { customerProperties[ANON_KEY] = "Android:a123" }.whenever(requestSpy).addAnonymousIdToProps(any())
 
-    @Test
-    fun `Add anonymous ID to property map successfully`() {
-        val event = "Test Event"
-        val customerProperties = hashMapOf("\$email" to "test@test.com")
-        val request = TrackRequest(event, customerProperties)
+        requestSpy.queryData = requestSpy.buildKlaviyoJsonQuery()
 
-        val requestSpy = spy(request)
-
-        doAnswer { customerProperties[ANON_KEY] = "Android:a123" }.whenever(requestSpy).addAnonymousIdToProps()
-
-        requestSpy.addAnonymousIdToProps()
-
-        Assert.assertEquals("{\$email=test@test.com, \$anonymous=Android:a123}", customerProperties.toString())
+        Assert.assertEquals("$BASE_URL/$TRACK_ENDPOINT", requestSpy.urlString)
+        Assert.assertEquals(RequestMethod.GET, requestSpy.requestMethod)
+        Assert.assertEquals(expectedJsonString, requestSpy.queryData)
+        Assert.assertEquals(null, requestSpy.payload)
     }
 }

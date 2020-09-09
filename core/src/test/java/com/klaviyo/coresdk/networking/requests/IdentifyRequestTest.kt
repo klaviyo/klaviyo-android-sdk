@@ -29,28 +29,17 @@ class IdentifyRequestTest {
     fun `Build Identify request successfully`() {
         val properties = hashMapOf("custom_value" to "200")
 
-        val expectedJsonString = "{\"properties\":{\"custom_value\":\"200\"},\"token\":\"Fake_Key\"}"
+        val expectedJsonString = "{\"properties\":{\"custom_value\":\"200\",\"\$anonymous\":\"Android:a123\"},\"token\":\"Fake_Key\"}"
 
-        val request = IdentifyRequest(properties = properties)
-        request.queryData = request.buildKlaviyoJsonQuery()
+        val requestSpy = spy(IdentifyRequest(properties = properties))
 
-        Assert.assertEquals("${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}", request.urlString)
-        Assert.assertEquals(RequestMethod.GET, request.requestMethod)
-        Assert.assertEquals(expectedJsonString, request.queryData)
-        Assert.assertEquals(null, request.payload)
-    }
+        doAnswer { properties[ANON_KEY] = "Android:a123" }.whenever(requestSpy).addAnonymousIdToProps(any())
 
-    @Test
-    fun `Add anonymous ID to property map successfully`() {
-        val properties = hashMapOf("custom_value" to "200")
-        val request = IdentifyRequest(properties = properties)
+        requestSpy.queryData = requestSpy.buildKlaviyoJsonQuery()
 
-        val requestSpy = spy(request)
-
-        doAnswer { properties[ANON_KEY] = "Android:a123" }.whenever(requestSpy).addAnonymousIdToProps()
-
-        requestSpy.addAnonymousIdToProps()
-
-        Assert.assertEquals("{custom_value=200, \$anonymous=Android:a123}", properties.toString())
+        Assert.assertEquals("${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}", requestSpy.urlString)
+        Assert.assertEquals(RequestMethod.GET, requestSpy.requestMethod)
+        Assert.assertEquals(expectedJsonString, requestSpy.queryData)
+        Assert.assertEquals(null, requestSpy.payload)
     }
 }
