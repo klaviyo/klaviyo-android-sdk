@@ -29,15 +29,18 @@ class TrackRequestTest {
         val event = "Test Event"
         val customerProperties = hashMapOf("\$email" to "test@test.com", "\$phone_number" to "+12223334444")
 
-        val expectedJsonString = "{\"event\":\"Test Event\",\"customer_properties\":{\"\$email\":\"test@test.com\",\"\$phone_number\":\"+12223334444\"},\"token\":\"Fake_Key\"}"
+        val expectedJsonString = "{\"event\":\"Test Event\",\"customer_properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"Android:a123\",\"\$phone_number\":\"+12223334444\"},\"token\":\"Fake_Key\"}"
 
-        val request = TrackRequest(event, customerProperties)
-        request.queryData = request.buildKlaviyoJsonQuery()
+        val requestSpy = spy(TrackRequest(event, customerProperties))
 
-        Assert.assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)
-        Assert.assertEquals(RequestMethod.GET, request.requestMethod)
-        Assert.assertEquals(expectedJsonString, request.queryData)
-        Assert.assertEquals(null, request.payload)
+        doAnswer { customerProperties[ANON_KEY] = "Android:a123" }.whenever(requestSpy).addAnonymousIdToProps(any())
+
+        requestSpy.queryData = requestSpy.buildKlaviyoJsonQuery()
+
+        Assert.assertEquals("$BASE_URL/$TRACK_ENDPOINT", requestSpy.urlString)
+        Assert.assertEquals(RequestMethod.GET, requestSpy.requestMethod)
+        Assert.assertEquals(expectedJsonString, requestSpy.queryData)
+        Assert.assertEquals(null, requestSpy.payload)
     }
 
     @Test
