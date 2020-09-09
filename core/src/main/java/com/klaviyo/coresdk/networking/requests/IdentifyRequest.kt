@@ -15,10 +15,6 @@ internal class IdentifyRequest (
     override var urlString = "$BASE_URL/$IDENTIFY_ENDPOINT"
     override var requestMethod = RequestMethod.GET
 
-    override fun addAnonymousIdToProps() {
-        properties[ANON_KEY] = "Android:${ConfigFileUtils.readOrCreateUUID()}"
-    }
-
     /**
      * Example request:
      * {
@@ -33,6 +29,7 @@ internal class IdentifyRequest (
         }
      */
     override fun buildKlaviyoJsonQuery(): String {
+        addAnonymousIdToProps(properties)
         return JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,

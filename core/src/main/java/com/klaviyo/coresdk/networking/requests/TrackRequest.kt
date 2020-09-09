@@ -19,10 +19,6 @@ internal class TrackRequest (
     override var urlString = "$BASE_URL/$TRACK_ENDPOINT"
     override var requestMethod = RequestMethod.GET
 
-    override fun addAnonymousIdToProps() {
-        customerProperties[ANON_KEY] = "Android:${ConfigFileUtils.readOrCreateUUID()}"
-    }
-
     /**
      * Example request:
      * {
@@ -37,6 +33,7 @@ internal class TrackRequest (
         }
      */
     override fun buildKlaviyoJsonQuery(): String {
+        addAnonymousIdToProps(customerProperties)
         val json = JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,

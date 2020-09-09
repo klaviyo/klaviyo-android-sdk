@@ -12,7 +12,9 @@ internal abstract class KlaviyoRequest: NetworkRequest() {
     override var queryData: String? = null
     override var payload: String? = null
 
-    internal abstract fun addAnonymousIdToProps()
+    internal fun addAnonymousIdToProps(map: MutableMap<String, String>) {
+        map[ANON_KEY] = "Android:${ConfigFileUtils.readOrCreateUUID()}"
+    }
 
     internal abstract fun buildKlaviyoJsonQuery(): String
 

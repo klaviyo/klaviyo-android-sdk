@@ -1,7 +1,7 @@
 package com.klaviyo.coresdk
 
 import java.io.File
-import java.util.*
+import java.util.UUID
 
 internal object ConfigFileUtils {
     private const val CONFIG_FILE_NAME = "klaviyo-sdk-config"
