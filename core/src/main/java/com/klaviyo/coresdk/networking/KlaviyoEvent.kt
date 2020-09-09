@@ -6,7 +6,7 @@ sealed class KlaviyoEvent(val name: String) {
     object SEARCHED_PRODUCTS: KlaviyoEvent("\$searched_products")
 
     // Checkout events
-    object CHECKOUT_STARTED: KlaviyoEvent("\$started_checkout")
+    object STARTED_CHECKOUT: KlaviyoEvent("\$started_checkout")
 
     // Order events
     object PLACED_ORDER: KlaviyoEvent("\$placed_order")
