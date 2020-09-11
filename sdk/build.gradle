@@ -1,0 +1,48 @@
+subprojects {
+    apply plugin: 'com.android.library'
+    apply plugin: 'kotlin-android'
+    apply plugin: 'kotlin-android-extensions'
+
+    def ext = rootProject.ext
+
+    android {
+        compileSdkVersion ext.androidCompileVersion
+        buildToolsVersion ext.buildToolsVersion
+
+        defaultConfig {
+            minSdkVersion ext.minSDKVersion
+            targetSdkVersion ext.targetSDKVersion
+            testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+            versionCode ext.versionCode
+            versionName ext.versionName
+        }
+
+        buildTypes {
+            release {
+                minifyEnabled false
+                proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            }
+        }
+    }
+
+    dependencies {
+        /***** Main Dependencies *****/
+        //Kotlin Dependencies
+        implementation "androidx.core:core-ktx:$ext.coreKTXVersion"
+        implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$ext.kotlinSTDVersion"
+
+        /***** Testing Dependencies *****/
+        testImplementation "junit:junit:$ext.junitVersion"
+        testImplementation "androidx.test:runner:$ext.testRunnerVersion"
+        testImplementation "androidx.test:rules:$ext.testRulesVersion"
+        // Mocking Dependencies - Mockito-inline is needed to navigate around Kotlin final class errors
+        testImplementation "org.mockito:mockito-inline:$ext.mockitoInlineVersion"
+        testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:$ext.mockitoKotlinVersion"
+        // JSON is bundled with the Android SDK so we need real objects to test against
+        testImplementation "org.json:json:$ext.jsonVersion"
+
+        /***** Instrumentation Testing Dependencies *****/
+        androidTestImplementation "androidx.test:runner:$ext.testRunnerVersion"
+        androidTestImplementation "androidx.test.espresso:espresso-core:$ext.espressoVersion"
+    }
+}
