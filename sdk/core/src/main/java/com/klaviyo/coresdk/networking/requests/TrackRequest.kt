@@ -6,7 +6,7 @@ import org.json.JSONObject
 
 internal class TrackRequest (
         private var event: String,
-        private var customerProperties: Map<String, String>,
+        private var customerProperties: MutableMap<String, String>,
         private var properties: Map<String, String>? = null
 ): KlaviyoRequest() {
     internal companion object {
@@ -32,11 +32,12 @@ internal class TrackRequest (
         }
      */
     override fun buildKlaviyoJsonQuery(): String {
+        addAnonymousIdToProps(customerProperties)
         val json = JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,
                 "event" to event,
-                "customer_properties" to JSONObject(customerProperties),
+                "customer_properties" to JSONObject(customerProperties.toMap()),
                 "properties" to properties?.let { JSONObject(properties) },
                 "time" to timestamp?.let { it }
             ).filterValues { it != null }

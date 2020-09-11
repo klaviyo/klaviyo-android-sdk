@@ -1,14 +1,21 @@
 package com.klaviyo.coresdk.networking.requests
 
+import com.klaviyo.coresdk.ConfigFileUtils
 import com.klaviyo.coresdk.networking.NetworkBatcher
 
 internal abstract class KlaviyoRequest: NetworkRequest() {
     companion object {
         internal const val BASE_URL = "https://a.klaviyo.com"
+
+        internal const val ANON_KEY = "\$anonymous"
     }
 
     override var queryData: String? = null
     override var payload: String? = null
+
+    internal fun addAnonymousIdToProps(map: MutableMap<String, String>) {
+        map[ANON_KEY] = "Android:${ConfigFileUtils.readOrCreateUUID()}"
+    }
 
     internal abstract fun buildKlaviyoJsonQuery(): String
 
