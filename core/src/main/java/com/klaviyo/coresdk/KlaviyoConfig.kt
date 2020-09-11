@@ -46,7 +46,7 @@ object KlaviyoConfig {
             this.applicationContext = context
         }
 
-        fun networkTimeout(networkTimeout: Int)  = apply {
+        fun networkTimeout(networkTimeout: Int) = apply {
             if (networkTimeout < 0) {
                 // TODO: When Timber is installed, log warning here
             } else {
@@ -54,7 +54,7 @@ object KlaviyoConfig {
             }
         }
 
-        fun networkFlushInterval(networkFlushInterval: Int)  = apply {
+        fun networkFlushInterval(networkFlushInterval: Int) = apply {
             if (networkFlushInterval < 0) {
                 // TODO: When Timber is installed, log warning here
 

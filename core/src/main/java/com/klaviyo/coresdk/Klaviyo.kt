@@ -7,13 +7,13 @@ import com.klaviyo.coresdk.networking.requests.TrackRequest
 
 object Klaviyo {
     fun track(event: KlaviyoEvent, customerProperties: Map<String, String>, properties: Map<String, String>? = null) {
-        val request = TrackRequest(event.name, customerProperties, properties)
+        val request = TrackRequest(event.name, customerProperties.toMutableMap(), properties)
         request.generateUnixTimestamp()
         processRequest(request)
     }
 
     fun identify(properties: Map<String, String>) {
-        val request = IdentifyRequest(properties)
+        val request = IdentifyRequest(properties.toMutableMap())
         processRequest(request)
     }
 
