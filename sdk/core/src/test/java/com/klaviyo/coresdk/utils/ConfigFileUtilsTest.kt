@@ -1,6 +1,7 @@
-package com.klaviyo.coresdk
+package com.klaviyo.coresdk.utils
 
 import android.content.Context
+import com.klaviyo.coresdk.KlaviyoConfig
 import com.nhaarman.mockitokotlin2.mock
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -40,6 +41,6 @@ class ConfigFileUtilsTest {
 
         ConfigFileUtils.writeConfigValue(file, "uuid", "a123")
 
-        assertEquals("uuid:a123", file.readText())
+        assertEquals("uuid:a123\n", file.readText())
     }
 }

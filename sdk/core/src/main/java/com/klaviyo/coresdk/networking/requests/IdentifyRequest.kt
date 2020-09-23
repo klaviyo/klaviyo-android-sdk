@@ -29,6 +29,7 @@ internal class IdentifyRequest (
      */
     override fun buildKlaviyoJsonQuery(): String {
         addAnonymousIdToProps(properties)
+        addPushTokenToProps(properties)
         return JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,

@@ -33,6 +33,7 @@ internal class TrackRequest (
      */
     override fun buildKlaviyoJsonQuery(): String {
         addAnonymousIdToProps(customerProperties)
+        addPushTokenToProps(customerProperties)
         val json = JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,
