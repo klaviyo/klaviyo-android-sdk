@@ -5,9 +5,11 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Base64
+import android.webkit.URLUtil
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import java.io.*
+import java.lang.Exception
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
@@ -43,6 +45,14 @@ internal abstract class NetworkRequest {
         return URL(urlString)
     }
 
+    internal fun buildConnection(url: URL): HttpURLConnection {
+        return if (URLUtil.isHttpsUrl(url.toString())) {
+            url.openConnection() as HttpsURLConnection
+        } else {
+            url.openConnection() as HttpURLConnection
+        }
+    }
+
     internal fun encodeToBase64(data: String): String {
         val dataBytes = data.toByteArray()
         return Base64.encodeToString(dataBytes, Base64.NO_WRAP)
@@ -54,7 +64,7 @@ internal abstract class NetworkRequest {
         }
 
         val url = buildURL()
-        val connection: HttpsURLConnection = url.openConnection() as HttpsURLConnection
+        val connection = buildConnection(url)
 
         connection.readTimeout = KlaviyoConfig.networkTimeout
         connection.connectTimeout = KlaviyoConfig.networkTimeout
@@ -67,17 +77,19 @@ internal abstract class NetworkRequest {
                 val outputStream = connection.outputStream
                 val writer = BufferedWriter(OutputStreamWriter(outputStream, "UTF-8"))
                 writer.use {
-                    it.write(payload)
+                    it.write(payload!!)
                 }
             }
         }
-
-        connection.connect()
-
-        return readResponse(connection)
+        return try {
+            connection.connect()
+            readResponse(connection)
+        } catch (ex: IOException) {
+            null
+        }
     }
 
-    internal fun readResponse(connection: HttpsURLConnection): String {
+    internal fun readResponse(connection: HttpURLConnection): String {
         val response: String
 
         try {

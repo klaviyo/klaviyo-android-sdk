@@ -1,11 +1,12 @@
 package com.klaviyo.coresdk.networking.requests
 
+import com.klaviyo.coresdk.BuildConfig
 import com.klaviyo.coresdk.ConfigFileUtils
 import com.klaviyo.coresdk.networking.NetworkBatcher
 
 internal abstract class KlaviyoRequest: NetworkRequest() {
     companion object {
-        internal const val BASE_URL = "https://a.klaviyo.com"
+        internal const val BASE_URL = BuildConfig.KLAVIYO_SERVER_URL
 
         internal const val ANON_KEY = "\$anonymous"
     }

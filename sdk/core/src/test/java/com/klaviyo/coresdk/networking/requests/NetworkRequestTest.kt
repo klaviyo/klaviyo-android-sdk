@@ -82,7 +82,7 @@ class NetworkRequestTest {
         doReturn(jsonString).whenever(requestSpy).queryData
 
         doReturn(true).whenever(requestSpy).isInternetConnected(any())
-        whenever(urlMock.openConnection()).thenReturn(connectionMock)
+        doReturn(connectionMock).whenever(requestSpy).buildConnection(urlMock)
         doReturn(encodedData).whenever(requestSpy).encodeToBase64(any())
         doReturn("1").whenever(requestSpy).readResponse(connectionMock)
 
@@ -101,7 +101,7 @@ class NetworkRequestTest {
         doReturn(RequestMethod.GET).whenever(requestSpy).requestMethod
 
         doReturn(true).whenever(requestSpy).isInternetConnected(contextMock)
-        whenever(urlMock.openConnection()).thenReturn(connectionMock)
+        doReturn(connectionMock).whenever(requestSpy).buildConnection(urlMock)
         doReturn("1").whenever(requestSpy).readResponse(connectionMock)
 
         val response = requestSpy.sendNetworkRequest()

@@ -1,7 +1,6 @@
 package com.klaviyo.coresdk.networking.requests
 
 import android.content.Context
-import com.klaviyo.coresdk.ConfigFileUtils
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest.Companion.ANON_KEY
@@ -9,8 +8,6 @@ import com.nhaarman.mockitokotlin2.*
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
-import java.net.URL
-import javax.net.ssl.HttpsURLConnection
 
 class IdentifyRequestTest {
     private val contextMock = mock<Context>()
