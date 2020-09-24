@@ -8,13 +8,13 @@ import java.util.*
 object KlaviyoPreferenceUtils {
     private const val KLAVIYO_PREFS_NAME = "KlaviyoSDKPreferences"
 
-    private const val KLAVIYO_UUID_KEY = "UUID"
+    internal const val KLAVIYO_UUID_KEY = "UUID"
 
     private fun openSharedPreferences(): SharedPreferences {
         return KlaviyoConfig.applicationContext.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    fun readOrGenerateUUID(): String? {
+    internal fun readOrGenerateUUID(): String? {
         var uuid = readStringPreference(KLAVIYO_UUID_KEY)
         if (uuid.isNullOrEmpty()) {
             uuid = UUID.randomUUID().toString()

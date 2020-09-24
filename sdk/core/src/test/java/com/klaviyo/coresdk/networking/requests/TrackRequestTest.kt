@@ -27,7 +27,7 @@ class TrackRequestTest {
     @Test
     fun `Build Track request with no properties successfully`() {
         val event = "Test Event"
-        val customerProperties = hashMapOf("\$email" to "test@test.com", "\$phone_number" to "+12223334444")
+        val customerProperties = hashMapOf<String, Any>("\$email" to "test@test.com", "\$phone_number" to "+12223334444")
 
         val expectedJsonString = "{\"event\":\"Test Event\",\"customer_properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"Android:a123\",\"\$phone_number\":\"+12223334444\"},\"token\":\"Fake_Key\"}"
 
@@ -46,8 +46,8 @@ class TrackRequestTest {
     @Test
     fun `Build Track request successfully`() {
         val event = "Test Event"
-        val customerProperties = hashMapOf("\$email" to "test@test.com", "\$phone_number" to "+12223334444")
-        val properties = hashMapOf("custom_value" to "200")
+        val customerProperties = hashMapOf<String, Any>("\$email" to "test@test.com", "\$phone_number" to "+12223334444")
+        val properties = hashMapOf<String, Any>("custom_value" to "200")
 
         val expectedJsonString = "{\"event\":\"Test Event\",\"customer_properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"Android:a123\",\"\$phone_number\":\"+12223334444\"},\"properties\":{\"custom_value\":\"200\"},\"token\":\"Fake_Key\"}"
 

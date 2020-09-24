@@ -84,7 +84,6 @@ internal abstract class NetworkRequest {
             connection.connect()
             readResponse(connection)
         } catch (ex: IOException) {
-
             null
         }
     }

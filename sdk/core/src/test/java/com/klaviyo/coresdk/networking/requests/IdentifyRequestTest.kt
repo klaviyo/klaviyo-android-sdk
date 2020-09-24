@@ -24,7 +24,7 @@ class IdentifyRequestTest {
 
     @Test
     fun `Build Identify request successfully`() {
-        val properties = hashMapOf("custom_value" to "200")
+        val properties = hashMapOf<String, Any>("custom_value" to "200")
 
         val expectedJsonString = "{\"properties\":{\"custom_value\":\"200\",\"\$anonymous\":\"Android:a123\"},\"token\":\"Fake_Key\"}"
 
