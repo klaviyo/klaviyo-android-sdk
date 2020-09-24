@@ -45,6 +45,14 @@ internal abstract class NetworkRequest {
         return URL(urlString)
     }
 
+    internal fun buildConnection(url: URL): HttpURLConnection {
+        return if (URLUtil.isHttpsUrl(url.toString())) {
+            url.openConnection() as HttpsURLConnection
+        } else {
+            url.openConnection() as HttpURLConnection
+        }
+    }
+
     internal fun encodeToBase64(data: String): String {
         val dataBytes = data.toByteArray()
         return Base64.encodeToString(dataBytes, Base64.NO_WRAP)
@@ -56,11 +64,7 @@ internal abstract class NetworkRequest {
         }
 
         val url = buildURL()
-        val connection = if (URLUtil.isHttpsUrl(url.toString())) {
-            url.openConnection() as HttpsURLConnection
-        } else {
-            url.openConnection() as HttpURLConnection
-        }
+        val connection = buildConnection(url)
 
         connection.readTimeout = KlaviyoConfig.networkTimeout
         connection.connectTimeout = KlaviyoConfig.networkTimeout
