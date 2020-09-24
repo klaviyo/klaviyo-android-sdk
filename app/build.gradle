@@ -19,7 +19,19 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            buildConfigField "String", "KLAVIYO_COMPANY_ID", '"LuYLmF"'
         }
+        debug {
+            buildConfigField "String", "KLAVIYO_COMPANY_ID", '"LuYLmF"'
+        }
+        localDebug {
+            signingConfig signingConfigs.debug
+            buildConfigField "String", "KLAVIYO_COMPANY_ID", '"9BX3wh"'
+        }
+    }
+    compileOptions {
+        sourceCompatibility '1.8'
+        targetCompatibility '1.8'
     }
 }
 
@@ -27,8 +39,9 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
     // local SDK dependencies
-    implementation files('../../klaviyo-android-sdk/sdk/core/build/outputs/aar/core-debug.aar')
-    implementation files('../../klaviyo-android-sdk/sdk/push/build/outputs/aar/push-debug.aar')
+    releaseImplementation files('../../klaviyo-android-sdk/sdk/core/build/outputs/aar/core-release.aar')
+    debugImplementation files('../../klaviyo-android-sdk/sdk/core/build/outputs/aar/core-debug.aar')
+    localDebugImplementation files('../../klaviyo-android-sdk/sdk/core/build/outputs/aar/core-localDebug.aar')
 
     implementation"org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'androidx.appcompat:appcompat:1.2.0'

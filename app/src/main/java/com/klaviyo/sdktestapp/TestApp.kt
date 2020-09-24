@@ -9,7 +9,7 @@ class TestApp: Application() {
         super.onCreate()
 
         KlaviyoConfig.Builder()
-            .apiKey("LuYLmF")
+            .apiKey(BuildConfig.KLAVIYO_COMPANY_ID)
             .applicationContext(applicationContext)
             .networkFlushDepth(2)
             .networkFlushInterval(10000)
