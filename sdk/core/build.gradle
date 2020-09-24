@@ -1,8 +1,2 @@
 description = 'Core featureset of the Klaviyo SDK including SDK configuration, session tracking and analytics'
 evaluationDependsOn(':sdk')
-
-def ext = rootProject.ext
-
-dependencies {
-    implementation "com.google.firebase:firebase-messaging:$ext.fcmVersion"
-}

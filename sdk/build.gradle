@@ -21,6 +21,13 @@ subprojects {
             release {
                 minifyEnabled false
                 proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                buildConfigField "String", "KLAVIYO_SERVER_URL", '"https://a.klaviyo.com"'
+            }
+            debug {
+                buildConfigField "String", "KLAVIYO_SERVER_URL", '"https://a.klaviyo.com"'
+            }
+            localDebug {
+                buildConfigField "String", "KLAVIYO_SERVER_URL", '"http://10.0.2.2:8080"'
             }
         }
     }

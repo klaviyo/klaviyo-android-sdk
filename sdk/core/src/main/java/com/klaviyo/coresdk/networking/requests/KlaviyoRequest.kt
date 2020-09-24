@@ -1,29 +1,30 @@
 package com.klaviyo.coresdk.networking.requests
 
-import com.klaviyo.coresdk.utils.ConfigFileUtils
+import com.klaviyo.coresdk.BuildConfig
 import com.klaviyo.coresdk.networking.NetworkBatcher
-import com.klaviyo.coresdk.utils.ConfigKeys
+import com.klaviyo.coresdk.networking.UserInfo
+import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 
 internal abstract class KlaviyoRequest: NetworkRequest() {
     companion object {
-        internal const val BASE_URL = "https://a.klaviyo.com"
+        internal const val BASE_URL = BuildConfig.KLAVIYO_SERVER_URL
 
         internal const val ANON_KEY = "\$anonymous"
-        internal const val PUSH_KEY = "\$android_tokens"
+        internal const val EMAIL_KEY = "\$email"
     }
 
     override var queryData: String? = null
     override var payload: String? = null
 
-    internal fun addAnonymousIdToProps(map: MutableMap<String, String>) {
-        map[ANON_KEY] = "Android:${ConfigFileUtils.readOrCreateUUID()}"
+    internal fun addAnonymousIdToProps(map: MutableMap<String, Any>) {
+        map[ANON_KEY] = "Android:${KlaviyoPreferenceUtils.readOrGenerateUUID()}"
     }
 
-    internal fun addPushTokenToProps(map: MutableMap<String, String>) {
-        val token = ConfigFileUtils.readValue(ConfigKeys.PUSH_TOKEN_KEY)
-
-        if (token.isNotEmpty()) {
-            map[PUSH_KEY] = token
+    internal fun addEmailToProps(map: MutableMap<String, Any>) {
+        if (map[EMAIL_KEY].toString().isNullOrEmpty() && UserInfo.hasEmail()) {
+            map[EMAIL_KEY] = UserInfo.email
+        } else {
+            UserInfo.email = map[EMAIL_KEY].toString()
         }
     }
 
