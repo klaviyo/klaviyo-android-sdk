@@ -21,7 +21,7 @@ internal abstract class KlaviyoRequest: NetworkRequest() {
     }
 
     internal fun addEmailToProps(map: MutableMap<String, Any>) {
-        if (map[EMAIL_KEY].toString().isNullOrEmpty() && UserInfo.hasEmail()) {
+        if (map[EMAIL_KEY] == null && UserInfo.hasEmail()) {
             map[EMAIL_KEY] = UserInfo.email
         } else {
             UserInfo.email = map[EMAIL_KEY].toString()
