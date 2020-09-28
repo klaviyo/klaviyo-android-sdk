@@ -45,9 +45,6 @@ dokka() {
         reportUndocumented = true
         skipEmptyPackages = true
 
-        //targets = ["JVM"]
-        //platform = "JVM"
-
         includes = ["README.md"]
 
         jdkVersion = 8
