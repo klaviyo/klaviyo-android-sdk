@@ -3,10 +3,19 @@ package com.klaviyo.coresdk
 import android.content.Context
 import java.lang.Exception
 
+/**
+ * Exception that is thrown when the the Klaviyo API token is missing from the config
+ */
 class KlaviyoMissingAPIKeyException: Exception("You must declare an API key for the Klaviyo SDK")
 
+/**
+ * Exception that is thrown when the application context is missing from the config
+ */
 class KlaviyoMissingContextException: Exception("You must add your application context to the Klaviyo SDK")
 
+/**
+ * Stores all configuration related to the Klaviyo Android SDK.
+ */
 object KlaviyoConfig {
     private const val NETWORK_TIMEOUT_DEFAULT: Int = 500
     private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
@@ -29,6 +38,9 @@ object KlaviyoConfig {
     var networkUseAnalyticsBatchQueue = NETWORK_USE_ANALYTICS_BATCH_QUEUE
         private set
 
+    /**
+     * Nested class to enable the builder pattern for easy declaration of custom configurations
+     */
     class Builder {
         private var apiKey: String = ""
         private var applicationContext: Context? = null

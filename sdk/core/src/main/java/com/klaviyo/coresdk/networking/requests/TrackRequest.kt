@@ -4,6 +4,16 @@ import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
 
+/**
+ * Defines information unique to building a valid track request for a [KlaviyoEvent]
+ *
+ * @property customerProperties map of customer information we will be using to identify the user
+ * @property properties map of property information we will be attaching to this request
+ *
+ * @property timestamp The time that this event occurred
+ * @property urlString The URL needed to reach the track API in Klaviyo
+ * @property requestMethod [RequestMethod] determines the type of request that track requests are made over
+ */
 internal class TrackRequest (
         private var event: String,
         private var customerProperties: MutableMap<String, String>,
@@ -19,17 +29,13 @@ internal class TrackRequest (
     override var requestMethod = RequestMethod.GET
 
     /**
-     * Example request:
-     * {
-        "token" : "apikey",
-        "properties" : {
-        "$email" : "myemail@domain.com",
-        "$first_name" : "Me",
-        "$last_name" : "You",
-        "Plan" : "Premium",
-        "SignUpDate" : "2016-05-01 10:10:00"
-        }
-        }
+     * Builds a JSON payload suitable for a track request and returns it as a String
+     * Appends external information to the customer properties map before serializing it to JSON
+     *
+     * For more information on the structure of Klaviyo requests please reference the API docs:
+     * https://www.klaviyo.com/docs
+     *
+     * @return JSON payload as a string
      */
     override fun buildKlaviyoJsonQuery(): String {
         addAnonymousIdToProps(customerProperties)
@@ -46,6 +52,9 @@ internal class TrackRequest (
         return json.toString()
     }
 
+    /**
+     * Generates a Unix timestamp to store  as the [timestamp] on this object
+     */
     internal fun generateUnixTimestamp() {
         timestamp = System.currentTimeMillis() / 1000L
     }

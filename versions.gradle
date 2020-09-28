@@ -1,6 +1,7 @@
 ext {
     // build dependencies
     gradleBuildToolsVersion = '3.4.2'
+    gradleKotlinVersion = '1.3.72'
 
     // android versioning
     androidCompileVersion = 29
@@ -15,6 +16,9 @@ ext {
     // dependencies
     coreKTXVersion = '1.3.1'
     kotlinSTDVersion = '1.3.72'
+
+    // debug dependencies
+    dokkaVersion = '0.10.1'
 
     // testing dependencies
     junitVersion = '4.12'
