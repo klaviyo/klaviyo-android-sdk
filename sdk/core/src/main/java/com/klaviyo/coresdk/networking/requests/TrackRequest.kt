@@ -53,7 +53,7 @@ internal class TrackRequest (
     }
 
     /**
-     * Generates a Unix timestamp to store  as the [timestamp] on this object
+     * Generates a Unix timestamp to store as the [timestamp] on this object
      */
     internal fun generateUnixTimestamp() {
         timestamp = System.currentTimeMillis() / 1000L

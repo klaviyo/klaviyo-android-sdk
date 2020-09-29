@@ -2,6 +2,7 @@ package com.klaviyo.coresdk.networking
 
 /**
  * Events recognized by Klaviyo
+ * Custom events can be defined using the [CUSTOM_EVENT] inner class
  *
  * @property name String value of the event which is recognized by Klaviyo as a registered event
  */

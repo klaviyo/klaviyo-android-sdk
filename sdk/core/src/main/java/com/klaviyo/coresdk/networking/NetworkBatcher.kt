@@ -80,7 +80,7 @@ object NetworkBatcher {
          *
          * @param forceEmpty Overrides the typical queue emptying triggers to force the queue to empty itself
          *
-         * @return Whether the request queue was emptyed or not
+         * @return Whether the request queue was emptied or not
          */
         private fun emptyRequestQueue(forceEmpty: Boolean = false): Boolean {
             val queueTimePassed = System.currentTimeMillis() - queueInitTime

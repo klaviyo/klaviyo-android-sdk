@@ -21,7 +21,9 @@ internal abstract class KlaviyoRequest: NetworkRequest() {
     override var payload: String? = null
 
     /**
-     * Adds an anonymous ID to the given property map
+     * Adds an anonymous ID to the given property map.
+     * Anonymous IDs are identifiers unique to devices that will be used to identify customers
+     * if other customer identifiers have not been added to the request
      *
      * @param map The property map that we are appending this anonymous ID to
      */

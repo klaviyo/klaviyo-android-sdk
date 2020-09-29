@@ -11,7 +11,7 @@ import com.klaviyo.coresdk.networking.requests.TrackRequest
  */
 object Klaviyo {
     /**
-     * Creates a track request and sends it off for proceessing.
+     * Creates a track request for the Klaviyo APIs and begins processing.
      * Track requests track the triggering of a specified [KlaviyoEvent] in Klaviyo
      *
      * @param customerProperties A map of customer property information.
@@ -26,7 +26,7 @@ object Klaviyo {
     }
 
     /**
-     * Creates an identify request and sends it off for processing.
+     * Creates an identify request for the Klaviyo APIs and begins processing.
      * Identify requests track specific properties about a user without triggering an event
      *
      * @param properties A map of properties that define the user
@@ -41,6 +41,7 @@ object Klaviyo {
      * Processes the given [KlaviyoRequest] depending on the SDK's configuration.
      * If the batch queue is enabled then requests will be batched and sent in groups.
      * Otherwise the request will send instantly.
+     * These requests are sent to the Klaviyo asynchronous APIs
      */
     private fun processRequest(request: KlaviyoRequest) {
         if (KlaviyoConfig.networkUseAnalyticsBatchQueue) {
