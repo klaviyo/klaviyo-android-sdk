@@ -1,11 +1,12 @@
 package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
 import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
 
 internal class IdentifyRequest (
-        private var properties: MutableMap<String, String>
+        private var properties: KlaviyoCustomerProperties
 ): KlaviyoRequest() {
     internal companion object {
         const val IDENTIFY_ENDPOINT = "api/identify"
@@ -28,7 +29,7 @@ internal class IdentifyRequest (
         }
      */
     override fun buildKlaviyoJsonQuery(): String {
-        addAnonymousIdToProps(properties)
+        properties.addAnonymousId()
         return JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,

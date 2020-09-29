@@ -1,7 +1,6 @@
 package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.BuildConfig
-import com.klaviyo.coresdk.ConfigFileUtils
 import com.klaviyo.coresdk.networking.NetworkBatcher
 
 internal abstract class KlaviyoRequest: NetworkRequest() {
@@ -13,10 +12,6 @@ internal abstract class KlaviyoRequest: NetworkRequest() {
 
     override var queryData: String? = null
     override var payload: String? = null
-
-    internal fun addAnonymousIdToProps(map: MutableMap<String, String>) {
-        map[ANON_KEY] = "Android:${ConfigFileUtils.readOrCreateUUID()}"
-    }
 
     internal abstract fun buildKlaviyoJsonQuery(): String
 
