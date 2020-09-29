@@ -13,7 +13,7 @@ import org.json.JSONObject
  * @property requestMethod [RequestMethod] determines the type of request that identify requests are made over
  */
 internal class IdentifyRequest (
-        private var properties: MutableMap<String, String>
+        private var properties: MutableMap<String, Any>
 ): KlaviyoRequest() {
     internal companion object {
         const val IDENTIFY_ENDPOINT = "api/identify"
@@ -33,6 +33,7 @@ internal class IdentifyRequest (
      */
     override fun buildKlaviyoJsonQuery(): String {
         addAnonymousIdToProps(properties)
+        addEmailToProps(properties)
         return JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,

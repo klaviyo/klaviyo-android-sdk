@@ -17,6 +17,7 @@ ext {
     // dependencies
     coreKTXVersion = '1.3.1'
     kotlinSTDVersion = '1.3.72'
+    fcmVersion = '20.2.4'
 
     // testing dependencies
     junitVersion = '4.12'
