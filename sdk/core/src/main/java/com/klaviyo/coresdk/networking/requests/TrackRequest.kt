@@ -34,7 +34,6 @@ internal class TrackRequest (
         }
      */
     override fun buildKlaviyoJsonQuery(): String {
-        customerProperties.addAnonymousId()
         val json = JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,

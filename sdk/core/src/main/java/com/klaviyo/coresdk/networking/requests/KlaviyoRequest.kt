@@ -6,8 +6,6 @@ import com.klaviyo.coresdk.networking.NetworkBatcher
 internal abstract class KlaviyoRequest: NetworkRequest() {
     companion object {
         internal const val BASE_URL = BuildConfig.KLAVIYO_SERVER_URL
-
-        internal const val ANON_KEY = "\$anonymous"
     }
 
     override var queryData: String? = null

@@ -8,39 +8,39 @@ sealed class KlaviyoPropertyKeys(val name: String)
 /**
  * All keys recognised by the Klaviyo APIs for identifying information within maps of customer properties
  */
-sealed class KlaviyoCustomerPropKeys(name: String): KlaviyoPropertyKeys(name) {
+sealed class KlaviyoCustomerPropertyKeys(name: String): KlaviyoPropertyKeys(name) {
 
     // Identifiers
-    object ID: KlaviyoCustomerPropKeys("\$id")
-    object EMAIL: KlaviyoCustomerPropKeys("\$email")
-    object PHONE_NUMBER: KlaviyoCustomerPropKeys("\$phone_number")
-    object ANONYMOUS_ID: KlaviyoCustomerPropKeys("\$anonymous_id")
+    object ID: KlaviyoCustomerPropertyKeys("\$id")
+    object EMAIL: KlaviyoCustomerPropertyKeys("\$email")
+    object PHONE_NUMBER: KlaviyoCustomerPropertyKeys("\$phone_number")
+    internal object ANONYMOUS_ID: KlaviyoCustomerPropertyKeys("\$anonymous")
 
     // Personal information
-    object FIRST_NAME: KlaviyoCustomerPropKeys("\$first_name")
-    object LAST_NAME: KlaviyoCustomerPropKeys("\$last_name")
-    object TITLE: KlaviyoCustomerPropKeys("\$title")
-    object ORGANIZATION: KlaviyoCustomerPropKeys("\$organization")
-    object CITY: KlaviyoCustomerPropKeys("\$city")
-    object REGION: KlaviyoCustomerPropKeys("\$region")
-    object COUNTRY: KlaviyoCustomerPropKeys("\$country")
-    object ZIP_CODE: KlaviyoCustomerPropKeys("\$zip")
-    object IMAGE: KlaviyoCustomerPropKeys("\$image")
-    object CONSENT: KlaviyoCustomerPropKeys("\$consent")
+    object FIRST_NAME: KlaviyoCustomerPropertyKeys("\$first_name")
+    object LAST_NAME: KlaviyoCustomerPropertyKeys("\$last_name")
+    object TITLE: KlaviyoCustomerPropertyKeys("\$title")
+    object ORGANIZATION: KlaviyoCustomerPropertyKeys("\$organization")
+    object CITY: KlaviyoCustomerPropertyKeys("\$city")
+    object REGION: KlaviyoCustomerPropertyKeys("\$region")
+    object COUNTRY: KlaviyoCustomerPropertyKeys("\$country")
+    object ZIP_CODE: KlaviyoCustomerPropertyKeys("\$zip")
+    object IMAGE: KlaviyoCustomerPropertyKeys("\$image")
+    object CONSENT: KlaviyoCustomerPropertyKeys("\$consent")
 
     // Custom properties
-    class CUSTOM(propertyName: String): KlaviyoCustomerPropKeys(propertyName)
+    class CUSTOM(propertyName: String): KlaviyoCustomerPropertyKeys(propertyName)
 
     // Other
-    internal object APPENDED: KlaviyoCustomerPropKeys("\$append")
+    internal object APPEND: KlaviyoCustomerPropertyKeys("\$append")
 }
 
 /**
  * All keys recognised by the Klaviyo APIs for identifying information within maps of event properties
  */
-sealed class KlaviyoEventPropKeys(name: String): KlaviyoPropertyKeys(name) {
-    object EVENT_ID: KlaviyoEventPropKeys("\$event_id")
-    object VALUE: KlaviyoEventPropKeys("\$value")
+sealed class KlaviyoEventPropertyKeys(name: String): KlaviyoPropertyKeys(name) {
+    object EVENT_ID: KlaviyoEventPropertyKeys("\$event_id")
+    object VALUE: KlaviyoEventPropertyKeys("\$value")
 
-    class CUSTOM(propertyName: String): KlaviyoEventPropKeys(propertyName)
+    class CUSTOM(propertyName: String): KlaviyoEventPropertyKeys(propertyName)
 }
