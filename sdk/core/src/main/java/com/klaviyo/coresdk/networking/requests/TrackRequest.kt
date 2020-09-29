@@ -6,8 +6,8 @@ import org.json.JSONObject
 
 internal class TrackRequest (
         private var event: String,
-        private var customerProperties: MutableMap<String, String>,
-        private var properties: Map<String, String>? = null
+        private var customerProperties: MutableMap<String, Any>,
+        private var properties: Map<String, Any>? = null
 ): KlaviyoRequest() {
     internal companion object {
         const val TRACK_ENDPOINT = "api/track"
@@ -33,6 +33,7 @@ internal class TrackRequest (
      */
     override fun buildKlaviyoJsonQuery(): String {
         addAnonymousIdToProps(customerProperties)
+        addEmailToProps(customerProperties)
         val json = JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,

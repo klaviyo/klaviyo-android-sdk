@@ -9,7 +9,6 @@ import android.webkit.URLUtil
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import java.io.*
-import java.lang.Exception
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
