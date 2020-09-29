@@ -61,4 +61,42 @@ class IdentifyRequestTest {
         Assert.assertEquals(expectedJsonString, request.queryData)
         Assert.assertEquals(null, request.payload)
     }
+
+    @Test
+    fun `Build Identify request with append properties successfully`() {
+        val propertiesSpy = spy(KlaviyoCustomerProperties())
+        propertiesSpy.addAppendedProp("append_key", "value")
+        //propertiesSpy.addAppendedProp("append_key", "valueAgain")
+        propertiesSpy.addAppendedProp("append_key2", "value2")
+
+        val expectedJsonString = "{\"properties\":{\"\$anonymous\":\"Android:a123\",\"\$append\":{\"append_key\":\"value\",\"append_key2\":\"value2\"}},\"token\":\"Fake_Key\"}"
+
+        val request = IdentifyRequest(properties = propertiesSpy)
+
+        doAnswer { propertiesSpy.propertyMap[ANON_KEY] = "Android:a123" }.whenever(propertiesSpy).addAnonymousId()
+
+        request.queryData = request.buildKlaviyoJsonQuery()
+
+        Assert.assertEquals("${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}", request.urlString)
+        Assert.assertEquals(RequestMethod.GET, request.requestMethod)
+        Assert.assertEquals(expectedJsonString, request.queryData)
+        Assert.assertEquals(null, request.payload)
+    }
+
+    @Test
+    fun `Append property keys overwrite previous values if redeclared`() {
+        val propertiesSpy = spy(KlaviyoCustomerProperties())
+        propertiesSpy.addAppendedProp("append_key", "value")
+        propertiesSpy.addAppendedProp("append_key", "valueAgain")
+
+        val expectedJsonString = "{\"properties\":{\"\$anonymous\":\"Android:a123\",\"\$append\":{\"append_key\":\"valueAgain\"}},\"token\":\"Fake_Key\"}"
+
+        val request = IdentifyRequest(properties = propertiesSpy)
+
+        doAnswer { propertiesSpy.propertyMap[ANON_KEY] = "Android:a123" }.whenever(propertiesSpy).addAnonymousId()
+
+        request.queryData = request.buildKlaviyoJsonQuery()
+
+        Assert.assertEquals(expectedJsonString, request.queryData)
+    }
 }

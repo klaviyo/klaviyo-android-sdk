@@ -2,7 +2,6 @@ package com.klaviyo.coresdk.networking
 
 import com.klaviyo.coresdk.ConfigFileUtils
 
-// Didn't inherit from a mutablemap class cause I don't want to expose the standard put options and force this API to be the only access the user has to the map
 /**
  * Abstract class that wraps around a map to control access to its contents.
  * Provides helper functions to add properties to the map while controlling the keys available for entry
@@ -53,6 +52,15 @@ class KlaviyoCustomerProperties: KlaviyoProperties() {
 
     fun addPhoneNumber(value: String) {
         propertyMap[KlaviyoCustomerPropKeys.PHONE_NUMBER.name] = value
+    }
+
+    internal fun addAppendedProp(key: String, value: Any) {
+        if (propertyMap.containsKey(KlaviyoCustomerPropKeys.APPENDED.name)) {
+            val appendMap = propertyMap[KlaviyoCustomerPropKeys.APPENDED.name] as MutableMap<String, Any>
+            appendMap[key] = value
+        } else {
+            propertyMap[KlaviyoCustomerPropKeys.APPENDED.name] = mutableMapOf(key to value)
+        }
     }
 
     override fun addCustomProp(key: String, value: Any) {
