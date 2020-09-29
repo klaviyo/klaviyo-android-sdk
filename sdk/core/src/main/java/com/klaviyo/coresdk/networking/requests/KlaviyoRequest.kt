@@ -29,7 +29,7 @@ internal abstract class KlaviyoRequest: NetworkRequest() {
      *
      * @param map The property map that we are appending this anonymous ID to
      */
-    internal fun addAnonymousIdToProps(map: MutableMap<String, Any>) {
+    internal fun addAnonymousIdToProps(map: MutableMap<String, String>) {
         map[ANON_KEY] = "Android:${KlaviyoPreferenceUtils.readOrGenerateUUID()}"
     }
 
