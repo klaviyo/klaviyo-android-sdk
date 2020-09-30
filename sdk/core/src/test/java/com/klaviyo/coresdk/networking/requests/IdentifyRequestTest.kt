@@ -67,8 +67,8 @@ class IdentifyRequestTest {
     @Test
     fun `Build Identify request with append properties successfully`() {
         val properties = KlaviyoCustomerProperties()
-        properties.addAppendedProp("append_key", "value")
-        properties.addAppendedProp("append_key2", "value2")
+        properties.addAppendProperty("append_key", "value")
+        properties.addAppendProperty("append_key2", "value2")
 
         val expectedJsonString = "{\"properties\":{\"\$anonymous\":\"Android:a123\",\"\$append\":{\"append_key\":\"value\",\"append_key2\":\"value2\"}},\"token\":\"Fake_Key\"}"
 
@@ -84,8 +84,8 @@ class IdentifyRequestTest {
     @Test
     fun `Append property keys overwrite previous values if redeclared`() {
         val properties = KlaviyoCustomerProperties()
-        properties.addAppendedProp("append_key", "value")
-        properties.addAppendedProp("append_key", "valueAgain")
+        properties.addAppendProperty("append_key", "value")
+        properties.addAppendProperty("append_key", "valueAgain")
 
         val expectedJsonString = "{\"properties\":{\"\$anonymous\":\"Android:a123\",\"\$append\":{\"append_key\":\"valueAgain\"}},\"token\":\"Fake_Key\"}"
 
