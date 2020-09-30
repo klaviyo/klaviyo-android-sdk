@@ -32,7 +32,7 @@ sealed class KlaviyoCustomerPropertyKeys(name: String): KlaviyoPropertyKeys(name
     class CUSTOM(propertyName: String): KlaviyoCustomerPropertyKeys(propertyName)
 
     // Other
-    internal object APPEND: KlaviyoCustomerPropertyKeys("\$append")
+    object APPEND: KlaviyoCustomerPropertyKeys("\$append")
 }
 
 /**

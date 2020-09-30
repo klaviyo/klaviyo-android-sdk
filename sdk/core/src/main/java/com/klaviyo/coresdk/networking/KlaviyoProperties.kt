@@ -71,7 +71,7 @@ class KlaviyoCustomerProperties: KlaviyoProperties() {
         propertyMap[KlaviyoCustomerPropertyKeys.PHONE_NUMBER.name] = value
     }
 
-    internal fun addAppendedProp(key: String, value: String) {
+    fun addAppendedProperty(key: String, value: String) {
         val appendKey = KlaviyoCustomerPropertyKeys.APPEND.name
 
         if (propertyMap.containsKey(appendKey)) {
@@ -82,7 +82,7 @@ class KlaviyoCustomerProperties: KlaviyoProperties() {
         }
     }
 
-    internal fun addAppendedProp(key: String, value: HashMap<String, Any>) {
+    fun addAppendedProperty(key: String, value: HashMap<String, Any>) {
         val appendKey = KlaviyoCustomerPropertyKeys.APPEND.name
 
         if (propertyMap.containsKey(appendKey)) {
