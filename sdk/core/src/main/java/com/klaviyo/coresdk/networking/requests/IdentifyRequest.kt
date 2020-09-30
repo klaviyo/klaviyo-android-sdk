@@ -5,6 +5,14 @@ import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
 import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
 
+/**
+ * Defines information unique to building a valid identify request
+ *
+ * @property properties map of property information we will be attaching to this request
+ *
+ * @property urlString the URL needed to reach the identify API in Klaviyo
+ * @property requestMethod [RequestMethod] determines the type of request that identify requests are made over
+ */
 internal class IdentifyRequest (
         private var properties: KlaviyoCustomerProperties
 ): KlaviyoRequest() {
@@ -16,17 +24,13 @@ internal class IdentifyRequest (
     override var requestMethod = RequestMethod.GET
 
     /**
-     * Example request:
-     * {
-        "token" : "apikey",
-        "properties" : {
-        "$email" : "sdktest@test.com",
-        "$value" : 11250000,
-        "From" : "France",
-        "SquareMiles" : 828000
-        },
-        "time" : 1598038143
-        }
+     * Builds a JSON payload suitable for an identify request and returns it as a String
+     * Appends external information to the properties map before serializing it to JSON
+     *
+     * For more information on the structure of Klaviyo requests please reference the API docs:
+     * https://www.klaviyo.com/docs
+     *
+     * @return JSON payload as a string
      */
     override fun buildKlaviyoJsonQuery(): String {
         return JSONObject(
