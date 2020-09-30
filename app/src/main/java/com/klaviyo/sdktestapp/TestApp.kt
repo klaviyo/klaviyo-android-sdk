@@ -1,6 +1,7 @@
 package com.klaviyo.sdktestapp
 
 import android.app.Application
+import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.KlaviyoLifecycleCallbackListener
 
@@ -15,6 +16,8 @@ class TestApp: Application() {
             .networkFlushInterval(10000)
             .networkUseAnalyticsBatchQueue(true)
             .build()
+
+        Klaviyo.setUserEmail("sdktest@test.com")
 
         registerActivityLifecycleCallbacks(KlaviyoLifecycleCallbackListener())
     }

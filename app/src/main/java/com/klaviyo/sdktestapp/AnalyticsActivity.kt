@@ -6,6 +6,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.google.android.material.tabs.TabLayoutMediator
+import com.klaviyo.push.KlaviyoPushService
 import java.util.*
 
 class AnalyticsActivity: FragmentActivity() {
@@ -26,6 +27,8 @@ class AnalyticsActivity: FragmentActivity() {
                 else -> null
             }
         }.attach()
+
+        pushTokenTextView.text = KlaviyoPushService.getCurrentPushToken()
     }
 
     private inner class AnalyticsPagerAdapter(activity: FragmentActivity): FragmentStateAdapter(activity) {

@@ -10,5 +10,19 @@
     <androidx.viewpager2.widget.ViewPager2
             android:id="@+id/analyticsPager"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="wrap_content" />
+    <TextView
+            android:id="@+id/pushTokenTitleTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/push_token_title"
+            android:textStyle="bold"
+            android:gravity="center_horizontal" />
+    <TextView
+            android:id="@+id/pushTokenTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textIsSelectable="true"
+            android:gravity="center_horizontal" />
 </LinearLayout>
