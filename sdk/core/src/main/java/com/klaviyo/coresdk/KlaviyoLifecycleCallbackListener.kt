@@ -5,6 +5,9 @@ import android.app.Application
 import android.os.Bundle
 import com.klaviyo.coresdk.networking.NetworkBatcher
 
+/**
+ * Custom lifecycle callbacks used to track a user's activity in the parent application
+ */
 class KlaviyoLifecycleCallbackListener: Application.ActivityLifecycleCallbacks {
     private var activitiesActive = 0
 
