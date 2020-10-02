@@ -27,7 +27,7 @@ object Klaviyo {
     fun setUserEmail(email: String) {
         UserInfo.email = email
     }
-    
+
     /**
      * Creates a track request for the Klaviyo APIs and begins processing.
      * Track requests track the triggering of a specified [KlaviyoEvent] in Klaviyo

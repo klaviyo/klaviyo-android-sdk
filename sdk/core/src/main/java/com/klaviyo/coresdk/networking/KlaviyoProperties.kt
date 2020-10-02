@@ -38,7 +38,6 @@ abstract class KlaviyoProperties {
 class KlaviyoCustomerProperties: KlaviyoProperties() {
 
     init {
-        setAnonymousId()
         setDefaultEmail()
     }
 
