@@ -1,6 +1,7 @@
 package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
 import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
 
@@ -13,7 +14,7 @@ import org.json.JSONObject
  * @property requestMethod [RequestMethod] determines the type of request that identify requests are made over
  */
 internal class IdentifyRequest (
-        private var properties: MutableMap<String, Any>
+        private var properties: KlaviyoCustomerProperties
 ): KlaviyoRequest() {
     internal companion object {
         const val IDENTIFY_ENDPOINT = "api/identify"
@@ -32,8 +33,8 @@ internal class IdentifyRequest (
      * @return JSON payload as a string
      */
     override fun buildKlaviyoJsonQuery(): String {
-        addAnonymousIdToProps(properties)
-        addEmailToProps(properties)
+        properties.setAnonymousId()
+
         return JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,

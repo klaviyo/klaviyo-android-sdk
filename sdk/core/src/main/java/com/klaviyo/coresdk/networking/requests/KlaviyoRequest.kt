@@ -2,8 +2,6 @@ package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.BuildConfig
 import com.klaviyo.coresdk.networking.NetworkBatcher
-import com.klaviyo.coresdk.networking.UserInfo
-import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 
 /**
  * Abstract class which defines much of the logic common to requests that will be reaching Klaviyo
@@ -14,38 +12,10 @@ import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 internal abstract class KlaviyoRequest: NetworkRequest() {
     companion object {
         internal const val BASE_URL = BuildConfig.KLAVIYO_SERVER_URL
-
-        internal const val ANON_KEY = "\$anonymous"
-        internal const val EMAIL_KEY = "\$email"
     }
 
     override var queryData: String? = null
     override var payload: String? = null
-
-    /**
-     * Adds an anonymous ID to the given property map.
-     * Anonymous IDs are identifiers unique to devices that will be used to identify customers
-     * if other customer identifiers have not been added to the request
-     *
-     * @param map The property map that we are appending this anonymous ID to
-     */
-    internal fun addAnonymousIdToProps(map: MutableMap<String, Any>) {
-        map[ANON_KEY] = "Android:${KlaviyoPreferenceUtils.readOrGenerateUUID()}"
-    }
-
-    /**
-     * Adds an email address to the given property map if none already existed
-     * This email address is extracted from the user info session
-     *
-     * @param map The property map that we are appending this email address to
-     */
-    internal fun addEmailToProps(map: MutableMap<String, Any>) {
-        if (map[EMAIL_KEY] == null && UserInfo.hasEmail()) {
-            map[EMAIL_KEY] = UserInfo.email
-        } else {
-            UserInfo.email = map[EMAIL_KEY].toString()
-        }
-    }
 
     internal abstract fun buildKlaviyoJsonQuery(): String
 

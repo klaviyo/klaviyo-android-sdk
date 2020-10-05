@@ -1,6 +1,8 @@
 package com.klaviyo.coresdk
 
+import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
 import com.klaviyo.coresdk.networking.KlaviyoEvent
+import com.klaviyo.coresdk.networking.KlaviyoEventProperties
 import com.klaviyo.coresdk.networking.UserInfo
 import com.klaviyo.coresdk.networking.requests.IdentifyRequest
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
@@ -35,8 +37,8 @@ object Klaviyo {
      * @param properties A map of event property information.
      * Additional properties associated to the event that are not for identifying the customer
      */
-    fun track(event: KlaviyoEvent, customerProperties: Map<String, Any>, properties: Map<String, Any>? = null) {
-        val request = TrackRequest(event.name, customerProperties.toMutableMap(), properties)
+    fun track(event: KlaviyoEvent, customerProperties: KlaviyoCustomerProperties, properties: KlaviyoEventProperties? = null) {
+        val request = TrackRequest(event.name, customerProperties, properties)
         request.generateUnixTimestamp()
         processRequest(request)
     }
@@ -47,8 +49,8 @@ object Klaviyo {
      *
      * @param properties A map of properties that define the user
      */
-    fun identify(properties: Map<String, Any>) {
-        val request = IdentifyRequest(properties.toMutableMap())
+    fun identify(properties: KlaviyoCustomerProperties) {
+        val request = IdentifyRequest(properties)
         processRequest(request)
     }
 
