@@ -5,7 +5,9 @@ subprojects {
     def ext = rootProject.ext
 
     def localProperties = new Properties()
-    localProperties.load(new FileInputStream(rootProject.file("local.properties")))
+    if (rootProject.file("local.properties").canRead()) {
+        localProperties.load(new FileInputStream(rootProject.file("local.properties")))
+    }
 
     android {
         compileSdkVersion ext.androidCompileVersion
