@@ -47,6 +47,6 @@ dokka() {
 
         includes = ["README.md"]
 
-        jdkVersion = 8
+        jdkVersion = 11
     }
 }
