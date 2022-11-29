@@ -7,7 +7,7 @@ ext {
     // android versioning
     androidCompileVersion = 33
     buildToolsVersion = '30.0.3'
-    minSDKVersion = 19
+    minSDKVersion = 23
     targetSDKVersion = 33
 
     // project versioning
