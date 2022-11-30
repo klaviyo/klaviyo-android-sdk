@@ -8,13 +8,17 @@ import android.net.NetworkInfo
 import androidx.test.filters.SdkSuppress
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
-import com.nhaarman.mockitokotlin2.*
-import org.junit.Assert.assertEquals
-import org.junit.Before
-import org.junit.Test
+import com.nhaarman.mockitokotlin2.any
+import com.nhaarman.mockitokotlin2.doReturn
+import com.nhaarman.mockitokotlin2.mock
+import com.nhaarman.mockitokotlin2.spy
+import com.nhaarman.mockitokotlin2.whenever
 import java.io.ByteArrayInputStream
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
+import org.junit.Assert.assertEquals
+import org.junit.Before
+import org.junit.Test
 
 class NetworkRequestTest {
     private val contextMock = mock<Context>()
@@ -22,11 +26,11 @@ class NetworkRequestTest {
     @Before
     fun setup() {
         KlaviyoConfig.Builder()
-                .apiKey("Fake_Key")
-                .applicationContext(contextMock)
-                .networkTimeout(1000)
-                .networkFlushInterval(10000)
-                .build()
+            .apiKey("Fake_Key")
+            .applicationContext(contextMock)
+            .networkTimeout(1000)
+            .networkFlushInterval(10000)
+            .build()
     }
 
     @Test
@@ -36,7 +40,8 @@ class NetworkRequestTest {
         val networkInfoMock = mock<NetworkInfo>()
         val requestSpy = spy<NetworkRequest>()
 
-        doReturn(connectivityManagerMock).whenever(contextSpy).getSystemService(Context.CONNECTIVITY_SERVICE)
+        doReturn(connectivityManagerMock).whenever(contextSpy)
+            .getSystemService(Context.CONNECTIVITY_SERVICE)
         whenever(connectivityManagerMock.activeNetworkInfo).thenReturn(networkInfoMock)
         whenever(networkInfoMock.isConnectedOrConnecting).thenReturn(true)
 
@@ -55,11 +60,16 @@ class NetworkRequestTest {
         val networkCapabilitiesMock = mock<NetworkCapabilities>()
         val requestSpy = spy<NetworkRequest>()
 
-        doReturn(connectivityManagerMock).whenever(contextSpy).getSystemService(Context.CONNECTIVITY_SERVICE)
+        doReturn(connectivityManagerMock).whenever(contextSpy)
+            .getSystemService(Context.CONNECTIVITY_SERVICE)
         whenever(connectivityManagerMock.activeNetworkInfo).thenReturn(networkInfoMock)
         whenever(connectivityManagerMock.activeNetwork).thenReturn(networkMock)
-        whenever(connectivityManagerMock.getNetworkCapabilities(networkMock)).thenReturn(networkCapabilitiesMock)
-        whenever(networkCapabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)).thenReturn(true)
+        whenever(connectivityManagerMock.getNetworkCapabilities(networkMock)).thenReturn(
+            networkCapabilitiesMock
+        )
+        whenever(networkCapabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)).thenReturn(
+            true
+        )
         whenever(networkInfoMock.isConnectedOrConnecting).thenReturn(true)
 
         val isConnected = requestSpy.isInternetConnected(contextSpy)
@@ -69,13 +79,14 @@ class NetworkRequestTest {
 
     @Test
     fun `Send network request with query information successfully`() {
-        val jsonString = "{\"customer_properties\":{\"\$phone_number\":\"+12223334444\",\"\$email\":\"test@test.com\"},\"time\":\"200\",\"event\":\"test_event\",\"properties\":{\"custom_value\":\"200\"}}"
-        val encodedData = "eyJjdXN0b21lcl9wcm9wZXJ0aWVzIjp7IiRwaG9uZV9udW1iZXIiOiIrMTIyMjMzMzQ0NDQiLCIkZW1haWwiOiJ0ZXN0QHRlc3QuY29tIn0sInRpbWUiOiIyMDAiLCJldmVudCI6InRlc3RfZXZlbnQiLCJwcm9wZXJ0aWVzIjp7ImN1c3RvbV92YWx1ZSI6IjIwMCJ9fQ=="
+        val jsonString =
+            "{\"customer_properties\":{\"\$phone_number\":\"+12223334444\",\"\$email\":\"test@test.com\"},\"time\":\"200\",\"event\":\"test_event\",\"properties\":{\"custom_value\":\"200\"}}"
+        val encodedData =
+            "eyJjdXN0b21lcl9wcm9wZXJ0aWVzIjp7IiRwaG9uZV9udW1iZXIiOiIrMTIyMjMzMzQ0NDQiLCIkZW1haWwiOiJ0ZXN0QHRlc3QuY29tIn0sInRpbWUiOiIyMDAiLCJldmVudCI6InRlc3RfZXZlbnQiLCJwcm9wZXJ0aWVzIjp7ImN1c3RvbV92YWx1ZSI6IjIwMCJ9fQ=="
 
         val requestSpy = spy<NetworkRequest>()
         val urlMock = mock<URL>()
         val connectionMock = mock<HttpsURLConnection>()
-
 
         doReturn(urlMock).whenever(requestSpy).buildURL()
         doReturn(RequestMethod.GET).whenever(requestSpy).requestMethod

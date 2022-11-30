@@ -18,6 +18,10 @@ abstract class KlaviyoProperties {
         propertyMap[propertyKey.name] = value
     }
 
+    operator fun set(key: KlaviyoPropertyKeys, value: String) {
+        addProperty(key, value)
+    }
+
     /**
      * Adds a custom property to the map.
      * Custom properties can define any key name that isn't already reserved by Klaviyo
@@ -35,7 +39,7 @@ abstract class KlaviyoProperties {
 /**
  * Controls the data that can be input into a map of customer properties recognised by Klaviyo
  */
-class KlaviyoCustomerProperties: KlaviyoProperties() {
+class KlaviyoCustomerProperties : KlaviyoProperties() {
 
     init {
         setDefaultEmail()
@@ -46,6 +50,11 @@ class KlaviyoCustomerProperties: KlaviyoProperties() {
      */
     internal fun setAnonymousId() {
         propertyMap[KlaviyoCustomerPropertyKeys.ANONYMOUS_ID.name] = "Android:${KlaviyoPreferenceUtils.readOrGenerateUUID()}"
+    }
+
+    internal fun addAnonymousId(): KlaviyoCustomerProperties {
+        setAnonymousId()
+        return this
     }
 
     internal fun setDefaultEmail() {
@@ -100,7 +109,7 @@ class KlaviyoCustomerProperties: KlaviyoProperties() {
 /**
  * Controls the data that can be input into a map of event properties recognised by Klaviyo
  */
-class KlaviyoEventProperties: KlaviyoProperties() {
+class KlaviyoEventProperties : KlaviyoProperties() {
     fun addValue(value: String) {
         propertyMap[KlaviyoEventPropertyKeys.VALUE.name] = value
     }

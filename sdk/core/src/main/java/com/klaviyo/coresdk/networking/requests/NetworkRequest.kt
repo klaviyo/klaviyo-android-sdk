@@ -8,11 +8,15 @@ import android.util.Base64
 import android.webkit.URLUtil
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
-import java.io.*
+import java.io.BufferedReader
+import java.io.BufferedWriter
+import java.io.IOException
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
-
 
 /**
  * Abstract class for handling general networking logic
@@ -36,7 +40,8 @@ internal abstract class NetworkRequest {
      * @return Boolean representing whether the internet is currently available or not
      */
     internal fun isInternetConnected(context: Context): Boolean {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val connectivityManager =
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         // TODO: We may want to replace this later. Deprecated as of Android API 29.
         //  But the alternative solution is an asynchronous task that requires the user to register
         //  a network callback listener, which isn't ideal just for a network connectivity check in an SDK
@@ -105,7 +110,7 @@ internal abstract class NetworkRequest {
         if (connection.requestMethod == RequestMethod.POST.name) {
             connection.doOutput = true
 
-            if(!payload.isNullOrEmpty()) {
+            if (!payload.isNullOrEmpty()) {
                 val outputStream = connection.outputStream
                 val writer = BufferedWriter(OutputStreamWriter(outputStream, "UTF-8"))
                 writer.use {

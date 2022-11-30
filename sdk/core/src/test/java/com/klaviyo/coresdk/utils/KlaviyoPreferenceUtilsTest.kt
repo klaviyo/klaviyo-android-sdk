@@ -18,9 +18,9 @@ class KlaviyoPreferenceUtilsTest {
     @Before
     fun setup() {
         KlaviyoConfig.Builder()
-                .apiKey("Fake_Key")
-                .applicationContext(contextMock)
-                .build()
+            .apiKey("Fake_Key")
+            .applicationContext(contextMock)
+            .build()
     }
 
     @Test

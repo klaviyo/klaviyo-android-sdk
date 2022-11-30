@@ -1,6 +1,6 @@
 package com.klaviyo.coresdk.networking
 
-//TODO: Eventually we want to build this up into a user session
+// TODO: Eventually we want to build this up into a user session
 // but for now we just need emails on initialization to associate push tokens with accounts
 /**
  * Stores information on the currently active user

@@ -4,7 +4,6 @@ import android.os.Handler
 import android.os.HandlerThread
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.requests.NetworkRequest
-import com.klaviyo.coresdk.networking.requests.TrackRequest
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
@@ -66,7 +65,7 @@ object NetworkBatcher {
      *
      * @property forceEmpty Boolean that will force the batcher to empty its queued requests instantly
      */
-    internal class NetworkRunnable(private val forceEmpty: Boolean = false): Runnable {
+    internal class NetworkRunnable(private val forceEmpty: Boolean = false) : Runnable {
         override fun run() {
             val emptied = emptyRequestQueue(forceEmpty)
             if (!emptied) {
@@ -87,7 +86,7 @@ object NetworkBatcher {
             val readyToEmpty = batchQueue.size >= KlaviyoConfig.networkFlushDepth || queueTimePassed >= KlaviyoConfig.networkFlushInterval
             if (forceEmpty || readyToEmpty) {
                 var request: NetworkRequest? = null
-                while(batchQueue.poll().also { request = it } != null) {
+                while (batchQueue.poll().also { request = it } != null) {
                     request?.sendNetworkRequest()
                 }
                 return true

@@ -9,7 +9,7 @@ import com.klaviyo.coresdk.networking.NetworkBatcher
  * @property queryData Query information that will be encoded and attached to the URL
  * @property payload Payload information that will be attached to the request as the body
  */
-internal abstract class KlaviyoRequest: NetworkRequest() {
+internal abstract class KlaviyoRequest : NetworkRequest() {
     companion object {
         internal const val BASE_URL = BuildConfig.KLAVIYO_SERVER_URL
     }

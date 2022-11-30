@@ -1,6 +1,7 @@
 subprojects {
     apply plugin: 'com.android.library'
     apply plugin: 'kotlin-android'
+    apply plugin: "org.jlleitschuh.gradle.ktlint"
 
     def ext = rootProject.ext
 
@@ -55,5 +56,19 @@ subprojects {
         /***** Instrumentation Testing Dependencies *****/
         androidTestImplementation "androidx.test:runner:$ext.testRunnerVersion"
         androidTestImplementation "androidx.test.espresso:espresso-core:$ext.espressoVersion"
+    }
+
+    ktlint {
+        verbose = true
+        android = true
+        ignoreFailures = false
+        outputToConsole = true
+        outputColorName = "RED"
+        disabledRules = ["max-line-length"]
+        filter {
+            exclude("**/generated/**")
+            include("**/kotlin/**")
+            include("**/java/**")
+        }
     }
 }

@@ -6,12 +6,12 @@ import java.lang.Exception
 /**
  * Exception that is thrown when the the Klaviyo API token is missing from the config
  */
-class KlaviyoMissingAPIKeyException: Exception("You must declare an API key for the Klaviyo SDK")
+class KlaviyoMissingAPIKeyException : Exception("You must declare an API key for the Klaviyo SDK")
 
 /**
  * Exception that is thrown when the application context is missing from the config
  */
-class KlaviyoMissingContextException: Exception("You must add your application context to the Klaviyo SDK")
+class KlaviyoMissingContextException : Exception("You must add your application context to the Klaviyo SDK")
 
 /**
  * Stores all configuration related to the Klaviyo Android SDK.
@@ -69,7 +69,6 @@ object KlaviyoConfig {
         fun networkFlushInterval(networkFlushInterval: Int) = apply {
             if (networkFlushInterval < 0) {
                 // TODO: When Timber is installed, log warning here
-
             } else {
                 this.networkFlushInterval = networkFlushInterval
             }

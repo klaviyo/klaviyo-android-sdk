@@ -13,15 +13,17 @@ import org.json.JSONObject
  * @property urlString the URL needed to reach the identify API in Klaviyo
  * @property requestMethod [RequestMethod] determines the type of request that identify requests are made over
  */
-internal class IdentifyRequest (
-        private var properties: KlaviyoCustomerProperties
-): KlaviyoRequest() {
+internal class IdentifyRequest(
+    private var properties: KlaviyoCustomerProperties
+) : KlaviyoRequest() {
     internal companion object {
         const val IDENTIFY_ENDPOINT = "api/identify"
     }
 
     override var urlString = "$BASE_URL/$IDENTIFY_ENDPOINT"
     override var requestMethod = RequestMethod.GET
+
+    private val finalProperties: JSONObject = JSONObject(properties.addAnonymousId().toMap())
 
     /**
      * Builds a JSON payload suitable for an identify request and returns it as a String
@@ -33,12 +35,10 @@ internal class IdentifyRequest (
      * @return JSON payload as a string
      */
     override fun buildKlaviyoJsonQuery(): String {
-        properties.setAnonymousId()
-
         return JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,
-                "properties" to JSONObject(properties.toMap())
+                "properties" to finalProperties
             )
         ).toString()
     }

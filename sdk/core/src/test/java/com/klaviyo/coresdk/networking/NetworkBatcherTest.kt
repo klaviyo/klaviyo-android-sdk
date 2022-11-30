@@ -3,7 +3,10 @@ package com.klaviyo.coresdk.networking
 import android.content.Context
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
-import com.nhaarman.mockitokotlin2.*
+import com.nhaarman.mockitokotlin2.doNothing
+import com.nhaarman.mockitokotlin2.mock
+import com.nhaarman.mockitokotlin2.spy
+import com.nhaarman.mockitokotlin2.whenever
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -14,11 +17,11 @@ class NetworkBatcherTest {
     @Before
     fun setup() {
         KlaviyoConfig.Builder()
-                .apiKey("Fake_Key")
-                .applicationContext(contextMock)
-                .networkFlushInterval(1000)
-                .networkFlushDepth(10)
-                .build()
+            .apiKey("Fake_Key")
+            .applicationContext(contextMock)
+            .networkFlushInterval(1000)
+            .networkFlushDepth(10)
+            .build()
     }
 
     @Test

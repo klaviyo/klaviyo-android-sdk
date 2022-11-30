@@ -2,6 +2,7 @@ package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
+import com.klaviyo.coresdk.networking.KlaviyoEvent
 import com.klaviyo.coresdk.networking.KlaviyoEventProperties
 import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
@@ -16,11 +17,11 @@ import org.json.JSONObject
  * @property urlString The URL needed to reach the track API in Klaviyo
  * @property requestMethod [RequestMethod] determines the type of request that track requests are made over
  */
-internal class TrackRequest (
-        private var event: String,
-        private var customerProperties: KlaviyoCustomerProperties,
-        private var properties: KlaviyoEventProperties? = null
-): KlaviyoRequest() {
+internal class TrackRequest(
+    private var event: KlaviyoEvent,
+    private var customerProperties: KlaviyoCustomerProperties,
+    private var properties: KlaviyoEventProperties? = null
+) : KlaviyoRequest() {
     internal companion object {
         const val TRACK_ENDPOINT = "api/track"
     }
@@ -29,6 +30,10 @@ internal class TrackRequest (
 
     override var urlString = "$BASE_URL/$TRACK_ENDPOINT"
     override var requestMethod = RequestMethod.GET
+
+    private val finalCustomerProperties: JSONObject =
+        JSONObject(customerProperties.addAnonymousId().toMap())
+    private val finalProperties: JSONObject? = properties?.let { JSONObject(it.toMap()) }
 
     /**
      * Builds a JSON payload suitable for a track request and returns it as a String
@@ -40,19 +45,15 @@ internal class TrackRequest (
      * @return JSON payload as a string
      */
     override fun buildKlaviyoJsonQuery(): String {
-        customerProperties.setAnonymousId()
-        
-        val json = JSONObject(
+        return JSONObject(
             mapOf(
                 "token" to KlaviyoConfig.apiKey,
-                "event" to event,
-                "customer_properties" to JSONObject(customerProperties.toMap()),
-                "properties" to properties?.let { JSONObject(properties?.toMap()) },
-                "time" to timestamp?.let { it }
+                "event" to event.name,
+                "customer_properties" to finalCustomerProperties,
+                "properties" to finalProperties,
+                "time" to timestamp
             ).filterValues { it != null }
-        )
-
-        return json.toString()
+        ).toString()
     }
 
     /**
