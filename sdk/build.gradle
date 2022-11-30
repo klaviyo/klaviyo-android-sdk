@@ -1,9 +1,13 @@
 subprojects {
     apply plugin: 'com.android.library'
     apply plugin: 'kotlin-android'
-    apply plugin: 'kotlin-android-extensions'
 
     def ext = rootProject.ext
+
+    def localProperties = new Properties()
+    if (rootProject.file("local.properties").canRead()) {
+        localProperties.load(new FileInputStream(rootProject.file("local.properties")))
+    }
 
     android {
         compileSdkVersion ext.androidCompileVersion
@@ -27,7 +31,7 @@ subprojects {
                 buildConfigField "String", "KLAVIYO_SERVER_URL", '"https://a.klaviyo.com"'
             }
             localDebug {
-                buildConfigField "String", "KLAVIYO_SERVER_URL", '"http://10.0.2.2:8080"'
+                buildConfigField "String", "KLAVIYO_SERVER_URL", "\"" + localProperties['localAddress'] + "\""
             }
         }
     }

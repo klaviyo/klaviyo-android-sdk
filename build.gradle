@@ -9,10 +9,10 @@ buildscript {
 
     repositories {
         google()
-        jcenter()
+        mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.4.2'
+        classpath "com.android.tools.build:gradle:${ext.gradleBuildToolsVersion}"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${ext.gradleKotlinVersion}"
         classpath "org.jetbrains.dokka:dokka-gradle-plugin:${ext.dokkaVersion}"
 
@@ -24,7 +24,7 @@ buildscript {
 allprojects {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
     }
 }
 
@@ -47,6 +47,6 @@ dokka() {
 
         includes = ["README.md"]
 
-        jdkVersion = 8
+        jdkVersion = 11
     }
 }
