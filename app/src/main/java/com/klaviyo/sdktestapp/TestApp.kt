@@ -1,11 +1,13 @@
 package com.klaviyo.sdktestapp
 
 import android.app.Application
+import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.KlaviyoLifecycleCallbackListener
+import com.klaviyo.push.KlaviyoPushService
 
-class TestApp: Application() {
+class TestApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
@@ -18,6 +20,10 @@ class TestApp: Application() {
             .build()
 
         Klaviyo.setUserEmail("sdktest@test.com")
+
+        FirebaseMessaging.getInstance().token.addOnSuccessListener {
+            KlaviyoPushService().onNewToken(it)
+        }
 
         registerActivityLifecycleCallbacks(KlaviyoLifecycleCallbackListener())
     }
