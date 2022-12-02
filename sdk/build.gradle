@@ -47,9 +47,8 @@ subprojects {
         testImplementation "junit:junit:$ext.junitVersion"
         testImplementation "androidx.test:runner:$ext.testRunnerVersion"
         testImplementation "androidx.test:rules:$ext.testRulesVersion"
-        // Mocking Dependencies - Mockito-inline is needed to navigate around Kotlin final class errors
-        testImplementation "org.mockito:mockito-inline:$ext.mockitoInlineVersion"
-        testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:$ext.mockitoKotlinVersion"
+        // Mocking Dependencies
+        testImplementation "io.mockk:mockk:$ext.mockkVersion"
         // JSON is bundled with the Android SDK so we need real objects to test against
         testImplementation "org.json:json:$ext.jsonVersion"
 

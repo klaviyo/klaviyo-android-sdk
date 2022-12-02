@@ -1,4 +1,4 @@
-package com.klaviyo.coresdk.networking.requests
+package com.klaviyo.coresdk.helpers
 
 import com.klaviyo.coresdk.networking.Clock
 

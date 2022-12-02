@@ -24,11 +24,11 @@ internal class IdentifyRequest(
     override var urlString = "$BASE_URL/$IDENTIFY_ENDPOINT"
     override var requestMethod = RequestMethod.GET
 
-    override var queryData: Map<String, String> = JSONObject(properties.setAnonymousId().toMap()).let { properties ->
+    override var queryData: Map<String, String> = properties.let { properties ->
         val data = JSONObject(
             mapOf(
                 "token" to apiKey,
-                "properties" to properties
+                "properties" to JSONObject(properties.setAnonymousId().toMap())
             )
         ).toString()
         mapOf(

@@ -2,6 +2,7 @@ package com.klaviyo.coresdk.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import com.klaviyo.coresdk.KlaviyoConfig
 import java.util.UUID
 

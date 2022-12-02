@@ -7,11 +7,9 @@ import android.webkit.URLUtil
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import java.io.BufferedReader
-import java.io.BufferedWriter
 import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
-import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
@@ -100,10 +98,8 @@ internal abstract class NetworkRequest {
             connection.doOutput = true
 
             if (!payload.isNullOrEmpty()) {
-                val outputStream = connection.outputStream
-                val writer = BufferedWriter(OutputStreamWriter(outputStream, "UTF-8"))
-                writer.use {
-                    it.write(payload!!)
+                connection.outputStream.bufferedWriter().use { out ->
+                    out.write(payload)
                 }
             }
         }
@@ -127,7 +123,7 @@ internal abstract class NetworkRequest {
 
         try {
             val statusCode = connection.responseCode
-            response = if (statusCode == HttpURLConnection.HTTP_OK) {
+            response = if (statusCode in HttpURLConnection.HTTP_OK until HttpURLConnection.HTTP_MULT_CHOICE) {
                 readFromStream(connection.inputStream)
             } else {
                 readFromStream(connection.errorStream)
