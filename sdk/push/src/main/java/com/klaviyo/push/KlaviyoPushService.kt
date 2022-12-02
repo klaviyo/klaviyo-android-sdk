@@ -12,7 +12,7 @@ import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
  * If the parent application has their own FCM messaging service defined they need to ensure
  * that the implementation details of this service are carried over into their own
  */
-class KlaviyoPushService: FirebaseMessagingService() {
+class KlaviyoPushService : FirebaseMessagingService() {
     companion object {
         internal const val PUSH_TOKEN_PREFERENCE_KEY = "PUSH_TOKEN"
 
@@ -43,7 +43,7 @@ class KlaviyoPushService: FirebaseMessagingService() {
         super.onNewToken(newToken)
 
         val properties = KlaviyoCustomerProperties()
-        properties.addAppendProperty(REQUEST_PUSH_KEY, newToken)
+            .addAppendProperty(REQUEST_PUSH_KEY, newToken)
         Klaviyo.identify(properties)
 
         KlaviyoPreferenceUtils.writeStringPreference(PUSH_TOKEN_PREFERENCE_KEY, newToken)

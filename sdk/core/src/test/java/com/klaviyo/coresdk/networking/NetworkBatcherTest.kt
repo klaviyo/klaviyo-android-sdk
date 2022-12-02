@@ -3,39 +3,52 @@ package com.klaviyo.coresdk.networking
 import android.content.Context
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
-import com.nhaarman.mockitokotlin2.*
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.spyk
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
 class NetworkBatcherTest {
-    private val contextMock = mock<Context>()
+    private val contextMock = mockk<Context>()
+    private val flushInterval = 1000
+    private val queueDepth = 10
 
     @Before
     fun setup() {
         KlaviyoConfig.Builder()
-                .apiKey("Fake_Key")
-                .applicationContext(contextMock)
-                .networkFlushInterval(1000)
-                .networkFlushDepth(10)
-                .build()
+            .apiKey("Fake_Key")
+            .applicationContext(contextMock)
+            .networkFlushInterval(flushInterval)
+            .networkFlushDepth(queueDepth)
+            .build()
+    }
+
+    @After
+    fun cleanup() {
+        NetworkBatcher.NetworkRunnable(forceEmpty = true).run()
+        assertEquals(0, NetworkBatcher.getBatchQueueSize())
     }
 
     @Test
-    fun `Network Batcher empties the queue when full`() {
-        val batcherSpy = spy<NetworkBatcher>()
+    fun `empties the queue when full`() {
+        val batcherSpy = spyk<NetworkBatcher>()
 
-        doNothing().whenever(batcherSpy).initBatcher()
+        every { batcherSpy.initBatcher() } returns Unit
 
-        for (i in 0..8) {
-            val requestMock = mock<KlaviyoRequest>()
+        repeat(queueDepth - 1) {
+            val requestMock = mockk<KlaviyoRequest>()
+            every { requestMock.sendNetworkRequest() } returns "1"
 
             batcherSpy.batchRequests(requestMock)
 
-            assertEquals(i + 1, batcherSpy.getBatchQueueSize())
+            assertEquals(it + 1, batcherSpy.getBatchQueueSize())
         }
 
-        val requestMock = mock<KlaviyoRequest>()
+        val requestMock = mockk<KlaviyoRequest>()
+        every { requestMock.sendNetworkRequest() } returns "1"
 
         batcherSpy.batchRequests(requestMock)
         NetworkBatcher.NetworkRunnable().run()
@@ -45,10 +58,11 @@ class NetworkBatcherTest {
 
     @Test
     fun `Network Batcher empties the queue after timeout`() {
-        val batcherSpy = spy<NetworkBatcher>()
-        val requestMock = mock<KlaviyoRequest>()
+        val batcherSpy = spyk<NetworkBatcher>()
+        val requestMock = mockk<KlaviyoRequest>()
 
-        doNothing().whenever(batcherSpy).initBatcher()
+        every { batcherSpy.initBatcher() } returns Unit
+        every { requestMock.sendNetworkRequest() } returns "1"
 
         batcherSpy.batchRequests(requestMock)
         Thread.sleep(1000)
@@ -59,15 +73,17 @@ class NetworkBatcherTest {
 
     @Test
     fun `Network Batcher accepts multiple requests per call`() {
-        val batcherSpy = spy<NetworkBatcher>()
+        val batcherSpy = spyk<NetworkBatcher>()
 
-        val requestMock = mock<KlaviyoRequest>()
-        val requestMock2 = mock<KlaviyoRequest>()
-        val requestMock3 = mock<KlaviyoRequest>()
+        val requests = (0..5).map {
+            mockk<KlaviyoRequest>().also {
+                every { it.sendNetworkRequest() } returns "1"
+            }
+        }
 
-        doNothing().whenever(batcherSpy).initBatcher()
+        every { batcherSpy.initBatcher() } returns Unit
 
-        batcherSpy.batchRequests(requestMock, requestMock2, requestMock3)
-        assertEquals(3, NetworkBatcher.getBatchQueueSize())
+        batcherSpy.batchRequests(*requests.toTypedArray())
+        assertEquals(requests.size, NetworkBatcher.getBatchQueueSize())
     }
 }

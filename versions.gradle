@@ -3,6 +3,7 @@ ext {
     gradleBuildToolsVersion = '7.3.1'
     gradleKotlinVersion = '1.7.20'
     dokkaVersion = '0.10.1'
+    gradleKtlintVersion = "11.0.0"
 
     // android versioning
     androidCompileVersion = 33
@@ -22,8 +23,7 @@ ext {
     junitVersion = '4.12'
     testRunnerVersion = '1.2.0'
     testRulesVersion = '1.2.0'
-    mockitoInlineVersion = '3.4.0'
-    mockitoKotlinVersion = '2.2.0'
+    mockkVersion = "1.13.3"
     jsonVersion = '20200518'
 
     // instrumentation testing dependencies

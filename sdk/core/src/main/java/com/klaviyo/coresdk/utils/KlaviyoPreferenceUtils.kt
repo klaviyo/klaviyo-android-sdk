@@ -2,8 +2,9 @@ package com.klaviyo.coresdk.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import com.klaviyo.coresdk.KlaviyoConfig
-import java.util.*
+import java.util.UUID
 
 /**
  * Used to interface with the shared preferences of the Klaviyo SDK
@@ -19,7 +20,10 @@ object KlaviyoPreferenceUtils {
      * @return The Klaviyo SDK's shared preferences opened in private mode
      */
     private fun openSharedPreferences(): SharedPreferences {
-        return KlaviyoConfig.applicationContext.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE)
+        return KlaviyoConfig.applicationContext.getSharedPreferences(
+            KLAVIYO_PREFS_NAME,
+            Context.MODE_PRIVATE
+        )
     }
 
     /**
@@ -28,7 +32,7 @@ object KlaviyoPreferenceUtils {
      *
      * @return The UUID that was read or generated
      */
-    internal fun readOrGenerateUUID(): String? {
+    internal fun readOrGenerateUUID(): String {
         var uuid = readStringPreference(KLAVIYO_UUID_KEY)
         if (uuid.isNullOrEmpty()) {
             uuid = UUID.randomUUID().toString()

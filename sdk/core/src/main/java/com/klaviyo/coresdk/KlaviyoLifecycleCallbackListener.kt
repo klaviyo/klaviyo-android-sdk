@@ -8,7 +8,7 @@ import com.klaviyo.coresdk.networking.NetworkBatcher
 /**
  * Custom lifecycle callbacks used to track a user's activity in the parent application
  */
-class KlaviyoLifecycleCallbackListener: Application.ActivityLifecycleCallbacks {
+class KlaviyoLifecycleCallbackListener : Application.ActivityLifecycleCallbacks {
     private var activitiesActive = 0
 
     override fun onActivityCreated(activity: Activity, bundle: Bundle?) {

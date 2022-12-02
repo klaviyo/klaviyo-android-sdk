@@ -37,9 +37,12 @@ object Klaviyo {
      * @param properties A map of event property information.
      * Additional properties associated to the event that are not for identifying the customer
      */
-    fun track(event: KlaviyoEvent, customerProperties: KlaviyoCustomerProperties, properties: KlaviyoEventProperties? = null) {
-        val request = TrackRequest(event.name, customerProperties, properties)
-        request.generateUnixTimestamp()
+    fun track(
+        event: KlaviyoEvent,
+        customerProperties: KlaviyoCustomerProperties,
+        properties: KlaviyoEventProperties? = null
+    ) {
+        val request = TrackRequest(KlaviyoConfig.apiKey, event, customerProperties, properties)
         processRequest(request)
     }
 
@@ -50,7 +53,7 @@ object Klaviyo {
      * @param properties A map of properties that define the user
      */
     fun identify(properties: KlaviyoCustomerProperties) {
-        val request = IdentifyRequest(properties)
+        val request = IdentifyRequest(KlaviyoConfig.apiKey, properties)
         processRequest(request)
     }
 

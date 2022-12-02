@@ -1,6 +1,7 @@
 subprojects {
     apply plugin: 'com.android.library'
     apply plugin: 'kotlin-android'
+    apply plugin: "org.jlleitschuh.gradle.ktlint"
 
     def ext = rootProject.ext
 
@@ -46,14 +47,27 @@ subprojects {
         testImplementation "junit:junit:$ext.junitVersion"
         testImplementation "androidx.test:runner:$ext.testRunnerVersion"
         testImplementation "androidx.test:rules:$ext.testRulesVersion"
-        // Mocking Dependencies - Mockito-inline is needed to navigate around Kotlin final class errors
-        testImplementation "org.mockito:mockito-inline:$ext.mockitoInlineVersion"
-        testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:$ext.mockitoKotlinVersion"
+        // Mocking Dependencies
+        testImplementation "io.mockk:mockk:$ext.mockkVersion"
         // JSON is bundled with the Android SDK so we need real objects to test against
         testImplementation "org.json:json:$ext.jsonVersion"
 
         /***** Instrumentation Testing Dependencies *****/
         androidTestImplementation "androidx.test:runner:$ext.testRunnerVersion"
         androidTestImplementation "androidx.test.espresso:espresso-core:$ext.espressoVersion"
+    }
+
+    ktlint {
+        verbose = true
+        android = true
+        ignoreFailures = false
+        outputToConsole = true
+        outputColorName = "RED"
+        disabledRules = ["max-line-length"]
+        filter {
+            exclude("**/generated/**")
+            include("**/kotlin/**")
+            include("**/java/**")
+        }
     }
 }

@@ -1,17 +1,18 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
-import java.lang.Exception
+import com.klaviyo.coresdk.networking.Clock
+import com.klaviyo.coresdk.networking.SystemClock
 
 /**
  * Exception that is thrown when the the Klaviyo API token is missing from the config
  */
-class KlaviyoMissingAPIKeyException: Exception("You must declare an API key for the Klaviyo SDK")
+class KlaviyoMissingAPIKeyException : Exception("You must declare an API key for the Klaviyo SDK")
 
 /**
  * Exception that is thrown when the application context is missing from the config
  */
-class KlaviyoMissingContextException: Exception("You must add your application context to the Klaviyo SDK")
+class KlaviyoMissingContextException : Exception("You must add your application context to the Klaviyo SDK")
 
 /**
  * Stores all configuration related to the Klaviyo Android SDK.
@@ -22,6 +23,7 @@ object KlaviyoConfig {
     private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 20
     private const val NETWORK_FLUSH_CHECK_INTERVAL: Int = 2000
     private const val NETWORK_USE_ANALYTICS_BATCH_QUEUE: Boolean = true
+    private val SYSTEM_CLOCK: Clock = SystemClock
 
     lateinit var apiKey: String
         private set
@@ -37,6 +39,8 @@ object KlaviyoConfig {
         private set
     var networkUseAnalyticsBatchQueue = NETWORK_USE_ANALYTICS_BATCH_QUEUE
         private set
+    internal var clock: Clock = SYSTEM_CLOCK
+        private set
 
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
@@ -49,6 +53,7 @@ object KlaviyoConfig {
         private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private var networkFlushCheckInterval = NETWORK_FLUSH_CHECK_INTERVAL
         private var networkUseAnalyticsBatchQueue = NETWORK_USE_ANALYTICS_BATCH_QUEUE
+        private var clock = SYSTEM_CLOCK
 
         fun apiKey(apiKey: String) = apply {
             this.apiKey = apiKey
@@ -69,7 +74,6 @@ object KlaviyoConfig {
         fun networkFlushInterval(networkFlushInterval: Int) = apply {
             if (networkFlushInterval < 0) {
                 // TODO: When Timber is installed, log warning here
-
             } else {
                 this.networkFlushInterval = networkFlushInterval
             }
@@ -95,6 +99,10 @@ object KlaviyoConfig {
             this.networkUseAnalyticsBatchQueue = networkUseAnalyticsBatchQueue
         }
 
+        internal fun clock(clock: Clock) = apply {
+            this.clock = clock
+        }
+
         fun build() {
             if (apiKey.isEmpty()) {
                 throw KlaviyoMissingAPIKeyException()
@@ -110,6 +118,7 @@ object KlaviyoConfig {
             KlaviyoConfig.networkFlushDepth = networkFlushDepth
             KlaviyoConfig.networkFlushCheckInterval = networkFlushCheckInterval
             KlaviyoConfig.networkUseAnalyticsBatchQueue = networkUseAnalyticsBatchQueue
+            KlaviyoConfig.clock = clock
         }
     }
 }

@@ -1,30 +1,36 @@
 package com.klaviyo.coresdk.networking.requests
 
+import android.util.Base64
 import com.klaviyo.coresdk.BuildConfig
+import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.NetworkBatcher
 
 /**
  * Abstract class which defines much of the logic common to requests that will be reaching Klaviyo
  *
+ * @property urlString the URL this request will be connecting to
  * @property queryData Query information that will be encoded and attached to the URL
  * @property payload Payload information that will be attached to the request as the body
  */
-internal abstract class KlaviyoRequest: NetworkRequest() {
+internal abstract class KlaviyoRequest : NetworkRequest() {
     companion object {
         internal const val BASE_URL = BuildConfig.KLAVIYO_SERVER_URL
     }
 
-    override var queryData: String? = null
-    override var payload: String? = null
-
-    internal abstract fun buildKlaviyoJsonQuery(): String
+    /**
+     * A timestamp that can be used to track when this request was created
+     */
+    internal val timestamp: Long = KlaviyoConfig.clock.currentTimeMillis() / 1000
 
     /**
-     * Builds out our query data and sends the request to Klaviyo
+     * Encodes the given string into a non-wrapping base64 string
+     * Needed to parse the query data into encoded information
+     *
+     * @param data the string we want to encode
      */
-    override fun sendNetworkRequest(): String? {
-        queryData = buildKlaviyoJsonQuery()
-        return super.sendNetworkRequest()
+    internal fun encodeToBase64(data: String): String {
+        val dataBytes = data.toByteArray()
+        return Base64.encodeToString(dataBytes, Base64.NO_WRAP)
     }
 
     // TODO: Potentially remove this later
