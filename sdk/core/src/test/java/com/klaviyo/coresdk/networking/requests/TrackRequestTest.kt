@@ -13,13 +13,15 @@ import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 import com.nhaarman.mockitokotlin2.any
 import com.nhaarman.mockitokotlin2.mock
 import com.nhaarman.mockitokotlin2.whenever
-import org.junit.Assert
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.mockito.Mockito
 
 class TrackRequestTest {
     private val contextMock = mock<Context>()
+
+    private val timestamp = 1234567890000L
 
     @Before
     fun setup() {
@@ -28,6 +30,7 @@ class TrackRequestTest {
             .applicationContext(contextMock)
             .networkTimeout(1000)
             .networkFlushInterval(10000)
+            .clock(StaticClock(timestamp))
             .build()
 
         val sharedPreferencesMock = Mockito.mock(SharedPreferences::class.java)
@@ -48,16 +51,19 @@ class TrackRequestTest {
         customerProperties.setEmail("test@test.com")
         customerProperties.setPhoneNumber("+12223334444")
 
+        val expectedQueryData = mapOf(
+            "company_id" to "Fake_Key"
+        )
+        val expectedTimestamp = 1234567890L
         val expectedJsonString =
-            "{\"event\":\"Test Event\",\"customer_properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"Android:a123\",\"\$phone_number\":\"+12223334444\"},\"token\":\"Fake_Key\"}"
+            "{\"data\":{\"type\":\"event\",\"attributes\":{\"metric\":{\"name\":\"Test Event\"},\"profile\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$phone_number\":\"+12223334444\"},\"time\":$expectedTimestamp}}}"
 
-        val request = TrackRequest(event, customerProperties)
-        request.queryData = request.buildKlaviyoJsonQuery()
+        val request = TrackRequest(apiKey = KlaviyoConfig.apiKey, event, customerProperties)
 
-        Assert.assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)
-        Assert.assertEquals(RequestMethod.GET, request.requestMethod)
-        Assert.assertEquals(expectedJsonString, request.queryData)
-        Assert.assertEquals(null, request.payload)
+        assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)
+        assertEquals(RequestMethod.POST, request.requestMethod)
+        assertEquals(expectedQueryData, request.queryData)
+        assertEquals(expectedJsonString, request.payload)
     }
 
     @Test
@@ -68,18 +74,21 @@ class TrackRequestTest {
         customerProperties.setEmail("test@test.com")
         customerProperties.setPhoneNumber("+12223334444")
 
+        val expectedTimestamp = 1234567890L
+        val expectedQueryData = mapOf(
+            "company_id" to "Fake_Key"
+        )
         val properties = KlaviyoEventProperties()
         properties.addCustomProperty("custom_value", "200")
 
         val expectedJsonString =
-            "{\"event\":\"Test Event\",\"customer_properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"Android:a123\",\"\$phone_number\":\"+12223334444\"},\"properties\":{\"custom_value\":\"200\"},\"token\":\"Fake_Key\"}"
+            "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":$expectedTimestamp,\"metric\":{\"name\":\"Test Event\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$phone_number\":\"+12223334444\"}}}}"
 
-        val request = TrackRequest(event, customerProperties, properties)
-        request.queryData = request.buildKlaviyoJsonQuery()
+        val request = TrackRequest(apiKey = KlaviyoConfig.apiKey, event, customerProperties, properties)
 
-        Assert.assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)
-        Assert.assertEquals(RequestMethod.GET, request.requestMethod)
-        Assert.assertEquals(expectedJsonString, request.queryData)
-        Assert.assertEquals(null, request.payload)
+        assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)
+        assertEquals(RequestMethod.POST, request.requestMethod)
+        assertEquals(expectedQueryData, request.queryData)
+        assertEquals(expectedJsonString, request.payload)
     }
 }

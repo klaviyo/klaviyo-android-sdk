@@ -14,8 +14,9 @@ abstract class KlaviyoProperties {
      * Adds a new key/value pair to the map.
      * [KlaviyoPropertyKeys] adds some control to what keys our property maps recognise
      */
-    fun addProperty(propertyKey: KlaviyoPropertyKeys, value: String) {
+    open fun addProperty(propertyKey: KlaviyoPropertyKeys, value: String): KlaviyoProperties {
         propertyMap[propertyKey.name] = value
+        return this
     }
 
     operator fun set(key: KlaviyoPropertyKeys, value: String) {
@@ -26,7 +27,7 @@ abstract class KlaviyoProperties {
      * Adds a custom property to the map.
      * Custom properties can define any key name that isn't already reserved by Klaviyo
      */
-    abstract fun addCustomProperty(key: String, value: Serializable)
+    abstract fun addCustomProperty(key: String, value: Serializable): KlaviyoProperties
 
     /**
      * Fetches and returns our property map after converting it into a immutable map
@@ -48,16 +49,17 @@ class KlaviyoCustomerProperties : KlaviyoProperties() {
     /**
      * Adds an anonymous ID to the customer properties. This is fetched from existing configuration
      */
-    internal fun setAnonymousId() {
-        propertyMap[KlaviyoCustomerPropertyKeys.ANONYMOUS_ID.name] = "Android:${KlaviyoPreferenceUtils.readOrGenerateUUID()}"
-    }
-
-    internal fun addAnonymousId(): KlaviyoCustomerProperties {
-        setAnonymousId()
+    internal fun setAnonymousId(): KlaviyoCustomerProperties {
+        propertyMap[KlaviyoCustomerPropertyKeys.ANONYMOUS_ID.name] = KlaviyoPreferenceUtils.readOrGenerateUUID()
         return this
     }
 
-    internal fun setDefaultEmail() {
+    override fun addProperty(propertyKey: KlaviyoPropertyKeys, value: String): KlaviyoCustomerProperties {
+        super.addProperty(propertyKey, value)
+        return this
+    }
+
+    private fun setDefaultEmail() {
         val emailKey = KlaviyoCustomerPropertyKeys.EMAIL.name
 
         if (propertyMap[emailKey] == null && UserInfo.hasEmail()) {
@@ -67,19 +69,22 @@ class KlaviyoCustomerProperties : KlaviyoProperties() {
         }
     }
 
-    fun setIdentifier(value: String) {
+    fun setIdentifier(value: String): KlaviyoCustomerProperties {
         propertyMap[KlaviyoCustomerPropertyKeys.ID.name] = value
+        return this
     }
 
-    fun setEmail(value: String) {
+    fun setEmail(value: String): KlaviyoCustomerProperties {
         propertyMap[KlaviyoCustomerPropertyKeys.EMAIL.name] = value
+        return this
     }
 
-    fun setPhoneNumber(value: String) {
+    fun setPhoneNumber(value: String): KlaviyoCustomerProperties {
         propertyMap[KlaviyoCustomerPropertyKeys.PHONE_NUMBER.name] = value
+        return this
     }
 
-    fun addAppendProperty(key: String, value: String) {
+    fun addAppendProperty(key: String, value: String): KlaviyoCustomerProperties {
         val appendKey = KlaviyoCustomerPropertyKeys.APPEND.name
 
         if (propertyMap.containsKey(appendKey)) {
@@ -88,9 +93,10 @@ class KlaviyoCustomerProperties : KlaviyoProperties() {
         } else {
             propertyMap[appendKey] = hashMapOf(key to value)
         }
+        return this
     }
 
-    fun addAppendProperty(key: String, value: HashMap<String, Any>) {
+    fun addAppendProperty(key: String, value: HashMap<String, Any>): KlaviyoCustomerProperties {
         val appendKey = KlaviyoCustomerPropertyKeys.APPEND.name
 
         if (propertyMap.containsKey(appendKey)) {
@@ -99,10 +105,12 @@ class KlaviyoCustomerProperties : KlaviyoProperties() {
         } else {
             propertyMap[appendKey] = hashMapOf(key to value)
         }
+        return this
     }
 
-    override fun addCustomProperty(key: String, value: Serializable) {
+    override fun addCustomProperty(key: String, value: Serializable): KlaviyoCustomerProperties {
         propertyMap[KlaviyoCustomerPropertyKeys.CUSTOM(key).name] = value
+        return this
     }
 }
 
@@ -110,11 +118,19 @@ class KlaviyoCustomerProperties : KlaviyoProperties() {
  * Controls the data that can be input into a map of event properties recognised by Klaviyo
  */
 class KlaviyoEventProperties : KlaviyoProperties() {
-    fun addValue(value: String) {
-        propertyMap[KlaviyoEventPropertyKeys.VALUE.name] = value
+
+    override fun addProperty(propertyKey: KlaviyoPropertyKeys, value: String): KlaviyoEventProperties {
+        super.addProperty(propertyKey, value)
+        return this
     }
 
-    override fun addCustomProperty(key: String, value: Serializable) {
+    fun addValue(value: String): KlaviyoEventProperties {
+        propertyMap[KlaviyoEventPropertyKeys.VALUE.name] = value
+        return this
+    }
+
+    override fun addCustomProperty(key: String, value: Serializable): KlaviyoEventProperties {
         propertyMap[KlaviyoEventPropertyKeys.CUSTOM(key).name] = value
+        return this
     }
 }

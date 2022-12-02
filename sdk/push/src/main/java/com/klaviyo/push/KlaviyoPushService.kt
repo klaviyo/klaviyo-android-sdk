@@ -43,7 +43,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
         super.onNewToken(newToken)
 
         val properties = KlaviyoCustomerProperties()
-        properties.addAppendProperty(REQUEST_PUSH_KEY, newToken)
+            .addAppendProperty(REQUEST_PUSH_KEY, newToken)
         Klaviyo.identify(properties)
 
         KlaviyoPreferenceUtils.writeStringPreference(PUSH_TOKEN_PREFERENCE_KEY, newToken)

@@ -5,7 +5,6 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkInfo
-import androidx.test.filters.SdkSuppress
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import com.nhaarman.mockitokotlin2.any
@@ -38,24 +37,6 @@ class NetworkRequestTest {
         val contextSpy = spy<Context>()
         val connectivityManagerMock = mock<ConnectivityManager>()
         val networkInfoMock = mock<NetworkInfo>()
-        val requestSpy = spy<NetworkRequest>()
-
-        doReturn(connectivityManagerMock).whenever(contextSpy)
-            .getSystemService(Context.CONNECTIVITY_SERVICE)
-        whenever(connectivityManagerMock.activeNetworkInfo).thenReturn(networkInfoMock)
-        whenever(networkInfoMock.isConnectedOrConnecting).thenReturn(true)
-
-        val isConnected = requestSpy.isInternetConnected(contextSpy)
-
-        assertEquals(true, isConnected)
-    }
-
-    @Test
-    @SdkSuppress(minSdkVersion = 23)
-    fun `Is internet connected on Android M or above given the application context`() {
-        val contextSpy = spy<Context>()
-        val connectivityManagerMock = mock<ConnectivityManager>()
-        val networkInfoMock = mock<NetworkInfo>()
         val networkMock = mock<Network>()
         val networkCapabilitiesMock = mock<NetworkCapabilities>()
         val requestSpy = spy<NetworkRequest>()
@@ -79,22 +60,22 @@ class NetworkRequestTest {
 
     @Test
     fun `Send network request with query information successfully`() {
-        val jsonString =
-            "{\"customer_properties\":{\"\$phone_number\":\"+12223334444\",\"\$email\":\"test@test.com\"},\"time\":\"200\",\"event\":\"test_event\",\"properties\":{\"custom_value\":\"200\"}}"
-        val encodedData =
-            "eyJjdXN0b21lcl9wcm9wZXJ0aWVzIjp7IiRwaG9uZV9udW1iZXIiOiIrMTIyMjMzMzQ0NDQiLCIkZW1haWwiOiJ0ZXN0QHRlc3QuY29tIn0sInRpbWUiOiIyMDAiLCJldmVudCI6InRlc3RfZXZlbnQiLCJwcm9wZXJ0aWVzIjp7ImN1c3RvbV92YWx1ZSI6IjIwMCJ9fQ=="
+        val queryData = mapOf(
+            "key" to "value",
+            "int" to "1"
+        )
+        val url = "https://www.some_url.com"
+        val expectedUrlString = "$url?key=value&int=1"
 
         val requestSpy = spy<NetworkRequest>()
-        val urlMock = mock<URL>()
         val connectionMock = mock<HttpsURLConnection>()
 
-        doReturn(urlMock).whenever(requestSpy).buildURL()
         doReturn(RequestMethod.GET).whenever(requestSpy).requestMethod
-        doReturn(jsonString).whenever(requestSpy).queryData
+        doReturn(queryData).whenever(requestSpy).queryData
+        doReturn(url).whenever(requestSpy).urlString
 
         doReturn(true).whenever(requestSpy).isInternetConnected(any())
-        doReturn(connectionMock).whenever(requestSpy).buildConnection(urlMock)
-        doReturn(encodedData).whenever(requestSpy).encodeToBase64(any())
+        doReturn(connectionMock).whenever(requestSpy).buildConnection(URL(expectedUrlString))
         doReturn("1").whenever(requestSpy).readResponse(connectionMock)
 
         val response = requestSpy.sendNetworkRequest()
@@ -105,14 +86,17 @@ class NetworkRequestTest {
     @Test
     fun `Send network request without query information successfully`() {
         val requestSpy = spy<NetworkRequest>()
-        val urlMock = mock<URL>()
         val connectionMock = mock<HttpsURLConnection>()
+        val queryData = emptyMap<String, String>()
+        val url = "https://www.some_url.com"
+        val expectedUrl = "$url?"
 
-        doReturn(urlMock).whenever(requestSpy).buildURL()
         doReturn(RequestMethod.GET).whenever(requestSpy).requestMethod
+        doReturn(queryData).whenever(requestSpy).queryData
+        doReturn(url).whenever(requestSpy).urlString
 
         doReturn(true).whenever(requestSpy).isInternetConnected(contextMock)
-        doReturn(connectionMock).whenever(requestSpy).buildConnection(urlMock)
+        doReturn(connectionMock).whenever(requestSpy).buildConnection(URL(expectedUrl))
         doReturn("1").whenever(requestSpy).readResponse(connectionMock)
 
         val response = requestSpy.sendNetworkRequest()

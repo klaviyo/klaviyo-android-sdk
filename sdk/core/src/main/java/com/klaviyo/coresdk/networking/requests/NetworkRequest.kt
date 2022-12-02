@@ -3,8 +3,6 @@ package com.klaviyo.coresdk.networking.requests
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.os.Build
-import android.util.Base64
 import android.webkit.URLUtil
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
@@ -27,10 +25,10 @@ import javax.net.ssl.HttpsURLConnection
  * @property payload The body of the request
  */
 internal abstract class NetworkRequest {
-    internal abstract var urlString: String
-    internal abstract var requestMethod: RequestMethod
-    internal abstract var queryData: String?
-    internal abstract var payload: String?
+    internal abstract val urlString: String
+    internal abstract val requestMethod: RequestMethod
+    internal open var queryData: Map<String, String> = emptyMap()
+    internal open val payload: String? = null
 
     /**
      * Checks if the device currently has internet access
@@ -46,12 +44,10 @@ internal abstract class NetworkRequest {
         //  But the alternative solution is an asynchronous task that requires the user to register
         //  a network callback listener, which isn't ideal just for a network connectivity check in an SDK
         val networkInfo = connectivityManager.activeNetworkInfo ?: return false
-        var usingInternet = true
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val network = connectivityManager.activeNetwork
-            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-            usingInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        }
+        val usingInternet: Boolean
+        val network = connectivityManager.activeNetwork
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        usingInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         return usingInternet && networkInfo.isConnectedOrConnecting
     }
 
@@ -59,12 +55,10 @@ internal abstract class NetworkRequest {
      * Builds out a full [URL] object after attaching any query data to the url string
      */
     internal fun buildURL(): URL {
-        if (!queryData.isNullOrEmpty()) {
-            val query = "data=${encodeToBase64(queryData!!)}"
-            urlString += "?$query"
-        }
-
-        return URL(urlString)
+        val queryDataString = queryData.map { (key, value) ->
+            "$key=$value"
+        }.joinToString(separator = "&", prefix = "?")
+        return URL("$urlString$queryDataString")
     }
 
     /**
@@ -80,15 +74,9 @@ internal abstract class NetworkRequest {
     }
 
     /**
-     * Encodes the given string into a non-wrapping base64 string
-     * Needed to parse the query data into encoded information
-     *
-     * @param data the string we want to encode
+     * Setup headers to be included in the request
      */
-    internal fun encodeToBase64(data: String): String {
-        val dataBytes = data.toByteArray()
-        return Base64.encodeToString(dataBytes, Base64.NO_WRAP)
-    }
+    internal open fun appendHeaders(connection: HttpURLConnection) {}
 
     /**
      * Builds and sends a network request to Klaviyo and then parses and handles the response
@@ -106,6 +94,7 @@ internal abstract class NetworkRequest {
         connection.readTimeout = KlaviyoConfig.networkTimeout
         connection.connectTimeout = KlaviyoConfig.networkTimeout
         connection.requestMethod = requestMethod.name
+        appendHeaders(connection)
 
         if (connection.requestMethod == RequestMethod.POST.name) {
             connection.doOutput = true
