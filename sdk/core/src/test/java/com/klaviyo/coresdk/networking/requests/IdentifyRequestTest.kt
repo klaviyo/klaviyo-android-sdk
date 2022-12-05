@@ -29,14 +29,16 @@ class IdentifyRequestTest {
     private fun withMockBase64(expectedString: String) {
         mockkStatic(Base64::class)
         every { Base64.encodeToString(eq(expectedString.toByteArray()), eq(Base64.NO_WRAP)) } returns encodedString
+        //every { Base64.encodeToString(any(), eq(Base64.NO_WRAP)) } returns encodedString
     }
 
     @Test
     fun `uses the correct endpoint`() {
         val customerProperties = KlaviyoCustomerProperties()
+        customerProperties.setEmail("test@test.com")
 
         val expectedUrlString = "${BuildConfig.KLAVIYO_SERVER_URL}/api/identify"
-        val expectedString = "{\"properties\":{\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
+        val expectedString = "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
 
         withMockBase64(expectedString)
 
@@ -51,9 +53,10 @@ class IdentifyRequestTest {
     @Test
     fun `uses the correct method`() {
         val customerProperties = KlaviyoCustomerProperties()
+        customerProperties.setEmail("test@test.com")
 
         val expectedMethod = RequestMethod.GET
-        val expectedString = "{\"properties\":{\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
+        val expectedString = "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
 
         withMockBase64(expectedString)
 
@@ -67,6 +70,8 @@ class IdentifyRequestTest {
 
     @Test
     fun `does not set a payload`() {
+        UserInfo.email = ""
+
         val customerProperties = KlaviyoCustomerProperties()
 
         val expectedPayload = null
@@ -84,6 +89,8 @@ class IdentifyRequestTest {
 
     @Test
     fun `queryData includes api key and anonymous`() {
+        UserInfo.email = ""
+
         val customerProperties = KlaviyoCustomerProperties()
 
         val expectedString = "{\"properties\":{\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
@@ -131,9 +138,10 @@ class IdentifyRequestTest {
             "data" to encodedString
         )
         properties.addCustomProperty("custom_value", innerMap)
+        properties.setEmail("test@test.com")
 
         val expectedJsonString =
-            "{\"properties\":{\"custom_value\":{\"name\":\"item\",\"amount\":\"2\",\"props\":{\"diameter\":\"50\",\"weight\":\"0.1\"}},\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
+            "{\"properties\":{\"custom_value\":{\"name\":\"item\",\"amount\":\"2\",\"props\":{\"diameter\":\"50\",\"weight\":\"0.1\"}},\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
         withMockBase64(expectedString = expectedJsonString)
         val request = IdentifyRequest(apiKey = apiKey, properties = properties)
 
@@ -151,12 +159,13 @@ class IdentifyRequestTest {
         val properties = KlaviyoCustomerProperties()
             .addAppendProperty("append_key", "value")
             .addAppendProperty("append_key2", "value2")
+        properties.setEmail("test@test.com")
 
         val expectedQueryData = mapOf(
             "data" to encodedString
         )
         val expectedJsonString =
-            "{\"properties\":{\"\$anonymous\":\"a123\",\"\$append\":{\"append_key\":\"value\",\"append_key2\":\"value2\"}},\"token\":\"Fake_Key\"}"
+            "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$append\":{\"append_key\":\"value\",\"append_key2\":\"value2\"}},\"token\":\"Fake_Key\"}"
         withMockBase64(expectedString = expectedJsonString)
 
         val request = IdentifyRequest(apiKey = apiKey, properties = properties)
@@ -175,12 +184,13 @@ class IdentifyRequestTest {
         val properties = KlaviyoCustomerProperties()
         properties.addAppendProperty("append_key", "value")
         properties.addAppendProperty("append_key", "valueAgain")
+        properties.setEmail("test@test.com")
 
         val expectedQueryData = mapOf(
             "data" to encodedString
         )
         val expectedJsonString =
-            "{\"properties\":{\"\$anonymous\":\"a123\",\"\$append\":{\"append_key\":\"valueAgain\"}},\"token\":\"Fake_Key\"}"
+            "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$append\":{\"append_key\":\"valueAgain\"}},\"token\":\"Fake_Key\"}"
         withMockBase64(expectedString = expectedJsonString)
 
         val request = IdentifyRequest(apiKey = apiKey, properties = properties)
@@ -217,12 +227,13 @@ class IdentifyRequestTest {
     fun `Append property after request does not change existing request`() {
         val properties = KlaviyoCustomerProperties()
         properties.addAppendProperty("append_key", "value")
+        properties.setEmail("test@test.com")
 
         val expectedQueryData = mapOf(
             "data" to encodedString
         )
         val expectedJsonString =
-            "{\"properties\":{\"\$anonymous\":\"a123\",\"\$append\":{\"append_key\":\"value\"}},\"token\":\"Fake_Key\"}"
+            "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$append\":{\"append_key\":\"value\"}},\"token\":\"Fake_Key\"}"
         withMockBase64(expectedString = expectedJsonString)
 
         val request = IdentifyRequest(apiKey = apiKey, properties = properties)
