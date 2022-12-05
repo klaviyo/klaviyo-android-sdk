@@ -29,7 +29,6 @@ class IdentifyRequestTest {
     private fun withMockBase64(expectedString: String) {
         mockkStatic(Base64::class)
         every { Base64.encodeToString(eq(expectedString.toByteArray()), eq(Base64.NO_WRAP)) } returns encodedString
-        //every { Base64.encodeToString(any(), eq(Base64.NO_WRAP)) } returns encodedString
     }
 
     @Test
