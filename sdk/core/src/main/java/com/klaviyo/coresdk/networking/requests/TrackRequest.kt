@@ -47,7 +47,7 @@ internal class TrackRequest(
                         ),
                         "profile" to JSONObject(customerProperties.setAnonymousId().toMap()),
                         "properties" to properties?.let { JSONObject(it.toMap()) },
-                        "time" to timestamp,
+                        "time" to getTimeString(),
                     ).filterValues { it != null }
                 )
             )
