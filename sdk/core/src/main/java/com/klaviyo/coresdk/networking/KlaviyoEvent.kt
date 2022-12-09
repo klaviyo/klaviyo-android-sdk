@@ -44,6 +44,8 @@ sealed class KlaviyoEvent(val name: String) {
     object EXPIRED_SUBSCRIPTION : KlaviyoEvent("\$expired_subscription")
     object CLOSED_SUBSCRIPTION : KlaviyoEvent("\$closed_subscription")
 
+    object OPENED_PUSH : KlaviyoEvent("\$opened_push")
+
     // Custom events
     class CUSTOM_EVENT(eventName: String) : KlaviyoEvent(eventName)
 }

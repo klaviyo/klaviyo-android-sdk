@@ -1,8 +1,12 @@
 package com.klaviyo.push
 
+import android.content.Intent
 import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
+import com.klaviyo.coresdk.networking.KlaviyoEvent
+import com.klaviyo.coresdk.networking.KlaviyoEventProperties
 import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 
 /**
@@ -26,6 +30,47 @@ class KlaviyoPushService : FirebaseMessagingService() {
         fun getCurrentPushToken(): String {
             return KlaviyoPreferenceUtils.readStringPreference(PUSH_TOKEN_PREFERENCE_KEY) ?: ""
         }
+
+        /**
+         * Track an opened push event to klaviyo
+         *
+         * TODO customer and event properties should both be optional, once SDK is tracking customer state internally
+         *
+         * @param pushPayload The data attribute of the push notification payload
+         */
+        fun handlePush(
+            pushPayload: Map<String, String>,
+            customerProperties: KlaviyoCustomerProperties,
+            eventProperties: KlaviyoEventProperties? = null
+        ) {
+            val properties = eventProperties ?: KlaviyoEventProperties()
+            properties.addCustomProperty("push_token", getCurrentPushToken())
+            pushPayload.forEach { (key, value) ->
+                properties.addCustomProperty(key, value)
+            }
+            Klaviyo.track(KlaviyoEvent.OPENED_PUSH, customerProperties, properties)
+        }
+
+        /**
+         * Track an opened push event to klaviyo
+         *
+         * @param notificationIntent The Intent generated from the notification
+         */
+        fun handlePush(
+            notificationIntent: Intent?,
+            customerProperties: KlaviyoCustomerProperties,
+            eventProperties: KlaviyoEventProperties? = null
+        ) {
+            if (notificationIntent?.getStringExtra("origin") == "klaviyo") {
+                val payload = mutableMapOf<String, String>()
+
+                notificationIntent.extras?.keySet()?.forEach { key ->
+                    payload[key] = notificationIntent.getStringExtra(key) ?: ""
+                }
+
+                handlePush(payload, customerProperties, eventProperties)
+            }
+        }
     }
 
     /**
@@ -47,5 +92,10 @@ class KlaviyoPushService : FirebaseMessagingService() {
         Klaviyo.identify(properties)
 
         KlaviyoPreferenceUtils.writeStringPreference(PUSH_TOKEN_PREFERENCE_KEY, newToken)
+    }
+
+    override fun onMessageReceived(message: RemoteMessage) {
+        super.onMessageReceived(message)
+        handlePush(message.data, KlaviyoCustomerProperties())
     }
 }
