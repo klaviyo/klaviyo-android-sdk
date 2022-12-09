@@ -4,6 +4,9 @@ import android.util.Base64
 import com.klaviyo.coresdk.BuildConfig
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.NetworkBatcher
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.TimeZone
 
 /**
  * Abstract class which defines much of the logic common to requests that will be reaching Klaviyo
@@ -21,6 +24,12 @@ internal abstract class KlaviyoRequest : NetworkRequest() {
      * A timestamp that can be used to track when this request was created
      */
     internal val timestamp: Long = KlaviyoConfig.clock.currentTimeMillis() / 1000
+
+    internal fun getTimeString(): String {
+        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")
+        format.timeZone = TimeZone.getTimeZone("UTC")
+        return format.format(Date(timestamp * 1000))
+    }
 
     /**
      * Encodes the given string into a non-wrapping base64 string
