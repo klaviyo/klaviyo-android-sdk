@@ -20,7 +20,16 @@ class KlaviyoPushService : FirebaseMessagingService() {
     companion object {
         internal const val PUSH_TOKEN_PREFERENCE_KEY = "PUSH_TOKEN"
 
-        internal const val REQUEST_PUSH_KEY = "\$android_tokens"
+        private const val REQUEST_PUSH_KEY = "\$android_tokens"
+
+        fun setPushToken(pushToken: String) {
+            val properties = KlaviyoCustomerProperties()
+                .addAppendProperty(REQUEST_PUSH_KEY, pushToken)
+
+            Klaviyo.identify(properties)
+
+            KlaviyoPreferenceUtils.writeStringPreference(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
+        }
 
         /**
          * Returns the current push token that we have stored on this device
@@ -86,12 +95,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
      */
     override fun onNewToken(newToken: String) {
         super.onNewToken(newToken)
-
-        val properties = KlaviyoCustomerProperties()
-            .addAppendProperty(REQUEST_PUSH_KEY, newToken)
-        Klaviyo.identify(properties)
-
-        KlaviyoPreferenceUtils.writeStringPreference(PUSH_TOKEN_PREFERENCE_KEY, newToken)
+        setPushToken(newToken)
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
