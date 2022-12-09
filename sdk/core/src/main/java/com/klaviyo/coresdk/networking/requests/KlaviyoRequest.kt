@@ -6,6 +6,7 @@ import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.NetworkBatcher
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.TimeZone
 
 /**
  * Abstract class which defines much of the logic common to requests that will be reaching Klaviyo
@@ -25,7 +26,8 @@ internal abstract class KlaviyoRequest : NetworkRequest() {
     internal val timestamp: Long = KlaviyoConfig.clock.currentTimeMillis() / 1000
 
     internal fun getTimeString(): String {
-        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZZZZZ")
+        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")
+        format.timeZone = TimeZone.getTimeZone("UTC")
         return format.format(Date(timestamp * 1000))
     }
 
