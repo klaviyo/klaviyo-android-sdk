@@ -22,7 +22,7 @@ import org.junit.Test
 class TrackRequestTest {
 
     private val currentTimeMillis = 1234567890000L
-    private val timestamp = 1234567890L
+    private val isoTime = "2009-02-13T23:31:30+0000"
     private val apiKey = "Fake_Key"
     private val uuid = "a123"
 
@@ -58,7 +58,7 @@ class TrackRequestTest {
             "company_id" to "Fake_Key"
         )
         val expectedJsonString =
-            "{\"data\":{\"type\":\"event\",\"attributes\":{\"metric\":{\"name\":\"Test Event\"},\"profile\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$phone_number\":\"+12223334444\"},\"time\":$timestamp}}}"
+            "{\"data\":{\"type\":\"event\",\"attributes\":{\"metric\":{\"name\":\"Test Event\"},\"profile\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$phone_number\":\"+12223334444\"},\"time\":\"$isoTime\"}}}"
         val expectedHeaderKeys = listOf("Content-Type", "Accept", "Revision")
         val expectedHeaderValues = listOf("application/json", "application/json", "2022-10-17")
 
@@ -94,7 +94,7 @@ class TrackRequestTest {
             "company_id" to "Fake_Key"
         )
         val expectedJsonString =
-            "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":$timestamp,\"metric\":{\"name\":\"Test Event\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$phone_number\":\"+12223334444\"}}}}"
+            "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$isoTime\",\"metric\":{\"name\":\"Test Event\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$phone_number\":\"+12223334444\"}}}}"
         val expectedHeaderKeys = listOf("Content-Type", "Accept", "Revision")
         val expectedHeaderValues = listOf("application/json", "application/json", "2022-10-17")
 
