@@ -2,8 +2,10 @@ package com.klaviyo.push
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
 import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_PREFERENCE_KEY
 import io.mockk.every
@@ -41,6 +43,13 @@ class KlaviyoPushServiceTest {
         every { preferenceMock.getString(key, default) } returns string
     }
 
+    private fun withKlaviyoMock() {
+        mockkObject(Klaviyo)
+        mockkObject(KlaviyoPreferenceUtils)
+        every { Klaviyo.identify(any()) } returns Unit
+        every { Klaviyo.track(any(), any(), any()) } returns Unit
+    }
+
     @Test
     fun `Fetches current push token successfully`() {
         val pushToken = "TK1"
@@ -59,13 +68,9 @@ class KlaviyoPushServiceTest {
 
         withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
         withWriteStringMock(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
+        withKlaviyoMock()
 
-        mockkObject(Klaviyo)
-        mockkObject(KlaviyoPreferenceUtils)
-        every { Klaviyo.identify(any()) } returns Unit
-
-        val pushService = KlaviyoPushService()
-        pushService.onNewToken(pushToken)
+        KlaviyoPushService.setPushToken(pushToken)
 
         verifyAll {
             contextMock.getSharedPreferences("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
@@ -73,6 +78,60 @@ class KlaviyoPushServiceTest {
             editorMock.putString(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
             editorMock.apply()
             Klaviyo.identify(any())
+        }
+    }
+
+    @Test
+    fun `Klaviyo push payload triggers an opened push event`() {
+        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
+        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", "token")
+        withKlaviyoMock()
+
+        KlaviyoPushService.handlePush(
+            mapOf("origin" to "Klaviyo"), // key indicates payload originated from klaviyo
+            KlaviyoCustomerProperties()
+        )
+
+        verifyAll {
+            Klaviyo.track(any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `Non-klaviyo push payload is ignored`() {
+        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
+        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", "token")
+        withKlaviyoMock()
+
+        KlaviyoPushService.handlePush(
+            mapOf("key" to "3rd party push"), // doesn't have origin = klaviyo
+            KlaviyoCustomerProperties()
+        )
+
+        verifyAll(true) {
+            Klaviyo.track(any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `FCM methods invoke SDK`() {
+        val pushToken = "TK1"
+
+        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
+        withWriteStringMock(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
+        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", pushToken)
+        withKlaviyoMock()
+
+        val pushService = KlaviyoPushService()
+        pushService.onNewToken(pushToken)
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns mapOf("origin" to "Klaviyo")
+        pushService.onMessageReceived(msg)
+
+        verifyAll {
+            Klaviyo.identify(any())
+            Klaviyo.track(any(), any(), any())
         }
     }
 }
