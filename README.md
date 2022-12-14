@@ -23,8 +23,7 @@ This allows the Klaviyo SDK to receive push tokens and foreground notifications.
         <action android:name="com.google.firebase.MESSAGING_EVENT" />
     </intent-filter>
 </service>
-```
-[//]: # (TODO we could also make KlaviyoPushService open, and advise sub-classing it) 
+``` 
 Alternatively, if you prefer to implement `FirebaseMessagingService` yourself, 
 Refer to your own service class in the manifest. You'll need to communicate push tokens and
 notifications received to the Klaviyo SDK yourself:
