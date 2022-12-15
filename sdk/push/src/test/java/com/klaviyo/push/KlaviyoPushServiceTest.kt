@@ -88,7 +88,7 @@ class KlaviyoPushServiceTest {
         withKlaviyoMock()
 
         KlaviyoPushService.handlePush(
-            mapOf("origin" to "Klaviyo"), // key indicates payload originated from klaviyo
+            mapOf("origin" to "klaviyo"), // key indicates payload originated from klaviyo
             KlaviyoCustomerProperties()
         )
 
@@ -126,7 +126,7 @@ class KlaviyoPushServiceTest {
         pushService.onNewToken(pushToken)
 
         val msg = mockk<RemoteMessage>()
-        every { msg.data } returns mapOf("origin" to "Klaviyo")
+        every { msg.data } returns mapOf("origin" to "klaviyo")
         pushService.onMessageReceived(msg)
 
         verifyAll {

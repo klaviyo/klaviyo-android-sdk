@@ -65,7 +65,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
             customerProperties: KlaviyoCustomerProperties,
             eventProperties: KlaviyoEventProperties? = null
         ) {
-            if (pushPayload["origin"] != "Klaviyo") {
+            if (pushPayload["origin"] != "klaviyo") {
                 return
             }
 
@@ -90,15 +90,11 @@ class KlaviyoPushService : FirebaseMessagingService() {
             customerProperties: KlaviyoCustomerProperties,
             eventProperties: KlaviyoEventProperties? = null
         ) {
-            if (notificationIntent is Intent) {
-                val payload = mutableMapOf<String, String>()
-
-                notificationIntent.extras?.keySet()?.forEach { key ->
-                    payload[key] = notificationIntent.getStringExtra(key) ?: ""
-                }
-
-                handlePush(payload, customerProperties, eventProperties)
+            val extras = notificationIntent?.extras ?: return
+            val payload = extras.keySet().associateWith { key ->
+                extras.getString(key, "")
             }
+            handlePush(payload, customerProperties, eventProperties)
         }
     }
 
