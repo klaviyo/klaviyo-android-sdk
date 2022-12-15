@@ -1,4 +1,3 @@
-
 # klaviyo-android-sdk
 
 ## This project is still in pre-alpha
@@ -6,7 +5,7 @@
 
 ## Core SDK
 
-Android SDK allows users to incorporate Klaviyo event and profile tracking functionality within native Android applications.
+Android SDK allows developers to incorporate Klaviyo event and profile tracking functionality within native Android applications.
 
 ## Push Notifications
 
@@ -14,9 +13,13 @@ Android SDK allows users to incorporate Klaviyo event and profile tracking funct
 - Firebase account
 - Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client) client documentation. 
 
-### App Manifest
-Register `KlaviyoPushService` as the service to receive MESSAGING_EVENT intents. 
-This allows the Klaviyo SDK to receive push tokens and foreground notifications. 
+### KlaviyoPushService
+The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService` so the 
+setup process is very similar to the Firebase client documentation linked above.
+You should follow all other setup recommendations from the FCM documentation.
+Register `KlaviyoPushService` to receive MESSAGING_EVENT intents. This allows Klaviyo Push SDK 
+to receive new and updated push tokens via the `onNewToken` method, 
+as well as foreground and data notifications via the `onMessageReceived` method. 
 ```xml
 <service android:name="com.klaviyo.push.KlaviyoPushService" android:exported="false">
     <intent-filter>
@@ -24,9 +27,35 @@ This allows the Klaviyo SDK to receive push tokens and foreground notifications.
     </intent-filter>
 </service>
 ``` 
-Alternatively, if you prefer to implement `FirebaseMessagingService` yourself, 
-Refer to your own service class in the manifest. You'll need to communicate push tokens and
-notifications received to the Klaviyo SDK yourself:
+Additionally, update your launcher activity to retrieve the _current_ device token on startup
+and register it with Klaviyo Push SDK. To track notifications opened from the system tray 
+(i.e. received while the app is backgrounded) pass the `Intent` to KlaviyoPushService.
+```kotlin
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+    
+        //Fetches the current push token and registers with Push SDK
+        FirebaseMessaging.getInstance().token.addOnSuccessListener {
+            KlaviyoPushService().onNewToken(it)
+        }
+
+        onNewIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+
+        //Tracks when a system tray notification is opened
+        KlaviyoPushService.handlePush(intent, KlaviyoCustomerProperties())
+    }
+```
+
+### Manual implementation of `FirebaseMessagingService` [Advanced]
+If you'd prefer to implement `FirebaseMessagingService` yourself, follow the FCM 
+setup docs including referencing your own service class in the manifest.
+Then update your implementation of `onNewToken` and `onMessageReceived` as below to communicate 
+push tokens and notifications received to the Klaviyo SDK. Note that the launcher activity 
+code snippets above are still required.
 ```kotlin
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.push.KlaviyoPushService
@@ -42,19 +71,4 @@ class YourPushService: KlaviyoPushService() {
         KlaviyoPushService.handlePush(message.data, KlaviyoCustomerProperties())
     }
 }
-```
-To track notifications received while the app is backgrounded, update your launcher 
-activity to communicate the notification intent to Klaviyo SDK when opened.
-```kotlin
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        onNewIntent(intent)
-    }
-
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-
-        KlaviyoPushService.handlePush(intent, KlaviyoCustomerProperties())
-    }
 ```
