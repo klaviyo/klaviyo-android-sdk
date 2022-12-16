@@ -20,6 +20,29 @@ class KlaviyoPushServiceTest {
     private val contextMock = mockk<Context>()
     private val preferenceMock = mockk<SharedPreferences>()
     private val editorMock = mockk<SharedPreferences.Editor>()
+    private val stubPushToken = "TK1"
+
+    /**
+     * Stub of a push payload data property
+     * the "_k" tracking properties indicates payload originated from klaviyo
+     */
+    private val stubPayload = mapOf(
+        "body" to "Message body",
+        "_k" to """{
+          "Push Platform": "android",
+          "$\flow": "",
+          "$\message": "01GK4P5W6AV4V3APTJ727JKSKQ",
+          "$\variation": "",
+          "Message Name": "check_push_pipeline",
+          "Message Type": "campaign",
+          "c": "6U7nPA",
+          "cr": "31698553996657051350694345805149781",
+          "m": "01GK4P5W6AV4V3APTJ727JKSKQ",
+          "t": "1671205224",
+          "timestamp": "2022-12-16T15:40:24.049427+00:00",
+          "x": "manual"
+        }"""
+    )
 
     @Before
     fun setup() {
@@ -52,30 +75,26 @@ class KlaviyoPushServiceTest {
 
     @Test
     fun `Fetches current push token successfully`() {
-        val pushToken = "TK1"
-
         withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", pushToken)
+        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", stubPushToken)
 
         val actualToken = KlaviyoPushService.getCurrentPushToken()
 
-        assertEquals(pushToken, actualToken)
+        assertEquals(stubPushToken, actualToken)
     }
 
     @Test
     fun `Appends a new push token to customer properties`() {
-        val pushToken = "TK1"
-
         withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-        withWriteStringMock(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
+        withWriteStringMock(PUSH_TOKEN_PREFERENCE_KEY, stubPushToken)
         withKlaviyoMock()
 
-        KlaviyoPushService.setPushToken(pushToken)
+        KlaviyoPushService.setPushToken(stubPushToken)
 
         verifyAll {
             contextMock.getSharedPreferences("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
             preferenceMock.edit()
-            editorMock.putString(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
+            editorMock.putString(PUSH_TOKEN_PREFERENCE_KEY, stubPushToken)
             editorMock.apply()
             Klaviyo.identify(any())
         }
@@ -88,7 +107,7 @@ class KlaviyoPushServiceTest {
         withKlaviyoMock()
 
         KlaviyoPushService.handlePush(
-            mapOf("origin" to "klaviyo"), // key indicates payload originated from klaviyo
+            stubPayload,
             KlaviyoCustomerProperties()
         )
 
@@ -104,7 +123,7 @@ class KlaviyoPushServiceTest {
         withKlaviyoMock()
 
         KlaviyoPushService.handlePush(
-            mapOf("key" to "3rd party push"), // doesn't have origin = klaviyo
+            mapOf("other" to "3rd party push"), // doesn't have origin = klaviyo
             KlaviyoCustomerProperties()
         )
 
@@ -115,18 +134,16 @@ class KlaviyoPushServiceTest {
 
     @Test
     fun `FCM methods invoke SDK`() {
-        val pushToken = "TK1"
-
         withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-        withWriteStringMock(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
-        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", pushToken)
+        withWriteStringMock(PUSH_TOKEN_PREFERENCE_KEY, stubPushToken)
+        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", stubPushToken)
         withKlaviyoMock()
 
         val pushService = KlaviyoPushService()
-        pushService.onNewToken(pushToken)
+        pushService.onNewToken(stubPushToken)
 
         val msg = mockk<RemoteMessage>()
-        every { msg.data } returns mapOf("origin" to "klaviyo")
+        every { msg.data } returns stubPayload
         pushService.onMessageReceived(msg)
 
         verifyAll {

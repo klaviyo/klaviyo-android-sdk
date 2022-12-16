@@ -65,15 +65,10 @@ class KlaviyoPushService : FirebaseMessagingService() {
             customerProperties: KlaviyoCustomerProperties,
             eventProperties: KlaviyoEventProperties? = null
         ) {
-            if (pushPayload["origin"] != "klaviyo") {
-                return
-            }
-
+            pushPayload["_k"] ?: return // Track pushes originating from klaviyo
             val properties = eventProperties ?: KlaviyoEventProperties()
             properties.addCustomProperty("push_token", getCurrentPushToken())
-            pushPayload.forEach { (key, value) ->
-                properties.addCustomProperty(key, value)
-            }
+            pushPayload.forEach { (k, v) -> properties.addCustomProperty(k, v) }
             Klaviyo.track(KlaviyoEvent.OPENED_PUSH, customerProperties, properties)
         }
 
