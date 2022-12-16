@@ -123,7 +123,7 @@ class KlaviyoPushServiceTest {
         withKlaviyoMock()
 
         KlaviyoPushService.handlePush(
-            mapOf("other" to "3rd party push"), // doesn't have origin = klaviyo
+            mapOf("other" to "3rd party push"), // doesn't have _k, klaviyo tracking params
             KlaviyoCustomerProperties()
         )
 
