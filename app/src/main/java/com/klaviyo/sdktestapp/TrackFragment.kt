@@ -34,7 +34,7 @@ class TrackFragment : AnalyticsFragment<TrackPaneBinding>() {
     private val sendClickListener = View.OnClickListener {
         val customerProperties = KlaviyoCustomerProperties()
             .also {
-                it.setEmail("sdktest@test.com")
+                it.setEmail(BuildConfig.DEFAULT_EMAIL)
             }
         val properties = KlaviyoEventProperties().also {
             it.addValue("100")

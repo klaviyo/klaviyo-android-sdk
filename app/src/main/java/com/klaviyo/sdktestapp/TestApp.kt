@@ -19,8 +19,9 @@ class TestApp : Application() {
             .networkUseAnalyticsBatchQueue(true)
             .build()
 
-        Klaviyo.setUserEmail("sdktest@test.com")
+        Klaviyo.setUserEmail(BuildConfig.DEFAULT_EMAIL)
 
+        // Fetches the current push token and registers with Push SDK
         FirebaseMessaging.getInstance().token.addOnSuccessListener {
             KlaviyoPushService().onNewToken(it)
         }

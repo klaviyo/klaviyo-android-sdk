@@ -30,7 +30,7 @@ class IdentifyFragment : AnalyticsFragment<IdentifyPaneBinding>() {
     private val sendClickListener = View.OnClickListener {
         val properties = KlaviyoCustomerProperties()
             .also {
-                it.setEmail("sdktest@test.com")
+                it.setEmail(BuildConfig.DEFAULT_EMAIL)
             }
         Klaviyo.identify(properties = properties)
     }

@@ -7,6 +7,11 @@ apply plugin: 'kotlin-android'
 
 apply plugin: "org.jlleitschuh.gradle.ktlint"
 
+def localProperties = new Properties()
+if (rootProject.file("local.properties").canRead()) {
+    localProperties.load(new FileInputStream(rootProject.file("local.properties")))
+}
+
 android {
     compileSdkVersion 33
     buildToolsVersion "33.0.0"
@@ -25,11 +30,14 @@ android {
             buildConfigField "String", "KLAVIYO_COMPANY_ID", '"LuYLmF"'
         }
         debug {
+            debuggable = true
             buildConfigField "String", "KLAVIYO_COMPANY_ID", '"LuYLmF"'
         }
         localDebug {
+            debuggable = true
             signingConfig signingConfigs.debug
-            buildConfigField "String", "KLAVIYO_COMPANY_ID", '"9BX3wh"'
+            buildConfigField "String", "KLAVIYO_COMPANY_ID", localProperties['companyId'] ?: '"9BX3wh"'
+            buildConfigField "String", "DEFAULT_EMAIL", localProperties['defaultEmail'] ?: '"sdktest@test.com"'
         }
     }
     compileOptions {
@@ -66,7 +74,7 @@ dependencies {
     localDebugImplementation files('../../klaviyo-android-sdk/sdk/core/build/outputs/aar/core-localDebug.aar')
     localDebugImplementation files('../../klaviyo-android-sdk/sdk/push/build/outputs/aar/push-localDebug.aar')
 
-    implementation"org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     implementation 'androidx.appcompat:appcompat:1.5.1'
     implementation 'androidx.core:core-ktx:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
