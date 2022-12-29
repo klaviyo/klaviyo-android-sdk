@@ -1,7 +1,7 @@
 # klaviyo-android-sdk
 
 ## This project is still in pre-alpha
-## Breaking changes are still being made to the API. This is not yet intended for use
+## Breaking changes are still being made to the API. This is not yet intended for public use
 
 ## Core SDK
 
@@ -11,7 +11,7 @@ Android SDK allows developers to incorporate Klaviyo event and profile tracking 
 
 ### Prerequisites: 
 - Firebase account
-- Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client) client documentation. 
+- Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client) documentation. 
 
 ### KlaviyoPushService
 The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService` so the 
@@ -36,7 +36,7 @@ and register it with Klaviyo Push SDK. To track notifications opened from the sy
     
         //Fetches the current push token and registers with Push SDK
         FirebaseMessaging.getInstance().token.addOnSuccessListener {
-            KlaviyoPushService().onNewToken(it)
+            KlaviyoPushService.setPushToken(it)
         }
 
         onNewIntent(intent)
@@ -60,7 +60,7 @@ code snippets above are still required.
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.push.KlaviyoPushService
 
-class YourPushService: KlaviyoPushService() {
+class YourPushService: FirebaseMessagingService() {
     override fun onNewToken(newToken: String) {
         super.onNewToken(newToken)
         KlaviyoPushService.setPushToken(newToken)
