@@ -2,7 +2,6 @@ package com.klaviyo.coresdk
 
 import android.app.Application
 import android.content.Context
-import com.klaviyo.coresdk.networking.UserInfo
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
