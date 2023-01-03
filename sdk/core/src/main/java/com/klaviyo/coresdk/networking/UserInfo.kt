@@ -7,8 +7,14 @@ package com.klaviyo.coresdk.networking
  */
 internal object UserInfo {
     var email: String = ""
+    var phone: String = ""
 
     fun hasEmail(): Boolean {
         return email.isNotEmpty()
+    }
+
+    fun reset() {
+        email = ""
+        phone = ""
     }
 }

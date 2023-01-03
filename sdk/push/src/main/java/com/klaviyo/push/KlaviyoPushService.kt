@@ -23,7 +23,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
         private const val REQUEST_PUSH_KEY = "\$android_tokens"
 
         /**
-         * Registers FCM push token to the current Klaviyo profile
+         * Save the device FCM push token and register to the current profile
          *
          * We append this token to a property map and queue it into an identify request to send to
          * the Klaviyo asynchronous APIs.
@@ -37,39 +37,37 @@ class KlaviyoPushService : FirebaseMessagingService() {
             val properties = KlaviyoCustomerProperties()
                 .addAppendProperty(REQUEST_PUSH_KEY, pushToken)
 
-            Klaviyo.identify(properties)
+            Klaviyo.createProfile(properties)
 
             KlaviyoPreferenceUtils.writeStringPreference(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
         }
 
         /**
-         * Returns the current push token that we have stored on this device
+         * Retrieve the device FCM push token  have stored on this device
          *
          * @return The push token we read from the shared preferences
          */
-        fun getCurrentPushToken(): String {
+        fun getPushToken(): String {
             return KlaviyoPreferenceUtils.readStringPreference(PUSH_TOKEN_PREFERENCE_KEY) ?: ""
         }
 
         /**
          * Logs an $opened_push event for a remote notification that originated from Klaviyo
          *
-         * TODO customer and event properties should both be optional, once SDK is tracking customer state internally
-         *
-         * @param pushPayload The data attributes of the push notification payload
+         * @param notificationPayload The data attributes of the push notification payload
          * @param customerProperties Profile with which to associate the event
          * @param eventProperties Optional additional properties for the event
          */
-        fun handlePush(
-            pushPayload: Map<String, String>,
-            customerProperties: KlaviyoCustomerProperties,
+        fun openedPush(
+            notificationPayload: Map<String, String>,
+            customerProperties: KlaviyoCustomerProperties? = null,
             eventProperties: KlaviyoEventProperties? = null
         ) {
-            pushPayload["_k"] ?: return // Track pushes originating from klaviyo
+            notificationPayload["_k"] ?: return // Track pushes originating from klaviyo
             val properties = eventProperties ?: KlaviyoEventProperties()
-            properties.addCustomProperty("push_token", getCurrentPushToken())
-            pushPayload.forEach { (k, v) -> properties.addCustomProperty(k, v) }
-            Klaviyo.track(KlaviyoEvent.OPENED_PUSH, customerProperties, properties)
+            properties.addCustomProperty("push_token", getPushToken())
+            notificationPayload.forEach { (k, v) -> properties.addCustomProperty(k, v) }
+            Klaviyo.createEvent(KlaviyoEvent.OPENED_PUSH, customerProperties, properties)
         }
 
         /**
@@ -80,16 +78,16 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @param customerProperties Profile with which to associate the event
          * @param eventProperties Optional additional properties for the event
          */
-        fun handlePush(
+        fun openedPush(
             notificationIntent: Intent?,
-            customerProperties: KlaviyoCustomerProperties,
+            customerProperties: KlaviyoCustomerProperties? = null,
             eventProperties: KlaviyoEventProperties? = null
         ) {
             val extras = notificationIntent?.extras ?: return
             val payload = extras.keySet().associateWith { key ->
                 extras.getString(key, "")
             }
-            handlePush(payload, customerProperties, eventProperties)
+            openedPush(payload, customerProperties, eventProperties)
         }
     }
 
@@ -117,6 +115,6 @@ class KlaviyoPushService : FirebaseMessagingService() {
      */
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        handlePush(message.data, KlaviyoCustomerProperties())
+        openedPush(message.data)
     }
 }

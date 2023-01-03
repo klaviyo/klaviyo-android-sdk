@@ -1,5 +1,6 @@
 package com.klaviyo.coresdk
 
+import android.content.Context
 import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
 import com.klaviyo.coresdk.networking.KlaviyoEvent
 import com.klaviyo.coresdk.networking.KlaviyoEventProperties
@@ -9,53 +10,125 @@ import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
 import com.klaviyo.coresdk.networking.requests.TrackRequest
 
 /**
- * Our main API for the Klaviyo SDK.
- * Where we pass in analytics requests to be sent to the Klaviyo backend
+ * Public API for the core Klaviyo SDK.
+ * Receives configuration, customer data, and analytics requests
+ * to be processed and sent to the Klaviyo backend
  */
 object Klaviyo {
 
     /**
-     * Assigns a user email address to the user info
-     * This email address is stored in memory to define user details during a session and will be
-     * used to autocomplete analytics requests that are missing the identifier in their property maps
+     * Configure Klaviyo SDK with your account's public API Key and application context.
+     * Optionally specify additional behavior customization
      *
-     * Whenever the active user in an app changes (for example via a fresh login) this should be
-     * called to set the new user information in memory.
+     * This must be called to initialize the SDK before using any other functionality
      *
-     * @param email Email address for an active user
+     * @param apiKey - Your Klaviyo account's public API Key
+     * @param applicationContext
+     * @param networkTimeout
+     * @param networkFlushInterval
+     * @param networkFlushDepth
+     * @param networkFlushCheckInterval
+     * @param networkUseAnalyticsBatchQueue
+     * @return
      */
-    fun setUserEmail(email: String) {
+    fun configure(
+        apiKey: String,
+        applicationContext: Context,
+        networkTimeout: Int = KlaviyoConfig.NETWORK_TIMEOUT_DEFAULT,
+        networkFlushInterval: Int = KlaviyoConfig.NETWORK_FLUSH_INTERVAL_DEFAULT,
+        networkFlushDepth: Int = KlaviyoConfig.NETWORK_FLUSH_DEPTH_DEFAULT,
+        networkFlushCheckInterval: Int = KlaviyoConfig.NETWORK_FLUSH_CHECK_INTERVAL,
+        networkUseAnalyticsBatchQueue: Boolean = KlaviyoConfig.NETWORK_USE_ANALYTICS_BATCH_QUEUE,
+    ) = apply {
+        KlaviyoConfig.Builder()
+            .apiKey(apiKey)
+            .applicationContext(applicationContext)
+            .networkTimeout(networkTimeout)
+            .networkFlushInterval(networkFlushInterval)
+            .networkFlushDepth(networkFlushDepth)
+            .networkFlushCheckInterval(networkFlushCheckInterval)
+            .networkUseAnalyticsBatchQueue(networkUseAnalyticsBatchQueue)
+            .build()
+    }
+
+    //region Fluent setters
+
+    /**
+     * Assigns an email address to the current UserInfo
+     *
+     * UserInfo is saved to keep track of current profile details and
+     * used to autocomplete analytics requests with profile identifier when not specified
+     *
+     * This should be called whenever the active user in your app changes
+     * (e.g. after a fresh login)
+     *
+     * @param email Email address for active user
+     */
+    fun setEmail(email: String) = apply {
         UserInfo.email = email
     }
 
     /**
-     * Creates a track request for the Klaviyo APIs and begins processing.
-     * Track requests track the triggering of a specified [KlaviyoEvent] in Klaviyo
+     * Assigns a phone number to the current UserInfo
+     *
+     * UserInfo is saved to keep track of current profile details and
+     * used to autocomplete analytics requests with profile identifier when not specified
+     *
+     * This should be called whenever the active user in your app changes
+     * (e.g. after a fresh login)
+     *
+     * @param phone Phone number for active user
+     */
+    fun setPhone(phone: String) = apply {
+        UserInfo.phone = phone
+    }
+
+    /**
+     * Clears all stored UserInfo identifiers (e.g. email or phone)
+     *
+     * This should be called whenever an active user in your app is removed
+     * (e.g. after a logout)
+     */
+    fun reset() = apply {
+        UserInfo.reset()
+    }
+
+    //endregion
+
+    //region Analytics API
+
+    /**
+     * Queues a request to identify profile properties to the Klaviyo API
+     * Identify requests track specific properties about a user without triggering an event
+     *
+     * @param properties A map of properties that define the user
+     */
+    fun createProfile(properties: KlaviyoCustomerProperties) {
+        val request = IdentifyRequest(KlaviyoConfig.apiKey, properties)
+        processRequest(request)
+    }
+
+    /**
+     * Queues a request to track a [KlaviyoEvent] to the Klaviyo API
+     * The event will be associated with the profile specified by the [KlaviyoCustomerProperties]
+     * If customer properties are not set, this will fallback on the current profile identifiers
      *
      * @param customerProperties A map of customer property information.
      * Defines the customer that triggered this event
      * @param properties A map of event property information.
      * Additional properties associated to the event that are not for identifying the customer
      */
-    fun track(
+    fun createEvent(
         event: KlaviyoEvent,
-        customerProperties: KlaviyoCustomerProperties,
+        customerProperties: KlaviyoCustomerProperties? = null,
         properties: KlaviyoEventProperties? = null
     ) {
-        val request = TrackRequest(KlaviyoConfig.apiKey, event, customerProperties, properties)
+        val profile = customerProperties ?: KlaviyoCustomerProperties().also { setEmail(UserInfo.email) }
+        val request = TrackRequest(KlaviyoConfig.apiKey, event, profile, properties)
         processRequest(request)
     }
 
-    /**
-     * Creates an identify request for the Klaviyo APIs and begins processing.
-     * Identify requests track specific properties about a user without triggering an event
-     *
-     * @param properties A map of properties that define the user
-     */
-    fun identify(properties: KlaviyoCustomerProperties) {
-        val request = IdentifyRequest(KlaviyoConfig.apiKey, properties)
-        processRequest(request)
-    }
+    //endregion
 
     /**
      * Processes the given [KlaviyoRequest] depending on the SDK's configuration.
