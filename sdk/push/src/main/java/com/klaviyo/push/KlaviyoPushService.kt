@@ -37,7 +37,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
             val properties = KlaviyoCustomerProperties()
                 .addAppendProperty(REQUEST_PUSH_KEY, pushToken)
 
-            Klaviyo.createProfile(properties)
+            Klaviyo.setProfile(properties)
 
             KlaviyoPreferenceUtils.writeStringPreference(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
         }
@@ -67,7 +67,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
             val properties = eventProperties ?: KlaviyoEventProperties()
             properties.addCustomProperty("push_token", getPushToken())
             notificationPayload.forEach { (k, v) -> properties.addCustomProperty(k, v) }
-            Klaviyo.createEvent(KlaviyoEvent.OPENED_PUSH, customerProperties, properties)
+            Klaviyo.createEvent(KlaviyoEvent.OPENED_PUSH, properties, customerProperties)
         }
 
         /**

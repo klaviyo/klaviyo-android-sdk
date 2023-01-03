@@ -18,7 +18,7 @@ send them timely messages via FCM.
 
 ### Configuration
 The SDK must be configured with the public API key for your Klaviyo account.
-It also requires application context so the SDK can be responsive to 
+We require access to the `applicationContext` so the SDK can be responsive to 
 changes in network conditions and persist data with `SharedPreferences`.
 You must also register the Klaviyo SDK for activity lifecycle callbacks per the example code:
 ```kotlin

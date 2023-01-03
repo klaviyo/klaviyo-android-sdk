@@ -38,7 +38,7 @@ class KlaviyoTest {
     @Test
     fun `Sets user phone into info`() {
         val phone = "802-555-5555"
-        Klaviyo.setPhone(phone)
+        Klaviyo.setPhoneNumber(phone)
 
         assert(UserInfo.phone == phone)
     }
@@ -48,7 +48,7 @@ class KlaviyoTest {
         UserInfo.email = "test"
         UserInfo.phone = "test"
 
-        Klaviyo.reset()
+        Klaviyo.resetProfile()
 
         assert(UserInfo.email == "")
         assert(UserInfo.phone == "")

@@ -67,7 +67,7 @@ class KlaviyoPushServiceTest {
     private fun withKlaviyoMock() {
         mockkObject(Klaviyo)
         mockkObject(KlaviyoPreferenceUtils)
-        every { Klaviyo.createProfile(any()) } returns Unit
+        every { Klaviyo.setProfile(any()) } returns Unit
         every { Klaviyo.createEvent(any(), any(), any()) } returns Unit
     }
 
@@ -94,7 +94,7 @@ class KlaviyoPushServiceTest {
             preferenceMock.edit()
             editorMock.putString(PUSH_TOKEN_PREFERENCE_KEY, stubPushToken)
             editorMock.apply()
-            Klaviyo.createProfile(any())
+            Klaviyo.setProfile(any())
         }
     }
 
@@ -141,7 +141,7 @@ class KlaviyoPushServiceTest {
         pushService.onMessageReceived(msg)
 
         verifyAll {
-            Klaviyo.createProfile(any())
+            Klaviyo.setProfile(any())
             Klaviyo.createEvent(any(), any(), any())
         }
     }

@@ -49,15 +49,17 @@ object Klaviyo {
             .networkFlushCheckInterval(networkFlushCheckInterval)
             .networkUseAnalyticsBatchQueue(networkUseAnalyticsBatchQueue)
             .build()
+
+        // TODO should this generate an anon-id and queue an API call?
     }
 
     //region Fluent setters
 
     /**
-     * Assigns an email address to the current UserInfo
+     * Assigns an email address to the current internally tracked profile
      *
-     * UserInfo is saved to keep track of current profile details and
-     * used to autocomplete analytics requests with profile identifier when not specified
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
      *
      * This should be called whenever the active user in your app changes
      * (e.g. after a fresh login)
@@ -65,31 +67,47 @@ object Klaviyo {
      * @param email Email address for active user
      */
     fun setEmail(email: String) = apply {
+        // TODO setting profile property should queue an API call
+        // TODO format check/validation
         UserInfo.email = email
     }
 
     /**
-     * Assigns a phone number to the current UserInfo
+     * Assigns a phone number to the current internally tracked profile
      *
-     * UserInfo is saved to keep track of current profile details and
-     * used to autocomplete analytics requests with profile identifier when not specified
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
      *
      * This should be called whenever the active user in your app changes
      * (e.g. after a fresh login)
      *
      * @param phone Phone number for active user
      */
-    fun setPhone(phone: String) = apply {
+    fun setPhoneNumber(phone: String) = apply {
+        // TODO setting profile property should queue an API call
+        // TODO format check/validation
         UserInfo.phone = phone
     }
 
     /**
-     * Clears all stored UserInfo identifiers (e.g. email or phone)
+     * Queues a request to identify profile properties to the Klaviyo API
+     * Identify requests track specific properties about a user without triggering an event
+     *
+     * @param properties A map of properties that define the user
+     */
+    fun setProfile(properties: KlaviyoCustomerProperties) {
+        // TODO Extract phone/email and save in UserInfo
+        val request = IdentifyRequest(KlaviyoConfig.apiKey, properties)
+        processRequest(request)
+    }
+
+    /**
+     * Clears all stored profile identifiers (e.g. email or phone)
      *
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
      */
-    fun reset() = apply {
+    fun resetProfile() = apply {
         UserInfo.reset()
     }
 
@@ -98,30 +116,18 @@ object Klaviyo {
     //region Analytics API
 
     /**
-     * Queues a request to identify profile properties to the Klaviyo API
-     * Identify requests track specific properties about a user without triggering an event
-     *
-     * @param properties A map of properties that define the user
-     */
-    fun createProfile(properties: KlaviyoCustomerProperties) {
-        val request = IdentifyRequest(KlaviyoConfig.apiKey, properties)
-        processRequest(request)
-    }
-
-    /**
      * Queues a request to track a [KlaviyoEvent] to the Klaviyo API
      * The event will be associated with the profile specified by the [KlaviyoCustomerProperties]
      * If customer properties are not set, this will fallback on the current profile identifiers
      *
-     * @param customerProperties A map of customer property information.
-     * Defines the customer that triggered this event
-     * @param properties A map of event property information.
-     * Additional properties associated to the event that are not for identifying the customer
+     * @param event Name of the event metric
+     * @param properties Additional properties associated to the event that are not for identifying the customer
+     * @param customerProperties Defines the customer that triggered this event, defaults to the current internally tracked profile
      */
     fun createEvent(
         event: KlaviyoEvent,
-        customerProperties: KlaviyoCustomerProperties? = null,
-        properties: KlaviyoEventProperties? = null
+        properties: KlaviyoEventProperties? = null,
+        customerProperties: KlaviyoCustomerProperties? = null
     ) {
         val profile = customerProperties ?: KlaviyoCustomerProperties().also { setEmail(UserInfo.email) }
         val request = TrackRequest(KlaviyoConfig.apiKey, event, profile, properties)
