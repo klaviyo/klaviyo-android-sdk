@@ -1,6 +1,6 @@
 package com.klaviyo.coresdk
 
-import android.content.Context
+import android.app.Application
 import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
 import com.klaviyo.coresdk.networking.KlaviyoEvent
 import com.klaviyo.coresdk.networking.KlaviyoEventProperties
@@ -33,7 +33,7 @@ object Klaviyo {
      */
     fun configure(
         apiKey: String,
-        applicationContext: Context,
+        application: Application,
         networkTimeout: Int = KlaviyoConfig.NETWORK_TIMEOUT_DEFAULT,
         networkFlushInterval: Int = KlaviyoConfig.NETWORK_FLUSH_INTERVAL_DEFAULT,
         networkFlushDepth: Int = KlaviyoConfig.NETWORK_FLUSH_DEPTH_DEFAULT,
@@ -42,13 +42,15 @@ object Klaviyo {
     ) = apply {
         KlaviyoConfig.Builder()
             .apiKey(apiKey)
-            .applicationContext(applicationContext)
+            .applicationContext(application.applicationContext)
             .networkTimeout(networkTimeout)
             .networkFlushInterval(networkFlushInterval)
             .networkFlushDepth(networkFlushDepth)
             .networkFlushCheckInterval(networkFlushCheckInterval)
             .networkUseAnalyticsBatchQueue(networkUseAnalyticsBatchQueue)
             .build()
+
+        application.registerActivityLifecycleCallbacks(KlaviyoLifecycleCallbackListener())
     }
 
     //region Fluent setters

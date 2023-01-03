@@ -1,5 +1,6 @@
 package com.klaviyo.push
 
+import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import com.google.firebase.messaging.RemoteMessage
@@ -16,6 +17,10 @@ import org.junit.Test
 
 class KlaviyoPushServiceTest {
     private val contextMock = mockk<Context>()
+    private val appMock: Application = mockk {
+        every { applicationContext } returns contextMock
+        every { registerActivityLifecycleCallbacks(any()) } returns Unit
+    }
     private val preferenceMock = mockk<SharedPreferences>()
     private val editorMock = mockk<SharedPreferences.Editor>()
     private val stubPushToken = "TK1"
@@ -46,7 +51,7 @@ class KlaviyoPushServiceTest {
     fun setup() {
         Klaviyo.configure(
             apiKey = "Fake_Key",
-            applicationContext = contextMock
+            application = appMock
         )
     }
 

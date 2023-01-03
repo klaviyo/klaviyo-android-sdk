@@ -1,17 +1,24 @@
 package com.klaviyo.coresdk
 
+import android.app.Application
 import android.content.Context
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import org.junit.Test
 
 class KlaviyoTest {
     private val contextMock: Context = mockk()
+    private val appMock: Application = mockk {
+        every { applicationContext } returns contextMock
+        every { registerActivityLifecycleCallbacks(any()) } returns Unit
+    }
 
     @Test
     fun `Klaviyo Configure API sets variables successfully`() {
         Klaviyo.configure(
             "Fake_Key",
-            contextMock,
+            appMock,
             1000,
             10000,
             10,
@@ -25,6 +32,9 @@ class KlaviyoTest {
         assert(KlaviyoConfig.networkFlushDepth == 10)
         assert(KlaviyoConfig.networkFlushCheckInterval == 1000)
         assert(!KlaviyoConfig.networkUseAnalyticsBatchQueue)
+        verify(exactly = 1) {
+            appMock.registerActivityLifecycleCallbacks(any())
+        }
     }
 
     @Test
