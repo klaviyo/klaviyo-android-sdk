@@ -1,0 +1,9 @@
+$dokka.format:html-v1
+$dokka.linkExtension:html
+
+module:core
+com.klaviyo.coresdk
+com.klaviyo.coresdk.networking
+com.klaviyo.coresdk.utils
+module:push
+com.klaviyo.push

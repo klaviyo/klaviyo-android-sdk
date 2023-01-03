@@ -1,0 +1,160 @@
+<!doctype html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>Klaviyo</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg"><script>var pathToRoot = "../../../../";</script>    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/jetbrains-mono.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+<div class="navigation-wrapper" id="navigation-wrapper">
+    <div id="leftToggler"><span class="icon-toggler"></span></div>
+    <div class="library-name">
+<a href="../../../../index.html">
+<span>klaviyo-android-sdk</span>            </a>    </div>
+    <div>
+    </div>
+    <div class="pull-right d-flex">
+        <button id="theme-toggle-button"><span id="theme-toggle"></span></button>
+        <div id="searchBar"></div>
+    </div>
+</div>
+<div id="container">
+    <div id="leftColumn">
+        <div id="sideMenu"></div>
+    </div>
+    <div id="main">
+<div class="main-content" id="content" pageids="core::com.klaviyo.coresdk/Klaviyo///PointingToDeclaration//-1357061740">
+  <div class="breadcrumbs"><a href="../../index.html">core</a><span class="delimiter">/</span><a href="../index.html">com.klaviyo.coresdk</a><span class="delimiter">/</span><span class="current">Klaviyo</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span><span>Klaviyo</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">object </span><a href="index.html">Klaviyo</a></div><p class="paragraph">Public API for the core Klaviyo SDK. Receives configuration, customer data, and analytics requests to be processed and sent to the Klaviyo backend</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="Functions">Functions</button></div>
+    <div class="tabs-section-body">
+      <h2 class="">Functions</h2>
+      <div class="table" data-togglable="Functions"><a data-name="-651370629%2FFunctions%2F-1357061740" anchor-label="configure" id="-651370629%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+        <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+          <div class="main-subrow keyValue ">
+            <div class=""><span class="inline-flex">
+                <div><a href="configure.html"><span><span>configure</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-651370629%2FFunctions%2F-1357061740"></span>
+                  <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                </span></span></div>
+            <div>
+              <div class="title">
+                <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="configure.html"><span class="token function">configure</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">apiKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">applicationContext<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">networkTimeout<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>KlaviyoConfig.NETWORK_TIMEOUT_DEFAULT<span class="token punctuation">, </span></span><span class="parameter ">networkFlushInterval<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>KlaviyoConfig.NETWORK_FLUSH_INTERVAL_DEFAULT<span class="token punctuation">, </span></span><span class="parameter ">networkFlushDepth<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>KlaviyoConfig.NETWORK_FLUSH_DEPTH_DEFAULT<span class="token punctuation">, </span></span><span class="parameter ">networkFlushCheckInterval<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>KlaviyoConfig.NETWORK_FLUSH_CHECK_INTERVAL<span class="token punctuation">, </span></span><span class="parameter ">networkUseAnalyticsBatchQueue<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span>KlaviyoConfig.NETWORK_USE_ANALYTICS_BATCH_QUEUE</span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">Klaviyo</a></div><div class="brief "><p class="paragraph">Configure Klaviyo SDK with your account's public API Key and application context. Optionally specify additional behavior customization</p></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+<a data-name="-1784359873%2FFunctions%2F-1357061740" anchor-label="createEvent" id="-1784359873%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+        <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+          <div class="main-subrow keyValue ">
+            <div class=""><span class="inline-flex">
+                <div><a href="create-event.html"><span>create</span><wbr><span><span>Event</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1784359873%2FFunctions%2F-1357061740"></span>
+                  <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                </span></span></div>
+            <div>
+              <div class="title">
+                <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="create-event.html"><span class="token function">createEvent</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">event<span class="token operator">: </span><a href="../../com.klaviyo.coresdk.networking/-klaviyo-event/index.html">KlaviyoEvent</a><span class="token punctuation">, </span></span><span class="parameter ">customerProperties<span class="token operator">: </span><a href="../../com.klaviyo.coresdk.networking/-klaviyo-customer-properties/index.html">KlaviyoCustomerProperties</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter ">properties<span class="token operator">: </span><a href="../../com.klaviyo.coresdk.networking/-klaviyo-event-properties/index.html">KlaviyoEventProperties</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Queues a request to track a <a href="../../com.klaviyo.coresdk.networking/-klaviyo-event/index.html">KlaviyoEvent</a> to the Klaviyo API The event will be associated with the profile specified by the <a href="../../com.klaviyo.coresdk.networking/-klaviyo-customer-properties/index.html">KlaviyoCustomerProperties</a> If customer properties are not set, this will fallback on the current profile identifiers</p></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+<a data-name="-1138858921%2FFunctions%2F-1357061740" anchor-label="createProfile" id="-1138858921%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+        <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+          <div class="main-subrow keyValue ">
+            <div class=""><span class="inline-flex">
+                <div><a href="create-profile.html"><span>create</span><wbr><span><span>Profile</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1138858921%2FFunctions%2F-1357061740"></span>
+                  <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                </span></span></div>
+            <div>
+              <div class="title">
+                <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="create-profile.html"><span class="token function">createProfile</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">properties<span class="token operator">: </span><a href="../../com.klaviyo.coresdk.networking/-klaviyo-customer-properties/index.html">KlaviyoCustomerProperties</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Queues a request to identify profile properties to the Klaviyo API Identify requests track specific properties about a user without triggering an event</p></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+<a data-name="-1293134886%2FFunctions%2F-1357061740" anchor-label="reset" id="-1293134886%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+        <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+          <div class="main-subrow keyValue ">
+            <div class=""><span class="inline-flex">
+                <div><a href="reset.html"><span><span>reset</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1293134886%2FFunctions%2F-1357061740"></span>
+                  <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                </span></span></div>
+            <div>
+              <div class="title">
+                <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="reset.html"><span class="token function">reset</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">Klaviyo</a></div><div class="brief "><p class="paragraph">Clears all stored UserInfo identifiers (e.g. email or phone)</p></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+<a data-name="680005581%2FFunctions%2F-1357061740" anchor-label="setEmail" id="680005581%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+        <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+          <div class="main-subrow keyValue ">
+            <div class=""><span class="inline-flex">
+                <div><a href="set-email.html"><span>set</span><wbr><span><span>Email</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="680005581%2FFunctions%2F-1357061740"></span>
+                  <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                </span></span></div>
+            <div>
+              <div class="title">
+                <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="set-email.html"><span class="token function">setEmail</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">email<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">Klaviyo</a></div><div class="brief "><p class="paragraph">Assigns an email address to the current UserInfo</p></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+<a data-name="-1028713441%2FFunctions%2F-1357061740" anchor-label="setPhone" id="-1028713441%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+        <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+          <div class="main-subrow keyValue ">
+            <div class=""><span class="inline-flex">
+                <div><a href="set-phone.html"><span>set</span><wbr><span><span>Phone</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1028713441%2FFunctions%2F-1357061740"></span>
+                  <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                </span></span></div>
+            <div>
+              <div class="title">
+                <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="set-phone.html"><span class="token function">setPhone</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">phone<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">Klaviyo</a></div><div class="brief "><p class="paragraph">Assigns a phone number to the current UserInfo</p></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2023 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+    </div>
+</div>
+
+</body></html>
+
