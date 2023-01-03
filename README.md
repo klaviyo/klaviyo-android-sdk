@@ -9,7 +9,7 @@ Android SDK allows developers to incorporate Klaviyo event and profile tracking 
 within native Android applications.
 The SDK assists in identifying users and tracking user events.
 Once integrated, your marketing team will be able to better understand your app users' needs and
-send them timely messages via FCM.
+send them timely push notifications via FCM.
 
 ## Installation
 *TODO*
