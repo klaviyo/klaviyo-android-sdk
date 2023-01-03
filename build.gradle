@@ -38,21 +38,7 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
-dokka() {
-    outputFormat = "html"
-    outputDirectory = "$buildDir/kdoc"
-    subProjects = ["core", "push"]
-
-    configuration {
-        moduleName = 'data'
-
-        includeNonPublic = true
-        skipDeprecated = false
-        reportUndocumented = true
-        skipEmptyPackages = true
-
-        includes = ["README.md"]
-
-        jdkVersion = 11
-    }
+dokkaHtmlMultiModule {
+    outputDirectory = file("${buildDir}/../docs")
+    includes.from("README.md")
 }

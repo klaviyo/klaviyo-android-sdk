@@ -2,7 +2,7 @@ ext {
     // build dependencies
     gradleBuildToolsVersion = '7.3.1'
     gradleKotlinVersion = '1.7.20'
-    dokkaVersion = '0.10.1'
+    dokkaVersion = '1.7.20'
     gradleKtlintVersion = "11.0.0"
 
     // android versioning

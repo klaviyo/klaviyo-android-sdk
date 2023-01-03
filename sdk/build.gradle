@@ -2,6 +2,7 @@ subprojects {
     apply plugin: 'com.android.library'
     apply plugin: 'kotlin-android'
     apply plugin: "org.jlleitschuh.gradle.ktlint"
+    apply plugin: 'org.jetbrains.dokka'
 
     def ext = rootProject.ext
 
@@ -68,6 +69,20 @@ subprojects {
             exclude("**/generated/**")
             include("**/kotlin/**")
             include("**/java/**")
+        }
+    }
+
+    dokkaHtmlPartial {
+        dokkaSourceSets {
+            configureEach {
+                includeNonPublic.set(false)
+                reportUndocumented.set(true)
+                skipDeprecated.set(true)
+                skipEmptyPackages.set(true)
+                suppressInheritedMembers.set(true)
+
+                jdkVersion.set(11)
+            }
         }
     }
 }
