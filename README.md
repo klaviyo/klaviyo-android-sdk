@@ -12,7 +12,8 @@ Once integrated, your marketing team will be able to better understand your app 
 send them timely push notifications via FCM.
 
 ## Installation
-*TODO*
+
+[//]: # (TODO publish the SDK and document install steps)
 
 ## Core SDK
 
