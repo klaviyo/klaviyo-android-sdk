@@ -67,7 +67,7 @@ class KlaviyoPushServiceTest {
     private fun withKlaviyoMock() {
         mockkObject(Klaviyo)
         mockkObject(KlaviyoPreferenceUtils)
-        every { Klaviyo.setProfile(any()) } returns Unit
+        every { Klaviyo.setProfile(any()) } returns Klaviyo
         every { Klaviyo.createEvent(any(), any(), any()) } returns Unit
     }
 

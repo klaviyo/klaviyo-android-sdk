@@ -1,9 +1,9 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
-import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
-import com.klaviyo.coresdk.networking.KlaviyoEvent
-import com.klaviyo.coresdk.networking.KlaviyoEventProperties
+import com.klaviyo.coresdk.model.Event
+import com.klaviyo.coresdk.model.KlaviyoEventType
+import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.networking.UserInfo
 import com.klaviyo.coresdk.networking.requests.IdentifyRequest
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
@@ -90,12 +90,29 @@ object Klaviyo {
     }
 
     /**
+     * Assigns an external to the current internally tracked profile
+     *
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
+     *
+     * This should be called whenever the active user in your app changes
+     * (e.g. after a fresh login)
+     *
+     * @param id Phone number for active user
+     */
+    fun setExternalId(id: String) = apply {
+        // TODO setting profile property should queue an API call
+        // TODO format check/validation
+        UserInfo.external_id = id
+    }
+
+    /**
      * Queues a request to identify profile properties to the Klaviyo API
      * Identify requests track specific properties about a user without triggering an event
      *
      * @param properties A map of properties that define the user
      */
-    fun setProfile(properties: KlaviyoCustomerProperties) {
+    fun setProfile(properties: Profile) {
         // TODO Extract phone/email and save in UserInfo
         val request = IdentifyRequest(KlaviyoConfig.apiKey, properties)
         processRequest(request)
@@ -111,13 +128,9 @@ object Klaviyo {
         UserInfo.reset()
     }
 
-    //endregion
-
-    //region Analytics API
-
     /**
-     * Queues a request to track a [KlaviyoEvent] to the Klaviyo API
-     * The event will be associated with the profile specified by the [KlaviyoCustomerProperties]
+     * Queues a request to track an [Event] to the Klaviyo API
+     * The event will be associated with the profile specified by the [Profile]
      * If customer properties are not set, this will fallback on the current profile identifiers
      *
      * @param event Name of the event metric
@@ -125,11 +138,11 @@ object Klaviyo {
      * @param customerProperties Defines the customer that triggered this event, defaults to the current internally tracked profile
      */
     fun createEvent(
-        event: KlaviyoEvent,
-        properties: KlaviyoEventProperties? = null,
-        customerProperties: KlaviyoCustomerProperties? = null
+        event: KlaviyoEventType,
+        properties: Event? = null,
+        customerProperties: Profile? = null
     ) {
-        val profile = customerProperties ?: KlaviyoCustomerProperties().also { setEmail(UserInfo.email) }
+        val profile = customerProperties ?: Profile().also { it.setEmail(UserInfo.email) }
         val request = TrackRequest(KlaviyoConfig.apiKey, event, profile, properties)
         processRequest(request)
     }
@@ -143,6 +156,7 @@ object Klaviyo {
      * These requests are sent to the Klaviyo asynchronous APIs
      */
     private fun processRequest(request: KlaviyoRequest) {
+        // TODO this kind of logic belongs in a "network coordinator" class
         if (KlaviyoConfig.networkUseAnalyticsBatchQueue) {
             request.batch()
         } else {

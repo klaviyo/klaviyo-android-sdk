@@ -1,6 +1,6 @@
 package com.klaviyo.coresdk.networking.requests
 
-import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
+import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.networking.RequestMethod
 import org.json.JSONObject
 
@@ -15,7 +15,7 @@ import org.json.JSONObject
  */
 internal class IdentifyRequest(
     apiKey: String,
-    properties: KlaviyoCustomerProperties
+    profile: Profile
 ) : KlaviyoRequest() {
     internal companion object {
         const val IDENTIFY_ENDPOINT = "api/identify"
@@ -24,11 +24,10 @@ internal class IdentifyRequest(
     override var urlString = "$BASE_URL/$IDENTIFY_ENDPOINT"
     override var requestMethod = RequestMethod.GET
 
-    override var queryData: Map<String, String> = properties.let { properties ->
+    override var queryData: Map<String, String> = profile.let { properties ->
         val data = JSONObject(
             mapOf(
-                "token" to apiKey,
-                "properties" to JSONObject(properties.setAnonymousId().toMap())
+                "token" to apiKey, "properties" to JSONObject(properties.toMap())
             )
         ).toString()
         mapOf(

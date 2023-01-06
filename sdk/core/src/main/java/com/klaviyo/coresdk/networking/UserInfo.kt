@@ -8,6 +8,7 @@ package com.klaviyo.coresdk.networking
 internal object UserInfo {
     var email: String = ""
     var phone: String = ""
+    var external_id: String = ""
 
     fun hasEmail(): Boolean {
         return email.isNotEmpty()
@@ -16,5 +17,6 @@ internal object UserInfo {
     fun reset() {
         email = ""
         phone = ""
+        external_id = ""
     }
 }

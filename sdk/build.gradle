@@ -43,6 +43,7 @@ subprojects {
         //Kotlin Dependencies
         implementation "androidx.core:core-ktx:$ext.coreKTXVersion"
         implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$ext.kotlinSTDVersion"
+        implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.3'
 
         /***** Testing Dependencies *****/
         testImplementation "junit:junit:$ext.junitVersion"

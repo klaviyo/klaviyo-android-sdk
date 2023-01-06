@@ -1,19 +1,19 @@
 package com.klaviyo.coresdk.networking.requests
 
-import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
-import com.klaviyo.coresdk.networking.KlaviyoEvent
-import com.klaviyo.coresdk.networking.KlaviyoEventProperties
+import com.klaviyo.coresdk.model.Event
+import com.klaviyo.coresdk.model.KlaviyoEventType
+import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.networking.RequestMethod
 import java.net.HttpURLConnection
 import org.json.JSONObject
 
 /**
- * Defines information unique to building a valid track request for a [KlaviyoEvent]
+ * Defines information unique to building a valid track request for a [KlaviyoEventType]
  *
  * @constructor apiKey - the API key to identify this request
- * @constructor event - the [KlaviyoEvent] to track
- * @constructor customerProperties - map of customer information we will be using to identify the user
- * @constructor properties - map of property information we will be attaching to this request
+ * @constructor eventType - the [KlaviyoEventType] to track
+ * @constructor eventAttributes - map of property information we will be attaching to this request
+ * @constructor profile - map of customer information we will be using to identify the user
  *
  * @property timestamp The time that this event occurred
  * @property urlString The URL needed to reach the track API in Klaviyo
@@ -21,9 +21,9 @@ import org.json.JSONObject
  */
 internal class TrackRequest(
     apiKey: String,
-    event: KlaviyoEvent,
-    customerProperties: KlaviyoCustomerProperties,
-    properties: KlaviyoEventProperties? = null
+    eventType: KlaviyoEventType,
+    profile: Profile,
+    eventAttributes: Event? = null
 ) : KlaviyoRequest() {
     internal companion object {
         const val TRACK_ENDPOINT = "client/events"
@@ -43,10 +43,10 @@ internal class TrackRequest(
                     "type" to "event",
                     "attributes" to mapOf(
                         "metric" to mapOf(
-                            "name" to event.name,
+                            "name" to eventType.name,
                         ),
-                        "profile" to JSONObject(customerProperties.setAnonymousId().toMap()),
-                        "properties" to properties?.let { JSONObject(it.toMap()) },
+                        "profile" to JSONObject(profile.toMap()),
+                        "properties" to eventAttributes?.let { JSONObject(it.toMap()) },
                         "time" to getTimeString(),
                     ).filterValues { it != null }
                 )

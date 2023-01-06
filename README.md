@@ -40,8 +40,11 @@ class TestApp : Application() {
 ```
 
 ### Identifying a Profile
+[//]: # (TODO: more examples and explanation of overloads)
+
 The SDK keeps track of the "current" profile and persists identifiers across sessions. Profile data is
-automatically synced to the Klaviyo API. You can set basic identifiers individually, like email: 
+automatically synced to the Klaviyo API. You can set basic identifiers individually, like email:
+
 ```kotlin
 Klaviyo.setEmail("test@address.com")
 ```
@@ -49,20 +52,16 @@ or phone:
 ```kotlin
 Klaviyo.setPhone("555-555-5555")
 ``` 
-For other profile data, use 
-```kotlin
-Klaviyo.createProfile(KlaviyoCustomerProperties())
-``` 
 
 ### Tracking Events
 The SDK also provides tools for tracking customer events to the Klaviyo API. 
-An event consists of an event name, a profile the event belongs to, and any custom properties.
-A list of event names is provided in `KlaviyoEvent`, or `KlaviyoEvent.CUSTOM_EVENT("name")`
+An event consists of an event name, a profile the event belongs to, and any custom attributes.
+A list of event names is provided in `KlaviyoEventType`, or `KlaviyoEventType.CUSTOM("name")`
 can be used to create custom names. Typically the event will just belong to the "current" profile, 
-but the `createEvent` method provides an optional argument to specify `KlaviyoCustomerProperties`. 
-Custom event properties can be specified as `KlaviyoEventProperties`
+but the `createEvent` method provides an optional argument to specify `ProfileModel`. 
+Additional event attributes can be specified as `EventModel`
 ```kotlin
-Klaviyo.createEvent(KlaviyoEvent.VIEWED_PRODUCT)
+Klaviyo.createEvent(KlaviyoEventType.VIEWED_PRODUCT)
 ```
 
 ## Push Notifications
@@ -104,11 +103,11 @@ and register it with Klaviyo Push SDK. To track notifications opened from the sy
         super.onNewIntent(intent)
 
         //Tracks when a system tray notification is opened
-        KlaviyoPushService.handlePush(intent, KlaviyoCustomerProperties())
+        KlaviyoPushService.handlePush(intent)
     }
 ```
 
-### Manual implementation of `FirebaseMessagingService` [Advanced]
+### Manual implementation of `FirebaseMessagingService` (Advanced)
 If you'd prefer to implement `FirebaseMessagingService` yourself, follow the FCM 
 setup docs including referencing your own service class in the manifest.
 Then update your implementation of `onNewToken` and `onMessageReceived` as below to communicate 
@@ -126,7 +125,7 @@ class YourPushService: FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        KlaviyoPushService.handlePush(message.data, KlaviyoCustomerProperties())
+        KlaviyoPushService.handlePush(message.data)
     }
 }
 ```

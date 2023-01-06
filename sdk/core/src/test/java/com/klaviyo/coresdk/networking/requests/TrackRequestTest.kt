@@ -3,9 +3,9 @@ package com.klaviyo.coresdk.networking.requests
 import android.content.Context
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.helpers.StaticClock
-import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
-import com.klaviyo.coresdk.networking.KlaviyoEvent
-import com.klaviyo.coresdk.networking.KlaviyoEventProperties
+import com.klaviyo.coresdk.model.Event
+import com.klaviyo.coresdk.model.KlaviyoEventType
+import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.networking.RequestMethod
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest.Companion.BASE_URL
 import com.klaviyo.coresdk.networking.requests.TrackRequest.Companion.TRACK_ENDPOINT
@@ -49,8 +49,8 @@ class TrackRequestTest {
         val valueArgs = mutableListOf<String>()
         every { connectionMock.setRequestProperty(capture(keyArgs), capture(valueArgs)) } returns Unit
 
-        val event = KlaviyoEvent.CUSTOM_EVENT("Test Event")
-        val customerProperties = KlaviyoCustomerProperties()
+        val event = KlaviyoEventType.CUSTOM("Test Event")
+        val customerProperties = Profile()
             .setEmail("test@test.com")
             .setPhoneNumber("+12223334444")
 
@@ -83,12 +83,12 @@ class TrackRequestTest {
         val valueArgs = mutableListOf<String>()
         every { connectionMock.setRequestProperty(capture(keyArgs), capture(valueArgs)) } returns Unit
 
-        val event = KlaviyoEvent.CUSTOM_EVENT("Test Event")
-        val customerProperties = KlaviyoCustomerProperties()
+        val event = KlaviyoEventType.CUSTOM("Test Event")
+        val customerProperties = Profile()
             .setEmail("test@test.com")
             .setPhoneNumber("+12223334444")
-        val properties = KlaviyoEventProperties()
-            .addCustomProperty("custom_value", "200")
+        val properties = Event()
+            .setProperty("custom_value", "200")
 
         val expectedQueryData = mapOf(
             "company_id" to "Fake_Key"

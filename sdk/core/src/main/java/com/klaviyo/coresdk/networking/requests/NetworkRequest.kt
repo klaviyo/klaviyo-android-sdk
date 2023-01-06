@@ -38,7 +38,7 @@ internal abstract class NetworkRequest {
     internal fun isInternetConnected(context: Context): Boolean {
         val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        // TODO: We may want to replace this later. Deprecated as of Android API 29.
+        //  TODO: We may want to replace this later. Deprecated as of Android API 29.
         //  But the alternative solution is an asynchronous task that requires the user to register
         //  a network callback listener, which isn't ideal just for a network connectivity check in an SDK
         val networkInfo = connectivityManager.activeNetworkInfo ?: return false
