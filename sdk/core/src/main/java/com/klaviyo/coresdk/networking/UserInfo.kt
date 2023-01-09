@@ -9,7 +9,6 @@ internal object UserInfo {
     var external_id: String = ""
     var email: String = ""
     var phone: String = ""
-    var external_id: String = ""
 
     fun hasEmail(): Boolean {
         return email.isNotEmpty()
@@ -19,6 +18,5 @@ internal object UserInfo {
         external_id = ""
         email = ""
         phone = ""
-        external_id = ""
     }
 }
