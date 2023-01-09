@@ -24,33 +24,18 @@ object Klaviyo {
      *
      * @param apiKey - Your Klaviyo account's public API Key
      * @param applicationContext
-     * @param networkTimeout
-     * @param networkFlushInterval
-     * @param networkFlushDepth
-     * @param networkFlushCheckInterval
-     * @param networkUseAnalyticsBatchQueue
      * @return
      */
     fun configure(
         apiKey: String,
-        applicationContext: Context,
-        networkTimeout: Int = KlaviyoConfig.NETWORK_TIMEOUT_DEFAULT,
-        networkFlushInterval: Int = KlaviyoConfig.NETWORK_FLUSH_INTERVAL_DEFAULT,
-        networkFlushDepth: Int = KlaviyoConfig.NETWORK_FLUSH_DEPTH_DEFAULT,
-        networkFlushCheckInterval: Int = KlaviyoConfig.NETWORK_FLUSH_CHECK_INTERVAL,
-        networkUseAnalyticsBatchQueue: Boolean = KlaviyoConfig.NETWORK_USE_ANALYTICS_BATCH_QUEUE,
+        applicationContext: Context
     ) = apply {
         KlaviyoConfig.Builder()
             .apiKey(apiKey)
             .applicationContext(applicationContext)
-            .networkTimeout(networkTimeout)
-            .networkFlushInterval(networkFlushInterval)
-            .networkFlushDepth(networkFlushDepth)
-            .networkFlushCheckInterval(networkFlushCheckInterval)
-            .networkUseAnalyticsBatchQueue(networkUseAnalyticsBatchQueue)
             .build()
 
-        // TODO should this generate an anon-id and queue an API call?
+        // TODO initialize state from persistent store
     }
 
     //region Fluent setters

@@ -12,20 +12,11 @@ class KlaviyoTest {
     fun `Klaviyo Configure API sets variables successfully`() {
         Klaviyo.configure(
             "Fake_Key",
-            contextMock,
-            1000,
-            10000,
-            10,
-            1000,
-            false
+            contextMock
         )
 
         assert(KlaviyoConfig.apiKey == "Fake_Key")
-        assert(KlaviyoConfig.networkTimeout == 1000)
-        assert(KlaviyoConfig.networkFlushInterval == 10000)
-        assert(KlaviyoConfig.networkFlushDepth == 10)
-        assert(KlaviyoConfig.networkFlushCheckInterval == 1000)
-        assert(!KlaviyoConfig.networkUseAnalyticsBatchQueue)
+        assert(KlaviyoConfig.applicationContext == contextMock)
     }
 
     @Test
