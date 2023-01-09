@@ -40,7 +40,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
 
             Klaviyo.setProfile(properties)
 
-            KlaviyoPreferenceUtils.writeStringPreference(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
+            KlaviyoPreferenceUtils.store(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
         }
 
         /**
@@ -49,7 +49,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @return The push token we read from the shared preferences
          */
         internal fun getPushToken(): String {
-            return KlaviyoPreferenceUtils.readStringPreference(PUSH_TOKEN_PREFERENCE_KEY) ?: ""
+            return KlaviyoPreferenceUtils.fetch(PUSH_TOKEN_PREFERENCE_KEY) ?: ""
         }
 
         /**

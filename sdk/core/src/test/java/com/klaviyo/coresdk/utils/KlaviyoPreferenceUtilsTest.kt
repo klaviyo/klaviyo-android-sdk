@@ -45,7 +45,7 @@ class KlaviyoPreferenceUtilsTest {
         withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
         withWriteStringMock("key", "value")
 
-        KlaviyoPreferenceUtils.writeStringPreference(key = "key", value = "value")
+        KlaviyoPreferenceUtils.store(key = "key", value = "value")
 
         verifyAll {
             contextMock.getSharedPreferences("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
@@ -62,7 +62,7 @@ class KlaviyoPreferenceUtilsTest {
         withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
         withReadStringMock("key", "", expectedString)
 
-        val actualString = KlaviyoPreferenceUtils.readStringPreference(key = "key")
+        val actualString = KlaviyoPreferenceUtils.fetch(key = "key")
 
         assertEquals(expectedString, actualString)
         verifyAll {
