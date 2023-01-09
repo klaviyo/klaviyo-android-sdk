@@ -86,7 +86,6 @@ object Klaviyo {
      */
     fun setExternalId(id: String) = apply {
         // TODO setting profile property should queue an API call
-        // TODO format check/validation
         UserInfo.external_id = id
     }
 
