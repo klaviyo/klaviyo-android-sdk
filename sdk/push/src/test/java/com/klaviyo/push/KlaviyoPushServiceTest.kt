@@ -44,7 +44,7 @@ class KlaviyoPushServiceTest {
 
     @Before
     fun setup() {
-        Klaviyo.configure(
+        Klaviyo.initialize(
             apiKey = "Fake_Key",
             applicationContext = contextMock
         )

@@ -10,7 +10,7 @@ class KlaviyoTest {
 
     @Test
     fun `Klaviyo Configure API sets variables successfully`() {
-        Klaviyo.configure(
+        Klaviyo.initialize(
             "Fake_Key",
             contextMock
         )

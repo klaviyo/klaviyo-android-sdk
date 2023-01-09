@@ -18,15 +18,13 @@ object Klaviyo {
 
     /**
      * Configure Klaviyo SDK with your account's public API Key and application context.
-     * Optionally specify additional behavior customization
-     *
-     * This must be called to initialize the SDK before using any other functionality
+     * This must be called to before using any other SDK functionality
      *
      * @param apiKey - Your Klaviyo account's public API Key
      * @param applicationContext
      * @return
      */
-    fun configure(
+    fun initialize(
         apiKey: String,
         applicationContext: Context
     ) = apply {
@@ -36,6 +34,7 @@ object Klaviyo {
             .build()
 
         // TODO initialize state from persistent store
+        // TODO should we guard all other public methods against being called before this somehow?
     }
 
     //region Fluent setters

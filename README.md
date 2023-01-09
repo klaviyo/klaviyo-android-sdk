@@ -32,7 +32,7 @@ class TestApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        Klaviyo.configure("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+        Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
 
         registerActivityLifecycleCallbacks(KlaviyoLifecycleCallbackListener())
     }
