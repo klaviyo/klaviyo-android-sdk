@@ -19,4 +19,12 @@ internal object UserInfo {
         email = ""
         phone = ""
     }
+
+    fun getAsCustomerProperties(): KlaviyoCustomerProperties {
+        return KlaviyoCustomerProperties().also {
+            it.setIdentifier(this.external_id)
+            it.setEmail(this.email)
+            it.setPhoneNumber(this.phone)
+        }
+    }
 }
