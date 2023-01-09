@@ -33,8 +33,9 @@ object Klaviyo {
             .applicationContext(applicationContext)
             .build()
 
+        // TODO should we guard all other APIs against being called before this?
         // TODO initialize state from persistent store
-        // TODO should we guard all other public methods against being called before this somehow?
+        // TODO initialize profile with new anon ID (if one was not found in store)
     }
 
     //region Fluent setters
@@ -51,9 +52,9 @@ object Klaviyo {
      * @param email Email address for active user
      */
     fun setEmail(email: String) = apply {
-        // TODO setting profile property should queue an API call
-        // TODO format check/validation
+        // TODO validate email format?
         UserInfo.email = email
+        this.setProfile(UserInfo.getAsCustomerProperties())
     }
 
     /**
@@ -68,9 +69,9 @@ object Klaviyo {
      * @param phone Phone number for active user
      */
     fun setPhoneNumber(phone: String) = apply {
-        // TODO setting profile property should queue an API call
-        // TODO format check/validation
+        // TODO validate phone format?
         UserInfo.phone = phone
+        this.setProfile(UserInfo.getAsCustomerProperties())
     }
 
     /**
@@ -85,8 +86,8 @@ object Klaviyo {
      * @param id Phone number for active user
      */
     fun setExternalId(id: String) = apply {
-        // TODO setting profile property should queue an API call
         UserInfo.external_id = id
+        this.setProfile(UserInfo.getAsCustomerProperties())
     }
 
     /**
@@ -95,7 +96,7 @@ object Klaviyo {
      *
      * @param properties A map of properties that define the user
      */
-    fun setProfile(properties: Profile) {
+    fun setProfile(properties: Profile) = apply {
         // TODO Extract phone/email and save in UserInfo
         val request = IdentifyRequest(KlaviyoConfig.apiKey, properties)
         processRequest(request)
@@ -108,6 +109,7 @@ object Klaviyo {
      * (e.g. after a logout)
      */
     fun resetProfile() = apply {
+        // TODO Doesn't reset anon ID
         UserInfo.reset()
     }
 
@@ -125,7 +127,7 @@ object Klaviyo {
         properties: Event? = null,
         customerProperties: Profile? = null
     ) {
-        val profile = customerProperties ?: Profile().also { it.setEmail(UserInfo.email) }
+        val profile = customerProperties ?: UserInfo.getAsCustomerProperties()
         val request = TrackRequest(KlaviyoConfig.apiKey, event, profile, properties)
         processRequest(request)
     }

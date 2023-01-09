@@ -2,15 +2,31 @@ package com.klaviyo.coresdk
 
 import android.content.Context
 import com.klaviyo.coresdk.networking.UserInfo
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
+import org.junit.Before
 import org.junit.Test
 
 class KlaviyoTest {
     private val contextMock: Context = mockk()
+    private val spyKlaviyo: Klaviyo = spyk(Klaviyo).also {
+        // Cheap way to mock API calls
+        // TODO better isolation of our SDK's services would make testing easier
+        every { it.setProfile(any()) } returns Klaviyo
+    }
+
+    @Before
+    fun setup() {
+        spyKlaviyo.initialize(
+            apiKey = "Fake_Key",
+            applicationContext = contextMock
+        )
+    }
 
     @Test
     fun `Klaviyo Configure API sets variables successfully`() {
-        Klaviyo.initialize(
+        spyKlaviyo.initialize(
             "Fake_Key",
             contextMock
         )
@@ -22,7 +38,7 @@ class KlaviyoTest {
     @Test
     fun `Sets user email into info`() {
         val email = "test@test.com"
-        Klaviyo.setEmail(email)
+        spyKlaviyo.setEmail(email)
 
         assert(UserInfo.email == email)
     }
@@ -30,7 +46,7 @@ class KlaviyoTest {
     @Test
     fun `Sets user phone into info`() {
         val phone = "802-555-5555"
-        Klaviyo.setPhoneNumber(phone)
+        spyKlaviyo.setPhoneNumber(phone)
 
         assert(UserInfo.phone == phone)
     }
@@ -38,7 +54,7 @@ class KlaviyoTest {
     @Test
     fun `Sets user external ID into info`() {
         val id = "abc"
-        Klaviyo.setExternalId(id)
+        spyKlaviyo.setExternalId(id)
 
         assert(UserInfo.external_id == id)
     }
@@ -47,10 +63,12 @@ class KlaviyoTest {
     fun `Resets user info`() {
         UserInfo.email = "test"
         UserInfo.phone = "test"
+        UserInfo.external_id = "test"
 
-        Klaviyo.resetProfile()
+        spyKlaviyo.resetProfile()
 
         assert(UserInfo.email == "")
         assert(UserInfo.phone == "")
+        assert(UserInfo.external_id == "")
     }
 }
