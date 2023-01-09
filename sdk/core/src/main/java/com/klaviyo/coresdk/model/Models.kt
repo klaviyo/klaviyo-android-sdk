@@ -1,5 +1,6 @@
 package com.klaviyo.coresdk.model
 
+import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 import java.io.Serializable
 
 /**
@@ -44,6 +45,11 @@ abstract class BaseAttributes<KeyType> where KeyType : KlaviyoKeyword {
 class Profile : BaseAttributes<KlaviyoProfileAttributeKey>() {
 
     private var appendMap: HashMap<String, Serializable> = HashMap()
+
+    init {
+        // TODO remove this and restructure how/when anonymous ID is set
+        setAnonymousId(KlaviyoPreferenceUtils.readOrGenerateUUID())
+    }
 
     fun setIdentifier(identifier: String) = apply { this.identifier = identifier }
     var identifier

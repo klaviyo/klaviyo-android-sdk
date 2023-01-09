@@ -37,7 +37,7 @@ class IdentifyRequestTest {
         customerProperties.setEmail("test@test.com")
 
         val expectedUrlString = "${BuildConfig.KLAVIYO_SERVER_URL}/api/identify"
-        val expectedString = "{\"properties\":{\"\$email\":\"test@test.com\"},\"token\":\"Fake_Key\"}"
+        val expectedString = "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
 
         withMockBase64(expectedString)
 
