@@ -60,6 +60,6 @@ object KlaviyoPreferenceUtils : DataStoreInterface {
      * @return The value read from the shared preferences for the given key
      */
     override fun fetch(key: String): String? {
-        return openSharedPreferences().getString(key, null)
+        return openSharedPreferences().getString(key, "")
     }
 }
