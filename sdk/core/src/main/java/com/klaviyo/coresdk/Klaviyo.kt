@@ -144,7 +144,7 @@ object Klaviyo {
      * Otherwise the request will send instantly.
      * These requests are sent to the Klaviyo asynchronous APIs
      */
-    internal fun processRequest(request: KlaviyoRequest) {
+    private fun processRequest(request: KlaviyoRequest) {
         if (KlaviyoConfig.networkUseAnalyticsBatchQueue) {
             request.batch()
         } else {
