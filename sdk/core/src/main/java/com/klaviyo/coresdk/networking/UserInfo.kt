@@ -6,6 +6,7 @@ package com.klaviyo.coresdk.networking
  * Stores information on the currently active user
  */
 internal object UserInfo {
+    var external_id: String = ""
     var email: String = ""
     var phone: String = ""
 
@@ -14,6 +15,7 @@ internal object UserInfo {
     }
 
     fun reset() {
+        external_id = ""
         email = ""
         phone = ""
     }

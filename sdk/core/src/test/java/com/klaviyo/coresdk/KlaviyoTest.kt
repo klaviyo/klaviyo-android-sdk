@@ -36,6 +36,14 @@ class KlaviyoTest {
     }
 
     @Test
+    fun `Sets user external ID into info`() {
+        val id = "abc"
+        Klaviyo.setExternalId(id)
+
+        assert(UserInfo.external_id == id)
+    }
+
+    @Test
     fun `Resets user info`() {
         UserInfo.email = "test"
         UserInfo.phone = "test"

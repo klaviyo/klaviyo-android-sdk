@@ -74,6 +74,22 @@ object Klaviyo {
     }
 
     /**
+     * Assigns an external to the current internally tracked profile
+     *
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
+     *
+     * This should be called whenever the active user in your app changes
+     * (e.g. after a fresh login)
+     *
+     * @param id Phone number for active user
+     */
+    fun setExternalId(id: String) = apply {
+        // TODO setting profile property should queue an API call
+        UserInfo.external_id = id
+    }
+
+    /**
      * Queues a request to identify profile properties to the Klaviyo API
      * Identify requests track specific properties about a user without triggering an event
      *
