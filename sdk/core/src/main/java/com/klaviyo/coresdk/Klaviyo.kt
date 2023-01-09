@@ -54,7 +54,7 @@ object Klaviyo {
     fun setEmail(email: String) = apply {
         // TODO validate email format?
         UserInfo.email = email
-        this.setProfile(UserInfo.getAsCustomerProperties())
+        this.setProfile(UserInfo.getAsProfile())
     }
 
     /**
@@ -71,7 +71,7 @@ object Klaviyo {
     fun setPhoneNumber(phone: String) = apply {
         // TODO validate phone format?
         UserInfo.phone = phone
-        this.setProfile(UserInfo.getAsCustomerProperties())
+        this.setProfile(UserInfo.getAsProfile())
     }
 
     /**
@@ -87,7 +87,7 @@ object Klaviyo {
      */
     fun setExternalId(id: String) = apply {
         UserInfo.external_id = id
-        this.setProfile(UserInfo.getAsCustomerProperties())
+        this.setProfile(UserInfo.getAsProfile())
     }
 
     /**
@@ -127,7 +127,7 @@ object Klaviyo {
         properties: Event? = null,
         customerProperties: Profile? = null
     ) {
-        val profile = customerProperties ?: UserInfo.getAsCustomerProperties()
+        val profile = customerProperties ?: UserInfo.getAsProfile()
         val request = TrackRequest(KlaviyoConfig.apiKey, event, profile, properties)
         processRequest(request)
     }

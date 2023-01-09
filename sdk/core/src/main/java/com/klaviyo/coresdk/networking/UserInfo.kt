@@ -1,6 +1,7 @@
 package com.klaviyo.coresdk.networking
 
 import com.klaviyo.coresdk.model.Profile
+import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 
 // TODO: Eventually we want to build this up into a user session
 // but for now we just need emails on initialization to associate push tokens with accounts
@@ -12,18 +13,15 @@ internal object UserInfo {
     var email: String = ""
     var phone: String = ""
 
-    fun hasEmail(): Boolean {
-        return email.isNotEmpty()
-    }
-
     fun reset() {
         external_id = ""
         email = ""
         phone = ""
     }
 
-    fun getAsCustomerProperties(): Profile {
+    fun getAsProfile(): Profile {
         return Profile().also {
+            it.setAnonymousId(KlaviyoPreferenceUtils.readOrGenerateUUID())
             it.setIdentifier(this.external_id)
             it.setEmail(this.email)
             it.setPhoneNumber(this.phone)

@@ -201,7 +201,7 @@ class IdentifyRequestTest {
     fun `Build Identify request successfully appends stored email address`() {
         UserInfo.email = "test@test.com"
 
-        val properties = Profile()
+        val properties = UserInfo.getAsProfile()
         properties.setProperty("custom_value", "200")
 
         val expectedQueryData = mapOf(
