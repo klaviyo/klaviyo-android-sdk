@@ -22,6 +22,8 @@ object SharedPreferencesDataStore : DataStore {
     /**
      * Opens the shared preferences and writes a given key/value pair
      *
+     * The write operation is performed async, but has no callback
+     *
      * @param key The identifying key that the value being written will go by
      * @param value The value that we are writing to the shared preferences
      */
