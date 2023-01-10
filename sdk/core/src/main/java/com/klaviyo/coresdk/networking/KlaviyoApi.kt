@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 /**
  * Internal coordinator of API traffic
  */
-class KlaviyoApiCoordinator {
+internal class KlaviyoApi {
     private var queue = ConcurrentLinkedQueue<NetworkRequest>()
 
     fun enqueueProfileCall(profile: Profile) {
