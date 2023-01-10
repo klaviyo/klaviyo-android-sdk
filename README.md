@@ -54,7 +54,7 @@ Klaviyo.setPhone("555-555-5555")
 ``` 
 
 ### Tracking Events
-The SDK also provides tools for tracking customer events to the Klaviyo API. 
+The SDK also provides tools for tracking analytics events to the Klaviyo API. 
 An event consists of an event name, a profile the event belongs to, and any custom attributes.
 A list of event names is provided in `KlaviyoEventType`, or `KlaviyoEventType.CUSTOM("name")`
 can be used to create custom names. Typically the event will just belong to the "current" profile, 

@@ -15,8 +15,12 @@ abstract class BaseAttributes<KeyType> where KeyType : KlaviyoKeyword {
         return propertyMap[key]
     }
 
-    operator fun set(key: KeyType, value: Serializable) {
-        propertyMap[key] = value
+    operator fun set(key: KeyType, value: Serializable?) {
+        if (value == null) {
+            propertyMap.remove(key)
+        } else {
+            propertyMap[key] = value
+        }
     }
 
     /**
@@ -40,7 +44,7 @@ abstract class BaseAttributes<KeyType> where KeyType : KlaviyoKeyword {
 }
 
 /**
- * Controls the data that can be input into a map of customer attributes recognised by Klaviyo
+ * Controls the data that can be input into a map of profile attributes recognised by Klaviyo
  */
 class Profile : BaseAttributes<KlaviyoProfileAttributeKey>() {
 
@@ -52,29 +56,29 @@ class Profile : BaseAttributes<KlaviyoProfileAttributeKey>() {
     }
 
     fun setIdentifier(identifier: String) = apply { this.identifier = identifier }
-    var identifier
-        get() = (this[KlaviyoProfileAttributeKey.EXTERNAL_ID] ?: "") as String
+    var identifier: String?
+        get() = (this[KlaviyoProfileAttributeKey.EXTERNAL_ID]) as String?
         set(value) {
             this[KlaviyoProfileAttributeKey.EXTERNAL_ID] = value
         }
 
     fun setEmail(email: String) = apply { this.email = email }
-    var email
-        get() = (this[KlaviyoProfileAttributeKey.EMAIL] ?: "") as String
+    var email: String?
+        get() = (this[KlaviyoProfileAttributeKey.EMAIL]) as String?
         set(value) {
             this[KlaviyoProfileAttributeKey.EMAIL] = value
         }
 
     fun setPhoneNumber(phoneNumber: String) = apply { this.phoneNumber = phoneNumber }
-    var phoneNumber
-        get() = (this[KlaviyoProfileAttributeKey.PHONE_NUMBER] ?: "") as String
+    var phoneNumber: String?
+        get() = (this[KlaviyoProfileAttributeKey.PHONE_NUMBER]) as String?
         set(value) {
             this[KlaviyoProfileAttributeKey.PHONE_NUMBER] = value
         }
 
     internal fun setAnonymousId(anonymousId: String) = apply { this.anonymousId = anonymousId }
-    internal var anonymousId
-        get() = (this[KlaviyoProfileAttributeKey.ANONYMOUS_ID] ?: "") as String
+    internal var anonymousId: String?
+        get() = (this[KlaviyoProfileAttributeKey.ANONYMOUS_ID]) as String
         set(value) {
             this[KlaviyoProfileAttributeKey.ANONYMOUS_ID] = value
         }

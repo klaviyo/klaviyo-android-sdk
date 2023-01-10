@@ -4,7 +4,7 @@
 package com.klaviyo.coresdk.model
 
 /**
- * Base class used to provide polymorphic properties to the use of customer and event keys
+ * Base class used to provide polymorphic properties to the use of profile and event keys
  */
 sealed class KlaviyoKeyword(val name: String) {
     override fun toString(): String {
@@ -13,7 +13,8 @@ sealed class KlaviyoKeyword(val name: String) {
 }
 
 /**
- * All keys recognised by the Klaviyo APIs for identifying information within maps of customer properties
+ * All keys recognised by the Klaviyo APIs
+ * for identifying information within maps of profile properties
  */
 sealed class KlaviyoProfileAttributeKey(name: String) : KlaviyoKeyword(name) {
 

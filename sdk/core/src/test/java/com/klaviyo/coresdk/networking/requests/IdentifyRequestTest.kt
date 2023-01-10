@@ -33,8 +33,8 @@ class IdentifyRequestTest {
 
     @Test
     fun `uses the correct endpoint`() {
-        val customerProperties = Profile()
-        customerProperties.setEmail("test@test.com")
+        val profile = Profile()
+            .setEmail("test@test.com")
 
         val expectedUrlString = "${BuildConfig.KLAVIYO_SERVER_URL}/api/identify"
         val expectedString = "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
@@ -43,7 +43,7 @@ class IdentifyRequestTest {
 
         val actualUrlString = IdentifyRequest(
             apiKey = apiKey,
-            profile = customerProperties,
+            profile = profile,
         ).urlString
 
         assertEquals(expectedUrlString, actualUrlString)
@@ -51,8 +51,8 @@ class IdentifyRequestTest {
 
     @Test
     fun `uses the correct method`() {
-        val customerProperties = Profile()
-        customerProperties.setEmail("test@test.com")
+        val profile = Profile()
+            .setEmail("test@test.com")
 
         val expectedMethod = RequestMethod.GET
         val expectedString = "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
@@ -61,7 +61,7 @@ class IdentifyRequestTest {
 
         val actualMethod = IdentifyRequest(
             apiKey = apiKey,
-            profile = customerProperties,
+            profile = profile,
         ).requestMethod
 
         assertEquals(expectedMethod, actualMethod)
@@ -71,7 +71,7 @@ class IdentifyRequestTest {
     fun `does not set a payload`() {
         UserInfo.email = ""
 
-        val customerProperties = Profile()
+        val profile = Profile()
 
         val expectedPayload = null
         val expectedString = "{\"properties\":{\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
@@ -80,7 +80,7 @@ class IdentifyRequestTest {
 
         val actualPayload = IdentifyRequest(
             apiKey = apiKey,
-            profile = customerProperties,
+            profile = profile,
         ).payload
 
         assertEquals(expectedPayload, actualPayload)
@@ -90,7 +90,7 @@ class IdentifyRequestTest {
     fun `queryData includes api key and anonymous`() {
         UserInfo.email = ""
 
-        val customerProperties = Profile()
+        val profile = Profile()
 
         val expectedString = "{\"properties\":{\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
         val expectedQueryData = mapOf("data" to encodedString)
@@ -98,7 +98,7 @@ class IdentifyRequestTest {
         withMockBase64(expectedString = expectedString)
         val actualQueryData = IdentifyRequest(
             apiKey = apiKey,
-            profile = customerProperties,
+            profile = profile,
         ).queryData
         assertEquals(expectedQueryData, actualQueryData)
     }

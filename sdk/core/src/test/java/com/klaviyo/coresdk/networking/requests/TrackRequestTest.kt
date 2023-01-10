@@ -50,7 +50,7 @@ class TrackRequestTest {
         every { connectionMock.setRequestProperty(capture(keyArgs), capture(valueArgs)) } returns Unit
 
         val event = KlaviyoEventType.CUSTOM("Test Event")
-        val customerProperties = Profile()
+        val profile = Profile()
             .setEmail("test@test.com")
             .setPhoneNumber("+12223334444")
 
@@ -62,7 +62,7 @@ class TrackRequestTest {
         val expectedHeaderKeys = listOf("Content-Type", "Accept", "Revision")
         val expectedHeaderValues = listOf("application/json", "application/json", "2022-10-17")
 
-        val request = TrackRequest(apiKey = KlaviyoConfig.apiKey, event, customerProperties)
+        val request = TrackRequest(apiKey = KlaviyoConfig.apiKey, event, profile)
         request.appendHeaders(connectionMock)
 
         assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)
@@ -84,7 +84,7 @@ class TrackRequestTest {
         every { connectionMock.setRequestProperty(capture(keyArgs), capture(valueArgs)) } returns Unit
 
         val event = KlaviyoEventType.CUSTOM("Test Event")
-        val customerProperties = Profile()
+        val profile = Profile()
             .setEmail("test@test.com")
             .setPhoneNumber("+12223334444")
         val properties = Event()
@@ -98,7 +98,7 @@ class TrackRequestTest {
         val expectedHeaderKeys = listOf("Content-Type", "Accept", "Revision")
         val expectedHeaderValues = listOf("application/json", "application/json", "2022-10-17")
 
-        val request = TrackRequest(apiKey = KlaviyoConfig.apiKey, event, customerProperties, properties)
+        val request = TrackRequest(apiKey = KlaviyoConfig.apiKey, event, profile, properties)
         request.appendHeaders(connectionMock)
 
         assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)

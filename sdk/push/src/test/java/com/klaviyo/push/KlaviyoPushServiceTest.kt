@@ -82,7 +82,7 @@ class KlaviyoPushServiceTest {
     }
 
     @Test
-    fun `Appends a new push token to customer properties`() {
+    fun `Appends a new push token to profile`() {
         withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
         withWriteStringMock(PUSH_TOKEN_PREFERENCE_KEY, stubPushToken)
         withKlaviyoMock()

@@ -14,6 +14,18 @@ internal object UserInfo {
     var phoneNumber: String = ""
     // TODO should anon ID be here with all the other identifiers
 
+    fun hasExternalId(): Boolean {
+        return externalId.isNotEmpty()
+    }
+
+    fun hasEmail(): Boolean {
+        return email.isNotEmpty()
+    }
+
+    fun hasPhoneNumber(): Boolean {
+        return phoneNumber.isNotEmpty()
+    }
+
     fun reset() {
         externalId = ""
         email = ""
@@ -27,5 +39,38 @@ internal object UserInfo {
             it.setEmail(this.email)
             it.setPhoneNumber(this.phoneNumber)
         }
+    }
+
+    /**
+     * Apply all identifiers from UserInfo to a [Profile] object
+     *
+     * @param properties
+     */
+    private fun populateProfile(properties: Profile) {
+        if (hasExternalId()) {
+            properties.setIdentifier(externalId)
+        }
+
+        if (hasEmail()) {
+            properties.setEmail(email)
+        }
+
+        if (hasPhoneNumber()) {
+            properties.setPhoneNumber(phoneNumber)
+        }
+    }
+
+    /**
+     * Two-way merge of a [Profile] object with UserInfo
+     * Identifiers present on the incoming object will be applied to UserInfo
+     * Any other identifiers will be added to the properties object from UserInfo
+     *
+     * @param properties
+     */
+    fun mergeProfile(properties: Profile) {
+        externalId = properties.identifier ?: externalId
+        email = properties.email ?: email
+        phoneNumber = properties.phoneNumber ?: phoneNumber
+        populateProfile(properties)
     }
 }

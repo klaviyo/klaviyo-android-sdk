@@ -13,7 +13,7 @@ import org.json.JSONObject
  * @constructor apiKey - the API key to identify this request
  * @constructor eventType - the [KlaviyoEventType] to track
  * @constructor eventAttributes - map of property information we will be attaching to this request
- * @constructor profile - map of customer information we will be using to identify the user
+ * @constructor profile - map of profile information we will be using to identify the user
  *
  * @property timestamp The time that this event occurred
  * @property urlString The URL needed to reach the track API in Klaviyo
