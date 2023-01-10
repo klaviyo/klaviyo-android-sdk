@@ -27,7 +27,8 @@ internal class IdentifyRequest(
     override var queryData: Map<String, String> = profile.let { properties ->
         val data = JSONObject(
             mapOf(
-                "token" to apiKey, "properties" to JSONObject(properties.toMap())
+                "token" to apiKey,
+                "properties" to JSONObject(properties.toMap())
             )
         ).toString()
         mapOf(
