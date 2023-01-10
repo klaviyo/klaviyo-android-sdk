@@ -51,7 +51,7 @@ class Profile : BaseAttributes<KlaviyoProfileAttributeKey>() {
     private var appendMap: HashMap<String, Serializable> = HashMap()
 
     init {
-        // TODO remove this and restructure how/when anonymous ID is set
+        // TODO Revisit how anonymous ID is managed
         setAnonymousId(KlaviyoPreferenceUtils.readOrGenerateUUID())
     }
 
