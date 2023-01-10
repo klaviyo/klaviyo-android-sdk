@@ -53,7 +53,6 @@ object Klaviyo {
      * @return
      */
     fun setEmail(email: String): Klaviyo = apply {
-        // TODO validate email format?
         UserInfo.email = email
         this.setProfile(UserInfo.getAsCustomerProperties())
     }
@@ -70,13 +69,12 @@ object Klaviyo {
      * @param phone Phone number for active user
      */
     fun setPhoneNumber(phone: String): Klaviyo = apply {
-        // TODO validate phone format?
         UserInfo.phoneNumber = phone
         this.setProfile(UserInfo.getAsCustomerProperties())
     }
 
     /**
-     * Assigns an external to the current internally tracked profile
+     * Assigns an external ID to the current internally tracked profile
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
