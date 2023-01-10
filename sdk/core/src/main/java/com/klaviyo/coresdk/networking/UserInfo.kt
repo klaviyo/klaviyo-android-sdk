@@ -9,22 +9,23 @@ import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
  * Stores information on the currently active user
  */
 internal object UserInfo {
-    var external_id: String = ""
+    var externalId: String = ""
     var email: String = ""
-    var phone: String = ""
+    var phoneNumber: String = ""
+    // TODO should anon ID be here with all the other identifiers
 
     fun reset() {
-        external_id = ""
+        externalId = ""
         email = ""
-        phone = ""
+        phoneNumber = ""
     }
 
     fun getAsProfile(): Profile {
         return Profile().also {
             it.setAnonymousId(KlaviyoPreferenceUtils.readOrGenerateUUID())
-            it.setIdentifier(this.external_id)
+            it.setIdentifier(this.externalId)
             it.setEmail(this.email)
-            it.setPhoneNumber(this.phone)
+            it.setPhoneNumber(this.phoneNumber)
         }
     }
 }

@@ -27,7 +27,7 @@ object Klaviyo {
     fun initialize(
         apiKey: String,
         applicationContext: Context
-    ) = apply {
+    ) {
         KlaviyoConfig.Builder()
             .apiKey(apiKey)
             .applicationContext(applicationContext)
@@ -50,8 +50,9 @@ object Klaviyo {
      * (e.g. after a fresh login)
      *
      * @param email Email address for active user
+     * @return
      */
-    fun setEmail(email: String) = apply {
+    fun setEmail(email: String): Klaviyo = apply {
         // TODO validate email format?
         UserInfo.email = email
         this.setProfile(UserInfo.getAsProfile())
@@ -68,9 +69,9 @@ object Klaviyo {
      *
      * @param phone Phone number for active user
      */
-    fun setPhoneNumber(phone: String) = apply {
+    fun setPhoneNumber(phone: String): Klaviyo = apply {
         // TODO validate phone format?
-        UserInfo.phone = phone
+        UserInfo.phoneNumber = phone
         this.setProfile(UserInfo.getAsProfile())
     }
 
@@ -84,9 +85,10 @@ object Klaviyo {
      * (e.g. after a fresh login)
      *
      * @param id Phone number for active user
+     * @return
      */
     fun setExternalId(id: String) = apply {
-        UserInfo.external_id = id
+        UserInfo.externalId = id
         this.setProfile(UserInfo.getAsProfile())
     }
 
@@ -95,9 +97,11 @@ object Klaviyo {
      * Identify requests track specific properties about a user without triggering an event
      *
      * @param properties A map of properties that define the user
+     * @return
      */
-    fun setProfile(properties: Profile) = apply {
-        // TODO Extract phone/email and save in UserInfo
+    fun setProfile(properties: Profile): Klaviyo = apply {
+        // TODO Extract phone/email and save in state?
+        //  I'm still a bit confused about the exact purpose of this method
         val request = IdentifyRequest(KlaviyoConfig.apiKey, properties)
         processRequest(request)
     }
@@ -107,8 +111,10 @@ object Klaviyo {
      *
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
+     *
+     * @return
      */
-    fun resetProfile() = apply {
+    fun resetProfile(): Klaviyo = apply {
         // TODO Doesn't reset anon ID
         UserInfo.reset()
     }
@@ -121,12 +127,13 @@ object Klaviyo {
      * @param event Name of the event metric
      * @param properties Additional properties associated to the event that are not for identifying the customer
      * @param customerProperties Defines the customer that triggered this event, defaults to the current internally tracked profile
+     * @return
      */
     fun createEvent(
         event: KlaviyoEventType,
         properties: Event? = null,
         customerProperties: Profile? = null
-    ) {
+    ): Klaviyo = apply {
         val profile = customerProperties ?: UserInfo.getAsProfile()
         val request = TrackRequest(KlaviyoConfig.apiKey, event, profile, properties)
         processRequest(request)
@@ -141,7 +148,7 @@ object Klaviyo {
      * These requests are sent to the Klaviyo asynchronous APIs
      */
     private fun processRequest(request: KlaviyoRequest) {
-        // TODO this kind of logic belongs in a "network coordinator" class
+        // TODO this belongs within networking namespace
         if (KlaviyoConfig.networkUseAnalyticsBatchQueue) {
             request.batch()
         } else {
