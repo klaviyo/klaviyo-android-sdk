@@ -5,6 +5,7 @@ import com.klaviyo.coresdk.networking.UserInfo
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
+import io.mockk.verify
 import org.junit.Before
 import org.junit.Test
 
@@ -41,6 +42,7 @@ class KlaviyoTest {
         spyKlaviyo.setEmail(email)
 
         assert(UserInfo.email == email)
+        verify(exactly = 1) { spyKlaviyo.setProfile(any()) }
     }
 
     @Test
@@ -49,6 +51,7 @@ class KlaviyoTest {
         spyKlaviyo.setPhoneNumber(phone)
 
         assert(UserInfo.phone == phone)
+        verify(exactly = 1) { spyKlaviyo.setProfile(any()) }
     }
 
     @Test
@@ -57,7 +60,10 @@ class KlaviyoTest {
         spyKlaviyo.setExternalId(id)
 
         assert(UserInfo.external_id == id)
+        verify(exactly = 1) { spyKlaviyo.setProfile(any()) }
     }
+
+    // TODO missing a test of setProfile, need to mock API service better
 
     @Test
     fun `Resets user info`() {
@@ -70,5 +76,6 @@ class KlaviyoTest {
         assert(UserInfo.email == "")
         assert(UserInfo.phone == "")
         assert(UserInfo.external_id == "")
+        // TODO API behavior... it should probably have made 1 call with new anonymous ID?
     }
 }
