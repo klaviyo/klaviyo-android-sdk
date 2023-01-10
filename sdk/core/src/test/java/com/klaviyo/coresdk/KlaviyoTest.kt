@@ -50,7 +50,7 @@ class KlaviyoTest {
         val phone = "802-555-5555"
         spyKlaviyo.setPhoneNumber(phone)
 
-        assert(UserInfo.phone == phone)
+        assert(UserInfo.phoneNumber == phone)
         verify(exactly = 1) { spyKlaviyo.setProfile(any()) }
     }
 
@@ -59,7 +59,7 @@ class KlaviyoTest {
         val id = "abc"
         spyKlaviyo.setExternalId(id)
 
-        assert(UserInfo.external_id == id)
+        assert(UserInfo.externalId == id)
         verify(exactly = 1) { spyKlaviyo.setProfile(any()) }
     }
 
@@ -68,14 +68,14 @@ class KlaviyoTest {
     @Test
     fun `Resets user info`() {
         UserInfo.email = "test"
-        UserInfo.phone = "test"
-        UserInfo.external_id = "test"
+        UserInfo.phoneNumber = "test"
+        UserInfo.externalId = "test"
 
         spyKlaviyo.resetProfile()
 
         assert(UserInfo.email == "")
-        assert(UserInfo.phone == "")
-        assert(UserInfo.external_id == "")
+        assert(UserInfo.phoneNumber == "")
+        assert(UserInfo.externalId == "")
         // TODO API behavior... it should probably have made 1 call with new anonymous ID?
     }
 }

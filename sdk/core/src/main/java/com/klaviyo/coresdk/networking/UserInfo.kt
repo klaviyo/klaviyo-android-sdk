@@ -6,25 +6,26 @@ package com.klaviyo.coresdk.networking
  * Stores information on the currently active user
  */
 internal object UserInfo {
-    var external_id: String = ""
+    var externalId: String = ""
     var email: String = ""
-    var phone: String = ""
+    var phoneNumber: String = ""
+    // TODO should anon ID be here with all the other identifiers
 
     fun hasEmail(): Boolean {
         return email.isNotEmpty()
     }
 
     fun reset() {
-        external_id = ""
+        externalId = ""
         email = ""
-        phone = ""
+        phoneNumber = ""
     }
 
     fun getAsCustomerProperties(): KlaviyoCustomerProperties {
         return KlaviyoCustomerProperties().also {
-            it.setIdentifier(this.external_id)
+            it.setIdentifier(this.externalId)
             it.setEmail(this.email)
-            it.setPhoneNumber(this.phone)
+            it.setPhoneNumber(this.phoneNumber)
         }
     }
 }
