@@ -74,14 +74,26 @@ class KlaviyoCustomerProperties : KlaviyoProperties() {
         return this
     }
 
+    fun getIdentifier(): String? {
+        return propertyMap[KlaviyoCustomerPropertyKeys.ID.name] as String?
+    }
+
     fun setEmail(value: String): KlaviyoCustomerProperties {
         propertyMap[KlaviyoCustomerPropertyKeys.EMAIL.name] = value
         return this
     }
 
+    fun getEmail(): String? {
+        return propertyMap[KlaviyoCustomerPropertyKeys.EMAIL.name] as String?
+    }
+
     fun setPhoneNumber(value: String): KlaviyoCustomerProperties {
         propertyMap[KlaviyoCustomerPropertyKeys.PHONE_NUMBER.name] = value
         return this
+    }
+
+    fun getPhoneNumber(): String? {
+        return propertyMap[KlaviyoCustomerPropertyKeys.PHONE_NUMBER.name] as String?
     }
 
     fun addAppendProperty(key: String, value: String): KlaviyoCustomerProperties {

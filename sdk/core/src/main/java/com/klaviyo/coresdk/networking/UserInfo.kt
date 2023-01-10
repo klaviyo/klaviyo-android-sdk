@@ -11,8 +11,16 @@ internal object UserInfo {
     var phoneNumber: String = ""
     // TODO should anon ID be here with all the other identifiers
 
+    fun hasExternalId(): Boolean {
+        return externalId.isNotEmpty()
+    }
+
     fun hasEmail(): Boolean {
         return email.isNotEmpty()
+    }
+
+    fun hasPhoneNumber(): Boolean {
+        return phoneNumber.isNotEmpty()
     }
 
     fun reset() {
@@ -21,11 +29,47 @@ internal object UserInfo {
         phoneNumber = ""
     }
 
+    /**
+     * Construct a [KlaviyoCustomerProperties] object containing current UserInfo identifiers
+     *
+     * @return
+     */
     fun getAsCustomerProperties(): KlaviyoCustomerProperties {
         return KlaviyoCustomerProperties().also {
-            it.setIdentifier(this.externalId)
-            it.setEmail(this.email)
-            it.setPhoneNumber(this.phoneNumber)
+            setCustomerProperties(it)
         }
+    }
+
+    /**
+     * Apply all identifiers from UserInfo to a [KlaviyoCustomerProperties] object
+     *
+     * @param properties
+     */
+    private fun setCustomerProperties(properties: KlaviyoCustomerProperties) {
+        if (hasExternalId()) {
+            properties.setIdentifier(externalId)
+        }
+
+        if (hasEmail()) {
+            properties.setEmail(email)
+        }
+
+        if (hasPhoneNumber()) {
+            properties.setPhoneNumber(phoneNumber)
+        }
+    }
+
+    /**
+     * Two-way merge of a [KlaviyoCustomerProperties] object with UserInfo
+     * Identifiers present on the incoming object will be applied to UserInfo
+     * Any other identifiers will be added to the properties object from UserInfo
+     *
+     * @param properties
+     */
+    fun mergeCustomerProperties(properties: KlaviyoCustomerProperties) {
+        externalId = properties.getIdentifier() ?: externalId
+        email = properties.getEmail() ?: email
+        phoneNumber = properties.getPhoneNumber() ?: phoneNumber
+        setCustomerProperties(properties)
     }
 }

@@ -38,7 +38,7 @@ object Klaviyo {
         // TODO initialize profile with new anon ID (if one was not found in store)
     }
 
-    //region Fluent setters
+    //region Identify API
 
     /**
      * Assigns an email address to the current internally tracked profile
@@ -53,8 +53,7 @@ object Klaviyo {
      * @return
      */
     fun setEmail(email: String): Klaviyo = apply {
-        UserInfo.email = email
-        this.setProfile(UserInfo.getAsCustomerProperties())
+        this.setProfile(KlaviyoCustomerProperties().setEmail(email))
     }
 
     /**
@@ -66,11 +65,10 @@ object Klaviyo {
      * This should be called whenever the active user in your app changes
      * (e.g. after a fresh login)
      *
-     * @param phone Phone number for active user
+     * @param phoneNumber Phone number for active user
      */
-    fun setPhoneNumber(phone: String): Klaviyo = apply {
-        UserInfo.phoneNumber = phone
-        this.setProfile(UserInfo.getAsCustomerProperties())
+    fun setPhoneNumber(phoneNumber: String): Klaviyo = apply {
+        this.setProfile(KlaviyoCustomerProperties().setPhoneNumber(phoneNumber))
     }
 
     /**
@@ -86,22 +84,24 @@ object Klaviyo {
      * @return
      */
     fun setExternalId(id: String): Klaviyo = apply {
-        UserInfo.externalId = id
-        this.setProfile(UserInfo.getAsCustomerProperties())
+        this.setProfile(KlaviyoCustomerProperties().setIdentifier(id))
     }
 
     /**
      * Queues a request to identify profile properties to the Klaviyo API
+     *
+     * Any new identifying properties (externalId, email, phone) will be saved to the current
+     * internally tracked profile. Otherwise any identifiers missing from [properties] will be
+     * populated from the current internally tracked profile info.
+     *
      * Identify requests track specific properties about a user without triggering an event
      *
      * @param properties A map of properties that define the user
      * @return
      */
     fun setProfile(properties: KlaviyoCustomerProperties): Klaviyo = apply {
-        // TODO Extract phone/email and save in state?
-        //  I'm still a bit confused about the exact purpose of this method
-        val request = IdentifyRequest(KlaviyoConfig.apiKey, properties)
-        processRequest(request)
+        UserInfo.mergeCustomerProperties(properties)
+        createIdentifyRequest(properties)
     }
 
     /**
@@ -113,13 +113,13 @@ object Klaviyo {
      * @return
      */
     fun resetProfile(): Klaviyo = apply {
-        // TODO Doesn't reset anon ID
+        // TODO Doesn't reset anon ID because anon ID doesn't live there
         UserInfo.reset()
     }
 
     //endregion
 
-    //region Analytics API
+    //region Events API
 
     /**
      * Queues a request to track a [KlaviyoEvent] to the Klaviyo API
@@ -136,12 +136,42 @@ object Klaviyo {
         properties: KlaviyoEventProperties? = null,
         customerProperties: KlaviyoCustomerProperties? = null
     ): Klaviyo = apply {
-        val profile = customerProperties ?: UserInfo.getAsCustomerProperties()
-        val request = TrackRequest(KlaviyoConfig.apiKey, event, profile, properties)
-        processRequest(request)
+        createEventRequest(
+            event,
+            properties ?: KlaviyoEventProperties(),
+            customerProperties ?: UserInfo.getAsCustomerProperties()
+        )
     }
 
     //endregion
+
+    // region: Network calls
+
+    // TODO all this belongs within networking namespace?
+
+    /**
+     * Enqueue a profile API request
+     *
+     * @param properties
+     */
+    internal fun createIdentifyRequest(properties: KlaviyoCustomerProperties) {
+        processRequest(IdentifyRequest(KlaviyoConfig.apiKey, properties))
+    }
+
+    /**
+     * Enqueue an event API request
+     *
+     * @param event
+     * @param properties
+     * @param customerProperties
+     */
+    internal fun createEventRequest(
+        event: KlaviyoEvent,
+        properties: KlaviyoEventProperties,
+        customerProperties: KlaviyoCustomerProperties
+    ) {
+        processRequest(TrackRequest(KlaviyoConfig.apiKey, event, customerProperties, properties))
+    }
 
     /**
      * Processes the given [KlaviyoRequest] depending on the SDK's configuration.
@@ -150,11 +180,12 @@ object Klaviyo {
      * These requests are sent to the Klaviyo asynchronous APIs
      */
     private fun processRequest(request: KlaviyoRequest) {
-        // TODO this belongs within networking namespace
         if (KlaviyoConfig.networkUseAnalyticsBatchQueue) {
             request.batch()
         } else {
             request.process()
         }
     }
+
+    //endregion
 }

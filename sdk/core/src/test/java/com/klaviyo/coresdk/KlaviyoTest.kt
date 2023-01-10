@@ -12,9 +12,9 @@ import org.junit.Test
 class KlaviyoTest {
     private val contextMock: Context = mockk()
     private val spyKlaviyo: Klaviyo = spyk(Klaviyo).also {
-        // Cheap way to mock API calls
-        // TODO better isolation of our SDK's services would make testing easier
-        every { it.setProfile(any()) } returns it
+        // TODO isolation of our services would make testing easier, e.g. Dependency injection
+        every { it.createIdentifyRequest(any()) } returns Unit
+        every { it.createEventRequest(any(), any(), any()) } returns Unit
     }
 
     @Before
@@ -37,12 +37,21 @@ class KlaviyoTest {
     }
 
     @Test
+    fun `Sets user external ID into info`() {
+        val id = "abc"
+        spyKlaviyo.setExternalId(id)
+
+        assert(UserInfo.externalId == id)
+        verify(exactly = 1) { spyKlaviyo.createIdentifyRequest(any()) }
+    }
+
+    @Test
     fun `Sets user email into info`() {
         val email = "test@test.com"
         spyKlaviyo.setEmail(email)
 
         assert(UserInfo.email == email)
-        verify(exactly = 1) { spyKlaviyo.setProfile(any()) }
+        verify(exactly = 1) { spyKlaviyo.createIdentifyRequest(any()) }
     }
 
     @Test
@@ -51,19 +60,8 @@ class KlaviyoTest {
         spyKlaviyo.setPhoneNumber(phone)
 
         assert(UserInfo.phoneNumber == phone)
-        verify(exactly = 1) { spyKlaviyo.setProfile(any()) }
+        verify(exactly = 1) { spyKlaviyo.createIdentifyRequest(any()) }
     }
-
-    @Test
-    fun `Sets user external ID into info`() {
-        val id = "abc"
-        spyKlaviyo.setExternalId(id)
-
-        assert(UserInfo.externalId == id)
-        verify(exactly = 1) { spyKlaviyo.setProfile(any()) }
-    }
-
-    // TODO missing a test of setProfile, need to mock API service better
 
     @Test
     fun `Resets user info`() {
