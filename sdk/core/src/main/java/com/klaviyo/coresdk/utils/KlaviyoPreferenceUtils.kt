@@ -1,29 +1,14 @@
 package com.klaviyo.coresdk.utils
 
-import android.content.Context
-import android.content.SharedPreferences
-import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.model.DataStore
+import com.klaviyo.coresdk.model.SharedPreferencesDataStore
 import java.util.UUID
 
 /**
  * Used to interface with the shared preferences of the Klaviyo SDK
  */
-object KlaviyoPreferenceUtils : DataStoreInterface {
-    private const val KLAVIYO_PREFS_NAME = "KlaviyoSDKPreferences"
-
+object KlaviyoPreferenceUtils : DataStore {
     internal const val KLAVIYO_UUID_KEY = "UUID"
-
-    /**
-     * Opens the Klaviyo SDK's shared preferences file
-     *
-     * @return The Klaviyo SDK's shared preferences opened in private mode
-     */
-    private fun openSharedPreferences(): SharedPreferences {
-        return KlaviyoConfig.applicationContext.getSharedPreferences(
-            KLAVIYO_PREFS_NAME,
-            Context.MODE_PRIVATE
-        )
-    }
 
     /**
      * Attempts to read a UUID from the shared preferences.
@@ -46,11 +31,7 @@ object KlaviyoPreferenceUtils : DataStoreInterface {
      * @param key The identifying key that the value being written will go by
      * @param value The value that we are writing to the shared preferences
      */
-    override fun store(key: String, value: String) {
-        val editor = openSharedPreferences().edit()
-        editor.putString(key, value)
-        editor.apply()
-    }
+    override fun store(key: String, value: String) = SharedPreferencesDataStore.store(key, value)
 
     /**
      * Opens the shared preferences and reads the value of a given key
@@ -59,7 +40,5 @@ object KlaviyoPreferenceUtils : DataStoreInterface {
      *
      * @return The value read from the shared preferences for the given key
      */
-    override fun fetch(key: String): String? {
-        return openSharedPreferences().getString(key, "")
-    }
+    override fun fetch(key: String): String? = SharedPreferencesDataStore.fetch(key)
 }
