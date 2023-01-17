@@ -77,6 +77,7 @@ class KlaviyoTest {
         assert(UserInfo.email == "")
         assert(UserInfo.phoneNumber == "")
         assert(UserInfo.externalId == "")
-        // TODO API behavior... it should probably have made 1 call with new anonymous ID?
+
+        verify(exactly = 1) { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
     }
 }

@@ -45,9 +45,7 @@ object Klaviyo {
             .applicationContext(applicationContext)
             .build()
 
-        // TODO should we guard all other APIs against being called before this?
-        // TODO initialize state from persistent store
-        // TODO initialize profile with new anon ID (if one was not found in store)
+        // TODO should we guard all other APIs against being called before initialize?
     }
 
     /**
@@ -123,8 +121,8 @@ object Klaviyo {
      * @return
      */
     fun resetProfile(): Klaviyo = apply {
-        // TODO Doesn't reset anon ID because anon ID doesn't live there
         UserInfo.reset()
+        Registry.apiClient.enqueueProfile(UserInfo.getAsProfile())
     }
 
     /**

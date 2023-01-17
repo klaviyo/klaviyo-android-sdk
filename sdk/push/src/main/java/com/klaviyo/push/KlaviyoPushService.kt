@@ -17,7 +17,6 @@ import com.klaviyo.coresdk.model.Profile
  */
 class KlaviyoPushService : FirebaseMessagingService() {
     companion object {
-        // TODO maybe move these to keywords file
         internal const val PUSH_TOKEN_PREFERENCE_KEY = "PUSH_TOKEN"
         private const val PUSH_TOKEN_EVENT_KEY = "push_token"
         private const val REQUEST_PUSH_KEY = "\$android_tokens"

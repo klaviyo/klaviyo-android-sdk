@@ -42,8 +42,6 @@ internal abstract class KlaviyoRequest : NetworkRequest() {
         return Base64.encodeToString(dataBytes, Base64.NO_WRAP)
     }
 
-    // TODO: Potentially remove this later
-    //  This is a function for testing individual requests made instantly
     /**
      * Instantly sends a network request to Klaviyo
      *

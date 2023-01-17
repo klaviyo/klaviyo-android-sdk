@@ -63,13 +63,27 @@ class UserInfoTest : BaseTest() {
     }
 
     @Test
-    fun `only read UUID from data store once`() {
+    fun `only read properties from data store once`() {
         Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name, anonId)
-        UserInfo.anonymousId
-        UserInfo.anonymousId
-        UserInfo.anonymousId
+        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.EMAIL.name, email)
+        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.EXTERNAL_ID.name, extId)
+        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.PHONE_NUMBER.name, phoneNumber)
+
+        var unusedRead = UserInfo.anonymousId
+        Assert.assertEquals(UserInfo.anonymousId, anonId)
         verify(exactly = 1) { spyDataStore.fetch(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name) }
-        Assert.assertEquals(anonId, UserInfo.anonymousId)
+
+        unusedRead = UserInfo.email
+        Assert.assertEquals(UserInfo.email, email)
+        verify(exactly = 1) { spyDataStore.fetch(KlaviyoProfileAttributeKey.EMAIL.name) }
+
+        unusedRead = UserInfo.externalId
+        Assert.assertEquals(UserInfo.externalId, extId)
+        verify(exactly = 1) { spyDataStore.fetch(KlaviyoProfileAttributeKey.EXTERNAL_ID.name) }
+
+        unusedRead = UserInfo.phoneNumber
+        Assert.assertEquals(UserInfo.phoneNumber, phoneNumber)
+        verify(exactly = 1) { spyDataStore.fetch(KlaviyoProfileAttributeKey.PHONE_NUMBER.name) }
     }
 
     private fun assertProfileIdentifiers(profile: Profile) {
