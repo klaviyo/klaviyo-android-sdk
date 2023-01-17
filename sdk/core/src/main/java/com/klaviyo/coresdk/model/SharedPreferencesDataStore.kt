@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import com.klaviyo.coresdk.KlaviyoConfig
 
 object SharedPreferencesDataStore : DataStore {
-    private const val KLAVIYO_PREFS_NAME = "KlaviyoSDKPreferences"
+    internal const val KLAVIYO_PREFS_NAME = "KlaviyoSDKPreferences"
 
     /**
      * Opens the Klaviyo SDK's shared preferences file

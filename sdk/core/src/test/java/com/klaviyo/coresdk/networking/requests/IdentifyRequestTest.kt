@@ -2,47 +2,53 @@ package com.klaviyo.coresdk.networking.requests
 
 import android.util.Base64
 import com.klaviyo.coresdk.BuildConfig
+import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.coresdk.helpers.BaseTest
 import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.networking.RequestMethod
-import com.klaviyo.coresdk.networking.UserInfo
-import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
-import io.mockk.clearAllMocks
 import io.mockk.every
-import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import org.junit.Assert.assertEquals
-import org.junit.Before
+import org.junit.Assert.assertNull
+import org.junit.Assert.fail
 import org.junit.Test
 
-class IdentifyRequestTest {
-    private val apiKey = "Fake_Key"
-    private val uuid = "a123"
-    private val encodedString = "EncodedString64"
+class IdentifyRequestTest : BaseTest() {
+    private val anonId = "a123"
+    private val email = "test@test.com"
+    private val encodedString = "Expected json string, base64 encoded"
+    private val expectedQueryData = mapOf("data" to encodedString)
+    private val expectedUrl = "${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}"
+    private var profile = Profile()
 
-    @Before
-    fun setup() {
-        clearAllMocks()
-        mockkObject(KlaviyoPreferenceUtils)
-        every { KlaviyoPreferenceUtils.readOrGenerateUUID() } returns uuid
+    override fun setup() {
+        Klaviyo.initialize(API_KEY, contextMock)
+        profile.setAnonymousId(anonId) // start all tests with an empty profile and base64 mock for it
+        withMockBase64("{\"properties\":{\"\$anonymous\":\"$anonId\"},\"token\":\"$API_KEY\"}")
     }
 
     private fun withMockBase64(expectedString: String) {
+        // We use the android base64 dependency, which means we have to mock it in our unit tests
+        // This mocks the encodeToString to only returns a stub value if the json string matched
+        // and fail with a useful error message if it does not
         mockkStatic(Base64::class)
-        every { Base64.encodeToString(eq(expectedString.toByteArray()), eq(Base64.NO_WRAP)) } returns encodedString
+        every { Base64.encodeToString(any(), any()) } answers {
+            val arg = it.invocation.args[0] as? ByteArray
+            val str = arg?.let { it1 -> String(it1) }
+            if (str == expectedString) {
+                encodedString
+            } else {
+                fail("Unexpected json string: \n  Expected: $expectedString \n    Actual: $str")
+                ""
+            }
+        }
     }
 
     @Test
     fun `uses the correct endpoint`() {
-        val profile = Profile()
-            .setEmail("test@test.com")
-
         val expectedUrlString = "${BuildConfig.KLAVIYO_SERVER_URL}/api/identify"
-        val expectedString = "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
-
-        withMockBase64(expectedString)
-
         val actualUrlString = IdentifyRequest(
-            apiKey = apiKey,
+            apiKey = API_KEY,
             profile = profile,
         ).urlString
 
@@ -51,16 +57,9 @@ class IdentifyRequestTest {
 
     @Test
     fun `uses the correct method`() {
-        val profile = Profile()
-            .setEmail("test@test.com")
-
         val expectedMethod = RequestMethod.GET
-        val expectedString = "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
-
-        withMockBase64(expectedString)
-
         val actualMethod = IdentifyRequest(
-            apiKey = apiKey,
+            apiKey = API_KEY,
             profile = profile,
         ).requestMethod
 
@@ -68,58 +67,35 @@ class IdentifyRequestTest {
     }
 
     @Test
-    fun `does not set a payload`() {
-        UserInfo.email = ""
-
-        val profile = Profile()
-
-        val expectedPayload = null
-        val expectedString = "{\"properties\":{\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
-
-        withMockBase64(expectedString)
-
-        val actualPayload = IdentifyRequest(
-            apiKey = apiKey,
-            profile = profile,
-        ).payload
-
-        assertEquals(expectedPayload, actualPayload)
-    }
-
-    @Test
     fun `queryData includes api key and anonymous`() {
-        UserInfo.email = ""
-
-        val profile = Profile()
-
-        val expectedString = "{\"properties\":{\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
-        val expectedQueryData = mapOf("data" to encodedString)
-
-        withMockBase64(expectedString = expectedString)
         val actualQueryData = IdentifyRequest(
-            apiKey = apiKey,
+            apiKey = API_KEY,
             profile = profile,
         ).queryData
+
         assertEquals(expectedQueryData, actualQueryData)
     }
 
     @Test
+    fun `does not set a payload`() {
+        val actualPayload = IdentifyRequest(
+            apiKey = API_KEY,
+            profile = profile,
+        ).payload
+
+        assertNull(actualPayload)
+    }
+
+    @Test
     fun `Build Identify request successfully`() {
-        val properties = Profile()
-            .setEmail("test@test.com")
-            .setProperty("custom_value", "200")
-        val expectedQueryData = mapOf(
-            "data" to encodedString
-        )
-        val expectedJsonString = "{\"properties\":{\"\$email\":\"test@test.com\",\"custom_value\":\"200\",\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
+        profile.setEmail(email)
+        profile.setProperty("custom_value", "200")
 
-        withMockBase64(expectedString = expectedJsonString)
+        withMockBase64("{\"properties\":{\"\$email\":\"$email\",\"custom_value\":\"200\",\"\$anonymous\":\"$anonId\"},\"token\":\"$API_KEY\"}")
 
-        val request = IdentifyRequest(apiKey = apiKey, profile = properties)
-        assertEquals(
-            "${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}",
-            request.urlString
-        )
+        val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
+
+        assertEquals(expectedUrl, request.urlString)
         assertEquals(RequestMethod.GET, request.requestMethod)
         assertEquals(expectedQueryData, request.queryData)
         assertEquals(null, request.payload)
@@ -127,27 +103,20 @@ class IdentifyRequestTest {
 
     @Test
     fun `Build Identify request with nested map of properties successfully`() {
-        val properties = Profile()
-        val innerMap = hashMapOf(
-            "amount" to "2",
-            "name" to "item",
-            "props" to mapOf("weight" to "0.1", "diameter" to "50")
+        profile.setEmail(email)
+        profile.setProperty(
+            "custom_value",
+            hashMapOf(
+                "amount" to "2",
+                "name" to "item",
+                "props" to mapOf("weight" to "0.1", "diameter" to "50")
+            )
         )
-        val expectedQueryData = mapOf(
-            "data" to encodedString
-        )
-        properties.setProperty("custom_value", innerMap)
-        properties.setEmail("test@test.com")
 
-        val expectedJsonString =
-            "{\"properties\":{\"custom_value\":{\"name\":\"item\",\"amount\":\"2\",\"props\":{\"diameter\":\"50\",\"weight\":\"0.1\"}},\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
-        withMockBase64(expectedString = expectedJsonString)
-        val request = IdentifyRequest(apiKey = apiKey, profile = properties)
+        withMockBase64("{\"properties\":{\"\$email\":\"$email\",\"custom_value\":{\"name\":\"item\",\"amount\":\"2\",\"props\":{\"diameter\":\"50\",\"weight\":\"0.1\"}},\"\$anonymous\":\"$anonId\"},\"token\":\"$API_KEY\"}")
+        val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
 
-        assertEquals(
-            "${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}",
-            request.urlString
-        )
+        assertEquals(expectedUrl, request.urlString)
         assertEquals(RequestMethod.GET, request.requestMethod)
         assertEquals(expectedQueryData, request.queryData)
         assertEquals(null, request.payload)
@@ -155,88 +124,39 @@ class IdentifyRequestTest {
 
     @Test
     fun `Build Identify request with append properties successfully`() {
-        val properties = Profile()
-            .addAppendProperty("append_key", "value")
-            .addAppendProperty("append_key2", "value2")
-        properties.setEmail("test@test.com")
+        profile.addAppendProperty("append_key", "value")
+        profile.addAppendProperty("append_key2", "value2")
 
-        val expectedQueryData = mapOf(
-            "data" to encodedString
-        )
-        val expectedJsonString =
-            "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$append\":{\"append_key\":\"value\",\"append_key2\":\"value2\"}},\"token\":\"Fake_Key\"}"
-        withMockBase64(expectedString = expectedJsonString)
+        withMockBase64("{\"properties\":{\"\$anonymous\":\"$anonId\",\"\$append\":{\"append_key\":\"value\",\"append_key2\":\"value2\"}},\"token\":\"$API_KEY\"}")
 
-        val request = IdentifyRequest(apiKey = apiKey, profile = properties)
+        val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
 
-        assertEquals(
-            "${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}",
-            request.urlString
-        )
+        assertEquals(expectedUrl, request.urlString)
         assertEquals(RequestMethod.GET, request.requestMethod)
         assertEquals(expectedQueryData, request.queryData)
         assertEquals(null, request.payload)
     }
 
     @Test
-    fun `Append property keys overwrite previous values if redeclared`() {
-        val properties = Profile()
-        properties.addAppendProperty("append_key", "value")
-        properties.addAppendProperty("append_key", "valueAgain")
-        properties.setEmail("test@test.com")
+    fun `Append property keys overwrite previous values if re-declared`() {
+        profile.addAppendProperty("append_key", "value")
+        profile.addAppendProperty("append_key", "valueAgain")
 
-        val expectedQueryData = mapOf(
-            "data" to encodedString
-        )
-        val expectedJsonString =
-            "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$append\":{\"append_key\":\"valueAgain\"}},\"token\":\"Fake_Key\"}"
-        withMockBase64(expectedString = expectedJsonString)
+        withMockBase64(expectedString = "{\"properties\":{\"\$anonymous\":\"$anonId\",\"\$append\":{\"append_key\":\"valueAgain\"}},\"token\":\"$API_KEY\"}")
 
-        val request = IdentifyRequest(apiKey = apiKey, profile = properties)
+        val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
 
         assertEquals(expectedQueryData, request.queryData)
-    }
-
-    @Test
-    fun `Build Identify request successfully appends stored email address`() {
-        UserInfo.email = "test@test.com"
-
-        val properties = UserInfo.getAsProfile()
-        properties.setProperty("custom_value", "200")
-
-        val expectedQueryData = mapOf(
-            "data" to encodedString
-        )
-        val expectedJsonString =
-            "{\"properties\":{\"\$email\":\"test@test.com\",\"custom_value\":\"200\",\"\$anonymous\":\"a123\"},\"token\":\"Fake_Key\"}"
-        withMockBase64(expectedString = expectedJsonString)
-
-        val request = IdentifyRequest(apiKey = apiKey, profile = properties)
-
-        assertEquals(
-            "${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}",
-            request.urlString
-        )
-        assertEquals(RequestMethod.GET, request.requestMethod)
-        assertEquals(expectedQueryData, request.queryData)
-        assertEquals(null, request.payload)
     }
 
     @Test
     fun `Append property after request does not change existing request`() {
-        val properties = Profile()
-        properties.addAppendProperty("append_key", "value")
-        properties.setEmail("test@test.com")
+        profile.addAppendProperty("append_key", "value")
 
-        val expectedQueryData = mapOf(
-            "data" to encodedString
-        )
-        val expectedJsonString =
-            "{\"properties\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$append\":{\"append_key\":\"value\"}},\"token\":\"Fake_Key\"}"
-        withMockBase64(expectedString = expectedJsonString)
+        withMockBase64(expectedString = "{\"properties\":{\"\$anonymous\":\"$anonId\",\"\$append\":{\"append_key\":\"value\"}},\"token\":\"$API_KEY\"}")
 
-        val request = IdentifyRequest(apiKey = apiKey, profile = properties)
-        properties.addAppendProperty("append_key_again", "value_again")
+        val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
+        profile.addAppendProperty("append_key_again", "value_again")
 
         assertEquals(expectedQueryData, request.queryData)
     }

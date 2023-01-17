@@ -1,42 +1,69 @@
 package com.klaviyo.coresdk.networking
 
+import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.ANONYMOUS_ID
+import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EMAIL
+import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EXTERNAL_ID
+import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.PHONE_NUMBER
 import com.klaviyo.coresdk.model.Profile
+import java.util.UUID
 
-// TODO: Eventually we want to build this up into a user session
-// but for now we just need emails on initialization to associate push tokens with accounts
 /**
  * Stores information on the currently active user
  */
 internal object UserInfo {
     var externalId: String = ""
+        set(value) {
+            field = value
+            Klaviyo.Registry.dataStore.store(EXTERNAL_ID.name, value)
+        }
+        get() = field.ifEmpty {
+            field = Klaviyo.Registry.dataStore.fetch(EXTERNAL_ID.name) ?: ""
+            field
+        }
+
     var email: String = ""
+        set(value) {
+            field = value
+            Klaviyo.Registry.dataStore.store(EMAIL.name, value)
+        }
+        get() = field.ifEmpty {
+            field = Klaviyo.Registry.dataStore.fetch(EMAIL.name) ?: ""
+            field
+        }
+
     var phoneNumber: String = ""
-    // TODO should anon ID be here with all the other identifiers
+        set(value) {
+            field = value
+            Klaviyo.Registry.dataStore.store(PHONE_NUMBER.name, value)
+        }
+        get() = field.ifEmpty {
+            field = Klaviyo.Registry.dataStore.fetch(PHONE_NUMBER.name) ?: ""
+            field
+        }
 
-    fun hasExternalId(): Boolean {
-        return externalId.isNotEmpty()
-    }
-
-    fun hasEmail(): Boolean {
-        return email.isNotEmpty()
-    }
-
-    fun hasPhoneNumber(): Boolean {
-        return phoneNumber.isNotEmpty()
-    }
+    var anonymousId: String = ""
+        private set
+        get() = field.ifEmpty {
+            // Attempts to read a UUID from the shared preferences.
+            // If not found, generate a fresh one and save that to the data store
+            field = (Klaviyo.Registry.dataStore.fetch(ANONYMOUS_ID.name) ?: "").ifEmpty {
+                val uuid = UUID.randomUUID().toString()
+                Klaviyo.Registry.dataStore.store(ANONYMOUS_ID.name, uuid)
+                uuid
+            }
+            return field
+        }
 
     fun reset() {
         externalId = ""
         email = ""
         phoneNumber = ""
+        anonymousId = ""
     }
 
     fun getAsProfile(): Profile {
-        return Profile().also {
-            it.setIdentifier(this.externalId)
-            it.setEmail(this.email)
-            it.setPhoneNumber(this.phoneNumber)
-        }
+        return Profile().also { this.populateProfile(it) }
     }
 
     /**
@@ -45,15 +72,17 @@ internal object UserInfo {
      * @param properties
      */
     private fun populateProfile(properties: Profile) {
-        if (hasExternalId()) {
+        properties.setAnonymousId(anonymousId)
+
+        if (externalId.isNotEmpty()) {
             properties.setIdentifier(externalId)
         }
 
-        if (hasEmail()) {
+        if (email.isNotEmpty()) {
             properties.setEmail(email)
         }
 
-        if (hasPhoneNumber()) {
+        if (phoneNumber.isNotEmpty()) {
             properties.setPhoneNumber(phoneNumber)
         }
     }

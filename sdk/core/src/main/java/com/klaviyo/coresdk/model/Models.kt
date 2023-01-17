@@ -1,6 +1,5 @@
 package com.klaviyo.coresdk.model
 
-import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 import java.io.Serializable
 
 /**
@@ -50,11 +49,6 @@ class Profile : BaseAttributes<KlaviyoProfileAttributeKey>() {
 
     private var appendMap: HashMap<String, Serializable> = HashMap()
 
-    init {
-        // TODO Revisit how anonymous ID is managed
-        setAnonymousId(KlaviyoPreferenceUtils.readOrGenerateUUID())
-    }
-
     fun setIdentifier(identifier: String) = apply { this.identifier = identifier }
     var identifier: String?
         get() = (this[KlaviyoProfileAttributeKey.EXTERNAL_ID]) as String?
@@ -100,9 +94,17 @@ class Profile : BaseAttributes<KlaviyoProfileAttributeKey>() {
 /**
  * Controls the data that can be input into a map of event attributes recognised by Klaviyo
  */
-class Event : BaseAttributes<KlaviyoEventAttributeKey>() {
+class Event() : BaseAttributes<KlaviyoEventAttributeKey>() {
 
-    // TODO add Type as a property so this encapsulates the whole of an event
+    constructor(type: KlaviyoEventType) : this() {
+        this.type = type
+    }
+
+    constructor(type: String) : this() {
+        this.type = KlaviyoEventType.CUSTOM(type)
+    }
+
+    var type: KlaviyoEventType? = null
 
     fun setValue(value: String) = apply { this.value = value }
     var value: String

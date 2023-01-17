@@ -1,9 +1,11 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
+import com.klaviyo.coresdk.helpers.InMemoryDataStore
 import com.klaviyo.coresdk.networking.UserInfo
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
 import io.mockk.spyk
 import io.mockk.verify
 import org.junit.Before
@@ -11,15 +13,16 @@ import org.junit.Test
 
 class KlaviyoTest {
     private val contextMock: Context = mockk()
-    private val spyKlaviyo: Klaviyo = spyk(Klaviyo).also {
-        // TODO isolation of our services would make testing easier, e.g. Dependency injection
-        every { it.createIdentifyRequest(any()) } returns Unit
-        every { it.createEventRequest(any(), any(), any()) } returns Unit
-    }
 
     @Before
     fun setup() {
-        spyKlaviyo.initialize(
+        mockkObject(Klaviyo.Registry)
+        every { Klaviyo.Registry.dataStore } returns spyk(InMemoryDataStore)
+        every { Klaviyo.Registry.apiClient } returns mockk()
+        every { Klaviyo.Registry.apiClient.enqueueProfile(any()) } returns Unit
+        every { Klaviyo.Registry.apiClient.enqueueEvent(any(), any(), any()) } returns Unit
+
+        Klaviyo.initialize(
             apiKey = "Fake_Key",
             applicationContext = contextMock
         )
@@ -27,7 +30,7 @@ class KlaviyoTest {
 
     @Test
     fun `Klaviyo Configure API sets variables successfully`() {
-        spyKlaviyo.initialize(
+        Klaviyo.initialize(
             "Fake_Key",
             contextMock
         )
@@ -39,28 +42,28 @@ class KlaviyoTest {
     @Test
     fun `Sets user external ID into info`() {
         val id = "abc"
-        spyKlaviyo.setExternalId(id)
+        Klaviyo.setExternalId(id)
 
         assert(UserInfo.externalId == id)
-        verify(exactly = 1) { spyKlaviyo.createIdentifyRequest(any()) }
+        verify(exactly = 1) { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
     }
 
     @Test
     fun `Sets user email into info`() {
         val email = "test@test.com"
-        spyKlaviyo.setEmail(email)
+        Klaviyo.setEmail(email)
 
         assert(UserInfo.email == email)
-        verify(exactly = 1) { spyKlaviyo.createIdentifyRequest(any()) }
+        verify(exactly = 1) { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
     }
 
     @Test
     fun `Sets user phone into info`() {
         val phone = "802-555-5555"
-        spyKlaviyo.setPhoneNumber(phone)
+        Klaviyo.setPhoneNumber(phone)
 
         assert(UserInfo.phoneNumber == phone)
-        verify(exactly = 1) { spyKlaviyo.createIdentifyRequest(any()) }
+        verify(exactly = 1) { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
     }
 
     @Test
@@ -69,7 +72,7 @@ class KlaviyoTest {
         UserInfo.phoneNumber = "test"
         UserInfo.externalId = "test"
 
-        spyKlaviyo.resetProfile()
+        Klaviyo.resetProfile()
 
         assert(UserInfo.email == "")
         assert(UserInfo.phoneNumber == "")

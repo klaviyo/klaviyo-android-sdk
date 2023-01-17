@@ -7,7 +7,6 @@ import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.Profile
-import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 
 /**
  * Implementation of the FCM messaging service that runs when the parent application is started
@@ -40,7 +39,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
 
             Klaviyo.setProfile(properties)
 
-            KlaviyoPreferenceUtils.store(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
+            Klaviyo.Registry.dataStore.store(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
         }
 
         /**
@@ -49,7 +48,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @return The push token we read from the shared preferences
          */
         internal fun getPushToken(): String {
-            return KlaviyoPreferenceUtils.fetch(PUSH_TOKEN_PREFERENCE_KEY) ?: ""
+            return Klaviyo.Registry.dataStore.fetch(PUSH_TOKEN_PREFERENCE_KEY) ?: ""
         }
 
         /**

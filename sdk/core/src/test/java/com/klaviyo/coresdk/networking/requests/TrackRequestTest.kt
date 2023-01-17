@@ -1,6 +1,5 @@
 package com.klaviyo.coresdk.networking.requests
 
-import android.content.Context
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.helpers.StaticClock
 import com.klaviyo.coresdk.model.Event
@@ -9,10 +8,8 @@ import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.networking.RequestMethod
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest.Companion.BASE_URL
 import com.klaviyo.coresdk.networking.requests.TrackRequest.Companion.TRACK_ENDPOINT
-import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkObject
 import io.mockk.verify
 import java.net.HttpURLConnection
 import org.junit.Assert.assertEquals
@@ -24,22 +21,18 @@ class TrackRequestTest {
     private val currentTimeMillis = 1234567890000L
     private val isoTime = "2009-02-13T23:31:30+0000"
     private val apiKey = "Fake_Key"
-    private val uuid = "a123"
+    private val anonId = "a123"
+    private val email = "test@test.com"
+    private val phone = "+12223334444"
+    private val event = "Test Event"
 
     @Before
     fun setup() {
-        val contextMock = mockk<Context>()
-
         KlaviyoConfig.Builder()
             .apiKey(apiKey)
-            .applicationContext(contextMock)
-            .networkTimeout(1000)
-            .networkFlushInterval(10000)
+            .applicationContext(mockk())
             .clock(StaticClock(currentTimeMillis))
             .build()
-
-        mockkObject(KlaviyoPreferenceUtils)
-        every { KlaviyoPreferenceUtils.readOrGenerateUUID() } returns uuid
     }
 
     @Test
@@ -49,16 +42,17 @@ class TrackRequestTest {
         val valueArgs = mutableListOf<String>()
         every { connectionMock.setRequestProperty(capture(keyArgs), capture(valueArgs)) } returns Unit
 
-        val event = KlaviyoEventType.CUSTOM("Test Event")
+        val event = KlaviyoEventType.CUSTOM(event)
         val profile = Profile()
-            .setEmail("test@test.com")
-            .setPhoneNumber("+12223334444")
+            .setAnonymousId(anonId)
+            .setEmail(email)
+            .setPhoneNumber(phone)
 
         val expectedQueryData = mapOf(
             "company_id" to "Fake_Key"
         )
         val expectedJsonString =
-            "{\"data\":{\"type\":\"event\",\"attributes\":{\"metric\":{\"name\":\"Test Event\"},\"profile\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$phone_number\":\"+12223334444\"},\"time\":\"$isoTime\"}}}"
+            "{\"data\":{\"type\":\"event\",\"attributes\":{\"metric\":{\"name\":\"$event\"},\"profile\":{\"\$email\":\"$email\",\"\$anonymous\":\"$anonId\",\"\$phone_number\":\"$phone\"},\"time\":\"$isoTime\"}}}"
         val expectedHeaderKeys = listOf("Content-Type", "Accept", "Revision")
         val expectedHeaderValues = listOf("application/json", "application/json", "2022-10-17")
 
@@ -83,10 +77,11 @@ class TrackRequestTest {
         val valueArgs = mutableListOf<String>()
         every { connectionMock.setRequestProperty(capture(keyArgs), capture(valueArgs)) } returns Unit
 
-        val event = KlaviyoEventType.CUSTOM("Test Event")
+        val event = KlaviyoEventType.CUSTOM(event)
         val profile = Profile()
-            .setEmail("test@test.com")
-            .setPhoneNumber("+12223334444")
+            .setAnonymousId(anonId)
+            .setEmail(email)
+            .setPhoneNumber(phone)
         val properties = Event()
             .setProperty("custom_value", "200")
 
@@ -94,7 +89,7 @@ class TrackRequestTest {
             "company_id" to "Fake_Key"
         )
         val expectedJsonString =
-            "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$isoTime\",\"metric\":{\"name\":\"Test Event\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"test@test.com\",\"\$anonymous\":\"a123\",\"\$phone_number\":\"+12223334444\"}}}}"
+            "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$isoTime\",\"metric\":{\"name\":\"$event\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"$email\",\"\$anonymous\":\"$anonId\",\"\$phone_number\":\"$phone\"}}}}"
         val expectedHeaderKeys = listOf("Content-Type", "Accept", "Revision")
         val expectedHeaderValues = listOf("application/json", "application/json", "2022-10-17")
 
