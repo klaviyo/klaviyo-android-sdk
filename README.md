@@ -126,7 +126,7 @@ class YourPushService: FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        KlaviyoPushService.openedPush(message.data)
+        KlaviyoPushService.openedPush(message)
     }
 }
 ```

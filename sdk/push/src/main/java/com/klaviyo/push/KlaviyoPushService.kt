@@ -55,39 +55,32 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * Logs an $opened_push event for a remote notification that originated from Klaviyo
          *
          * @param notificationPayload The data attributes of the push notification payload
-         * @param customerProperties Profile with which to associate the event
-         * @param eventProperties Optional additional properties for the event
          */
-        fun openedPush(
-            notificationPayload: Map<String, String>,
-            customerProperties: KlaviyoCustomerProperties? = null,
-            eventProperties: KlaviyoEventProperties? = null
-        ) {
-            notificationPayload["_k"] ?: return // Track pushes originating from klaviyo
-            val properties = eventProperties ?: KlaviyoEventProperties()
-            properties.addCustomProperty("push_token", getPushToken())
-            notificationPayload.forEach { (k, v) -> properties.addCustomProperty(k, v) }
-            Klaviyo.createEvent(KlaviyoEvent.OPENED_PUSH, properties, customerProperties)
+        internal fun openedPush(notificationPayload: Map<String, String>) {
+            notificationPayload["_k"] ?: return // Track only pushes originating from klaviyo
+            val event = KlaviyoEventProperties()
+            event.addCustomProperty("push_token", getPushToken())
+            notificationPayload.forEach { (k, v) -> event.addCustomProperty(k, v) }
+            Klaviyo.createEvent(KlaviyoEvent.OPENED_PUSH, event)
         }
+
+        /**
+         * Logs an $opened_push event for a remote notification that originated from Klaviyo
+         *
+         * @param message The Intent generated from tapping the notification
+         */
+        fun openedPush(message: RemoteMessage) = openedPush(message.data)
 
         /**
          * Logs an $opened_push event for a remote notification that originated from Klaviyo
          * After being opened from the system tray
          *
          * @param notificationIntent The Intent generated from tapping the notification
-         * @param customerProperties Profile with which to associate the event
-         * @param eventProperties Optional additional properties for the event
          */
-        fun openedPush(
-            notificationIntent: Intent?,
-            customerProperties: KlaviyoCustomerProperties? = null,
-            eventProperties: KlaviyoEventProperties? = null
-        ) {
+        fun openedPush(notificationIntent: Intent?) {
             val extras = notificationIntent?.extras ?: return
-            val payload = extras.keySet().associateWith { key ->
-                extras.getString(key, "")
-            }
-            openedPush(payload, customerProperties, eventProperties)
+            val payload = extras.keySet().associateWith { key -> extras.getString(key, "") }
+            openedPush(payload)
         }
     }
 
@@ -115,6 +108,6 @@ class KlaviyoPushService : FirebaseMessagingService() {
      */
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        openedPush(message.data)
+        openedPush(message)
     }
 }
