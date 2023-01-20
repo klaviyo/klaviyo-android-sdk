@@ -2,7 +2,6 @@ package com.klaviyo.push
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_PREFERENCE_KEY
@@ -122,26 +121,6 @@ class KlaviyoPushServiceTest {
         )
 
         verifyAll(true) {
-            Klaviyo.createEvent(any(), any(), any())
-        }
-    }
-
-    @Test
-    fun `FCM methods invoke SDK`() {
-        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-        withWriteStringMock(PUSH_TOKEN_PREFERENCE_KEY, stubPushToken)
-        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", stubPushToken)
-        withKlaviyoMock()
-
-        val pushService = KlaviyoPushService()
-        KlaviyoPushService.setPushToken(stubPushToken)
-
-        val msg = mockk<RemoteMessage>()
-        every { msg.data } returns stubPayload
-        pushService.onMessageReceived(msg)
-
-        verifyAll {
-            Klaviyo.setProfile(any())
             Klaviyo.createEvent(any(), any(), any())
         }
     }

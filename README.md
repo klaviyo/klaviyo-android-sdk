@@ -104,7 +104,7 @@ and register it with Klaviyo Push SDK. To track notifications opened from the sy
         super.onNewIntent(intent)
 
         //Tracks when a system tray notification is opened
-        KlaviyoPushService.openedPush(intent)
+        KlaviyoPushService.handlePush(intent)
     }
 ```
 
@@ -126,7 +126,7 @@ class YourPushService: FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        KlaviyoPushService.openedPush(message)
+        KlaviyoPushService.handlePush(message)
     }
 }
 ```
