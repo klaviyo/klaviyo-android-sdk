@@ -1,7 +1,9 @@
 package com.klaviyo.push
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.os.Bundle
 import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_PREFERENCE_KEY
@@ -121,6 +123,37 @@ class KlaviyoPushServiceTest {
         )
 
         verifyAll(true) {
+            Klaviyo.createEvent(any(), any(), any())
+        }
+    }
+
+//    @Test //TODO
+    fun `Handling RemoteMessage does not trigger $opened_push`() {
+        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
+        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", "token")
+        withKlaviyoMock()
+
+        KlaviyoPushService.openedPush(
+            mapOf("other" to "3rd party push") // doesn't have _k, klaviyo tracking params
+        )
+
+        verifyAll(true) {
+            Klaviyo.createEvent(any(), any(), any())
+        }
+    }
+
+//    @Test //TODO
+    fun `Handling a push intent triggers $opened_push`() {
+        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
+        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", "token")
+        withKlaviyoMock()
+
+        val intent = mockk<Intent>()
+        val bundle = mockk<Bundle>()
+        every { intent.extras } returns bundle
+        KlaviyoPushService.handlePush(intent)
+
+        verifyAll {
             Klaviyo.createEvent(any(), any(), any())
         }
     }
