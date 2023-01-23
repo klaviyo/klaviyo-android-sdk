@@ -4,6 +4,7 @@ import android.content.Context
 import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
 import com.klaviyo.coresdk.networking.KlaviyoEvent
 import com.klaviyo.coresdk.networking.KlaviyoEventProperties
+import com.klaviyo.coresdk.networking.KlaviyoPropertyKeys
 import com.klaviyo.coresdk.networking.UserInfo
 import com.klaviyo.coresdk.networking.requests.IdentifyRequest
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
@@ -52,9 +53,8 @@ object Klaviyo {
      * @param email Email address for active user
      * @return
      */
-    fun setEmail(email: String): Klaviyo = apply {
-        this.setProfile(KlaviyoCustomerProperties().setEmail(email))
-    }
+    fun setEmail(email: String): Klaviyo =
+        setProfile(KlaviyoCustomerProperties().setEmail(email))
 
     /**
      * Assigns a phone number to the current internally tracked profile
@@ -67,9 +67,8 @@ object Klaviyo {
      *
      * @param phoneNumber Phone number for active user
      */
-    fun setPhoneNumber(phoneNumber: String): Klaviyo = apply {
-        this.setProfile(KlaviyoCustomerProperties().setPhoneNumber(phoneNumber))
-    }
+    fun setPhoneNumber(phoneNumber: String): Klaviyo =
+        setProfile(KlaviyoCustomerProperties().setPhoneNumber(phoneNumber))
 
     /**
      * Assigns an external ID to the current internally tracked profile
@@ -83,9 +82,21 @@ object Klaviyo {
      * @param id Phone number for active user
      * @return
      */
-    fun setExternalId(id: String): Klaviyo = apply {
-        this.setProfile(KlaviyoCustomerProperties().setIdentifier(id))
-    }
+    fun setExternalId(id: String): Klaviyo =
+        setProfile(KlaviyoCustomerProperties().setIdentifier(id))
+
+    /**
+     * Assign arbitrary attributes to the current profile by key
+     *
+     * This should be called when you collect additional data about your user
+     * (e.g. first and last name, or an address)
+     *
+     * @param propertyKey
+     * @param value
+     * @return
+     */
+    fun setProfileAttribute(propertyKey: KlaviyoPropertyKeys, value: String): Klaviyo =
+        setProfile(KlaviyoCustomerProperties().addProperty(propertyKey, value))
 
     /**
      * Queues a request to identify profile properties to the Klaviyo API
@@ -100,8 +111,8 @@ object Klaviyo {
      * @return
      */
     fun setProfile(properties: KlaviyoCustomerProperties): Klaviyo = apply {
-        UserInfo.mergeCustomerProperties(properties)
-        createIdentifyRequest(properties)
+        // TODO debounce so fluent setters don't have to create 1 request per call
+        createIdentifyRequest(UserInfo.mergeCustomerProperties(properties))
     }
 
     /**

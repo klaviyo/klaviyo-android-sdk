@@ -1,6 +1,7 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
+import com.klaviyo.coresdk.networking.KlaviyoCustomerPropertyKeys
 import com.klaviyo.coresdk.networking.UserInfo
 import io.mockk.every
 import io.mockk.mockk
@@ -60,6 +61,14 @@ class KlaviyoTest {
         spyKlaviyo.setPhoneNumber(phone)
 
         assert(UserInfo.phoneNumber == phone)
+        verify(exactly = 1) { spyKlaviyo.createIdentifyRequest(any()) }
+    }
+
+    @Test
+    fun `Sets an arbitrary user property`() {
+        // TODO improve this test.
+        spyKlaviyo.setProfileAttribute(KlaviyoCustomerPropertyKeys.FIRST_NAME, "evan")
+
         verify(exactly = 1) { spyKlaviyo.createIdentifyRequest(any()) }
     }
 

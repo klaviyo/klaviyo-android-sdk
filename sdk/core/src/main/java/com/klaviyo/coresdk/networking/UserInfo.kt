@@ -66,10 +66,11 @@ internal object UserInfo {
      *
      * @param properties
      */
-    fun mergeCustomerProperties(properties: KlaviyoCustomerProperties) {
+    fun mergeCustomerProperties(properties: KlaviyoCustomerProperties): KlaviyoCustomerProperties {
         externalId = properties.getIdentifier() ?: externalId
         email = properties.getEmail() ?: email
         phoneNumber = properties.getPhoneNumber() ?: phoneNumber
         setCustomerProperties(properties)
+        return properties
     }
 }
