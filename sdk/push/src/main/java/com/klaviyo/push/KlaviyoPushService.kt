@@ -53,30 +53,39 @@ class KlaviyoPushService : FirebaseMessagingService() {
         /**
          * Logs an $opened_push event for a remote notification that originated from Klaviyo
          *
-         * @param notificationPayload The data attributes of the push notification payload
+         * @param payload The data attributes of the push notification payload
          */
-        internal fun openedPush(notificationPayload: Map<String, String>) {
-            notificationPayload["_k"] ?: return // Track only pushes originating from klaviyo
-            val event = Event().setProperty("push_token", getPushToken())
-            notificationPayload.forEach { (k, v) -> event.setProperty(k, v) }
+        internal fun openedPush(payload: Map<String, String>) {
+            payload["_k"] ?: return // Track only pushes originating from klaviyo
+
+            val event = Event().also {
+                payload.forEach { (k, v) -> it.setProperty(k, v) }
+                it.setProperty("push_token", getPushToken())
+            }
+
             Klaviyo.createEvent(KlaviyoEventType.OPENED_PUSH, event)
         }
 
         /**
-         * Logs an $opened_push event for a remote notification that originated from Klaviyo
+         * Handles a push received while app is in the foreground
          *
-         * @param message The Intent generated from tapping the notification
+         * @param message
          */
-        fun openedPush(message: RemoteMessage) = openedPush(message.data)
+        fun handlePush(message: RemoteMessage): Boolean {
+            message.data["_k"] ?: return false
+            // TODO could we display the notification in system tray?
+            // NOTE this is where we'd handle a data-only push, when we support those
+            return true
+        }
 
         /**
-         * Logs an $opened_push event for a remote notification that originated from Klaviyo
+         * Logs an $opened_push event for a notification that originated from Klaviyo
          * After being opened from the system tray
          *
-         * @param notificationIntent The Intent generated from tapping the notification
+         * @param intent The Intent generated from tapping the notification
          */
-        fun openedPush(notificationIntent: Intent?) {
-            val extras = notificationIntent?.extras ?: return
+        fun handlePush(intent: Intent?) {
+            val extras = intent?.extras ?: return
             val payload = extras.keySet().associateWith { key -> extras.getString(key, "") }
             openedPush(payload)
         }
@@ -86,7 +95,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
      * FCM service calls this function whenever a token is generated
      * This can be whenever a token is created anew, or whenever it has expired and regenerated itself
      *
-     * Invoke the SDK to log the push notification to the profile
+     * Invoke the SDK to log the push token to the profile
      *
      * @param newToken The newly generated token returned from the FCM service
      */
@@ -100,12 +109,10 @@ class KlaviyoPushService : FirebaseMessagingService() {
      * while the app is in the foreground, or if a data message is received
      * while the app is backgrounded.
      *
-     * Invoke the SDK to log an event for the received message
-     *
      * @param message
      */
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        openedPush(message)
+        handlePush(message)
     }
 }

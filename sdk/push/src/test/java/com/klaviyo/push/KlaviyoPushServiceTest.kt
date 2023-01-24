@@ -1,5 +1,7 @@
 package com.klaviyo.push
 
+import android.content.Intent
+import android.os.Bundle
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.model.DataStore
@@ -109,7 +111,29 @@ class KlaviyoPushServiceTest {
         pushService.onMessageReceived(msg)
 
         verifyAll {
-            Klaviyo.setProfile(any())
+            Klaviyo.createEvent(any(), any(), any())
+        }
+    }
+
+//    @Test //TODO
+    fun `Handling RemoteMessage does not trigger $opened_push`() {
+        KlaviyoPushService.openedPush(
+            mapOf("other" to "3rd party push") // doesn't have _k, klaviyo tracking params
+        )
+
+        verifyAll(true) {
+            Klaviyo.createEvent(any(), any(), any())
+        }
+    }
+
+//    @Test //TODO
+    fun `Handling a push intent triggers $opened_push`() {
+        val intent = mockk<Intent>()
+        val bundle = mockk<Bundle>()
+        every { intent.extras } returns bundle
+        KlaviyoPushService.handlePush(intent)
+
+        verifyAll {
             Klaviyo.createEvent(any(), any(), any())
         }
     }

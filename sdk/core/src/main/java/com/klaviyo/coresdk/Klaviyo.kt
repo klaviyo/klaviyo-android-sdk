@@ -4,6 +4,7 @@ import android.content.Context
 import com.klaviyo.coresdk.model.DataStore
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
+import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey
 import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.model.SharedPreferencesDataStore
 import com.klaviyo.coresdk.networking.HttpKlaviyoApiClient
@@ -20,11 +21,12 @@ object Klaviyo {
      * Services registry
      */
     object Registry {
-        // TODO internal scope (push module needs it right now)
+        // TODO internal scope, but push module needs access to data store...
+
         var dataStore: DataStore = SharedPreferencesDataStore
             private set
 
-        internal var apiClient: KlaviyoApiClient = HttpKlaviyoApiClient
+        var apiClient: KlaviyoApiClient = HttpKlaviyoApiClient
             private set
     }
 
@@ -96,6 +98,19 @@ object Klaviyo {
     }
 
     /**
+     * Assign arbitrary attributes to the current profile by key
+     *
+     * This should be called when you collect additional data about your user
+     * (e.g. first and last name, or an address)
+     *
+     * @param propertyKey
+     * @param value
+     * @return
+     */
+    fun setProfileAttribute(propertyKey: KlaviyoProfileAttributeKey, value: String): Klaviyo =
+        setProfile(Profile().also { it[propertyKey] = value })
+
+    /**
      * Queues a request to identify profile properties to the Klaviyo API
      *
      * Any new identifying properties (externalId, email, phone) will be saved to the current
@@ -108,6 +123,7 @@ object Klaviyo {
      * @return
      */
     fun setProfile(profile: Profile): Klaviyo = apply {
+        // TODO debounce so fluent setters don't have to create 1 request per call
         UserInfo.mergeProfile(profile)
         Registry.apiClient.enqueueProfile(profile)
     }

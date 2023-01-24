@@ -94,10 +94,11 @@ internal object UserInfo {
      *
      * @param properties
      */
-    fun mergeProfile(properties: Profile) {
+    fun mergeProfile(properties: Profile): Profile {
         externalId = properties.identifier ?: externalId
         email = properties.email ?: email
         phoneNumber = properties.phoneNumber ?: phoneNumber
         populateProfile(properties)
+        return properties
     }
 }

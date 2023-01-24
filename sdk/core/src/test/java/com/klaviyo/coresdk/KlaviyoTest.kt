@@ -2,6 +2,7 @@ package com.klaviyo.coresdk
 
 import android.content.Context
 import com.klaviyo.coresdk.helpers.InMemoryDataStore
+import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey
 import com.klaviyo.coresdk.networking.UserInfo
 import io.mockk.every
 import io.mockk.mockk
@@ -63,6 +64,14 @@ class KlaviyoTest {
         Klaviyo.setPhoneNumber(phone)
 
         assert(UserInfo.phoneNumber == phone)
+        verify(exactly = 1) { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `Sets an arbitrary user property`() {
+        // TODO improve this test.
+        Klaviyo.setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, "evan")
+
         verify(exactly = 1) { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
     }
 
