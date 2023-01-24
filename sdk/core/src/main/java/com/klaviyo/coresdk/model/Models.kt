@@ -77,7 +77,7 @@ class Profile : BaseAttributes<KlaviyoProfileAttributeKey>() {
             this[KlaviyoProfileAttributeKey.ANONYMOUS_ID] = value
         }
 
-    internal fun addAppendProperty(key: String, value: Serializable) = apply {
+    fun addAppendProperty(key: String, value: Serializable) = apply {
         appendMap[key] = value
         this[KlaviyoProfileAttributeKey.APPEND] = appendMap
     }
