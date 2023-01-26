@@ -47,7 +47,7 @@ internal class TrackRequest(
                         ),
                         "profile" to JSONObject(profile.toMap()),
                         "properties" to eventAttributes?.let { JSONObject(it.toMap()) },
-                        "time" to getTimeString(),
+                        "time" to getTimeString(), // TODO - this needs to be captured when event is created, not when simply when sent
                     ).filterValues { it != null }
                 )
             )

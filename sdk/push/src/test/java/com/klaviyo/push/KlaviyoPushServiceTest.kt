@@ -5,12 +5,12 @@ import android.os.Bundle
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.model.DataStore
-import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_PREFERENCE_KEY
+import com.klaviyo.coresdk.model.KlaviyoEventType
+import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_KEY
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.verify
-import io.mockk.verifyAll
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -43,7 +43,7 @@ class KlaviyoPushServiceTest {
     /**
      * Mock data store service
      */
-    object InMemoryDataStore : DataStore {
+    class InMemoryDataStore : DataStore {
         private val store: MutableMap<String, String> = mutableMapOf()
 
         override fun fetch(key: String): String? {
@@ -55,86 +55,96 @@ class KlaviyoPushServiceTest {
         }
     }
 
+    private lateinit var store: DataStore
+
     @Before
     fun setup() {
+        store = InMemoryDataStore() // start every test with an empty store
+
         mockkObject(Klaviyo)
         mockkObject(Klaviyo.Registry)
-        every { Klaviyo.Registry.dataStore } returns InMemoryDataStore
-        every { Klaviyo.setProfile(any()) } returns Klaviyo
-        every { Klaviyo.createEvent(any(), any(), any()) } returns Klaviyo
+        every { Klaviyo.Registry.dataStore } returns store
+        every { Klaviyo.Registry.apiClient } returns mockk()
+        every { Klaviyo.Registry.apiClient.enqueueProfile(any()) } returns Unit
+        every { Klaviyo.Registry.apiClient.enqueueEvent(any(), any(), any()) } returns Unit
     }
 
     @Test
-    fun `Fetches current push token successfully`() {
-        InMemoryDataStore.store(PUSH_TOKEN_PREFERENCE_KEY, stubPushToken)
+    fun `getPushToken fetches from persistent store`() {
+        store.store(PUSH_TOKEN_KEY, stubPushToken)
 
-        val actualToken = KlaviyoPushService.getPushToken()
-
-        assertEquals(stubPushToken, actualToken)
+        assertEquals(KlaviyoPushService.getPushToken(), stubPushToken)
     }
 
     @Test
-    fun `Appends a new push token to profile`() {
+    fun `setPushToken saves to persistent store and enqueues an API call`() {
         KlaviyoPushService.setPushToken(stubPushToken)
 
-        assertEquals(stubPushToken, InMemoryDataStore.fetch(PUSH_TOKEN_PREFERENCE_KEY))
-        verify { Klaviyo.setProfile(any()) }
+        assertEquals(store.fetch(PUSH_TOKEN_KEY), stubPushToken)
+        verify { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
     }
 
     @Test
-    fun `Klaviyo push payload triggers an opened push event`() {
+    fun `Opening a Klaviyo push payload enqueues an event API call`() {
         KlaviyoPushService.openedPush(stubPayload)
 
-        verifyAll {
-            Klaviyo.createEvent(any(), any(), any())
+        verify {
+            Klaviyo.Registry.apiClient.enqueueEvent(KlaviyoEventType.OPENED_PUSH, any(), any())
         }
     }
 
     @Test
     fun `Non-klaviyo push payload is ignored`() {
-        KlaviyoPushService.openedPush(
-            mapOf("other" to "3rd party push") // doesn't have _k, klaviyo tracking params
-        )
+        // doesn't have _k, klaviyo tracking params
+        val nonKlaviyoPayload = mapOf("other" to "3rd party push")
+        KlaviyoPushService.openedPush(nonKlaviyoPayload)
 
-        verifyAll(true) {
-            Klaviyo.createEvent(any(), any(), any())
-        }
+        verify(inverse = true) { Klaviyo.Registry.apiClient.enqueueEvent(any(), any(), any()) }
     }
 
     @Test
-    fun `FCM methods invoke SDK`() {
+    fun `FCM onNewToken persists the new token and enqueues API call`() {
         val pushService = KlaviyoPushService()
-        KlaviyoPushService.setPushToken(stubPushToken)
+        pushService.onNewToken(stubPushToken)
 
+        assertEquals(KlaviyoPushService.getPushToken(), stubPushToken)
+        verify { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `Handling RemoteMessage does NOT enqueue $opened_push API Call`() {
         val msg = mockk<RemoteMessage>()
         every { msg.data } returns stubPayload
+
+        val pushService = KlaviyoPushService()
         pushService.onMessageReceived(msg)
 
-        verifyAll {
-            Klaviyo.createEvent(any(), any(), any())
-        }
+        verify(inverse = true) { Klaviyo.Registry.apiClient.enqueueEvent(any(), any(), any()) }
     }
 
-//    @Test //TODO
-    fun `Handling RemoteMessage does not trigger $opened_push`() {
-        KlaviyoPushService.openedPush(
-            mapOf("other" to "3rd party push") // doesn't have _k, klaviyo tracking params
-        )
-
-        verifyAll(true) {
-            Klaviyo.createEvent(any(), any(), any())
-        }
-    }
-
-//    @Test //TODO
-    fun `Handling a push intent triggers $opened_push`() {
+    @Test
+    fun `Handling opened push Intent enqueues $opened_push API Call`() {
+        // Mocking an intent to return the stub push payload...
         val intent = mockk<Intent>()
         val bundle = mockk<Bundle>()
+        var gettingKey = ""
         every { intent.extras } returns bundle
+        every { bundle.keySet() } returns stubPayload.keys
+        every {
+            bundle.getString(
+                match { s ->
+                    gettingKey = s // there must be a better way to do this...
+                    stubPayload.containsKey(s)
+                },
+                String()
+            )
+        } returns (stubPayload[gettingKey] ?: "")
+
+        // Handle push intent
         KlaviyoPushService.handlePush(intent)
 
-        verifyAll {
-            Klaviyo.createEvent(any(), any(), any())
+        verify {
+            Klaviyo.Registry.apiClient.enqueueEvent(KlaviyoEventType.OPENED_PUSH, any(), any())
         }
     }
 }

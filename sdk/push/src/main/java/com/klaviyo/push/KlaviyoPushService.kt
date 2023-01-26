@@ -17,9 +17,8 @@ import com.klaviyo.coresdk.model.Profile
  */
 class KlaviyoPushService : FirebaseMessagingService() {
     companion object {
-        internal const val PUSH_TOKEN_PREFERENCE_KEY = "PUSH_TOKEN"
-        private const val PUSH_TOKEN_EVENT_KEY = "push_token"
-        private const val REQUEST_PUSH_KEY = "\$android_tokens"
+        internal const val PUSH_TOKEN_KEY = "push_token"
+        private const val PUSH_TOKEN_APPEND_KEY = "\$android_tokens"
 
         /**
          * Save the device FCM push token and register to the current profile
@@ -33,11 +32,11 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @param pushToken The push token provided by the FCM Service
          */
         fun setPushToken(pushToken: String) {
-            val properties = Profile().addAppendProperty(REQUEST_PUSH_KEY, pushToken)
+            val properties = Profile().addAppendProperty(PUSH_TOKEN_APPEND_KEY, pushToken)
 
             Klaviyo.setProfile(properties)
 
-            Klaviyo.Registry.dataStore.store(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
+            Klaviyo.Registry.dataStore.store(PUSH_TOKEN_KEY, pushToken)
         }
 
         /**
@@ -46,7 +45,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @return The push token we read from the shared preferences
          */
         internal fun getPushToken(): String {
-            return Klaviyo.Registry.dataStore.fetch(PUSH_TOKEN_PREFERENCE_KEY) ?: ""
+            return Klaviyo.Registry.dataStore.fetch(PUSH_TOKEN_KEY) ?: ""
         }
 
         /**
@@ -59,7 +58,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
 
             val event = Event().also {
                 payload.forEach { (k, v) -> it.setProperty(k, v) }
-                it.setProperty("push_token", getPushToken())
+                it.setProperty(PUSH_TOKEN_KEY, getPushToken())
             }
 
             Klaviyo.createEvent(KlaviyoEventType.OPENED_PUSH, event)
