@@ -9,7 +9,8 @@ import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.model.SharedPreferencesDataStore
 import com.klaviyo.coresdk.networking.HttpKlaviyoApiClient
 import com.klaviyo.coresdk.networking.KlaviyoApiClient
-import com.klaviyo.coresdk.networking.UserInfo
+import com.klaviyo.coresdk.networking.KlaviyoNetworkMonitor
+import com.klaviyo.coresdk.networking.NetworkMonitor
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -21,7 +22,11 @@ object Klaviyo {
      * Services registry
      */
     object Registry {
-        // TODO internal scope, but push module needs access to data store...
+        var lifecycleMonitor: LifecycleMonitor = KlaviyoLifecycleMonitor
+            private set
+
+        var networkMonitor: NetworkMonitor = KlaviyoNetworkMonitor
+            private set
 
         var dataStore: DataStore = SharedPreferencesDataStore
             private set

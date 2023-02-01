@@ -1,11 +1,10 @@
 package com.klaviyo.coresdk.networking.requests
 
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkInfo
+import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.LifecycleMonitor
+import com.klaviyo.coresdk.networking.NetworkMonitor
 import com.klaviyo.coresdk.networking.RequestMethod
 import io.mockk.called
 import io.mockk.every
@@ -24,114 +23,22 @@ import org.junit.Test
 
 class NetworkRequestTest {
     private val contextMock = mockk<Context>()
+    private val environmentMock = mockk<LifecycleMonitor>()
+    private val networkMock = mockk<NetworkMonitor>()
 
     @Before
     fun setup() {
+        mockkObject(Klaviyo.Registry)
+        every { Klaviyo.Registry.lifecycleMonitor } returns environmentMock
+        every { Klaviyo.Registry.networkMonitor } returns networkMock
+        every { networkMock.isNetworkConnected() } returns true
+
         KlaviyoConfig.Builder()
             .apiKey("Fake_Key")
             .applicationContext(contextMock)
             .networkTimeout(1000)
             .networkFlushInterval(10000)
             .build()
-    }
-
-    @Test
-    fun `isInternetConnected returns false when no active network info`() {
-        val contextMock = mockk<Context>()
-        val connectivityManagerMock = mockk<ConnectivityManager>()
-        every { contextMock.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
-        every { connectivityManagerMock.activeNetworkInfo } returns null
-
-        val expectedConnected = false
-
-        val request = spyk<NetworkRequest>()
-        val actualConnected = request.isInternetConnected(contextMock)
-
-        assertEquals(expectedConnected, actualConnected)
-    }
-
-    @Test
-    fun `isInternetConnected returns false when no network capabilities`() {
-        val contextMock = mockk<Context>()
-        val connectivityManagerMock = mockk<ConnectivityManager>()
-        val networkInfoMock = mockk<NetworkInfo>()
-        val networkMock = mockk<Network>()
-        every { contextMock.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
-        every { connectivityManagerMock.activeNetworkInfo } returns networkInfoMock
-        every { connectivityManagerMock.activeNetwork } returns networkMock
-        every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns null
-
-        val expectedConnected = false
-
-        val request = spyk<NetworkRequest>()
-        val actualConnected = request.isInternetConnected(contextMock)
-
-        assertEquals(expectedConnected, actualConnected)
-    }
-
-    @Test
-    fun `isInternetConnected returns false when not using internet`() {
-        val contextMock = mockk<Context>()
-        val connectivityManagerMock = mockk<ConnectivityManager>()
-        val networkInfoMock = mockk<NetworkInfo>()
-        val networkMock = mockk<Network>()
-        val networkCapabilitiesMock = mockk<NetworkCapabilities>()
-        every { contextMock.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
-        every { connectivityManagerMock.activeNetworkInfo } returns networkInfoMock
-        every { connectivityManagerMock.activeNetwork } returns networkMock
-        every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns networkCapabilitiesMock
-        every { networkCapabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
-
-        val expectedConnected = false
-
-        val request = spyk<NetworkRequest>()
-        val actualConnected = request.isInternetConnected(contextMock)
-
-        assertEquals(expectedConnected, actualConnected)
-    }
-
-    @Test
-    fun `isInternetConnected returns false when using internet and not connected`() {
-        val contextMock = mockk<Context>()
-        val connectivityManagerMock = mockk<ConnectivityManager>()
-        val networkInfoMock = mockk<NetworkInfo>()
-        val networkMock = mockk<Network>()
-        val networkCapabilitiesMock = mockk<NetworkCapabilities>()
-        every { contextMock.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
-        every { connectivityManagerMock.activeNetworkInfo } returns networkInfoMock
-        every { connectivityManagerMock.activeNetwork } returns networkMock
-        every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns networkCapabilitiesMock
-        every { networkCapabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
-        every { networkInfoMock.isConnectedOrConnecting } returns false
-
-        val expectedConnected = false
-
-        val request = spyk<NetworkRequest>()
-        val actualConnected = request.isInternetConnected(contextMock)
-
-        assertEquals(expectedConnected, actualConnected)
-    }
-
-    @Test
-    fun `isInternetConnected returns true when using internet and connected`() {
-        val contextMock = mockk<Context>()
-        val connectivityManagerMock = mockk<ConnectivityManager>()
-        val networkInfoMock = mockk<NetworkInfo>()
-        val networkMock = mockk<Network>()
-        val networkCapabilitiesMock = mockk<NetworkCapabilities>()
-        every { contextMock.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
-        every { connectivityManagerMock.activeNetworkInfo } returns networkInfoMock
-        every { connectivityManagerMock.activeNetwork } returns networkMock
-        every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns networkCapabilitiesMock
-        every { networkCapabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
-        every { networkInfoMock.isConnectedOrConnecting } returns true
-
-        val expectedConnected = true
-
-        val request = spyk<NetworkRequest>()
-        val actualConnected = request.isInternetConnected(contextMock)
-
-        assertEquals(expectedConnected, actualConnected)
     }
 
     @Test
@@ -164,12 +71,10 @@ class NetworkRequestTest {
 
     @Test
     fun `sendNetworkRequest returns null when no internet`() {
+        every { networkMock.isNetworkConnected() } returns false
+
         val expectedResponse = null
-
         val request = spyk<NetworkRequest>()
-
-        every { request.isInternetConnected(any()) } returns false
-
         val actualResponse = request.sendNetworkRequest()
 
         assertEquals(expectedResponse, actualResponse)
@@ -185,7 +90,6 @@ class NetworkRequestTest {
         every { KlaviyoConfig.networkTimeout } returns 1
         every { request.buildURL() } returns url
         every { request.buildConnection(url) } returns connectionMock
-        every { request.isInternetConnected(any()) } returns true
         every { request.requestMethod } returns RequestMethod.GET
         every { request.appendHeaders(connectionMock) } returns Unit
         every { request.readResponse(connectionMock) } returns expectedResponse
@@ -212,7 +116,6 @@ class NetworkRequestTest {
         every { KlaviyoConfig.networkTimeout } returns 1
         every { request.buildURL() } returns url
         every { request.buildConnection(url) } returns connectionMock
-        every { request.isInternetConnected(any()) } returns true
         every { request.requestMethod } returns RequestMethod.POST
         every { request.payload } returns payload
         every { request.appendHeaders(connectionMock) } returns Unit
@@ -244,7 +147,6 @@ class NetworkRequestTest {
         every { KlaviyoConfig.networkTimeout } returns 1
         every { request.buildURL() } returns url
         every { request.buildConnection(url) } returns connectionMock
-        every { request.isInternetConnected(any()) } returns true
         every { request.requestMethod } returns RequestMethod.POST
         every { request.appendHeaders(connectionMock) } returns Unit
         every { request.readResponse(connectionMock) } returns expectedResponse

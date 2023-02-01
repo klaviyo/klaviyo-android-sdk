@@ -25,7 +25,7 @@ You must also register the Klaviyo SDK for activity lifecycle callbacks per the 
 ```kotlin
 import android.app.Application
 import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.KlaviyoLifecycleCallbackListener
+import com.klaviyo.coresdk.KlaviyoLifecycleMonitor
 import com.klaviyo.push.KlaviyoPushService
 
 class TestApp : Application() {
@@ -34,7 +34,7 @@ class TestApp : Application() {
 
         Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
 
-        registerActivityLifecycleCallbacks(KlaviyoLifecycleCallbackListener())
+        registerActivityLifecycleCallbacks(KlaviyoLifecycleMonitor)
     }
 }
 ```

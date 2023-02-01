@@ -1,6 +1,5 @@
-package com.klaviyo.coresdk.networking
+package com.klaviyo.coresdk
 
-import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.helpers.BaseTest
 import com.klaviyo.coresdk.helpers.InMemoryDataStore
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey

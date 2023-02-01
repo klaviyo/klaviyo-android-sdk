@@ -1,11 +1,11 @@
 package com.klaviyo.coresdk
 
-import android.content.Context
-import io.mockk.mockk
+import com.klaviyo.coresdk.helpers.BaseTest
 import org.junit.Test
 
-class KlaviyoConfigTest {
-    private val contextMock: Context = mockk()
+class KlaviyoConfigTest : BaseTest() {
+
+    override fun setup() {}
 
     @Test
     fun `KlaviyoConfig Builder sets variables successfully`() {

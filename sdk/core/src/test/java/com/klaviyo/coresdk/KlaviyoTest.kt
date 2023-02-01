@@ -1,42 +1,34 @@
 package com.klaviyo.coresdk
 
-import android.content.Context
+import com.klaviyo.coresdk.helpers.BaseTest
 import com.klaviyo.coresdk.helpers.InMemoryDataStore
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey
-import com.klaviyo.coresdk.networking.UserInfo
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.spyk
 import io.mockk.verify
-import org.junit.Before
 import org.junit.Test
 
-class KlaviyoTest {
-    private val contextMock: Context = mockk()
+class KlaviyoTest : BaseTest() {
 
-    @Before
-    fun setup() {
+    override fun setup() {
         mockkObject(Klaviyo.Registry)
+        every { Klaviyo.Registry.networkMonitor } returns mockk()
         every { Klaviyo.Registry.dataStore } returns spyk(InMemoryDataStore)
         every { Klaviyo.Registry.apiClient } returns mockk()
         every { Klaviyo.Registry.apiClient.enqueueProfile(any()) } returns Unit
         every { Klaviyo.Registry.apiClient.enqueueEvent(any(), any(), any()) } returns Unit
 
         Klaviyo.initialize(
-            apiKey = "Fake_Key",
+            apiKey = API_KEY,
             applicationContext = contextMock
         )
     }
 
     @Test
     fun `Klaviyo Configure API sets variables successfully`() {
-        Klaviyo.initialize(
-            "Fake_Key",
-            contextMock
-        )
-
-        assert(KlaviyoConfig.apiKey == "Fake_Key")
+        assert(KlaviyoConfig.apiKey == API_KEY)
         assert(KlaviyoConfig.applicationContext == contextMock)
     }
 

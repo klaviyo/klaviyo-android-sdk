@@ -1,9 +1,7 @@
 package com.klaviyo.coresdk.networking.requests
 
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.webkit.URLUtil
+import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import java.io.BufferedReader
@@ -31,23 +29,10 @@ internal abstract class NetworkRequest {
     /**
      * Checks if the device currently has internet access
      *
-     * @param context The context needed to make calls to the Android device and check network status
-     *
      * @return Boolean representing whether the internet is currently available or not
      */
-    internal fun isInternetConnected(context: Context): Boolean {
-        val connectivityManager =
-            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        // TODO: We may want to replace this later. Deprecated as of Android API 29.
-        //  But the alternative solution is an asynchronous task that requires the user to register
-        //  a network callback listener, which isn't ideal just for a network connectivity check in an SDK
-        val networkInfo = connectivityManager.activeNetworkInfo ?: return false
-        val usingInternet: Boolean
-        val network = connectivityManager.activeNetwork
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        usingInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        return usingInternet && networkInfo.isConnectedOrConnecting
-    }
+    internal fun isInternetConnected(): Boolean =
+        Klaviyo.Registry.networkMonitor.isNetworkConnected()
 
     /**
      * Builds out a full [URL] object after attaching any query data to the url string
@@ -82,7 +67,7 @@ internal abstract class NetworkRequest {
      * @returns The string value of the response body, if one was returned
      */
     internal open fun sendNetworkRequest(): String? {
-        if (!isInternetConnected(KlaviyoConfig.applicationContext)) {
+        if (!Klaviyo.Registry.networkMonitor.isNetworkConnected()) {
             return null
         }
 

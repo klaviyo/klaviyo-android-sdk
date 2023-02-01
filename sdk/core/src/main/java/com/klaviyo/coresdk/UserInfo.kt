@@ -1,6 +1,5 @@
-package com.klaviyo.coresdk.networking
+package com.klaviyo.coresdk
 
-import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.ANONYMOUS_ID
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EMAIL
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EXTERNAL_ID
@@ -63,7 +62,7 @@ internal object UserInfo {
     }
 
     fun getAsProfile(): Profile {
-        return Profile().also { this.populateProfile(it) }
+        return Profile().also { populateProfile(it) }
     }
 
     /**

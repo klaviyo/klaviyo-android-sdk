@@ -1,5 +1,6 @@
 package com.klaviyo.coresdk.networking
 
+import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
@@ -9,7 +10,9 @@ import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
 import com.klaviyo.coresdk.networking.requests.TrackRequest
 
 interface KlaviyoApiClient {
+
     fun enqueueProfile(profile: Profile)
+
     fun enqueueEvent(
         event: KlaviyoEventType,
         properties: Event,
@@ -21,6 +24,9 @@ interface KlaviyoApiClient {
  * Internal coordinator of API traffic
  */
 internal object HttpKlaviyoApiClient : KlaviyoApiClient {
+
+    private var monitoring = false
+
     override fun enqueueProfile(profile: Profile) {
         processRequest(IdentifyRequest(KlaviyoConfig.apiKey, profile))
     }
@@ -41,6 +47,12 @@ internal object HttpKlaviyoApiClient : KlaviyoApiClient {
      */
     private fun processRequest(request: KlaviyoRequest) {
         if (KlaviyoConfig.networkUseAnalyticsBatchQueue) {
+            if (!monitoring) {
+                Klaviyo.Registry.lifecycleMonitor.whenStopped { NetworkBatcher.forceEmptyQueue() }
+                Klaviyo.Registry.networkMonitor.whenNetworkChanged { /* TODO */ }
+                monitoring = true
+            }
+
             request.batch()
         } else {
             request.process()
