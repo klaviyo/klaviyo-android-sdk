@@ -60,18 +60,9 @@ class UserInfoTest : BaseTest() {
     @Test
     fun `only read properties from data store once`() {
         Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name, ANON_ID)
-        Klaviyo.Registry.dataStore.store(
-            KlaviyoProfileAttributeKey.EMAIL.name,
-            EMAIL
-        )
-        Klaviyo.Registry.dataStore.store(
-            KlaviyoProfileAttributeKey.EXTERNAL_ID.name,
-            EXTERNAL_ID
-        )
-        Klaviyo.Registry.dataStore.store(
-            KlaviyoProfileAttributeKey.PHONE_NUMBER.name,
-            PHONE
-        )
+        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.EMAIL.name, EMAIL)
+        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.EXTERNAL_ID.name, EXTERNAL_ID)
+        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.PHONE_NUMBER.name, PHONE)
 
         var unusedRead = UserInfo.anonymousId
         Assert.assertEquals(UserInfo.anonymousId, ANON_ID)
