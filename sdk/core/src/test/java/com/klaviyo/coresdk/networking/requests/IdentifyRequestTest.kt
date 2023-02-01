@@ -14,8 +14,6 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class IdentifyRequestTest : BaseTest() {
-    private val anonId = "a123"
-    private val email = "test@test.com"
     private val encodedString = "Expected json string, base64 encoded"
     private val expectedQueryData = mapOf("data" to encodedString)
     private val expectedUrl = "${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}"
@@ -23,8 +21,8 @@ class IdentifyRequestTest : BaseTest() {
 
     override fun setup() {
         Klaviyo.initialize(API_KEY, contextMock)
-        profile.setAnonymousId(anonId) // start all tests with an empty profile and base64 mock for it
-        withMockBase64("{\"properties\":{\"\$anonymous\":\"$anonId\"},\"token\":\"$API_KEY\"}")
+        profile.setAnonymousId(ANON_ID) // start all tests with an empty profile and base64 mock for it
+        withMockBase64("{\"properties\":{\"\$anonymous\":\"$ANON_ID\"},\"token\":\"$API_KEY\"}")
     }
 
     private fun withMockBase64(expectedString: String) {
@@ -88,10 +86,10 @@ class IdentifyRequestTest : BaseTest() {
 
     @Test
     fun `Build Identify request successfully`() {
-        profile.setEmail(email)
+        profile.setEmail(EMAIL)
         profile.setProperty("custom_value", "200")
 
-        withMockBase64("{\"properties\":{\"\$email\":\"$email\",\"custom_value\":\"200\",\"\$anonymous\":\"$anonId\"},\"token\":\"$API_KEY\"}")
+        withMockBase64("{\"properties\":{\"\$email\":\"$EMAIL\",\"custom_value\":\"200\",\"\$anonymous\":\"$ANON_ID\"},\"token\":\"$API_KEY\"}")
 
         val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
 
@@ -103,7 +101,7 @@ class IdentifyRequestTest : BaseTest() {
 
     @Test
     fun `Build Identify request with nested map of properties successfully`() {
-        profile.setEmail(email)
+        profile.setEmail(EMAIL)
         profile.setProperty(
             "custom_value",
             hashMapOf(
@@ -113,7 +111,7 @@ class IdentifyRequestTest : BaseTest() {
             )
         )
 
-        withMockBase64("{\"properties\":{\"\$email\":\"$email\",\"custom_value\":{\"name\":\"item\",\"amount\":\"2\",\"props\":{\"diameter\":\"50\",\"weight\":\"0.1\"}},\"\$anonymous\":\"$anonId\"},\"token\":\"$API_KEY\"}")
+        withMockBase64("{\"properties\":{\"\$email\":\"$EMAIL\",\"custom_value\":{\"name\":\"item\",\"amount\":\"2\",\"props\":{\"diameter\":\"50\",\"weight\":\"0.1\"}},\"\$anonymous\":\"$ANON_ID\"},\"token\":\"$API_KEY\"}")
         val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
 
         assertEquals(expectedUrl, request.urlString)
@@ -127,7 +125,7 @@ class IdentifyRequestTest : BaseTest() {
         profile.addAppendProperty("append_key", "value")
         profile.addAppendProperty("append_key2", "value2")
 
-        withMockBase64("{\"properties\":{\"\$anonymous\":\"$anonId\",\"\$append\":{\"append_key\":\"value\",\"append_key2\":\"value2\"}},\"token\":\"$API_KEY\"}")
+        withMockBase64("{\"properties\":{\"\$anonymous\":\"$ANON_ID\",\"\$append\":{\"append_key\":\"value\",\"append_key2\":\"value2\"}},\"token\":\"$API_KEY\"}")
 
         val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
 
@@ -142,7 +140,7 @@ class IdentifyRequestTest : BaseTest() {
         profile.addAppendProperty("append_key", "value")
         profile.addAppendProperty("append_key", "valueAgain")
 
-        withMockBase64(expectedString = "{\"properties\":{\"\$anonymous\":\"$anonId\",\"\$append\":{\"append_key\":\"valueAgain\"}},\"token\":\"$API_KEY\"}")
+        withMockBase64(expectedString = "{\"properties\":{\"\$anonymous\":\"$ANON_ID\",\"\$append\":{\"append_key\":\"valueAgain\"}},\"token\":\"$API_KEY\"}")
 
         val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
 
@@ -153,7 +151,7 @@ class IdentifyRequestTest : BaseTest() {
     fun `Append property after request does not change existing request`() {
         profile.addAppendProperty("append_key", "value")
 
-        withMockBase64(expectedString = "{\"properties\":{\"\$anonymous\":\"$anonId\",\"\$append\":{\"append_key\":\"value\"}},\"token\":\"$API_KEY\"}")
+        withMockBase64(expectedString = "{\"properties\":{\"\$anonymous\":\"$ANON_ID\",\"\$append\":{\"append_key\":\"value\"}},\"token\":\"$API_KEY\"}")
 
         val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
         profile.addAppendProperty("append_key_again", "value_again")

@@ -13,10 +13,6 @@ import org.junit.Before
 import org.junit.Test
 
 class UserInfoTest : BaseTest() {
-    private val extId = "abc123"
-    private val email = "test@email.com"
-    private val phoneNumber = "802-233-2407"
-    private val anonId = "anonId123"
     private val spyDataStore = spyk(InMemoryDataStore)
 
     @Before
@@ -28,18 +24,18 @@ class UserInfoTest : BaseTest() {
 
     @Test
     fun `UserInfo is convertible to Profile`() {
-        UserInfo.externalId = extId
-        UserInfo.email = email
-        UserInfo.phoneNumber = phoneNumber
+        UserInfo.externalId = EXTERNAL_ID
+        UserInfo.email = EMAIL
+        UserInfo.phoneNumber = PHONE
         assertProfileIdentifiers(UserInfo.getAsProfile())
         assertUserInfoIdentifiers()
     }
 
     @Test
     fun `Two way merge of a Profile and UserInfo`() {
-        UserInfo.email = email
+        UserInfo.email = EMAIL
 
-        val profile = Profile().setIdentifier(extId).setPhoneNumber(phoneNumber)
+        val profile = Profile().setIdentifier(EXTERNAL_ID).setPhoneNumber(PHONE)
 
         UserInfo.mergeProfile(profile)
 
@@ -57,45 +53,54 @@ class UserInfoTest : BaseTest() {
 
     @Test
     fun `do not create new UUID if one exists in data store`() {
-        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name, anonId)
-        Assert.assertEquals(anonId, UserInfo.anonymousId)
+        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name, ANON_ID)
+        Assert.assertEquals(ANON_ID, UserInfo.anonymousId)
     }
 
     @Test
     fun `only read properties from data store once`() {
-        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name, anonId)
-        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.EMAIL.name, email)
-        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.EXTERNAL_ID.name, extId)
-        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.PHONE_NUMBER.name, phoneNumber)
+        Klaviyo.Registry.dataStore.store(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name, ANON_ID)
+        Klaviyo.Registry.dataStore.store(
+            KlaviyoProfileAttributeKey.EMAIL.name,
+            EMAIL
+        )
+        Klaviyo.Registry.dataStore.store(
+            KlaviyoProfileAttributeKey.EXTERNAL_ID.name,
+            EXTERNAL_ID
+        )
+        Klaviyo.Registry.dataStore.store(
+            KlaviyoProfileAttributeKey.PHONE_NUMBER.name,
+            PHONE
+        )
 
         var unusedRead = UserInfo.anonymousId
-        Assert.assertEquals(UserInfo.anonymousId, anonId)
+        Assert.assertEquals(UserInfo.anonymousId, ANON_ID)
         verify(exactly = 1) { spyDataStore.fetch(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name) }
 
         unusedRead = UserInfo.email
-        Assert.assertEquals(UserInfo.email, email)
+        Assert.assertEquals(UserInfo.email, EMAIL)
         verify(exactly = 1) { spyDataStore.fetch(KlaviyoProfileAttributeKey.EMAIL.name) }
 
         unusedRead = UserInfo.externalId
-        Assert.assertEquals(UserInfo.externalId, extId)
+        Assert.assertEquals(UserInfo.externalId, EXTERNAL_ID)
         verify(exactly = 1) { spyDataStore.fetch(KlaviyoProfileAttributeKey.EXTERNAL_ID.name) }
 
         unusedRead = UserInfo.phoneNumber
-        Assert.assertEquals(UserInfo.phoneNumber, phoneNumber)
+        Assert.assertEquals(UserInfo.phoneNumber, PHONE)
         verify(exactly = 1) { spyDataStore.fetch(KlaviyoProfileAttributeKey.PHONE_NUMBER.name) }
     }
 
     private fun assertProfileIdentifiers(profile: Profile) {
-        assert(profile.identifier == extId)
-        assert(profile.email == email)
-        assert(profile.phoneNumber == phoneNumber)
+        assert(profile.identifier == EXTERNAL_ID)
+        assert(profile.email == EMAIL)
+        assert(profile.phoneNumber == PHONE)
         assert(profile.anonymousId == UserInfo.anonymousId)
         assert(profile.toMap().count() == 4) // shouldn't contain any extras
     }
 
     private fun assertUserInfoIdentifiers() {
-        assert(UserInfo.externalId == extId)
-        assert(UserInfo.email == email)
-        assert(UserInfo.phoneNumber == phoneNumber)
+        assert(UserInfo.externalId == EXTERNAL_ID)
+        assert(UserInfo.email == EMAIL)
+        assert(UserInfo.phoneNumber == PHONE)
     }
 }

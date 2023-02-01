@@ -153,18 +153,13 @@ object Klaviyo {
      *
      * @param event Name of the event metric
      * @param properties Additional properties associated to the event that are not for identifying the profile
-     * @param profile Defines the profile that triggered this event, defaults to the current internally tracked profile
      * @return
      */
-    fun createEvent(
-        event: KlaviyoEventType,
-        properties: Event? = null,
-        profile: Profile? = null
-    ): Klaviyo = apply {
+    fun createEvent(event: KlaviyoEventType, properties: Event? = null): Klaviyo = apply {
         Registry.apiClient.enqueueEvent(
             event,
             properties ?: Event(),
-            profile ?: UserInfo.getAsProfile()
+            UserInfo.getAsProfile()
         )
     }
 }

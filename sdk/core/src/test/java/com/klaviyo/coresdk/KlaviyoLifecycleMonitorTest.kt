@@ -19,5 +19,13 @@ class KlaviyoLifecycleMonitorTest {
         assert(callCount == 0)
         KlaviyoLifecycleMonitor.onActivityStopped(mockk())
         assert(callCount == 1)
+
+        // At this time, we expect nothing from this methods:
+        KlaviyoLifecycleMonitor.onActivityCreated(mockk(), mockk())
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+        KlaviyoLifecycleMonitor.onActivitySaveInstanceState(mockk(), mockk())
+        KlaviyoLifecycleMonitor.onActivityPaused(mockk())
+        KlaviyoLifecycleMonitor.onActivityDestroyed(mockk())
+        assert(callCount == 1)
     }
 }
