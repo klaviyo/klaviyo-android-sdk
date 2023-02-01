@@ -10,7 +10,7 @@ abstract class BaseTest {
     companion object {
         internal const val API_KEY = "stub_public_api_key"
         internal const val EMAIL = "test@domain.com"
-        internal const val PHONE = "1234567890"
+        internal const val PHONE = "+12223334444"
         internal const val EXTERNAL_ID = "abcdefg"
         internal const val ANON_ID = "anonId123"
 

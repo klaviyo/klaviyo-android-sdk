@@ -1,4 +1,4 @@
-package com.klaviyo.coresdk.networking
+package com.klaviyo.coresdk.helpers
 
 internal interface Clock {
 

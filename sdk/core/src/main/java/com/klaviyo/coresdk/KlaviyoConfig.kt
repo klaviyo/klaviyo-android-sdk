@@ -1,8 +1,8 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
-import com.klaviyo.coresdk.networking.Clock
-import com.klaviyo.coresdk.networking.SystemClock
+import com.klaviyo.coresdk.helpers.Clock
+import com.klaviyo.coresdk.helpers.SystemClock
 
 /**
  * Exception that is thrown when the the Klaviyo API token is missing from the config

@@ -1,6 +1,7 @@
 package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.helpers.BaseTest
 import com.klaviyo.coresdk.helpers.StaticClock
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
@@ -13,23 +14,17 @@ import io.mockk.mockk
 import io.mockk.verify
 import java.net.HttpURLConnection
 import org.junit.Assert.assertEquals
-import org.junit.Before
 import org.junit.Test
 
-class TrackRequestTest {
+class TrackRequestTest : BaseTest() {
 
     private val currentTimeMillis = 1234567890000L
     private val isoTime = "2009-02-13T23:31:30+0000"
-    private val apiKey = "Fake_Key"
-    private val anonId = "a123"
-    private val email = "test@test.com"
-    private val phone = "+12223334444"
     private val event = "Test Event"
 
-    @Before
-    fun setup() {
+    override fun setup() {
         KlaviyoConfig.Builder()
-            .apiKey(apiKey)
+            .apiKey(API_KEY)
             .applicationContext(mockk())
             .clock(StaticClock(currentTimeMillis))
             .build()
@@ -44,15 +39,15 @@ class TrackRequestTest {
 
         val event = KlaviyoEventType.CUSTOM(event)
         val profile = Profile()
-            .setAnonymousId(anonId)
-            .setEmail(email)
-            .setPhoneNumber(phone)
+            .setAnonymousId(ANON_ID)
+            .setEmail(EMAIL)
+            .setPhoneNumber(PHONE)
 
         val expectedQueryData = mapOf(
-            "company_id" to "Fake_Key"
+            "company_id" to API_KEY
         )
         val expectedJsonString =
-            "{\"data\":{\"type\":\"event\",\"attributes\":{\"metric\":{\"name\":\"$event\"},\"profile\":{\"\$email\":\"$email\",\"\$anonymous\":\"$anonId\",\"\$phone_number\":\"$phone\"},\"time\":\"$isoTime\"}}}"
+            "{\"data\":{\"type\":\"event\",\"attributes\":{\"metric\":{\"name\":\"$event\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"},\"time\":\"$isoTime\"}}}"
         val expectedHeaderKeys = listOf("Content-Type", "Accept", "Revision")
         val expectedHeaderValues = listOf("application/json", "application/json", "2022-10-17")
 
@@ -79,17 +74,17 @@ class TrackRequestTest {
 
         val event = KlaviyoEventType.CUSTOM(event)
         val profile = Profile()
-            .setAnonymousId(anonId)
-            .setEmail(email)
-            .setPhoneNumber(phone)
+            .setAnonymousId(ANON_ID)
+            .setEmail(EMAIL)
+            .setPhoneNumber(PHONE)
         val properties = Event()
             .setProperty("custom_value", "200")
 
         val expectedQueryData = mapOf(
-            "company_id" to "Fake_Key"
+            "company_id" to API_KEY
         )
         val expectedJsonString =
-            "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$isoTime\",\"metric\":{\"name\":\"$event\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"$email\",\"\$anonymous\":\"$anonId\",\"\$phone_number\":\"$phone\"}}}}"
+            "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$isoTime\",\"metric\":{\"name\":\"$event\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"}}}}"
         val expectedHeaderKeys = listOf("Content-Type", "Accept", "Revision")
         val expectedHeaderValues = listOf("application/json", "application/json", "2022-10-17")
 
