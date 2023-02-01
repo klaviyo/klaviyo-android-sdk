@@ -1,9 +1,8 @@
-package com.klaviyo.coresdk
+package com.klaviyo.coresdk.model
 
+import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.helpers.BaseTest
 import com.klaviyo.coresdk.helpers.InMemoryDataStore
-import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey
-import com.klaviyo.coresdk.model.Profile
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.spyk

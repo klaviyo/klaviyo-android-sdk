@@ -1,10 +1,10 @@
-package com.klaviyo.coresdk
+package com.klaviyo.coresdk.model
 
+import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.ANONYMOUS_ID
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EMAIL
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EXTERNAL_ID
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.PHONE_NUMBER
-import com.klaviyo.coresdk.model.Profile
 import java.util.UUID
 
 /**

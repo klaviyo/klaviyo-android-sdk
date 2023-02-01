@@ -7,6 +7,7 @@ import com.klaviyo.coresdk.model.KlaviyoEventAttributeKey
 import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey
 import com.klaviyo.coresdk.model.Profile
+import com.klaviyo.coresdk.model.UserInfo
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
