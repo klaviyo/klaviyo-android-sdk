@@ -1,6 +1,7 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
+import android.os.Build
 import com.klaviyo.coresdk.config.Config
 import com.klaviyo.coresdk.config.StaticClock
 import com.klaviyo.coresdk.lifecycle.LifecycleMonitor
@@ -11,7 +12,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.spyk
-import io.mockk.unmockkAll
+import io.mockk.unmockkObject
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 import org.junit.After
@@ -50,6 +51,9 @@ internal abstract class BaseTest {
         every { Klaviyo.Registry.networkMonitor } returns networkMonitorMock
         every { Klaviyo.Registry.dataStore } returns dataStoreSpy
         every { Klaviyo.Registry.apiClient } returns apiClientMock
+
+        // Mock using latest SDK
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
     }
 
     /**
@@ -69,6 +73,6 @@ internal abstract class BaseTest {
 
     @After
     open fun clear() {
-        unmockkAll()
+        unmockkObject(Klaviyo.Registry)
     }
 }

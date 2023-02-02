@@ -40,7 +40,7 @@ internal class KlaviyoTest : BaseTest() {
         every { Klaviyo.Registry.configBuilder } returns builderMock
         every { builderMock.apiKey(any()) } returns builderMock
         every { builderMock.applicationContext(any()) } returns builderMock
-        every { builderMock.build() } returns mockk()
+        every { builderMock.build() } returns configMock
 
         Klaviyo.initialize(
             apiKey = API_KEY,

@@ -25,6 +25,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
 
         // Mock connectivityManager for spot check and for callbacks
         every { contextMock.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
+        every { contextMock.getSystemService(ConnectivityManager::class.java) } returns connectivityManagerMock
         every { connectivityManagerMock.activeNetwork } returns networkMock
         every { connectivityManagerMock.getNetworkCapabilities(null) } returns null
         every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock

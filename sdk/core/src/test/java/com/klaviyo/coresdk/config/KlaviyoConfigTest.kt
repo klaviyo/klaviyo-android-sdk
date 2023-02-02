@@ -113,12 +113,11 @@ internal class KlaviyoConfigTest : BaseTest() {
 
     @Test
     fun `getPackageInfoCompat detects platform properly`() {
+        mockPackageManager.getPackageInfoCompat(contextMock.packageName, PackageManager.GET_PERMISSIONS)
+        verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, mockPackageManagerFlags) }
+
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
         mockPackageManager.getPackageInfoCompat(contextMock.packageName, PackageManager.GET_PERMISSIONS)
         verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) }
-
-        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
-        mockPackageManager.getPackageInfoCompat(contextMock.packageName, PackageManager.GET_PERMISSIONS)
-        verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, mockPackageManagerFlags) }
     }
 }
