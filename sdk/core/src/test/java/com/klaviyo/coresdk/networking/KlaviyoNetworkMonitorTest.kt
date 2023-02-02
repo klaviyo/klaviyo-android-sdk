@@ -5,15 +5,14 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.helpers.BaseTest
+import com.klaviyo.coresdk.BaseTest
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.slot
 import org.junit.Test
 
-class KlaviyoNetworkMonitorTest : BaseTest() {
+internal class KlaviyoNetworkMonitorTest : BaseTest() {
     private val connectivityManagerMock: ConnectivityManager = mockk()
     private val networkMock: Network = mockk()
     private val capabilitiesMock: NetworkCapabilities = mockk()
@@ -24,14 +23,12 @@ class KlaviyoNetworkMonitorTest : BaseTest() {
     override fun setup() {
         super.setup()
 
-        // Shared mock of connectivityManager
+        // Mock connectivityManager for spot check and for callbacks
         every { contextMock.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
         every { connectivityManagerMock.activeNetwork } returns networkMock
         every { connectivityManagerMock.getNetworkCapabilities(null) } returns null
         every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
-
-        Klaviyo.initialize(API_KEY, contextMock)
 
         mockkConstructor(NetworkRequest.Builder::class)
         every { NetworkRequest.Builder().addCapability(any()) } returns mockBuilder

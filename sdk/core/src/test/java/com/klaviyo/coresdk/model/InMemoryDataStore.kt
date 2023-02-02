@@ -1,6 +1,4 @@
-package com.klaviyo.coresdk.helpers
-
-import com.klaviyo.coresdk.model.DataStore
+package com.klaviyo.coresdk.model
 
 /**
  * Implementation of DataStore that just uses an in-memory map

@@ -2,7 +2,7 @@ package com.klaviyo.coresdk.networking.requests
 
 import android.util.Base64
 import com.klaviyo.coresdk.BuildConfig
-import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.networking.NetworkBatcher
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -23,7 +23,7 @@ internal abstract class KlaviyoRequest : NetworkRequest() {
     /**
      * A timestamp that can be used to track when this request was created
      */
-    internal val timestamp: Long = KlaviyoConfig.clock.currentTimeMillis() / 1000
+    internal val timestamp: Long = Klaviyo.Registry.config.clock.currentTimeMillis() / 1000
 
     internal fun getTimeString(): String {
         val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")

@@ -2,7 +2,7 @@ package com.klaviyo.coresdk.networking
 
 import android.os.Handler
 import android.os.HandlerThread
-import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.networking.requests.NetworkRequest
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -69,13 +69,15 @@ object NetworkBatcher {
         override fun run() {
             val emptied = emptyRequestQueue(forceEmpty)
             if (!emptied) {
-                handler?.postDelayed(this, KlaviyoConfig.networkFlushCheckInterval.toLong())
+                handler?.postDelayed(
+                    this, Klaviyo.Registry.config.networkFlushCheckInterval.toLong()
+                )
             }
         }
 
         /**
          * Empties the batcher of all queued requests by instantly sending each request to Klaviyo
-         * The queue will empty whenever the triggers specified by the [KlaviyoConfig] are met
+         * The queue will empty whenever the triggers specified in config are met
          *
          * @param forceEmpty Overrides the typical queue emptying triggers to force the queue to empty itself
          *
@@ -83,7 +85,11 @@ object NetworkBatcher {
          */
         private fun emptyRequestQueue(forceEmpty: Boolean = false): Boolean {
             val queueTimePassed = System.currentTimeMillis() - queueInitTime
-            val readyToEmpty = batchQueue.size >= KlaviyoConfig.networkFlushDepth || queueTimePassed >= KlaviyoConfig.networkFlushInterval
+            val readyToEmpty = (
+                batchQueue.size >= Klaviyo.Registry.config.networkFlushDepth ||
+                    queueTimePassed >= Klaviyo.Registry.config.networkFlushInterval
+                )
+
             if (forceEmpty || readyToEmpty) {
                 var request: NetworkRequest? = null
                 while (batchQueue.poll().also { request = it } != null) {

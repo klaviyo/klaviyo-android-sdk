@@ -1,9 +1,33 @@
-package com.klaviyo.coresdk
+package com.klaviyo.coresdk.config
 
-import com.klaviyo.coresdk.helpers.BaseTest
+import android.Manifest
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
+import android.os.Build
+import com.klaviyo.coresdk.BaseTest
+import com.klaviyo.coresdk.BuildConfig
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.verify
 import org.junit.Test
 
-class KlaviyoConfigTest : BaseTest() {
+internal class KlaviyoConfigTest : BaseTest() {
+
+    private val mockPackageManager = mockk<PackageManager>()
+    val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
+    private val mockPackageInfo = mockk<PackageInfo>().apply {
+        requestedPermissions = arrayOf(Manifest.permission.ACCESS_NETWORK_STATE)
+    }
+
+    override fun setup() {
+        mockkStatic(PackageManager.PackageInfoFlags::class)
+        every { PackageManager.PackageInfoFlags.of(any()) } returns mockPackageManagerFlags
+        every { contextMock.packageManager } returns mockPackageManager
+        every { contextMock.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
+        every { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, mockPackageManagerFlags) } returns mockPackageInfo
+        every { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) } returns mockPackageInfo
+    }
 
     @Test
     fun `KlaviyoConfig Builder sets variables successfully`() {
@@ -69,7 +93,7 @@ class KlaviyoConfigTest : BaseTest() {
     }
 
     @Test(expected = KlaviyoMissingContextException::class)
-    fun `KlaviyoConfig Builder missing application context throws expected exception`() {
+    fun `KlaviyoConfig Builder missing application context throws exception`() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
             .networkTimeout(500)
@@ -79,11 +103,22 @@ class KlaviyoConfigTest : BaseTest() {
     }
 
     @Test(expected = KlaviyoMissingPermissionException::class)
-    fun `KlaviyoConfig Builder throws expected exception when context is missing required permissions`() {
+    fun `KlaviyoConfig Builder throws exception when context is missing required permissions`() {
         mockPackageInfo.requestedPermissions = arrayOf()
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
             .applicationContext(contextMock)
             .build()
+    }
+
+    @Test
+    fun `getPackageInfoCompat detects platform properly`() {
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
+        mockPackageManager.getPackageInfoCompat(contextMock.packageName, PackageManager.GET_PERMISSIONS)
+        verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) }
+
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
+        mockPackageManager.getPackageInfoCompat(contextMock.packageName, PackageManager.GET_PERMISSIONS)
+        verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, mockPackageManagerFlags) }
     }
 }

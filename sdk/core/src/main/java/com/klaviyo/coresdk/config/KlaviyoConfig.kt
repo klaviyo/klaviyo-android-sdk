@@ -1,11 +1,10 @@
-package com.klaviyo.coresdk
+package com.klaviyo.coresdk.config
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import com.klaviyo.coresdk.helpers.Clock
-import com.klaviyo.coresdk.helpers.SystemClock
-import com.klaviyo.coresdk.helpers.getPackageInfoCompat
+import android.os.Build
 
 /**
  * Exception that is thrown when the the Klaviyo API token is missing from the config
@@ -27,7 +26,7 @@ class KlaviyoMissingPermissionException(permission: String) : Exception("You mus
 /**
  * Stores all configuration related to the Klaviyo Android SDK.
  */
-object KlaviyoConfig {
+object KlaviyoConfig : Config {
     private const val NETWORK_TIMEOUT_DEFAULT: Int = 500
     private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
     private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 20
@@ -35,27 +34,27 @@ object KlaviyoConfig {
     private const val NETWORK_USE_ANALYTICS_BATCH_QUEUE: Boolean = true
     private val SYSTEM_CLOCK: Clock = SystemClock
 
-    lateinit var apiKey: String
+    override lateinit var apiKey: String
         private set
-    lateinit var applicationContext: Context
+    override lateinit var applicationContext: Context
         private set
-    var networkTimeout = NETWORK_TIMEOUT_DEFAULT
+    override var networkTimeout = NETWORK_TIMEOUT_DEFAULT
         private set
-    var networkFlushInterval = NETWORK_FLUSH_INTERVAL_DEFAULT
+    override var networkFlushInterval = NETWORK_FLUSH_INTERVAL_DEFAULT
         private set
-    var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
+    override var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private set
-    var networkFlushCheckInterval = NETWORK_FLUSH_CHECK_INTERVAL
+    override var networkFlushCheckInterval = NETWORK_FLUSH_CHECK_INTERVAL
         private set
-    var networkUseAnalyticsBatchQueue = NETWORK_USE_ANALYTICS_BATCH_QUEUE
+    override var networkUseAnalyticsBatchQueue = NETWORK_USE_ANALYTICS_BATCH_QUEUE
         private set
-    internal var clock: Clock = SYSTEM_CLOCK
+    override var clock: Clock = SYSTEM_CLOCK
         private set
 
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
      */
-    class Builder {
+    class Builder : Config.Builder {
         private var apiKey: String = ""
         private var applicationContext: Context? = null
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
@@ -65,22 +64,22 @@ object KlaviyoConfig {
         private var networkUseAnalyticsBatchQueue = NETWORK_USE_ANALYTICS_BATCH_QUEUE
         private var clock = SYSTEM_CLOCK
 
-        fun apiKey(apiKey: String) = apply {
+        override fun apiKey(apiKey: String) = apply {
             this.apiKey = apiKey
         }
 
-        fun applicationContext(context: Context) = apply {
+        override fun applicationContext(context: Context) = apply {
             this.applicationContext = context
         }
 
-        fun networkTimeout(networkTimeout: Int) = apply {
+        override fun networkTimeout(networkTimeout: Int) = apply {
             if (networkTimeout < 0) {
             } else {
                 this.networkTimeout = networkTimeout
             }
         }
 
-        fun networkFlushInterval(networkFlushInterval: Int) = apply {
+        override fun networkFlushInterval(networkFlushInterval: Int) = apply {
             if (networkFlushInterval < 0) {
                 // TODO: When Timber is installed, log warning here
             } else {
@@ -88,7 +87,7 @@ object KlaviyoConfig {
             }
         }
 
-        fun networkFlushDepth(networkFlushDepth: Int) = apply {
+        override fun networkFlushDepth(networkFlushDepth: Int) = apply {
             if (networkFlushDepth <= 0) {
                 // TODO: When Timber is installed, log warning here
             } else {
@@ -96,7 +95,7 @@ object KlaviyoConfig {
             }
         }
 
-        fun networkFlushCheckInterval(networkFlushCheckInterval: Int) = apply {
+        override fun networkFlushCheckInterval(networkFlushCheckInterval: Int) = apply {
             if (networkFlushCheckInterval < 0) {
                 // TODO: When Timber is installed, log warning here
             } else {
@@ -104,15 +103,11 @@ object KlaviyoConfig {
             }
         }
 
-        fun networkUseAnalyticsBatchQueue(networkUseAnalyticsBatchQueue: Boolean) = apply {
+        override fun networkUseAnalyticsBatchQueue(networkUseAnalyticsBatchQueue: Boolean) = apply {
             this.networkUseAnalyticsBatchQueue = networkUseAnalyticsBatchQueue
         }
 
-        internal fun clock(clock: Clock) = apply {
-            this.clock = clock
-        }
-
-        fun build() {
+        override fun build(): Config {
             if (apiKey.isEmpty()) {
                 throw KlaviyoMissingAPIKeyException()
             }
@@ -120,10 +115,9 @@ object KlaviyoConfig {
                 throw KlaviyoMissingContextException()
             }
 
-            val permissions = applicationContext!!
-                .packageManager
-                .getPackageInfoCompat(applicationContext!!.packageName, PackageManager.GET_PERMISSIONS)
-                .requestedPermissions ?: arrayOf()
+            val permissions = applicationContext!!.packageManager.getPackageInfoCompat(
+                applicationContext!!.packageName, PackageManager.GET_PERMISSIONS
+            ).requestedPermissions ?: arrayOf()
 
             if (Manifest.permission.ACCESS_NETWORK_STATE !in permissions) {
                 throw KlaviyoMissingPermissionException(Manifest.permission.ACCESS_NETWORK_STATE)
@@ -137,6 +131,15 @@ object KlaviyoConfig {
             KlaviyoConfig.networkFlushCheckInterval = networkFlushCheckInterval
             KlaviyoConfig.networkUseAnalyticsBatchQueue = networkUseAnalyticsBatchQueue
             KlaviyoConfig.clock = clock
+
+            return KlaviyoConfig
         }
     }
 }
+
+internal fun PackageManager.getPackageInfoCompat(packageName: String, flags: Int = 0): PackageInfo =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(flags.toLong()))
+    } else {
+        @Suppress("DEPRECATION") getPackageInfo(packageName, flags)
+    }

@@ -32,9 +32,9 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @param pushToken The push token provided by the FCM Service
          */
         fun setPushToken(pushToken: String) {
-            val properties = Profile().addAppendProperty(PUSH_TOKEN_APPEND_KEY, pushToken)
+            val profile = Profile().addAppendProperty(PUSH_TOKEN_APPEND_KEY, pushToken)
 
-            Klaviyo.setProfile(properties)
+            Klaviyo.setProfile(profile)
 
             Klaviyo.Registry.dataStore.store(PUSH_TOKEN_KEY, pushToken)
         }

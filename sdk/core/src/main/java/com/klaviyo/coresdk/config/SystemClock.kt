@@ -1,4 +1,4 @@
-package com.klaviyo.coresdk.helpers
+package com.klaviyo.coresdk.config
 
 internal object SystemClock : Clock {
 

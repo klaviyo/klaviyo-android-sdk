@@ -25,7 +25,7 @@ You must also register the Klaviyo SDK for activity lifecycle callbacks per the 
 ```kotlin
 import android.app.Application
 import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.KlaviyoLifecycleMonitor
+import com.klaviyo.coresdk.lifecycle.KlaviyoLifecycleMonitor
 import com.klaviyo.push.KlaviyoPushService
 
 class TestApp : Application() {
@@ -40,18 +40,45 @@ class TestApp : Application() {
 ```
 
 ### Identifying a Profile
-[//]: # (TODO: more examples and explanation of overloads)
+The SDK provides helpers for identifying profile data and syncing via the 
+[Klaviyo client API](https://developers.klaviyo.com/en/reference/create_client_profile).
+All profile identifiers (email, phone, external ID, anonymous ID) are persisted to local storage
+so that the SDK can keep track of the current profile.
 
-The SDK keeps track of the "current" profile and persists identifiers across sessions. Profile data is
-automatically synced to the Klaviyo API. You can set basic identifiers individually, like email:
-
+Profile attributes can be set all at once: 
 ```kotlin
-Klaviyo.setEmail("test@address.com")
+val profile = Profile().also {
+    it.setEmail("kermit@example.com")
+    it[KlaviyoProfileAttributeKey.FIRST_NAME] = "Kermit"
+}
+Klaviyo.setProfile(profile)
 ```
-or phone: 
+or individually:
 ```kotlin
-Klaviyo.setPhone("555-555-5555")
-``` 
+Klaviyo.setEmail("kermit@example.com")
+Klaviyo.setPhone("+12223334444")
+Klaviyo.setExternalId("USER_IDENTIFIER")
+Klaviyo.setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, "Kermit")
+    .setProfileAttribute(KlaviyoProfileAttributeKey.CUSTOM("instrument"), "banjo")
+```
+Either way, the SDK will group and batch API calls to limit resource usage. 
+
+**Profile updates are additive**. To start a new profile altogether (e.g. if a user logs out)
+call `Klaviyo.resetProfile()` first to reset all identifiers and start tracking a new profile:
+```kotlin
+//Start a profile for Kermit
+Klaviyo.setEmail("kermit@example.com")
+    .setPhone("+12223334444")
+    .setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, "Kermit")
+
+//Stop tracking Kermit
+Klaviyo.resetProfile()
+
+//Start new profile for Robin with new IDs
+Klaviyo.setEmail("robin@example.com")
+    .setPhone("+5556667777")
+    .setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, "Robin")
+```
 
 ### Tracking Events
 The SDK also provides tools for tracking analytics events to the Klaviyo API. 

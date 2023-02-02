@@ -2,7 +2,6 @@ package com.klaviyo.coresdk.networking.requests
 
 import android.webkit.URLUtil
 import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.networking.RequestMethod
 import java.io.BufferedReader
 import java.io.IOException
@@ -74,8 +73,8 @@ internal abstract class NetworkRequest {
         val url = buildURL()
         val connection = buildConnection(url)
 
-        connection.readTimeout = KlaviyoConfig.networkTimeout
-        connection.connectTimeout = KlaviyoConfig.networkTimeout
+        connection.readTimeout = Klaviyo.Registry.config.networkTimeout
+        connection.connectTimeout = Klaviyo.Registry.config.networkTimeout
         connection.requestMethod = requestMethod.name
         appendHeaders(connection)
 

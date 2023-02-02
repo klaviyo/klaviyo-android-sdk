@@ -1,4 +1,4 @@
-package com.klaviyo.coresdk
+package com.klaviyo.coresdk.lifecycle
 
 import io.mockk.mockk
 import org.junit.Test

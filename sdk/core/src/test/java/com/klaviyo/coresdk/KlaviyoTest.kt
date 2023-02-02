@@ -1,7 +1,6 @@
 package com.klaviyo.coresdk
 
-import com.klaviyo.coresdk.helpers.BaseTest
-import com.klaviyo.coresdk.helpers.InMemoryDataStore
+import com.klaviyo.coresdk.config.Config
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventAttributeKey
 import com.klaviyo.coresdk.model.KlaviyoEventType
@@ -10,29 +9,19 @@ import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.model.UserInfo
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkObject
 import io.mockk.slot
-import io.mockk.spyk
 import io.mockk.verify
+import io.mockk.verifyAll
 import org.junit.Test
 
-class KlaviyoTest : BaseTest() {
+internal class KlaviyoTest : BaseTest() {
 
     private val capturedProfile = slot<Profile>()
 
     override fun setup() {
         super.setup()
-        mockkObject(Klaviyo.Registry)
-        every { Klaviyo.Registry.networkMonitor } returns mockk()
-        every { Klaviyo.Registry.dataStore } returns spyk(InMemoryDataStore)
-        every { Klaviyo.Registry.apiClient } returns mockk()
-        every { Klaviyo.Registry.apiClient.enqueueProfile(capture(capturedProfile)) } returns Unit
-        every { Klaviyo.Registry.apiClient.enqueueEvent(any(), any(), any()) } returns Unit
-
-        Klaviyo.initialize(
-            apiKey = API_KEY,
-            applicationContext = contextMock
-        )
+        every { apiClientMock.enqueueProfile(capture(capturedProfile)) } returns Unit
+        every { apiClientMock.enqueueEvent(any(), any(), any()) } returns Unit
     }
 
     @Test
@@ -46,9 +35,23 @@ class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `Klaviyo Configure API sets variables successfully`() {
-        assert(KlaviyoConfig.apiKey == API_KEY)
-        assert(KlaviyoConfig.applicationContext == contextMock)
+    fun `Klaviyo initializes properly creates new config service`() {
+        val builderMock = mockk<Config.Builder>()
+        every { Klaviyo.Registry.configBuilder } returns builderMock
+        every { builderMock.apiKey(any()) } returns builderMock
+        every { builderMock.applicationContext(any()) } returns builderMock
+        every { builderMock.build() } returns mockk()
+
+        Klaviyo.initialize(
+            apiKey = API_KEY,
+            applicationContext = contextMock
+        )
+
+        verifyAll {
+            builderMock.apiKey(API_KEY)
+            builderMock.applicationContext(contextMock)
+            builderMock.build()
+        }
     }
 
     @Test
@@ -56,7 +59,7 @@ class KlaviyoTest : BaseTest() {
         Klaviyo.setExternalId(EXTERNAL_ID)
 
         assert(UserInfo.externalId == EXTERNAL_ID)
-        verify(exactly = 1) { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
+        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
     }
 
     @Test
@@ -64,7 +67,7 @@ class KlaviyoTest : BaseTest() {
         Klaviyo.setEmail(EMAIL)
 
         assert(UserInfo.email == EMAIL)
-        verify(exactly = 1) { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
+        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
     }
 
     @Test
@@ -72,7 +75,7 @@ class KlaviyoTest : BaseTest() {
         Klaviyo.setPhoneNumber(PHONE)
 
         assert(UserInfo.phoneNumber == PHONE)
-        verify(exactly = 1) { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
+        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
     }
 
     @Test
@@ -80,7 +83,7 @@ class KlaviyoTest : BaseTest() {
         val stubName = "Evan"
         Klaviyo.setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, stubName)
 
-        verify(exactly = 1) { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
+        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
         assert(capturedProfile.isCaptured)
         assert(capturedProfile.captured[KlaviyoProfileAttributeKey.FIRST_NAME] == stubName)
     }
@@ -97,7 +100,7 @@ class KlaviyoTest : BaseTest() {
         assert(UserInfo.phoneNumber == "")
         assert(UserInfo.externalId == "")
 
-        verify(exactly = 1) { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
+        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
     }
 
     @Test
@@ -108,7 +111,7 @@ class KlaviyoTest : BaseTest() {
         )
 
         verify(exactly = 1) {
-            Klaviyo.Registry.apiClient.enqueueEvent(
+            apiClientMock.enqueueEvent(
                 KlaviyoEventType.VIEWED_PRODUCT,
                 any(),
                 any()

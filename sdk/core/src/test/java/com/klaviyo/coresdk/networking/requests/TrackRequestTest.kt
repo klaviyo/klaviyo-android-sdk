@@ -1,8 +1,7 @@
 package com.klaviyo.coresdk.networking.requests
 
-import com.klaviyo.coresdk.KlaviyoConfig
-import com.klaviyo.coresdk.helpers.BaseTest
-import com.klaviyo.coresdk.helpers.StaticClock
+import com.klaviyo.coresdk.BaseTest
+import com.klaviyo.coresdk.config.StaticClock
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.Profile
@@ -16,7 +15,7 @@ import java.net.HttpURLConnection
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class TrackRequestTest : BaseTest() {
+internal class TrackRequestTest : BaseTest() {
 
     private val currentTimeMillis = 1234567890000L
     private val isoTime = "2009-02-13T23:31:30+0000"
@@ -24,12 +23,7 @@ class TrackRequestTest : BaseTest() {
 
     override fun setup() {
         super.setup()
-
-        KlaviyoConfig.Builder()
-            .apiKey(API_KEY)
-            .applicationContext(contextMock)
-            .clock(StaticClock(currentTimeMillis))
-            .build()
+        every { configMock.clock } returns StaticClock(currentTimeMillis)
     }
 
     @Test
@@ -53,7 +47,7 @@ class TrackRequestTest : BaseTest() {
         val expectedHeaderKeys = listOf("Content-Type", "Accept", "Revision")
         val expectedHeaderValues = listOf("application/json", "application/json", "2022-10-17")
 
-        val request = TrackRequest(apiKey = KlaviyoConfig.apiKey, event, profile)
+        val request = TrackRequest(API_KEY, event, profile)
         request.appendHeaders(connectionMock)
 
         assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)
@@ -90,7 +84,7 @@ class TrackRequestTest : BaseTest() {
         val expectedHeaderKeys = listOf("Content-Type", "Accept", "Revision")
         val expectedHeaderValues = listOf("application/json", "application/json", "2022-10-17")
 
-        val request = TrackRequest(apiKey = KlaviyoConfig.apiKey, event, profile, properties)
+        val request = TrackRequest(API_KEY, event, profile, properties)
         request.appendHeaders(connectionMock)
 
         assertEquals("$BASE_URL/$TRACK_ENDPOINT", request.urlString)

@@ -1,9 +1,8 @@
 package com.klaviyo.coresdk.networking.requests
 
 import android.util.Base64
+import com.klaviyo.coresdk.BaseTest
 import com.klaviyo.coresdk.BuildConfig
-import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.helpers.BaseTest
 import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.networking.RequestMethod
 import io.mockk.every
@@ -13,7 +12,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.fail
 import org.junit.Test
 
-class IdentifyRequestTest : BaseTest() {
+internal class IdentifyRequestTest : BaseTest() {
     private val encodedString = "Expected json string, base64 encoded"
     private val expectedQueryData = mapOf("data" to encodedString)
     private val expectedUrl = "${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}"
@@ -22,8 +21,8 @@ class IdentifyRequestTest : BaseTest() {
     override fun setup() {
         super.setup()
 
-        Klaviyo.initialize(API_KEY, contextMock)
-        profile.setAnonymousId(ANON_ID) // start all tests with an empty profile and base64 mock for it
+        // Start all tests with an empty profile and base64 mock for encoding it
+        profile.setAnonymousId(ANON_ID)
         withMockBase64("{\"properties\":{\"\$anonymous\":\"$ANON_ID\"},\"token\":\"$API_KEY\"}")
     }
 

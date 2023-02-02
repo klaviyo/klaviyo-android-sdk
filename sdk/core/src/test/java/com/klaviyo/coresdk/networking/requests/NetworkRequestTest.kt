@@ -1,15 +1,10 @@
 package com.klaviyo.coresdk.networking.requests
 
-import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.KlaviyoConfig
-import com.klaviyo.coresdk.LifecycleMonitor
-import com.klaviyo.coresdk.helpers.BaseTest
-import com.klaviyo.coresdk.networking.NetworkMonitor
+import com.klaviyo.coresdk.BaseTest
 import com.klaviyo.coresdk.networking.RequestMethod
 import io.mockk.called
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkObject
 import io.mockk.spyk
 import io.mockk.verify
 import java.io.ByteArrayInputStream
@@ -21,25 +16,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-class NetworkRequestTest : BaseTest() {
-    private val environmentMock = mockk<LifecycleMonitor>()
-    private val networkMock = mockk<NetworkMonitor>()
+internal class NetworkRequestTest : BaseTest() {
 
     @Before
     override fun setup() {
         super.setup()
 
-        mockkObject(Klaviyo.Registry)
-        every { Klaviyo.Registry.lifecycleMonitor } returns environmentMock
-        every { Klaviyo.Registry.networkMonitor } returns networkMock
-        every { networkMock.isNetworkConnected() } returns true
-
-        KlaviyoConfig.Builder()
-            .apiKey("Fake_Key")
-            .applicationContext(contextMock)
-            .networkTimeout(1000)
-            .networkFlushInterval(10000)
-            .build()
+        every { networkMonitorMock.isNetworkConnected() } returns true
+        every { configMock.networkTimeout } returns 1000
+        every { configMock.networkFlushInterval } returns 10000
     }
 
     @Test
@@ -72,7 +57,7 @@ class NetworkRequestTest : BaseTest() {
 
     @Test
     fun `sendNetworkRequest returns null when no internet`() {
-        every { networkMock.isNetworkConnected() } returns false
+        every { networkMonitorMock.isNetworkConnected() } returns false
 
         val expectedResponse = null
         val request = spyk<NetworkRequest>()
@@ -83,12 +68,11 @@ class NetworkRequestTest : BaseTest() {
 
     @Test
     fun `sendNetworkRequest uses URL and config for GET`() {
-        mockkObject(KlaviyoConfig)
         val connectionMock = mockk<HttpURLConnection>()
         val request = spyk<NetworkRequest>()
         val url = URL("https://valid.url?first=second&query=1&flag=false")
         val expectedResponse = "something"
-        every { KlaviyoConfig.networkTimeout } returns 1
+        every { configMock.networkTimeout } returns 1
         every { request.buildURL() } returns url
         every { request.buildConnection(url) } returns connectionMock
         every { request.requestMethod } returns RequestMethod.GET
@@ -107,14 +91,13 @@ class NetworkRequestTest : BaseTest() {
 
     @Test
     fun `sendNetworkRequest uses URL, config, and payload for POST when payload is not empty`() {
-        mockkObject(KlaviyoConfig)
         val connectionMock = mockk<HttpURLConnection>()
         val outputMock = spyk(OutputStream.nullOutputStream())
         val request = spyk<NetworkRequest>()
         val url = URL("https://valid.url?first=second&query=1&flag=false")
         val payload = "some payload"
         val expectedResponse = "something"
-        every { KlaviyoConfig.networkTimeout } returns 1
+        every { configMock.networkTimeout } returns 1
         every { request.buildURL() } returns url
         every { request.buildConnection(url) } returns connectionMock
         every { request.requestMethod } returns RequestMethod.POST
@@ -126,8 +109,8 @@ class NetworkRequestTest : BaseTest() {
         every { connectionMock.requestMethod = any() } returns Unit
         every { connectionMock.requestMethod } returns RequestMethod.POST.name
         every { connectionMock.doOutput = any() } returns Unit
-        every { connectionMock.connect() } returns Unit
         every { connectionMock.outputStream } returns outputMock
+        every { connectionMock.connect() } returns Unit
 
         val actualResponse = request.sendNetworkRequest()
 
@@ -139,13 +122,12 @@ class NetworkRequestTest : BaseTest() {
 
     @Test
     fun `sendNetworkRequest uses URL, config for POST when payload is empty`() {
-        mockkObject(KlaviyoConfig)
         val connectionMock = mockk<HttpURLConnection>()
         val outputMock = mockk<OutputStream>()
         val request = spyk<NetworkRequest>()
         val url = URL("https://valid.url?first=second&query=1&flag=false")
         val expectedResponse = "something"
-        every { KlaviyoConfig.networkTimeout } returns 1
+        every { configMock.networkTimeout } returns 1
         every { request.buildURL() } returns url
         every { request.buildConnection(url) } returns connectionMock
         every { request.requestMethod } returns RequestMethod.POST

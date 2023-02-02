@@ -1,6 +1,10 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
+import com.klaviyo.coresdk.config.Config
+import com.klaviyo.coresdk.config.KlaviyoConfig
+import com.klaviyo.coresdk.lifecycle.KlaviyoLifecycleMonitor
+import com.klaviyo.coresdk.lifecycle.LifecycleMonitor
 import com.klaviyo.coresdk.model.DataStore
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
@@ -8,7 +12,7 @@ import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey
 import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.model.SharedPreferencesDataStore
 import com.klaviyo.coresdk.model.UserInfo
-import com.klaviyo.coresdk.networking.HttpKlaviyoApiClient
+import com.klaviyo.coresdk.networking.ApiClient
 import com.klaviyo.coresdk.networking.KlaviyoApiClient
 import com.klaviyo.coresdk.networking.KlaviyoNetworkMonitor
 import com.klaviyo.coresdk.networking.NetworkMonitor
@@ -23,16 +27,22 @@ object Klaviyo {
      * Services registry
      */
     object Registry {
+        lateinit var config: Config
+            internal set
+
+        val configBuilder: Config.Builder
+            get() = KlaviyoConfig.Builder()
+
         var lifecycleMonitor: LifecycleMonitor = KlaviyoLifecycleMonitor
             private set
 
         var networkMonitor: NetworkMonitor = KlaviyoNetworkMonitor
             private set
 
-        var dataStore: DataStore = SharedPreferencesDataStore
+        var apiClient: ApiClient = KlaviyoApiClient
             private set
 
-        var apiClient: KlaviyoApiClient = HttpKlaviyoApiClient
+        var dataStore: DataStore = SharedPreferencesDataStore
             private set
     }
 
@@ -44,16 +54,11 @@ object Klaviyo {
      * @param applicationContext
      * @return
      */
-    fun initialize(
-        apiKey: String,
-        applicationContext: Context
-    ) {
-        KlaviyoConfig.Builder()
+    fun initialize(apiKey: String, applicationContext: Context) {
+        Registry.config = Registry.configBuilder
             .apiKey(apiKey)
             .applicationContext(applicationContext)
             .build()
-
-        // TODO should we guard all other APIs against being called before initialize?
     }
 
     /**

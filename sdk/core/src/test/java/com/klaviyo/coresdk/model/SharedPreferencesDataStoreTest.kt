@@ -2,25 +2,19 @@ package com.klaviyo.coresdk.model
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.helpers.BaseTest
+import com.klaviyo.coresdk.BaseTest
 import com.klaviyo.coresdk.model.SharedPreferencesDataStore.KLAVIYO_PREFS_NAME
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
-import org.junit.Before
 import org.junit.Test
 
-class SharedPreferencesDataStoreTest : BaseTest() {
+internal class SharedPreferencesDataStoreTest : BaseTest() {
     private val preferenceMock = mockk<SharedPreferences>()
     private val editorMock = mockk<SharedPreferences.Editor>()
-
-    @Before
-    override fun setup() {
-        super.setup()
-        Klaviyo.initialize(API_KEY, contextMock)
-    }
+    private val stubKey = "key" + Math.random().toString()
+    private val stubValue = "value" + Math.random().toString()
 
     private fun withPreferenceMock() {
         every {
@@ -34,35 +28,31 @@ class SharedPreferencesDataStoreTest : BaseTest() {
         every { editorMock.apply() } returns Unit
     }
 
-    private fun withReadStringMock(key: String, default: String?, string: String) {
-        every { preferenceMock.getString(key, default) } returns string
-    }
-
     @Test
     fun `writing string uses Klaviyo preferences`() {
         withPreferenceMock()
-        withWriteStringMock("key", "value")
+        withWriteStringMock(stubKey, stubValue)
 
-        SharedPreferencesDataStore.store(key = "key", value = "value")
+        SharedPreferencesDataStore.store(stubKey, stubValue)
 
         verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
         verify { preferenceMock.edit() }
-        verify { editorMock.putString("key", "value") }
+        verify { editorMock.putString(stubKey, stubValue) }
         verify { editorMock.apply() }
     }
 
     @Test
     fun `reading string uses Klaviyo preferences`() {
-        val expectedString = "123"
+        val expectedString = "123" + Math.random().toString()
 
         withPreferenceMock()
-        withReadStringMock("key", "", expectedString)
+        every { preferenceMock.getString(stubKey, "") } returns expectedString
 
-        val actualString = Klaviyo.Registry.dataStore.fetch(key = "key")
+        val actualString = SharedPreferencesDataStore.fetch(key = stubKey)
 
         assertEquals(expectedString, actualString)
         verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
-        verify { preferenceMock.getString("key", "") }
+        verify { preferenceMock.getString(stubKey, "") }
         verify(inverse = true) { editorMock.apply() }
     }
 }

@@ -1,28 +1,13 @@
-package com.klaviyo.coresdk
+package com.klaviyo.coresdk.lifecycle
 
 import android.app.Activity
-import android.app.Application.ActivityLifecycleCallbacks
+import android.app.Application
 import android.os.Bundle
-
-typealias ActivityObserver = (activity: Activity) -> Unit
-
-/**
- * Provides methods to react to changes in the application environment
- */
-interface LifecycleMonitor {
-
-    /**
-     * Register an observer to be notified when all application activities stopped
-     *
-     * @param observer
-     */
-    fun whenStopped(observer: ActivityObserver)
-}
 
 /**
  * Service for monitoring the application lifecycle and network connectivity
  */
-internal object KlaviyoLifecycleMonitor : LifecycleMonitor, ActivityLifecycleCallbacks {
+internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.ActivityLifecycleCallbacks {
 
     private var activitiesActive = 0
 

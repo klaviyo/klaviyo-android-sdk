@@ -1,4 +1,4 @@
-package com.klaviyo.coresdk.helpers
+package com.klaviyo.coresdk.config
 
 /**
  * Implementation of Clock for unit tests
