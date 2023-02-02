@@ -68,21 +68,21 @@ internal object UserInfo {
     /**
      * Apply all identifiers from UserInfo to a [Profile] object
      *
-     * @param properties
+     * @param profile
      */
-    private fun populateProfile(properties: Profile) {
-        properties.setAnonymousId(anonymousId)
+    private fun populateProfile(profile: Profile) {
+        profile.setAnonymousId(anonymousId)
 
         if (externalId.isNotEmpty()) {
-            properties.setIdentifier(externalId)
+            profile.setIdentifier(externalId)
         }
 
         if (email.isNotEmpty()) {
-            properties.setEmail(email)
+            profile.setEmail(email)
         }
 
         if (phoneNumber.isNotEmpty()) {
-            properties.setPhoneNumber(phoneNumber)
+            profile.setPhoneNumber(phoneNumber)
         }
     }
 
@@ -91,13 +91,13 @@ internal object UserInfo {
      * Identifiers present on the incoming object will be applied to UserInfo
      * Any other identifiers will be added to the properties object from UserInfo
      *
-     * @param properties
+     * @param profile
      */
-    fun mergeProfile(properties: Profile): Profile {
-        externalId = properties.identifier ?: externalId
-        email = properties.email ?: email
-        phoneNumber = properties.phoneNumber ?: phoneNumber
-        populateProfile(properties)
-        return properties
+    fun mergeProfile(profile: Profile): Profile {
+        externalId = profile.identifier ?: externalId
+        email = profile.email ?: email
+        phoneNumber = profile.phoneNumber ?: phoneNumber
+        populateProfile(profile)
+        return profile
     }
 }
