@@ -23,9 +23,11 @@ class TrackRequestTest : BaseTest() {
     private val event = "Test Event"
 
     override fun setup() {
+        super.setup()
+
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
-            .applicationContext(mockk())
+            .applicationContext(contextMock)
             .clock(StaticClock(currentTimeMillis))
             .build()
     }

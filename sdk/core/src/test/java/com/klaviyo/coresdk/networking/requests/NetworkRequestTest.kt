@@ -1,9 +1,9 @@
 package com.klaviyo.coresdk.networking.requests
 
-import android.content.Context
 import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.KlaviyoConfig
 import com.klaviyo.coresdk.LifecycleMonitor
+import com.klaviyo.coresdk.helpers.BaseTest
 import com.klaviyo.coresdk.networking.NetworkMonitor
 import com.klaviyo.coresdk.networking.RequestMethod
 import io.mockk.called
@@ -21,13 +21,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-class NetworkRequestTest {
-    private val contextMock = mockk<Context>()
+class NetworkRequestTest : BaseTest() {
     private val environmentMock = mockk<LifecycleMonitor>()
     private val networkMock = mockk<NetworkMonitor>()
 
     @Before
-    fun setup() {
+    override fun setup() {
+        super.setup()
+
         mockkObject(Klaviyo.Registry)
         every { Klaviyo.Registry.lifecycleMonitor } returns environmentMock
         every { Klaviyo.Registry.networkMonitor } returns networkMock

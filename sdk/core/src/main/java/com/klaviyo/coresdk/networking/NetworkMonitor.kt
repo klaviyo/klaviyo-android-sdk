@@ -90,15 +90,16 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
             networkCapabilities: NetworkCapabilities
         ) = broadcastNetworkChange()
 
-        override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) =
-            broadcastNetworkChange()
+        override fun onLinkPropertiesChanged(
+            network: Network,
+            linkProperties: LinkProperties
+        ) = broadcastNetworkChange()
     }
 
     /**
      * One-time setup to observe network changes with connectivityManager
      */
     private fun initializeNetworkListener() {
-        // TODO verify network permission is in manifest
         if (this::networkRequest.isInitialized) return
 
         networkRequest = NetworkRequest.Builder()

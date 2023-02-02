@@ -22,6 +22,8 @@ class KlaviyoNetworkMonitorTest : BaseTest() {
     private val netCallbackSlot = slot<ConnectivityManager.NetworkCallback>()
 
     override fun setup() {
+        super.setup()
+
         // Shared mock of connectivityManager
         every { contextMock.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
         every { connectivityManagerMock.activeNetwork } returns networkMock

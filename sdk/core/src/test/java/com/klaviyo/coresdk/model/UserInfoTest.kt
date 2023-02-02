@@ -16,6 +16,7 @@ class UserInfoTest : BaseTest() {
 
     @Before
     override fun setup() {
+        super.setup()
         mockkObject(Klaviyo.Registry)
         every { Klaviyo.Registry.dataStore } returns spyDataStore
         UserInfo.reset()

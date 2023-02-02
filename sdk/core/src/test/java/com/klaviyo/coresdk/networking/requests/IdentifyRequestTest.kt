@@ -20,6 +20,8 @@ class IdentifyRequestTest : BaseTest() {
     private var profile = Profile()
 
     override fun setup() {
+        super.setup()
+
         Klaviyo.initialize(API_KEY, contextMock)
         profile.setAnonymousId(ANON_ID) // start all tests with an empty profile and base64 mock for it
         withMockBase64("{\"properties\":{\"\$anonymous\":\"$ANON_ID\"},\"token\":\"$API_KEY\"}")

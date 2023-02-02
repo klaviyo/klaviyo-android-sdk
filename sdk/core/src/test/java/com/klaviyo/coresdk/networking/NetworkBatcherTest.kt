@@ -1,7 +1,7 @@
 package com.klaviyo.coresdk.networking
 
-import android.content.Context
 import com.klaviyo.coresdk.KlaviyoConfig
+import com.klaviyo.coresdk.helpers.BaseTest
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
 import io.mockk.every
 import io.mockk.mockk
@@ -11,15 +11,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-class NetworkBatcherTest {
-    private val contextMock = mockk<Context>()
+class NetworkBatcherTest : BaseTest() {
     private val flushInterval = 1000
     private val queueDepth = 10
 
     @Before
-    fun setup() {
+    override fun setup() {
+        super.setup()
         KlaviyoConfig.Builder()
-            .apiKey("Fake_Key")
+            .apiKey(API_KEY)
             .applicationContext(contextMock)
             .networkFlushInterval(flushInterval)
             .networkFlushDepth(queueDepth)

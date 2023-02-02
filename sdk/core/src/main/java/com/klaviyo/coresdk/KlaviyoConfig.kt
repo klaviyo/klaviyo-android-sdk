@@ -1,8 +1,11 @@
 package com.klaviyo.coresdk
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import com.klaviyo.coresdk.helpers.Clock
 import com.klaviyo.coresdk.helpers.SystemClock
+import com.klaviyo.coresdk.helpers.getPackageInfoCompat
 
 /**
  * Exception that is thrown when the the Klaviyo API token is missing from the config
@@ -13,6 +16,13 @@ class KlaviyoMissingAPIKeyException : Exception("You must declare an API key for
  * Exception that is thrown when the application context is missing from the config
  */
 class KlaviyoMissingContextException : Exception("You must add your application context to the Klaviyo SDK")
+
+/**
+ * Exception to throw when a permission is not declared for the application context
+ *
+ * @param permission
+ */
+class KlaviyoMissingPermissionException(permission: String) : Exception("You must declare $permission in your manifest to use the Klaviyo SDK")
 
 /**
  * Stores all configuration related to the Klaviyo Android SDK.
@@ -108,6 +118,15 @@ object KlaviyoConfig {
             }
             if (applicationContext == null) {
                 throw KlaviyoMissingContextException()
+            }
+
+            val permissions = applicationContext!!
+                .packageManager
+                .getPackageInfoCompat(applicationContext!!.packageName, PackageManager.GET_PERMISSIONS)
+                .requestedPermissions ?: arrayOf()
+
+            if (Manifest.permission.ACCESS_NETWORK_STATE !in permissions) {
+                throw KlaviyoMissingPermissionException(Manifest.permission.ACCESS_NETWORK_STATE)
             }
 
             KlaviyoConfig.apiKey = apiKey

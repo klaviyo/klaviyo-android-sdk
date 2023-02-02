@@ -5,10 +5,9 @@ import android.content.SharedPreferences
 import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.helpers.BaseTest
 import com.klaviyo.coresdk.model.SharedPreferencesDataStore.KLAVIYO_PREFS_NAME
-import io.mockk.called
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verifyAll
+import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -19,6 +18,7 @@ class SharedPreferencesDataStoreTest : BaseTest() {
 
     @Before
     override fun setup() {
+        super.setup()
         Klaviyo.initialize(API_KEY, contextMock)
     }
 
@@ -45,12 +45,10 @@ class SharedPreferencesDataStoreTest : BaseTest() {
 
         SharedPreferencesDataStore.store(key = "key", value = "value")
 
-        verifyAll {
-            contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE)
-            preferenceMock.edit()
-            editorMock.putString("key", "value")
-            editorMock.apply()
-        }
+        verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
+        verify { preferenceMock.edit() }
+        verify { editorMock.putString("key", "value") }
+        verify { editorMock.apply() }
     }
 
     @Test
@@ -63,10 +61,8 @@ class SharedPreferencesDataStoreTest : BaseTest() {
         val actualString = Klaviyo.Registry.dataStore.fetch(key = "key")
 
         assertEquals(expectedString, actualString)
-        verifyAll {
-            contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE)
-            preferenceMock.getString("key", "")
-            editorMock wasNot called
-        }
+        verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
+        verify { preferenceMock.getString("key", "") }
+        verify(inverse = true) { editorMock.apply() }
     }
 }

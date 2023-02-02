@@ -21,6 +21,7 @@ class KlaviyoTest : BaseTest() {
     private val capturedProfile = slot<Profile>()
 
     override fun setup() {
+        super.setup()
         mockkObject(Klaviyo.Registry)
         every { Klaviyo.Registry.networkMonitor } returns mockk()
         every { Klaviyo.Registry.dataStore } returns spyk(InMemoryDataStore)
