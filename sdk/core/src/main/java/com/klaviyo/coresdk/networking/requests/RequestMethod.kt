@@ -1,4 +1,4 @@
-package com.klaviyo.coresdk.networking
+package com.klaviyo.coresdk.networking.requests
 
 /**
  * Simple enum class for declaring the different types of network requests the SDK will make

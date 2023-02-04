@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import com.klaviyo.coresdk.BuildConfig
 
 /**
  * Exception that is thrown when the the Klaviyo API token is missing from the config
@@ -33,6 +34,8 @@ object KlaviyoConfig : Config {
     private const val NETWORK_FLUSH_CHECK_INTERVAL: Int = 2000
     private const val NETWORK_USE_ANALYTICS_BATCH_QUEUE: Boolean = true
     private val SYSTEM_CLOCK: Clock = SystemClock
+
+    override val baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
 
     override lateinit var apiKey: String
         private set

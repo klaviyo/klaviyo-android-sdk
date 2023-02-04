@@ -2,9 +2,7 @@ package com.klaviyo.coresdk.networking.requests
 
 import android.util.Base64
 import com.klaviyo.coresdk.BaseTest
-import com.klaviyo.coresdk.BuildConfig
 import com.klaviyo.coresdk.model.Profile
-import com.klaviyo.coresdk.networking.RequestMethod
 import io.mockk.every
 import io.mockk.mockkStatic
 import org.junit.Assert.assertEquals
@@ -12,10 +10,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.fail
 import org.junit.Test
 
-internal class IdentifyRequestTest : BaseTest() {
-    private val encodedString = "Expected json string, base64 encoded"
-    private val expectedQueryData = mapOf("data" to encodedString)
-    private val expectedUrl = "${KlaviyoRequest.BASE_URL}/${IdentifyRequest.IDENTIFY_ENDPOINT}"
+internal class IdentifyApiRequestTest : BaseTest() {
+    private val expectedUrlPath = "api/identify"
+    private val expectedMethod = RequestMethod.GET
+    private val encodedQueryString = "Expected json string, base64 encoded"
+    private val expectedQueryData = mapOf("data" to encodedQueryString)
     private var profile = Profile()
 
     override fun setup() {
@@ -35,7 +34,7 @@ internal class IdentifyRequestTest : BaseTest() {
             val arg = it.invocation.args[0] as? ByteArray
             val str = arg?.let { it1 -> String(it1) }
             if (str == expectedString) {
-                encodedString
+                encodedQueryString
             } else {
                 fail("Unexpected json string: \n  Expected: $expectedString \n    Actual: $str")
                 ""
@@ -44,60 +43,45 @@ internal class IdentifyRequestTest : BaseTest() {
     }
 
     @Test
-    fun `uses the correct endpoint`() {
-        val expectedUrlString = "${BuildConfig.KLAVIYO_SERVER_URL}/api/identify"
-        val actualUrlString = IdentifyRequest(
-            apiKey = API_KEY,
-            profile = profile,
-        ).urlString
-
-        assertEquals(expectedUrlString, actualUrlString)
+    fun `Uses the correct endpoint`() {
+        val actualUrlPath = IdentifyApiRequest(profile = profile).urlPath
+        assertEquals(expectedUrlPath, actualUrlPath)
     }
 
     @Test
-    fun `uses the correct method`() {
-        val expectedMethod = RequestMethod.GET
-        val actualMethod = IdentifyRequest(
-            apiKey = API_KEY,
-            profile = profile,
-        ).requestMethod
-
+    fun `Uses the correct method`() {
+        val actualMethod = IdentifyApiRequest(profile = profile).method
         assertEquals(expectedMethod, actualMethod)
     }
 
     @Test
-    fun `queryData includes api key and anonymous`() {
-        val actualQueryData = IdentifyRequest(
-            apiKey = API_KEY,
-            profile = profile,
-        ).queryData
-
+    fun `Query includes API key and anonymous ID`() {
+        val actualQueryData = IdentifyApiRequest(profile = profile).query
         assertEquals(expectedQueryData, actualQueryData)
     }
 
     @Test
-    fun `does not set a payload`() {
-        val actualPayload = IdentifyRequest(
-            apiKey = API_KEY,
-            profile = profile,
-        ).payload
-
+    fun `Does not set a payload`() {
+        val actualPayload = IdentifyApiRequest(profile = profile).body
         assertNull(actualPayload)
     }
 
     @Test
     fun `Build Identify request successfully`() {
+        val key = "custom_value"
+        val value = "200"
+
         profile.setEmail(EMAIL)
-        profile.setProperty("custom_value", "200")
+        profile.setProperty(key, value)
 
-        withMockBase64("{\"properties\":{\"\$email\":\"$EMAIL\",\"custom_value\":\"200\",\"\$anonymous\":\"$ANON_ID\"},\"token\":\"$API_KEY\"}")
+        withMockBase64("{\"properties\":{\"\$email\":\"$EMAIL\",\"$key\":\"$value\",\"\$anonymous\":\"$ANON_ID\"},\"token\":\"$API_KEY\"}")
 
-        val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
+        val request = IdentifyApiRequest(profile = profile)
 
-        assertEquals(expectedUrl, request.urlString)
-        assertEquals(RequestMethod.GET, request.requestMethod)
-        assertEquals(expectedQueryData, request.queryData)
-        assertEquals(null, request.payload)
+        assertEquals(expectedUrlPath, request.urlPath)
+        assertEquals(expectedMethod, request.method)
+        assertEquals(expectedQueryData, request.query)
+        assertEquals(null, request.body)
     }
 
     @Test
@@ -113,12 +97,12 @@ internal class IdentifyRequestTest : BaseTest() {
         )
 
         withMockBase64("{\"properties\":{\"\$email\":\"$EMAIL\",\"custom_value\":{\"name\":\"item\",\"amount\":\"2\",\"props\":{\"diameter\":\"50\",\"weight\":\"0.1\"}},\"\$anonymous\":\"$ANON_ID\"},\"token\":\"$API_KEY\"}")
-        val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
+        val request = IdentifyApiRequest(profile = profile)
 
-        assertEquals(expectedUrl, request.urlString)
-        assertEquals(RequestMethod.GET, request.requestMethod)
-        assertEquals(expectedQueryData, request.queryData)
-        assertEquals(null, request.payload)
+        assertEquals(expectedUrlPath, request.urlPath)
+        assertEquals(RequestMethod.GET, request.method)
+        assertEquals(expectedQueryData, request.query)
+        assertEquals(null, request.body)
     }
 
     @Test
@@ -128,12 +112,12 @@ internal class IdentifyRequestTest : BaseTest() {
 
         withMockBase64("{\"properties\":{\"\$anonymous\":\"$ANON_ID\",\"\$append\":{\"append_key\":\"value\",\"append_key2\":\"value2\"}},\"token\":\"$API_KEY\"}")
 
-        val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
+        val request = IdentifyApiRequest(profile = profile)
 
-        assertEquals(expectedUrl, request.urlString)
-        assertEquals(RequestMethod.GET, request.requestMethod)
-        assertEquals(expectedQueryData, request.queryData)
-        assertEquals(null, request.payload)
+        assertEquals(expectedUrlPath, request.urlPath)
+        assertEquals(RequestMethod.GET, request.method)
+        assertEquals(expectedQueryData, request.query)
+        assertEquals(null, request.body)
     }
 
     @Test
@@ -143,9 +127,9 @@ internal class IdentifyRequestTest : BaseTest() {
 
         withMockBase64(expectedString = "{\"properties\":{\"\$anonymous\":\"$ANON_ID\",\"\$append\":{\"append_key\":\"valueAgain\"}},\"token\":\"$API_KEY\"}")
 
-        val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
+        val request = IdentifyApiRequest(profile = profile)
 
-        assertEquals(expectedQueryData, request.queryData)
+        assertEquals(expectedQueryData, request.query)
     }
 
     @Test
@@ -154,9 +138,9 @@ internal class IdentifyRequestTest : BaseTest() {
 
         withMockBase64(expectedString = "{\"properties\":{\"\$anonymous\":\"$ANON_ID\",\"\$append\":{\"append_key\":\"value\"}},\"token\":\"$API_KEY\"}")
 
-        val request = IdentifyRequest(apiKey = API_KEY, profile = profile)
+        val request = IdentifyApiRequest(profile = profile)
         profile.addAppendProperty("append_key_again", "value_again")
 
-        assertEquals(expectedQueryData, request.queryData)
+        assertEquals(expectedQueryData, request.query)
     }
 }

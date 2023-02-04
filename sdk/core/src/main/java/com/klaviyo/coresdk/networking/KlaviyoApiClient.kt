@@ -4,9 +4,9 @@ import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.Profile
-import com.klaviyo.coresdk.networking.requests.IdentifyRequest
-import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
-import com.klaviyo.coresdk.networking.requests.TrackRequest
+import com.klaviyo.coresdk.networking.requests.IdentifyApiRequest
+import com.klaviyo.coresdk.networking.requests.KlaviyoApiRequest
+import com.klaviyo.coresdk.networking.requests.TrackApiRequest
 
 /**
  * Internal coordinator of API traffic
@@ -16,7 +16,7 @@ internal object KlaviyoApiClient : ApiClient {
     private var monitoring = false
 
     override fun enqueueProfile(profile: Profile) {
-        processRequest(IdentifyRequest(Klaviyo.Registry.config.apiKey, profile))
+        processRequest(IdentifyApiRequest(profile))
     }
 
     override fun enqueueEvent(
@@ -24,16 +24,16 @@ internal object KlaviyoApiClient : ApiClient {
         properties: Event,
         profile: Profile
     ) {
-        processRequest(TrackRequest(Klaviyo.Registry.config.apiKey, event, profile, properties))
+        processRequest(TrackApiRequest(event, profile, properties))
     }
 
     /**
-     * Processes the given [KlaviyoRequest] depending on the SDK's configuration.
+     * Processes the given [KlaviyoApiRequest] depending on the SDK's configuration.
      * If the batch queue is enabled then requests will be batched and sent in groups.
      * Otherwise the request will send instantly.
      * These requests are sent to the Klaviyo asynchronous APIs
      */
-    private fun processRequest(request: KlaviyoRequest) {
+    private fun processRequest(request: KlaviyoApiRequest) {
         if (Klaviyo.Registry.config.networkUseAnalyticsBatchQueue) {
             if (!monitoring) {
                 Klaviyo.Registry.lifecycleMonitor.whenStopped { NetworkBatcher.forceEmptyQueue() }
@@ -41,9 +41,9 @@ internal object KlaviyoApiClient : ApiClient {
                 monitoring = true
             }
 
-            request.batch()
+            NetworkBatcher.batchRequests(request)
         } else {
-            request.process()
+            request.send()
         }
     }
 }

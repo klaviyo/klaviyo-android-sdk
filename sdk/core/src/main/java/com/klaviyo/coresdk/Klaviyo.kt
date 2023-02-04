@@ -42,6 +42,7 @@ object Klaviyo {
         var apiClient: ApiClient = KlaviyoApiClient
             private set
 
+        // TODO - push requires this, otherwise this could all be internal
         var dataStore: DataStore = SharedPreferencesDataStore
             private set
     }
@@ -135,6 +136,7 @@ object Klaviyo {
      */
     fun setProfile(profile: Profile): Klaviyo = apply {
         // TODO debounce so fluent setters don't have to create 1 request per call
+        // Note - is there value to tighter coupling the UserInfo update with the API call
         UserInfo.mergeProfile(profile)
         Registry.apiClient.enqueueProfile(profile)
     }

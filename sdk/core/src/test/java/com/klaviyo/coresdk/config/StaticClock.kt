@@ -5,6 +5,7 @@ package com.klaviyo.coresdk.config
  *
  * @property time
  */
-internal class StaticClock(private val time: Long) : Clock {
+internal class StaticClock(private val time: Long, private val formatted: String) : Clock {
     override fun currentTimeMillis(): Long = time
+    override fun currentTimeAsString(): String = formatted
 }

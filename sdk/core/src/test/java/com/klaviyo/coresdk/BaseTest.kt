@@ -28,6 +28,9 @@ internal abstract class BaseTest {
         const val PHONE = "+12223334444"
         const val EXTERNAL_ID = "abcdefg"
         const val ANON_ID = "anonId123"
+
+        const val TIME = 1234567890000L
+        const val ISO_TIME = "2009-02-13T23:31:30+0000"
     }
 
     protected val contextMock = mockk<Context>()
@@ -35,7 +38,7 @@ internal abstract class BaseTest {
     protected val configMock = mockk<Config>().apply {
         every { apiKey } returns API_KEY
         every { applicationContext } returns contextMock
-        every { clock } returns StaticClock(0)
+        every { clock } returns StaticClock(TIME, ISO_TIME)
     }
     protected val lifecycleMonitorMock = mockk<LifecycleMonitor>()
     protected val networkMonitorMock = mockk<NetworkMonitor>()

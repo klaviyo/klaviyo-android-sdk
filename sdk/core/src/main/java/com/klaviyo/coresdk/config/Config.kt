@@ -3,6 +3,8 @@ package com.klaviyo.coresdk.config
 import android.content.Context
 
 interface Config {
+    val baseUrl: String
+
     val apiKey: String
     val applicationContext: Context
 

@@ -1,7 +1,7 @@
 package com.klaviyo.coresdk.networking
 
 import com.klaviyo.coresdk.BaseTest
-import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
+import com.klaviyo.coresdk.networking.requests.KlaviyoApiRequest
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
@@ -34,16 +34,16 @@ internal class NetworkBatcherTest : BaseTest() {
         every { batcherSpy.initBatcher() } returns Unit
 
         repeat(queueDepth - 1) {
-            val requestMock = mockk<KlaviyoRequest>()
-            every { requestMock.sendNetworkRequest() } returns "1"
+            val requestMock = mockk<KlaviyoApiRequest>()
+            every { requestMock.send() } returns "1"
 
             batcherSpy.batchRequests(requestMock)
 
             assertEquals(it + 1, batcherSpy.getBatchQueueSize())
         }
 
-        val requestMock = mockk<KlaviyoRequest>()
-        every { requestMock.sendNetworkRequest() } returns "1"
+        val requestMock = mockk<KlaviyoApiRequest>()
+        every { requestMock.send() } returns "1"
 
         batcherSpy.batchRequests(requestMock)
         NetworkBatcher.NetworkRunnable().run()
@@ -54,10 +54,10 @@ internal class NetworkBatcherTest : BaseTest() {
     @Test
     fun `Network Batcher empties the queue after timeout`() {
         val batcherSpy = spyk<NetworkBatcher>()
-        val requestMock = mockk<KlaviyoRequest>()
+        val requestMock = mockk<KlaviyoApiRequest>()
 
         every { batcherSpy.initBatcher() } returns Unit
-        every { requestMock.sendNetworkRequest() } returns "1"
+        every { requestMock.send() } returns "1"
 
         batcherSpy.batchRequests(requestMock)
         Thread.sleep(1000)
@@ -71,8 +71,8 @@ internal class NetworkBatcherTest : BaseTest() {
         val batcherSpy = spyk<NetworkBatcher>()
 
         val requests = (0..5).map {
-            mockk<KlaviyoRequest>().also {
-                every { it.sendNetworkRequest() } returns "1"
+            mockk<KlaviyoApiRequest>().also {
+                every { it.send() } returns "1"
             }
         }
 

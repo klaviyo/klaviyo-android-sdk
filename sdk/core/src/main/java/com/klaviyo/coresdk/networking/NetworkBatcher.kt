@@ -3,16 +3,16 @@ package com.klaviyo.coresdk.networking
 import android.os.Handler
 import android.os.HandlerThread
 import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.networking.requests.NetworkRequest
+import com.klaviyo.coresdk.networking.requests.KlaviyoApiRequest
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * Class for handling a simple batcher for grouping up network requests
  */
-object NetworkBatcher {
+internal object NetworkBatcher {
     private val handlerThread = HandlerThread("Klaviyo Network Batcher")
     private var handler: Handler? = null
-    private var batchQueue = ConcurrentLinkedQueue<NetworkRequest>()
+    private var batchQueue = ConcurrentLinkedQueue<KlaviyoApiRequest>()
     private var queueInitTime = 0L
 
     /**
@@ -44,10 +44,10 @@ object NetworkBatcher {
     }
 
     /**
-     * Inserts a variable amount of [NetworkRequest] objects into the batch queue
+     * Inserts a variable amount of [KlaviyoApiRequest] objects into the batch queue
      * Initializes the batch queue if it has not already been initialized
      */
-    internal fun batchRequests(vararg requests: NetworkRequest) {
+    internal fun batchRequests(vararg requests: KlaviyoApiRequest) {
         if (batchQueue.isEmpty()) {
             initBatcher()
             queueInitTime = System.currentTimeMillis()
@@ -91,9 +91,9 @@ object NetworkBatcher {
                 )
 
             if (forceEmpty || readyToEmpty) {
-                var request: NetworkRequest? = null
+                var request: KlaviyoApiRequest? = null
                 while (batchQueue.poll().also { request = it } != null) {
-                    request?.sendNetworkRequest()
+                    request?.send()
                 }
                 return true
             }
