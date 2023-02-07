@@ -67,24 +67,32 @@ object KlaviyoConfig : Config {
         override fun debounceInterval(debounceInterval: Int) = apply {
             if (debounceInterval >= 0) {
                 this.debounceInterval = debounceInterval
+            } else {
+                // TODO Logging - TP-164154
             }
         }
 
         override fun networkTimeout(networkTimeout: Int) = apply {
             if (networkTimeout >= 0) {
                 this.networkTimeout = networkTimeout
+            } else {
+                // TODO Logging - TP-164154
             }
         }
 
         override fun networkFlushInterval(networkFlushInterval: Int) = apply {
             if (networkFlushInterval >= 0) {
                 this.networkFlushInterval = networkFlushInterval
+            } else {
+                // TODO Logging - TP-164154
             }
         }
 
         override fun networkFlushDepth(networkFlushDepth: Int) = apply {
             if (networkFlushDepth > 0) {
                 this.networkFlushDepth = networkFlushDepth
+            } else {
+                // TODO Logging - TP-164154
             }
         }
 
