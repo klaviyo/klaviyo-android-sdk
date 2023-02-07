@@ -8,7 +8,9 @@ import java.net.HttpURLConnection
 import java.net.HttpURLConnection.HTTP_MULT_CHOICE
 import java.net.HttpURLConnection.HTTP_OK
 import java.net.URL
+import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
+import org.json.JSONObject
 
 /**
  * Abstract class for handling general networking logic
@@ -18,11 +20,93 @@ import javax.net.ssl.HttpsURLConnection
  */
 internal open class KlaviyoApiRequest(
     val urlPath: String,
-    val method: RequestMethod
+    val method: RequestMethod,
+    val time: String = Klaviyo.Registry.config.clock.currentTimeAsString(),
+    val uuid: String = UUID.randomUUID().toString()
 ) {
     open var headers: Map<String, String> = emptyMap()
     open var query: Map<String, String> = emptyMap()
-    open var body: String? = null
+    open var body: JSONObject? = null
+
+    /**
+     * Creates a representation of this [KlaviyoApiRequest] in JSON
+     *
+     * Note that subclass information is lost in the process.
+     * The important data to send the API request is retained.
+     *
+     * @return
+     */
+    fun toJson(): String = JSONObject()
+        .accumulate(PATH_JSON_KEY, urlPath)
+        .accumulate(METHOD_JSON_KEY, method.name)
+        .accumulate(TIME_JSON_KEY, time)
+        .accumulate(UUID_JSON_KEY, uuid)
+        .accumulate(HEADERS_JSON_KEY, headers)
+        .accumulate(QUERY_JSON_KEY, query)
+        .accumulate(BODY_JSON_KEY, body)
+        .toString()
+
+    /**
+     * To facilitate deduplication, we will treat UUID as a unique identifier
+     * such that even if a request is deserialized from JSON it is still
+     * "equal" to its original object, regardless of instance or subclass
+     *
+     * @param other
+     * @return
+     */
+    override fun equals(other: Any?): Boolean = when (other) {
+        is KlaviyoApiRequest -> equals(this, other)
+        else -> super.equals(other)
+    }
+
+    companion object {
+        private const val PATH_JSON_KEY = "url_path"
+        private const val METHOD_JSON_KEY = "method"
+        private const val TIME_JSON_KEY = "time"
+        private const val UUID_JSON_KEY = "uuid"
+        private const val HEADERS_JSON_KEY = "headers"
+        private const val QUERY_JSON_KEY = "query"
+        private const val BODY_JSON_KEY = "body"
+
+        /**
+         * Construct a request from a JSON object
+         *
+         * Returns [KlaviyoApiRequest] no matter what subclass it was before encoding.
+         * This is functionally the same and saves us some trouble
+         *
+         * @param json
+         * @return
+         */
+        fun fromJson(json: JSONObject): KlaviyoApiRequest {
+            val urlPath = json.getString(PATH_JSON_KEY)
+            val method = when (json.getString(METHOD_JSON_KEY)) {
+                RequestMethod.POST.name -> RequestMethod.POST
+                else -> RequestMethod.GET
+            }
+            val time = json.getString(TIME_JSON_KEY)
+            val uuid = json.getString(UUID_JSON_KEY)
+
+            return KlaviyoApiRequest(urlPath, method, time, uuid).apply {
+                headers = json.getJSONObject(HEADERS_JSON_KEY).let {
+                    it.keys().asSequence().associateWith { k -> it.getString(k) }
+                }
+                query = json.getJSONObject(QUERY_JSON_KEY).let {
+                    it.keys().asSequence().associateWith { k -> it.getString(k) }
+                }
+                body = json.optJSONObject(BODY_JSON_KEY)
+            }
+        }
+
+        /**
+         * Compare two requests purely by their UUIDs
+         *
+         * @param request1
+         * @param request2
+         * @return
+         */
+        fun equals(request1: KlaviyoApiRequest, request2: KlaviyoApiRequest): Boolean =
+            request1.uuid == request2.uuid
+    }
 
     /**
      * Compiles the base url, path and query data into a [URL] object
@@ -77,10 +161,10 @@ internal open class KlaviyoApiRequest(
         connection.readTimeout = Klaviyo.Registry.config.networkTimeout
         connection.connectTimeout = Klaviyo.Registry.config.networkTimeout
 
-        if (!body.isNullOrEmpty() && method == RequestMethod.POST) {
-            connection.doOutput = true
-            HttpUtil.writeToConnection(body!!, connection)
-        }
+        val bodyString = body?.toString() ?: return connection
+
+        connection.doOutput = true
+        HttpUtil.writeToConnection(bodyString, connection)
 
         return connection
     }

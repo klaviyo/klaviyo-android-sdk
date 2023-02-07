@@ -27,24 +27,18 @@ object Klaviyo {
      * Services registry
      */
     object Registry {
-        lateinit var config: Config
-            internal set
+        lateinit var config: Config internal set
 
-        val configBuilder: Config.Builder
-            get() = KlaviyoConfig.Builder()
+        val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
 
-        var lifecycleMonitor: LifecycleMonitor = KlaviyoLifecycleMonitor
-            private set
+        val lifecycleMonitor: LifecycleMonitor get() = KlaviyoLifecycleMonitor
 
-        var networkMonitor: NetworkMonitor = KlaviyoNetworkMonitor
-            private set
+        val networkMonitor: NetworkMonitor get() = KlaviyoNetworkMonitor
 
-        var apiClient: ApiClient = KlaviyoApiClient
-            private set
+        val apiClient: ApiClient get() = KlaviyoApiClient
 
         // TODO - push requires this, otherwise this could all be internal
-        var dataStore: DataStore = SharedPreferencesDataStore
-            private set
+        val dataStore: DataStore get() = SharedPreferencesDataStore
     }
 
     /**

@@ -15,7 +15,7 @@ import org.junit.Test
 internal class KlaviyoConfigTest : BaseTest() {
 
     private val mockPackageManager = mockk<PackageManager>()
-    val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
+    private val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
     private val mockPackageInfo = mockk<PackageInfo>().apply {
         requestedPermissions = arrayOf(Manifest.permission.ACCESS_NETWORK_STATE)
     }
@@ -37,16 +37,12 @@ internal class KlaviyoConfigTest : BaseTest() {
             .networkTimeout(1000)
             .networkFlushInterval(10000)
             .networkFlushDepth(10)
-            .networkFlushCheckInterval(1000)
-            .networkUseAnalyticsBatchQueue(false)
             .build()
 
         assert(KlaviyoConfig.apiKey == API_KEY)
         assert(KlaviyoConfig.networkTimeout == 1000)
         assert(KlaviyoConfig.networkFlushInterval == 10000)
         assert(KlaviyoConfig.networkFlushDepth == 10)
-        assert(KlaviyoConfig.networkFlushCheckInterval == 1000)
-        assert(!KlaviyoConfig.networkUseAnalyticsBatchQueue)
     }
 
     @Test
@@ -60,8 +56,6 @@ internal class KlaviyoConfigTest : BaseTest() {
         assert(KlaviyoConfig.networkTimeout == 500)
         assert(KlaviyoConfig.networkFlushInterval == 60000)
         assert(KlaviyoConfig.networkFlushDepth == 20)
-        assert(KlaviyoConfig.networkFlushCheckInterval == 2000)
-        assert(KlaviyoConfig.networkUseAnalyticsBatchQueue)
     }
 
     @Test
@@ -72,14 +66,12 @@ internal class KlaviyoConfigTest : BaseTest() {
             .networkTimeout(-5000)
             .networkFlushInterval(-5000)
             .networkFlushDepth(-10)
-            .networkFlushCheckInterval(-1000)
             .build()
 
         assert(KlaviyoConfig.apiKey == API_KEY)
         assert(KlaviyoConfig.networkTimeout == 500)
         assert(KlaviyoConfig.networkFlushInterval == 60000)
         assert(KlaviyoConfig.networkFlushDepth == 20)
-        assert(KlaviyoConfig.networkFlushCheckInterval == 2000)
     }
 
     @Test(expected = KlaviyoMissingAPIKeyException::class)

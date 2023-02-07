@@ -14,4 +14,8 @@ internal object InMemoryDataStore : DataStore {
     override fun store(key: String, value: String) {
         store[key] = value
     }
+
+    override fun clear(key: String) {
+        store.remove(key)
+    }
 }

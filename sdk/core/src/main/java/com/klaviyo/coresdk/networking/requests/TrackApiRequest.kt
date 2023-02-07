@@ -32,20 +32,19 @@ internal class TrackApiRequest(
         "company_id" to Klaviyo.Registry.config.apiKey
     )
 
-    override var body: String? =
-        JSONObject(
-            mapOf(
-                "data" to mapOf(
-                    "type" to "event",
-                    "attributes" to mapOf(
-                        "metric" to mapOf(
-                            "name" to eventType.name,
-                        ),
-                        "profile" to JSONObject(profile.toMap()),
-                        "properties" to eventAttributes?.let { JSONObject(it.toMap()) },
-                        "time" to Klaviyo.Registry.config.clock.currentTimeAsString(), // TODO - this needs to be captured when event is created, not when simply when sent
-                    ).filterValues { it != null }
-                )
+    override var body: JSONObject? = JSONObject(
+        mapOf(
+            "data" to mapOf(
+                "type" to "event",
+                "attributes" to mapOf(
+                    "metric" to mapOf(
+                        "name" to eventType.name,
+                    ),
+                    "profile" to JSONObject(profile.toMap()),
+                    "properties" to eventAttributes?.let { JSONObject(it.toMap()) },
+                    "time" to time
+                ).filterValues { it != null }
             )
-        ).toString()
+        )
+    )
 }

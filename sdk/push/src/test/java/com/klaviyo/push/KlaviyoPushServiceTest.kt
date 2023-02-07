@@ -53,6 +53,10 @@ class KlaviyoPushServiceTest {
         override fun store(key: String, value: String) {
             store[key] = value
         }
+
+        override fun clear(key: String) {
+            store.remove(key)
+        }
     }
 
     private lateinit var store: DataStore

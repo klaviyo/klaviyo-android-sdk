@@ -35,7 +35,7 @@ internal class TrackApiRequestTest : BaseTest() {
         assertEquals(RequestMethod.POST, request.method)
         assertEquals(expectedQueryData, request.query)
         assertEquals(expectedHeaders, request.headers)
-        assertEquals(expectedJsonString, request.body)
+        assertEquals(expectedJsonString, request.body.toString())
     }
 
     @Test
@@ -48,7 +48,7 @@ internal class TrackApiRequestTest : BaseTest() {
         assertEquals(RequestMethod.POST, request.method)
         assertEquals(expectedQueryData, request.query)
         assertEquals(expectedHeaders, request.headers)
-        assertEquals(expectedJsonString, request.body)
+        assertEquals(expectedJsonString, request.body.toString())
     }
 
     @Test
@@ -67,6 +67,6 @@ internal class TrackApiRequestTest : BaseTest() {
         stubProfile.setIdentifier("ext_id")
         stubProperties.setProperty("custom_value", "100")
 
-        assertEquals(expectedJsonString, request.body)
+        assertEquals(expectedJsonString, request.body.toString())
     }
 }

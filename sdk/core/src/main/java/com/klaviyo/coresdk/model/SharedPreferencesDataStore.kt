@@ -44,4 +44,11 @@ internal object SharedPreferencesDataStore : DataStore {
     override fun fetch(key: String): String? {
         return openSharedPreferences().getString(key, "")
     }
+
+    override fun clear(key: String) {
+        openSharedPreferences()
+            .edit()
+            .remove(key)
+            .apply()
+    }
 }
