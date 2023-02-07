@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.DataStore
 import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_KEY
@@ -66,11 +67,11 @@ class KlaviyoPushServiceTest {
         store = InMemoryDataStore() // start every test with an empty store
 
         mockkObject(Klaviyo)
-        mockkObject(Klaviyo.Registry)
-        every { Klaviyo.Registry.dataStore } returns store
-        every { Klaviyo.Registry.apiClient } returns mockk()
-        every { Klaviyo.Registry.apiClient.enqueueProfile(any()) } returns Unit
-        every { Klaviyo.Registry.apiClient.enqueueEvent(any(), any(), any()) } returns Unit
+        mockkObject(Registry)
+        every { Registry.dataStore } returns store
+        every { Registry.apiClient } returns mockk()
+        every { Registry.apiClient.enqueueProfile(any()) } returns Unit
+        every { Registry.apiClient.enqueueEvent(any(), any(), any()) } returns Unit
     }
 
     @Test
@@ -95,7 +96,7 @@ class KlaviyoPushServiceTest {
         KlaviyoPushService.setPushToken(stubPushToken)
 
         assertEquals(store.fetch(PUSH_TOKEN_KEY), stubPushToken)
-        verify { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
+        verify { Registry.apiClient.enqueueProfile(any()) }
     }
 
     @Test
@@ -103,7 +104,7 @@ class KlaviyoPushServiceTest {
         KlaviyoPushService.openedPush(stubPayload)
 
         verify {
-            Klaviyo.Registry.apiClient.enqueueEvent(KlaviyoEventType.OPENED_PUSH, any(), any())
+            Registry.apiClient.enqueueEvent(KlaviyoEventType.OPENED_PUSH, any(), any())
         }
     }
 
@@ -113,7 +114,7 @@ class KlaviyoPushServiceTest {
         val nonKlaviyoPayload = mapOf("other" to "3rd party push")
         KlaviyoPushService.openedPush(nonKlaviyoPayload)
 
-        verify(inverse = true) { Klaviyo.Registry.apiClient.enqueueEvent(any(), any(), any()) }
+        verify(inverse = true) { Registry.apiClient.enqueueEvent(any(), any(), any()) }
     }
 
     @Test
@@ -122,7 +123,7 @@ class KlaviyoPushServiceTest {
         pushService.onNewToken(stubPushToken)
 
         assertEquals(KlaviyoPushService.getPushToken(), stubPushToken)
-        verify { Klaviyo.Registry.apiClient.enqueueProfile(any()) }
+        verify { Registry.apiClient.enqueueProfile(any()) }
     }
 
     @Test
@@ -133,7 +134,7 @@ class KlaviyoPushServiceTest {
         val pushService = KlaviyoPushService()
         pushService.onMessageReceived(msg)
 
-        verify(inverse = true) { Klaviyo.Registry.apiClient.enqueueEvent(any(), any(), any()) }
+        verify(inverse = true) { Registry.apiClient.enqueueEvent(any(), any(), any()) }
     }
 
     @Test
@@ -158,7 +159,7 @@ class KlaviyoPushServiceTest {
         KlaviyoPushService.handlePush(intent)
 
         verify {
-            Klaviyo.Registry.apiClient.enqueueEvent(KlaviyoEventType.OPENED_PUSH, any(), any())
+            Registry.apiClient.enqueueEvent(KlaviyoEventType.OPENED_PUSH, any(), any())
         }
     }
 }

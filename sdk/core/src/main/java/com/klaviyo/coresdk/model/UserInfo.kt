@@ -1,6 +1,6 @@
 package com.klaviyo.coresdk.model
 
-import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.ANONYMOUS_ID
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EMAIL
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EXTERNAL_ID
@@ -14,30 +14,30 @@ internal object UserInfo {
     var externalId: String = ""
         set(value) {
             field = value
-            Klaviyo.Registry.dataStore.store(EXTERNAL_ID.name, value)
+            Registry.dataStore.store(EXTERNAL_ID.name, value)
         }
         get() = field.ifEmpty {
-            field = Klaviyo.Registry.dataStore.fetch(EXTERNAL_ID.name) ?: ""
+            field = Registry.dataStore.fetch(EXTERNAL_ID.name) ?: ""
             field
         }
 
     var email: String = ""
         set(value) {
             field = value
-            Klaviyo.Registry.dataStore.store(EMAIL.name, value)
+            Registry.dataStore.store(EMAIL.name, value)
         }
         get() = field.ifEmpty {
-            field = Klaviyo.Registry.dataStore.fetch(EMAIL.name) ?: ""
+            field = Registry.dataStore.fetch(EMAIL.name) ?: ""
             field
         }
 
     var phoneNumber: String = ""
         set(value) {
             field = value
-            Klaviyo.Registry.dataStore.store(PHONE_NUMBER.name, value)
+            Registry.dataStore.store(PHONE_NUMBER.name, value)
         }
         get() = field.ifEmpty {
-            field = Klaviyo.Registry.dataStore.fetch(PHONE_NUMBER.name) ?: ""
+            field = Registry.dataStore.fetch(PHONE_NUMBER.name) ?: ""
             field
         }
 
@@ -46,9 +46,9 @@ internal object UserInfo {
         get() = field.ifEmpty {
             // Attempts to read a UUID from the shared preferences.
             // If not found, generate a fresh one and save that to the data store
-            field = (Klaviyo.Registry.dataStore.fetch(ANONYMOUS_ID.name) ?: "").ifEmpty {
+            field = (Registry.dataStore.fetch(ANONYMOUS_ID.name) ?: "").ifEmpty {
                 val uuid = UUID.randomUUID().toString()
-                Klaviyo.Registry.dataStore.store(ANONYMOUS_ID.name, uuid)
+                Registry.dataStore.store(ANONYMOUS_ID.name, uuid)
                 uuid
             }
             return field

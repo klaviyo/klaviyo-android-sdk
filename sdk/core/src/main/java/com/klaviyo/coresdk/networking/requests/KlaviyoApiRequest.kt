@@ -1,6 +1,6 @@
 package com.klaviyo.coresdk.networking.requests
 
-import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.coresdk.Registry
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
@@ -21,7 +21,7 @@ import org.json.JSONObject
 internal open class KlaviyoApiRequest(
     val urlPath: String,
     val method: RequestMethod,
-    val time: String = Klaviyo.Registry.config.clock.currentTimeAsString(),
+    val time: String = Registry.config.clock.currentTimeAsString(),
     val uuid: String = UUID.randomUUID().toString()
 ) {
     open var headers: Map<String, String> = emptyMap()
@@ -113,7 +113,7 @@ internal open class KlaviyoApiRequest(
      */
     val url: URL
         get() {
-            val baseUrl = Klaviyo.Registry.config.baseUrl
+            val baseUrl = Registry.config.baseUrl
             val queryMap = query.map { (key, value) -> "$key=$value" }
             val queryString = queryMap.joinToString(separator = "&")
 
@@ -129,7 +129,7 @@ internal open class KlaviyoApiRequest(
      * @returns The string value of the response body, if one was returned
      */
     fun send(): String? {
-        if (!Klaviyo.Registry.networkMonitor.isNetworkConnected()) {
+        if (!Registry.networkMonitor.isNetworkConnected()) {
             return null
         }
 
@@ -158,8 +158,8 @@ internal open class KlaviyoApiRequest(
         }
 
         connection.requestMethod = method.name
-        connection.readTimeout = Klaviyo.Registry.config.networkTimeout
-        connection.connectTimeout = Klaviyo.Registry.config.networkTimeout
+        connection.readTimeout = Registry.config.networkTimeout
+        connection.connectTimeout = Registry.config.networkTimeout
 
         val bodyString = body?.toString() ?: return connection
 

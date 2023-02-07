@@ -6,11 +6,15 @@ import java.util.TimeZone
 
 internal object SystemClock : Clock {
 
-    override fun currentTimeMillis(): Long = System.currentTimeMillis()
-
     private val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
 
-    override fun currentTimeAsString(): String = format.format(Date(currentTimeMillis()))
+    override fun currentTimeMillis(): Long {
+        return System.currentTimeMillis()
+    }
+
+    override fun currentTimeAsString(): String {
+        return format.format(Date(currentTimeMillis()))
+    }
 }

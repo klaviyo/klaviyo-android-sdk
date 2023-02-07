@@ -37,7 +37,7 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `Klaviyo initializes properly creates new config service`() {
         val builderMock = mockk<Config.Builder>()
-        every { Klaviyo.Registry.configBuilder } returns builderMock
+        every { Registry.configBuilder } returns builderMock
         every { builderMock.apiKey(any()) } returns builderMock
         every { builderMock.applicationContext(any()) } returns builderMock
         every { builderMock.build() } returns configMock

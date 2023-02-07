@@ -2,7 +2,7 @@ package com.klaviyo.coresdk.model
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.coresdk.Registry
 
 internal object SharedPreferencesDataStore : DataStore {
     internal const val KLAVIYO_PREFS_NAME = "KlaviyoSDKPreferences"
@@ -13,7 +13,7 @@ internal object SharedPreferencesDataStore : DataStore {
      * @return The Klaviyo SDK's shared preferences opened in private mode
      */
     private fun openSharedPreferences(): SharedPreferences {
-        return Klaviyo.Registry.config.applicationContext.getSharedPreferences(
+        return Registry.config.applicationContext.getSharedPreferences(
             KLAVIYO_PREFS_NAME,
             Context.MODE_PRIVATE
         )

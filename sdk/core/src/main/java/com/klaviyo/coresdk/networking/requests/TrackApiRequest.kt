@@ -1,6 +1,6 @@
 package com.klaviyo.coresdk.networking.requests
 
-import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.Profile
@@ -29,7 +29,7 @@ internal class TrackApiRequest(
     )
 
     override var query: Map<String, String> = mapOf(
-        "company_id" to Klaviyo.Registry.config.apiKey
+        "company_id" to Registry.config.apiKey
     )
 
     override var body: JSONObject? = JSONObject(

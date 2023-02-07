@@ -6,7 +6,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import androidx.core.content.ContextCompat
-import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.coresdk.Registry
 
 typealias NetworkObserver = (isConnected: Boolean) -> Unit
 
@@ -42,7 +42,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
 
     private val connectivityManager: ConnectivityManager
         get() = ContextCompat.getSystemService(
-            Klaviyo.Registry.config.applicationContext, ConnectivityManager::class.java
+            Registry.config.applicationContext, ConnectivityManager::class.java
         ) as ConnectivityManager
 
     /**

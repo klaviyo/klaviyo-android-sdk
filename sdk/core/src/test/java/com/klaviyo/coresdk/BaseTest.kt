@@ -48,12 +48,12 @@ internal abstract class BaseTest {
     @Before
     open fun setup() {
         // Mock Registry by default to encourage unit tests to be decoupled from other services
-        mockkObject(Klaviyo.Registry)
-        every { Klaviyo.Registry.config } returns configMock
-        every { Klaviyo.Registry.lifecycleMonitor } returns lifecycleMonitorMock
-        every { Klaviyo.Registry.networkMonitor } returns networkMonitorMock
-        every { Klaviyo.Registry.dataStore } returns dataStoreSpy
-        every { Klaviyo.Registry.apiClient } returns apiClientMock
+        mockkObject(Registry)
+        every { Registry.config } returns configMock
+        every { Registry.lifecycleMonitor } returns lifecycleMonitorMock
+        every { Registry.networkMonitor } returns networkMonitorMock
+        every { Registry.dataStore } returns dataStoreSpy
+        every { Registry.apiClient } returns apiClientMock
 
         // Mock using latest SDK
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
@@ -76,6 +76,6 @@ internal abstract class BaseTest {
 
     @After
     open fun clear() {
-        unmockkObject(Klaviyo.Registry)
+        unmockkObject(Registry)
     }
 }

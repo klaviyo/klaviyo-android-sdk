@@ -1,7 +1,7 @@
 package com.klaviyo.coresdk.networking.requests
 
 import android.util.Base64
-import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.Profile
 import org.json.JSONObject
 
@@ -18,7 +18,7 @@ internal class IdentifyApiRequest(profile: Profile) : KlaviyoApiRequest(
     override var query: Map<String, String> = profile.let { properties ->
         val data = JSONObject(
             mapOf(
-                "token" to Klaviyo.Registry.config.apiKey,
+                "token" to Registry.config.apiKey,
                 "properties" to JSONObject(properties.toMap())
             )
         ).toString()

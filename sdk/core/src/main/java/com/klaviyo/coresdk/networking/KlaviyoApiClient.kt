@@ -3,7 +3,7 @@ package com.klaviyo.coresdk.networking
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
-import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.Profile
@@ -31,12 +31,12 @@ internal object KlaviyoApiClient : ApiClient {
 
     fun startListeners() {
         // Flush queue immediately when app stops
-        Klaviyo.Registry.lifecycleMonitor.whenStopped {
+        Registry.lifecycleMonitor.whenStopped {
             flushQueue()
         }
 
         // Flush queue when network connection is restored
-        Klaviyo.Registry.networkMonitor.whenNetworkChanged { isOnline ->
+        Registry.networkMonitor.whenNetworkChanged { isOnline ->
             if (isOnline) flushQueue()
         }
     }
@@ -69,10 +69,10 @@ internal object KlaviyoApiClient : ApiClient {
             if (!apiQueue.contains(request)) {
                 apiQueue.offer(request)
             }
-            Klaviyo.Registry.dataStore.store(request.uuid, request.toJson())
+            Registry.dataStore.store(request.uuid, request.toJson())
         }
 
-        Klaviyo.Registry.dataStore.store(
+        Registry.dataStore.store(
             QUEUE_KEY,
             JSONArray(apiQueue.map { it.uuid }).toString()
         )
@@ -84,11 +84,11 @@ internal object KlaviyoApiClient : ApiClient {
      * TODO avoid duplication!
      */
     fun restoreQueue() {
-        Klaviyo.Registry.dataStore.fetch(QUEUE_KEY)?.let {
+        Registry.dataStore.fetch(QUEUE_KEY)?.let {
             val queue = JSONArray(it)
             Array(queue.length()) { i -> queue.optString(i) }
         }?.map { uuid ->
-            Klaviyo.Registry.dataStore.fetch(uuid)?.let { json ->
+            Registry.dataStore.fetch(uuid)?.let { json ->
                 val jsonObject = JSONObject(json)
                 val request = KlaviyoApiRequest.fromJson(jsonObject)
                 enqueueRequest(request)
@@ -131,13 +131,13 @@ internal object KlaviyoApiClient : ApiClient {
      * @property force Boolean that will force the queue to flush now
      */
     class NetworkRunnable(val force: Boolean = false) : Runnable {
-        private val queueInitTime = Klaviyo.Registry.config.clock.currentTimeMillis()
+        private val queueInitTime = Registry.config.clock.currentTimeMillis()
 
         private val flushInterval: Long
-            get() = Klaviyo.Registry.config.networkFlushInterval.toLong()
+            get() = Registry.config.networkFlushInterval.toLong()
 
         private val flushDepth: Int
-            get() = Klaviyo.Registry.config.networkFlushDepth
+            get() = Registry.config.networkFlushDepth
 
         override fun run() {
             val emptied = flushQueue(force)
@@ -155,18 +155,18 @@ internal object KlaviyoApiClient : ApiClient {
          * @return Whether the request queue was emptied or not
          */
         private fun flushQueue(force: Boolean = false): Boolean {
-            val queueTimePassed = Klaviyo.Registry.config.clock.currentTimeMillis() - queueInitTime
+            val queueTimePassed = Registry.config.clock.currentTimeMillis() - queueInitTime
 
             if (force || getQueueSize() >= flushDepth || queueTimePassed >= flushInterval) {
                 while (!apiQueue.isEmpty()) {
                     val apiRequest = apiQueue.poll()
                     apiRequest?.apply {
                         send()
-                        Klaviyo.Registry.dataStore.clear(uuid)
+                        Registry.dataStore.clear(uuid)
                     }
                 }
 
-                Klaviyo.Registry.dataStore.clear(QUEUE_KEY)
+                Registry.dataStore.clear(QUEUE_KEY)
 
                 return true
             }

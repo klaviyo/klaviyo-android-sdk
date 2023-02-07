@@ -4,6 +4,7 @@ import android.content.Intent
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.Profile
@@ -36,7 +37,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
 
             Klaviyo.setProfile(profile)
 
-            Klaviyo.Registry.dataStore.store(PUSH_TOKEN_KEY, pushToken)
+            Registry.dataStore.store(PUSH_TOKEN_KEY, pushToken)
         }
 
         /**
@@ -45,7 +46,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @return The push token we read from the shared preferences
          */
         internal fun getPushToken(): String {
-            return Klaviyo.Registry.dataStore.fetch(PUSH_TOKEN_KEY) ?: ""
+            return Registry.dataStore.fetch(PUSH_TOKEN_KEY) ?: ""
         }
 
         /**

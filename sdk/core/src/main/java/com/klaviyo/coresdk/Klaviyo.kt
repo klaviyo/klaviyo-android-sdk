@@ -1,21 +1,11 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
-import com.klaviyo.coresdk.config.Config
-import com.klaviyo.coresdk.config.KlaviyoConfig
-import com.klaviyo.coresdk.lifecycle.KlaviyoLifecycleMonitor
-import com.klaviyo.coresdk.lifecycle.LifecycleMonitor
-import com.klaviyo.coresdk.model.DataStore
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey
 import com.klaviyo.coresdk.model.Profile
-import com.klaviyo.coresdk.model.SharedPreferencesDataStore
 import com.klaviyo.coresdk.model.UserInfo
-import com.klaviyo.coresdk.networking.ApiClient
-import com.klaviyo.coresdk.networking.KlaviyoApiClient
-import com.klaviyo.coresdk.networking.KlaviyoNetworkMonitor
-import com.klaviyo.coresdk.networking.NetworkMonitor
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -23,23 +13,6 @@ import com.klaviyo.coresdk.networking.NetworkMonitor
  * to be processed and sent to the Klaviyo backend
  */
 object Klaviyo {
-    /**
-     * Services registry
-     */
-    object Registry {
-        lateinit var config: Config internal set
-
-        val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
-
-        val lifecycleMonitor: LifecycleMonitor get() = KlaviyoLifecycleMonitor
-
-        val networkMonitor: NetworkMonitor get() = KlaviyoNetworkMonitor
-
-        val apiClient: ApiClient get() = KlaviyoApiClient
-
-        // TODO - push requires this, otherwise this could all be internal
-        val dataStore: DataStore get() = SharedPreferencesDataStore
-    }
 
     /**
      * Configure Klaviyo SDK with your account's public API Key and application context.
