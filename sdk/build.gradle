@@ -77,7 +77,6 @@ subprojects {
             configureEach {
                 includeNonPublic.set(false)
                 reportUndocumented.set(true)
-                skipDeprecated.set(true)
                 skipEmptyPackages.set(true)
                 suppressInheritedMembers.set(true)
 

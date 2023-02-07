@@ -82,6 +82,7 @@ internal object KlaviyoApiClient : ApiClient {
      * Awaken queued requests from persistent store
      */
     fun restoreQueue() {
+        // TODO JSON type safety checks
         Registry.dataStore.fetch(QUEUE_KEY)?.let {
             val queue = JSONArray(it)
             Array(queue.length()) { i -> queue.optString(i) }

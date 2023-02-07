@@ -4,6 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.klaviyo.coresdk.Registry
 
+/**
+ * Simple DataStore implementation using SharedPreferences for persistence
+ *
+ * To keep things very simple, this interface only expects a key/value storage with strings.
+ * JSON-encoding is the simplest way to leverage this store with non-string data,
+ * which of course means accessors must implement type safety checks as necessary.
+ */
 internal object SharedPreferencesDataStore : DataStore {
     internal const val KLAVIYO_PREFS_NAME = "KlaviyoSDKPreferences"
 
@@ -45,6 +52,11 @@ internal object SharedPreferencesDataStore : DataStore {
         return openSharedPreferences().getString(key, "")
     }
 
+    /**
+     * Remove a value from shared preferences if set
+     *
+     * @param key The identifiying key to remove from persistent store
+     */
     override fun clear(key: String) {
         openSharedPreferences()
             .edit()
