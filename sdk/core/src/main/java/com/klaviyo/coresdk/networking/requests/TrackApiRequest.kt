@@ -23,9 +23,9 @@ internal class TrackApiRequest(
     RequestMethod.POST
 ) {
     override var headers: Map<String, String> = mapOf(
-        "Content-Type" to "application/json",
-        "Accept" to "application/json",
-        "Revision" to "2022-10-17"
+        HEADER_CONTENT to "application/json",
+        HEADER_ACCEPT to "application/json",
+        HEADER_REVISION to "2022-10-17"
     )
 
     override var query: Map<String, String> = mapOf(

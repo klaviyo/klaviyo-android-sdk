@@ -60,6 +60,10 @@ internal open class KlaviyoApiRequest(
     }
 
     companion object {
+        const val HEADER_CONTENT = "Content-Type"
+        const val HEADER_ACCEPT = "Accept"
+        const val HEADER_REVISION = "Revision"
+
         private const val PATH_JSON_KEY = "url_path"
         private const val METHOD_JSON_KEY = "method"
         private const val TIME_JSON_KEY = "time"
