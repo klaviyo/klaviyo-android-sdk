@@ -25,16 +25,6 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `Verify expected BuildConfig properties`() {
-        // This is also just a test coverage boost
-        assert(BuildConfig() is BuildConfig)
-        assert(BuildConfig.DEBUG is Boolean)
-        assert(BuildConfig.LIBRARY_PACKAGE_NAME == "com.klaviyo.coresdk")
-        assert(BuildConfig.BUILD_TYPE is String)
-        assert(BuildConfig.KLAVIYO_SERVER_URL is String)
-    }
-
-    @Test
     fun `Klaviyo initializes properly creates new config service`() {
         val builderMock = mockk<Config.Builder>()
         every { Registry.configBuilder } returns builderMock

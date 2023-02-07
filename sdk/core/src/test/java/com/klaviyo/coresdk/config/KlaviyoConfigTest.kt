@@ -30,6 +30,17 @@ internal class KlaviyoConfigTest : BaseTest() {
     }
 
     @Test
+    fun `Verify expected BuildConfig properties`() {
+        // KlaviyoConfig should be our interface with BuildConfig,
+        // but also this is also just a nice test coverage boost
+        assert(BuildConfig() is BuildConfig)
+        assert(BuildConfig.DEBUG is Boolean)
+        assert(BuildConfig.LIBRARY_PACKAGE_NAME == "com.klaviyo.coresdk")
+        assert(BuildConfig.BUILD_TYPE is String)
+        assert(BuildConfig.KLAVIYO_SERVER_URL is String)
+    }
+
+    @Test
     fun `KlaviyoConfig Builder sets variables successfully`() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
