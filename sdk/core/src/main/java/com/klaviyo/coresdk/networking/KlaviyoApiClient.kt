@@ -80,8 +80,6 @@ internal object KlaviyoApiClient : ApiClient {
 
     /**
      * Awaken queued requests from persistent store
-     *
-     * TODO avoid duplication!
      */
     fun restoreQueue() {
         Registry.dataStore.fetch(QUEUE_KEY)?.let {

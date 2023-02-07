@@ -9,7 +9,4 @@ interface DataStore {
     fun store(key: String, value: String)
 
     fun clear(key: String)
-
-    // TODO should we support async+callback methods?
-    //  SharedPreferences doesn't support it so I didn't put it in this interface yet
 }
