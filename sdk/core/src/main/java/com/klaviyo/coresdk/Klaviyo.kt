@@ -133,10 +133,10 @@ object Klaviyo {
      * @param properties Additional properties associated to the event that are not for identifying the profile
      * @return
      */
-    fun createEvent(event: KlaviyoEventType, properties: Event? = null): Klaviyo = apply {
+    fun createEvent(event: KlaviyoEventType, properties: Event = Event()): Klaviyo = apply {
         Registry.apiClient.enqueueEvent(
             event,
-            properties ?: Event(),
+            properties,
             UserInfo.getAsProfile()
         )
     }
