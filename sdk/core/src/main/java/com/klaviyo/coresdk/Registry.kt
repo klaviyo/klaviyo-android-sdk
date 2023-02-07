@@ -1,7 +1,9 @@
 package com.klaviyo.coresdk
 
+import com.klaviyo.coresdk.config.Clock
 import com.klaviyo.coresdk.config.Config
 import com.klaviyo.coresdk.config.KlaviyoConfig
+import com.klaviyo.coresdk.config.SystemClock
 import com.klaviyo.coresdk.lifecycle.KlaviyoLifecycleMonitor
 import com.klaviyo.coresdk.lifecycle.LifecycleMonitor
 import com.klaviyo.coresdk.model.DataStore
@@ -19,6 +21,8 @@ object Registry {
     internal val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
 
     internal lateinit var config: Config
+
+    internal var clock: Clock = SystemClock
 
     internal val lifecycleMonitor: LifecycleMonitor get() = KlaviyoLifecycleMonitor
 

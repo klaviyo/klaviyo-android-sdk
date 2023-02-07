@@ -10,6 +10,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.verify
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 internal class KlaviyoConfigTest : BaseTest() {
@@ -35,7 +37,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         // but also this is also just a nice test coverage boost
         assert(BuildConfig() is BuildConfig)
         assert(BuildConfig.DEBUG is Boolean)
-        assert(BuildConfig.LIBRARY_PACKAGE_NAME == "com.klaviyo.coresdk")
+        assertEquals("com.klaviyo.coresdk", BuildConfig.LIBRARY_PACKAGE_NAME)
         assert(BuildConfig.BUILD_TYPE is String)
         assert(BuildConfig.KLAVIYO_SERVER_URL is String)
     }
@@ -45,15 +47,18 @@ internal class KlaviyoConfigTest : BaseTest() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
             .applicationContext(contextMock)
+            .debounceInterval(123)
             .networkTimeout(1000)
             .networkFlushInterval(10000)
             .networkFlushDepth(10)
             .build()
 
-        assert(KlaviyoConfig.apiKey == API_KEY)
-        assert(KlaviyoConfig.networkTimeout == 1000)
-        assert(KlaviyoConfig.networkFlushInterval == 10000)
-        assert(KlaviyoConfig.networkFlushDepth == 10)
+        assertEquals(API_KEY, KlaviyoConfig.apiKey)
+        assertEquals(contextMock, KlaviyoConfig.applicationContext)
+        assertEquals(123, KlaviyoConfig.debounceInterval)
+        assertEquals(1000, KlaviyoConfig.networkTimeout)
+        assertEquals(10000, KlaviyoConfig.networkFlushInterval)
+        assertEquals(10, KlaviyoConfig.networkFlushDepth)
     }
 
     @Test
@@ -63,10 +68,10 @@ internal class KlaviyoConfigTest : BaseTest() {
             .applicationContext(contextMock)
             .build()
 
-        assert(KlaviyoConfig.apiKey == API_KEY)
-        assert(KlaviyoConfig.networkTimeout == 500)
-        assert(KlaviyoConfig.networkFlushInterval == 60000)
-        assert(KlaviyoConfig.networkFlushDepth == 20)
+        assertEquals(API_KEY, KlaviyoConfig.apiKey)
+        assertEquals(500, KlaviyoConfig.networkTimeout)
+        assertEquals(60000, KlaviyoConfig.networkFlushInterval)
+        assertEquals(20, KlaviyoConfig.networkFlushDepth)
     }
 
     @Test
@@ -74,15 +79,16 @@ internal class KlaviyoConfigTest : BaseTest() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
             .applicationContext(contextMock)
+            .debounceInterval(-5000)
             .networkTimeout(-5000)
             .networkFlushInterval(-5000)
             .networkFlushDepth(-10)
             .build()
 
-        assert(KlaviyoConfig.apiKey == API_KEY)
-        assert(KlaviyoConfig.networkTimeout == 500)
-        assert(KlaviyoConfig.networkFlushInterval == 60000)
-        assert(KlaviyoConfig.networkFlushDepth == 20)
+        assertNotEquals(-5000, KlaviyoConfig.debounceInterval)
+        assertNotEquals(-5000, KlaviyoConfig.networkTimeout)
+        assertNotEquals(-1000, KlaviyoConfig.networkFlushInterval)
+        assertNotEquals(-10, KlaviyoConfig.networkFlushDepth)
     }
 
     @Test(expected = KlaviyoMissingAPIKeyException::class)
@@ -116,11 +122,32 @@ internal class KlaviyoConfigTest : BaseTest() {
 
     @Test
     fun `getPackageInfoCompat detects platform properly`() {
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
         mockPackageManager.getPackageInfoCompat(contextMock.packageName, PackageManager.GET_PERMISSIONS)
         verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, mockPackageManagerFlags) }
 
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
         mockPackageManager.getPackageInfoCompat(contextMock.packageName, PackageManager.GET_PERMISSIONS)
         verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) }
+    }
+
+    @Test
+    fun `Clock uses proper date format`() {
+        val regex7 = "^\\d{4}(-\\d\\d(-\\d\\d(T\\d\\d:\\d\\d(:\\d\\d)?(\\.\\d+)?(([+-]\\d\\d[:]*\\d\\d)|Z)?)?)?)?\$".toRegex()
+        val dateString = SystemClock.currentTimeAsString()
+        assert(regex7.matches(dateString))
+    }
+
+    @Test
+    fun `Clock can perform or cancel a delayed task`() {
+        var counter = 0
+
+        SystemClock.schedule(5L) { counter++ }
+        SystemClock.schedule(5L) { counter++ }.cancel()
+        assertEquals(0, counter)
+        Thread.sleep(10L)
+        assertEquals(1, counter)
+        Thread.sleep(10L)
+        assertEquals(1, counter)
     }
 }

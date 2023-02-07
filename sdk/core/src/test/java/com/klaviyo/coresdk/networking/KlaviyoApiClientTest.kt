@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.util.Base64
 import com.klaviyo.coresdk.BaseTest
+import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.config.StaticClock
 import com.klaviyo.coresdk.lifecycle.ActivityObserver
 import com.klaviyo.coresdk.model.Event
@@ -29,11 +30,15 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private var delayedRunner: KlaviyoApiClient.NetworkRunnable? = null
     private val slotWhenStopped = slot<ActivityObserver>()
     private val slotWhenNetworkChanged = slot<NetworkObserver>()
+    private val staticClock = StaticClock(TIME, ISO_TIME)
 
     @Before
     override fun setup() {
         super.setup()
+
         delayedRunner = null
+
+        every { Registry.clock } returns staticClock
         every { configMock.networkFlushInterval } returns flushInterval
         every { configMock.networkFlushDepth } returns queueDepth
         every { networkMonitorMock.isNetworkConnected() } returns false
@@ -142,7 +147,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val requestMock = mockRequest()
 
         KlaviyoApiClient.enqueueRequest(requestMock)
-        every { configMock.clock } returns StaticClock(TIME + flushInterval.toLong(), ISO_TIME)
+        staticClock.execute(flushInterval.toLong())
 
         delayedRunner!!.run()
 

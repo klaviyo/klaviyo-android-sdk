@@ -38,7 +38,6 @@ internal abstract class BaseTest {
     protected val configMock = mockk<Config>().apply {
         every { apiKey } returns API_KEY
         every { applicationContext } returns contextMock
-        every { clock } returns StaticClock(TIME, ISO_TIME)
     }
     protected val lifecycleMonitorMock = mockk<LifecycleMonitor>()
     protected val networkMonitorMock = mockk<NetworkMonitor>()
@@ -54,6 +53,7 @@ internal abstract class BaseTest {
         every { Registry.networkMonitor } returns networkMonitorMock
         every { Registry.dataStore } returns dataStoreSpy
         every { Registry.apiClient } returns apiClientMock
+        every { Registry.clock } returns StaticClock(TIME, ISO_TIME)
 
         // Mock using latest SDK
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)

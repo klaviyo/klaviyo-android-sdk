@@ -21,7 +21,7 @@ import org.json.JSONObject
 internal open class KlaviyoApiRequest(
     val urlPath: String,
     val method: RequestMethod,
-    val time: String = Registry.config.clock.currentTimeAsString(),
+    val time: String = Registry.clock.currentTimeAsString(),
     val uuid: String = UUID.randomUUID().toString()
 ) {
     open var headers: Map<String, String> = emptyMap()

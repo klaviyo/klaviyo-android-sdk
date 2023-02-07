@@ -1,6 +1,7 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
+import com.klaviyo.coresdk.config.Clock
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey
@@ -41,9 +42,7 @@ object Klaviyo {
      * @param email Email address for active user
      * @return
      */
-    fun setEmail(email: String): Klaviyo = apply {
-        this.setProfile(Profile().setEmail(email))
-    }
+    fun setEmail(email: String): Klaviyo = this.setProfile(Profile().setEmail(email))
 
     /**
      * Assigns a phone number to the current internally tracked profile
@@ -56,9 +55,8 @@ object Klaviyo {
      *
      * @param phoneNumber Phone number for active user
      */
-    fun setPhoneNumber(phoneNumber: String): Klaviyo = apply {
+    fun setPhoneNumber(phoneNumber: String): Klaviyo =
         this.setProfile(Profile().setPhoneNumber(phoneNumber))
-    }
 
     /**
      * Assigns an external ID to the current internally tracked profile
@@ -72,9 +70,7 @@ object Klaviyo {
      * @param id Phone number for active user
      * @return
      */
-    fun setExternalId(id: String): Klaviyo = apply {
-        this.setProfile(Profile().setIdentifier(id))
-    }
+    fun setExternalId(id: String): Klaviyo = this.setProfile(Profile().setIdentifier(id))
 
     /**
      * Assign arbitrary attributes to the current profile by key
@@ -90,6 +86,11 @@ object Klaviyo {
         setProfile(Profile().also { it[propertyKey] = value })
 
     /**
+     * Debounce timer for enqueuing profile API calls
+     */
+    private var timer: Clock.Cancellable? = null
+
+    /**
      * Queues a request to identify profile properties to the Klaviyo API
      *
      * Any new identifying properties (externalId, email, phone) will be saved to the current
@@ -102,10 +103,12 @@ object Klaviyo {
      * @return
      */
     fun setProfile(profile: Profile): Klaviyo = apply {
-        // TODO debounce so fluent setters don't have to create 1 request per call
-        // Note - is there value to tighter coupling the UserInfo update with the API call
         UserInfo.mergeProfile(profile)
-        Registry.apiClient.enqueueProfile(profile)
+
+        timer?.cancel()
+        timer = Registry.clock.schedule(Registry.config.debounceInterval.toLong()) {
+            Registry.apiClient.enqueueProfile(profile)
+        }
     }
 
     /**

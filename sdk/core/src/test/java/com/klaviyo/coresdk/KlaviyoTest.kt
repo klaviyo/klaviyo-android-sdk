@@ -1,6 +1,7 @@
 package com.klaviyo.coresdk
 
 import com.klaviyo.coresdk.config.Config
+import com.klaviyo.coresdk.config.StaticClock
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.KlaviyoEventAttributeKey
 import com.klaviyo.coresdk.model.KlaviyoEventType
@@ -17,11 +18,15 @@ import org.junit.Test
 internal class KlaviyoTest : BaseTest() {
 
     private val capturedProfile = slot<Profile>()
+    private val staticClock = StaticClock(TIME, ISO_TIME)
+    private val debounceTime = 5
 
     override fun setup() {
         super.setup()
+        every { Registry.clock } returns staticClock
         every { apiClientMock.enqueueProfile(capture(capturedProfile)) } returns Unit
         every { apiClientMock.enqueueEvent(any(), any(), any()) } returns Unit
+        every { configMock.debounceInterval } returns debounceTime
     }
 
     @Test
@@ -44,12 +49,27 @@ internal class KlaviyoTest : BaseTest() {
         }
     }
 
+    private fun verifyProfileDebounced() {
+        staticClock.execute(debounceTime.toLong())
+        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `Profile updates are debounced`() {
+        Klaviyo.setExternalId(EXTERNAL_ID)
+            .setEmail(EMAIL)
+            .setPhoneNumber(PHONE)
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+        verifyProfileDebounced()
+    }
+
     @Test
     fun `Sets user external ID into info`() {
         Klaviyo.setExternalId(EXTERNAL_ID)
 
         assert(UserInfo.externalId == EXTERNAL_ID)
-        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+        verifyProfileDebounced()
     }
 
     @Test
@@ -57,7 +77,7 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.setEmail(EMAIL)
 
         assert(UserInfo.email == EMAIL)
-        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+        verifyProfileDebounced()
     }
 
     @Test
@@ -65,7 +85,7 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.setPhoneNumber(PHONE)
 
         assert(UserInfo.phoneNumber == PHONE)
-        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+        verifyProfileDebounced()
     }
 
     @Test
@@ -73,7 +93,7 @@ internal class KlaviyoTest : BaseTest() {
         val stubName = "Evan"
         Klaviyo.setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, stubName)
 
-        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+        verifyProfileDebounced()
         assert(capturedProfile.isCaptured)
         assert(capturedProfile.captured[KlaviyoProfileAttributeKey.FIRST_NAME] == stubName)
     }

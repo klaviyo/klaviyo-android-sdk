@@ -8,7 +8,7 @@ interface Config {
     val apiKey: String
     val applicationContext: Context
 
-    val clock: Clock
+    val debounceInterval: Int
 
     val networkTimeout: Int
     val networkFlushInterval: Int
@@ -17,6 +17,7 @@ interface Config {
     interface Builder {
         fun apiKey(apiKey: String): Builder
         fun applicationContext(context: Context): Builder
+        fun debounceInterval(debounceInterval: Int): Builder
         fun networkTimeout(networkTimeout: Int): Builder
         fun networkFlushInterval(networkFlushInterval: Int): Builder
         fun networkFlushDepth(networkFlushDepth: Int): Builder

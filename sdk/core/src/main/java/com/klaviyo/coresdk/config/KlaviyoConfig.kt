@@ -28,25 +28,21 @@ class KlaviyoMissingPermissionException(permission: String) : Exception("You mus
  * Stores all configuration related to the Klaviyo Android SDK.
  */
 object KlaviyoConfig : Config {
-    private val SYSTEM_CLOCK: Clock = SystemClock
-
+    private const val DEBOUNCE_INTERVAL: Int = 500
     private const val NETWORK_TIMEOUT_DEFAULT: Int = 500
     private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
     private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 20
-    private const val NETWORK_USE_BATCH_QUEUE: Boolean = true
 
     override val baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
-    override lateinit var apiKey: String
-        private set
-    override lateinit var applicationContext: Context
+    override lateinit var apiKey: String private set
+    override lateinit var applicationContext: Context private set
+    override var debounceInterval = DEBOUNCE_INTERVAL
         private set
     override var networkTimeout = NETWORK_TIMEOUT_DEFAULT
         private set
     override var networkFlushInterval = NETWORK_FLUSH_INTERVAL_DEFAULT
         private set
     override var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
-        private set
-    override var clock: Clock = SYSTEM_CLOCK
         private set
 
     /**
@@ -55,10 +51,10 @@ object KlaviyoConfig : Config {
     class Builder : Config.Builder {
         private var apiKey: String = ""
         private var applicationContext: Context? = null
+        private var debounceInterval: Int = DEBOUNCE_INTERVAL
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
         private var networkFlushInterval: Int = NETWORK_FLUSH_INTERVAL_DEFAULT
         private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
-        private var clock = SYSTEM_CLOCK
 
         override fun apiKey(apiKey: String) = apply {
             this.apiKey = apiKey
@@ -68,25 +64,26 @@ object KlaviyoConfig : Config {
             this.applicationContext = context
         }
 
+        override fun debounceInterval(debounceInterval: Int) = apply {
+            if (debounceInterval >= 0) {
+                this.debounceInterval = debounceInterval
+            }
+        }
+
         override fun networkTimeout(networkTimeout: Int) = apply {
-            if (networkTimeout < 0) {
-            } else {
+            if (networkTimeout >= 0) {
                 this.networkTimeout = networkTimeout
             }
         }
 
         override fun networkFlushInterval(networkFlushInterval: Int) = apply {
-            if (networkFlushInterval < 0) {
-                // TODO: When Timber is installed, log warning here
-            } else {
+            if (networkFlushInterval >= 0) {
                 this.networkFlushInterval = networkFlushInterval
             }
         }
 
         override fun networkFlushDepth(networkFlushDepth: Int) = apply {
-            if (networkFlushDepth <= 0) {
-                // TODO: When Timber is installed, log warning here
-            } else {
+            if (networkFlushDepth > 0) {
                 this.networkFlushDepth = networkFlushDepth
             }
         }
@@ -101,7 +98,7 @@ object KlaviyoConfig : Config {
 
             val permissions = applicationContext!!.packageManager.getPackageInfoCompat(
                 applicationContext!!.packageName, PackageManager.GET_PERMISSIONS
-            ).requestedPermissions ?: arrayOf()
+            ).requestedPermissions ?: emptyArray()
 
             if (Manifest.permission.ACCESS_NETWORK_STATE !in permissions) {
                 throw KlaviyoMissingPermissionException(Manifest.permission.ACCESS_NETWORK_STATE)
@@ -109,10 +106,10 @@ object KlaviyoConfig : Config {
 
             KlaviyoConfig.apiKey = apiKey
             KlaviyoConfig.applicationContext = applicationContext as Context
+            KlaviyoConfig.debounceInterval = debounceInterval
             KlaviyoConfig.networkTimeout = networkTimeout
             KlaviyoConfig.networkFlushInterval = networkFlushInterval
             KlaviyoConfig.networkFlushDepth = networkFlushDepth
-            KlaviyoConfig.clock = clock
 
             return KlaviyoConfig
         }

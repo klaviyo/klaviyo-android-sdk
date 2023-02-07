@@ -131,7 +131,7 @@ internal object KlaviyoApiClient : ApiClient {
      * @property force Boolean that will force the queue to flush now
      */
     class NetworkRunnable(val force: Boolean = false) : Runnable {
-        private val queueInitTime = Registry.config.clock.currentTimeMillis()
+        private val queueInitTime = Registry.clock.currentTimeMillis()
 
         private val flushInterval: Long
             get() = Registry.config.networkFlushInterval.toLong()
@@ -155,7 +155,7 @@ internal object KlaviyoApiClient : ApiClient {
          * @return Whether the request queue was emptied or not
          */
         private fun flushQueue(force: Boolean = false): Boolean {
-            val queueTimePassed = Registry.config.clock.currentTimeMillis() - queueInitTime
+            val queueTimePassed = Registry.clock.currentTimeMillis() - queueInitTime
 
             if (force || getQueueSize() >= flushDepth || queueTimePassed >= flushInterval) {
                 while (!apiQueue.isEmpty()) {
