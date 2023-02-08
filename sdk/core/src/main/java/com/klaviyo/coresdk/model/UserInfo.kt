@@ -54,23 +54,34 @@ internal object UserInfo {
             return field
         }
 
-    fun reset() {
+    /**
+     * Updates [UserInfo] identifiers in state from a given [Profile] object
+     *
+     * @param profile
+     */
+    fun updateFromProfile(profile: Profile) = apply {
+        externalId = profile.identifier ?: externalId
+        email = profile.email ?: email
+        phoneNumber = profile.phoneNumber ?: phoneNumber
+    }
+
+    /**
+     * Reset all user identifiers to defaults
+     * which will cause a new anonymous ID to be generated
+     */
+    fun reset() = apply {
         externalId = ""
         email = ""
         phoneNumber = ""
         anonymousId = ""
     }
 
-    fun getAsProfile(): Profile {
-        return Profile().also { populateProfile(it) }
-    }
-
     /**
-     * Apply all identifiers from UserInfo to a [Profile] object
+     * Get the current [UserInfo] as a [Profile] data structure
      *
-     * @param profile
+     * @return
      */
-    private fun populateProfile(profile: Profile) {
+    fun getAsProfile(): Profile = Profile().also { profile ->
         profile.setAnonymousId(anonymousId)
 
         if (externalId.isNotEmpty()) {
@@ -84,20 +95,5 @@ internal object UserInfo {
         if (phoneNumber.isNotEmpty()) {
             profile.setPhoneNumber(phoneNumber)
         }
-    }
-
-    /**
-     * Two-way merge of a [Profile] object with UserInfo
-     * Identifiers present on the incoming object will be applied to UserInfo
-     * Any other identifiers will be added to the properties object from UserInfo
-     *
-     * @param profile
-     */
-    fun mergeProfile(profile: Profile): Profile {
-        externalId = profile.identifier ?: externalId
-        email = profile.email ?: email
-        phoneNumber = profile.phoneNumber ?: phoneNumber
-        populateProfile(profile)
-        return profile
     }
 }

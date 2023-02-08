@@ -6,13 +6,11 @@ import java.io.Serializable
  * Abstract class that wraps around a map to control access to its contents.
  * Provides helper functions to control the map's key type
  */
-abstract class BaseAttributes<KeyType> where KeyType : KlaviyoKeyword {
+abstract class BaseAttributes<KeyType, Self> where KeyType : KlaviyoKeyword, Self : BaseAttributes<KeyType, Self> {
 
     private val propertyMap: MutableMap<KeyType, Serializable> = mutableMapOf()
 
-    operator fun get(key: KeyType): Serializable? {
-        return propertyMap[key]
-    }
+    operator fun get(key: KeyType): Serializable? = propertyMap[key]
 
     operator fun set(key: KeyType, value: Serializable?) {
         if (value == null) {
@@ -25,27 +23,34 @@ abstract class BaseAttributes<KeyType> where KeyType : KlaviyoKeyword {
     /**
      * Convert this data model into a simple map
      */
-    fun toMap(): Map<String, Serializable> {
-        return propertyMap.mapKeys { it.key.toString() }
-    }
+    fun toMap(): Map<String, Serializable> = propertyMap.mapKeys { it.key.toString() }
 
     /**
      * Adds a custom property to the map.
      * Custom attributes can define any key name that isn't already reserved by Klaviyo
      */
-    abstract fun setProperty(key: KeyType, value: Serializable): BaseAttributes<KeyType>
+    abstract fun setProperty(key: KeyType, value: Serializable): BaseAttributes<KeyType, Self>
 
     /**
      * Add a custom property to the map.
      * Custom attributes can define any key name that isn't already reserved by Klaviyo
      */
-    abstract fun setProperty(key: String, value: Serializable): BaseAttributes<KeyType>
+    abstract fun setProperty(key: String, value: Serializable): BaseAttributes<KeyType, Self>
+
+    /**
+     * Merges attributes from another object into this one
+     *
+     * @param other Second instance from which to merge properties
+     */
+    internal open fun merge(other: Self) = apply {
+        other.propertyMap.forEach { (k, v) -> setProperty(k, v) }
+    }
 }
 
 /**
  * Controls the data that can be input into a map of profile attributes recognised by Klaviyo
  */
-class Profile : BaseAttributes<KlaviyoProfileAttributeKey>() {
+class Profile : BaseAttributes<KlaviyoProfileAttributeKey, Profile>() {
 
     private var appendMap: HashMap<String, Serializable> = HashMap()
 
@@ -89,22 +94,26 @@ class Profile : BaseAttributes<KlaviyoProfileAttributeKey>() {
     override fun setProperty(key: String, value: Serializable) = apply {
         this[KlaviyoProfileAttributeKey.CUSTOM(key)] = value
     }
+
+    override fun merge(other: Profile) = apply {
+        super.merge(other).also {
+            other.appendMap.forEach { (k, v) -> addAppendProperty(k, v) }
+        }
+    }
 }
 
 /**
  * Controls the data that can be input into a map of event attributes recognised by Klaviyo
  */
-class Event() : BaseAttributes<KlaviyoEventAttributeKey>() {
+class Event() : BaseAttributes<KlaviyoEventAttributeKey, Event>() {
+
+    lateinit var type: KlaviyoEventType private set
 
     constructor(type: KlaviyoEventType) : this() {
         this.type = type
     }
 
-    constructor(type: String) : this() {
-        this.type = KlaviyoEventType.CUSTOM(type)
-    }
-
-    var type: KlaviyoEventType? = null
+    constructor(type: String) : this(KlaviyoEventType.CUSTOM(type))
 
     fun setValue(value: String) = apply { this.value = value }
     var value: String

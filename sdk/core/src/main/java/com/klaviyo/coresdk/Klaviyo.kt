@@ -89,6 +89,7 @@ object Klaviyo {
      * Debounce timer for enqueuing profile API calls
      */
     private var timer: Clock.Cancellable? = null
+    private var pendingProfile: Profile? = null
 
     /**
      * Queues a request to identify profile properties to the Klaviyo API
@@ -103,11 +104,18 @@ object Klaviyo {
      * @return
      */
     fun setProfile(profile: Profile): Klaviyo = apply {
-        UserInfo.mergeProfile(profile)
+        // Update user identifiers in state
+        UserInfo.updateFromProfile(profile)
+
+        // Start or update a pending profile object for API call
+        pendingProfile = UserInfo.getAsProfile().merge(pendingProfile?.merge(profile) ?: profile)
 
         timer?.cancel()
         timer = Registry.clock.schedule(Registry.config.debounceInterval.toLong()) {
-            Registry.apiClient.enqueueProfile(profile)
+            pendingProfile?.let {
+                Registry.apiClient.enqueueProfile(it)
+                pendingProfile = null
+            }
         }
     }
 

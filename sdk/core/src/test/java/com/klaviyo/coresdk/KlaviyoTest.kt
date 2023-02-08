@@ -13,6 +13,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyAll
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 internal class KlaviyoTest : BaseTest() {
@@ -65,6 +66,35 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `Profile debounce preserves all properties`() {
+        val stubMiddleNameKey = KlaviyoProfileAttributeKey.CUSTOM("middle_name")
+        val stubFirstName = "Kermit"
+        val stubMiddleName = "The"
+        val stubLastName = "Frog"
+        Klaviyo.setExternalId(EXTERNAL_ID)
+            .setEmail(EMAIL)
+            .setPhoneNumber(PHONE)
+            .setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, stubFirstName)
+            .setProfileAttribute(KlaviyoProfileAttributeKey.LAST_NAME, stubLastName)
+            .setProfile(
+                Profile().also {
+                    it[stubMiddleNameKey] = stubMiddleName
+                }
+            )
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+        verifyProfileDebounced()
+        assert(capturedProfile.isCaptured)
+        val profile = capturedProfile.captured
+        assertEquals(EXTERNAL_ID, profile.identifier)
+        assertEquals(EMAIL, profile.email)
+        assertEquals(PHONE, profile.phoneNumber)
+        assertEquals(stubFirstName, profile[KlaviyoProfileAttributeKey.FIRST_NAME])
+        assertEquals(stubLastName, profile[KlaviyoProfileAttributeKey.LAST_NAME])
+        assertEquals(stubMiddleName, profile[stubMiddleNameKey])
+    }
+
+    @Test
     fun `Sets user external ID into info`() {
         Klaviyo.setExternalId(EXTERNAL_ID)
 
@@ -90,7 +120,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Sets an arbitrary user property`() {
-        val stubName = "Evan"
+        val stubName = "Gonzo"
         Klaviyo.setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, stubName)
 
         verifyProfileDebounced()

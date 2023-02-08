@@ -23,14 +23,13 @@ internal class UserInfoTest : BaseTest() {
     }
 
     @Test
-    fun `Two way merge of a Profile and UserInfo`() {
+    fun `Updates UserInfo identifiers from a Profile object`() {
         UserInfo.email = EMAIL
 
         val profile = Profile().setIdentifier(EXTERNAL_ID).setPhoneNumber(PHONE)
 
-        UserInfo.mergeProfile(profile)
+        UserInfo.updateFromProfile(profile)
 
-        assertProfileIdentifiers(profile)
         assertUserInfoIdentifiers()
     }
 

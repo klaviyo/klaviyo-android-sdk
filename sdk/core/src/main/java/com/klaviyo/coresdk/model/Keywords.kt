@@ -7,9 +7,9 @@ package com.klaviyo.coresdk.model
  * Base class used to provide polymorphic properties to the use of profile and event keys
  */
 sealed class KlaviyoKeyword(val name: String) {
-    override fun toString(): String {
-        return name
-    }
+    override fun toString(): String = name
+    override fun equals(other: Any?): Boolean = (other as? KlaviyoKeyword).toString() == toString()
+    override fun hashCode(): Int = name.hashCode()
 }
 
 /**
@@ -98,7 +98,6 @@ sealed class KlaviyoEventType(name: String) : KlaviyoKeyword(name) {
  */
 sealed class KlaviyoEventAttributeKey(name: String) : KlaviyoKeyword(name) {
     object EVENT_ID : KlaviyoEventAttributeKey("\$event_id")
-    object TYPE : KlaviyoEventAttributeKey("\$type")
     object VALUE : KlaviyoEventAttributeKey("\$value")
 
     class CUSTOM(propertyName: String) : KlaviyoEventAttributeKey(propertyName)
