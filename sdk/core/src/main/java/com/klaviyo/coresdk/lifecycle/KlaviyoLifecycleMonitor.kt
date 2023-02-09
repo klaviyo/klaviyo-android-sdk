@@ -9,7 +9,7 @@ import android.os.Bundle
  */
 internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.ActivityLifecycleCallbacks {
 
-    private var activitiesActive = 0
+    private var activeActivities = 0
 
     private var whenStopped = mutableListOf<ActivityObserver>()
 
@@ -22,7 +22,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     override fun onActivityCreated(activity: Activity, bundle: Bundle?) {}
 
     override fun onActivityStarted(activity: Activity) {
-        activitiesActive++
+        activeActivities++
     }
 
     override fun onActivityResumed(activity: Activity) {}
@@ -32,8 +32,8 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     override fun onActivityPaused(activity: Activity) {}
 
     override fun onActivityStopped(activity: Activity) {
-        activitiesActive--
-        if (activitiesActive == 0) {
+        activeActivities--
+        if (activeActivities == 0) {
             whenStopped.forEach { it(activity) }
         }
     }

@@ -10,6 +10,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.slot
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 internal class KlaviyoNetworkMonitorTest : BaseTest() {
@@ -84,6 +85,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         expectedNetworkConnection = false
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
         netCallbackSlot.captured.onLost(mockk())
+        netCallbackSlot.captured.onUnavailable()
 
         expectedNetworkConnection = true
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
@@ -94,6 +96,6 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
         netCallbackSlot.captured.onLost(mockk())
 
-        assert(callCount == 5)
+        assertEquals(6, callCount)
     }
 }

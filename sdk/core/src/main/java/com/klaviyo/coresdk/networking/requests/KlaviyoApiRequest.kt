@@ -55,9 +55,11 @@ internal open class KlaviyoApiRequest(
      * @return
      */
     override fun equals(other: Any?): Boolean = when (other) {
-        is KlaviyoApiRequest -> equals(this, other)
+        is KlaviyoApiRequest -> uuid == other.uuid
         else -> super.equals(other)
     }
+
+    override fun hashCode(): Int = uuid.hashCode()
 
     companion object {
         const val HEADER_CONTENT = "Content-Type"
@@ -100,16 +102,6 @@ internal open class KlaviyoApiRequest(
                 body = json.optJSONObject(BODY_JSON_KEY)
             }
         }
-
-        /**
-         * Compare two requests purely by their UUIDs
-         *
-         * @param request1
-         * @param request2
-         * @return
-         */
-        fun equals(request1: KlaviyoApiRequest, request2: KlaviyoApiRequest): Boolean =
-            request1.uuid == request2.uuid
     }
 
     /**

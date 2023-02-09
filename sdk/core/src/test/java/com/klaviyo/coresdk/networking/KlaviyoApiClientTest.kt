@@ -69,7 +69,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
             every { it.send() } returns "1"
             every { it.toJson() } returns "{\"headers\":{\"headerKey\":\"headerValue\"},\"method\":\"GET\",\"query\":{\"queryKey\":\"queryValue\"},\"time\":\"time\",\"uuid\":\"$uuid\",\"url_path\":\"test\"}"
             every { it.equals(any()) } answers { a ->
-                KlaviyoApiRequest.equals(it, a.invocation.args[0] as KlaviyoApiRequest)
+                it.uuid == (a.invocation.args[0] as KlaviyoApiRequest).uuid
             }
         }
 

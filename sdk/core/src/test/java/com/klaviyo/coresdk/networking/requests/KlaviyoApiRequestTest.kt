@@ -63,6 +63,8 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         assertEquals(request2, request2)
         assertEquals(request2, request3)
         assertEquals(request2, request3)
+        assert(listOf(request1, request2).contains(request3))
+        assertEquals(request2.hashCode(), request3.hashCode())
     }
 
     @Test
