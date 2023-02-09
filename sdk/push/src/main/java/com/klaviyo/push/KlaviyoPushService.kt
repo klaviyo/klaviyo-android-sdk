@@ -43,11 +43,9 @@ class KlaviyoPushService : FirebaseMessagingService() {
         /**
          * Retrieves the device FCM push token stored on this device
          *
-         * @return The push token we read from the shared preferences
+         * @return The push token we read from the data store
          */
-        internal fun getPushToken(): String {
-            return Registry.dataStore.fetch(PUSH_TOKEN_KEY) ?: ""
-        }
+        internal fun getPushToken(): String? = Registry.dataStore.fetch(PUSH_TOKEN_KEY)
 
         /**
          * Logs an $opened_push event for a remote notification that originated from Klaviyo
@@ -59,7 +57,9 @@ class KlaviyoPushService : FirebaseMessagingService() {
 
             val event = Event().also {
                 payload.forEach { (k, v) -> it.setProperty(k, v) }
-                it.setProperty(PUSH_TOKEN_KEY, getPushToken())
+                getPushToken()?.let { pushToken ->
+                    it.setProperty(PUSH_TOKEN_KEY, pushToken)
+                }
             }
 
             Klaviyo.createEvent(KlaviyoEventType.OPENED_PUSH, event)
