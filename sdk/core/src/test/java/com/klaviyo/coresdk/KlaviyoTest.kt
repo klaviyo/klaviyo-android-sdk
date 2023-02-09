@@ -3,10 +3,10 @@ package com.klaviyo.coresdk
 import com.klaviyo.coresdk.config.Config
 import com.klaviyo.coresdk.config.StaticClock
 import com.klaviyo.coresdk.model.Event
-import com.klaviyo.coresdk.model.KlaviyoEventAttributeKey
-import com.klaviyo.coresdk.model.KlaviyoEventType
-import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey
+import com.klaviyo.coresdk.model.EventKey
+import com.klaviyo.coresdk.model.EventType
 import com.klaviyo.coresdk.model.Profile
+import com.klaviyo.coresdk.model.ProfileKey
 import com.klaviyo.coresdk.model.UserInfo
 import io.mockk.every
 import io.mockk.mockk
@@ -67,15 +67,15 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Profile debounce preserves all properties`() {
-        val stubMiddleNameKey = KlaviyoProfileAttributeKey.CUSTOM("middle_name")
+        val stubMiddleNameKey = ProfileKey.CUSTOM("middle_name")
         val stubFirstName = "Kermit"
         val stubMiddleName = "The"
         val stubLastName = "Frog"
         Klaviyo.setExternalId(EXTERNAL_ID)
             .setEmail(EMAIL)
             .setPhoneNumber(PHONE)
-            .setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, stubFirstName)
-            .setProfileAttribute(KlaviyoProfileAttributeKey.LAST_NAME, stubLastName)
+            .setProfileAttribute(ProfileKey.FIRST_NAME, stubFirstName)
+            .setProfileAttribute(ProfileKey.LAST_NAME, stubLastName)
             .setProfile(
                 Profile().also {
                     it[stubMiddleNameKey] = stubMiddleName
@@ -86,11 +86,11 @@ internal class KlaviyoTest : BaseTest() {
         verifyProfileDebounced()
         assert(capturedProfile.isCaptured)
         val profile = capturedProfile.captured
-        assertEquals(EXTERNAL_ID, profile.identifier)
+        assertEquals(EXTERNAL_ID, profile.externalId)
         assertEquals(EMAIL, profile.email)
         assertEquals(PHONE, profile.phoneNumber)
-        assertEquals(stubFirstName, profile[KlaviyoProfileAttributeKey.FIRST_NAME])
-        assertEquals(stubLastName, profile[KlaviyoProfileAttributeKey.LAST_NAME])
+        assertEquals(stubFirstName, profile[ProfileKey.FIRST_NAME])
+        assertEquals(stubLastName, profile[ProfileKey.LAST_NAME])
         assertEquals(stubMiddleName, profile[stubMiddleNameKey])
     }
 
@@ -121,11 +121,11 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `Sets an arbitrary user property`() {
         val stubName = "Gonzo"
-        Klaviyo.setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, stubName)
+        Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, stubName)
 
         verifyProfileDebounced()
         assert(capturedProfile.isCaptured)
-        assert(capturedProfile.captured[KlaviyoProfileAttributeKey.FIRST_NAME] == stubName)
+        assert(capturedProfile.captured[ProfileKey.FIRST_NAME] == stubName)
     }
 
     @Test
@@ -145,7 +145,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Enqueue an event API call`() {
-        val stubEvent = Event(KlaviyoEventType.VIEWED_PRODUCT).also { it[KlaviyoEventAttributeKey.VALUE] = 1 }
+        val stubEvent = Event(EventType.VIEWED_PRODUCT).also { it[EventKey.VALUE] = 1 }
         Klaviyo.createEvent(stubEvent)
 
         verify(exactly = 1) {

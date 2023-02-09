@@ -1,10 +1,10 @@
 package com.klaviyo.coresdk.model
 
 import com.klaviyo.coresdk.Registry
-import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.ANONYMOUS
-import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EMAIL
-import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EXTERNAL_ID
-import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.PHONE_NUMBER
+import com.klaviyo.coresdk.model.ProfileKey.ANONYMOUS
+import com.klaviyo.coresdk.model.ProfileKey.EMAIL
+import com.klaviyo.coresdk.model.ProfileKey.EXTERNAL_ID
+import com.klaviyo.coresdk.model.ProfileKey.PHONE_NUMBER
 import java.util.UUID
 
 /**
@@ -60,7 +60,7 @@ internal object UserInfo {
      * @param profile
      */
     fun updateFromProfile(profile: Profile) = apply {
-        externalId = profile.identifier ?: externalId
+        externalId = profile.externalId ?: externalId
         email = profile.email ?: email
         phoneNumber = profile.phoneNumber ?: phoneNumber
     }
@@ -85,7 +85,7 @@ internal object UserInfo {
         profile.setAnonymousId(anonymousId)
 
         if (externalId.isNotEmpty()) {
-            profile.setIdentifier(externalId)
+            profile.setExternalId(externalId)
         }
 
         if (email.isNotEmpty()) {

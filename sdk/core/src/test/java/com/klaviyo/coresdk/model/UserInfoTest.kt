@@ -26,7 +26,7 @@ internal class UserInfoTest : BaseTest() {
     fun `Updates UserInfo identifiers from a Profile object`() {
         UserInfo.email = EMAIL
 
-        val profile = Profile().setIdentifier(EXTERNAL_ID).setPhoneNumber(PHONE)
+        val profile = Profile().setExternalId(EXTERNAL_ID).setPhoneNumber(PHONE)
 
         UserInfo.updateFromProfile(profile)
 
@@ -35,44 +35,44 @@ internal class UserInfoTest : BaseTest() {
 
     @Test
     fun `create and store a new UUID if one does not exists in data store`() {
-        dataStoreSpy.store(KlaviyoProfileAttributeKey.ANONYMOUS.name, "")
+        dataStoreSpy.store(ProfileKey.ANONYMOUS.name, "")
         val anonId = UserInfo.anonymousId
-        val fetched = dataStoreSpy.fetch(KlaviyoProfileAttributeKey.ANONYMOUS.name)
+        val fetched = dataStoreSpy.fetch(ProfileKey.ANONYMOUS.name)
         Assert.assertEquals(anonId, fetched)
     }
 
     @Test
     fun `do not create new UUID if one exists in data store`() {
-        dataStoreSpy.store(KlaviyoProfileAttributeKey.ANONYMOUS.name, ANON_ID)
+        dataStoreSpy.store(ProfileKey.ANONYMOUS.name, ANON_ID)
         Assert.assertEquals(ANON_ID, UserInfo.anonymousId)
     }
 
     @Test
     fun `only read properties from data store once`() {
-        dataStoreSpy.store(KlaviyoProfileAttributeKey.ANONYMOUS.name, ANON_ID)
-        dataStoreSpy.store(KlaviyoProfileAttributeKey.EMAIL.name, EMAIL)
-        dataStoreSpy.store(KlaviyoProfileAttributeKey.EXTERNAL_ID.name, EXTERNAL_ID)
-        dataStoreSpy.store(KlaviyoProfileAttributeKey.PHONE_NUMBER.name, PHONE)
+        dataStoreSpy.store(ProfileKey.ANONYMOUS.name, ANON_ID)
+        dataStoreSpy.store(ProfileKey.EMAIL.name, EMAIL)
+        dataStoreSpy.store(ProfileKey.EXTERNAL_ID.name, EXTERNAL_ID)
+        dataStoreSpy.store(ProfileKey.PHONE_NUMBER.name, PHONE)
 
         var unusedRead = UserInfo.anonymousId
         Assert.assertEquals(UserInfo.anonymousId, ANON_ID)
-        verify(exactly = 1) { dataStoreSpy.fetch(KlaviyoProfileAttributeKey.ANONYMOUS.name) }
+        verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.ANONYMOUS.name) }
 
         unusedRead = UserInfo.email
         Assert.assertEquals(UserInfo.email, EMAIL)
-        verify(exactly = 1) { dataStoreSpy.fetch(KlaviyoProfileAttributeKey.EMAIL.name) }
+        verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EMAIL.name) }
 
         unusedRead = UserInfo.externalId
         Assert.assertEquals(UserInfo.externalId, EXTERNAL_ID)
-        verify(exactly = 1) { dataStoreSpy.fetch(KlaviyoProfileAttributeKey.EXTERNAL_ID.name) }
+        verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EXTERNAL_ID.name) }
 
         unusedRead = UserInfo.phoneNumber
         Assert.assertEquals(UserInfo.phoneNumber, PHONE)
-        verify(exactly = 1) { dataStoreSpy.fetch(KlaviyoProfileAttributeKey.PHONE_NUMBER.name) }
+        verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.PHONE_NUMBER.name) }
     }
 
     private fun assertProfileIdentifiers(profile: Profile) {
-        assert(profile.identifier == EXTERNAL_ID)
+        assert(profile.externalId == EXTERNAL_ID)
         assert(profile.email == EMAIL)
         assert(profile.phoneNumber == PHONE)
         assert(profile.anonymousId == UserInfo.anonymousId)

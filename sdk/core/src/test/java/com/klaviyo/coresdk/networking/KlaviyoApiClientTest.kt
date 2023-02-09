@@ -8,7 +8,7 @@ import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.config.StaticClock
 import com.klaviyo.coresdk.lifecycle.ActivityObserver
 import com.klaviyo.coresdk.model.Event
-import com.klaviyo.coresdk.model.KlaviyoEventType
+import com.klaviyo.coresdk.model.EventType
 import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.networking.requests.KlaviyoApiRequest
 import io.mockk.every
@@ -100,7 +100,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
         KlaviyoApiClient.enqueueEvent(
-            Event(KlaviyoEventType.CUSTOM("mock")),
+            Event(EventType.CUSTOM("mock")),
             Profile().setEmail(EMAIL)
         )
 

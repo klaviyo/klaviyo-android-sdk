@@ -2,12 +2,12 @@ package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.Event
-import com.klaviyo.coresdk.model.KlaviyoEventType
+import com.klaviyo.coresdk.model.EventType
 import com.klaviyo.coresdk.model.Profile
 import org.json.JSONObject
 
 /**
- * Defines information unique to building a valid track request for a [KlaviyoEventType]
+ * Defines information unique to building a valid track request for a [EventType]
  *
  * @constructor
  * @param event

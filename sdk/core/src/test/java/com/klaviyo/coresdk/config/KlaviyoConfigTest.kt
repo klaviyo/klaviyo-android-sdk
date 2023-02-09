@@ -95,7 +95,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertNotEquals(-10, KlaviyoConfig.networkFlushDepth)
     }
 
-    @Test(expected = KlaviyoMissingAPIKeyException::class)
+    @Test(expected = MissingAPIKey::class)
     fun `KlaviyoConfig Builder missing API key throws expected exception`() {
         KlaviyoConfig.Builder()
             .applicationContext(contextMock)
@@ -105,7 +105,7 @@ internal class KlaviyoConfigTest : BaseTest() {
             .build()
     }
 
-    @Test(expected = KlaviyoMissingContextException::class)
+    @Test(expected = MissingContext::class)
     fun `KlaviyoConfig Builder missing application context throws exception`() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
@@ -115,7 +115,7 @@ internal class KlaviyoConfigTest : BaseTest() {
             .build()
     }
 
-    @Test(expected = KlaviyoMissingPermissionException::class)
+    @Test(expected = MissingPermission::class)
     fun `KlaviyoConfig Builder throws exception when context is missing required permissions`() {
         mockPackageInfo.requestedPermissions = arrayOf()
         KlaviyoConfig.Builder()

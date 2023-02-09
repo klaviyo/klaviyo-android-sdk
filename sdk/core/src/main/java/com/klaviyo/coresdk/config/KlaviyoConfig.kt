@@ -10,19 +10,19 @@ import com.klaviyo.coresdk.BuildConfig
 /**
  * Exception that is thrown when the the Klaviyo API token is missing from the config
  */
-class KlaviyoMissingAPIKeyException : Exception("You must declare an API key for the Klaviyo SDK")
+class MissingAPIKey : Exception("You must declare an API key for the Klaviyo SDK")
 
 /**
  * Exception that is thrown when the application context is missing from the config
  */
-class KlaviyoMissingContextException : Exception("You must add your application context to the Klaviyo SDK")
+class MissingContext : Exception("You must add your application context to the Klaviyo SDK")
 
 /**
  * Exception to throw when a permission is not declared for the application context
  *
  * @param permission
  */
-class KlaviyoMissingPermissionException(permission: String) : Exception("You must declare $permission in your manifest to use the Klaviyo SDK")
+class MissingPermission(permission: String) : Exception("You must declare $permission in your manifest to use the Klaviyo SDK")
 
 /**
  * Stores all configuration related to the Klaviyo Android SDK.
@@ -98,10 +98,10 @@ object KlaviyoConfig : Config {
 
         override fun build(): Config {
             if (apiKey.isEmpty()) {
-                throw KlaviyoMissingAPIKeyException()
+                throw MissingAPIKey()
             }
             if (applicationContext == null) {
-                throw KlaviyoMissingContextException()
+                throw MissingContext()
             }
 
             val permissions = applicationContext!!.packageManager.getPackageInfoCompat(
@@ -109,7 +109,7 @@ object KlaviyoConfig : Config {
             ).requestedPermissions ?: emptyArray()
 
             if (Manifest.permission.ACCESS_NETWORK_STATE !in permissions) {
-                throw KlaviyoMissingPermissionException(Manifest.permission.ACCESS_NETWORK_STATE)
+                throw MissingPermission(Manifest.permission.ACCESS_NETWORK_STATE)
             }
 
             KlaviyoConfig.apiKey = apiKey

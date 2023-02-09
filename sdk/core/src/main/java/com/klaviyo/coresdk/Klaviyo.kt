@@ -3,8 +3,8 @@ package com.klaviyo.coresdk
 import android.content.Context
 import com.klaviyo.coresdk.config.Clock
 import com.klaviyo.coresdk.model.Event
-import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey
 import com.klaviyo.coresdk.model.Profile
+import com.klaviyo.coresdk.model.ProfileKey
 import com.klaviyo.coresdk.model.UserInfo
 
 /**
@@ -69,7 +69,7 @@ object Klaviyo {
      * @param id Phone number for active user
      * @return
      */
-    fun setExternalId(id: String): Klaviyo = this.setProfile(Profile().setIdentifier(id))
+    fun setExternalId(id: String): Klaviyo = this.setProfile(Profile().setExternalId(id))
 
     /**
      * Assign arbitrary attributes to the current profile by key
@@ -81,7 +81,7 @@ object Klaviyo {
      * @param value
      * @return
      */
-    fun setProfileAttribute(propertyKey: KlaviyoProfileAttributeKey, value: String): Klaviyo =
+    fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo =
         setProfile(Profile().also { it[propertyKey] = value })
 
     /**

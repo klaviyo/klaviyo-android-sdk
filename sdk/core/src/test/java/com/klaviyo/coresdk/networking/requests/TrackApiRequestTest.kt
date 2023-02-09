@@ -2,7 +2,7 @@ package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.BaseTest
 import com.klaviyo.coresdk.model.Event
-import com.klaviyo.coresdk.model.KlaviyoEventType
+import com.klaviyo.coresdk.model.EventType
 import com.klaviyo.coresdk.model.Profile
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -19,7 +19,7 @@ internal class TrackApiRequestTest : BaseTest() {
         "Revision" to "2022-10-17"
     )
 
-    private val stubEvent: Event get() = Event(KlaviyoEventType.CUSTOM("Test Event"))
+    private val stubEvent: Event get() = Event(EventType.CUSTOM("Test Event"))
 
     private val stubProfile = Profile()
         .setAnonymousId(ANON_ID)
@@ -64,7 +64,7 @@ internal class TrackApiRequestTest : BaseTest() {
         val request = TrackApiRequest(stubProperties, stubProfile)
 
         // If I mutate profile or properties after creating, it shouldn't affect the request
-        stubProfile.setIdentifier("ext_id")
+        stubProfile.setExternalId("ext_id")
         stubProperties.setProperty("custom_value", "100")
 
         assertEquals(expectedJsonString, request.body.toString())
