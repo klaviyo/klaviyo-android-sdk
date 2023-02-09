@@ -175,9 +175,11 @@ internal open class KlaviyoApiRequest(
      */
     private fun readResponse(connection: HttpURLConnection): String {
         val statusCode = connection.responseCode
+
         val stream = if (statusCode in HTTP_OK until HTTP_MULT_CHOICE) {
             connection.inputStream
         } else {
+            // TODO Retryable errors? e.g. 429
             connection.errorStream
         }
 

@@ -19,7 +19,7 @@ internal class TrackApiRequestTest : BaseTest() {
         "Revision" to "2022-10-17"
     )
 
-    private val stubEvent = KlaviyoEventType.CUSTOM("Test Event")
+    private val stubEvent: Event get() = Event(KlaviyoEventType.CUSTOM("Test Event"))
 
     private val stubProfile = Profile()
         .setAnonymousId(ANON_ID)
@@ -28,7 +28,7 @@ internal class TrackApiRequestTest : BaseTest() {
 
     @Test
     fun `Build Track request with no properties successfully`() {
-        val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"metric\":{\"name\":\"$stubEvent\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"},\"time\":\"$ISO_TIME\"}}}"
+        val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"metric\":{\"name\":\"${stubEvent.type}\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"},\"time\":\"$ISO_TIME\"}}}"
         val request = TrackApiRequest(stubEvent, stubProfile)
 
         assertEquals(expectedUrlPath, request.urlPath)
@@ -40,9 +40,9 @@ internal class TrackApiRequestTest : BaseTest() {
 
     @Test
     fun `Build Track request successfully`() {
-        val stubProperties = Event().setProperty("custom_value", "200")
-        val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$ISO_TIME\",\"metric\":{\"name\":\"$stubEvent\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"}}}}"
-        val request = TrackApiRequest(stubEvent, stubProfile, stubProperties)
+        val stubProperties = stubEvent.setProperty("custom_value", "200")
+        val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$ISO_TIME\",\"metric\":{\"name\":\"${stubEvent.type}\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"}}}}"
+        val request = TrackApiRequest(stubProperties, stubProfile)
 
         assertEquals(expectedUrlPath, request.urlPath)
         assertEquals(RequestMethod.POST, request.method)
@@ -53,15 +53,15 @@ internal class TrackApiRequestTest : BaseTest() {
 
     @Test
     fun `Profile data is snapshotted to prevent mutation`() {
-        val stubProperties = Event().setProperty("custom_value", "200")
+        val stubProperties = stubEvent.setProperty("custom_value", "200")
         val stubProfile = Profile()
             .setAnonymousId(ANON_ID)
             .setEmail(EMAIL)
             .setPhoneNumber(PHONE)
 
-        val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$ISO_TIME\",\"metric\":{\"name\":\"$stubEvent\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"}}}}"
+        val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$ISO_TIME\",\"metric\":{\"name\":\"${stubEvent.type}\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"}}}}"
 
-        val request = TrackApiRequest(stubEvent, stubProfile, stubProperties)
+        val request = TrackApiRequest(stubProperties, stubProfile)
 
         // If I mutate profile or properties after creating, it shouldn't affect the request
         stubProfile.setIdentifier("ext_id")

@@ -5,7 +5,6 @@ import android.os.HandlerThread
 import android.os.Looper
 import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.Event
-import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.networking.requests.IdentifyApiRequest
 import com.klaviyo.coresdk.networking.requests.KlaviyoApiRequest
@@ -45,12 +44,8 @@ internal object KlaviyoApiClient : ApiClient {
         enqueueRequest(IdentifyApiRequest(profile))
     }
 
-    override fun enqueueEvent(
-        event: KlaviyoEventType,
-        properties: Event,
-        profile: Profile
-    ) {
-        enqueueRequest(TrackApiRequest(event, profile, properties))
+    override fun enqueueEvent(event: Event, profile: Profile) {
+        enqueueRequest(TrackApiRequest(event, profile))
     }
 
     /**

@@ -55,14 +55,14 @@ class KlaviyoPushService : FirebaseMessagingService() {
         internal fun openedPush(payload: Map<String, String>) {
             if (!isKlaviyoPush(payload)) return // Track only pushes originating from klaviyo
 
-            val event = Event().also {
+            val event = Event(KlaviyoEventType.OPENED_PUSH).also {
                 payload.forEach { (k, v) -> it.setProperty(k, v) }
                 getPushToken()?.let { pushToken ->
                     it.setProperty(PUSH_TOKEN_KEY, pushToken)
                 }
             }
 
-            Klaviyo.createEvent(KlaviyoEventType.OPENED_PUSH, event)
+            Klaviyo.createEvent(event)
         }
 
         /**

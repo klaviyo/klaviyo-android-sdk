@@ -1,9 +1,6 @@
 package com.klaviyo.push
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageInfo
-import android.content.pm.PackageManager
 import android.os.Bundle
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.coresdk.Klaviyo
@@ -64,19 +61,13 @@ class KlaviyoPushServiceTest {
 
     private lateinit var store: DataStore
 
-    private val mockPackageManager = mockk<PackageManager>()
-    private val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
-    private val mockPackageInfo = mockk<PackageInfo>().apply {
-        requestedPermissions = arrayOf(Manifest.permission.ACCESS_NETWORK_STATE)
-    }
-
     @Before
     fun setup() {
         store = InMemoryDataStore() // start every test with an empty store
 
         mockkObject(Klaviyo)
         every { Klaviyo.setProfile(any()) } returns mockk()
-        every { Klaviyo.createEvent(any(), any()) } returns mockk()
+        every { Klaviyo.createEvent(any()) } returns mockk()
         mockkObject(Registry)
         every { Registry.dataStore } returns store
     }
@@ -110,7 +101,7 @@ class KlaviyoPushServiceTest {
     fun `Opening a Klaviyo push payload enqueues an event API call`() {
         KlaviyoPushService.openedPush(stubPayload)
 
-        verify { Klaviyo.createEvent(any(), any()) }
+        verify { Klaviyo.createEvent(any()) }
     }
 
     @Test
@@ -119,7 +110,7 @@ class KlaviyoPushServiceTest {
         val nonKlaviyoPayload = mapOf("other" to "3rd party push")
         KlaviyoPushService.openedPush(nonKlaviyoPayload)
 
-        verify(inverse = true) { Klaviyo.createEvent(any(), any()) }
+        verify(inverse = true) { Klaviyo.createEvent(any()) }
     }
 
     @Test
@@ -139,7 +130,7 @@ class KlaviyoPushServiceTest {
         val pushService = KlaviyoPushService()
         pushService.onMessageReceived(msg)
 
-        verify(inverse = true) { Klaviyo.createEvent(any(), any()) }
+        verify(inverse = true) { Klaviyo.createEvent(any()) }
     }
 
     @Test
@@ -163,6 +154,6 @@ class KlaviyoPushServiceTest {
         // Handle push intent
         KlaviyoPushService.handlePush(intent)
 
-        verify { Klaviyo.createEvent(any(), any()) }
+        verify { Klaviyo.createEvent(any()) }
     }
 }

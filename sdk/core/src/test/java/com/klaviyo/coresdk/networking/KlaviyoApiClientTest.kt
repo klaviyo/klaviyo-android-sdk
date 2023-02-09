@@ -90,8 +90,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
         KlaviyoApiClient.enqueueEvent(
-            KlaviyoEventType.CUSTOM("mock"),
-            Event(),
+            Event(KlaviyoEventType.CUSTOM("mock")),
             Profile().setEmail(EMAIL)
         )
 

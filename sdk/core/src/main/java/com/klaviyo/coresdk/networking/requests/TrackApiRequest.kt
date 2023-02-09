@@ -10,14 +10,12 @@ import org.json.JSONObject
  * Defines information unique to building a valid track request for a [KlaviyoEventType]
  *
  * @constructor
- * @param eventType
+ * @param event
  * @param profile
- * @param eventAttributes
  */
 internal class TrackApiRequest(
-    eventType: KlaviyoEventType,
+    event: Event,
     profile: Profile,
-    eventAttributes: Event? = null
 ) : KlaviyoApiRequest(
     "client/events",
     RequestMethod.POST
@@ -38,10 +36,10 @@ internal class TrackApiRequest(
                 "type" to "event",
                 "attributes" to mapOf(
                     "metric" to mapOf(
-                        "name" to eventType.name,
+                        "name" to event.type.name
                     ),
-                    "profile" to JSONObject(profile.toMap()),
-                    "properties" to eventAttributes?.let { JSONObject(it.toMap()) },
+                    "profile" to profile.toMap(),
+                    "properties" to event.toMap().ifEmpty { null },
                     "time" to time
                 ).filterValues { it != null }
             )

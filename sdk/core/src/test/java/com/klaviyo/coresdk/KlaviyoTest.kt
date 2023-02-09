@@ -26,7 +26,7 @@ internal class KlaviyoTest : BaseTest() {
         super.setup()
         every { Registry.clock } returns staticClock
         every { apiClientMock.enqueueProfile(capture(capturedProfile)) } returns Unit
-        every { apiClientMock.enqueueEvent(any(), any(), any()) } returns Unit
+        every { apiClientMock.enqueueEvent(any(), any()) } returns Unit
         every { configMock.debounceInterval } returns debounceTime
     }
 
@@ -145,17 +145,11 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Enqueue an event API call`() {
-        Klaviyo.createEvent(
-            KlaviyoEventType.VIEWED_PRODUCT,
-            Event().apply { this[KlaviyoEventAttributeKey.VALUE] = 1 }
-        )
+        val stubEvent = Event(KlaviyoEventType.VIEWED_PRODUCT).also { it[KlaviyoEventAttributeKey.VALUE] = 1 }
+        Klaviyo.createEvent(stubEvent)
 
         verify(exactly = 1) {
-            apiClientMock.enqueueEvent(
-                KlaviyoEventType.VIEWED_PRODUCT,
-                any(),
-                any()
-            )
+            apiClientMock.enqueueEvent(stubEvent, any())
         }
     }
 }

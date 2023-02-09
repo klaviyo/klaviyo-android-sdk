@@ -3,7 +3,6 @@ package com.klaviyo.coresdk
 import android.content.Context
 import com.klaviyo.coresdk.config.Clock
 import com.klaviyo.coresdk.model.Event
-import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey
 import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.model.UserInfo
@@ -138,14 +137,10 @@ object Klaviyo {
      * If profile is not set, this will fallback on the current profile identifiers
      *
      * @param event Name of the event metric
-     * @param properties Additional properties associated to the event that are not for identifying the profile
+     * @param event Additional properties associated to the event that are not for identifying the profile
      * @return
      */
-    fun createEvent(event: KlaviyoEventType, properties: Event = Event()): Klaviyo = apply {
-        Registry.apiClient.enqueueEvent(
-            event,
-            properties,
-            UserInfo.getAsProfile()
-        )
+    fun createEvent(event: Event): Klaviyo = apply {
+        Registry.apiClient.enqueueEvent(event, UserInfo.getAsProfile())
     }
 }
