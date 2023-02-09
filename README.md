@@ -47,19 +47,19 @@ so that the SDK can keep track of the current profile.
 
 Profile attributes can be set all at once: 
 ```kotlin
-val profile = Profile().also {
-    it.setEmail("kermit@example.com")
-    it[KlaviyoProfileAttributeKey.FIRST_NAME] = "Kermit"
-}
+val profile = Profile(mapOf(
+    ProfileKey.EMAIL to "kermit@example.com",
+    ProfileKey.FIRST_NAME to "Kermit"
+))
 Klaviyo.setProfile(profile)
 ```
-or individually:
+or individually with fluent setters:
 ```kotlin
 Klaviyo.setEmail("kermit@example.com")
-Klaviyo.setPhone("+12223334444")
-Klaviyo.setExternalId("USER_IDENTIFIER")
-Klaviyo.setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, "Kermit")
-    .setProfileAttribute(KlaviyoProfileAttributeKey.CUSTOM("instrument"), "banjo")
+    .setPhone("+12223334444")
+    .setExternalId("USER_IDENTIFIER")
+    .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
+    .setProfileAttribute(ProfileKey.CUSTOM("instrument"), "banjo")
 ```
 Either way, the SDK will group and batch API calls to limit resource usage. 
 
@@ -69,7 +69,7 @@ call `Klaviyo.resetProfile()` first to reset all identifiers and start tracking 
 //Start a profile for Kermit
 Klaviyo.setEmail("kermit@example.com")
     .setPhone("+12223334444")
-    .setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, "Kermit")
+    .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
 
 //Stop tracking Kermit
 Klaviyo.resetProfile()
@@ -77,18 +77,18 @@ Klaviyo.resetProfile()
 //Start new profile for Robin with new IDs
 Klaviyo.setEmail("robin@example.com")
     .setPhone("+5556667777")
-    .setProfileAttribute(KlaviyoProfileAttributeKey.FIRST_NAME, "Robin")
+    .setProfileAttribute(ProfileKey.FIRST_NAME, "Robin")
 ```
 
 ### Tracking Events
-The SDK also provides tools for tracking analytics events to the Klaviyo API. 
-An event consists of an event name, a profile the event belongs to, and any custom attributes.
-A list of event names is provided in `KlaviyoEventType`, or `KlaviyoEventType.CUSTOM("name")`
-can be used to create custom names. Typically the event will just belong to the "current" profile, 
-but the `createEvent` method provides an optional argument to specify `ProfileModel`. 
-Additional event attributes can be specified as `EventModel`
+The SDK also provides tools for tracking analytics events to the Klaviyo API.
+A list of previously defined event names is provided in `EventType`, or use `EventType.CUSTOM("name")`
+to for custom name. Additional event properties can be specified as part of `EventModel` 
 ```kotlin
-Klaviyo.createEvent(Event(KlaviyoEventType.VIEWED_PRODUCT))
+val event = Event(EventType.VIEWED_PRODUCT)
+    .setProperty(EventKey.VALUE, "$10.00")
+    .setProperty(EventKey.CUSTOM("custom_key"), "value")
+Klaviyo.createEvent(event)
 ```
 
 ## Push Notifications

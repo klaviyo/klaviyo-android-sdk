@@ -15,4 +15,6 @@ interface LifecycleMonitor {
      * @param observer
      */
     fun onAllActivitiesStopped(observer: ActivityObserver)
+
+    // TODO removal of listeners?
 }

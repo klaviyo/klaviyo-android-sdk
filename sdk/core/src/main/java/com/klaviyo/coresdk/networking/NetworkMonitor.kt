@@ -21,6 +21,8 @@ interface NetworkMonitor {
      */
     fun onNetworkChange(observer: NetworkObserver)
 
+    // TODO removal of listeners?
+
     /**
      * Instant check of network connectivity
      *
