@@ -134,24 +134,4 @@ internal class KlaviyoConfigTest : BaseTest() {
         mockPackageManager.getPackageInfoCompat(contextMock.packageName, PackageManager.GET_PERMISSIONS)
         verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) }
     }
-
-    @Test
-    fun `Clock uses proper date format`() {
-        val regex7 = "^\\d{4}(-\\d\\d(-\\d\\d(T\\d\\d:\\d\\d(:\\d\\d)?(\\.\\d+)?(([+-]\\d\\d:*\\d\\d)|Z)?)?)?)?\$".toRegex()
-        val dateString = SystemClock.currentTimeAsString()
-        assert(regex7.matches(dateString))
-    }
-
-    @Test
-    fun `Clock can perform or cancel a delayed task`() {
-        var counter = 0
-
-        SystemClock.schedule(5L) { counter++ }
-        SystemClock.schedule(5L) { counter++ }.cancel()
-        assertEquals(0, counter)
-        Thread.sleep(10L)
-        assertEquals(1, counter)
-        Thread.sleep(10L)
-        assertEquals(1, counter)
-    }
 }
