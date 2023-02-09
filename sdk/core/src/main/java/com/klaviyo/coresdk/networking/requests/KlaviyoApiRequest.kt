@@ -135,7 +135,7 @@ internal open class KlaviyoApiRequest(
             connection.connect()
             return readResponse(connection)
         } catch (ex: IOException) {
-            // TODO Logging - TP-164154
+            // TODO Logging
             return null
         } finally {
             connection.disconnect()
