@@ -6,9 +6,14 @@ import java.io.Serializable
  * Abstract class that wraps around a map to control access to its contents.
  * Provides helper functions to control the map's key type
  */
-abstract class BaseAttributes<KeyType, Self> where KeyType : KlaviyoKeyword, Self : BaseAttributes<KeyType, Self> {
+abstract class BaseAttributes<KeyType, Self>(properties: Map<KeyType, Serializable>?)
+        where KeyType : KlaviyoKeyword, Self : BaseAttributes<KeyType, Self> {
 
     private val propertyMap: MutableMap<KeyType, Serializable> = mutableMapOf()
+
+    init {
+        properties?.forEach { (k, v) -> setProperty(k, v) }
+    }
 
     operator fun get(key: KeyType): Serializable? = propertyMap[key]
 
@@ -18,6 +23,10 @@ abstract class BaseAttributes<KeyType, Self> where KeyType : KlaviyoKeyword, Sel
         } else {
             propertyMap[key] = value
         }
+    }
+
+    operator fun set(key: String, value: Serializable) {
+        this.setProperty(key, value)
     }
 
     /**
@@ -50,7 +59,10 @@ abstract class BaseAttributes<KeyType, Self> where KeyType : KlaviyoKeyword, Sel
 /**
  * Controls the data that can be input into a map of profile attributes recognised by Klaviyo
  */
-class Profile : BaseAttributes<KlaviyoProfileAttributeKey, Profile>() {
+class Profile(properties: Map<KlaviyoProfileAttributeKey, Serializable>?) :
+    BaseAttributes<KlaviyoProfileAttributeKey, Profile>(properties) {
+
+    constructor() : this(null)
 
     private var appendMap: HashMap<String, Serializable> = HashMap()
 
@@ -105,15 +117,16 @@ class Profile : BaseAttributes<KlaviyoProfileAttributeKey, Profile>() {
 /**
  * Controls the data that can be input into a map of event attributes recognised by Klaviyo
  */
-class Event() : BaseAttributes<KlaviyoEventAttributeKey, Event>() {
+class Event(val type: KlaviyoEventType, properties: Map<KlaviyoEventAttributeKey, Serializable>?) :
+    BaseAttributes<KlaviyoEventAttributeKey, Event>(properties) {
 
-    lateinit var type: KlaviyoEventType private set
+    constructor(type: String, properties: Map<KlaviyoEventAttributeKey, Serializable>?) : this(
+        KlaviyoEventType.CUSTOM(type), properties
+    )
 
-    constructor(type: KlaviyoEventType) : this() {
-        this.type = type
-    }
+    constructor(type: KlaviyoEventType) : this(type, null)
 
-    constructor(type: String) : this(KlaviyoEventType.CUSTOM(type))
+    constructor(type: String) : this(type, null)
 
     fun setValue(value: String) = apply { this.value = value }
     var value: String

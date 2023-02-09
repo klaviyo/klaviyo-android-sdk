@@ -6,6 +6,7 @@ import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.Event
+import com.klaviyo.coresdk.model.KlaviyoEventAttributeKey
 import com.klaviyo.coresdk.model.KlaviyoEventType
 import com.klaviyo.coresdk.model.Profile
 
@@ -55,12 +56,14 @@ class KlaviyoPushService : FirebaseMessagingService() {
         internal fun openedPush(payload: Map<String, String>) {
             if (!isKlaviyoPush(payload)) return // Track only pushes originating from klaviyo
 
-            val event = Event(KlaviyoEventType.OPENED_PUSH).also {
-                payload.forEach { (k, v) -> it.setProperty(k, v) }
-                getPushToken()?.let { pushToken ->
-                    it.setProperty(PUSH_TOKEN_KEY, pushToken)
+            val event = Event(
+                KlaviyoEventType.OPENED_PUSH,
+                payload.mapKeys {
+                    KlaviyoEventAttributeKey.CUSTOM(it.key)
                 }
-            }
+            )
+
+            getPushToken()?.let { event[PUSH_TOKEN_KEY] = it }
 
             Klaviyo.createEvent(event)
         }

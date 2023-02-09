@@ -88,7 +88,7 @@ can be used to create custom names. Typically the event will just belong to the 
 but the `createEvent` method provides an optional argument to specify `ProfileModel`. 
 Additional event attributes can be specified as `EventModel`
 ```kotlin
-Klaviyo.createEvent(KlaviyoEventType.VIEWED_PRODUCT)
+Klaviyo.createEvent(Event(KlaviyoEventType.VIEWED_PRODUCT))
 ```
 
 ## Push Notifications

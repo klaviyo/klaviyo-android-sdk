@@ -38,7 +38,7 @@ internal class ModelTests : BaseTest() {
 
     @Test
     fun `Get, set and unset`() {
-        val event = Event()
+        val event = Event("test")
         event[KlaviyoEventAttributeKey.VALUE] = "$1"
         event[KlaviyoEventAttributeKey.CUSTOM("custom")] = "custom"
         assertEquals("$1", event.toMap()[KlaviyoEventAttributeKey.VALUE.name])
@@ -54,7 +54,7 @@ internal class ModelTests : BaseTest() {
 
     @Test
     fun `Overwriting a custom key`() {
-        val event = Event()
+        val event = Event("test")
         event[KlaviyoEventAttributeKey.CUSTOM("custom")] = "1"
         event[KlaviyoEventAttributeKey.CUSTOM("custom")] = "2"
         assertEquals("2", event.toMap()["custom"])
