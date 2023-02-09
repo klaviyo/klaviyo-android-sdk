@@ -6,10 +6,12 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.klaviyo.coresdk.BaseTest
+import com.klaviyo.coresdk.Registry
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.slot
+import io.mockk.unmockkObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -41,6 +43,12 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
                 capture(netCallbackSlot)
             )
         } returns mockk()
+    }
+
+    @Test
+    fun `Is registered service`() {
+        unmockkObject(Registry)
+        assertEquals(KlaviyoNetworkMonitor, Registry.networkMonitor)
     }
 
     @Test

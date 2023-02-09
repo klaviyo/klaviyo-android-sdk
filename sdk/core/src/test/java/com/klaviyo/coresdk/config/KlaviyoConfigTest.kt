@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import com.klaviyo.coresdk.BaseTest
 import com.klaviyo.coresdk.BuildConfig
+import com.klaviyo.coresdk.Registry
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -21,6 +22,9 @@ internal class KlaviyoConfigTest : BaseTest() {
     private val mockPackageInfo = mockk<PackageInfo>().apply {
         requestedPermissions = arrayOf(Manifest.permission.ACCESS_NETWORK_STATE)
     }
+
+    @Test
+    fun `Is registered service`() = assert(Registry.configBuilder is KlaviyoConfig.Builder)
 
     override fun setup() {
         mockkStatic(PackageManager.PackageInfoFlags::class)
@@ -133,7 +137,7 @@ internal class KlaviyoConfigTest : BaseTest() {
 
     @Test
     fun `Clock uses proper date format`() {
-        val regex7 = "^\\d{4}(-\\d\\d(-\\d\\d(T\\d\\d:\\d\\d(:\\d\\d)?(\\.\\d+)?(([+-]\\d\\d[:]*\\d\\d)|Z)?)?)?)?\$".toRegex()
+        val regex7 = "^\\d{4}(-\\d\\d(-\\d\\d(T\\d\\d:\\d\\d(:\\d\\d)?(\\.\\d+)?(([+-]\\d\\d:*\\d\\d)|Z)?)?)?)?\$".toRegex()
         val dateString = SystemClock.currentTimeAsString()
         assert(regex7.matches(dateString))
     }

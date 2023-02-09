@@ -74,6 +74,16 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
 
     @Test
+    fun `Is registered service`() {
+        // An odd case, since KlaviyoApiClient is very reliant on other services just to init,
+        // I am simply testing that Registry will return my object mock
+        mockkObject(KlaviyoApiClient)
+        unmockkObject(Registry)
+        assertEquals(KlaviyoApiClient, Registry.apiClient)
+        setup() // Also have to reset the test conditions to that cleanup can run properly
+    }
+
+    @Test
     fun `Enqueues a profile API call`() {
         mockkStatic(Base64::class)
         every { Base64.encodeToString(any(), any()) } returns "mock"

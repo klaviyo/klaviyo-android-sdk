@@ -3,9 +3,11 @@ package com.klaviyo.coresdk.model
 import android.content.Context
 import android.content.SharedPreferences
 import com.klaviyo.coresdk.BaseTest
+import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.SharedPreferencesDataStore.KLAVIYO_PREFS_NAME
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -27,6 +29,12 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
         every { editorMock.putString(key, value) } returns editorMock
         every { editorMock.remove(key) } returns editorMock
         every { editorMock.apply() } returns Unit
+    }
+
+    @Test
+    fun `Is registered service`() {
+        unmockkObject(Registry)
+        assertEquals(SharedPreferencesDataStore, Registry.dataStore)
     }
 
     @Test
