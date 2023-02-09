@@ -31,12 +31,12 @@ internal object KlaviyoApiClient : ApiClient {
 
     fun startListeners() {
         // Flush queue immediately when app stops
-        Registry.lifecycleMonitor.whenStopped {
+        Registry.lifecycleMonitor.onAllActivitiesStopped {
             flushQueue()
         }
 
         // Flush queue when network connection is restored
-        Registry.networkMonitor.whenNetworkChanged { isOnline ->
+        Registry.networkMonitor.onNetworkChange { isOnline ->
             if (isOnline) flushQueue()
         }
     }

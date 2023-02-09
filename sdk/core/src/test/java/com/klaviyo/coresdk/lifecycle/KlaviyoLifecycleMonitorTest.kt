@@ -9,7 +9,7 @@ class KlaviyoLifecycleMonitorTest {
     fun `Callbacks are invoked when all activities are stopped`() {
         var callCount = 0
 
-        KlaviyoLifecycleMonitor.whenStopped {
+        KlaviyoLifecycleMonitor.onAllActivitiesStopped {
             callCount++
         }
 

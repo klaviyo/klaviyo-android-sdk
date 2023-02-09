@@ -71,7 +71,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         var expectedNetworkConnection = true
         var callCount = 0
 
-        KlaviyoNetworkMonitor.whenNetworkChanged {
+        KlaviyoNetworkMonitor.onNetworkChange {
             assert(it == expectedNetworkConnection)
             callCount++
         }

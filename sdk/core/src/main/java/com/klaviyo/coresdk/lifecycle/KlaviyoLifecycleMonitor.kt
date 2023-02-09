@@ -13,7 +13,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
 
     private var whenStopped = mutableListOf<ActivityObserver>()
 
-    override fun whenStopped(observer: ActivityObserver) {
+    override fun onAllActivitiesStopped(observer: ActivityObserver) {
         whenStopped += observer
     }
 

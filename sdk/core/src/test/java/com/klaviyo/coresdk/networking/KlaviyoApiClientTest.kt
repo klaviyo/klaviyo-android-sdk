@@ -42,8 +42,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
         every { configMock.networkFlushInterval } returns flushInterval
         every { configMock.networkFlushDepth } returns queueDepth
         every { networkMonitorMock.isNetworkConnected() } returns false
-        every { lifecycleMonitorMock.whenStopped(capture(slotWhenStopped)) } returns Unit
-        every { networkMonitorMock.whenNetworkChanged(capture(slotWhenNetworkChanged)) } returns Unit
+        every { lifecycleMonitorMock.onAllActivitiesStopped(capture(slotWhenStopped)) } returns Unit
+        every { networkMonitorMock.onNetworkChange(capture(slotWhenNetworkChanged)) } returns Unit
 
         mockkObject(KlaviyoApiClient.HandlerUtil)
         every { KlaviyoApiClient.HandlerUtil.getHandler(any()) } returns mockk<Handler>().apply {

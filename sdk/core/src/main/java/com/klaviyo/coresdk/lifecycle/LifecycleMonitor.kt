@@ -14,5 +14,5 @@ interface LifecycleMonitor {
      *
      * @param observer
      */
-    fun whenStopped(observer: ActivityObserver)
+    fun onAllActivitiesStopped(observer: ActivityObserver)
 }

@@ -19,7 +19,7 @@ interface NetworkMonitor {
      *
      * @param observer
      */
-    fun whenNetworkChanged(observer: NetworkObserver)
+    fun onNetworkChange(observer: NetworkObserver)
 
     /**
      * Instant check of network connectivity
@@ -52,7 +52,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      *
      * @param observer
      */
-    override fun whenNetworkChanged(observer: NetworkObserver) {
+    override fun onNetworkChange(observer: NetworkObserver) {
         initializeNetworkListener()
         networkChangeObservers += observer
     }

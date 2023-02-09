@@ -138,6 +138,7 @@ internal open class KlaviyoApiRequest(
             // TODO Logging
             return null
         } finally {
+            // TODO can this throw too?
             connection.disconnect()
         }
     }
