@@ -25,11 +25,12 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
     private fun withWriteStringMock(key: String, value: String) {
         every { preferenceMock.edit() } returns editorMock
         every { editorMock.putString(key, value) } returns editorMock
+        every { editorMock.remove(key) } returns editorMock
         every { editorMock.apply() } returns Unit
     }
 
     @Test
-    fun `writing string uses Klaviyo preferences`() {
+    fun `Writing string uses Klaviyo preferences`() {
         withPreferenceMock()
         withWriteStringMock(stubKey, stubValue)
 
@@ -42,7 +43,20 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
     }
 
     @Test
-    fun `reading string uses Klaviyo preferences`() {
+    fun `Removing key uses Klaviyo preferences`() {
+        withPreferenceMock()
+        withWriteStringMock(stubKey, stubValue)
+
+        SharedPreferencesDataStore.clear(stubKey)
+
+        verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
+        verify { preferenceMock.edit() }
+        verify { editorMock.remove(stubKey) }
+        verify { editorMock.apply() }
+    }
+
+    @Test
+    fun `Reading string uses Klaviyo preferences`() {
         val expectedString = "123" + Math.random().toString()
 
         withPreferenceMock()

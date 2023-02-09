@@ -55,7 +55,7 @@ internal object SharedPreferencesDataStore : DataStore {
     /**
      * Remove a value from shared preferences if set
      *
-     * @param key The identifiying key to remove from persistent store
+     * @param key The identifying key to remove from persistent store
      */
     override fun clear(key: String) {
         openSharedPreferences()
