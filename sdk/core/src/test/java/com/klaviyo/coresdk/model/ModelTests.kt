@@ -41,8 +41,10 @@ internal class ModelTests : BaseTest() {
         val event = Event("test")
         event[KlaviyoEventAttributeKey.VALUE] = "$1"
         event[KlaviyoEventAttributeKey.CUSTOM("custom")] = "custom"
+        event["string"] = "string"
         assertEquals("$1", event.toMap()[KlaviyoEventAttributeKey.VALUE.name])
         assertEquals("custom", event.toMap()["custom"])
+        assertEquals("string", event.toMap()["string"])
 
         // Nulling should unset from the backing map
         event[KlaviyoEventAttributeKey.VALUE] = null
@@ -74,7 +76,7 @@ internal class ModelTests : BaseTest() {
         assertEquals(EXTERNAL_ID, profileMap[KlaviyoProfileAttributeKey.EXTERNAL_ID.name])
         assertEquals(EMAIL, profileMap[KlaviyoProfileAttributeKey.EMAIL.name])
         assertEquals(PHONE, profileMap[KlaviyoProfileAttributeKey.PHONE_NUMBER.name])
-        assertEquals(ANON_ID, profileMap[KlaviyoProfileAttributeKey.ANONYMOUS_ID.name])
+        assertEquals(ANON_ID, profileMap[KlaviyoProfileAttributeKey.ANONYMOUS.name])
         assertEquals("string", profileMap["string"])
         assertEquals("custom", profileMap["custom"])
     }

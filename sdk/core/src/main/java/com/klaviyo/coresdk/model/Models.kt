@@ -89,9 +89,9 @@ class Profile(properties: Map<KlaviyoProfileAttributeKey, Serializable>?) :
 
     internal fun setAnonymousId(anonymousId: String) = apply { this.anonymousId = anonymousId }
     internal var anonymousId: String?
-        get() = (this[KlaviyoProfileAttributeKey.ANONYMOUS_ID]) as String
+        get() = (this[KlaviyoProfileAttributeKey.ANONYMOUS]) as String
         set(value) {
-            this[KlaviyoProfileAttributeKey.ANONYMOUS_ID] = value
+            this[KlaviyoProfileAttributeKey.ANONYMOUS] = value
         }
 
     fun addAppendProperty(key: String, value: Serializable) = apply {

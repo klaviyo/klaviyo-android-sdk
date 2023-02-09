@@ -35,28 +35,28 @@ internal class UserInfoTest : BaseTest() {
 
     @Test
     fun `create and store a new UUID if one does not exists in data store`() {
-        dataStoreSpy.store(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name, "")
+        dataStoreSpy.store(KlaviyoProfileAttributeKey.ANONYMOUS.name, "")
         val anonId = UserInfo.anonymousId
-        val fetched = dataStoreSpy.fetch(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name)
+        val fetched = dataStoreSpy.fetch(KlaviyoProfileAttributeKey.ANONYMOUS.name)
         Assert.assertEquals(anonId, fetched)
     }
 
     @Test
     fun `do not create new UUID if one exists in data store`() {
-        dataStoreSpy.store(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name, ANON_ID)
+        dataStoreSpy.store(KlaviyoProfileAttributeKey.ANONYMOUS.name, ANON_ID)
         Assert.assertEquals(ANON_ID, UserInfo.anonymousId)
     }
 
     @Test
     fun `only read properties from data store once`() {
-        dataStoreSpy.store(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name, ANON_ID)
+        dataStoreSpy.store(KlaviyoProfileAttributeKey.ANONYMOUS.name, ANON_ID)
         dataStoreSpy.store(KlaviyoProfileAttributeKey.EMAIL.name, EMAIL)
         dataStoreSpy.store(KlaviyoProfileAttributeKey.EXTERNAL_ID.name, EXTERNAL_ID)
         dataStoreSpy.store(KlaviyoProfileAttributeKey.PHONE_NUMBER.name, PHONE)
 
         var unusedRead = UserInfo.anonymousId
         Assert.assertEquals(UserInfo.anonymousId, ANON_ID)
-        verify(exactly = 1) { dataStoreSpy.fetch(KlaviyoProfileAttributeKey.ANONYMOUS_ID.name) }
+        verify(exactly = 1) { dataStoreSpy.fetch(KlaviyoProfileAttributeKey.ANONYMOUS.name) }
 
         unusedRead = UserInfo.email
         Assert.assertEquals(UserInfo.email, EMAIL)

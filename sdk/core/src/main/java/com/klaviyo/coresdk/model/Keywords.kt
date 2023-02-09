@@ -3,18 +3,20 @@
  */
 package com.klaviyo.coresdk.model
 
+import com.klaviyo.coresdk.model.KlaviyoEventType.CUSTOM
+
 /**
  * Base class used to provide polymorphic properties to the use of profile and event keys
  */
-sealed class KlaviyoKeyword(val name: String) {
+abstract class KlaviyoKeyword(val name: String) {
     override fun toString(): String = name
     override fun equals(other: Any?): Boolean = (other as? KlaviyoKeyword).toString() == toString()
     override fun hashCode(): Int = name.hashCode()
 }
 
 /**
- * All keys recognised by the Klaviyo APIs
- * for identifying information within maps of profile properties
+ * All profile property keys recognised by the Klaviyo APIs
+ * Custom properties can be defined using the [CUSTOM] inner class
  */
 sealed class KlaviyoProfileAttributeKey(name: String) : KlaviyoKeyword(name) {
 
@@ -22,7 +24,7 @@ sealed class KlaviyoProfileAttributeKey(name: String) : KlaviyoKeyword(name) {
     object EXTERNAL_ID : KlaviyoProfileAttributeKey("\$external_id")
     object EMAIL : KlaviyoProfileAttributeKey("\$email")
     object PHONE_NUMBER : KlaviyoProfileAttributeKey("\$phone_number")
-    internal object ANONYMOUS_ID : KlaviyoProfileAttributeKey("\$anonymous")
+    internal object ANONYMOUS : KlaviyoProfileAttributeKey("\$anonymous")
 
     // Personal information
     object FIRST_NAME : KlaviyoProfileAttributeKey("\$first_name")
@@ -32,15 +34,15 @@ sealed class KlaviyoProfileAttributeKey(name: String) : KlaviyoKeyword(name) {
     object CITY : KlaviyoProfileAttributeKey("\$city")
     object REGION : KlaviyoProfileAttributeKey("\$region")
     object COUNTRY : KlaviyoProfileAttributeKey("\$country")
-    object ZIP_CODE : KlaviyoProfileAttributeKey("\$zip")
+    object ZIP : KlaviyoProfileAttributeKey("\$zip")
     object IMAGE : KlaviyoProfileAttributeKey("\$image")
     object CONSENT : KlaviyoProfileAttributeKey("\$consent")
 
-    // Other
-    internal object APPEND : KlaviyoProfileAttributeKey("\$append")
-
     // Custom properties
     class CUSTOM(propertyName: String) : KlaviyoProfileAttributeKey(propertyName)
+
+    // Other
+    internal object APPEND : KlaviyoProfileAttributeKey("\$append")
 }
 
 /**
@@ -50,6 +52,10 @@ sealed class KlaviyoProfileAttributeKey(name: String) : KlaviyoKeyword(name) {
  * @property name String value of the event which is recognized by Klaviyo as a registered event
  */
 sealed class KlaviyoEventType(name: String) : KlaviyoKeyword(name) {
+
+    // Push-related
+    object OPENED_PUSH : KlaviyoEventType("\$opened_push")
+
     // Product viewing events
     object VIEWED_PRODUCT : KlaviyoEventType("\$viewed_product")
     object SEARCHED_PRODUCTS : KlaviyoEventType("\$searched_products")
@@ -64,13 +70,6 @@ sealed class KlaviyoEventType(name: String) : KlaviyoKeyword(name) {
     object REFUNDED_ORDER : KlaviyoEventType("\$refunded_order")
     object PAID_FOR_ORDER : KlaviyoEventType("\$paid_for_order")
 
-    // Order complete events
-    object FULFILLED_ORDER : KlaviyoEventType("\$fulfilled_order")
-    object FULFILLED_SHIPMENT : KlaviyoEventType("\$fulfilled_shipment")
-    object FULFILLED_PRODUCT : KlaviyoEventType("\$fulfilled_product")
-    object COMPLETED_ORDER : KlaviyoEventType("\$completed_order")
-    object SHIPPED_ORDER : KlaviyoEventType("\$shipped_order")
-
     // Subscription events
     object SUBSCRIBED_TO_BACK_IN_STOCK : KlaviyoEventType("\$subscribed_to_back_in_stock")
     object SUBSCRIBED_TO_COMING_SOON : KlaviyoEventType("\$subscribed_to_coming_soon")
@@ -79,22 +78,14 @@ sealed class KlaviyoEventType(name: String) : KlaviyoKeyword(name) {
     // Payment events
     object SUCCESSFUL_PAYMENT : KlaviyoEventType("\$successful_payment")
     object FAILED_PAYMENT : KlaviyoEventType("\$failed_payment")
-    object REFUNDED_PAYMENT : KlaviyoEventType("\$refunded_payment")
-    object ISSUED_INVOICE : KlaviyoEventType("\$issued_invoice")
-    object CREATED_SUBSCRIPTION : KlaviyoEventType("\$created_subscription")
-    object ACTIVATED_SUBSCRIPTION : KlaviyoEventType("\$activated_subscription")
-    object CANCELLED_SUBSCRIPTION : KlaviyoEventType("\$cancelled_subscription")
-    object EXPIRED_SUBSCRIPTION : KlaviyoEventType("\$expired_subscription")
-    object CLOSED_SUBSCRIPTION : KlaviyoEventType("\$closed_subscription")
-
-    object OPENED_PUSH : KlaviyoEventType("\$opened_push")
 
     // Custom events
     class CUSTOM(eventName: String) : KlaviyoEventType(eventName)
 }
 
 /**
- * All keys recognised by the Klaviyo APIs for identifying information within maps of event properties
+ * All event property keys recognised by the Klaviyo APIs
+ * Custom properties can be defined using the [CUSTOM] inner class
  */
 sealed class KlaviyoEventAttributeKey(name: String) : KlaviyoKeyword(name) {
     object EVENT_ID : KlaviyoEventAttributeKey("\$event_id")

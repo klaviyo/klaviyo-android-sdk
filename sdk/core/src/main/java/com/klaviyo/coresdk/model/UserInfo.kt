@@ -1,7 +1,7 @@
 package com.klaviyo.coresdk.model
 
 import com.klaviyo.coresdk.Registry
-import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.ANONYMOUS_ID
+import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.ANONYMOUS
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EMAIL
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.EXTERNAL_ID
 import com.klaviyo.coresdk.model.KlaviyoProfileAttributeKey.PHONE_NUMBER
@@ -46,9 +46,9 @@ internal object UserInfo {
         get() = field.ifEmpty {
             // Attempts to read a UUID from the shared preferences.
             // If not found, generate a fresh one and save that to the data store
-            field = (Registry.dataStore.fetch(ANONYMOUS_ID.name) ?: "").ifEmpty {
+            field = (Registry.dataStore.fetch(ANONYMOUS.name) ?: "").ifEmpty {
                 val uuid = UUID.randomUUID().toString()
-                Registry.dataStore.store(ANONYMOUS_ID.name, uuid)
+                Registry.dataStore.store(ANONYMOUS.name, uuid)
                 uuid
             }
             return field
