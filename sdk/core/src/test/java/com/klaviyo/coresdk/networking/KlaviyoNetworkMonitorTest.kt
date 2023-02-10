@@ -21,7 +21,11 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
     private val capabilitiesMock: NetworkCapabilities = mockk()
     private val mockBuilder: NetworkRequest.Builder = mockk()
     private val mockRequest: NetworkRequest = mockk()
-    private val netCallbackSlot = slot<ConnectivityManager.NetworkCallback>()
+
+    private companion object {
+        // Can only instantiate this once, because KlaviyoNetworkMonitorTest is a static object
+        var netCallbackSlot = slot<ConnectivityManager.NetworkCallback>()
+    }
 
     override fun setup() {
         super.setup()
@@ -105,5 +109,27 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         netCallbackSlot.captured.onLost(mockk())
 
         assertEquals(6, callCount)
+    }
+
+    @Test
+    fun `Network change observer can be removed`() {
+        var callCount = 0
+        val observer: NetworkObserver = { callCount++ }
+        val observer2: NetworkObserver = { callCount++ }
+
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
+        KlaviyoNetworkMonitor.onNetworkChange(observer2)
+
+        netCallbackSlot.captured.onAvailable(mockk())
+        assertEquals(2, callCount)
+
+        KlaviyoNetworkMonitor.offNetworkChange(observer)
+        netCallbackSlot.captured.onAvailable(mockk())
+        assertEquals(3, callCount)
+
+        KlaviyoNetworkMonitor.offNetworkChange(observer) // calling it twice doesn't result in an error
+        KlaviyoNetworkMonitor.onNetworkChange(observer) // it can be re-added
+        netCallbackSlot.captured.onAvailable(mockk())
+        assertEquals(5, callCount)
     }
 }

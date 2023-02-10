@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import com.klaviyo.coresdk.Registry
+import com.klaviyo.coresdk.lifecycle.ActivityEvent
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.networking.requests.IdentifyApiRequest
@@ -30,8 +31,8 @@ internal object KlaviyoApiClient : ApiClient {
 
     fun startListeners() {
         // Flush queue immediately when app stops
-        Registry.lifecycleMonitor.onAllActivitiesStopped {
-            flushQueue()
+        Registry.lifecycleMonitor.onActivityEvent {
+            if (it is ActivityEvent.AllStopped) flushQueue()
         }
 
         // Flush queue when network connection is restored

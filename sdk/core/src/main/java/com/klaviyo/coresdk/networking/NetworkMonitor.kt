@@ -21,7 +21,12 @@ interface NetworkMonitor {
      */
     fun onNetworkChange(observer: NetworkObserver)
 
-    // TODO removal of listeners?
+    /**
+     * De-register an observer from [onNetworkChange]
+     *
+     * @param observer
+     */
+    fun offNetworkChange(observer: NetworkObserver)
 
     /**
      * Instant check of network connectivity
@@ -57,6 +62,15 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     override fun onNetworkChange(observer: NetworkObserver) {
         initializeNetworkListener()
         networkChangeObservers += observer
+    }
+
+    /**
+     * Register an observer to be notified when network connectivity has changed
+     *
+     * @param observer
+     */
+    override fun offNetworkChange(observer: NetworkObserver) {
+        networkChangeObservers -= observer
     }
 
     /**

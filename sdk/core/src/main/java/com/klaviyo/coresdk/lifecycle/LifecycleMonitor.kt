@@ -1,8 +1,28 @@
 package com.klaviyo.coresdk.lifecycle
 
 import android.app.Activity
+import android.os.Bundle
 
-typealias ActivityObserver = (activity: Activity) -> Unit
+typealias ActivityObserver = (activity: ActivityEvent) -> Unit
+
+sealed class ActivityEvent(val activity: Activity? = null, val bundle: Bundle? = null) {
+
+    class Created(activity: Activity, bundle: Bundle?) : ActivityEvent(activity, bundle)
+
+    class Started(activity: Activity) : ActivityEvent(activity)
+
+    class Resumed(activity: Activity) : ActivityEvent(activity)
+
+    class SaveInstanceState(activity: Activity, bundle: Bundle) : ActivityEvent(activity, bundle)
+
+    class Paused(activity: Activity) : ActivityEvent(activity)
+
+    class Stopped(activity: Activity) : ActivityEvent(activity)
+
+    class AllStopped : ActivityEvent()
+
+    class Destroyed(activity: Activity) : ActivityEvent(activity)
+}
 
 /**
  * Provides methods to react to changes in the application environment
@@ -14,7 +34,12 @@ interface LifecycleMonitor {
      *
      * @param observer
      */
-    fun onAllActivitiesStopped(observer: ActivityObserver)
+    fun onActivityEvent(observer: ActivityObserver)
 
-    // TODO removal of listeners?
+    /**
+     * De-register an observer from [onActivityEvent]
+     *
+     * @param observer
+     */
+    fun offActivityEvent(observer: ActivityObserver)
 }
