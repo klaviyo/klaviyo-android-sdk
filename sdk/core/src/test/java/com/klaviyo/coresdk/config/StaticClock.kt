@@ -13,10 +13,8 @@ internal class StaticClock(var time: Long, private val formatted: String) : Cloc
         val scheduledTask = ScheduledTask(currentTimeMillis() + delay, task)
         scheduledTasks.add(scheduledTask)
         return object : Clock.Cancellable {
-            override fun cancel(): Boolean {
-                scheduledTasks.remove(scheduledTask)
-                return true
-            }
+            override fun runNow() = task().also { cancel() }
+            override fun cancel(): Boolean = scheduledTasks.remove(scheduledTask)
         }
     }
 

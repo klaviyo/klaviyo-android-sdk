@@ -9,6 +9,7 @@ interface Clock {
     fun schedule(delay: Long, task: () -> Unit): Cancellable
 
     interface Cancellable {
+        fun runNow()
         fun cancel(): Boolean
     }
 }

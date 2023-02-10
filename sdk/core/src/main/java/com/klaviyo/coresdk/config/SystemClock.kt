@@ -21,9 +21,10 @@ internal object SystemClock : Clock {
     }
 
     override fun schedule(delay: Long, task: () -> Unit): Clock.Cancellable = Timer()
-        .schedule(delay) { task() }.let {
-            object : Clock.Cancellable {
-                override fun cancel() = it.cancel()
+        .schedule(delay) { task() }.let { timer ->
+            return object : Clock.Cancellable {
+                override fun runNow() = task().also { timer.cancel() }
+                override fun cancel() = timer.cancel()
             }
         }
 }
