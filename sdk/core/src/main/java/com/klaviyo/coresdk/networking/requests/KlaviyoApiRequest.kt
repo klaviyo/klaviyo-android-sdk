@@ -133,10 +133,10 @@ internal open class KlaviyoApiRequest(
 
         return try {
             connection.connect()
-            return readResponse(connection)
+            readResponse(connection)
         } catch (ex: IOException) {
             // TODO Logging
-            return null
+            null
         } finally {
             // TODO can this throw too?
             connection.disconnect()
