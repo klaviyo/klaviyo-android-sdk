@@ -1,25 +1,22 @@
 package com.klaviyo.push
 
-import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.os.Bundle
+import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
-import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_PREFERENCE_KEY
+import com.klaviyo.coresdk.Registry
+import com.klaviyo.coresdk.model.DataStore
+import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_KEY
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
-import io.mockk.verifyAll
-import junit.framework.Assert.assertEquals
+import io.mockk.verify
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
 class KlaviyoPushServiceTest {
-    private val contextMock = mockk<Context>()
-    private val preferenceMock = mockk<SharedPreferences>()
-    private val editorMock = mockk<SharedPreferences.Editor>()
-    private val stubPushToken = "TK1"
+    private val stubPushToken = "stub_token"
 
     /**
      * Stub of a push payload data property
@@ -43,118 +40,120 @@ class KlaviyoPushServiceTest {
         }"""
     )
 
+    /**
+     * Mock data store service
+     */
+    class InMemoryDataStore : DataStore {
+        private val store: MutableMap<String, String> = mutableMapOf()
+
+        override fun fetch(key: String): String? {
+            return store[key]
+        }
+
+        override fun store(key: String, value: String) {
+            store[key] = value
+        }
+
+        override fun clear(key: String) {
+            store.remove(key)
+        }
+    }
+
+    private lateinit var store: DataStore
+
     @Before
     fun setup() {
-        Klaviyo.initialize(
-            apiKey = "Fake_Key",
-            applicationContext = contextMock
-        )
-    }
+        store = InMemoryDataStore() // start every test with an empty store
 
-    private fun withPreferenceMock(preferenceName: String, mode: Int) {
-        every { contextMock.getSharedPreferences(preferenceName, mode) } returns preferenceMock
-    }
-
-    private fun withWriteStringMock(key: String, value: String) {
-        every { preferenceMock.edit() } returns editorMock
-        every { editorMock.putString(key, value) } returns editorMock
-        every { editorMock.apply() } returns Unit
-    }
-
-    private fun withReadStringMock(key: String, default: String?, string: String) {
-        every { preferenceMock.getString(key, default) } returns string
-    }
-
-    private fun withKlaviyoMock() {
         mockkObject(Klaviyo)
-        mockkObject(KlaviyoPreferenceUtils)
-        every { Klaviyo.setProfile(any()) } returns Klaviyo
-        every { Klaviyo.createEvent(any(), any(), any()) } returns Klaviyo
+        every { Klaviyo.setProfile(any()) } returns mockk()
+        every { Klaviyo.createEvent(any()) } returns mockk()
+        mockkObject(Registry)
+        every { Registry.dataStore } returns store
     }
 
     @Test
-    fun `Fetches current push token successfully`() {
-        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", stubPushToken)
-
-        val actualToken = KlaviyoPushService.getPushToken()
-
-        assertEquals(stubPushToken, actualToken)
+    fun `Verify expected BuildConfig properties`() {
+        // This is also just a test coverage boost
+        assert(BuildConfig() is BuildConfig)
+        assert(BuildConfig.DEBUG is Boolean)
+        assert(BuildConfig.LIBRARY_PACKAGE_NAME == "com.klaviyo.push")
+        assert(BuildConfig.BUILD_TYPE is String)
+        assert(BuildConfig.KLAVIYO_SERVER_URL is String)
     }
 
     @Test
-    fun `Appends a new push token to customer properties`() {
-        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-        withWriteStringMock(PUSH_TOKEN_PREFERENCE_KEY, stubPushToken)
-        withKlaviyoMock()
+    fun `getPushToken fetches from persistent store`() {
+        store.store(PUSH_TOKEN_KEY, stubPushToken)
 
+        assertEquals(KlaviyoPushService.getPushToken(), stubPushToken)
+    }
+
+    @Test
+    fun `setPushToken saves to persistent store and enqueues an API call`() {
         KlaviyoPushService.setPushToken(stubPushToken)
 
-        verifyAll {
-            contextMock.getSharedPreferences("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-            preferenceMock.edit()
-            editorMock.putString(PUSH_TOKEN_PREFERENCE_KEY, stubPushToken)
-            editorMock.apply()
-            Klaviyo.setProfile(any())
-        }
+        assertEquals(store.fetch(PUSH_TOKEN_KEY), stubPushToken)
+        verify { Klaviyo.setProfile(any()) }
     }
 
     @Test
-    fun `Klaviyo push payload triggers an opened push event`() {
-        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", "token")
-        withKlaviyoMock()
-
+    fun `Opening a Klaviyo push payload enqueues an event API call`() {
         KlaviyoPushService.openedPush(stubPayload)
 
-        verifyAll {
-            Klaviyo.createEvent(any(), any(), any())
-        }
+        verify { Klaviyo.createEvent(any()) }
     }
 
     @Test
     fun `Non-klaviyo push payload is ignored`() {
-        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", "token")
-        withKlaviyoMock()
+        // doesn't have _k, klaviyo tracking params
+        val nonKlaviyoPayload = mapOf("other" to "3rd party push")
+        KlaviyoPushService.openedPush(nonKlaviyoPayload)
 
-        KlaviyoPushService.openedPush(
-            mapOf("other" to "3rd party push") // doesn't have _k, klaviyo tracking params
-        )
-
-        verifyAll(true) {
-            Klaviyo.createEvent(any(), any(), any())
-        }
+        verify(inverse = true) { Klaviyo.createEvent(any()) }
     }
 
-//    @Test //TODO
-    fun `Handling RemoteMessage does not trigger $opened_push`() {
-        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", "token")
-        withKlaviyoMock()
+    @Test
+    fun `FCM onNewToken persists the new token and enqueues API call`() {
+        val pushService = KlaviyoPushService()
+        pushService.onNewToken(stubPushToken)
 
-        KlaviyoPushService.openedPush(
-            mapOf("other" to "3rd party push") // doesn't have _k, klaviyo tracking params
-        )
-
-        verifyAll(true) {
-            Klaviyo.createEvent(any(), any(), any())
-        }
+        assertEquals(KlaviyoPushService.getPushToken(), stubPushToken)
+        verify { Klaviyo.setProfile(any()) }
     }
 
-//    @Test //TODO
-    fun `Handling a push intent triggers $opened_push`() {
-        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", "token")
-        withKlaviyoMock()
+    @Test
+    fun `Handling RemoteMessage does NOT enqueue $opened_push API Call`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubPayload
 
+        val pushService = KlaviyoPushService()
+        pushService.onMessageReceived(msg)
+
+        verify(inverse = true) { Klaviyo.createEvent(any()) }
+    }
+
+    @Test
+    fun `Handling opened push Intent enqueues $opened_push API Call`() {
+        // Mocking an intent to return the stub push payload...
         val intent = mockk<Intent>()
         val bundle = mockk<Bundle>()
+        var gettingKey = ""
         every { intent.extras } returns bundle
+        every { bundle.keySet() } returns stubPayload.keys
+        every {
+            bundle.getString(
+                match { s ->
+                    gettingKey = s // there must be a better way to do this...
+                    stubPayload.containsKey(s)
+                },
+                String()
+            )
+        } returns (stubPayload[gettingKey] ?: "")
+
+        // Handle push intent
         KlaviyoPushService.handlePush(intent)
 
-        verifyAll {
-            Klaviyo.createEvent(any(), any(), any())
-        }
+        verify { Klaviyo.createEvent(any()) }
     }
 }

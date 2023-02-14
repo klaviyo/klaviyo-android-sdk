@@ -25,7 +25,7 @@ You must also register the Klaviyo SDK for activity lifecycle callbacks per the 
 ```kotlin
 import android.app.Application
 import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.KlaviyoLifecycleCallbackListener
+import com.klaviyo.coresdk.lifecycle.KlaviyoLifecycleMonitor
 import com.klaviyo.push.KlaviyoPushService
 
 class TestApp : Application() {
@@ -34,35 +34,61 @@ class TestApp : Application() {
 
         Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
 
-        registerActivityLifecycleCallbacks(KlaviyoLifecycleCallbackListener())
+        registerActivityLifecycleCallbacks(KlaviyoLifecycleMonitor)
     }
 }
 ```
 
 ### Identifying a Profile
-The SDK keeps track of the "current" profile and persists identifiers across sessions. Profile data is
-automatically synced to the Klaviyo API. You can set basic identifiers individually, like email: 
+The SDK provides helpers for identifying profile data and syncing via the 
+[Klaviyo client API](https://developers.klaviyo.com/en/reference/create_client_profile).
+All profile identifiers (email, phone, external ID, anonymous ID) are persisted to local storage
+so that the SDK can keep track of the current profile.
+
+Profile attributes can be set all at once: 
 ```kotlin
-Klaviyo.setEmail("test@address.com")
+val profile = Profile(mapOf(
+    ProfileKey.EMAIL to "kermit@example.com",
+    ProfileKey.FIRST_NAME to "Kermit"
+))
+Klaviyo.setProfile(profile)
 ```
-or phone: 
+or individually with fluent setters:
 ```kotlin
-Klaviyo.setPhone("555-555-5555")
-``` 
-For other profile data, use 
+Klaviyo.setEmail("kermit@example.com")
+    .setPhone("+12223334444")
+    .setExternalId("USER_IDENTIFIER")
+    .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
+    .setProfileAttribute(ProfileKey.CUSTOM("instrument"), "banjo")
+```
+Either way, the SDK will group and batch API calls to limit resource usage. 
+
+**Profile updates are additive**. To start a new profile altogether (e.g. if a user logs out)
+call `Klaviyo.resetProfile()` first to reset all identifiers and start tracking a new profile:
 ```kotlin
-Klaviyo.createProfile(KlaviyoCustomerProperties())
-``` 
+//Start a profile for Kermit
+Klaviyo.setEmail("kermit@example.com")
+    .setPhone("+12223334444")
+    .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
+
+//Stop tracking Kermit
+Klaviyo.resetProfile()
+
+//Start new profile for Robin with new IDs
+Klaviyo.setEmail("robin@example.com")
+    .setPhone("+5556667777")
+    .setProfileAttribute(ProfileKey.FIRST_NAME, "Robin")
+```
 
 ### Tracking Events
-The SDK also provides tools for tracking customer events to the Klaviyo API. 
-An event consists of an event name, a profile the event belongs to, and any custom properties.
-A list of event names is provided in `KlaviyoEvent`, or `KlaviyoEvent.CUSTOM_EVENT("name")`
-can be used to create custom names. Typically the event will just belong to the "current" profile, 
-but the `createEvent` method provides an optional argument to specify `KlaviyoCustomerProperties`. 
-Custom event properties can be specified as `KlaviyoEventProperties`
+The SDK also provides tools for tracking analytics events to the Klaviyo API.
+A list of previously defined event names is provided in `EventType`, or use `EventType.CUSTOM("name")`
+to for custom name. Additional event properties can be specified as part of `EventModel` 
 ```kotlin
-Klaviyo.createEvent(KlaviyoEvent.VIEWED_PRODUCT)
+val event = Event(EventType.VIEWED_PRODUCT)
+    .setProperty(EventKey.VALUE, "$10.00")
+    .setProperty(EventKey.CUSTOM("custom_key"), "value")
+Klaviyo.createEvent(event)
 ```
 
 ## Push Notifications
@@ -108,7 +134,7 @@ and register it with Klaviyo Push SDK. To track notifications opened from the sy
     }
 ```
 
-### Manual implementation of `FirebaseMessagingService` [Advanced]
+### Manual implementation of `FirebaseMessagingService` (Advanced)
 If you'd prefer to implement `FirebaseMessagingService` yourself, follow the FCM 
 setup docs including referencing your own service class in the manifest.
 Then update your implementation of `onNewToken` and `onMessageReceived` as below to communicate 

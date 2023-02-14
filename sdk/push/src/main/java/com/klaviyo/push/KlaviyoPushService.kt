@@ -4,10 +4,11 @@ import android.content.Intent
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
-import com.klaviyo.coresdk.networking.KlaviyoEvent
-import com.klaviyo.coresdk.networking.KlaviyoEventProperties
-import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
+import com.klaviyo.coresdk.Registry
+import com.klaviyo.coresdk.model.Event
+import com.klaviyo.coresdk.model.EventKey
+import com.klaviyo.coresdk.model.EventType
+import com.klaviyo.coresdk.model.Profile
 
 /**
  * Implementation of the FCM messaging service that runs when the parent application is started
@@ -18,12 +19,11 @@ import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
  */
 class KlaviyoPushService : FirebaseMessagingService() {
     companion object {
-        internal const val PUSH_TOKEN_PREFERENCE_KEY = "PUSH_TOKEN"
-
-        private const val REQUEST_PUSH_KEY = "\$android_tokens"
+        internal const val PUSH_TOKEN_KEY = "push_token"
+        private const val PUSH_TOKEN_APPEND_KEY = "\$android_tokens"
 
         /**
-         * Save the device FCM push token and register to the current profile
+         * Saves the device FCM push token and registers to the current profile
          *
          * We append this token to a property map and queue it into an identify request to send to
          * the Klaviyo asynchronous APIs.
@@ -34,22 +34,19 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @param pushToken The push token provided by the FCM Service
          */
         fun setPushToken(pushToken: String) {
-            val properties = KlaviyoCustomerProperties()
-                .addAppendProperty(REQUEST_PUSH_KEY, pushToken)
+            val profile = Profile().addAppendProperty(PUSH_TOKEN_APPEND_KEY, pushToken)
 
-            Klaviyo.setProfile(properties)
+            Klaviyo.setProfile(profile)
 
-            KlaviyoPreferenceUtils.writeStringPreference(PUSH_TOKEN_PREFERENCE_KEY, pushToken)
+            Registry.dataStore.store(PUSH_TOKEN_KEY, pushToken)
         }
 
         /**
-         * Retrieve the device FCM push token  have stored on this device
+         * Retrieves the device FCM push token stored on this device
          *
-         * @return The push token we read from the shared preferences
+         * @return The push token we read from the data store
          */
-        internal fun getPushToken(): String {
-            return KlaviyoPreferenceUtils.readStringPreference(PUSH_TOKEN_PREFERENCE_KEY) ?: ""
-        }
+        internal fun getPushToken(): String? = Registry.dataStore.fetch(PUSH_TOKEN_KEY)
 
         /**
          * Logs an $opened_push event for a remote notification that originated from Klaviyo
@@ -57,26 +54,29 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @param payload The data attributes of the push notification payload
          */
         internal fun openedPush(payload: Map<String, String>) {
-            payload["_k"] ?: return // Track only pushes originating from klaviyo
+            if (!isKlaviyoPush(payload)) return // Track only pushes originating from klaviyo
 
-            val event = KlaviyoEventProperties().apply {
-                payload.forEach { (k, v) -> addCustomProperty(k, v) }
-                addCustomProperty("push_token", getPushToken())
-            }
+            val event = Event(
+                EventType.OPENED_PUSH,
+                payload.mapKeys {
+                    EventKey.CUSTOM(it.key)
+                }
+            )
 
-            Klaviyo.createEvent(KlaviyoEvent.OPENED_PUSH, event)
+            getPushToken()?.let { event[PUSH_TOKEN_KEY] = it }
+
+            Klaviyo.createEvent(event)
         }
 
         /**
          * Handles a push received while app is in the foreground
          *
-         * @param message
+         * @param message Message received via [FirebaseMessagingService.onMessageReceived]
          */
         fun handlePush(message: RemoteMessage): Boolean {
-            message.data["_k"] ?: return false
             // TODO could we display the notification in system tray?
             // NOTE this is where we'd handle a data-only push, when we support those
-            return true
+            return isKlaviyoPush(message.data)
         }
 
         /**
@@ -90,6 +90,8 @@ class KlaviyoPushService : FirebaseMessagingService() {
             val payload = extras.keySet().associateWith { key -> extras.getString(key, "") }
             openedPush(payload)
         }
+
+        private fun isKlaviyoPush(data: Map<String, String>): Boolean = data.containsKey("_k")
     }
 
     /**
@@ -110,7 +112,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
      * while the app is in the foreground, or if a data message is received
      * while the app is backgrounded.
      *
-     * @param message
+     * @param message Remote message that has been received
      */
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)

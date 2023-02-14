@@ -1,18 +1,15 @@
 package com.klaviyo.coresdk
 
 import android.content.Context
-import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
-import com.klaviyo.coresdk.networking.KlaviyoEvent
-import com.klaviyo.coresdk.networking.KlaviyoEventProperties
-import com.klaviyo.coresdk.networking.KlaviyoPropertyKeys
-import com.klaviyo.coresdk.networking.UserInfo
-import com.klaviyo.coresdk.networking.requests.IdentifyRequest
-import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
-import com.klaviyo.coresdk.networking.requests.TrackRequest
+import com.klaviyo.coresdk.config.Clock
+import com.klaviyo.coresdk.model.Event
+import com.klaviyo.coresdk.model.Profile
+import com.klaviyo.coresdk.model.ProfileKey
+import com.klaviyo.coresdk.model.UserInfo
 
 /**
  * Public API for the core Klaviyo SDK.
- * Receives configuration, customer data, and analytics requests
+ * Receives configuration, profile data, and analytics requests
  * to be processed and sent to the Klaviyo backend
  */
 object Klaviyo {
@@ -25,21 +22,12 @@ object Klaviyo {
      * @param applicationContext
      * @return
      */
-    fun initialize(
-        apiKey: String,
-        applicationContext: Context
-    ) {
-        KlaviyoConfig.Builder()
+    fun initialize(apiKey: String, applicationContext: Context) {
+        Registry.config = Registry.configBuilder
             .apiKey(apiKey)
             .applicationContext(applicationContext)
             .build()
-
-        // TODO should we guard all other APIs against being called before this?
-        // TODO initialize state from persistent store
-        // TODO initialize profile with new anon ID (if one was not found in store)
     }
-
-    //region Identify API
 
     /**
      * Assigns an email address to the current internally tracked profile
@@ -53,8 +41,7 @@ object Klaviyo {
      * @param email Email address for active user
      * @return
      */
-    fun setEmail(email: String): Klaviyo =
-        setProfile(KlaviyoCustomerProperties().setEmail(email))
+    fun setEmail(email: String): Klaviyo = this.setProfile(Profile().setEmail(email))
 
     /**
      * Assigns a phone number to the current internally tracked profile
@@ -68,7 +55,7 @@ object Klaviyo {
      * @param phoneNumber Phone number for active user
      */
     fun setPhoneNumber(phoneNumber: String): Klaviyo =
-        setProfile(KlaviyoCustomerProperties().setPhoneNumber(phoneNumber))
+        this.setProfile(Profile().setPhoneNumber(phoneNumber))
 
     /**
      * Assigns an external ID to the current internally tracked profile
@@ -82,8 +69,7 @@ object Klaviyo {
      * @param id Phone number for active user
      * @return
      */
-    fun setExternalId(id: String): Klaviyo =
-        setProfile(KlaviyoCustomerProperties().setIdentifier(id))
+    fun setExternalId(id: String): Klaviyo = this.setProfile(Profile().setExternalId(id))
 
     /**
      * Assign arbitrary attributes to the current profile by key
@@ -95,24 +81,41 @@ object Klaviyo {
      * @param value
      * @return
      */
-    fun setProfileAttribute(propertyKey: KlaviyoPropertyKeys, value: String): Klaviyo =
-        setProfile(KlaviyoCustomerProperties().addProperty(propertyKey, value))
+    fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo =
+        setProfile(Profile().also { it[propertyKey] = value })
+
+    /**
+     * Debounce timer for enqueuing profile API calls
+     */
+    private var timer: Clock.Cancellable? = null
+    private var pendingProfile: Profile? = null
 
     /**
      * Queues a request to identify profile properties to the Klaviyo API
      *
      * Any new identifying properties (externalId, email, phone) will be saved to the current
-     * internally tracked profile. Otherwise any identifiers missing from [properties] will be
+     * internally tracked profile. Otherwise any identifiers missing from [profile] will be
      * populated from the current internally tracked profile info.
      *
      * Identify requests track specific properties about a user without triggering an event
      *
-     * @param properties A map of properties that define the user
+     * @param profile A map of properties that define the user
      * @return
      */
-    fun setProfile(properties: KlaviyoCustomerProperties): Klaviyo = apply {
-        // TODO debounce so fluent setters don't have to create 1 request per call
-        createIdentifyRequest(UserInfo.mergeCustomerProperties(properties))
+    fun setProfile(profile: Profile): Klaviyo = apply {
+        // Update user identifiers in state
+        UserInfo.updateFromProfile(profile)
+
+        // Start or update a pending profile object for API call
+        pendingProfile = UserInfo.getAsProfile().merge(pendingProfile?.merge(profile) ?: profile)
+
+        timer?.cancel()
+        timer = Registry.clock.schedule(Registry.config.debounceInterval.toLong()) {
+            pendingProfile?.let {
+                Registry.apiClient.enqueueProfile(it)
+                pendingProfile = null
+            }
+        }
     }
 
     /**
@@ -124,79 +127,20 @@ object Klaviyo {
      * @return
      */
     fun resetProfile(): Klaviyo = apply {
-        // TODO Doesn't reset anon ID because anon ID doesn't live there
         UserInfo.reset()
+        Registry.apiClient.enqueueProfile(UserInfo.getAsProfile())
     }
 
-    //endregion
-
-    //region Events API
-
     /**
-     * Queues a request to track a [KlaviyoEvent] to the Klaviyo API
-     * The event will be associated with the profile specified by the [KlaviyoCustomerProperties]
-     * If customer properties are not set, this will fallback on the current profile identifiers
+     * Queues a request to track an [Event] to the Klaviyo API
+     * The event will be associated with the profile specified by the [Profile]
+     * If profile is not set, this will fallback on the current profile identifiers
      *
      * @param event Name of the event metric
-     * @param properties Additional properties associated to the event that are not for identifying the customer
-     * @param customerProperties Defines the customer that triggered this event, defaults to the current internally tracked profile
+     * @param event Additional properties associated to the event that are not for identifying the profile
      * @return
      */
-    fun createEvent(
-        event: KlaviyoEvent,
-        properties: KlaviyoEventProperties? = null,
-        customerProperties: KlaviyoCustomerProperties? = null
-    ): Klaviyo = apply {
-        createEventRequest(
-            event,
-            properties ?: KlaviyoEventProperties(),
-            customerProperties ?: UserInfo.getAsCustomerProperties()
-        )
+    fun createEvent(event: Event): Klaviyo = apply {
+        Registry.apiClient.enqueueEvent(event, UserInfo.getAsProfile())
     }
-
-    //endregion
-
-    // region: Network calls
-
-    // TODO all this belongs within networking namespace?
-
-    /**
-     * Enqueue a profile API request
-     *
-     * @param properties
-     */
-    internal fun createIdentifyRequest(properties: KlaviyoCustomerProperties) {
-        processRequest(IdentifyRequest(KlaviyoConfig.apiKey, properties))
-    }
-
-    /**
-     * Enqueue an event API request
-     *
-     * @param event
-     * @param properties
-     * @param customerProperties
-     */
-    internal fun createEventRequest(
-        event: KlaviyoEvent,
-        properties: KlaviyoEventProperties,
-        customerProperties: KlaviyoCustomerProperties
-    ) {
-        processRequest(TrackRequest(KlaviyoConfig.apiKey, event, customerProperties, properties))
-    }
-
-    /**
-     * Processes the given [KlaviyoRequest] depending on the SDK's configuration.
-     * If the batch queue is enabled then requests will be batched and sent in groups.
-     * Otherwise the request will send instantly.
-     * These requests are sent to the Klaviyo asynchronous APIs
-     */
-    private fun processRequest(request: KlaviyoRequest) {
-        if (KlaviyoConfig.networkUseAnalyticsBatchQueue) {
-            request.batch()
-        } else {
-            request.process()
-        }
-    }
-
-    //endregion
 }
