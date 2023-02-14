@@ -2,7 +2,7 @@ package com.klaviyo.coresdk.model
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.klaviyo.coresdk.BaseTest
+import com.klaviyo.core_shared_tests.BaseTest
 import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.SharedPreferencesDataStore.KLAVIYO_PREFS_NAME
 import io.mockk.every

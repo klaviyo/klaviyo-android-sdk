@@ -3,7 +3,8 @@ package com.klaviyo.push
 import android.content.Intent
 import android.os.Bundle
 import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core_shared_tests.InMemoryDataStore
 import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.DataStore
 import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_KEY
@@ -39,25 +40,6 @@ class KlaviyoPushServiceTest {
           "x": "manual"
         }"""
     )
-
-    /**
-     * Mock data store service
-     */
-    class InMemoryDataStore : DataStore {
-        private val store: MutableMap<String, String> = mutableMapOf()
-
-        override fun fetch(key: String): String? {
-            return store[key]
-        }
-
-        override fun store(key: String, value: String) {
-            store[key] = value
-        }
-
-        override fun clear(key: String) {
-            store.remove(key)
-        }
-    }
 
     private lateinit var store: DataStore
 

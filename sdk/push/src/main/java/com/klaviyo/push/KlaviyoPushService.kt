@@ -3,12 +3,12 @@ package com.klaviyo.push
 import android.content.Intent
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.coresdk.Klaviyo
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
+import com.klaviyo.analytics.model.EventType
+import com.klaviyo.analytics.model.Profile
 import com.klaviyo.coresdk.Registry
-import com.klaviyo.coresdk.model.Event
-import com.klaviyo.coresdk.model.EventKey
-import com.klaviyo.coresdk.model.EventType
-import com.klaviyo.coresdk.model.Profile
 
 /**
  * Implementation of the FCM messaging service that runs when the parent application is started
@@ -34,7 +34,8 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @param pushToken The push token provided by the FCM Service
          */
         fun setPushToken(pushToken: String) {
-            val profile = Profile().addAppendProperty(PUSH_TOKEN_APPEND_KEY, pushToken)
+            val profile = Profile()
+                .addAppendProperty(PUSH_TOKEN_APPEND_KEY, pushToken)
 
             Klaviyo.setProfile(profile)
 

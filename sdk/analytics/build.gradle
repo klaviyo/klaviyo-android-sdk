@@ -1,0 +1,10 @@
+project.description = 'Public analytics API functionality for the Klaviyo SDK suite'
+evaluationDependsOn(':sdk')
+
+def ext = rootProject.ext
+
+dependencies {
+    implementation project(':sdk:core')
+
+    testImplementation project(":sdk:core-shared-tests")
+}

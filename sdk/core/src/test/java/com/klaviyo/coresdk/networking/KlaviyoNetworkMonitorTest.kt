@@ -5,7 +5,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import com.klaviyo.coresdk.BaseTest
+import com.klaviyo.core_shared_tests.BaseTest
 import com.klaviyo.coresdk.Registry
 import io.mockk.every
 import io.mockk.mockk

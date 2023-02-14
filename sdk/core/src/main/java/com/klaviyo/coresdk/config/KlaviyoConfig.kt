@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import com.klaviyo.coresdk.BuildConfig
 
 /**
@@ -118,6 +119,8 @@ object KlaviyoConfig : Config {
             KlaviyoConfig.networkTimeout = networkTimeout
             KlaviyoConfig.networkFlushInterval = networkFlushInterval
             KlaviyoConfig.networkFlushDepth = networkFlushDepth
+
+            Log.WARN
 
             return KlaviyoConfig
         }

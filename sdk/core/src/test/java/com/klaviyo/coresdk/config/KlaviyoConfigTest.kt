@@ -4,7 +4,7 @@ import android.Manifest
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
-import com.klaviyo.coresdk.BaseTest
+import com.klaviyo.core_shared_tests.BaseTest
 import com.klaviyo.coresdk.BuildConfig
 import com.klaviyo.coresdk.Registry
 import io.mockk.every
