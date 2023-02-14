@@ -1,10 +1,12 @@
 package com.klaviyo.analytics.model
 
+import com.klaviyo.core_shared_tests.BaseTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Test
 
-internal class ModelTests : com.klaviyo.core_shared_tests.BaseTest() {
-    @org.junit.Test
+internal class ModelTests : BaseTest() {
+    @Test
     fun `Merge profiles obeys expected precedence`() {
         val firstProfile = Profile().also {
             it.externalId = "other"
@@ -32,7 +34,7 @@ internal class ModelTests : com.klaviyo.core_shared_tests.BaseTest() {
         )
     }
 
-    @org.junit.Test
+    @Test
     fun `Profile represents appended properties`() {
         val appendKey = "key"
         val appendValue = "value"
@@ -43,7 +45,7 @@ internal class ModelTests : com.klaviyo.core_shared_tests.BaseTest() {
         assertEquals((appended as HashMap<*, *>)[appendKey], appendValue)
     }
 
-    @org.junit.Test
+    @Test
     fun `Get, set and unset`() {
         val event = Event("test")
         event[EventKey.VALUE] = "$1"
@@ -61,7 +63,7 @@ internal class ModelTests : com.klaviyo.core_shared_tests.BaseTest() {
         assertEquals(false, event.toMap().containsKey("custom"))
     }
 
-    @org.junit.Test
+    @Test
     fun `Overwriting a custom key`() {
         val event = Event("test")
         event[EventKey.CUSTOM("custom")] = "1"
@@ -69,7 +71,7 @@ internal class ModelTests : com.klaviyo.core_shared_tests.BaseTest() {
         assertEquals("2", event.toMap()["custom"])
     }
 
-    @org.junit.Test
+    @Test
     fun `Profile properties are reflected in toMap representation`() {
         val profileMap = Profile().also {
             it.externalId = EXTERNAL_ID
@@ -100,7 +102,7 @@ internal class ModelTests : com.klaviyo.core_shared_tests.BaseTest() {
         assertEquals("custom", profileMap["custom"])
     }
 
-    @org.junit.Test
+    @Test
     fun `Event properties are reflected in toMap representation`() {
         val event = Event("test").also {
             it.setValue("$1")
@@ -118,7 +120,7 @@ internal class ModelTests : com.klaviyo.core_shared_tests.BaseTest() {
         assertEquals("custom", eventMap["custom"])
     }
 
-    @org.junit.Test
+    @Test
     fun `Keyword equality`() {
         val custProfile1 = ProfileKey.CUSTOM("custom")
         val custProfile2 = ProfileKey.CUSTOM("custom")
