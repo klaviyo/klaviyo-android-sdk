@@ -4,6 +4,7 @@ import android.content.Context
 import com.klaviyo.coresdk.networking.KlaviyoCustomerProperties
 import com.klaviyo.coresdk.networking.KlaviyoEvent
 import com.klaviyo.coresdk.networking.KlaviyoEventProperties
+import com.klaviyo.coresdk.networking.KlaviyoPropertyKeys
 import com.klaviyo.coresdk.networking.UserInfo
 import com.klaviyo.coresdk.networking.requests.IdentifyRequest
 import com.klaviyo.coresdk.networking.requests.KlaviyoRequest
@@ -18,117 +19,170 @@ object Klaviyo {
 
     /**
      * Configure Klaviyo SDK with your account's public API Key and application context.
-     * Optionally specify additional behavior customization
-     *
-     * This must be called to initialize the SDK before using any other functionality
+     * This must be called to before using any other SDK functionality
      *
      * @param apiKey - Your Klaviyo account's public API Key
      * @param applicationContext
-     * @param networkTimeout
-     * @param networkFlushInterval
-     * @param networkFlushDepth
-     * @param networkFlushCheckInterval
-     * @param networkUseAnalyticsBatchQueue
      * @return
      */
-    fun configure(
+    fun initialize(
         apiKey: String,
-        applicationContext: Context,
-        networkTimeout: Int = KlaviyoConfig.NETWORK_TIMEOUT_DEFAULT,
-        networkFlushInterval: Int = KlaviyoConfig.NETWORK_FLUSH_INTERVAL_DEFAULT,
-        networkFlushDepth: Int = KlaviyoConfig.NETWORK_FLUSH_DEPTH_DEFAULT,
-        networkFlushCheckInterval: Int = KlaviyoConfig.NETWORK_FLUSH_CHECK_INTERVAL,
-        networkUseAnalyticsBatchQueue: Boolean = KlaviyoConfig.NETWORK_USE_ANALYTICS_BATCH_QUEUE,
-    ) = apply {
+        applicationContext: Context
+    ) {
         KlaviyoConfig.Builder()
             .apiKey(apiKey)
             .applicationContext(applicationContext)
-            .networkTimeout(networkTimeout)
-            .networkFlushInterval(networkFlushInterval)
-            .networkFlushDepth(networkFlushDepth)
-            .networkFlushCheckInterval(networkFlushCheckInterval)
-            .networkUseAnalyticsBatchQueue(networkUseAnalyticsBatchQueue)
             .build()
+
+        // TODO should we guard all other APIs against being called before this?
+        // TODO initialize state from persistent store
+        // TODO initialize profile with new anon ID (if one was not found in store)
     }
 
-    //region Fluent setters
+    //region Identify API
 
     /**
-     * Assigns an email address to the current UserInfo
+     * Assigns an email address to the current internally tracked profile
      *
-     * UserInfo is saved to keep track of current profile details and
-     * used to autocomplete analytics requests with profile identifier when not specified
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
      *
      * This should be called whenever the active user in your app changes
      * (e.g. after a fresh login)
      *
      * @param email Email address for active user
+     * @return
      */
-    fun setEmail(email: String) = apply {
-        UserInfo.email = email
-    }
+    fun setEmail(email: String): Klaviyo =
+        setProfile(KlaviyoCustomerProperties().setEmail(email))
 
     /**
-     * Assigns a phone number to the current UserInfo
+     * Assigns a phone number to the current internally tracked profile
      *
-     * UserInfo is saved to keep track of current profile details and
-     * used to autocomplete analytics requests with profile identifier when not specified
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
      *
      * This should be called whenever the active user in your app changes
      * (e.g. after a fresh login)
      *
-     * @param phone Phone number for active user
+     * @param phoneNumber Phone number for active user
      */
-    fun setPhone(phone: String) = apply {
-        UserInfo.phone = phone
+    fun setPhoneNumber(phoneNumber: String): Klaviyo =
+        setProfile(KlaviyoCustomerProperties().setPhoneNumber(phoneNumber))
+
+    /**
+     * Assigns an external ID to the current internally tracked profile
+     *
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
+     *
+     * This should be called whenever the active user in your app changes
+     * (e.g. after a fresh login)
+     *
+     * @param id Phone number for active user
+     * @return
+     */
+    fun setExternalId(id: String): Klaviyo =
+        setProfile(KlaviyoCustomerProperties().setIdentifier(id))
+
+    /**
+     * Assign arbitrary attributes to the current profile by key
+     *
+     * This should be called when you collect additional data about your user
+     * (e.g. first and last name, or an address)
+     *
+     * @param propertyKey
+     * @param value
+     * @return
+     */
+    fun setProfileAttribute(propertyKey: KlaviyoPropertyKeys, value: String): Klaviyo =
+        setProfile(KlaviyoCustomerProperties().addProperty(propertyKey, value))
+
+    /**
+     * Queues a request to identify profile properties to the Klaviyo API
+     *
+     * Any new identifying properties (externalId, email, phone) will be saved to the current
+     * internally tracked profile. Otherwise any identifiers missing from [properties] will be
+     * populated from the current internally tracked profile info.
+     *
+     * Identify requests track specific properties about a user without triggering an event
+     *
+     * @param properties A map of properties that define the user
+     * @return
+     */
+    fun setProfile(properties: KlaviyoCustomerProperties): Klaviyo = apply {
+        // TODO debounce so fluent setters don't have to create 1 request per call
+        createIdentifyRequest(UserInfo.mergeCustomerProperties(properties))
     }
 
     /**
-     * Clears all stored UserInfo identifiers (e.g. email or phone)
+     * Clears all stored profile identifiers (e.g. email or phone)
      *
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
+     *
+     * @return
      */
-    fun reset() = apply {
+    fun resetProfile(): Klaviyo = apply {
+        // TODO Doesn't reset anon ID because anon ID doesn't live there
         UserInfo.reset()
     }
 
     //endregion
 
-    //region Analytics API
-
-    /**
-     * Queues a request to identify profile properties to the Klaviyo API
-     * Identify requests track specific properties about a user without triggering an event
-     *
-     * @param properties A map of properties that define the user
-     */
-    fun createProfile(properties: KlaviyoCustomerProperties) {
-        val request = IdentifyRequest(KlaviyoConfig.apiKey, properties)
-        processRequest(request)
-    }
+    //region Events API
 
     /**
      * Queues a request to track a [KlaviyoEvent] to the Klaviyo API
      * The event will be associated with the profile specified by the [KlaviyoCustomerProperties]
      * If customer properties are not set, this will fallback on the current profile identifiers
      *
-     * @param customerProperties A map of customer property information.
-     * Defines the customer that triggered this event
-     * @param properties A map of event property information.
-     * Additional properties associated to the event that are not for identifying the customer
+     * @param event Name of the event metric
+     * @param properties Additional properties associated to the event that are not for identifying the customer
+     * @param customerProperties Defines the customer that triggered this event, defaults to the current internally tracked profile
+     * @return
      */
     fun createEvent(
         event: KlaviyoEvent,
-        customerProperties: KlaviyoCustomerProperties? = null,
-        properties: KlaviyoEventProperties? = null
-    ) {
-        val profile = customerProperties ?: KlaviyoCustomerProperties().also { setEmail(UserInfo.email) }
-        val request = TrackRequest(KlaviyoConfig.apiKey, event, profile, properties)
-        processRequest(request)
+        properties: KlaviyoEventProperties? = null,
+        customerProperties: KlaviyoCustomerProperties? = null
+    ): Klaviyo = apply {
+        createEventRequest(
+            event,
+            properties ?: KlaviyoEventProperties(),
+            customerProperties ?: UserInfo.getAsCustomerProperties()
+        )
     }
 
     //endregion
+
+    // region: Network calls
+
+    // TODO all this belongs within networking namespace?
+
+    /**
+     * Enqueue a profile API request
+     *
+     * @param properties
+     */
+    internal fun createIdentifyRequest(properties: KlaviyoCustomerProperties) {
+        processRequest(IdentifyRequest(KlaviyoConfig.apiKey, properties))
+    }
+
+    /**
+     * Enqueue an event API request
+     *
+     * @param event
+     * @param properties
+     * @param customerProperties
+     */
+    internal fun createEventRequest(
+        event: KlaviyoEvent,
+        properties: KlaviyoEventProperties,
+        customerProperties: KlaviyoCustomerProperties
+    ) {
+        processRequest(TrackRequest(KlaviyoConfig.apiKey, event, customerProperties, properties))
+    }
 
     /**
      * Processes the given [KlaviyoRequest] depending on the SDK's configuration.
@@ -143,4 +197,6 @@ object Klaviyo {
             request.process()
         }
     }
+
+    //endregion
 }

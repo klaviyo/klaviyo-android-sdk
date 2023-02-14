@@ -17,13 +17,13 @@ class KlaviyoMissingContextException : Exception("You must add your application 
 /**
  * Stores all configuration related to the Klaviyo Android SDK.
  */
-internal object KlaviyoConfig {
-    internal const val NETWORK_TIMEOUT_DEFAULT: Int = 500
-    internal const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
-    internal const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 20
-    internal const val NETWORK_FLUSH_CHECK_INTERVAL: Int = 2000
-    internal const val NETWORK_USE_ANALYTICS_BATCH_QUEUE: Boolean = true
-    internal val SYSTEM_CLOCK: Clock = SystemClock
+object KlaviyoConfig {
+    private const val NETWORK_TIMEOUT_DEFAULT: Int = 500
+    private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
+    private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 20
+    private const val NETWORK_FLUSH_CHECK_INTERVAL: Int = 2000
+    private const val NETWORK_USE_ANALYTICS_BATCH_QUEUE: Boolean = true
+    private val SYSTEM_CLOCK: Clock = SystemClock
 
     lateinit var apiKey: String
         private set

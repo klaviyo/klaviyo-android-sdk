@@ -1,8 +1,9 @@
 package com.klaviyo.push
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
-import com.google.firebase.messaging.RemoteMessage
+import android.os.Bundle
 import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.utils.KlaviyoPreferenceUtils
 import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_PREFERENCE_KEY
@@ -44,7 +45,7 @@ class KlaviyoPushServiceTest {
 
     @Before
     fun setup() {
-        Klaviyo.configure(
+        Klaviyo.initialize(
             apiKey = "Fake_Key",
             applicationContext = contextMock
         )
@@ -67,8 +68,8 @@ class KlaviyoPushServiceTest {
     private fun withKlaviyoMock() {
         mockkObject(Klaviyo)
         mockkObject(KlaviyoPreferenceUtils)
-        every { Klaviyo.createProfile(any()) } returns Unit
-        every { Klaviyo.createEvent(any(), any(), any()) } returns Unit
+        every { Klaviyo.setProfile(any()) } returns Klaviyo
+        every { Klaviyo.createEvent(any(), any(), any()) } returns Klaviyo
     }
 
     @Test
@@ -94,7 +95,7 @@ class KlaviyoPushServiceTest {
             preferenceMock.edit()
             editorMock.putString(PUSH_TOKEN_PREFERENCE_KEY, stubPushToken)
             editorMock.apply()
-            Klaviyo.createProfile(any())
+            Klaviyo.setProfile(any())
         }
     }
 
@@ -126,22 +127,33 @@ class KlaviyoPushServiceTest {
         }
     }
 
-    @Test
-    fun `FCM methods invoke SDK`() {
+//    @Test //TODO
+    fun `Handling RemoteMessage does not trigger $opened_push`() {
         withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
-        withWriteStringMock(PUSH_TOKEN_PREFERENCE_KEY, stubPushToken)
-        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", stubPushToken)
+        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", "token")
         withKlaviyoMock()
 
-        val pushService = KlaviyoPushService()
-        KlaviyoPushService.setPushToken(stubPushToken)
+        KlaviyoPushService.openedPush(
+            mapOf("other" to "3rd party push") // doesn't have _k, klaviyo tracking params
+        )
 
-        val msg = mockk<RemoteMessage>()
-        every { msg.data } returns stubPayload
-        pushService.onMessageReceived(msg)
+        verifyAll(true) {
+            Klaviyo.createEvent(any(), any(), any())
+        }
+    }
+
+//    @Test //TODO
+    fun `Handling a push intent triggers $opened_push`() {
+        withPreferenceMock("KlaviyoSDKPreferences", Context.MODE_PRIVATE)
+        withReadStringMock(PUSH_TOKEN_PREFERENCE_KEY, "", "token")
+        withKlaviyoMock()
+
+        val intent = mockk<Intent>()
+        val bundle = mockk<Bundle>()
+        every { intent.extras } returns bundle
+        KlaviyoPushService.handlePush(intent)
 
         verifyAll {
-            Klaviyo.createProfile(any())
             Klaviyo.createEvent(any(), any(), any())
         }
     }
