@@ -12,7 +12,6 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.verify
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 internal class KlaviyoConfigTest : BaseTest() {
@@ -51,18 +50,20 @@ internal class KlaviyoConfigTest : BaseTest() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
             .applicationContext(contextMock)
-            .debounceInterval(123)
-            .networkTimeout(1000)
-            .networkFlushInterval(10000)
-            .networkFlushDepth(10)
+            .debounceInterval(1)
+            .networkTimeout(2)
+            .networkFlushInterval(3)
+            .networkFlushDepth(4)
+            .networkMaxRetries(5)
             .build()
 
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
         assertEquals(contextMock, KlaviyoConfig.applicationContext)
-        assertEquals(123, KlaviyoConfig.debounceInterval)
-        assertEquals(1000, KlaviyoConfig.networkTimeout)
-        assertEquals(10000, KlaviyoConfig.networkFlushInterval)
-        assertEquals(10, KlaviyoConfig.networkFlushDepth)
+        assertEquals(1, KlaviyoConfig.debounceInterval)
+        assertEquals(2, KlaviyoConfig.networkTimeout)
+        assertEquals(3, KlaviyoConfig.networkFlushInterval)
+        assertEquals(4, KlaviyoConfig.networkFlushDepth)
+        assertEquals(5, KlaviyoConfig.networkMaxRetries)
     }
 
     @Test
@@ -73,9 +74,11 @@ internal class KlaviyoConfigTest : BaseTest() {
             .build()
 
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
-        assertEquals(500, KlaviyoConfig.networkTimeout)
-        assertEquals(60000, KlaviyoConfig.networkFlushInterval)
-        assertEquals(20, KlaviyoConfig.networkFlushDepth)
+        assertEquals(100, KlaviyoConfig.debounceInterval)
+        assertEquals(10_000, KlaviyoConfig.networkTimeout)
+        assertEquals(30_000, KlaviyoConfig.networkFlushInterval)
+        assertEquals(100, KlaviyoConfig.networkFlushDepth)
+        assertEquals(4, KlaviyoConfig.networkMaxRetries)
     }
 
     @Test
@@ -87,21 +90,20 @@ internal class KlaviyoConfigTest : BaseTest() {
             .networkTimeout(-5000)
             .networkFlushInterval(-5000)
             .networkFlushDepth(-10)
+            .networkMaxRetries(-10)
             .build()
 
-        assertNotEquals(-5000, KlaviyoConfig.debounceInterval)
-        assertNotEquals(-5000, KlaviyoConfig.networkTimeout)
-        assertNotEquals(-1000, KlaviyoConfig.networkFlushInterval)
-        assertNotEquals(-10, KlaviyoConfig.networkFlushDepth)
+        assertEquals(100, KlaviyoConfig.debounceInterval)
+        assertEquals(10_000, KlaviyoConfig.networkTimeout)
+        assertEquals(30_000, KlaviyoConfig.networkFlushInterval)
+        assertEquals(100, KlaviyoConfig.networkFlushDepth)
+        assertEquals(4, KlaviyoConfig.networkMaxRetries)
     }
 
     @Test(expected = MissingAPIKey::class)
     fun `KlaviyoConfig Builder missing API key throws expected exception`() {
         KlaviyoConfig.Builder()
             .applicationContext(contextMock)
-            .networkTimeout(500)
-            .networkFlushInterval(60000)
-            .networkFlushDepth(20)
             .build()
     }
 
@@ -109,9 +111,6 @@ internal class KlaviyoConfigTest : BaseTest() {
     fun `KlaviyoConfig Builder missing application context throws exception`() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
-            .networkTimeout(500)
-            .networkFlushInterval(60000)
-            .networkFlushDepth(20)
             .build()
     }
 
