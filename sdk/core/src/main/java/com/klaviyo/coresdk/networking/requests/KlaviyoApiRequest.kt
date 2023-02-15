@@ -191,15 +191,20 @@ internal open class KlaviyoApiRequest(
      * If the request was successful, extracts the response body
      * If the request was unsuccessful, extracts the error response body
      *
+     * [Docs](https://developers.klaviyo.com/en/docs/rate_limits_and_error_handling)
+     *
      * @return The status of the request
      */
     private fun parseResponse(connection: HttpURLConnection): Status {
+        // https://developers.klaviyo.com/en/docs/rate_limits_and_error_handling
         status = when (connection.responseCode) {
             in HTTP_OK until HTTP_MULT_CHOICE -> Status.Complete
             HTTP_RETRY -> {
                 if (attempts <= Registry.config.networkMaxRetries) Status.PendingRetry
                 else Status.Failed
             }
+            // TODO - Special handling of unauthorized i.e. 401 and 403?
+            // TODO - Special handling of server errors 500 and 503?
             else -> Status.Failed
         }
 
