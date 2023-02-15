@@ -137,6 +137,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Test
     fun `Flushes queue on network restored`() {
         KlaviyoApiClient.enqueueRequest(mockRequest())
+        staticClock.time += flushInterval
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         assert(slotOnNetworkChange.isCaptured)
         slotOnNetworkChange.captured(false)

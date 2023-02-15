@@ -37,7 +37,7 @@ internal object KlaviyoApiClient : ApiClient {
 
         // Stop the background batching job while offline
         Registry.networkMonitor.onNetworkChange { isOnline ->
-            if (isOnline) startBatch()
+            if (isOnline) startBatch(true)
             else stopBatch()
         }
 
@@ -137,9 +137,9 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Start network runner job on the handler thread
      */
-    private fun startBatch() {
+    private fun startBatch(force: Boolean = false) {
         stopBatch() // we only ever want one batch job running
-        handler?.post(NetworkRunnable())
+        handler?.post(NetworkRunnable(force))
     }
 
     /**

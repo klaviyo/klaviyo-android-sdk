@@ -77,7 +77,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(100, KlaviyoConfig.debounceInterval)
         assertEquals(10_000, KlaviyoConfig.networkTimeout)
         assertEquals(30_000, KlaviyoConfig.networkFlushInterval)
-        assertEquals(100, KlaviyoConfig.networkFlushDepth)
+        assertEquals(25, KlaviyoConfig.networkFlushDepth)
         assertEquals(4, KlaviyoConfig.networkMaxRetries)
     }
 
@@ -96,7 +96,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(100, KlaviyoConfig.debounceInterval)
         assertEquals(10_000, KlaviyoConfig.networkTimeout)
         assertEquals(30_000, KlaviyoConfig.networkFlushInterval)
-        assertEquals(100, KlaviyoConfig.networkFlushDepth)
+        assertEquals(25, KlaviyoConfig.networkFlushDepth)
         assertEquals(4, KlaviyoConfig.networkMaxRetries)
     }
 
