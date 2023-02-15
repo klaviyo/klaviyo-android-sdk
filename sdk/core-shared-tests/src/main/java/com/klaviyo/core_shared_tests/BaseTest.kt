@@ -36,6 +36,7 @@ abstract class BaseTest {
     protected val configMock = mockk<Config>().apply {
         every { apiKey } returns API_KEY
         every { applicationContext } returns contextMock
+        every { networkMaxRetries } returns 4
     }
     protected val lifecycleMonitorMock = mockk<LifecycleMonitor>()
     protected val networkMonitorMock = mockk<NetworkMonitor>()

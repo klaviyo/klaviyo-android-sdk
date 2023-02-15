@@ -5,10 +5,10 @@ import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
-import java.net.HttpURLConnection.HTTP_MULT_CHOICE
-import java.net.HttpURLConnection.HTTP_OK
 import java.net.URL
 import java.util.UUID
+import javax.net.ssl.HttpsURLConnection
+import org.json.JSONException
 import org.json.JSONObject
 
 /**
@@ -23,9 +23,22 @@ internal open class KlaviyoApiRequest(
     val time: String = Registry.clock.currentTimeAsString(),
     val uuid: String = UUID.randomUUID().toString()
 ) {
+    internal enum class Status {
+        Unsent, PendingRetry, Complete, Failed
+    }
+
     open var headers: Map<String, String> = emptyMap()
     open var query: Map<String, String> = emptyMap()
     open var body: JSONObject? = null
+
+    var attempts = 0
+        private set
+
+    var status: Status = Status.Unsent
+        private set
+
+    var response: String? = null
+        private set
 
     /**
      * Creates a representation of this [KlaviyoApiRequest] in JSON
@@ -65,6 +78,10 @@ internal open class KlaviyoApiRequest(
         const val HEADER_ACCEPT = "Accept"
         const val HEADER_REVISION = "Revision"
 
+        private const val HTTP_OK = HttpURLConnection.HTTP_OK
+        private const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
+        private const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
+
         private const val PATH_JSON_KEY = "url_path"
         private const val METHOD_JSON_KEY = "method"
         private const val TIME_JSON_KEY = "time"
@@ -81,6 +98,7 @@ internal open class KlaviyoApiRequest(
          *
          * @param json
          * @return
+         * @throws JSONException If required fields are missing or improperly formatted
          */
         fun fromJson(json: JSONObject): KlaviyoApiRequest {
             val urlPath = json.getString(PATH_JSON_KEY)
@@ -123,22 +141,24 @@ internal open class KlaviyoApiRequest(
      *
      * @returns The string value of the response body, if one was returned
      */
-    fun send(): String? {
+    fun send(): Status {
         if (!Registry.networkMonitor.isNetworkConnected()) {
-            return null
+            return status
         }
 
-        val connection = buildUrlConnection()
-
         return try {
-            connection.connect()
-            readResponse(connection)
+            val connection = buildUrlConnection()
+
+            try {
+                attempts++
+                connection.connect()
+                parseResponse(connection)
+            } finally {
+                connection.disconnect()
+            }
         } catch (ex: IOException) {
-            // TODO Logging
-            null
-        } finally {
-            // TODO can this throw too?
-            connection.disconnect()
+            status = Status.Failed
+            status
         }
     }
 
@@ -166,24 +186,35 @@ internal open class KlaviyoApiRequest(
     }
 
     /**
-     * Reads the response body from the open [HttpURLConnection]
+     * Parse and save the response code and body from the open [HttpURLConnection]
+     *
      * If the request was successful, extracts the response body
      * If the request was unsuccessful, extracts the error response body
      *
-     * @return The string extracted from the response body
+     * [Docs](https://developers.klaviyo.com/en/docs/rate_limits_and_error_handling)
+     *
+     * @return The status of the request
      */
-    private fun readResponse(connection: HttpURLConnection): String {
-        val statusCode = connection.responseCode
-
-        val stream = if (statusCode in HTTP_OK until HTTP_MULT_CHOICE) {
-            connection.inputStream
-        } else {
-            // TODO Retryable errors? e.g. 429
-            connection.errorStream
+    private fun parseResponse(connection: HttpURLConnection): Status {
+        // https://developers.klaviyo.com/en/docs/rate_limits_and_error_handling
+        status = when (connection.responseCode) {
+            in HTTP_OK until HTTP_MULT_CHOICE -> Status.Complete
+            HTTP_RETRY -> {
+                if (attempts <= Registry.config.networkMaxRetries) Status.PendingRetry
+                else Status.Failed
+            }
+            // TODO - Special handling of unauthorized i.e. 401 and 403?
+            // TODO - Special handling of server errors 500 and 503?
+            else -> Status.Failed
         }
 
-        val reader = BufferedReader(InputStreamReader(stream))
+        val stream = when (status) {
+            Status.Complete -> connection.inputStream
+            else -> connection.errorStream
+        }
 
-        return reader.use { it.readText() }
+        response = BufferedReader(InputStreamReader(stream)).use { it.readText() }
+
+        return status
     }
 }

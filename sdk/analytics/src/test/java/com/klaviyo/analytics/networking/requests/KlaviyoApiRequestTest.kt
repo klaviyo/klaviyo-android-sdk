@@ -117,20 +117,16 @@ internal class KlaviyoApiRequestTest : BaseTest() {
     }
 
     @Test
-    fun `Send returns null when internet is unavailable`() {
+    fun `Send returns unsent status when internet is unavailable`() {
         every { networkMonitorMock.isNetworkConnected() } returns false
 
-        val request = KlaviyoApiRequest(
-            stubUrlPath,
-            RequestMethod.GET
-        )
-        val actualResponse = request.send()
+        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
 
-        assertEquals(null, actualResponse)
+        assertEquals(KlaviyoApiRequest.Status.Unsent, request.send())
     }
 
     @Test
-    fun `Successful GET request returns success payload`() {
+    fun `Successful GET request returns success status`() {
         val connectionMock = withConnectionMock(URL(stubFullUrl))
         every { connectionMock.responseCode } returns 200
 
@@ -139,18 +135,34 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
-        assertEquals(stubSuccessResponse, actualResponse)
+        assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
     }
 
     @Test
-    fun `Failed GET request returns error payload`() {
+    fun `Failed GET request returns failure status`() {
         val connectionMock = withConnectionMock(URL(stubFullUrl))
-        every { connectionMock.responseCode } returns 400
+        every { connectionMock.responseCode } returns 500
 
         val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
-        val actualResponse = request.send()
 
-        assertEquals(stubErrorResponse, actualResponse)
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+    }
+
+    @Test
+    fun `Rate limited request returns retryable status and fails after max attempts`() {
+        val connectionMock = withConnectionMock(URL(stubFullUrl))
+        every { connectionMock.responseCode } returns 429
+
+        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
+
+        repeat(configMock.networkMaxRetries) {
+            // Should be retryable until max attempts hit
+            assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        }
+
+        // Final attempt should return fail
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(configMock.networkMaxRetries + 1, request.attempts)
     }
 
     @Test
@@ -169,7 +181,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         assertEquals(expectedBody.toString(), bodySlot.captured)
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
-        assertEquals(stubSuccessResponse, actualResponse)
+        assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
     }
 
     @Test
@@ -184,11 +196,13 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         assert(!bodySlot.isCaptured)
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
-        assertEquals(stubSuccessResponse, actualResponse)
+        assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
     }
 
-    private val postJson = "{\"headers\":{\"headerKey\":\"headerValue\"},\"method\":\"POST\",\"query\":{\"queryKey\":\"queryValue\"},\"time\":\"time\",\"body\":{\"bodyKey\":\"bodyValue\"},\"uuid\":\"uuid\",\"url_path\":\"test\"}"
-    private val getJson = "{\"headers\":{\"headerKey\":\"headerValue\"},\"method\":\"GET\",\"query\":{\"queryKey\":\"queryValue\"},\"time\":\"time\",\"uuid\":\"uuid\",\"url_path\":\"test\"}"
+    private val postJson =
+        "{\"headers\":{\"headerKey\":\"headerValue\"},\"method\":\"POST\",\"query\":{\"queryKey\":\"queryValue\"},\"time\":\"time\",\"body\":{\"bodyKey\":\"bodyValue\"},\"uuid\":\"uuid\",\"url_path\":\"test\"}"
+    private val getJson =
+        "{\"headers\":{\"headerKey\":\"headerValue\"},\"method\":\"GET\",\"query\":{\"queryKey\":\"queryValue\"},\"time\":\"time\",\"uuid\":\"uuid\",\"url_path\":\"test\"}"
 
     @Test
     fun `Serializes POST to JSON`() {

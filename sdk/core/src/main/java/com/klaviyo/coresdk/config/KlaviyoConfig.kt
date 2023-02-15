@@ -29,10 +29,44 @@ class MissingPermission(permission: String) : Exception("You must declare $permi
  * Stores all configuration related to the Klaviyo Android SDK.
  */
 object KlaviyoConfig : Config {
-    private const val DEBOUNCE_INTERVAL: Int = 500
-    private const val NETWORK_TIMEOUT_DEFAULT: Int = 500
-    private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 60000
-    private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 20
+    /**
+     * Debounce time for fluent profile setter methods
+     *
+     * Reasoning: The debounce is only intended to merge chained profile updates into one API call
+     */
+    private const val DEBOUNCE_INTERVAL: Int = 100
+
+    /**
+     * Network request timeout duration
+     *
+     * Reasoning: Ten seconds accommodates a reasonable network latency
+     * On a perfect connection our API calls should take around 1 second
+     */
+    private const val NETWORK_TIMEOUT_DEFAULT: Int = 10_000
+
+    /**
+     * Interval between flushing network queue, and the basis for retry with exponential backoff
+     *
+     * Reasoning: A 30 second interval should give radios time to go back to sleep between batches,
+     * four retries with a typical backoff pattern would then be 30s, 60s, 3m, 12m.
+     */
+    private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 30_000
+
+    /**
+     * How many API requests can be enqueued before flush
+     *
+     * Reasoning: The goal of depth control is to limit duration that radios are active
+     * if a typical request takes 1-3 seconds, this should ideally limit us to 30-90 seconds
+     */
+    private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 25
+
+    /**
+     * How many retries to allow an API request before permanent failure
+     *
+     * Reasoning: Most likely the rate limit should be cleared within 2 retries with exp backoff.
+     * However, I wanted some extra padding for edge cases, since the consequence is lost data.
+     */
+    private const val NETWORK_MAX_RETRIES_DEFAULT: Int = 4
 
     override val baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
     override lateinit var apiKey: String private set
@@ -45,6 +79,8 @@ object KlaviyoConfig : Config {
         private set
     override var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private set
+    override var networkMaxRetries = NETWORK_MAX_RETRIES_DEFAULT
+        private set
 
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
@@ -56,6 +92,7 @@ object KlaviyoConfig : Config {
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
         private var networkFlushInterval: Int = NETWORK_FLUSH_INTERVAL_DEFAULT
         private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
+        private var networkMaxRetries = NETWORK_MAX_RETRIES_DEFAULT
 
         override fun apiKey(apiKey: String) = apply {
             this.apiKey = apiKey
@@ -97,6 +134,14 @@ object KlaviyoConfig : Config {
             }
         }
 
+        override fun networkMaxRetries(networkMaxRetries: Int) = apply {
+            if (networkMaxRetries >= 0) {
+                this.networkMaxRetries = networkMaxRetries
+            } else {
+                // TODO Logging
+            }
+        }
+
         override fun build(): Config {
             if (apiKey.isEmpty()) {
                 throw MissingAPIKey()
@@ -119,6 +164,7 @@ object KlaviyoConfig : Config {
             KlaviyoConfig.networkTimeout = networkTimeout
             KlaviyoConfig.networkFlushInterval = networkFlushInterval
             KlaviyoConfig.networkFlushDepth = networkFlushDepth
+            KlaviyoConfig.networkMaxRetries = networkMaxRetries
 
             Log.WARN
 
