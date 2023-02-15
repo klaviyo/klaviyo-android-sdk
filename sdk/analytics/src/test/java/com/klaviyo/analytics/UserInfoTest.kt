@@ -4,7 +4,9 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.core_shared_tests.BaseTest
 import io.mockk.verify
-import org.junit.Assert
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
@@ -37,16 +39,15 @@ internal class UserInfoTest : BaseTest() {
 
     @Test
     fun `create and store a new UUID if one does not exists in data store`() {
-        dataStoreSpy.store(ProfileKey.ANONYMOUS.name, "")
         val anonId = UserInfo.anonymousId
         val fetched = dataStoreSpy.fetch(ProfileKey.ANONYMOUS.name)
-        Assert.assertEquals(anonId, fetched)
+        assertEquals(anonId, fetched)
     }
 
     @Test
     fun `do not create new UUID if one exists in data store`() {
         dataStoreSpy.store(ProfileKey.ANONYMOUS.name, ANON_ID)
-        Assert.assertEquals(ANON_ID, UserInfo.anonymousId)
+        assertEquals(ANON_ID, UserInfo.anonymousId)
     }
 
     @Test
@@ -57,20 +58,40 @@ internal class UserInfoTest : BaseTest() {
         dataStoreSpy.store(ProfileKey.PHONE_NUMBER.name, PHONE)
 
         var unusedRead = UserInfo.anonymousId
-        Assert.assertEquals(UserInfo.anonymousId, ANON_ID)
+        assertEquals(UserInfo.anonymousId, ANON_ID)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.ANONYMOUS.name) }
 
         unusedRead = UserInfo.email
-        Assert.assertEquals(UserInfo.email, EMAIL)
+        assertEquals(UserInfo.email, EMAIL)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EMAIL.name) }
 
         unusedRead = UserInfo.externalId
-        Assert.assertEquals(UserInfo.externalId, EXTERNAL_ID)
+        assertEquals(UserInfo.externalId, EXTERNAL_ID)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EXTERNAL_ID.name) }
 
         unusedRead = UserInfo.phoneNumber
-        Assert.assertEquals(UserInfo.phoneNumber, PHONE)
+        assertEquals(UserInfo.phoneNumber, PHONE)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.PHONE_NUMBER.name) }
+    }
+
+    @Test
+    fun `Anonymous ID lifecycle`() {
+        // Should be null after a reset...
+        val initialAnonId = dataStoreSpy.fetch(ProfileKey.ANONYMOUS.name)
+        assertNull(initialAnonId)
+
+        // Start tracking a new anon ID and it should be persisted
+        val firstAnonId = UserInfo.anonymousId
+        assertEquals(firstAnonId, dataStoreSpy.fetch(ProfileKey.ANONYMOUS.name))
+
+        // Reset again should nullify in data store
+        UserInfo.reset()
+        assertNull(dataStoreSpy.fetch(ProfileKey.ANONYMOUS.name))
+
+        // Start tracking again should generate another new anon ID
+        val newAnonId = UserInfo.anonymousId
+        assertNotEquals(firstAnonId, newAnonId)
+        assertEquals(newAnonId, dataStoreSpy.fetch(ProfileKey.ANONYMOUS.name))
     }
 
     private fun assertProfileIdentifiers(profile: Profile) {

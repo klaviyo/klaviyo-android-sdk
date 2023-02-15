@@ -22,7 +22,6 @@ sealed class ProfileKey(name: String) : Keyword(name) {
     object COUNTRY : ProfileKey("\$country")
     object ZIP : ProfileKey("\$zip")
     object IMAGE : ProfileKey("\$image")
-    object CONSENT : ProfileKey("\$consent")
 
     // Custom properties
     class CUSTOM(propertyName: String) : ProfileKey(propertyName)
