@@ -37,7 +37,7 @@ internal object KlaviyoApiClient : ApiClient {
 
         // Stop the background batching job while offline
         Registry.networkMonitor.onNetworkChange { isOnline ->
-            if (isOnline) startBatch(true)
+            if (isOnline) startBatch()
             else stopBatch()
         }
 
@@ -137,9 +137,9 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Start network runner job on the handler thread
      */
-    private fun startBatch(force: Boolean = false) {
+    private fun startBatch() {
         stopBatch() // we only ever want one batch job running
-        handler?.post(NetworkRunnable(force))
+        handler?.post(NetworkRunnable())
     }
 
     /**
@@ -162,10 +162,9 @@ internal object KlaviyoApiClient : ApiClient {
         private val flushDepth: Int = Registry.config.networkFlushDepth
 
         /**
-         * Sends all requests serially in queued order until
+         * Send queued requests serially
          * The queue will flush whenever the triggers specified in config are met
-         *
-         * @return Whether the request queue was emptied or not
+         * Posts another delayed batch job if requests remains
          */
         override fun run() {
             val queueTimePassed = Registry.clock.currentTimeMillis() - queueInitTime
@@ -201,6 +200,9 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }
 
+        /**
+         * Re-queue the job to run again after [flushInterval] milliseconds
+         */
         private fun requeue() {
             force = false
             handler?.postDelayed(this, flushInterval)
