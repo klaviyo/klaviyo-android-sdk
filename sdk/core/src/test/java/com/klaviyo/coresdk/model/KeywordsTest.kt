@@ -22,7 +22,6 @@ class KeywordsTest {
         assertName(ProfileKey.COUNTRY)
         assertName(ProfileKey.ZIP)
         assertName(ProfileKey.IMAGE)
-        assertName(ProfileKey.CONSENT)
         assertName(ProfileKey.APPEND)
 
         val expectedCustomKey = Math.random().toString() + "_key"
