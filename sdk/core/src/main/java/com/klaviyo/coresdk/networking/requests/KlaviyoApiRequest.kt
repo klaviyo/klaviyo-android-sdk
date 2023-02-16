@@ -13,10 +13,12 @@ import javax.net.ssl.HttpsURLConnection
 import org.json.JSONObject
 
 /**
- * Abstract class for handling general networking logic
+ * Base class for structuring and sending a Klaviyo API request
  *
  * @property urlPath URL this request will be connecting to as string
  * @property method The [RequestMethod] will determine the type of request being made
+ * @property time The wall clock time that the request was enqueued
+ * @property uuid unique identifier of this request
  */
 internal open class KlaviyoApiRequest(
     val urlPath: String,
@@ -62,10 +64,23 @@ internal open class KlaviyoApiRequest(
     override fun hashCode(): Int = uuid.hashCode()
 
     companion object {
+        // Common keywords
+        private const val DATA = "data"
+        const val TYPE = "type"
+        const val ATTRIBUTES = "attributes"
+        const val PROPERTIES = "properties"
+        const val COMPANY_ID = "company_id"
+        const val PROFILE = "profile"
+        const val EVENT = "event"
+
+        // Headers
         const val HEADER_CONTENT = "Content-Type"
         const val HEADER_ACCEPT = "Accept"
         const val HEADER_REVISION = "Revision"
+        const val TYPE_JSON = "application/json"
+        const val V3_REVISION = "2023-01-24"
 
+        // JSON keys for persistence
         private const val PATH_JSON_KEY = "url_path"
         private const val METHOD_JSON_KEY = "method"
         private const val TIME_JSON_KEY = "time"
@@ -102,6 +117,37 @@ internal open class KlaviyoApiRequest(
                 body = json.optJSONObject(BODY_JSON_KEY)
             }
         }
+
+        /**
+         * Helper function to format the body of the request
+         * Improves readability in subclasses
+         *
+         * @param K
+         * @param V
+         * @param pairs
+         */
+        fun <K, V> formatBody(vararg pairs: Pair<K, V>) = JSONObject(
+            mapOf(
+                DATA to pairs.toMap()
+            )
+        )
+
+        /**
+         * Helper function to create a map that filters out empty/null values
+         *
+         * @param K
+         * @param V
+         * @param pairs
+         * @return
+         */
+        fun <K, V> filteredMapOf(vararg pairs: Pair<K, V>): Map<K, V> =
+            pairs.toMap().filter { entry ->
+                when (val value = entry.value) {
+                    is Map<*, *> -> value.isNotEmpty()
+                    is String -> value.isNotEmpty()
+                    else -> value != null
+                }
+            }
     }
 
     /**

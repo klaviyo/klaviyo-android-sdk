@@ -7,9 +7,10 @@ import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.lifecycle.ActivityEvent
 import com.klaviyo.coresdk.model.Event
 import com.klaviyo.coresdk.model.Profile
-import com.klaviyo.coresdk.networking.requests.IdentifyApiRequest
+import com.klaviyo.coresdk.networking.requests.EventApiRequest
 import com.klaviyo.coresdk.networking.requests.KlaviyoApiRequest
-import com.klaviyo.coresdk.networking.requests.TrackApiRequest
+import com.klaviyo.coresdk.networking.requests.ProfileApiRequest
+import com.klaviyo.coresdk.networking.requests.PushTokenApiRequest
 import java.util.concurrent.ConcurrentLinkedQueue
 import org.json.JSONArray
 import org.json.JSONObject
@@ -42,11 +43,15 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     override fun enqueueProfile(profile: Profile) {
-        enqueueRequest(IdentifyApiRequest(profile))
+        enqueueRequest(ProfileApiRequest(profile))
+    }
+
+    override fun enqueuePushToken(token: String, profile: Profile) {
+        enqueueRequest(PushTokenApiRequest(token, profile))
     }
 
     override fun enqueueEvent(event: Event, profile: Profile) {
-        enqueueRequest(TrackApiRequest(event, profile))
+        enqueueRequest(EventApiRequest(event, profile))
     }
 
     /**
