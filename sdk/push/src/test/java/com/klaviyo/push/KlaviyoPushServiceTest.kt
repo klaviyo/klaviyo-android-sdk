@@ -3,21 +3,21 @@ package com.klaviyo.push
 import android.content.Intent
 import android.os.Bundle
 import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.core_shared_tests.BaseTest
 import com.klaviyo.core_shared_tests.InMemoryDataStore
 import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.DataStore
-import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_KEY
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkObject
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-class KlaviyoPushServiceTest {
+class KlaviyoPushServiceTest : BaseTest() {
     private val stubPushToken = "stub_token"
+    private val apiClientMock: ApiClient = mockk()
 
     /**
      * Stub of a push payload data property
@@ -41,17 +41,15 @@ class KlaviyoPushServiceTest {
         }"""
     )
 
-    private lateinit var store: DataStore
+    private var store: DataStore = InMemoryDataStore()
 
     @Before
-    fun setup() {
-        store = InMemoryDataStore() // start every test with an empty store
-
-        mockkObject(Klaviyo)
-        every { Klaviyo.setProfile(any()) } returns mockk()
-        every { Klaviyo.createEvent(any()) } returns mockk()
-        mockkObject(Registry)
+    override fun setup() {
+        super.setup()
         every { Registry.dataStore } returns store
+        Registry.add<ApiClient>(apiClientMock)
+        every { apiClientMock.enqueuePushToken(any(), any()) } returns Unit
+        every { apiClientMock.enqueueEvent(any(), any()) } returns Unit
     }
 
     @Test
@@ -66,7 +64,7 @@ class KlaviyoPushServiceTest {
 
     @Test
     fun `getPushToken fetches from persistent store`() {
-        store.store(PUSH_TOKEN_KEY, stubPushToken)
+        store.store("push_token", stubPushToken)
 
         assertEquals(KlaviyoPushService.getPushToken(), stubPushToken)
     }
@@ -75,15 +73,15 @@ class KlaviyoPushServiceTest {
     fun `setPushToken saves to persistent store and enqueues an API call`() {
         KlaviyoPushService.setPushToken(stubPushToken)
 
-        assertEquals(store.fetch(PUSH_TOKEN_KEY), stubPushToken)
-        verify { Klaviyo.setProfile(any()) }
+        assertEquals(store.fetch("push_token"), stubPushToken)
+        verify { apiClientMock.enqueuePushToken(any(), any()) }
     }
 
     @Test
     fun `Opening a Klaviyo push payload enqueues an event API call`() {
         KlaviyoPushService.openedPush(stubPayload)
 
-        verify { Klaviyo.createEvent(any()) }
+        verify { apiClientMock.enqueueEvent(any(), any()) }
     }
 
     @Test
@@ -92,7 +90,7 @@ class KlaviyoPushServiceTest {
         val nonKlaviyoPayload = mapOf("other" to "3rd party push")
         KlaviyoPushService.openedPush(nonKlaviyoPayload)
 
-        verify(inverse = true) { Klaviyo.createEvent(any()) }
+        verify(inverse = true) { apiClientMock.enqueueEvent(any(), any()) }
     }
 
     @Test
@@ -101,7 +99,7 @@ class KlaviyoPushServiceTest {
         pushService.onNewToken(stubPushToken)
 
         assertEquals(KlaviyoPushService.getPushToken(), stubPushToken)
-        verify { Klaviyo.setProfile(any()) }
+        verify { apiClientMock.enqueuePushToken(any(), any()) }
     }
 
     @Test
@@ -112,7 +110,7 @@ class KlaviyoPushServiceTest {
         val pushService = KlaviyoPushService()
         pushService.onMessageReceived(msg)
 
-        verify(inverse = true) { Klaviyo.createEvent(any()) }
+        verify(inverse = true) { apiClientMock.enqueueEvent(any(), any()) }
     }
 
     @Test
@@ -136,6 +134,6 @@ class KlaviyoPushServiceTest {
         // Handle push intent
         KlaviyoPushService.handlePush(intent)
 
-        verify { Klaviyo.createEvent(any()) }
+        verify { apiClientMock.enqueueEvent(any(), any()) }
     }
 }

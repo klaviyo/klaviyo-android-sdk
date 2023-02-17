@@ -7,7 +7,7 @@ import com.klaviyo.core_shared_tests.BaseTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-internal class TrackApiRequestTest : BaseTest() {
+internal class EventApiRequestTest : BaseTest() {
 
     private val expectedUrlPath = "client/events"
 
@@ -16,10 +16,10 @@ internal class TrackApiRequestTest : BaseTest() {
     private val expectedHeaders = mapOf(
         "Content-Type" to "application/json",
         "Accept" to "application/json",
-        "Revision" to "2022-10-17"
+        "Revision" to "2023-01-24"
     )
 
-    private val stubEvent: Event get() = Event(EventType.CUSTOM("Test Event"))
+    private val stubEvent: Event = Event(EventType.CUSTOM("Test Event"))
 
     private val stubProfile = Profile()
         .setAnonymousId(ANON_ID)
@@ -27,45 +27,53 @@ internal class TrackApiRequestTest : BaseTest() {
         .setPhoneNumber(PHONE)
 
     @Test
-    fun `Build Track request with no properties successfully`() {
+    fun `Uses correct endpoint`() {
+        assertEquals(expectedUrlPath, EventApiRequest(stubEvent, stubProfile).urlPath)
+    }
+
+    @Test
+    fun `Uses correct method`() {
+        assertEquals(RequestMethod.POST, EventApiRequest(stubEvent, stubProfile).method)
+    }
+
+    @Test
+    fun `Uses correct headers`() {
+        assertEquals(expectedHeaders, EventApiRequest(stubEvent, stubProfile).headers)
+    }
+
+    @Test
+    fun `Uses API Key in query`() {
+        assertEquals(expectedQueryData, EventApiRequest(stubEvent, stubProfile).query)
+    }
+
+    @Test
+    fun `Builds body request without properties`() {
         val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"metric\":{\"name\":\"${stubEvent.type}\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"},\"time\":\"$ISO_TIME\"}}}"
-        val request = TrackApiRequest(stubEvent, stubProfile)
+        val request = EventApiRequest(stubEvent, stubProfile)
 
-        assertEquals(expectedUrlPath, request.urlPath)
-        assertEquals(RequestMethod.POST, request.method)
-        assertEquals(expectedQueryData, request.query)
-        assertEquals(expectedHeaders, request.headers)
         assertEquals(expectedJsonString, request.body.toString())
     }
 
     @Test
-    fun `Build Track request successfully`() {
-        val stubProperties = stubEvent.setProperty("custom_value", "200")
+    fun `Builds request with properties`() {
+        stubEvent.setProperty("custom_value", "200")
         val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$ISO_TIME\",\"metric\":{\"name\":\"${stubEvent.type}\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"}}}}"
-        val request = TrackApiRequest(stubProperties, stubProfile)
+        val request = EventApiRequest(stubEvent, stubProfile)
 
-        assertEquals(expectedUrlPath, request.urlPath)
-        assertEquals(RequestMethod.POST, request.method)
-        assertEquals(expectedQueryData, request.query)
-        assertEquals(expectedHeaders, request.headers)
         assertEquals(expectedJsonString, request.body.toString())
     }
 
     @Test
-    fun `Profile data is snapshotted to prevent mutation`() {
-        val stubProperties = stubEvent.setProperty("custom_value", "200")
-        val stubProfile = Profile()
-            .setAnonymousId(ANON_ID)
-            .setEmail(EMAIL)
-            .setPhoneNumber(PHONE)
+    fun `Request is unaffected by changes to profile or event after the fact`() {
+        stubEvent.setProperty("custom_value", "200")
 
         val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$ISO_TIME\",\"metric\":{\"name\":\"${stubEvent.type}\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"}}}}"
 
-        val request = TrackApiRequest(stubProperties, stubProfile)
+        val request = EventApiRequest(stubEvent, stubProfile)
 
         // If I mutate profile or properties after creating, it shouldn't affect the request
         stubProfile.setExternalId("ext_id")
-        stubProperties.setProperty("custom_value", "100")
+        stubEvent.setProperty("custom_value", "100")
 
         assertEquals(expectedJsonString, request.body.toString())
     }

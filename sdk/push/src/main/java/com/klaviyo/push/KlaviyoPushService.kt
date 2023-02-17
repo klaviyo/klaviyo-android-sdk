@@ -3,11 +3,11 @@ package com.klaviyo.push
 import android.content.Intent
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.UserInfo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventType
-import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.coresdk.Registry
 
 /**
@@ -19,8 +19,6 @@ import com.klaviyo.coresdk.Registry
  */
 class KlaviyoPushService : FirebaseMessagingService() {
     companion object {
-        internal const val PUSH_TOKEN_KEY = "push_token"
-        private const val PUSH_TOKEN_APPEND_KEY = "\$android_tokens"
 
         /**
          * Saves the device FCM push token and registers to the current profile
@@ -34,12 +32,8 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @param pushToken The push token provided by the FCM Service
          */
         fun setPushToken(pushToken: String) {
-            val profile = Profile()
-                .addAppendProperty(PUSH_TOKEN_APPEND_KEY, pushToken)
-
-            Klaviyo.setProfile(profile)
-
-            Registry.dataStore.store(PUSH_TOKEN_KEY, pushToken)
+            Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
+            Registry.dataStore.store(EventKey.PUSH_TOKEN.name, pushToken)
         }
 
         /**
@@ -47,7 +41,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
          *
          * @return The push token we read from the data store
          */
-        internal fun getPushToken(): String? = Registry.dataStore.fetch(PUSH_TOKEN_KEY)
+        internal fun getPushToken(): String? = Registry.dataStore.fetch(EventKey.PUSH_TOKEN.name)
 
         /**
          * Logs an $opened_push event for a remote notification that originated from Klaviyo
@@ -64,9 +58,9 @@ class KlaviyoPushService : FirebaseMessagingService() {
                 }
             )
 
-            getPushToken()?.let { event[PUSH_TOKEN_KEY] = it }
+            getPushToken()?.let { event[EventKey.PUSH_TOKEN] = it }
 
-            Klaviyo.createEvent(event)
+            Registry.get<ApiClient>().enqueueEvent(event, UserInfo.getAsProfile())
         }
 
         /**

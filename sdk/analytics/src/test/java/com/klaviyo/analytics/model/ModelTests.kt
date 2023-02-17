@@ -35,17 +35,6 @@ internal class ModelTests : BaseTest() {
     }
 
     @Test
-    fun `Profile represents appended properties`() {
-        val appendKey = "key"
-        val appendValue = "value"
-        val profile = Profile().addAppendProperty(appendKey, appendValue)
-        val appended = profile.toMap()["\$append"]
-
-        assert(appended is HashMap<*, *>)
-        assertEquals((appended as HashMap<*, *>)[appendKey], appendValue)
-    }
-
-    @Test
     fun `Get, set and unset`() {
         val event = Event("test")
         event[EventKey.VALUE] = "$1"
@@ -82,22 +71,10 @@ internal class ModelTests : BaseTest() {
             it.setProperty(ProfileKey.CUSTOM("custom"), "custom")
         }.toMap()
 
-        assertEquals(
-            EXTERNAL_ID,
-            profileMap[ProfileKey.EXTERNAL_ID.name]
-        )
-        assertEquals(
-            EMAIL,
-            profileMap[ProfileKey.EMAIL.name]
-        )
-        assertEquals(
-            PHONE,
-            profileMap[ProfileKey.PHONE_NUMBER.name]
-        )
-        assertEquals(
-            ANON_ID,
-            profileMap[ProfileKey.ANONYMOUS.name]
-        )
+        assertEquals(EXTERNAL_ID, profileMap[ProfileKey.EXTERNAL_ID.name])
+        assertEquals(EMAIL, profileMap[ProfileKey.EMAIL.name])
+        assertEquals(PHONE, profileMap[ProfileKey.PHONE_NUMBER.name])
+        assertEquals(ANON_ID, profileMap[ProfileKey.ANONYMOUS_ID.name])
         assertEquals("string", profileMap["string"])
         assertEquals("custom", profileMap["custom"])
     }

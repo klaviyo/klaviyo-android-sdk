@@ -10,8 +10,6 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
 
     constructor() : this(null)
 
-    private var appendMap: HashMap<String, Serializable> = HashMap()
-
     fun setExternalId(identifier: String) = apply { this.externalId = identifier }
     var externalId: String?
         get() = (this[ProfileKey.EXTERNAL_ID]) as String?
@@ -35,16 +33,10 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
 
     internal fun setAnonymousId(anonymousId: String) = apply { this.anonymousId = anonymousId }
     internal var anonymousId: String?
-        get() = (this[ProfileKey.ANONYMOUS]) as String
+        get() = (this[ProfileKey.ANONYMOUS_ID]) as String
         set(value) {
-            this[ProfileKey.ANONYMOUS] = value
+            this[ProfileKey.ANONYMOUS_ID] = value
         }
-
-    // TODO internal?
-    fun addAppendProperty(key: String, value: Serializable) = apply {
-        appendMap[key] = value
-        this[ProfileKey.APPEND] = appendMap
-    }
 
     override fun setProperty(key: ProfileKey, value: Serializable) = apply {
         this[key] = value
@@ -54,9 +46,15 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
         this[ProfileKey.CUSTOM(key)] = value
     }
 
-    override fun merge(other: Profile) = apply {
-        super.merge(other).also {
-            other.appendMap.forEach { (k, v) -> addAppendProperty(k, v) }
-        }
-    }
+    override fun merge(other: Profile) = apply { super.merge(other) }
+
+    /**
+     * Get a map of just the unique identifiers of this profile
+     */
+    internal fun getIdentifiers(): Map<ProfileKey, String> = mapOf(
+        ProfileKey.EXTERNAL_ID to (this.externalId ?: ""),
+        ProfileKey.EMAIL to (this.email ?: ""),
+        ProfileKey.PHONE_NUMBER to (this.phoneNumber ?: ""),
+        ProfileKey.ANONYMOUS_ID to (this.anonymousId ?: ""),
+    ).filter { it.value.isNotEmpty() }
 }

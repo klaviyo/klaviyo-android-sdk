@@ -24,7 +24,7 @@ internal class KlaviyoTest : BaseTest() {
     private val capturedProfile = slot<Profile>()
     private val staticClock = StaticClock(TIME, ISO_TIME)
     private val debounceTime = 5
-    val apiClientMock: ApiClient = mockk()
+    private val apiClientMock: ApiClient = mockk()
 
     override fun setup() {
         super.setup()

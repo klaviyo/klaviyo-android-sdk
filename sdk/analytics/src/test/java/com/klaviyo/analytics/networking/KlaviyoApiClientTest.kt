@@ -101,7 +101,19 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
-        KlaviyoApiClient.enqueueProfile(Profile().setEmail(EMAIL))
+        KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Enqueues a push token API call`() {
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+
+        KlaviyoApiClient.enqueuePushToken(
+            PUSH_TOKEN,
+            Profile().setAnonymousId(ANON_ID)
+        )
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
     }
@@ -112,7 +124,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         KlaviyoApiClient.enqueueEvent(
             Event(EventType.CUSTOM("mock")),
-            Profile().setEmail(EMAIL)
+            Profile().setAnonymousId(ANON_ID)
         )
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())

@@ -2,7 +2,7 @@ package com.klaviyo.analytics
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
-import com.klaviyo.analytics.model.ProfileKey.ANONYMOUS
+import com.klaviyo.analytics.model.ProfileKey.ANONYMOUS_ID
 import com.klaviyo.analytics.model.ProfileKey.EMAIL
 import com.klaviyo.analytics.model.ProfileKey.EXTERNAL_ID
 import com.klaviyo.analytics.model.ProfileKey.PHONE_NUMBER
@@ -55,8 +55,8 @@ object UserInfo {
      * If not found, generate a fresh one and persist that
      */
     var anonymousId: String = ""
-        private set(value) { field = persist(ANONYMOUS, value) }
-        get() = field.ifEmpty { fetch(ANONYMOUS, generateUuid).also { anonymousId = it } }
+        private set(value) { field = persist(ANONYMOUS_ID, value) }
+        get() = field.ifEmpty { fetch(ANONYMOUS_ID, generateUuid).also { anonymousId = it } }
 
     private val generateUuid = { UUID.randomUUID().toString() }
 

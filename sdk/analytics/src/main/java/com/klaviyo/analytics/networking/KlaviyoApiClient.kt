@@ -5,9 +5,10 @@ import android.os.HandlerThread
 import android.os.Looper
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
-import com.klaviyo.analytics.networking.requests.IdentifyApiRequest
+import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
-import com.klaviyo.analytics.networking.requests.TrackApiRequest
+import com.klaviyo.analytics.networking.requests.ProfileApiRequest
+import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.lifecycle.ActivityEvent
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -19,7 +20,6 @@ import org.json.JSONObject
  * Coordinator of API request traffic
  */
 internal object KlaviyoApiClient : ApiClient {
-
     internal const val QUEUE_KEY = "klaviyo_api_request_queue"
 
     private val handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
@@ -45,11 +45,15 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     override fun enqueueProfile(profile: Profile) {
-        enqueueRequest(IdentifyApiRequest(profile))
+        enqueueRequest(ProfileApiRequest(profile))
+    }
+
+    override fun enqueuePushToken(token: String, profile: Profile) {
+        enqueueRequest(PushTokenApiRequest(token, profile))
     }
 
     override fun enqueueEvent(event: Event, profile: Profile) {
-        enqueueRequest(TrackApiRequest(event, profile))
+        enqueueRequest(EventApiRequest(event, profile))
     }
 
     /**
