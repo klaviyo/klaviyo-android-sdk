@@ -6,7 +6,7 @@ import com.klaviyo.analytics.model.ProfileKey.ANONYMOUS_ID
 import com.klaviyo.analytics.model.ProfileKey.EMAIL
 import com.klaviyo.analytics.model.ProfileKey.EXTERNAL_ID
 import com.klaviyo.analytics.model.ProfileKey.PHONE_NUMBER
-import com.klaviyo.coresdk.Registry
+import com.klaviyo.core.Registry
 import java.util.UUID
 
 /**

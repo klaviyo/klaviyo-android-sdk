@@ -2,10 +2,10 @@ package com.klaviyo.core_shared_tests
 
 import android.content.Context
 import android.os.Build
-import com.klaviyo.coresdk.Registry
-import com.klaviyo.coresdk.config.Config
-import com.klaviyo.coresdk.lifecycle.LifecycleMonitor
-import com.klaviyo.coresdk.networking.NetworkMonitor
+import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Config
+import com.klaviyo.core.lifecycle.LifecycleMonitor
+import com.klaviyo.core.networking.NetworkMonitor
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject

@@ -1,7 +1,7 @@
 package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.model.Profile
-import com.klaviyo.coresdk.Registry
+import com.klaviyo.core.Registry
 import org.json.JSONObject
 
 /**

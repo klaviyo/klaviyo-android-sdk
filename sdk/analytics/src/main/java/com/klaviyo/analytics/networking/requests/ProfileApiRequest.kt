@@ -2,7 +2,7 @@ package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
-import com.klaviyo.coresdk.Registry
+import com.klaviyo.core.Registry
 import java.io.Serializable
 import org.json.JSONObject
 

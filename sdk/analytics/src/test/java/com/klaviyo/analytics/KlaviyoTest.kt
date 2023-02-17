@@ -6,10 +6,10 @@ import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Config
 import com.klaviyo.core_shared_tests.BaseTest
 import com.klaviyo.core_shared_tests.StaticClock
-import com.klaviyo.coresdk.Registry
-import com.klaviyo.coresdk.config.Config
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot

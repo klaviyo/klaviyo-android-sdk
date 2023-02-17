@@ -9,8 +9,8 @@ import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
-import com.klaviyo.coresdk.Registry
-import com.klaviyo.coresdk.lifecycle.ActivityEvent
+import com.klaviyo.core.Registry
+import com.klaviyo.core.lifecycle.ActivityEvent
 import java.util.concurrent.ConcurrentLinkedDeque
 import org.json.JSONArray
 import org.json.JSONException

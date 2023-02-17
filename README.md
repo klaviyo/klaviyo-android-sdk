@@ -24,8 +24,8 @@ changes in network conditions and persist data with `SharedPreferences`.
 You must also register the Klaviyo SDK for activity lifecycle callbacks per the example code:
 ```kotlin
 import android.app.Application
-import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.lifecycle.KlaviyoLifecycleMonitor
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.lifecycle.KlaviyoLifecycleMonitor
 import com.klaviyo.push.KlaviyoPushService
 
 class TestApp : Application() {
@@ -103,9 +103,11 @@ setup process is very similar to the Firebase client documentation linked above.
 You should follow all other setup recommendations from the FCM documentation.
 Register `KlaviyoPushService` to receive MESSAGING_EVENT intents. This allows Klaviyo Push SDK 
 to receive new and updated push tokens via the `onNewToken` method, 
-as well as foreground and data notifications via the `onMessageReceived` method. 
+as well as foreground and data notifications via the `onMessageReceived` method.
+
 ```xml
-<service android:name="com.klaviyo.push.KlaviyoPushService" android:exported="false">
+
+<service android:name="com.klaviyo.push_fcm.KlaviyoPushService" android:exported="false">
     <intent-filter>
         <action android:name="com.google.firebase.MESSAGING_EVENT" />
     </intent-filter>

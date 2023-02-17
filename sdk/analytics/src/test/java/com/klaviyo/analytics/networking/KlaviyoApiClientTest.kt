@@ -7,12 +7,12 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
+import com.klaviyo.core.Registry
+import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.lifecycle.ActivityObserver
+import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.core_shared_tests.BaseTest
 import com.klaviyo.core_shared_tests.StaticClock
-import com.klaviyo.coresdk.Registry
-import com.klaviyo.coresdk.lifecycle.ActivityEvent
-import com.klaviyo.coresdk.lifecycle.ActivityObserver
-import com.klaviyo.coresdk.networking.NetworkObserver
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject

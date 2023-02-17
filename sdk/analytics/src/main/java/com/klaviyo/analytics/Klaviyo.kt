@@ -6,9 +6,9 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
-import com.klaviyo.coresdk.Registry
-import com.klaviyo.coresdk.config.Clock
-import com.klaviyo.coresdk.config.Config
+import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Clock
+import com.klaviyo.core.config.Config
 
 /**
  * Public API for the core Klaviyo SDK.

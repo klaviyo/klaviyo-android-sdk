@@ -1,6 +1,6 @@
 package com.klaviyo.core_shared_tests
 
-import com.klaviyo.coresdk.model.DataStore
+import com.klaviyo.core.model.DataStore
 
 /**
  * Implementation of DataStore that just uses an in-memory map

@@ -1,6 +1,6 @@
 package com.klaviyo.core_shared_tests
 
-import com.klaviyo.coresdk.config.Clock
+import com.klaviyo.core.config.Clock
 
 /**
  * Implementation of Clock for unit tests
