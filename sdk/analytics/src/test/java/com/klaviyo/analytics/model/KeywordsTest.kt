@@ -30,6 +30,8 @@ class KeywordsTest {
         val custom = ProfileKey.CUSTOM(expectedCustomKey)
         assert(custom == ProfileKey.CUSTOM(expectedCustomKey))
         assert(custom != ProfileKey.CUSTOM(expectedCustomKey + "1"))
+
+        assertEquals(ProfileKey.EMAIL, ProfileKey.CUSTOM("\$email"))
     }
 
     @Test
