@@ -89,11 +89,15 @@ internal object KlaviyoApiClient : ApiClient {
             apiQueue.remove()
         }
 
+        // Keep track if there's any errors restoring from persistent store
+        var wasMutated = false
+
         Registry.dataStore.fetch(QUEUE_KEY)?.let {
             try {
                 val queue = JSONArray(it)
                 Array(queue.length()) { i -> queue.optString(i) }
             } catch (exception: JSONException) {
+                wasMutated = true
                 emptyArray<String>()
             }
         }?.forEach { uuid ->
@@ -104,14 +108,16 @@ internal object KlaviyoApiClient : ApiClient {
                         apiQueue.offer(request)
                     }
                 } catch (exception: JSONException) {
+                    wasMutated = true
                     Registry.dataStore.clear(uuid)
                 }
             }
         }
 
-        if (apiQueue.isNotEmpty()) initBatch()
+        // If errors were encountered, update persistent store with corrected queue
+        if (wasMutated) persistQueue()
 
-        persistQueue()
+        if (apiQueue.isNotEmpty()) initBatch()
     }
 
     /**
