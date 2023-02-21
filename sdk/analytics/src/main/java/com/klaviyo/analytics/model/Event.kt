@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.model
 
+import com.klaviyo.core.model.BaseModel
 import java.io.Serializable
 
 /**

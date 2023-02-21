@@ -1,4 +1,4 @@
-package com.klaviyo.analytics.model
+package com.klaviyo.core.model
 
 import java.io.Serializable
 

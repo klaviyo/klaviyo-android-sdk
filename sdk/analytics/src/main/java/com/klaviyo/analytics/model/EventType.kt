@@ -1,5 +1,7 @@
 package com.klaviyo.analytics.model
 
+import com.klaviyo.core.model.Keyword
+
 /**
  * Events recognized by Klaviyo
  * Custom events can be defined using the [CUSTOM] inner class
