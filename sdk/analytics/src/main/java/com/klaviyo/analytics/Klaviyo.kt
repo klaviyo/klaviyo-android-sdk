@@ -2,6 +2,7 @@ package com.klaviyo.analytics
 
 import android.content.Context
 import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
@@ -94,6 +95,29 @@ object Klaviyo {
      * @return The external ID of the currently tracked profile, if set
      */
     fun getExternalId(): String? = UserInfo.externalId.ifEmpty { null }
+
+    /**
+     * Saves push token and registers to the current profile
+     *
+     * We append this token to a property map and queue it into an identify request to send to
+     * the Klaviyo asynchronous APIs.
+     * We then write it into the shared preferences so that we can fetch the token for this
+     * device as needed
+     *
+     * @param pushToken The push token provided by the FCM Service
+     */
+    fun setPushToken(pushToken: String) {
+        Registry.dataStore.store(EventKey.PUSH_TOKEN.name, pushToken)
+        Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
+    }
+
+    /**
+     * Retrieves the device FCM push token stored on this device
+     *
+     * @return The push token we read from the data store
+     */
+    fun getPushToken(): String? =
+        Registry.dataStore.fetch(EventKey.PUSH_TOKEN.name)?.ifEmpty { null }
 
     /**
      * Assign an attribute to the currently tracked profile by key/value pair

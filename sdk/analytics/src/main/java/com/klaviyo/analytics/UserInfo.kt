@@ -12,7 +12,7 @@ import java.util.UUID
 /**
  * Stores information on the currently active user
  */
-object UserInfo {
+internal object UserInfo {
 
     /**
      * Save or clear an identifier in the persistent store and return it

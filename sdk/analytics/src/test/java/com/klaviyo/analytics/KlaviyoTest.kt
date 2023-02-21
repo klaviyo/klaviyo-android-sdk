@@ -32,6 +32,7 @@ internal class KlaviyoTest : BaseTest() {
         every { Registry.clock } returns staticClock
         every { apiClientMock.enqueueProfile(capture(capturedProfile)) } returns Unit
         every { apiClientMock.enqueueEvent(any(), any()) } returns Unit
+        every { apiClientMock.enqueuePushToken(any(), any()) } returns Unit
         every { configMock.debounceInterval } returns debounceTime
     }
 
@@ -166,6 +167,22 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(EMAIL, Klaviyo.getEmail())
         assertEquals(PHONE, Klaviyo.getPhoneNumber())
         assertEquals(EXTERNAL_ID, Klaviyo.getExternalId())
+    }
+
+    @Test
+    fun `Enqueue a push token API call`() {
+        Klaviyo.setPushToken(PUSH_TOKEN)
+
+        verify(exactly = 1) {
+            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+        }
+    }
+
+    @Test
+    fun `Retrieve saved push token from data store`() {
+        assertNull(Klaviyo.getPushToken())
+        Klaviyo.setPushToken(PUSH_TOKEN)
+        assertEquals(PUSH_TOKEN, Klaviyo.getPushToken())
     }
 
     @Test

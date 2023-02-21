@@ -3,12 +3,10 @@ package com.klaviyo.push_fcm
 import android.content.Intent
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.analytics.UserInfo
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventType
-import com.klaviyo.analytics.networking.ApiClient
-import com.klaviyo.core.Registry
 
 /**
  * Implementation of the FCM messaging service that runs when the parent application is started
@@ -18,6 +16,7 @@ import com.klaviyo.core.Registry
  * that the implementation details of this service are carried over into their own
  */
 class KlaviyoPushService : FirebaseMessagingService() {
+
     companion object {
 
         /**
@@ -31,17 +30,14 @@ class KlaviyoPushService : FirebaseMessagingService() {
          * @see FirebaseMessagingService.onNewToken()
          * @param pushToken The push token provided by the FCM Service
          */
-        fun setPushToken(pushToken: String) {
-            Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
-            Registry.dataStore.store(EventKey.PUSH_TOKEN.name, pushToken)
-        }
+        fun setPushToken(pushToken: String) = Klaviyo.setPushToken(pushToken)
 
         /**
          * Retrieves the device FCM push token stored on this device
          *
          * @return The push token we read from the data store
          */
-        internal fun getPushToken(): String? = Registry.dataStore.fetch(EventKey.PUSH_TOKEN.name)
+        internal fun getPushToken(): String? = Klaviyo.getPushToken()
 
         /**
          * Logs an $opened_push event for a remote notification that originated from Klaviyo
@@ -60,7 +56,7 @@ class KlaviyoPushService : FirebaseMessagingService() {
 
             getPushToken()?.let { event[EventKey.PUSH_TOKEN] = it }
 
-            Registry.get<ApiClient>().enqueueEvent(event, UserInfo.getAsProfile())
+            Klaviyo.createEvent(event)
         }
 
         /**
@@ -80,11 +76,11 @@ class KlaviyoPushService : FirebaseMessagingService() {
          *
          * @param intent The Intent generated from tapping the notification
          */
-        fun handlePush(intent: Intent?) {
-            val extras = intent?.extras ?: return
-            val payload = extras.keySet().associateWith { key -> extras.getString(key, "") }
-            openedPush(payload)
-        }
+        fun handlePush(intent: Intent?) = openedPush(
+            intent?.extras?.let { extras ->
+                extras.keySet().associateWith { key -> extras.getString(key, "") }
+            } ?: emptyMap()
+        )
 
         private fun isKlaviyoPush(data: Map<String, String>): Boolean = data.containsKey("_k")
     }
