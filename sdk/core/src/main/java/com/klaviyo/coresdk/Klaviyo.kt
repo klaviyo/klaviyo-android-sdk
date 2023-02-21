@@ -20,7 +20,6 @@ object Klaviyo {
      *
      * @param apiKey Your Klaviyo account's public API Key
      * @param applicationContext
-     * @return
      */
     fun initialize(apiKey: String, applicationContext: Context) {
         Registry.config = Registry.configBuilder
@@ -39,7 +38,7 @@ object Klaviyo {
      * (e.g. after a fresh login)
      *
      * @param email Email address for active user
-     * @return
+     * @return Returns [Klaviyo] for call chaining
      */
     fun setEmail(email: String): Klaviyo = this.setProfileAttribute(ProfileKey.EMAIL, email)
 
@@ -58,7 +57,7 @@ object Klaviyo {
      * (e.g. after a fresh login)
      *
      * @param phoneNumber Phone number for active user
-     * @return
+     * @return Returns [Klaviyo] for call chaining
      */
     fun setPhoneNumber(phoneNumber: String): Klaviyo =
         this.setProfileAttribute(ProfileKey.PHONE_NUMBER, phoneNumber)
@@ -79,7 +78,7 @@ object Klaviyo {
      * (e.g. after a fresh login)
      *
      * @param externalId Unique identifier from external system
-     * @return
+     * @return Returns [Klaviyo] for call chaining
      */
     fun setExternalId(externalId: String): Klaviyo =
         this.setProfileAttribute(ProfileKey.EXTERNAL_ID, externalId)
@@ -100,7 +99,7 @@ object Klaviyo {
      *
      * @param propertyKey
      * @param value
-     * @return
+     * @return Returns [Klaviyo] for call chaining
      */
     fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo = apply {
         when (propertyKey) {
@@ -130,7 +129,7 @@ object Klaviyo {
      * build analytics requests with profile identifiers
      *
      * @param profile A map of properties that define the user
-     * @return
+     * @return Returns [Klaviyo] for call chaining
      */
     fun setProfile(profile: Profile): Klaviyo = apply {
         // Update UserInfo in case the incoming profile contains any identifiers
@@ -177,7 +176,7 @@ object Klaviyo {
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
      *
-     * @return
+     * @return Returns [Klaviyo] for call chaining
      */
     fun resetProfile(): Klaviyo = apply {
         UserInfo.reset()
@@ -188,7 +187,7 @@ object Klaviyo {
      * Creates an an [Event] associated with the currently tracked profile
      *
      * @param event A map-like object representing the event attributes
-     * @return
+     * @return Returns [Klaviyo] for call chaining
      */
     fun createEvent(event: Event): Klaviyo = apply {
         Registry.apiClient.enqueueEvent(event, UserInfo.getAsProfile())
