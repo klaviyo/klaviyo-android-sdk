@@ -93,7 +93,9 @@ sealed class ProfileKey(name: String) : Keyword(name) {
 
     /**
      * Helper method to translate certain keys to their dollar-prefixed key
-     * This only applies to the identifier keys under certain circumstances
+     * This only applies to the identifier keys under certain circumstances:
+     *
+     * Profile V2 and Events V3 and use $. Profile V3 does not use $
      *
      * @return
      */
