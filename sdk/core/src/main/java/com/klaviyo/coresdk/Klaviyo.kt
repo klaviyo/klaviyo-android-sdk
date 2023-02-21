@@ -18,9 +18,8 @@ object Klaviyo {
      * Configure Klaviyo SDK with your account's public API Key and application context.
      * This must be called to before using any other SDK functionality
      *
-     * @param apiKey - Your Klaviyo account's public API Key
+     * @param apiKey Your Klaviyo account's public API Key
      * @param applicationContext
-     * @return
      */
     fun initialize(apiKey: String, applicationContext: Context) {
         Registry.config = Registry.configBuilder
@@ -30,7 +29,7 @@ object Klaviyo {
     }
 
     /**
-     * Assigns an email address to the current internally tracked profile
+     * Assigns an email address to the currently tracked Klaviyo profile
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
@@ -39,12 +38,17 @@ object Klaviyo {
      * (e.g. after a fresh login)
      *
      * @param email Email address for active user
-     * @return
+     * @return Returns [Klaviyo] for call chaining
      */
-    fun setEmail(email: String): Klaviyo = this.setProfile(Profile().setEmail(email))
+    fun setEmail(email: String): Klaviyo = this.setProfileAttribute(ProfileKey.EMAIL, email)
 
     /**
-     * Assigns a phone number to the current internally tracked profile
+     * @return The email of the currently tracked profile, if set
+     */
+    fun getEmail(): String? = UserInfo.email.ifEmpty { null }
+
+    /**
+     * Assigns a phone number to the currently tracked Klaviyo profile
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
@@ -53,12 +57,19 @@ object Klaviyo {
      * (e.g. after a fresh login)
      *
      * @param phoneNumber Phone number for active user
+     * @return Returns [Klaviyo] for call chaining
      */
     fun setPhoneNumber(phoneNumber: String): Klaviyo =
-        this.setProfile(Profile().setPhoneNumber(phoneNumber))
+        this.setProfileAttribute(ProfileKey.PHONE_NUMBER, phoneNumber)
 
     /**
-     * Assigns an external ID to the current internally tracked profile
+     * @return The phone number of the currently tracked profile, if set
+     */
+    fun getPhoneNumber(): String? = UserInfo.phoneNumber.ifEmpty { null }
+
+    /**
+     * Assigns a unique identifier to associate the currently tracked Klaviyo profile
+     * with a profile in an external system, such as a point-of-sale system.
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
@@ -66,49 +77,90 @@ object Klaviyo {
      * This should be called whenever the active user in your app changes
      * (e.g. after a fresh login)
      *
-     * @param id Phone number for active user
-     * @return
+     * @param externalId Unique identifier from external system
+     * @return Returns [Klaviyo] for call chaining
      */
-    fun setExternalId(id: String): Klaviyo = this.setProfile(Profile().setExternalId(id))
+    fun setExternalId(externalId: String): Klaviyo =
+        this.setProfileAttribute(ProfileKey.EXTERNAL_ID, externalId)
 
     /**
-     * Assign arbitrary attributes to the current profile by key
+     * @return The external ID of the currently tracked profile, if set
+     */
+    fun getExternalId(): String? = UserInfo.externalId.ifEmpty { null }
+
+    /**
+     * Assign an attribute to the currently tracked profile by key/value pair
+     *
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
      *
      * This should be called when you collect additional data about your user
-     * (e.g. first and last name, or an address)
+     * (e.g. first and last name, or location)
      *
      * @param propertyKey
      * @param value
-     * @return
+     * @return Returns [Klaviyo] for call chaining
      */
-    fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo =
-        setProfile(Profile().also { it[propertyKey] = value })
+    fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo = apply {
+        when (propertyKey) {
+            ProfileKey.EMAIL -> {
+                UserInfo.email = value
+                debouncedProfileUpdate(UserInfo.getAsProfile())
+            }
+            ProfileKey.EXTERNAL_ID -> {
+                UserInfo.externalId = value
+                debouncedProfileUpdate(UserInfo.getAsProfile())
+            }
+            ProfileKey.PHONE_NUMBER -> {
+                UserInfo.phoneNumber = value
+                debouncedProfileUpdate(UserInfo.getAsProfile())
+            }
+            else -> {
+                debouncedProfileUpdate(Profile(mapOf(propertyKey to value)))
+            }
+        }
+    }
+
+    /**
+     * Updates the currently tracked profile from a map-like [Profile] object
+     * Saves identifying attributes (externalId, email, phone) to the currently tracked profile.
+     *
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
+     *
+     * @param profile A map of properties that define the user
+     * @return Returns [Klaviyo] for call chaining
+     */
+    fun setProfile(profile: Profile): Klaviyo = apply {
+        // Update UserInfo in case the incoming profile contains any identifiers
+        UserInfo.updateFromProfile(profile)
+        debouncedProfileUpdate(profile)
+    }
 
     /**
      * Debounce timer for enqueuing profile API calls
      */
     private var timer: Clock.Cancellable? = null
+
+    /**
+     * Pending batch of profile updates to be merged into one API call
+     */
     private var pendingProfile: Profile? = null
 
     /**
-     * Queues a request to identify profile properties to the Klaviyo API
+     * Uses debounce mechanism to merge profile changes
+     * within a short span of time into one API transaction
      *
-     * Any new identifying properties (externalId, email, phone) will be saved to the current
-     * internally tracked profile. Otherwise any identifiers missing from [profile] will be
-     * populated from the current internally tracked profile info.
-     *
-     * Identify requests track specific properties about a user without triggering an event
-     *
-     * @param profile A map of properties that define the user
-     * @return
+     * @param profile Incoming profile attribute changes
      */
-    fun setProfile(profile: Profile): Klaviyo = apply {
-        // Update user identifiers in state
-        UserInfo.updateFromProfile(profile)
+    private fun debouncedProfileUpdate(profile: Profile) {
+        // Merge new changes into pending transaction
+        pendingProfile = pendingProfile?.merge(profile) ?: profile
 
-        // Start or update a pending profile object for API call
-        pendingProfile = UserInfo.getAsProfile().merge(pendingProfile?.merge(profile) ?: profile)
+        // Add current identifiers from UserInfo to pending transaction
+        pendingProfile = UserInfo.getAsProfile().merge(pendingProfile!!)
 
+        // Reset timer
         timer?.cancel()
         timer = Registry.clock.schedule(Registry.config.debounceInterval.toLong()) {
             pendingProfile?.let {
@@ -119,12 +171,12 @@ object Klaviyo {
     }
 
     /**
-     * Clears all stored profile identifiers (e.g. email or phone)
+     * Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile
      *
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
      *
-     * @return
+     * @return Returns [Klaviyo] for call chaining
      */
     fun resetProfile(): Klaviyo = apply {
         UserInfo.reset()
@@ -132,13 +184,10 @@ object Klaviyo {
     }
 
     /**
-     * Queues a request to track an [Event] to the Klaviyo API
-     * The event will be associated with the profile specified by the [Profile]
-     * If profile is not set, this will fallback on the current profile identifiers
+     * Creates an an [Event] associated with the currently tracked profile
      *
-     * @param event Name of the event metric
-     * @param event Additional properties associated to the event that are not for identifying the profile
-     * @return
+     * @param event A map-like object representing the event attributes
+     * @return Returns [Klaviyo] for call chaining
      */
     fun createEvent(event: Event): Klaviyo = apply {
         Registry.apiClient.enqueueEvent(event, UserInfo.getAsProfile())

@@ -14,6 +14,7 @@ import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyAll
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 internal class KlaviyoTest : BaseTest() {
@@ -141,6 +142,21 @@ internal class KlaviyoTest : BaseTest() {
         assert(UserInfo.externalId == "")
 
         verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `Gets identifiers out of user info`() {
+        assertNull(Klaviyo.getEmail())
+        assertNull(Klaviyo.getPhoneNumber())
+        assertNull(Klaviyo.getExternalId())
+
+        UserInfo.email = EMAIL
+        UserInfo.phoneNumber = PHONE
+        UserInfo.externalId = EXTERNAL_ID
+
+        assertEquals(EMAIL, Klaviyo.getEmail())
+        assertEquals(PHONE, Klaviyo.getPhoneNumber())
+        assertEquals(EXTERNAL_ID, Klaviyo.getExternalId())
     }
 
     @Test
