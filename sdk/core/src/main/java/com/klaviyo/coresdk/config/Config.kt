@@ -13,6 +13,7 @@ interface Config {
     val networkTimeout: Int
     val networkFlushInterval: Int
     val networkFlushDepth: Int
+    val networkMaxRetries: Int
 
     interface Builder {
         fun apiKey(apiKey: String): Builder
@@ -21,6 +22,7 @@ interface Config {
         fun networkTimeout(networkTimeout: Int): Builder
         fun networkFlushInterval(networkFlushInterval: Int): Builder
         fun networkFlushDepth(networkFlushDepth: Int): Builder
+        fun networkMaxRetries(networkMaxRetries: Int): Builder
         fun build(): Config
     }
 }
