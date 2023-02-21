@@ -11,6 +11,7 @@ import java.util.UUID
  * Stores information on the currently active user
  */
 object UserInfo {
+// TODO this should not be public-facing, but temporarily, the push module needs access
 
     /**
      * Save or clear an identifier in the persistent store and return it
