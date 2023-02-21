@@ -262,6 +262,51 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `Failed requests are cleared from the queue`() {
+        val fail = "uuid-failed"
+        KlaviyoApiClient.enqueueRequest(mockRequest(fail, KlaviyoApiRequest.Status.Failed))
+
+        KlaviyoApiClient.NetworkRunnable(true).run()
+
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        assertNull(dataStoreSpy.fetch(fail))
+    }
+
+    @Test
+    fun `Rate limited requests are retried with a backoff`() {
+        val request1 = mockRequest("uuid-retry", KlaviyoApiRequest.Status.PendingRetry)
+        val request2 = mockRequest("uuid-unsent", KlaviyoApiRequest.Status.Unsent)
+        var attempts = 0
+        var backoffTime = flushInterval
+        every { request1.attempts } answers { attempts }
+
+        KlaviyoApiClient.enqueueRequest(request1, request2)
+
+        val job = KlaviyoApiClient.NetworkRunnable()
+
+        while (request1.attempts < configMock.networkMaxRetries) {
+            // Run before advancing the clock: it shouldn't attempt any sends
+            job.run()
+            verify(exactly = attempts) { request1.send() }
+
+            attempts++
+
+            // Advance the time with increasing backoff interval
+            backoffTime *= attempts
+            staticClock.time += backoffTime
+            delayedRunner = null
+
+            job.run()
+            assertNotNull(delayedRunner)
+            assertEquals(2, KlaviyoApiClient.getQueueSize())
+            assertNotNull(dataStoreSpy.fetch(request1.uuid))
+            assertNotNull(dataStoreSpy.fetch(request2.uuid))
+            verify(exactly = attempts) { request1.send() }
+            verify(inverse = true) { request2.send() }
+        }
+    }
+
+    @Test
     fun `Network requests are persisted to disk`() {
         dataStoreSpy.clear("mock_uuid1")
         dataStoreSpy.clear("mock_uuid2")
