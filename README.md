@@ -34,13 +34,13 @@ class TestApp : Application() {
 
         Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
 
-        registerActivityLifecycleCallbacks(KlaviyoLifecycleMonitor)
+        registerActivityLifecycleCallbacks(Klaviyo.lifecycleCallbacks)
     }
 }
 ```
 
 ### Identifying a Profile
-The SDK provides helpers for identifying profile data and syncing via the 
+The SDK provides helpers for identifying profiles and syncing via the 
 [Klaviyo client API](https://developers.klaviyo.com/en/reference/create_client_profile).
 All profile identifiers (email, phone, external ID, anonymous ID) are persisted to local storage
 so that the SDK can keep track of the current profile.
@@ -56,7 +56,7 @@ Klaviyo.setProfile(profile)
 or individually with fluent setters:
 ```kotlin
 Klaviyo.setEmail("kermit@example.com")
-    .setPhone("+12223334444")
+    .setPhoneNumber("+12223334444")
     .setExternalId("USER_IDENTIFIER")
     .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
     .setProfileAttribute(ProfileKey.CUSTOM("instrument"), "banjo")
@@ -68,7 +68,7 @@ call `Klaviyo.resetProfile()` first to reset all identifiers and start tracking 
 ```kotlin
 //Start a profile for Kermit
 Klaviyo.setEmail("kermit@example.com")
-    .setPhone("+12223334444")
+    .setPhoneNumber("+12223334444")
     .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
 
 //Stop tracking Kermit
@@ -76,7 +76,7 @@ Klaviyo.resetProfile()
 
 //Start new profile for Robin with new IDs
 Klaviyo.setEmail("robin@example.com")
-    .setPhone("+5556667777")
+    .setPhoneNumber("+5556667777")
     .setProfileAttribute(ProfileKey.FIRST_NAME, "Robin")
 ```
 
@@ -86,7 +86,7 @@ A list of previously defined event names is provided in `EventType`, or use `Eve
 to for custom name. Additional event properties can be specified as part of `EventModel` 
 ```kotlin
 val event = Event(EventType.VIEWED_PRODUCT)
-    .setProperty(EventKey.VALUE, "$10.00")
+    .setProperty(EventKey.VALUE, "10")
     .setProperty(EventKey.CUSTOM("custom_key"), "value")
 Klaviyo.createEvent(event)
 ```

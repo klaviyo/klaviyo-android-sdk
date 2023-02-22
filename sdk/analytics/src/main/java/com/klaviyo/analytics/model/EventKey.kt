@@ -1,7 +1,5 @@
 package com.klaviyo.analytics.model
 
-import com.klaviyo.core.model.Keyword
-
 /**
  * All event property keys recognised by the Klaviyo APIs
  * Custom properties can be defined using the [CUSTOM] inner class

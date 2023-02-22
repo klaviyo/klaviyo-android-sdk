@@ -1,4 +1,4 @@
-package com.klaviyo.core.model
+package com.klaviyo.analytics.model
 
 /**
  * Base class used to provide polymorphic properties to the use of profile and event keys

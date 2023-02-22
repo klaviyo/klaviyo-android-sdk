@@ -1,5 +1,6 @@
 package com.klaviyo.core
 
+import android.app.Application
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.KlaviyoConfig
@@ -41,6 +42,8 @@ object Registry {
     val clock: Clock = SystemClock
 
     val lifecycleMonitor: LifecycleMonitor get() = KlaviyoLifecycleMonitor
+
+    val lifecycleCallbacks: Application.ActivityLifecycleCallbacks get() = KlaviyoLifecycleMonitor
 
     val networkMonitor: NetworkMonitor get() = KlaviyoNetworkMonitor
 

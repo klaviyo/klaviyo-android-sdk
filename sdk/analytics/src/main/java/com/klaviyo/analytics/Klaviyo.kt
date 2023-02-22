@@ -1,5 +1,6 @@
 package com.klaviyo.analytics
 
+import android.app.Application
 import android.content.Context
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
@@ -17,6 +18,13 @@ import com.klaviyo.core.config.Config
  * to be processed and sent to the Klaviyo backend
  */
 object Klaviyo {
+
+    /**
+     * Klaviyo lifecycle monitor which must be attached by the parent application
+     * so that the SDK can respond to environment changes such as internet
+     * availability and application termination
+     */
+    val lifecycleCallbacks: Application.ActivityLifecycleCallbacks = Registry.lifecycleCallbacks
 
     /**
      * Configure Klaviyo SDK with your account's public API Key and application context.
