@@ -7,8 +7,8 @@ dependencies {
     implementation project(':sdk:core')
     implementation project(':sdk:analytics')
     implementation "com.google.firebase:firebase-messaging:$ext.fcmVersion"
+}
 
-    testImplementation project(":sdk:core-shared-tests")
 afterEvaluate {
     publishing {
         publications {
