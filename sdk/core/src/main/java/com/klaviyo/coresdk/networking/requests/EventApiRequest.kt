@@ -47,7 +47,7 @@ internal class EventApiRequest(
             METRIC to mapOf(NAME to event.type.name),
             VALUE to event.value,
             TIME to time,
-            PROPERTIES to event.toMap().ifEmpty { null },
+            PROPERTIES to event.toMap(),
         )
     )
 }
