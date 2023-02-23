@@ -4,12 +4,13 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core_shared_tests.BaseTest
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 internal class EventApiRequestTest : BaseTest() {
 
-    private val expectedUrlPath = "client/events"
+    private val expectedUrlPath = "client/events/"
 
     private val expectedQueryData = mapOf("company_id" to API_KEY)
 

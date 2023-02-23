@@ -9,7 +9,7 @@ import org.junit.Test
 
 internal class ProfileApiRequestTest : BaseTest() {
 
-    private val expectedUrlPath = "client/profiles"
+    private val expectedUrlPath = "client/profiles/"
 
     private val expectedQueryData = mapOf("company_id" to API_KEY)
 
@@ -47,8 +47,7 @@ internal class ProfileApiRequestTest : BaseTest() {
 
     @Test
     fun `Formats body correctly`() {
-        val expectJson = JSONObject(
-            """{
+        val expectJson = """{
             "data": {
                 "type": "profile",
                 "attributes": {
@@ -87,7 +86,6 @@ internal class ProfileApiRequestTest : BaseTest() {
                 }
             }
         }"""
-        ).getJSONObject("data")
 
         stubProfile
             .setProperty(ProfileKey.FIRST_NAME, "Sarah")
@@ -108,15 +106,13 @@ internal class ProfileApiRequestTest : BaseTest() {
             .setProperty("custom_key2", "custom_2")
 
         val request = ProfileApiRequest(stubProfile)
-        val actualJson = request.body!!.getJSONObject("data")
 
-        compareJson(expectJson, actualJson)
+        compareJson(JSONObject(expectJson), request.body!!)
     }
 
     @Test
     fun `Body omits missing keys`() {
-        val expectJson = JSONObject(
-            """{
+        val expectJson = """{
             "data": {
                 "type": "profile",
                 "attributes": {
@@ -137,15 +133,13 @@ internal class ProfileApiRequestTest : BaseTest() {
                 }
             }
         }"""
-        ).getJSONObject("data")
 
         stubProfile
             .setProperty(ProfileKey.FIRST_NAME, "Sarah")
             .setProperty(ProfileKey.LAST_NAME, "Mason")
 
         val request = ProfileApiRequest(stubProfile)
-        val actualJson = request.body!!.getJSONObject("data")
 
-        compareJson(expectJson, actualJson)
+        compareJson(JSONObject(expectJson), request.body!!)
     }
 }
