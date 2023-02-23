@@ -23,7 +23,7 @@ internal class EventApiRequest(
 ) {
 
     private companion object {
-        const val PATH = "client/events"
+        const val PATH = "client/events/"
         const val METRIC = "metric"
         const val NAME = "name"
         const val VALUE = "value"
@@ -48,6 +48,7 @@ internal class EventApiRequest(
             VALUE to event.value,
             TIME to time,
             PROPERTIES to event.toMap(),
+            allowEmptyMaps = true
         )
     )
 }
