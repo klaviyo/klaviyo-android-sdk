@@ -1,6 +1,22 @@
 description = 'Core featureset of the Klaviyo SDK including SDK configuration, session tracking and analytics'
 evaluationDependsOn(':sdk')
 
+def ext = rootProject.ext
+
 dependencies {
     testImplementation project(":sdk:core-shared-tests")
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            // Creates a Maven publication called "release".
+            release(MavenPublication) {
+                from components.release
+                groupId = ext.groupId
+                artifactId = 'core'
+                version = ext.versionName
+            }
+        }
+    }
 }

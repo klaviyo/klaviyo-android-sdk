@@ -13,7 +13,8 @@ ext {
 
     // project versioning
     versionCode = 1
-    versionName = '1.0'
+    versionName = '1.0.1'
+    groupId = 'com.klaviyo'
 
     // dependencies
     coreKTXVersion = '1.9.0'

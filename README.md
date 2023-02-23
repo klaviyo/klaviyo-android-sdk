@@ -98,6 +98,8 @@ Klaviyo.createEvent(event)
 - Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client) documentation. 
 
 ### KlaviyoPushService
+
+[//]: # (TODO Document firebase setup, google services JSON etc)
 The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService` so the 
 setup process is very similar to the Firebase client documentation linked above.
 You should follow all other setup recommendations from the FCM documentation.

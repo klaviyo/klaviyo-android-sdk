@@ -9,4 +9,16 @@ dependencies {
     implementation "com.google.firebase:firebase-messaging:$ext.fcmVersion"
 
     testImplementation project(":sdk:core-shared-tests")
+afterEvaluate {
+    publishing {
+        publications {
+            // Creates a Maven publication called "release".
+            release(MavenPublication) {
+                from components.release
+                groupId = ext.groupId
+                artifactId = 'push-fcm'
+                version = ext.versionName
+            }
+        }
+    }
 }
