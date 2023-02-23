@@ -18,7 +18,7 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
 ) {
 
     private companion object {
-        const val PATH = "api/identify"
+        const val PATH = "api/identify/"
         const val TOKEN = "token"
         const val APPEND = "\$append"
         const val ANDROID_TOKEN = "\$android_tokens"

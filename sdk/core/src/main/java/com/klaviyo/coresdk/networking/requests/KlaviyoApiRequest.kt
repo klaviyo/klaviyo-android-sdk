@@ -157,14 +157,16 @@ internal open class KlaviyoApiRequest(
          * @param pairs
          * @return
          */
-        fun <K, V> filteredMapOf(vararg pairs: Pair<K, V>): Map<K, V> =
-            pairs.toMap().filter { entry ->
-                when (val value = entry.value) {
-                    is Map<*, *> -> value.isNotEmpty()
-                    is String -> value.isNotEmpty()
-                    else -> value != null
-                }
+        fun <K, V> filteredMapOf(
+            vararg pairs: Pair<K, V>,
+            allowEmptyMaps: Boolean = false
+        ): Map<K, V> = pairs.toMap().filter { entry ->
+            when (val value = entry.value) {
+                is Map<*, *> -> allowEmptyMaps || value.isNotEmpty()
+                is String -> value.isNotEmpty()
+                else -> value != null
             }
+        }
     }
 
     /**

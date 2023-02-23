@@ -20,7 +20,7 @@ internal class ProfileApiRequest(profile: Profile) : KlaviyoApiRequest(
 ) {
 
     private companion object {
-        const val PATH = "client/profiles"
+        const val PATH = "client/profiles/"
         const val LOCATION = "location"
         const val META = "meta"
         const val IDENTIFIERS = "identifiers"
@@ -28,7 +28,7 @@ internal class ProfileApiRequest(profile: Profile) : KlaviyoApiRequest(
 
     /**
      * Create a mutable copy of the profile
-     * We'll pop off all the enumerated keys as we build the body
+     * We'll pop off all the enumerated keys as we build the body d
      * Then any remaining pairs are custom keys
      */
     private val properties = profile.toMap().toMutableMap()
