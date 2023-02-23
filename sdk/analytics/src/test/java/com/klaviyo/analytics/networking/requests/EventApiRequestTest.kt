@@ -4,12 +4,13 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core_shared_tests.BaseTest
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 internal class EventApiRequestTest : BaseTest() {
 
-    private val expectedUrlPath = "client/events"
+    private val expectedUrlPath = "client/events/"
 
     private val expectedQueryData = mapOf("company_id" to API_KEY)
 
@@ -46,35 +47,97 @@ internal class EventApiRequestTest : BaseTest() {
         assertEquals(expectedQueryData, EventApiRequest(stubEvent, stubProfile).query)
     }
 
+    private val emailKey = "\$email"
+    private val anonKey = "\$anonymous"
+    private val phoneKey = "\$phone_number"
+
     @Test
     fun `Builds body request without properties`() {
-        val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"metric\":{\"name\":\"${stubEvent.type}\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"},\"time\":\"$ISO_TIME\"}}}"
-        val request = EventApiRequest(stubEvent, stubProfile)
+        val expectedJsonString = """
+            {
+              "data": {
+                "type": "event",
+                "attributes": {
+                  "metric": {
+                    "name": "${stubEvent.type}"
+                  },
+                  "profile": {
+                    "$emailKey": "$EMAIL",
+                    "$anonKey": "$ANON_ID",
+                    "$phoneKey": "$PHONE"
+                  },
+                  "properties": {},
+                  "time": "$ISO_TIME"
+                }
+              }
+            }
+        """
 
-        assertEquals(expectedJsonString, request.body.toString())
+        val request = EventApiRequest(stubEvent, stubProfile)
+        compareJson(JSONObject(expectedJsonString), request.body!!)
     }
 
     @Test
     fun `Builds request with properties`() {
+        val expectedJsonString = """
+            {
+              "data": {
+                "type": "event",
+                "attributes": {
+                  "metric": {
+                    "name": "${stubEvent.type}"
+                  },
+                  "profile": {
+                    "$emailKey": "$EMAIL",
+                    "$anonKey": "$ANON_ID",
+                    "$phoneKey": "$PHONE"
+                  },
+                  "properties": {
+                    "custom_value": "200"
+                  },
+                  "time": "$ISO_TIME"
+                }
+              }
+            }
+        """
+
         stubEvent.setProperty("custom_value", "200")
-        val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$ISO_TIME\",\"metric\":{\"name\":\"${stubEvent.type}\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"}}}}"
         val request = EventApiRequest(stubEvent, stubProfile)
 
-        assertEquals(expectedJsonString, request.body.toString())
+        compareJson(JSONObject(expectedJsonString), request.body!!)
     }
 
     @Test
     fun `Request is unaffected by changes to profile or event after the fact`() {
+        val expectedJsonString = """
+            {
+              "data": {
+                "type": "event",
+                "attributes": {
+                  "metric": {
+                    "name": "${stubEvent.type}"
+                  },
+                  "profile": {
+                    "$emailKey": "$EMAIL",
+                    "$anonKey": "$ANON_ID",
+                    "$phoneKey": "$PHONE"
+                  },
+                  "properties": {
+                    "custom_value": "200"
+                  },
+                  "time": "$ISO_TIME"
+                }
+              }
+            }
+        """
+
         stubEvent.setProperty("custom_value", "200")
-
-        val expectedJsonString = "{\"data\":{\"type\":\"event\",\"attributes\":{\"time\":\"$ISO_TIME\",\"metric\":{\"name\":\"${stubEvent.type}\"},\"properties\":{\"custom_value\":\"200\"},\"profile\":{\"\$email\":\"$EMAIL\",\"\$anonymous\":\"$ANON_ID\",\"\$phone_number\":\"$PHONE\"}}}}"
-
         val request = EventApiRequest(stubEvent, stubProfile)
 
         // If I mutate profile or properties after creating, it shouldn't affect the request
         stubProfile.setExternalId("ext_id")
         stubEvent.setProperty("custom_value", "100")
 
-        assertEquals(expectedJsonString, request.body.toString())
+        compareJson(JSONObject(expectedJsonString), request.body!!)
     }
 }
