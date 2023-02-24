@@ -82,6 +82,6 @@ internal class ProfileApiRequest(profile: Profile) : KlaviyoApiRequest(
      * @param key
      * @return
      */
-    private fun extract(key: ProfileKey): Pair<ProfileKey, Serializable?> =
-        key to properties.remove(key.name)
+    private fun extract(key: ProfileKey): Pair<String, Serializable?> =
+        key.name to properties.remove(key.name)
 }
