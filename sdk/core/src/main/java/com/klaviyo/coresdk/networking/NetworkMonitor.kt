@@ -34,6 +34,13 @@ interface NetworkMonitor {
      * @return Boolean
      */
     fun isNetworkConnected(): Boolean
+
+    /**
+     * Determines the current network type servicing the device
+     *
+     * @return integer value representing the type of network used by the device
+     */
+    fun getNetworkType(): Int
 }
 
 /**
@@ -81,6 +88,21 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     override fun isNetworkConnected(): Boolean = connectivityManager
         .getNetworkCapabilities(connectivityManager.activeNetwork)
         ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ?: false
+
+    /**
+     * Determines the current network type servicing the device
+     *
+     * @return integer value representing the type of network used by the device
+     */
+    override fun getNetworkType(): Int {
+        // TODO: Instead of hardcoded, use constants
+        if (connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true) {
+            return 1;
+        } else if (connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
+            return 0;
+        }
+        return 2;
+    }
 
     /**
      * Invoke all registered observers with current state of network connectivity

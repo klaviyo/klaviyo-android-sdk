@@ -29,7 +29,9 @@ import org.junit.Before
 import org.junit.Test
 
 internal class KlaviyoApiClientTest : BaseTest() {
-    private val flushInterval = 1000
+    private val flushIntervalWifi = 1000
+    private val flushIntervalCell = 2000
+    private val flushIntervalOffline = 3000
     private val queueDepth = 10
     private var delayedRunner: KlaviyoApiClient.NetworkRunnable? = null
     private val staticClock = StaticClock(TIME, ISO_TIME)
@@ -47,7 +49,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         delayedRunner = null
 
         every { Registry.clock } returns staticClock
-        every { configMock.networkFlushInterval } returns flushInterval
+        every { configMock.networkFlushIntervals } returns intArrayOf(flushIntervalWifi, flushIntervalCell, flushIntervalOffline)
         every { configMock.networkFlushDepth } returns queueDepth
         every { networkMonitorMock.isNetworkConnected() } returns false
         every { lifecycleMonitorMock.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
@@ -137,7 +139,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Test
     fun `Flushes queue on network restored`() {
         KlaviyoApiClient.enqueueRequest(mockRequest())
-        staticClock.time += flushInterval
+        staticClock.time += flushIntervalCell
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         assert(slotOnNetworkChange.isCaptured)
         slotOnNetworkChange.captured(false)
@@ -173,7 +175,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val requestMock = mockRequest()
 
         KlaviyoApiClient.enqueueRequest(requestMock)
-        staticClock.execute(flushInterval.toLong())
+        staticClock.execute(flushIntervalCell.toLong())
 
         delayedRunner!!.run()
 
@@ -220,7 +222,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val request1 = mockRequest("uuid-retry", KlaviyoApiRequest.Status.PendingRetry)
         val request2 = mockRequest("uuid-unsent", KlaviyoApiRequest.Status.Unsent)
         var attempts = 0
-        var backoffTime = flushInterval
+        var backoffTime = flushIntervalCell
         every { request1.attempts } answers { attempts }
 
         KlaviyoApiClient.enqueueRequest(request1, request2)

@@ -157,7 +157,10 @@ internal object KlaviyoApiClient : ApiClient {
     class NetworkRunnable(private var force: Boolean = false) : Runnable {
         private val queueInitTime = Registry.clock.currentTimeMillis()
 
-        private var flushInterval: Long = Registry.config.networkFlushInterval.toLong()
+        private var networkType: Int = Registry.networkMonitor.getNetworkType()
+
+        //private var flushInterval: Long = Registry.config.networkFlushInterval.toLong()
+        private var flushInterval: Long = Registry.config.networkFlushIntervals[networkType].toLong()
 
         private val flushDepth: Int = Registry.config.networkFlushDepth
 
@@ -185,6 +188,7 @@ internal object KlaviyoApiClient : ApiClient {
                         // Encountered a retryable error
                         // Put this back on top of the queue and we'll try again with backoff
                         apiQueue.offerFirst(apiRequest)
+                        // TODO: Does this mean that the flush interval can only be set to a different network type when the batch queue has emptied and the runnable has stopped?
                         flushInterval *= apiRequest.attempts + 1
                         break
                     }
