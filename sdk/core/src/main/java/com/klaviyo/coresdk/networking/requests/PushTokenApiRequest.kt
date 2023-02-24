@@ -2,6 +2,7 @@ package com.klaviyo.coresdk.networking.requests
 
 import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.Profile
+import java.io.Serializable
 import org.json.JSONObject
 
 /**
@@ -27,11 +28,17 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
     /**
      * Only send profile's identifiers, plus the push token as an appended property
      */
-    private val properties = profile.getIdentifiers().mapKeys { it.key.specialKey() }
+    private val properties: Map<String, Serializable> = profile.getIdentifiers()
+        .mapKeys { it.key.specialKey() }
         .plus(APPEND to hashMapOf(ANDROID_TOKEN to token))
 
-    override var body: JSONObject? = formatBody(
-        TOKEN to Registry.config.apiKey, // API Key, not to be confused with the push token!
-        PROPERTIES to JSONObject(properties)
+    override var body: JSONObject? = JSONObject(
+        mapOf(
+            TOKEN to Registry.config.apiKey, // API Key, not to be confused with the push token!
+            PROPERTIES to JSONObject(properties)
+        )
     )
+
+    // V2 API had this funky data format mixing json and form fields
+    override fun formatBody(): String = "$DATA=$body"
 }

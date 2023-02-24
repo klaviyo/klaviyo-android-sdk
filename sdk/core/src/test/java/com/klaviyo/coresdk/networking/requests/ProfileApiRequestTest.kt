@@ -107,7 +107,7 @@ internal class ProfileApiRequestTest : BaseTest() {
 
         val request = ProfileApiRequest(stubProfile)
 
-        compareJson(JSONObject(expectJson), request.body!!)
+        compareJson(JSONObject(expectJson), JSONObject(request.formatBody()!!))
     }
 
     @Test
@@ -140,6 +140,6 @@ internal class ProfileApiRequestTest : BaseTest() {
 
         val request = ProfileApiRequest(stubProfile)
 
-        compareJson(JSONObject(expectJson), request.body!!)
+        compareJson(JSONObject(expectJson), JSONObject(request.formatBody()!!))
     }
 }

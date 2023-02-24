@@ -36,11 +36,9 @@ internal open class KlaviyoApiRequest(
     var attempts = 0
         private set
 
-    var status: Status = Status.Unsent
-        private set
+    private var status: Status = Status.Unsent
 
-    var response: String? = null
-        private set
+    private var response: String? = null
 
     /**
      * Creates a representation of this [KlaviyoApiRequest] in JSON
@@ -60,6 +58,8 @@ internal open class KlaviyoApiRequest(
         .accumulate(BODY_JSON_KEY, body)
         .toString()
 
+    open fun formatBody(): String? = body?.let { JSONObject(mapOf(DATA to it)).toString() }
+
     /**
      * To facilitate deduplication, we will treat UUID as a unique identifier
      * such that even if a request is deserialized from JSON it is still
@@ -77,7 +77,7 @@ internal open class KlaviyoApiRequest(
 
     companion object {
         // Common keywords
-        private const val DATA = "data"
+        const val DATA = "data"
         const val TYPE = "type"
         const val ATTRIBUTES = "attributes"
         const val PROPERTIES = "properties"
@@ -143,11 +143,7 @@ internal open class KlaviyoApiRequest(
          * @param V
          * @param pairs
          */
-        fun <K, V> formatBody(vararg pairs: Pair<K, V>) = JSONObject(
-            mapOf(
-                DATA to pairs.toMap()
-            )
-        )
+        fun <K, V> jsonMapOf(vararg pairs: Pair<K, V>) = JSONObject(pairs.toMap())
 
         /**
          * Helper function to create a map that filters out empty/null values
@@ -225,7 +221,7 @@ internal open class KlaviyoApiRequest(
         connection.readTimeout = Registry.config.networkTimeout
         connection.connectTimeout = Registry.config.networkTimeout
 
-        val bodyString = body?.toString() ?: return connection
+        val bodyString = formatBody() ?: return connection
 
         connection.doOutput = true
         HttpUtil.writeToConnection(bodyString, connection)

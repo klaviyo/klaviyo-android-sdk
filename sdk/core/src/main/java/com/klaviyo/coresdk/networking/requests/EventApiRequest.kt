@@ -40,7 +40,8 @@ internal class EventApiRequest(
         COMPANY_ID to Registry.config.apiKey
     )
 
-    override var body: JSONObject? = formatBody(
+    // It is critical for JSON encoding that we convert all keys to strings
+    override var body: JSONObject? = jsonMapOf(
         TYPE to EVENT,
         ATTRIBUTES to filteredMapOf(
             PROFILE to profile.getIdentifiers().mapKeys { it.key.specialKey() },
