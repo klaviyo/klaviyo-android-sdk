@@ -116,7 +116,7 @@ as well as foreground and data notifications via the `onMessageReceived` method.
 </service>
 ``` 
 Additionally, update your launcher activity to retrieve the _current_ device token on startup
-and register it with Klaviyo Push SDK. To track notifications opened from the system tray 
+and register it with Klaviyo SDK. To track notifications opened from the system tray 
 (i.e. received while the app is backgrounded) pass the `Intent` to KlaviyoPushService.
 ```kotlin
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -124,7 +124,7 @@ and register it with Klaviyo Push SDK. To track notifications opened from the sy
     
         //Fetches the current push token and registers with Push SDK
         FirebaseMessaging.getInstance().token.addOnSuccessListener {
-            KlaviyoPushService.setPushToken(it)
+            Klaviyo.setPushToken(it)
         }
 
         onNewIntent(intent)
@@ -134,7 +134,7 @@ and register it with Klaviyo Push SDK. To track notifications opened from the sy
         super.onNewIntent(intent)
 
         //Tracks when a system tray notification is opened
-        KlaviyoPushService.handlePush(intent)
+        Klaviyo.handlePush(intent)
     }
 ```
 
@@ -151,12 +151,12 @@ import com.klaviyo.push.KlaviyoPushService
 class YourPushService: FirebaseMessagingService() {
     override fun onNewToken(newToken: String) {
         super.onNewToken(newToken)
-        KlaviyoPushService.setPushToken(newToken)
+        Klaviyo.setPushToken(newToken)
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        KlaviyoPushService.handlePush(message)
+        //You should decide how you want to handle messages receive in foreground
     }
 }
 ```

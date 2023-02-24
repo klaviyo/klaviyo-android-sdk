@@ -2,8 +2,10 @@ package com.klaviyo.analytics
 
 import android.app.Application.ActivityLifecycleCallbacks
 import android.content.Context
+import android.content.Intent
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
+import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
@@ -108,7 +110,7 @@ object Klaviyo {
     fun getExternalId(): String? = UserInfo.externalId.ifEmpty { null }
 
     /**
-     * Saves push token and registers to the current profile
+     * Saves a push token and registers to the current profile
      *
      * We append this token to a property map and queue it into an identify request to send to
      * the Klaviyo asynchronous APIs.
@@ -221,12 +223,12 @@ object Klaviyo {
      */
     fun resetProfile(): Klaviyo = apply {
         UserInfo.reset()
-        // TODO Do we need to API call immediately?
+        // TODO Do we need to API call here?
         Registry.get<ApiClient>().enqueueProfile(UserInfo.getAsProfile())
     }
 
     /**
-     * Creates an an [Event] associated with the currently tracked profile
+     * Creates an [Event] associated with the currently tracked profile
      *
      * @param event A map-like object representing the event attributes
      * @return Returns [Klaviyo] for call chaining
@@ -234,4 +236,36 @@ object Klaviyo {
     fun createEvent(event: Event): Klaviyo = apply {
         Registry.get<ApiClient>().enqueueEvent(event, UserInfo.getAsProfile())
     }
+
+    /**
+     * From an opened push Intent, creates an [EventType.OPENED_PUSH] [Event]
+     * containing appropriate tracking parameters
+     *
+     * @param intent
+     */
+    fun handlePush(intent: Intent?) = apply {
+        val payload = intent?.extras?.let { extras ->
+            extras.keySet().associateWith { key -> extras.getString(key, "") }
+        } ?: emptyMap()
+
+        if (isKlaviyoPush(payload)) {
+            val event = Event(
+                EventType.OPENED_PUSH,
+                payload.mapKeys {
+                    EventKey.CUSTOM(it.key)
+                }
+            )
+
+            getPushToken()?.let { event[EventKey.PUSH_TOKEN] = it }
+
+            createEvent(event)
+        }
+    }
+
+    /**
+     * Checks whether a push notification payload originated from Klaviyo
+     *
+     * @param payload
+     */
+    fun isKlaviyoPush(payload: Map<String, String>) = payload.containsKey("_k")
 }
