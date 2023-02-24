@@ -1,7 +1,9 @@
 subprojects {
-    apply plugin: 'com.android.library'
-    apply plugin: 'kotlin-android'
+    apply plugin: "com.android.library"
+    apply plugin: "kotlin-android"
     apply plugin: "org.jlleitschuh.gradle.ktlint"
+    apply plugin: "org.jetbrains.dokka"
+    apply plugin: "maven-publish"
 
     def ext = rootProject.ext
 
@@ -43,21 +45,13 @@ subprojects {
         implementation "androidx.core:core-ktx:$ext.coreKTXVersion"
         implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$ext.kotlinSTDVersion"
 
-        /***** Testing Dependencies *****/
-        testImplementation "junit:junit:$ext.junitVersion"
-        testImplementation "androidx.test:runner:$ext.testRunnerVersion"
-        testImplementation "androidx.test:rules:$ext.testRulesVersion"
-        // Mocking Dependencies
-        testImplementation "io.mockk:mockk:$ext.mockkVersion"
-        // JSON is bundled with the Android SDK so we need real objects to test against
-        testImplementation "org.json:json:$ext.jsonVersion"
-
         /***** Instrumentation Testing Dependencies *****/
         androidTestImplementation "androidx.test:runner:$ext.testRunnerVersion"
         androidTestImplementation "androidx.test.espresso:espresso-core:$ext.espressoVersion"
     }
 
     ktlint {
+        verbose = true
         verbose = true
         android = true
         ignoreFailures = false
@@ -68,6 +62,19 @@ subprojects {
             exclude("**/generated/**")
             include("**/kotlin/**")
             include("**/java/**")
+        }
+    }
+
+    dokkaHtmlPartial {
+        dokkaSourceSets {
+            configureEach {
+                includeNonPublic.set(false)
+                reportUndocumented.set(true)
+                skipEmptyPackages.set(true)
+                suppressInheritedMembers.set(true)
+
+                jdkVersion.set(11)
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
 // sdk modules
 include ':sdk'
-include ':sdk:core', ':sdk:push'
+include ':sdk:core', ':sdk:analytics', ':sdk:push-fcm', ':sdk:core-shared-tests'
+include ':sample'
