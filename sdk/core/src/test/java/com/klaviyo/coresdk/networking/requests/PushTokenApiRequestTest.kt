@@ -3,6 +3,12 @@ package com.klaviyo.coresdk.networking.requests
 import com.klaviyo.coresdk.BaseTest
 import com.klaviyo.coresdk.model.Profile
 import com.klaviyo.coresdk.model.ProfileKey
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.spyk
+import java.io.ByteArrayInputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -53,5 +59,33 @@ internal class PushTokenApiRequestTest : BaseTest() {
 
         // Already confirmed the contents, just confirm that the body uses this odd data=json format
         assertEquals(request.formatBody(), "data=${request.body}")
+    }
+
+    @Test
+    fun `Parses response string for errors`() {
+        // V2 API returns a 200 status code with "0" or "1" in the payload where
+        // "0" = failures that would typically be a 400 status code
+        // "1" = success
+        val successStream = ByteArrayInputStream("1".toByteArray())
+        val errorStream = ByteArrayInputStream("0".toByteArray())
+        val expectedUrl = URL(configMock.baseUrl + "/$expectedUrlPath")
+        val connectionMock = spyk(expectedUrl.openConnection()) as HttpURLConnection
+
+        mockkObject(HttpUtil)
+        every { HttpUtil.openConnection(any()) } returns connectionMock
+        every { HttpUtil.writeToConnection(any(), any()) } returns Unit
+        every { connectionMock.connect() } returns Unit
+        every { networkMonitorMock.isNetworkConnected() } returns true
+        every { configMock.networkTimeout } returns 1
+
+        val request = PushTokenApiRequest(PUSH_TOKEN, profile)
+
+        // Set up a 200 response with different bodies
+        every { connectionMock.responseCode } returns 200
+        every { connectionMock.inputStream } returns successStream
+        assertEquals(KlaviyoApiRequest.Status.Complete, request.send())
+
+        every { connectionMock.inputStream } returns errorStream
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
     }
 }

@@ -65,6 +65,7 @@ internal abstract class BaseTest {
         every { apiKey } returns API_KEY
         every { applicationContext } returns contextMock
         every { networkMaxRetries } returns 4
+        every { baseUrl } returns "https://test.fake-klaviyo.com"
     }
     protected val lifecycleMonitorMock = mockk<LifecycleMonitor>()
     protected val networkMonitorMock = mockk<NetworkMonitor>()

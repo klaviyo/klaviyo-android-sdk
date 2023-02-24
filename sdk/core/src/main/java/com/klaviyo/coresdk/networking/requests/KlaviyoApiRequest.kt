@@ -36,9 +36,9 @@ internal open class KlaviyoApiRequest(
     var attempts = 0
         private set
 
-    private var status: Status = Status.Unsent
+    protected var status: Status = Status.Unsent
 
-    private var response: String? = null
+    protected var response: String? = null
 
     /**
      * Creates a representation of this [KlaviyoApiRequest] in JSON
@@ -239,7 +239,7 @@ internal open class KlaviyoApiRequest(
      *
      * @return The status of the request
      */
-    private fun parseResponse(connection: HttpURLConnection): Status {
+    protected open fun parseResponse(connection: HttpURLConnection): Status {
         // https://developers.klaviyo.com/en/docs/rate_limits_and_error_handling
         status = when (connection.responseCode) {
             in HTTP_OK until HTTP_MULT_CHOICE -> Status.Complete

@@ -20,8 +20,7 @@ import org.junit.Test
 
 internal class KlaviyoApiRequestTest : BaseTest() {
     private val stubUrlPath = "test"
-    private val stubBaseUrl = "https://valid.url"
-    private val stubFullUrl = "$stubBaseUrl/$stubUrlPath"
+    private val stubFullUrl = "${configMock.baseUrl}/$stubUrlPath"
 
     private val stubErrorResponse = "error"
     private val stubSuccessResponse = "success"
@@ -49,7 +48,6 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         every { networkMonitorMock.isNetworkConnected() } returns true
         every { configMock.networkTimeout } returns 1
         every { configMock.networkFlushInterval } returns 1
-        every { configMock.baseUrl } returns stubBaseUrl
     }
 
     @Test

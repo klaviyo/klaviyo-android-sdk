@@ -3,6 +3,7 @@ package com.klaviyo.coresdk.networking.requests
 import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.Profile
 import java.io.Serializable
+import java.net.HttpURLConnection
 import org.json.JSONObject
 
 /**
@@ -41,4 +42,15 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
 
     // V2 API had this funky data format mixing json and form fields
     override fun formatBody(): String = "$DATA=$body"
+
+    override fun parseResponse(connection: HttpURLConnection): Status {
+        super.parseResponse(connection)
+
+        // V2 APIs did not properly use status codes.
+        if (status == Status.Complete && response == "0") {
+            status = Status.Failed
+        }
+
+        return status
+    }
 }
