@@ -178,7 +178,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         val actualResponse = request.send()
 
         assert(bodySlot.isCaptured)
-        assertEquals(expectedBody.toString(), bodySlot.captured)
+        assertEquals("{\"data\":{\"test\":1}}", bodySlot.captured)
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
         assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
