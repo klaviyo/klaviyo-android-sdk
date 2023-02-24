@@ -116,6 +116,7 @@ internal open class KlaviyoApiRequest(
          * @throws JSONException If required fields are missing or improperly formatted
          */
         fun fromJson(json: JSONObject): KlaviyoApiRequest {
+            // TODO - restore to original type to optimize storage space
             val urlPath = json.getString(PATH_JSON_KEY)
             val method = when (json.getString(METHOD_JSON_KEY)) {
                 RequestMethod.POST.name -> RequestMethod.POST

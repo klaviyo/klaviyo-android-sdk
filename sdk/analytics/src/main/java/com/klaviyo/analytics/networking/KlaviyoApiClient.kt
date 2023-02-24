@@ -194,6 +194,7 @@ internal object KlaviyoApiClient : ApiClient {
                     KlaviyoApiRequest.Status.PendingRetry -> {
                         // Encountered a retryable error
                         // Put this back on top of the queue and we'll try again with backoff
+                        // TODO reset flush interval next time succeeds
                         apiQueue.offerFirst(apiRequest)
                         flushInterval *= apiRequest.attempts + 1
                         break

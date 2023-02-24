@@ -173,6 +173,7 @@ object Klaviyo {
      */
     fun setProfile(profile: Profile): Klaviyo = apply {
         // Update UserInfo in case the incoming profile contains any identifiers
+        // TODO rename to merge or update?
         UserInfo.updateFromProfile(profile)
         debouncedProfileUpdate(profile)
     }
@@ -220,6 +221,7 @@ object Klaviyo {
      */
     fun resetProfile(): Klaviyo = apply {
         UserInfo.reset()
+        // TODO Do we need to API call immediately?
         Registry.get<ApiClient>().enqueueProfile(UserInfo.getAsProfile())
     }
 
