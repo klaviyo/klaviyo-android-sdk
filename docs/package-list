@@ -1,0 +1,16 @@
+$dokka.format:html-v1
+$dokka.linkExtension:html
+
+module:analytics
+com.klaviyo.analytics
+com.klaviyo.analytics.model
+module:core
+com.klaviyo.core
+com.klaviyo.core.config
+com.klaviyo.core.lifecycle
+com.klaviyo.core.model
+com.klaviyo.core.networking
+module:core-shared-tests
+com.klaviyo.core_shared_tests
+module:push-fcm
+com.klaviyo.push_fcm
