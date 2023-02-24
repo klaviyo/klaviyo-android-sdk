@@ -62,7 +62,7 @@ class SampleApplication : Application() {
     private fun pushFcmExample() {
         //Fetches the current push token and registers with Klaviyo Push-FCM
         FirebaseMessaging.getInstance().token.addOnSuccessListener {
-            KlaviyoPushService.setPushToken(it)
+            Klaviyo.setPushToken(it)
         }
     }
 

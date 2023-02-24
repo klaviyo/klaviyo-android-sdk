@@ -11,7 +11,7 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.klaviyo.push_fcm.KlaviyoPushService
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.sample.ui.theme.KlaviyoandroidsdkTheme
 
 class MainActivity : ComponentActivity() {
@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
 
         //Tracks when a system tray notification is opened
-        KlaviyoPushService.handlePush(intent)
+        Klaviyo.handlePush(intent)
     }
 }
 
