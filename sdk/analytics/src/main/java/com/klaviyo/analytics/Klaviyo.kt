@@ -119,7 +119,7 @@ object Klaviyo {
      *
      * @param pushToken The push token provided by the device push service
      */
-    fun setPushToken(pushToken: String) {
+    fun setPushToken(pushToken: String) = apply {
         Registry.dataStore.store(EventKey.PUSH_TOKEN.name, pushToken)
         Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
     }

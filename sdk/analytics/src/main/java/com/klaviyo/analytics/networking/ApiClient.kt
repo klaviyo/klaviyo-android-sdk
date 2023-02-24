@@ -3,7 +3,7 @@ package com.klaviyo.analytics.networking
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 
-interface ApiClient {
+internal interface ApiClient {
 
     /**
      * Queue an API request to save [Profile] data to Klaviyo
