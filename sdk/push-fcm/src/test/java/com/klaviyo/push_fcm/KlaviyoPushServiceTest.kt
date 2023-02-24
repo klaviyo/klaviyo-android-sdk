@@ -47,7 +47,7 @@ class KlaviyoPushServiceTest : BaseTest() {
     override fun setup() {
         super.setup()
         every { Registry.dataStore } returns store
-        Registry.add<ApiClient>(apiClientMock)
+        Registry.register<ApiClient>(apiClientMock)
         every { apiClientMock.enqueuePushToken(any(), any()) } returns Unit
         every { apiClientMock.enqueueEvent(any(), any()) } returns Unit
     }

@@ -1,6 +1,6 @@
 package com.klaviyo.analytics
 
-import android.app.Application
+import android.app.Application.ActivityLifecycleCallbacks
 import android.content.Context
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
@@ -14,7 +14,7 @@ import com.klaviyo.core.config.Config
 
 /**
  * Public API for the core Klaviyo SDK.
- * Receives configuration, profile data, and analytics requests
+ * Receives profile changes and analytics requests
  * to be processed and sent to the Klaviyo backend
  */
 object Klaviyo {
@@ -24,7 +24,12 @@ object Klaviyo {
      * so that the SDK can respond to environment changes such as internet
      * availability and application termination
      */
-    val lifecycleCallbacks: Application.ActivityLifecycleCallbacks = Registry.lifecycleCallbacks
+    val lifecycleCallbacks: ActivityLifecycleCallbacks get() = Registry.lifecycleCallbacks
+
+    init {
+        // Since analytics platform owns ApiClient, we must register the service on initialize
+        if (!Registry.isRegistered<ApiClient>()) Registry.register<ApiClient> { KlaviyoApiClient }
+    }
 
     /**
      * Configure Klaviyo SDK with your account's public API Key and application context.
@@ -34,14 +39,12 @@ object Klaviyo {
      * @param applicationContext
      */
     fun initialize(apiKey: String, applicationContext: Context) {
-        Registry.add<Config>(
+        Registry.register<Config>(
             Registry.configBuilder
                 .apiKey(apiKey)
                 .applicationContext(applicationContext)
                 .build()
         )
-
-        Registry.add<ApiClient> { KlaviyoApiClient }
     }
 
     /**
@@ -112,7 +115,7 @@ object Klaviyo {
      * We then write it into the shared preferences so that we can fetch the token for this
      * device as needed
      *
-     * @param pushToken The push token provided by the FCM Service
+     * @param pushToken The push token provided by the device push service
      */
     fun setPushToken(pushToken: String) {
         Registry.dataStore.store(EventKey.PUSH_TOKEN.name, pushToken)
@@ -120,9 +123,7 @@ object Klaviyo {
     }
 
     /**
-     * Retrieves the device FCM push token stored on this device
-     *
-     * @return The push token we read from the data store
+     * @return The device push token, if one has been assigned to currently tracked profile
      */
     fun getPushToken(): String? =
         Registry.dataStore.fetch(EventKey.PUSH_TOKEN.name)?.ifEmpty { null }

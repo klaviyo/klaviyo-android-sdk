@@ -68,7 +68,7 @@ object Registry {
      * @param T - Type, usually an interface, to register under
      * @param service - The implementation
      */
-    inline fun <reified T : Any> add(service: Any) {
+    inline fun <reified T : Any> register(service: Any) {
         val type = typeOf<T>()
         services[type] = service
         registry.remove(type)
@@ -81,10 +81,21 @@ object Registry {
      * @param T - Type, usually an interface, to register under
      * @param registration - Lambda that returns the implementation
      */
-    inline fun <reified T : Any> add(noinline registration: Registration) {
+    inline fun <reified T : Any> register(noinline registration: Registration) {
         val type = typeOf<T>()
         services.remove(type)
         registry[type] = registration
+    }
+
+    /**
+     * Query whether a service of type is already registered
+     *
+     * @param T - Type, usually an interface, to register under
+     * @return Whether service is registered
+     */
+    inline fun <reified T : Any> isRegistered(): Boolean = typeOf<T>().let {
+        type ->
+        registry.containsKey(type) || services.containsKey(type)
     }
 
     /**

@@ -28,7 +28,7 @@ internal class KlaviyoTest : BaseTest() {
 
     override fun setup() {
         super.setup()
-        Registry.add<ApiClient> { apiClientMock }
+        Registry.register<ApiClient> { apiClientMock }
         every { Registry.clock } returns staticClock
         every { apiClientMock.enqueueProfile(capture(capturedProfile)) } returns Unit
         every { apiClientMock.enqueueEvent(any(), any()) } returns Unit
