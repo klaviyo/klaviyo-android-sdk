@@ -54,6 +54,20 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
         ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ?: false
 
     /**
+     * Check what type of network connection is currently servicing the device
+     *
+     * @return Integer representing the current network type
+     */
+    override fun getNetworkType(): Int {
+        if (connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
+            return 0
+        } else if (connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true) {
+            return 1
+        }
+        return 2
+    }
+
+    /**
      * Invoke all registered observers with current state of network connectivity
      */
     private fun broadcastNetworkChange() {

@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
-import com.klaviyo.core.BuildConfig
+import com.klaviyo.coresdk.BuildConfig
 
 /**
  * Exception that is thrown when the the Klaviyo API token is missing from the config
@@ -44,12 +44,14 @@ object KlaviyoConfig : Config {
     private const val NETWORK_TIMEOUT_DEFAULT: Int = 10_000
 
     /**
-     * Interval between flushing network queue, and the basis for retry with exponential backoff
+     * Intervals between flushing network queue, and the basis for retry with exponential backoff
      *
      * Reasoning: A 30 second interval should give radios time to go back to sleep between batches,
      * four retries with a typical backoff pattern would then be 30s, 60s, 3m, 12m.
      */
-    private const val NETWORK_FLUSH_INTERVAL_DEFAULT: Int = 30_000
+    private const val NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT: Int = 10_000
+    private const val NETWORK_FLUSH_INTERVAL_CELL_DEFAULT: Int = 30_000
+    private const val NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT: Int = 60_000
 
     /**
      * How many API requests can be enqueued before flush
@@ -74,7 +76,7 @@ object KlaviyoConfig : Config {
         private set
     override var networkTimeout = NETWORK_TIMEOUT_DEFAULT
         private set
-    override var networkFlushInterval = NETWORK_FLUSH_INTERVAL_DEFAULT
+    override var networkFlushIntervals = intArrayOf(NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT, NETWORK_FLUSH_INTERVAL_CELL_DEFAULT, NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT)
         private set
     override var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private set
@@ -89,7 +91,7 @@ object KlaviyoConfig : Config {
         private var applicationContext: Context? = null
         private var debounceInterval: Int = DEBOUNCE_INTERVAL
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
-        private var networkFlushInterval: Int = NETWORK_FLUSH_INTERVAL_DEFAULT
+        private var networkFlushIntervals: IntArray = intArrayOf(NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT, NETWORK_FLUSH_INTERVAL_CELL_DEFAULT, NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT)
         private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private var networkMaxRetries = NETWORK_MAX_RETRIES_DEFAULT
 
@@ -117,9 +119,25 @@ object KlaviyoConfig : Config {
             }
         }
 
-        override fun networkFlushInterval(networkFlushInterval: Int) = apply {
+        override fun networkFlushIntervalWifi(networkFlushInterval: Int) = apply {
             if (networkFlushInterval >= 0) {
-                this.networkFlushInterval = networkFlushInterval
+                this.networkFlushIntervals[0] = networkFlushInterval
+            } else {
+                // TODO Logging
+            }
+        }
+
+        override fun networkFlushIntervalCell(networkFlushInterval: Int) = apply {
+            if (networkFlushInterval >= 0) {
+                this.networkFlushIntervals[1] = networkFlushInterval
+            } else {
+                // TODO Logging
+            }
+        }
+
+        override fun networkFlushIntervalOffline(networkFlushInterval: Int) = apply {
+            if (networkFlushInterval >= 0) {
+                this.networkFlushIntervals[2] = networkFlushInterval
             } else {
                 // TODO Logging
             }
@@ -161,7 +179,7 @@ object KlaviyoConfig : Config {
             KlaviyoConfig.applicationContext = applicationContext as Context
             KlaviyoConfig.debounceInterval = debounceInterval
             KlaviyoConfig.networkTimeout = networkTimeout
-            KlaviyoConfig.networkFlushInterval = networkFlushInterval
+            KlaviyoConfig.networkFlushIntervals = networkFlushIntervals
             KlaviyoConfig.networkFlushDepth = networkFlushDepth
             KlaviyoConfig.networkMaxRetries = networkMaxRetries
 

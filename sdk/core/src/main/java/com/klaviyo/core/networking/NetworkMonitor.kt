@@ -27,4 +27,11 @@ interface NetworkMonitor {
      * @return Boolean
      */
     fun isNetworkConnected(): Boolean
+
+    /**
+     * Check what type of network connection is currently servicing the device
+     *
+     * @return Integer representing the current network type
+     */
+    fun getNetworkType(): Int
 }
