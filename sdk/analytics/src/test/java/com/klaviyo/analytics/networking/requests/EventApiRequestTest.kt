@@ -53,7 +53,7 @@ internal class EventApiRequestTest : BaseTest() {
 
     @Test
     fun `Builds body request without properties`() {
-        val expectedJsonString = """
+        val expectJson = """
             {
               "data": {
                 "type": "event",
@@ -74,12 +74,12 @@ internal class EventApiRequestTest : BaseTest() {
         """
 
         val request = EventApiRequest(stubEvent, stubProfile)
-        compareJson(JSONObject(expectedJsonString), request.body!!)
+        compareJson(JSONObject(expectJson), JSONObject(request.formatBody()!!))
     }
 
     @Test
     fun `Builds request with properties`() {
-        val expectedJsonString = """
+        val expectJson = """
             {
               "data": {
                 "type": "event",
@@ -104,12 +104,12 @@ internal class EventApiRequestTest : BaseTest() {
         stubEvent.setProperty("custom_value", "200")
         val request = EventApiRequest(stubEvent, stubProfile)
 
-        compareJson(JSONObject(expectedJsonString), request.body!!)
+        compareJson(JSONObject(expectJson), JSONObject(request.formatBody()!!))
     }
 
     @Test
     fun `Request is unaffected by changes to profile or event after the fact`() {
-        val expectedJsonString = """
+        val expectJson = """
             {
               "data": {
                 "type": "event",
@@ -138,6 +138,6 @@ internal class EventApiRequestTest : BaseTest() {
         stubProfile.setExternalId("ext_id")
         stubEvent.setProperty("custom_value", "100")
 
-        compareJson(JSONObject(expectedJsonString), request.body!!)
+        compareJson(JSONObject(expectJson), JSONObject(request.formatBody()!!))
     }
 }

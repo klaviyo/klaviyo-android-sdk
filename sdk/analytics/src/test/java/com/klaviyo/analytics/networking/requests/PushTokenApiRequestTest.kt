@@ -40,16 +40,18 @@ internal class PushTokenApiRequestTest : BaseTest() {
             .setProperty(ProfileKey.FIRST_NAME, "Kermit")
             .setProperty("type", "muppet")
 
-        val body = PushTokenApiRequest(PUSH_TOKEN, profile).body
-        val payload = body?.optJSONObject("data")
-        val props = payload?.optJSONObject("properties")
+        val request = PushTokenApiRequest(PUSH_TOKEN, profile)
+        val props = request.body?.optJSONObject("properties")
 
-        assertEquals(API_KEY, payload?.optString("token"))
+        assertEquals(API_KEY, request.body?.optString("token"))
         assertEquals(EXTERNAL_ID, props?.optString("\$external_id"))
         assertEquals(EMAIL, props?.optString("\$email"))
         assertEquals(PHONE, props?.optString("\$phone_number"))
         assertEquals(ANON_ID, props?.optString("\$anonymous"))
         assertEquals(PUSH_TOKEN, props?.optJSONObject("\$append")?.optString("\$android_tokens"))
-        assertEquals(5, props?.length()) // nothing else!
+        assertEquals(5, props?.length()) // no other fields!
+
+        // Already confirmed the contents, just confirm that the body uses this odd data=json format
+        assertEquals(request.formatBody(), "data=${request.body}")
     }
 }

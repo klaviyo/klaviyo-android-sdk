@@ -43,7 +43,7 @@ internal class ProfileApiRequest(profile: Profile) : KlaviyoApiRequest(
         COMPANY_ID to Registry.config.apiKey
     )
 
-    override var body: JSONObject? = formatBody(
+    override var body: JSONObject? = jsonMapOf(
         TYPE to PROFILE,
         ATTRIBUTES to filteredMapOf( // All of the enumerated keys are "attributes"
             extract(ProfileKey.EMAIL),
@@ -71,13 +71,16 @@ internal class ProfileApiRequest(profile: Profile) : KlaviyoApiRequest(
             PROPERTIES to properties, // Any remaining custom keys are properties
         ),
         META to mapOf(
-            IDENTIFIERS to profile.getIdentifiers()
+            // It is critical for JSON encoding that we convert all keys to strings
+            IDENTIFIERS to profile.getIdentifiers().mapKeys { it.key.name }
         )
     )
 
     /**
      * As we build the body, extract keys from the profile object
      * That way, all remaining pairs can be used in the properties overload
+     *
+     * It is critical for JSON encoding that we convert all keys to strings
      *
      * @param key
      * @return
