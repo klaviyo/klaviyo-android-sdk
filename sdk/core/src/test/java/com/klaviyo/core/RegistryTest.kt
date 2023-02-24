@@ -13,7 +13,7 @@ class RegistryTest {
     @Test
     fun `Registers a dynamic dependency`() {
         val dep = object : TestDependency {}
-        Registry.add<TestDependency>(dep)
+        Registry.register<TestDependency>(dep)
         assertEquals(dep, Registry.get<TestDependency>())
     }
 
@@ -21,7 +21,7 @@ class RegistryTest {
     fun `Registers a dynamic dependency lazily`() {
         var callCount = 0
 
-        Registry.add<TestLazyDependency> {
+        Registry.register<TestLazyDependency> {
             callCount++
             object : TestLazyDependency {}
         }
@@ -35,7 +35,7 @@ class RegistryTest {
 
     @Test(expected = InvalidRegistration::class)
     fun `Throws when dependency is wrong type`() {
-        Registry.add<TesWrongDependency> { object {} }
+        Registry.register<TesWrongDependency> { object {} }
         Registry.get<TesWrongDependency>()
     }
 
