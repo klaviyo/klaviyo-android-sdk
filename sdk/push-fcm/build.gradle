@@ -1,9 +1,13 @@
-description = 'Core featureset of the Klaviyo SDK including SDK configuration, session tracking and analytics'
+project.description = 'Push functionality for the Klaviyo SDK suite'
 evaluationDependsOn(':sdk')
 
 def ext = rootProject.ext
 
 dependencies {
+    implementation project(':sdk:core')
+    implementation project(':sdk:analytics')
+    implementation "com.google.firebase:firebase-messaging:$ext.fcmVersion"
+
     testImplementation project(":sdk:core-shared-tests")
 }
 
@@ -14,7 +18,7 @@ afterEvaluate {
             release(MavenPublication) {
                 from components.release
                 groupId = ext.groupId
-                artifactId = 'core'
+                artifactId = 'push-fcm'
                 version = ext.versionName
             }
         }
