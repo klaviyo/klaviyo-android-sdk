@@ -13,10 +13,9 @@ import io.mockk.spyk
 import io.mockk.unmockkObject
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
-import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
-import org.junit.Assert
+import org.junit.Assert.assertEquals
 import org.junit.Before
 
 /**
@@ -41,34 +40,19 @@ abstract class BaseTest {
          * @param second
          */
         fun compareJson(first: JSONObject, second: JSONObject) {
-            val firstKeys = first.toMap().keys.sorted()
-            val secondKeys = second.toMap().keys.sorted()
+            val firstKeys = arrayListOf<String>()
+            val secondKeys = arrayListOf<String>()
+            first.keys().forEach { firstKeys.add(it) }
+            second.keys().forEach { secondKeys.add(it) }
 
-            Assert.assertEquals(firstKeys, secondKeys)
+            assertEquals(firstKeys.sorted(), secondKeys.sorted())
 
             first.keys().forEach { k ->
-                if (first[k] is JSONObject) {
+                if (first[k] is JSONObject && second[k] is JSONObject) {
                     compareJson(first[k] as JSONObject, second[k] as JSONObject)
                 } else {
-                    Assert.assertEquals(first[k], second[k])
+                    assertEquals(first[k], second[k])
                 }
-            }
-        }
-
-        /**
-         * Converts a JSONObject to a map to make it easier to operate with
-         *
-         * @return
-         */
-        private fun JSONObject.toMap(): Map<String, *> = keys().asSequence().associateWith {
-            when (val value = this[it]) {
-                is JSONArray -> {
-                    val map = (0 until value.length()).associate { Pair(it.toString(), value[it]) }
-                    JSONObject(map).toMap().values.toList()
-                }
-                is JSONObject -> value.toMap()
-                JSONObject.NULL -> null
-                else -> value
             }
         }
     }
