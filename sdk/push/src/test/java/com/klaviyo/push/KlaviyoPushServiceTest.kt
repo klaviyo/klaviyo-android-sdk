@@ -3,10 +3,9 @@ package com.klaviyo.push
 import android.content.Intent
 import android.os.Bundle
 import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.coresdk.Klaviyo
 import com.klaviyo.coresdk.Registry
 import com.klaviyo.coresdk.model.DataStore
-import com.klaviyo.push.KlaviyoPushService.Companion.PUSH_TOKEN_KEY
+import com.klaviyo.coresdk.networking.ApiClient
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -59,17 +58,17 @@ class KlaviyoPushServiceTest {
         }
     }
 
-    private lateinit var store: DataStore
+    private val store: DataStore = InMemoryDataStore()
+    private val mockApiClient = mockk<ApiClient>().apply {
+        every { enqueuePushToken(any(), any()) } returns Unit
+        every { enqueueEvent(any(), any()) } returns Unit
+    }
 
     @Before
     fun setup() {
-        store = InMemoryDataStore() // start every test with an empty store
-
-        mockkObject(Klaviyo)
-        every { Klaviyo.setProfile(any()) } returns mockk()
-        every { Klaviyo.createEvent(any()) } returns mockk()
         mockkObject(Registry)
         every { Registry.dataStore } returns store
+        every { Registry.apiClient } returns mockApiClient
     }
 
     @Test
@@ -84,7 +83,7 @@ class KlaviyoPushServiceTest {
 
     @Test
     fun `getPushToken fetches from persistent store`() {
-        store.store(PUSH_TOKEN_KEY, stubPushToken)
+        store.store("push_token", stubPushToken)
 
         assertEquals(KlaviyoPushService.getPushToken(), stubPushToken)
     }
@@ -93,15 +92,15 @@ class KlaviyoPushServiceTest {
     fun `setPushToken saves to persistent store and enqueues an API call`() {
         KlaviyoPushService.setPushToken(stubPushToken)
 
-        assertEquals(store.fetch(PUSH_TOKEN_KEY), stubPushToken)
-        verify { Klaviyo.setProfile(any()) }
+        assertEquals(store.fetch("push_token"), stubPushToken)
+        verify { mockApiClient.enqueuePushToken(any(), any()) }
     }
 
     @Test
     fun `Opening a Klaviyo push payload enqueues an event API call`() {
         KlaviyoPushService.openedPush(stubPayload)
 
-        verify { Klaviyo.createEvent(any()) }
+        verify { mockApiClient.enqueueEvent(any(), any()) }
     }
 
     @Test
@@ -110,7 +109,7 @@ class KlaviyoPushServiceTest {
         val nonKlaviyoPayload = mapOf("other" to "3rd party push")
         KlaviyoPushService.openedPush(nonKlaviyoPayload)
 
-        verify(inverse = true) { Klaviyo.createEvent(any()) }
+        verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
     }
 
     @Test
@@ -119,7 +118,7 @@ class KlaviyoPushServiceTest {
         pushService.onNewToken(stubPushToken)
 
         assertEquals(KlaviyoPushService.getPushToken(), stubPushToken)
-        verify { Klaviyo.setProfile(any()) }
+        verify { mockApiClient.enqueuePushToken(any(), any()) }
     }
 
     @Test
@@ -130,7 +129,7 @@ class KlaviyoPushServiceTest {
         val pushService = KlaviyoPushService()
         pushService.onMessageReceived(msg)
 
-        verify(inverse = true) { Klaviyo.createEvent(any()) }
+        verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
     }
 
     @Test
@@ -154,6 +153,6 @@ class KlaviyoPushServiceTest {
         // Handle push intent
         KlaviyoPushService.handlePush(intent)
 
-        verify { Klaviyo.createEvent(any()) }
+        verify { mockApiClient.enqueueEvent(any(), any()) }
     }
 }

@@ -15,7 +15,9 @@ import io.mockk.spyk
 import io.mockk.unmockkObject
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
+import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 
 /**
@@ -28,9 +30,33 @@ internal abstract class BaseTest {
         const val PHONE = "+12223334444"
         const val EXTERNAL_ID = "abcdefg"
         const val ANON_ID = "anonId123"
+        const val PUSH_TOKEN = "abcdefghijklmnopqrstuvwxyz"
 
         const val TIME = 1234567890000L
         const val ISO_TIME = "2009-02-13T23:31:30+0000"
+
+        /**
+         * Test helper method for comparing JSONObjects
+         *
+         * @param first
+         * @param second
+         */
+        fun compareJson(first: JSONObject, second: JSONObject) {
+            val firstKeys = arrayListOf<String>()
+            val secondKeys = arrayListOf<String>()
+            first.keys().forEach { firstKeys.add(it) }
+            second.keys().forEach { secondKeys.add(it) }
+
+            assertEquals(firstKeys.sorted(), secondKeys.sorted())
+
+            first.keys().forEach { k ->
+                if (first[k] is JSONObject && second[k] is JSONObject) {
+                    compareJson(first[k] as JSONObject, second[k] as JSONObject)
+                } else {
+                    assertEquals(first[k], second[k])
+                }
+            }
+        }
     }
 
     protected val contextMock = mockk<Context>()
@@ -39,6 +65,7 @@ internal abstract class BaseTest {
         every { apiKey } returns API_KEY
         every { applicationContext } returns contextMock
         every { networkMaxRetries } returns 4
+        every { baseUrl } returns "https://test.fake-klaviyo.com"
     }
     protected val lifecycleMonitorMock = mockk<LifecycleMonitor>()
     protected val networkMonitorMock = mockk<NetworkMonitor>()

@@ -10,8 +10,6 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
 
     constructor() : this(null)
 
-    private var appendMap: HashMap<String, Serializable> = HashMap()
-
     fun setExternalId(identifier: String) = apply { this.externalId = identifier }
     var externalId: String?
         get() = (this[ProfileKey.EXTERNAL_ID]) as String?
@@ -35,16 +33,10 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
 
     internal fun setAnonymousId(anonymousId: String) = apply { this.anonymousId = anonymousId }
     internal var anonymousId: String?
-        get() = (this[ProfileKey.ANONYMOUS]) as String
+        get() = (this[ProfileKey.ANONYMOUS_ID]) as String
         set(value) {
-            this[ProfileKey.ANONYMOUS] = value
+            this[ProfileKey.ANONYMOUS_ID] = value
         }
-
-    // TODO internal?
-    fun addAppendProperty(key: String, value: Serializable) = apply {
-        appendMap[key] = value
-        this[ProfileKey.APPEND] = appendMap
-    }
 
     override fun setProperty(key: ProfileKey, value: Serializable) = apply {
         this[key] = value
@@ -54,39 +46,62 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
         this[ProfileKey.CUSTOM(key)] = value
     }
 
-    override fun merge(other: Profile) = apply {
-        super.merge(other).also {
-            other.appendMap.forEach { (k, v) -> addAppendProperty(k, v) }
-        }
-    }
+    override fun merge(other: Profile) = apply { super.merge(other) }
+
+    /**
+     * Get a map of just the unique identifiers of this profile
+     */
+    internal fun getIdentifiers(): Map<ProfileKey, String> = mapOf(
+        ProfileKey.EXTERNAL_ID to (this.externalId ?: ""),
+        ProfileKey.EMAIL to (this.email ?: ""),
+        ProfileKey.PHONE_NUMBER to (this.phoneNumber ?: ""),
+        ProfileKey.ANONYMOUS_ID to (this.anonymousId ?: ""),
+    ).filter { it.value.isNotEmpty() }
 }
 
 /**
- * All profile property keys recognised by the Klaviyo APIs
+ * All profile attributes recognised by the Klaviyo APIs
  * Custom properties can be defined using the [CUSTOM] inner class
  */
 sealed class ProfileKey(name: String) : Keyword(name) {
 
     // Identifiers
-    object EXTERNAL_ID : ProfileKey("\$external_id")
-    object EMAIL : ProfileKey("\$email")
-    object PHONE_NUMBER : ProfileKey("\$phone_number")
-    internal object ANONYMOUS : ProfileKey("\$anonymous")
+    object EXTERNAL_ID : ProfileKey("external_id")
+    object EMAIL : ProfileKey("email")
+    object PHONE_NUMBER : ProfileKey("phone_number")
+    internal object ANONYMOUS_ID : ProfileKey("anonymous_id")
 
     // Personal information
-    object FIRST_NAME : ProfileKey("\$first_name")
-    object LAST_NAME : ProfileKey("\$last_name")
-    object TITLE : ProfileKey("\$title")
-    object ORGANIZATION : ProfileKey("\$organization")
-    object CITY : ProfileKey("\$city")
-    object REGION : ProfileKey("\$region")
-    object COUNTRY : ProfileKey("\$country")
-    object ZIP : ProfileKey("\$zip")
-    object IMAGE : ProfileKey("\$image")
+    object FIRST_NAME : ProfileKey("first_name")
+    object LAST_NAME : ProfileKey("last_name")
+    object ORGANIZATION : ProfileKey("organization")
+    object TITLE : ProfileKey("title")
+    object IMAGE : ProfileKey("image")
+
+    object ADDRESS1 : ProfileKey("address1")
+    object ADDRESS2 : ProfileKey("address2")
+    object CITY : ProfileKey("city")
+    object COUNTRY : ProfileKey("country")
+    object LATITUDE : ProfileKey("latitude")
+    object LONGITUDE : ProfileKey("longitude")
+    object REGION : ProfileKey("region")
+    object ZIP : ProfileKey("zip")
+    object TIMEZONE : ProfileKey("timezone")
 
     // Custom properties
     class CUSTOM(propertyName: String) : ProfileKey(propertyName)
 
-    // Other
-    internal object APPEND : ProfileKey("\$append")
+    /**
+     * Helper method to translate certain keys to their dollar-prefixed key
+     * This only applies to the identifier keys under certain circumstances:
+     *
+     * Profile V2 and Events V3 and use $. Profile V3 does not use $
+     *
+     * @return
+     */
+    internal fun specialKey(): String = when (this) {
+        ANONYMOUS_ID -> "\$anonymous"
+        EXTERNAL_ID, EMAIL, PHONE_NUMBER -> "$$name"
+        else -> name
+    }
 }

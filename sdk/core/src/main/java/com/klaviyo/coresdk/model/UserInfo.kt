@@ -1,7 +1,7 @@
 package com.klaviyo.coresdk.model
 
 import com.klaviyo.coresdk.Registry
-import com.klaviyo.coresdk.model.ProfileKey.ANONYMOUS
+import com.klaviyo.coresdk.model.ProfileKey.ANONYMOUS_ID
 import com.klaviyo.coresdk.model.ProfileKey.EMAIL
 import com.klaviyo.coresdk.model.ProfileKey.EXTERNAL_ID
 import com.klaviyo.coresdk.model.ProfileKey.PHONE_NUMBER
@@ -10,7 +10,8 @@ import java.util.UUID
 /**
  * Stores information on the currently active user
  */
-internal object UserInfo {
+object UserInfo {
+// TODO this should not be public-facing, but temporarily, the push module needs access
 
     /**
      * Save or clear an identifier in the persistent store and return it
@@ -53,8 +54,8 @@ internal object UserInfo {
      * If not found, generate a fresh one and persist that
      */
     var anonymousId: String = ""
-        private set(value) { field = persist(ANONYMOUS, value) }
-        get() = field.ifEmpty { fetch(ANONYMOUS, generateUuid).also { anonymousId = it } }
+        private set(value) { field = persist(ANONYMOUS_ID, value) }
+        get() = field.ifEmpty { fetch(ANONYMOUS_ID, generateUuid).also { anonymousId = it } }
 
     private val generateUuid = { UUID.randomUUID().toString() }
 
