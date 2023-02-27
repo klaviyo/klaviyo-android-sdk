@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
-import com.klaviyo.coresdk.BuildConfig
+import com.klaviyo.core.BuildConfig
 
 /**
  * Exception that is thrown when the the Klaviyo API token is missing from the config
@@ -121,7 +121,7 @@ object KlaviyoConfig : Config {
 
         override fun networkFlushIntervalWifi(networkFlushInterval: Int) = apply {
             if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[0] = networkFlushInterval
+                this.networkFlushIntervals[NetworkTypes.WIFI.position] = networkFlushInterval
             } else {
                 // TODO Logging
             }
@@ -129,7 +129,7 @@ object KlaviyoConfig : Config {
 
         override fun networkFlushIntervalCell(networkFlushInterval: Int) = apply {
             if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[1] = networkFlushInterval
+                this.networkFlushIntervals[NetworkTypes.CELL.position] = networkFlushInterval
             } else {
                 // TODO Logging
             }
@@ -137,7 +137,7 @@ object KlaviyoConfig : Config {
 
         override fun networkFlushIntervalOffline(networkFlushInterval: Int) = apply {
             if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[2] = networkFlushInterval
+                this.networkFlushIntervals[NetworkTypes.OFFLINE.position] = networkFlushInterval
             } else {
                 // TODO Logging
             }
@@ -184,6 +184,18 @@ object KlaviyoConfig : Config {
             KlaviyoConfig.networkMaxRetries = networkMaxRetries
 
             return KlaviyoConfig
+        }
+    }
+
+    enum class NetworkTypes(val position: Int) {
+        WIFI(0),
+        CELL(1),
+        OFFLINE(2);
+
+        companion object {
+            fun fromPosition(position: Int) = NetworkTypes.values().first() {
+                it.position == position
+            }
         }
     }
 }
