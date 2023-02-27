@@ -48,9 +48,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
         every { networkMonitorMock.isNetworkConnected() } returns true
         every { configMock.networkTimeout } returns 1
-        every { configMock.networkFlushIntervals[KlaviyoConfig.NetworkTypes.WIFI.position] } returns 1
-        every { configMock.networkFlushIntervals[KlaviyoConfig.NetworkTypes.CELL.position] } returns 1
-        every { configMock.networkFlushIntervals[KlaviyoConfig.NetworkTypes.OFFLINE.position] } returns 1
+        every { configMock.networkFlushIntervals } returns intArrayOf(10_000, 30_000, 60_000)
     }
 
     @Test
