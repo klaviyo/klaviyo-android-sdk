@@ -4,6 +4,7 @@ import android.app.Application
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.KlaviyoConfig
+import com.klaviyo.core.config.Log
 import com.klaviyo.core.config.SystemClock
 import com.klaviyo.core.lifecycle.KlaviyoLifecycleMonitor
 import com.klaviyo.core.lifecycle.LifecycleMonitor
@@ -48,6 +49,12 @@ object Registry {
     val networkMonitor: NetworkMonitor get() = KlaviyoNetworkMonitor
 
     val dataStore: DataStore get() = SharedPreferencesDataStore
+
+    val log: Log get() = get()
+
+    init {
+        register<Log> { Logger }
+    }
 
     /**
      * Internal registry of registered service instances
@@ -94,7 +101,7 @@ object Registry {
      * @return Whether service is registered
      */
     inline fun <reified T : Any> isRegistered(): Boolean = typeOf<T>().let {
-        type ->
+            type ->
         registry.containsKey(type) || services.containsKey(type)
     }
 

@@ -24,7 +24,9 @@ subprojects {
                 minifyEnabled false
                 proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             }
-            debug {}
+            debug {
+                debuggable = true
+            }
         }
 
         with ext.flavorConfig
