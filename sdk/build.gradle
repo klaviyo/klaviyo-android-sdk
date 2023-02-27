@@ -1,16 +1,11 @@
 subprojects {
+    def ext = rootProject.ext
+
     apply plugin: "com.android.library"
     apply plugin: "kotlin-android"
     apply plugin: "org.jlleitschuh.gradle.ktlint"
     apply plugin: "org.jetbrains.dokka"
     apply plugin: "maven-publish"
-
-    def ext = rootProject.ext
-
-    def localProperties = new Properties()
-    if (rootProject.file("local.properties").canRead()) {
-        localProperties.load(new FileInputStream(rootProject.file("local.properties")))
-    }
 
     android {
         compileSdkVersion ext.androidCompileVersion
@@ -28,15 +23,11 @@ subprojects {
             release {
                 minifyEnabled false
                 proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                buildConfigField "String", "KLAVIYO_SERVER_URL", '"https://a.klaviyo.com"'
             }
-            debug {
-                buildConfigField "String", "KLAVIYO_SERVER_URL", '"https://a.klaviyo.com"'
-            }
-            localDebug {
-                buildConfigField "String", "KLAVIYO_SERVER_URL", "\"" + localProperties['localAddress'] + "\""
-            }
+            debug {}
         }
+
+        with ext.flavorConfig
     }
 
     dependencies {

@@ -12,7 +12,7 @@ afterEvaluate {
         publications {
             // Creates a Maven publication called "release".
             release(MavenPublication) {
-                from components.release
+                from components.productionRelease
                 groupId = ext.groupId
                 artifactId = 'core'
                 version = ext.versionName
