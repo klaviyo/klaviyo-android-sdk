@@ -2,7 +2,7 @@ package com.klaviyo.core
 
 import android.os.Build
 import com.klaviyo.core.config.Log
-import com.klaviyo.core.config.NetworkRequest
+import com.klaviyo.core.networking.NetworkRequest
 import java.lang.Exception
 import java.util.regex.Pattern
 

@@ -1,7 +1,7 @@
 package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.NetworkRequest
+import com.klaviyo.core.networking.NetworkRequest
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
