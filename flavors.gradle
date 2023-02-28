@@ -1,0 +1,24 @@
+ext {
+    /**
+     * Extracted product flavor as a closure to be applied for all android projects
+     */
+    flavorConfig = {
+        def localProperties = new Properties()
+        if (rootProject.file("local.properties").canRead()) {
+            localProperties.load(new FileInputStream(rootProject.file("local.properties")))
+        }
+
+        flavorDimensions "server"
+        productFlavors {
+            production {
+                //select the dimension of flavor
+                dimension "server"
+                buildConfigField "String", "KLAVIYO_SERVER_URL", '"https://a.klaviyo.com"'
+            }
+            local {
+                dimension "server"
+                buildConfigField "String", "KLAVIYO_SERVER_URL", "\"" + localProperties['localAddress'] + "\""
+            }
+        }
+    }
+}

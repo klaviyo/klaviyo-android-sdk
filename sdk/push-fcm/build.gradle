@@ -17,7 +17,7 @@ afterEvaluate {
             // Creates a Maven publication called "release".
             release(MavenPublication) {
                 from components.productionRelease
-                groupId = ext.groupId
+                groupId = klaviyoGroupId
                 artifactId = 'push-fcm'
                 version = ext.versionName
             }

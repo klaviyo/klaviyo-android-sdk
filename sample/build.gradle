@@ -6,11 +6,11 @@ plugins {
 def ext = rootProject.ext
 
 android {
-    namespace 'com.klaviyo.sample'
+    namespace "${klaviyoGroupId}.sample"
     compileSdk 33
 
     defaultConfig {
-        applicationId "com.klaviyo.sample"
+        applicationId "${klaviyoGroupId}.sample"
         minSdk 23
         targetSdk 33
         versionCode 1
