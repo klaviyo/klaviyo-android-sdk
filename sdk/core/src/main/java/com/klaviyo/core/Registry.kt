@@ -52,10 +52,6 @@ object Registry {
 
     val log: Log get() = get()
 
-    init {
-        register<Log> { Logger }
-    }
-
     /**
      * Internal registry of registered service instances
      */
@@ -67,6 +63,10 @@ object Registry {
      */
     @PublishedApi
     internal val registry = mutableMapOf<KType, Registration>()
+
+    init {
+        register<Log> { Logger }
+    }
 
     /**
      * Register a service for a type, specified by generic parameter
