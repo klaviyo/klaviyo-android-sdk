@@ -3,7 +3,7 @@ package com.klaviyo.core
 import com.klaviyo.core.config.Log
 import com.klaviyo.core.config.NetworkRequest
 
-internal object Logger : Log {
+internal class Logger : Log {
     override fun debug(output: String) {}
     override fun info(output: String) {}
     override fun error(output: String) {}

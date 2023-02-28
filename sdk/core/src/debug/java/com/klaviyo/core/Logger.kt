@@ -4,25 +4,25 @@ import com.klaviyo.core.config.Log
 import com.klaviyo.core.config.NetworkRequest
 import java.lang.Exception
 
-internal object Logger : Log {
+open class Logger : Log {
     override fun debug(output: String) {
-        println(output)
+        Console.log(output)
     }
 
     override fun info(output: String) {
-        println(output)
+        Console.log(output)
     }
 
     override fun error(output: String) {
-        println(output)
+        Console.log(output)
     }
 
     override fun exception(exception: Exception, message: String?) {
-        println("${exception.message} $message")
+        Console.log("${exception.message} $message")
     }
 
     override fun onNetworkRequest(request: NetworkRequest) {
-        println("${request.httpMethod} to ${request.url} ${request.state}")
+        Console.log("${request.httpMethod} to ${request.url} ${request.state}")
     }
 }
 
