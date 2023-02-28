@@ -3,34 +3,35 @@ package com.klaviyo.core.config
 import java.net.URL
 
 interface Log {
+
     /**
      * Verbose debugging output
      *
-     * @param output
+     * @param message
      */
-    fun debug(output: String)
+    fun debug(message: String, ex: Exception? = null)
 
     /**
      * Informational output
      *
-     * @param output
-     */
-    fun info(output: String)
-
-    /**
-     * Encountered errors
-     *
-     * @param output
-     */
-    fun error(output: String)
-
-    /**
-     * Encountered an exception
-     *
-     * @param exception
      * @param message
      */
-    fun exception(exception: Exception, message: String?)
+    fun info(message: String, ex: Exception? = null)
+
+    /**
+     * Encountered an error or exception
+     *
+     * @param message
+     */
+    fun error(message: String, ex: Exception? = null)
+
+    /**
+     * Encountered a completely unexpected scenario
+     *
+     * @param message
+     * @param ex
+     */
+    fun wtf(message: String, ex: Exception? = null)
 
     /**
      * Called whenever the SDK is aware of a lifecycle event
