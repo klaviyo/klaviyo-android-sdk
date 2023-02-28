@@ -8,5 +8,7 @@ internal class Logger : Log {
     override fun info(output: String) {}
     override fun error(output: String) {}
     override fun exception(exception: Exception, message: String?) {}
-    override fun onNetworkRequest(request: NetworkRequest) {}
+    override fun onLifecycleEvent(event: String) {}
+    override fun onNetworkChange(connected: Boolean) {}
+    override fun onApiRequest(request: NetworkRequest) {}
 }

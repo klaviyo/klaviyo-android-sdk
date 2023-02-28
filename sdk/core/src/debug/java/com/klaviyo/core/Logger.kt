@@ -21,7 +21,7 @@ open class Logger : Log {
         Console.log("${exception.message} $message")
     }
 
-    override fun onNetworkRequest(request: NetworkRequest) {
+    override fun onApiRequest(request: NetworkRequest) {
         Console.log("${request.httpMethod} to ${request.url} ${request.state}")
     }
 }

@@ -30,8 +30,8 @@ internal open class KlaviyoApiRequest(
         Unsent, PendingRetry, Complete, Failed
     }
 
-    override val start_time: String = time
-    override var end_time: String? = null
+    override val startTime: String = time
+    override var endTime: String? = null
 
     override var headers: Map<String, String> = emptyMap()
     override var query: Map<String, String> = emptyMap()
@@ -44,7 +44,7 @@ internal open class KlaviyoApiRequest(
         set(value) {
             field = value
 
-            end_time = when (status) {
+            endTime = when (status) {
                 Status.Complete, Status.Failed -> Registry.clock.currentTimeAsString()
                 else -> null
             }

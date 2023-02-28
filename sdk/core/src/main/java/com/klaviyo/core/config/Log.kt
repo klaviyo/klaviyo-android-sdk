@@ -33,11 +33,27 @@ interface Log {
     fun exception(exception: Exception, message: String?)
 
     /**
-     * Called whenever the state of any network request changes
+     * Called whenever the SDK is aware of a lifecycle event
+     *
+     * @see com.klaviyo.core.lifecycle.LifecycleMonitor
+     * @param
+     */
+    fun onLifecycleEvent(event: String)
+
+    /**
+     * Called whenever the SDK is aware of change to device network conditions
+     *
+     * @see com.klaviyo.core.networking.NetworkMonitor
+     * @param connected
+     */
+    fun onNetworkChange(connected: Boolean)
+
+    /**
+     * Called whenever the state of any API request changes
      *
      * @param request
      */
-    fun onNetworkRequest(request: NetworkRequest)
+    fun onApiRequest(request: NetworkRequest)
 }
 
 /**
@@ -52,12 +68,12 @@ interface NetworkRequest {
     /**
      * Time the request was initiated
      */
-    val start_time: String
+    val startTime: String
 
     /**
      * Time the request was completed or failed
      */
-    val end_time: String?
+    val endTime: String?
 
     /**
      * URL of the request, omitting query string
