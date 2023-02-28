@@ -12,17 +12,18 @@ buildscript {
         }
     }
     dependencies {
+        // NOTE: These are dependencies for the build script itself
+        // Do not place your application dependencies here;
+        // they belong in the individual module build.gradle files
         classpath "com.android.tools.build:gradle:${gradleBuildToolsVersion}"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${gradleKotlinVersion}"
         classpath "org.jetbrains.dokka:dokka-gradle-plugin:${dokkaVersion}"
         classpath "org.jlleitschuh.gradle:ktlint-gradle:${gradleKtlintVersion}"
-
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
     }
 }
 
 plugins {
+    //Project-wide dependencies
     id 'org.jetbrains.dokka' version "${dokkaVersion}"
     id "org.jlleitschuh.gradle.ktlint" version "${gradleKtlintVersion}"
 }

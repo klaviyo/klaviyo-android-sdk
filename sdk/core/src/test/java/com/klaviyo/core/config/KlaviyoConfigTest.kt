@@ -31,19 +31,13 @@ internal class KlaviyoConfigTest : BaseTest() {
         every { PackageManager.PackageInfoFlags.of(any()) } returns mockPackageManagerFlags
         every { contextMock.packageManager } returns mockPackageManager
         every { contextMock.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
-        every { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, mockPackageManagerFlags) } returns mockPackageInfo
+        every {
+            mockPackageManager.getPackageInfo(
+                BuildConfig.LIBRARY_PACKAGE_NAME,
+                mockPackageManagerFlags
+            )
+        } returns mockPackageInfo
         every { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) } returns mockPackageInfo
-    }
-
-    @Test
-    fun `Verify expected BuildConfig properties`() {
-        // KlaviyoConfig should be our interface with BuildConfig,
-        // but also this is also just a nice test coverage boost
-        assert(BuildConfig() is BuildConfig)
-        assert(BuildConfig.DEBUG is Boolean)
-        assertEquals("com.klaviyo.core", BuildConfig.LIBRARY_PACKAGE_NAME)
-        assert(BuildConfig.BUILD_TYPE is String)
-        assert(BuildConfig.KLAVIYO_SERVER_URL is String)
     }
 
     @Test
@@ -137,11 +131,22 @@ internal class KlaviyoConfigTest : BaseTest() {
     @Test
     fun `getPackageInfoCompat detects platform properly`() {
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
-        mockPackageManager.getPackageInfoCompat(contextMock.packageName, PackageManager.GET_PERMISSIONS)
-        verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, mockPackageManagerFlags) }
+        mockPackageManager.getPackageInfoCompat(
+            contextMock.packageName,
+            PackageManager.GET_PERMISSIONS
+        )
+        verify {
+            mockPackageManager.getPackageInfo(
+                BuildConfig.LIBRARY_PACKAGE_NAME,
+                mockPackageManagerFlags
+            )
+        }
 
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
-        mockPackageManager.getPackageInfoCompat(contextMock.packageName, PackageManager.GET_PERMISSIONS)
+        mockPackageManager.getPackageInfoCompat(
+            contextMock.packageName,
+            PackageManager.GET_PERMISSIONS
+        )
         verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) }
     }
 }

@@ -13,11 +13,11 @@ ext {
             production {
                 //select the dimension of flavor
                 dimension "server"
-                buildConfigField "String", "KLAVIYO_SERVER_URL", '"https://a.klaviyo.com"'
+                buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${klaviyoServerUrl}\""
             }
             local {
                 dimension "server"
-                buildConfigField "String", "KLAVIYO_SERVER_URL", "\"" + localProperties['localAddress'] + "\""
+                buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${localProperties['localKlaviyoServerUrl']}\""
             }
         }
     }
