@@ -8,6 +8,7 @@ interface Log {
      * Verbose debugging output
      *
      * @param message
+     * @param ex
      */
     fun debug(message: String, ex: Exception? = null)
 
@@ -15,6 +16,7 @@ interface Log {
      * Informational output
      *
      * @param message
+     * @param ex
      */
     fun info(message: String, ex: Exception? = null)
 
@@ -22,6 +24,7 @@ interface Log {
      * Encountered an error or exception
      *
      * @param message
+     * @param ex
      */
     fun error(message: String, ex: Exception? = null)
 
@@ -37,7 +40,7 @@ interface Log {
      * Called whenever the SDK is aware of a lifecycle event
      *
      * @see com.klaviyo.core.lifecycle.LifecycleMonitor
-     * @param
+     * @param event
      */
     fun onLifecycleEvent(event: String)
 
@@ -55,6 +58,14 @@ interface Log {
      * @param request
      */
     fun onApiRequest(request: NetworkRequest)
+
+    /**
+     * Called when a value is changed in the data store
+     *
+     * @param key
+     * @param value Null if the value is being cleared
+     */
+    fun onDataStore(key: String, value: String?)
 }
 
 /**

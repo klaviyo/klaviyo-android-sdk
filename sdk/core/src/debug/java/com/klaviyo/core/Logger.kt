@@ -31,6 +31,9 @@ open class Logger : Log {
     override fun onApiRequest(request: NetworkRequest) =
         debug("${request.httpMethod} to ${request.url} ${request.state}")
 
+    override fun onDataStore(key: String, value: String?) =
+        debug("$key=$value")
+
     /**
      * Inspired from reading through Timber source code
      * We really don't need the full dependency though
