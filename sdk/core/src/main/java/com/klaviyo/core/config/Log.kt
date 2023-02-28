@@ -52,7 +52,12 @@ interface NetworkRequest {
     /**
      * Time the request was initiated
      */
-    val time: String
+    val start_time: String
+
+    /**
+     * Time the request was completed or failed
+     */
+    val end_time: String?
 
     /**
      * URL of the request, omitting query string

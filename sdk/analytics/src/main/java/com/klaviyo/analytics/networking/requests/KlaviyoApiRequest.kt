@@ -23,12 +23,15 @@ import org.json.JSONObject
 internal open class KlaviyoApiRequest(
     val urlPath: String,
     val method: RequestMethod,
-    override val time: String = Registry.clock.currentTimeAsString(),
+    val time: String = Registry.clock.currentTimeAsString(),
     val uuid: String = UUID.randomUUID().toString()
 ) : NetworkRequest {
     internal enum class Status {
         Unsent, PendingRetry, Complete, Failed
     }
+
+    override val start_time: String = time
+    override var end_time: String? = null
 
     override var headers: Map<String, String> = emptyMap()
     override var query: Map<String, String> = emptyMap()
@@ -38,6 +41,14 @@ internal open class KlaviyoApiRequest(
         private set
 
     protected var status: Status = Status.Unsent
+        set(value) {
+            field = value
+
+            end_time = when (status) {
+                Status.Complete, Status.Failed -> Registry.clock.currentTimeAsString()
+                else -> null
+            }
+        }
 
     protected var response: String? = null
 
