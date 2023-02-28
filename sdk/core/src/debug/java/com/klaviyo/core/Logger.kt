@@ -1,10 +1,6 @@
 package com.klaviyo.core
 
 import android.os.Build
-import android.util.Log.d
-import android.util.Log.e
-import android.util.Log.i
-import android.util.Log.wtf
 import com.klaviyo.core.config.Log
 import com.klaviyo.core.config.NetworkRequest
 import java.lang.Exception
@@ -70,21 +66,5 @@ open class Logger : Log {
                     tag.substring(0, MAX_TAG_LENGTH)
                 }
             }
-    }
-}
-
-/**
- * Android Log output wrapper
- */
-internal object Console {
-    enum class Level {
-        Debug, Info, Error, Assert
-    }
-
-    fun log(msg: String, level: Level, tag: String, ex: Throwable? = null) = when (level) {
-        Level.Debug -> ex?.let { d(tag, msg, ex) } ?: d(tag, msg)
-        Level.Info -> ex?.let { i(tag, msg, ex) } ?: i(tag, msg)
-        Level.Error -> ex?.let { e(tag, msg, ex) } ?: e(tag, msg)
-        Level.Assert -> ex?.let { wtf(tag, msg, ex) } ?: wtf(tag, msg)
     }
 }
