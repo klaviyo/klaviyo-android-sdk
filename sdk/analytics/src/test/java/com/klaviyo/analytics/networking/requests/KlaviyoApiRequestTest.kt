@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.core.config.KlaviyoConfig
 import com.klaviyo.core_shared_tests.BaseTest
 import io.mockk.every
 import io.mockk.mockkObject
@@ -47,7 +48,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
         every { networkMonitorMock.isNetworkConnected() } returns true
         every { configMock.networkTimeout } returns 1
-        every { configMock.networkFlushInterval } returns 1
+        every { configMock.networkFlushIntervals } returns intArrayOf(10_000, 30_000, 60_000)
     }
 
     @Test

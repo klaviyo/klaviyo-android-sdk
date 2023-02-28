@@ -8,8 +8,10 @@ import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.KlaviyoConfig
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
+import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.core_shared_tests.BaseTest
 import com.klaviyo.core_shared_tests.StaticClock
@@ -30,7 +32,9 @@ import org.junit.Before
 import org.junit.Test
 
 internal class KlaviyoApiClientTest : BaseTest() {
-    private val flushInterval = 1000
+    private val flushIntervalWifi = 10_000
+    private val flushIntervalCell = 20_000
+    private val flushIntervalOffline = 30_000
     private val queueDepth = 10
     private var delayedRunner: KlaviyoApiClient.NetworkRunnable? = null
     private val staticClock = StaticClock(TIME, ISO_TIME)
@@ -48,9 +52,10 @@ internal class KlaviyoApiClientTest : BaseTest() {
         delayedRunner = null
 
         every { Registry.clock } returns staticClock
-        every { configMock.networkFlushInterval } returns flushInterval
+        every { configMock.networkFlushIntervals } returns intArrayOf(flushIntervalWifi, flushIntervalCell, flushIntervalOffline)
         every { configMock.networkFlushDepth } returns queueDepth
         every { networkMonitorMock.isNetworkConnected() } returns false
+        every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.WIFI.position
         every { lifecycleMonitorMock.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
         every { networkMonitorMock.onNetworkChange(capture(slotOnNetworkChange)) } returns Unit
 
@@ -149,7 +154,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Test
     fun `Flushes queue on network restored`() {
         KlaviyoApiClient.enqueueRequest(mockRequest())
-        staticClock.time += flushInterval
+        staticClock.time += flushIntervalWifi
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         assert(slotOnNetworkChange.isCaptured)
         slotOnNetworkChange.captured(false)
@@ -185,7 +190,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val requestMock = mockRequest()
 
         KlaviyoApiClient.enqueueRequest(requestMock)
-        staticClock.execute(flushInterval.toLong())
+        staticClock.execute(flushIntervalWifi.toLong())
 
         delayedRunner!!.run()
 
@@ -232,7 +237,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val request1 = mockRequest("uuid-retry", KlaviyoApiRequest.Status.PendingRetry)
         val request2 = mockRequest("uuid-unsent", KlaviyoApiRequest.Status.Unsent)
         var attempts = 0
-        var backoffTime = flushInterval
+        var backoffTime = flushIntervalWifi
         every { request1.attempts } answers { attempts }
 
         KlaviyoApiClient.enqueueRequest(request1, request2)

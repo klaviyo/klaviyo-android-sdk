@@ -11,7 +11,7 @@ interface Config {
     val debounceInterval: Int
 
     val networkTimeout: Int
-    val networkFlushInterval: Int
+    val networkFlushIntervals: IntArray
     val networkFlushDepth: Int
     val networkMaxRetries: Int
 
@@ -20,7 +20,9 @@ interface Config {
         fun applicationContext(context: Context): Builder
         fun debounceInterval(debounceInterval: Int): Builder
         fun networkTimeout(networkTimeout: Int): Builder
-        fun networkFlushInterval(networkFlushInterval: Int): Builder
+        fun networkFlushIntervalWifi(networkFlushInterval: Int): Builder
+        fun networkFlushIntervalCell(networkFlushInterval: Int): Builder
+        fun networkFlushIntervalOffline(networkFlushInterval: Int): Builder
         fun networkFlushDepth(networkFlushDepth: Int): Builder
         fun networkMaxRetries(networkMaxRetries: Int): Builder
         fun build(): Config
