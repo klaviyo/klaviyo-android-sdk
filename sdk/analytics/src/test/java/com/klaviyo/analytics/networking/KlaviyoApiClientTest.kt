@@ -51,10 +51,14 @@ internal class KlaviyoApiClientTest : BaseTest() {
         delayedRunner = null
 
         every { Registry.clock } returns staticClock
-        every { configMock.networkFlushIntervals } returns intArrayOf(flushIntervalWifi, flushIntervalCell, flushIntervalOffline)
+        every { configMock.networkFlushIntervals } returns intArrayOf(
+            flushIntervalWifi,
+            flushIntervalCell,
+            flushIntervalOffline
+        )
         every { configMock.networkFlushDepth } returns queueDepth
         every { networkMonitorMock.isNetworkConnected() } returns false
-        every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.WIFI.position
+        every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
         every { lifecycleMonitorMock.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
         every { networkMonitorMock.onNetworkChange(capture(slotOnNetworkChange)) } returns Unit
 
@@ -83,7 +87,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         mockk<KlaviyoApiRequest>().also {
             every { it.uuid } returns uuid
             every { it.send() } returns status
-            every { it.toJson() } returns "{\"headers\":{\"headerKey\":\"headerValue\"},\"method\":\"GET\",\"query\":{\"queryKey\":\"queryValue\"},\"time\":\"time\",\"uuid\":\"$uuid\",\"url_path\":\"test\"}"
+            every { it.toJson() } returns "{}"
             every { it.equals(any()) } answers { a ->
                 it.uuid == (a.invocation.args[0] as KlaviyoApiRequest).uuid
             }

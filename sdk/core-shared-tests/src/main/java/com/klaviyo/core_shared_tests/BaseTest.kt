@@ -1,7 +1,8 @@
-package com.klaviyo.core_shared_tests
+package com.klaviyo.core_shared_tests // ktlint-disable package-name
 
 import android.content.Context
 import android.os.Build
+import com.klaviyo.core.Logger
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.lifecycle.LifecycleMonitor
@@ -69,6 +70,10 @@ abstract class BaseTest {
     protected val lifecycleMonitorMock = mockk<LifecycleMonitor>()
     protected val networkMonitorMock = mockk<NetworkMonitor>()
     protected val dataStoreSpy = spyk(InMemoryDataStore())
+    protected val logMock = spyk(Logger()).also { // TODO this mock is going to fail on release build type
+        mockkObject(com.klaviyo.core.Console)
+        every { com.klaviyo.core.Console.log(any(), any(), any(), any()) } returns 0
+    }
 
     @Before
     open fun setup() {
@@ -79,6 +84,7 @@ abstract class BaseTest {
         every { Registry.networkMonitor } returns networkMonitorMock
         every { Registry.dataStore } returns dataStoreSpy
         every { Registry.clock } returns StaticClock(TIME, ISO_TIME)
+        every { Registry.log } returns logMock
 
         // Mock using latest SDK
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)

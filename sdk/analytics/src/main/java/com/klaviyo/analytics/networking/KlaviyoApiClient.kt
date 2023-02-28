@@ -37,8 +37,11 @@ internal object KlaviyoApiClient : ApiClient {
 
         // Stop the background batching job while offline
         Registry.networkMonitor.onNetworkChange { isOnline ->
-            if (isOnline) startBatch(true)
-            else stopBatch()
+            if (isOnline) {
+                startBatch(true)
+            } else {
+                stopBatch()
+            }
         }
 
         restoreQueue()
@@ -167,7 +170,7 @@ internal object KlaviyoApiClient : ApiClient {
     class NetworkRunnable(private var force: Boolean = false) : Runnable {
         private val queueInitTime = Registry.clock.currentTimeMillis()
 
-        private var networkType: Int = Registry.networkMonitor.getNetworkType()
+        private var networkType: Int = Registry.networkMonitor.getNetworkType().position
 
         private var flushInterval: Long = Registry.config.networkFlushIntervals[networkType].toLong()
 

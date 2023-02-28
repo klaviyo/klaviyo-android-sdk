@@ -5,7 +5,7 @@ import android.util.Log
 /**
  * Android Log output wrapper
  */
-internal object Console {
+object Console {
     enum class Level {
         Debug, Info, Error, Assert
     }
