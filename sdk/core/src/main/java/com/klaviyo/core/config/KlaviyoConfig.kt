@@ -6,6 +6,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import com.klaviyo.core.BuildConfig
+import com.klaviyo.core.networking.NetworkMonitor
 
 /**
  * Exception that is thrown when the the Klaviyo API token is missing from the config
@@ -121,7 +122,7 @@ object KlaviyoConfig : Config {
 
         override fun networkFlushIntervalWifi(networkFlushInterval: Int) = apply {
             if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[NetworkTypes.WIFI.position] = networkFlushInterval
+                this.networkFlushIntervals[NetworkMonitor.NetworkType.WIFI.position] = networkFlushInterval
             } else {
                 // TODO Logging
             }
@@ -129,7 +130,7 @@ object KlaviyoConfig : Config {
 
         override fun networkFlushIntervalCell(networkFlushInterval: Int) = apply {
             if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[NetworkTypes.CELL.position] = networkFlushInterval
+                this.networkFlushIntervals[NetworkMonitor.NetworkType.CELL.position] = networkFlushInterval
             } else {
                 // TODO Logging
             }
@@ -137,7 +138,7 @@ object KlaviyoConfig : Config {
 
         override fun networkFlushIntervalOffline(networkFlushInterval: Int) = apply {
             if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[NetworkTypes.OFFLINE.position] = networkFlushInterval
+                this.networkFlushIntervals[NetworkMonitor.NetworkType.OFFLINE.position] = networkFlushInterval
             } else {
                 // TODO Logging
             }
@@ -184,18 +185,6 @@ object KlaviyoConfig : Config {
             KlaviyoConfig.networkMaxRetries = networkMaxRetries
 
             return KlaviyoConfig
-        }
-    }
-
-    enum class NetworkTypes(val position: Int) {
-        WIFI(0),
-        CELL(1),
-        OFFLINE(2);
-
-        companion object {
-            fun fromPosition(position: Int) = NetworkTypes.values().first() {
-                it.position == position
-            }
         }
     }
 }

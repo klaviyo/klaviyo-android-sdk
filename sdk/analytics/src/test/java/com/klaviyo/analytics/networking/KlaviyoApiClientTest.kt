@@ -11,6 +11,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.KlaviyoConfig
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
+import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.core_shared_tests.BaseTest
 import com.klaviyo.core_shared_tests.StaticClock
@@ -54,7 +55,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         every { configMock.networkFlushIntervals } returns intArrayOf(flushIntervalWifi, flushIntervalCell, flushIntervalOffline)
         every { configMock.networkFlushDepth } returns queueDepth
         every { networkMonitorMock.isNetworkConnected() } returns false
-        every { networkMonitorMock.getNetworkType() } returns KlaviyoConfig.NetworkTypes.WIFI.position
+        every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.WIFI.position
         every { lifecycleMonitorMock.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
         every { networkMonitorMock.onNetworkChange(capture(slotOnNetworkChange)) } returns Unit
 

@@ -34,4 +34,20 @@ interface NetworkMonitor {
      * @return Integer representing the current network type
      */
     fun getNetworkType(): Int
+
+    /**
+     * Enum class representing the different network connection types that may affect how our
+     * SDK operates.
+     */
+    enum class NetworkType(val position: Int) {
+        WIFI(0),
+        CELL(1),
+        OFFLINE(2);
+
+        companion object {
+            fun fromPosition(position: Int) = NetworkType.values().first() {
+                it.position == position
+            }
+        }
+    }
 }

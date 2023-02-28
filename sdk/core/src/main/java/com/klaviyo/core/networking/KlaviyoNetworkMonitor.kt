@@ -61,11 +61,11 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      */
     override fun getNetworkType(): Int {
         if (connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
-            return KlaviyoConfig.NetworkTypes.WIFI.position
+            return NetworkMonitor.NetworkType.WIFI.position
         } else if (connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true) {
-            return KlaviyoConfig.NetworkTypes.CELL.position
+            return NetworkMonitor.NetworkType.CELL.position
         }
-        return KlaviyoConfig.NetworkTypes.OFFLINE.position
+        return NetworkMonitor.NetworkType.OFFLINE.position
     }
 
     /**
