@@ -20,13 +20,17 @@ internal class KlaviyoConfigTest : BaseTest() {
     private val mockPackageManager = mockk<PackageManager>()
     private val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
     private val mockPackageInfo = mockk<PackageInfo>().apply {
-        requestedPermissions = arrayOf(Manifest.permission.ACCESS_NETWORK_STATE)
+        requestedPermissions = arrayOf(
+            Manifest.permission.ACCESS_NETWORK_STATE,
+            Manifest.permission.CHANGE_NETWORK_STATE
+        )
     }
 
     @Test
     fun `Is registered service`() = assert(Registry.configBuilder is KlaviyoConfig.Builder)
 
     override fun setup() {
+        super.setup()
         mockkStatic(PackageManager.PackageInfoFlags::class)
         every { PackageManager.PackageInfoFlags.of(any()) } returns mockPackageManagerFlags
         every { contextMock.packageManager } returns mockPackageManager
@@ -53,9 +57,9 @@ internal class KlaviyoConfigTest : BaseTest() {
             .applicationContext(contextMock)
             .debounceInterval(1)
             .networkTimeout(2)
-            .networkFlushIntervalWifi(1)
-            .networkFlushIntervalCell(3)
-            .networkFlushIntervalOffline(6)
+            .networkFlushInterval(1, NetworkMonitor.NetworkType.Wifi)
+            .networkFlushInterval(3, NetworkMonitor.NetworkType.Cell)
+            .networkFlushInterval(6, NetworkMonitor.NetworkType.Offline)
             .networkFlushDepth(4)
             .networkMaxRetries(5)
             .build()
@@ -64,9 +68,18 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(contextMock, KlaviyoConfig.applicationContext)
         assertEquals(1, KlaviyoConfig.debounceInterval)
         assertEquals(2, KlaviyoConfig.networkTimeout)
-        assertEquals(1, KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.WIFI.position])
-        assertEquals(3, KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.CELL.position])
-        assertEquals(6, KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.OFFLINE.position])
+        assertEquals(
+            1,
+            KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
+        )
+        assertEquals(
+            3,
+            KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Cell.position]
+        )
+        assertEquals(
+            6,
+            KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Offline.position]
+        )
         assertEquals(4, KlaviyoConfig.networkFlushDepth)
         assertEquals(5, KlaviyoConfig.networkMaxRetries)
     }
@@ -81,32 +94,50 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
         assertEquals(100, KlaviyoConfig.debounceInterval)
         assertEquals(10_000, KlaviyoConfig.networkTimeout)
-        assertEquals(10_000, KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.WIFI.position])
-        assertEquals(30_000, KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.CELL.position])
-        assertEquals(60_000, KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.OFFLINE.position])
+        assertEquals(
+            10_000,
+            KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
+        )
+        assertEquals(
+            30_000,
+            KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Cell.position]
+        )
+        assertEquals(
+            60_000,
+            KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Offline.position]
+        )
         assertEquals(25, KlaviyoConfig.networkFlushDepth)
         assertEquals(4, KlaviyoConfig.networkMaxRetries)
     }
 
     @Test
-    fun `KlaviyoConfig Builder negative variables uses default values successfully`() {
+    fun `KlaviyoConfig Builder rejects bad values and uses default values`() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
             .applicationContext(contextMock)
             .debounceInterval(-5000)
             .networkTimeout(-5000)
-            .networkFlushIntervalWifi(-5000)
-            .networkFlushIntervalCell(-5000)
-            .networkFlushIntervalOffline(-5000)
+            .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Wifi)
+            .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Cell)
+            .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Offline)
             .networkFlushDepth(-10)
             .networkMaxRetries(-10)
             .build()
 
         assertEquals(100, KlaviyoConfig.debounceInterval)
         assertEquals(10_000, KlaviyoConfig.networkTimeout)
-        assertEquals(10_000, KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.WIFI.position])
-        assertEquals(30_000, KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.CELL.position])
-        assertEquals(60_000, KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.OFFLINE.position])
+        assertEquals(
+            10_000,
+            KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
+        )
+        assertEquals(
+            30_000,
+            KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Cell.position]
+        )
+        assertEquals(
+            60_000,
+            KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Offline.position]
+        )
         assertEquals(25, KlaviyoConfig.networkFlushDepth)
         assertEquals(4, KlaviyoConfig.networkMaxRetries)
     }

@@ -6,7 +6,6 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.KlaviyoConfig
 
 /**
  * Service for monitoring the application lifecycle and network connectivity
@@ -57,15 +56,20 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     /**
      * Check what type of network connection is currently servicing the device
      *
-     * @return Integer representing the current network type
+     * @return The current network type
      */
-    override fun getNetworkType(): Int {
-        if (connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
-            return NetworkMonitor.NetworkType.WIFI.position
-        } else if (connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true) {
-            return NetworkMonitor.NetworkType.CELL.position
+    override fun getNetworkType(): NetworkMonitor.NetworkType {
+        val net = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+
+        return if (net?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
+            NetworkMonitor.NetworkType.Wifi
+        } else if (net?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true ||
+            net?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        ) {
+            NetworkMonitor.NetworkType.Cell
+        } else {
+            NetworkMonitor.NetworkType.Offline
         }
-        return NetworkMonitor.NetworkType.OFFLINE.position
     }
 
     /**

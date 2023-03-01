@@ -167,7 +167,7 @@ internal object KlaviyoApiClient : ApiClient {
     class NetworkRunnable(private var force: Boolean = false) : Runnable {
         private val queueInitTime = Registry.clock.currentTimeMillis()
 
-        private var networkType: Int = Registry.networkMonitor.getNetworkType()
+        private var networkType: Int = Registry.networkMonitor.getNetworkType().position
 
         private var flushInterval: Long = Registry.config.networkFlushIntervals[networkType].toLong()
 

@@ -1,6 +1,7 @@
 package com.klaviyo.core.config
 
 import android.content.Context
+import com.klaviyo.core.networking.NetworkMonitor
 
 interface Config {
     val baseUrl: String
@@ -20,9 +21,7 @@ interface Config {
         fun applicationContext(context: Context): Builder
         fun debounceInterval(debounceInterval: Int): Builder
         fun networkTimeout(networkTimeout: Int): Builder
-        fun networkFlushIntervalWifi(networkFlushInterval: Int): Builder
-        fun networkFlushIntervalCell(networkFlushInterval: Int): Builder
-        fun networkFlushIntervalOffline(networkFlushInterval: Int): Builder
+        fun networkFlushInterval(networkFlushInterval: Int, type: NetworkMonitor.NetworkType): Builder
         fun networkFlushDepth(networkFlushDepth: Int): Builder
         fun networkMaxRetries(networkMaxRetries: Int): Builder
         fun build(): Config

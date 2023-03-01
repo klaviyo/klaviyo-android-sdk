@@ -77,7 +77,11 @@ object KlaviyoConfig : Config {
         private set
     override var networkTimeout = NETWORK_TIMEOUT_DEFAULT
         private set
-    override var networkFlushIntervals = intArrayOf(NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT, NETWORK_FLUSH_INTERVAL_CELL_DEFAULT, NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT)
+    override var networkFlushIntervals = intArrayOf(
+        NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT,
+        NETWORK_FLUSH_INTERVAL_CELL_DEFAULT,
+        NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT
+    )
         private set
     override var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private set
@@ -92,9 +96,18 @@ object KlaviyoConfig : Config {
         private var applicationContext: Context? = null
         private var debounceInterval: Int = DEBOUNCE_INTERVAL
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
-        private var networkFlushIntervals: IntArray = intArrayOf(NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT, NETWORK_FLUSH_INTERVAL_CELL_DEFAULT, NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT)
+        private var networkFlushIntervals: IntArray = intArrayOf(
+            NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT,
+            NETWORK_FLUSH_INTERVAL_CELL_DEFAULT,
+            NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT
+        )
         private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private var networkMaxRetries = NETWORK_MAX_RETRIES_DEFAULT
+
+        private val requiredPermissions = arrayOf(
+            Manifest.permission.ACCESS_NETWORK_STATE,
+            Manifest.permission.CHANGE_NETWORK_STATE
+        )
 
         override fun apiKey(apiKey: String) = apply {
             this.apiKey = apiKey
@@ -120,25 +133,12 @@ object KlaviyoConfig : Config {
             }
         }
 
-        override fun networkFlushIntervalWifi(networkFlushInterval: Int) = apply {
+        override fun networkFlushInterval(
+            networkFlushInterval: Int,
+            type: NetworkMonitor.NetworkType
+        ) = apply {
             if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[NetworkMonitor.NetworkType.WIFI.position] = networkFlushInterval
-            } else {
-                // TODO Logging
-            }
-        }
-
-        override fun networkFlushIntervalCell(networkFlushInterval: Int) = apply {
-            if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[NetworkMonitor.NetworkType.CELL.position] = networkFlushInterval
-            } else {
-                // TODO Logging
-            }
-        }
-
-        override fun networkFlushIntervalOffline(networkFlushInterval: Int) = apply {
-            if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[NetworkMonitor.NetworkType.OFFLINE.position] = networkFlushInterval
+                this.networkFlushIntervals[type.position] = networkFlushInterval
             } else {
                 // TODO Logging
             }
@@ -169,11 +169,14 @@ object KlaviyoConfig : Config {
             }
 
             val permissions = applicationContext!!.packageManager.getPackageInfoCompat(
-                applicationContext!!.packageName, PackageManager.GET_PERMISSIONS
+                applicationContext!!.packageName,
+                PackageManager.GET_PERMISSIONS
             ).requestedPermissions ?: emptyArray()
 
-            if (Manifest.permission.ACCESS_NETWORK_STATE !in permissions) {
-                throw MissingPermission(Manifest.permission.ACCESS_NETWORK_STATE)
+            requiredPermissions.forEach { permission ->
+                if (permission !in permissions) {
+                    throw MissingPermission(permission)
+                }
             }
 
             KlaviyoConfig.apiKey = apiKey
@@ -193,5 +196,6 @@ internal fun PackageManager.getPackageInfoCompat(packageName: String, flags: Int
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(flags.toLong()))
     } else {
-        @Suppress("DEPRECATION") getPackageInfo(packageName, flags)
+        @Suppress("DEPRECATION")
+        getPackageInfo(packageName, flags)
     }
