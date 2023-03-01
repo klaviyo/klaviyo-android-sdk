@@ -39,6 +39,9 @@ internal object SharedPreferencesDataStore : DataStore {
             .edit()
             .putString(key, value)
             .apply()
+            .also {
+                Registry.log.onDataStore(key, value)
+            }
     }
 
     /**
@@ -62,5 +65,8 @@ internal object SharedPreferencesDataStore : DataStore {
             .edit()
             .remove(key)
             .apply()
+            .also {
+                Registry.log.onDataStore(key, null)
+            }
     }
 }

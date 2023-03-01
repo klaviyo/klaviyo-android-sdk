@@ -136,7 +136,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(4, KlaviyoConfig.networkMaxRetries)
 
         // Each bad call should have generated an error log
-        verify(exactly = 7) { logMock.error(any(), null) }
+        verify(exactly = 7) { logSpy.error(any(), null) }
     }
 
     @Test(expected = MissingAPIKey::class)
