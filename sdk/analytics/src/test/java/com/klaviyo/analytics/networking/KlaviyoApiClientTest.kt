@@ -87,7 +87,20 @@ internal class KlaviyoApiClientTest : BaseTest() {
         mockk<KlaviyoApiRequest>().also {
             every { it.uuid } returns uuid
             every { it.send() } returns status
-            every { it.toJson() } returns "{}"
+            every { it.toJson() } returns """
+                {
+                  "headers": {
+                    "headerKey": "headerValue"
+                  },
+                  "method": "GET",
+                  "query": {
+                    "queryKey": "queryValue"
+                  },
+                  "time": "time",
+                  "uuid": "$uuid",
+                  "url_path": "test"
+                }
+            """.trimIndent()
             every { it.equals(any()) } answers { a ->
                 it.uuid == (a.invocation.args[0] as KlaviyoApiRequest).uuid
             }

@@ -63,7 +63,9 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
 
         return if (net?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
             NetworkMonitor.NetworkType.Wifi
-        } else if (net?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true) {
+        } else if (net?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true ||
+            net?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        ) {
             NetworkMonitor.NetworkType.Cell
         } else {
             NetworkMonitor.NetworkType.Offline
