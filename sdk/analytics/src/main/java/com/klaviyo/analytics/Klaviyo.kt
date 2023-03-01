@@ -164,8 +164,7 @@ object Klaviyo {
     }
 
     /**
-     * Updates the currently tracked profile from a map-like [Profile] object
-     * Saves identifying attributes (externalId, email, phone) to the currently tracked profile.
+     * Replaces the currently tracked profile with a new [Profile] object
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
@@ -174,8 +173,7 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setProfile(profile: Profile): Klaviyo = apply {
-        // Update UserInfo in case the incoming profile contains any identifiers
-        // TODO rename to merge or update?
+        resetProfile()
         UserInfo.updateFromProfile(profile)
         debouncedProfileUpdate(profile)
     }
@@ -206,25 +204,45 @@ object Klaviyo {
         // Reset timer
         timer?.cancel()
         timer = Registry.clock.schedule(Registry.config.debounceInterval.toLong()) {
-            pendingProfile?.let {
-                Registry.get<ApiClient>().enqueueProfile(it)
-                pendingProfile = null
-            }
+            flushPendingProfile()
         }
+    }
+
+    /**
+     * Enqueue pending profile changes as an API call and then clear slate
+     */
+    private fun flushPendingProfile() = pendingProfile?.let {
+        Registry.get<ApiClient>().enqueueProfile(it)
+        pendingProfile = null
     }
 
     /**
      * Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile
      *
+     * NOTE: if a push token was registered to the current profile, Klaviyo will disassociate it
+     * from the current profile. Call `setPushToken` again to associate this device to a new profile
+     *
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
-     *
-     * @return Returns [Klaviyo] for call chaining
      */
-    fun resetProfile(): Klaviyo = apply {
+    fun resetProfile() {
+        // Flush any pending profile changes immediately
+        timer?.cancel()
+        flushPendingProfile()
+
+        // Clear profile identifiers from state
         UserInfo.reset()
-        // TODO Do we need to API call here?
-        Registry.get<ApiClient>().enqueueProfile(UserInfo.getAsProfile())
+
+        // If we had a push token, re-associate it with an anonymous ID, then erase the local copy
+        // Someday we'll just have a delete token API endpoint -- this is a workaround.
+        getPushToken()?.let { pushToken ->
+            Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
+            Registry.dataStore.clear(EventKey.PUSH_TOKEN.name)
+
+            // Reset that anonymous ID too so that we don't inadvertently use this token push
+            // on a new profile created later without the app developer's say-so
+            UserInfo.reset()
+        }
     }
 
     /**

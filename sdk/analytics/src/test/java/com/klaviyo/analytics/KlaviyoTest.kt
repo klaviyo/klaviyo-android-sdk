@@ -19,6 +19,7 @@ import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyAll
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -77,7 +78,15 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `Profile updates are debounced`() {
+    fun `setProfile is debounced`() {
+        Klaviyo.setProfile(Profile().setEmail(EMAIL))
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+        verifyProfileDebounced()
+    }
+
+    @Test
+    fun `Fluent profile updates are debounced`() {
         Klaviyo.setExternalId(EXTERNAL_ID)
             .setEmail(EMAIL)
             .setPhoneNumber(PHONE)
@@ -97,11 +106,7 @@ internal class KlaviyoTest : BaseTest() {
             .setPhoneNumber(PHONE)
             .setProfileAttribute(ProfileKey.FIRST_NAME, stubFirstName)
             .setProfileAttribute(ProfileKey.LAST_NAME, stubLastName)
-            .setProfile(
-                Profile().also {
-                    it[stubMiddleNameKey] = stubMiddleName
-                }
-            )
+            .setProfileAttribute(stubMiddleNameKey, stubMiddleName)
 
         verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
         verifyProfileDebounced()
@@ -113,6 +118,21 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(stubFirstName, profile[ProfileKey.FIRST_NAME])
         assertEquals(stubLastName, profile[ProfileKey.LAST_NAME])
         assertEquals(stubMiddleName, profile[stubMiddleNameKey])
+    }
+
+    @Test
+    fun `setProfile resets current profile and passes new identifiers to UserInfo`() {
+        UserInfo.email = "other"
+        val anonId = UserInfo.anonymousId
+
+        Klaviyo.setProfile(
+            Profile()
+                .setExternalId(EXTERNAL_ID)
+        )
+
+        assert(UserInfo.externalId == EXTERNAL_ID)
+        assert(UserInfo.email == "")
+        assertNotEquals(anonId, UserInfo.anonymousId)
     }
 
     @Test
@@ -151,17 +171,32 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Resets user info`() {
+        val anonId = UserInfo.anonymousId
         UserInfo.email = EMAIL
         UserInfo.phoneNumber = PHONE
         UserInfo.externalId = EXTERNAL_ID
 
         Klaviyo.resetProfile()
 
+        assertNotEquals(anonId, UserInfo.anonymousId)
         assert(UserInfo.email == "")
         assert(UserInfo.phoneNumber == "")
         assert(UserInfo.externalId == "")
 
-        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+        // Shouldn't make an API request by default
+        verify(inverse = true) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `Reset re-associates push token to new anonymous profile and removes from store`() {
+        UserInfo.email = EMAIL
+        dataStoreSpy.store("push_token", PUSH_TOKEN)
+
+        Klaviyo.resetProfile()
+
+        assert(UserInfo.email == "")
+        assertEquals(null, dataStoreSpy.fetch("push_token"))
+        verify(exactly = 1) { apiClientMock.enqueuePushToken(any(), any()) }
     }
 
     @Test
