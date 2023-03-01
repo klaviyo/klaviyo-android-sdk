@@ -42,12 +42,13 @@ internal open class KlaviyoApiRequest(
 
     protected var status: Status = Status.Unsent
         set(value) {
+            if (field == value) return
             field = value
-
             endTime = when (status) {
                 Status.Complete, Status.Failed -> Registry.clock.currentTimeAsString()
                 else -> null
             }
+            Registry.log.onApiRequest(this)
         }
 
     protected var response: String? = null

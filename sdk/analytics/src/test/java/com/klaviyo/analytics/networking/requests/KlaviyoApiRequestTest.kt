@@ -1,6 +1,5 @@
 package com.klaviyo.analytics.networking.requests
 
-import com.klaviyo.core.config.KlaviyoConfig
 import com.klaviyo.core_shared_tests.BaseTest
 import io.mockk.every
 import io.mockk.mockkObject
@@ -135,6 +134,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
         assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
+        verify { logSpy.onApiRequest(request) }
     }
 
     @Test
@@ -145,6 +145,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
 
         assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        verify { logSpy.onApiRequest(request) }
     }
 
     @Test
@@ -162,6 +163,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         // Final attempt should return fail
         assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
         assertEquals(configMock.networkMaxRetries + 1, request.attempts)
+        verify { logSpy.onApiRequest(request) }
     }
 
     @Test
@@ -181,6 +183,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
         assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
+        verify { logSpy.onApiRequest(request) }
     }
 
     @Test
@@ -196,12 +199,41 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
         assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
+        verify { logSpy.onApiRequest(request) }
     }
 
-    private val postJson =
-        "{\"headers\":{\"headerKey\":\"headerValue\"},\"method\":\"POST\",\"query\":{\"queryKey\":\"queryValue\"},\"time\":\"time\",\"body\":{\"bodyKey\":\"bodyValue\"},\"uuid\":\"uuid\",\"url_path\":\"test\"}"
-    private val getJson =
-        "{\"headers\":{\"headerKey\":\"headerValue\"},\"method\":\"GET\",\"query\":{\"queryKey\":\"queryValue\"},\"time\":\"time\",\"uuid\":\"uuid\",\"url_path\":\"test\"}"
+    private val postJson = """
+        {
+          "headers": {
+            "headerKey": "headerValue"
+          },
+          "method": "POST",
+          "query": {
+            "queryKey": "queryValue"
+          },
+          "time": "time",
+          "body": {
+            "bodyKey": "bodyValue"
+          },
+          "uuid": "uuid",
+          "url_path": "test"
+        }
+    """.trimIndent()
+
+    private val getJson = """
+        {
+          "headers": {
+            "headerKey": "headerValue"
+          },
+          "method": "GET",
+          "query": {
+            "queryKey": "queryValue"
+          },
+          "time": "time",
+          "uuid": "uuid",
+          "url_path": "test"
+        }
+    """.trimIndent()
 
     @Test
     fun `Serializes POST to JSON`() {
@@ -218,7 +250,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
         val actualJson = post.toJson()
 
-        assertEquals(postJson, actualJson)
+        compareJson(JSONObject(postJson), JSONObject(actualJson))
     }
 
     @Test
@@ -235,7 +267,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
         val actualJson = post.toJson()
 
-        assertEquals(getJson, actualJson)
+        compareJson(JSONObject(getJson), JSONObject(actualJson))
     }
 
     @Test

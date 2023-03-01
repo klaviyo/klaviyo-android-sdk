@@ -2,7 +2,6 @@ package com.klaviyo.analytics.networking
 
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Base64
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
@@ -17,7 +16,6 @@ import com.klaviyo.core_shared_tests.StaticClock
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
-import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
@@ -117,14 +115,12 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Enqueues a profile API call`() {
-        mockkStatic(Base64::class)
-        every { Base64.encodeToString(any(), any()) } returns "mock"
-
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
         KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        verify { logSpy.onApiRequest(any()) }
     }
 
     @Test
@@ -137,6 +133,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         )
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        verify { logSpy.onApiRequest(any()) }
     }
 
     @Test
@@ -149,6 +146,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         )
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        verify { logSpy.onApiRequest(any()) }
     }
 
     @Test

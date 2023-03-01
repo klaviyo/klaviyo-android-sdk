@@ -75,6 +75,7 @@ internal object KlaviyoApiClient : ApiClient {
             if (!apiQueue.contains(request)) {
                 apiQueue.offer(request)
             }
+            Registry.log.onApiRequest(request)
             Registry.dataStore.store(request.uuid, request.toJson())
         }
 

@@ -53,7 +53,7 @@ interface Log {
     fun onNetworkChange(connected: Boolean)
 
     /**
-     * Called whenever the state of any API request changes
+     * Called whenever an API request is enqueued or its state changes
      *
      * @param request
      */

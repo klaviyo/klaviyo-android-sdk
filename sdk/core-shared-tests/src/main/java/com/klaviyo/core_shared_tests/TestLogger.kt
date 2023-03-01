@@ -3,6 +3,9 @@ package com.klaviyo.core_shared_tests // ktlint-disable package-name
 import com.klaviyo.core.config.Log
 import com.klaviyo.core.networking.NetworkRequest
 
+/**
+ * Test fixture: Logger for unit tests of all build variants
+ */
 class TestLogger : Log {
     override fun debug(message: String, ex: Exception?) { println(message) }
     override fun info(message: String, ex: Exception?) { println(message) }
