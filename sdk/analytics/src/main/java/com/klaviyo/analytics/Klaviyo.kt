@@ -50,6 +50,22 @@ object Klaviyo {
     }
 
     /**
+     * Replaces the currently tracked profile with a new [Profile] object
+     * @see resetProfile is called first, then the new profile object is saved
+     *
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
+     *
+     * @param profile A map-like object representing properties of the new user
+     * @return Returns [Klaviyo] for call chaining
+     */
+    fun setProfile(profile: Profile): Klaviyo = apply {
+        resetProfile()
+        UserInfo.updateFromProfile(profile)
+        debouncedProfileUpdate(profile)
+    }
+
+    /**
      * Assigns an email address to the currently tracked Klaviyo profile
      *
      * The SDK keeps track of current profile details to
@@ -71,6 +87,9 @@ object Klaviyo {
     /**
      * Assigns a phone number to the currently tracked Klaviyo profile
      *
+     * NOTE: Phone number format is not validated, but should conform to Klaviyo formatting
+     * see (documentation)[https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo]
+     *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
      *
@@ -91,6 +110,9 @@ object Klaviyo {
     /**
      * Assigns a unique identifier to associate the currently tracked Klaviyo profile
      * with a profile in an external system, such as a point-of-sale system.
+     *
+     * NOTE: Please consult (documentation)[https://help.klaviyo.com/hc/en-us/articles/12902308138011-Understanding-identity-resolution-in-Klaviyo-]
+     * to familiarize yourself with identity resolution before using this identifier.
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
@@ -164,23 +186,6 @@ object Klaviyo {
     }
 
     /**
-     * Updates the currently tracked profile from a map-like [Profile] object
-     * Saves identifying attributes (externalId, email, phone) to the currently tracked profile.
-     *
-     * The SDK keeps track of current profile details to
-     * build analytics requests with profile identifiers
-     *
-     * @param profile A map of properties that define the user
-     * @return Returns [Klaviyo] for call chaining
-     */
-    fun setProfile(profile: Profile): Klaviyo = apply {
-        // Update UserInfo in case the incoming profile contains any identifiers
-        // TODO rename to merge or update?
-        UserInfo.updateFromProfile(profile)
-        debouncedProfileUpdate(profile)
-    }
-
-    /**
      * Debounce timer for enqueuing profile API calls
      */
     private var timer: Clock.Cancellable? = null
@@ -206,25 +211,45 @@ object Klaviyo {
         // Reset timer
         timer?.cancel()
         timer = Registry.clock.schedule(Registry.config.debounceInterval.toLong()) {
-            pendingProfile?.let {
-                Registry.get<ApiClient>().enqueueProfile(it)
-                pendingProfile = null
-            }
+            flushPendingProfile()
         }
+    }
+
+    /**
+     * Enqueue pending profile changes as an API call and then clear slate
+     */
+    private fun flushPendingProfile() = pendingProfile?.let {
+        Registry.get<ApiClient>().enqueueProfile(it)
+        pendingProfile = null
     }
 
     /**
      * Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile
      *
+     * NOTE: if a push token was registered to the current profile, Klaviyo will disassociate it
+     * from the current profile. Call `setPushToken` again to associate this device to a new profile
+     *
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
-     *
-     * @return Returns [Klaviyo] for call chaining
      */
-    fun resetProfile(): Klaviyo = apply {
+    fun resetProfile() {
+        // Flush any pending profile changes immediately
+        timer?.cancel()
+        flushPendingProfile()
+
+        // Clear profile identifiers from state
         UserInfo.reset()
-        // TODO Do we need to API call here?
-        Registry.get<ApiClient>().enqueueProfile(UserInfo.getAsProfile())
+
+        // If we had a push token, re-associate it with an anonymous ID, then erase the local copy
+        // Someday we'll just have a delete token API endpoint -- this is a workaround.
+        getPushToken()?.let { pushToken ->
+            Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
+            Registry.dataStore.clear(EventKey.PUSH_TOKEN.name)
+
+            // Reset that anonymous ID too so that we don't inadvertently use this token push
+            // on a new profile created later without the app developer's say-so
+            UserInfo.reset()
+        }
     }
 
     /**
@@ -241,7 +266,7 @@ object Klaviyo {
      * From an opened push Intent, creates an [EventType.OPENED_PUSH] [Event]
      * containing appropriate tracking parameters
      *
-     * @param intent
+     * @param intent the [Intent] from opening a notification
      */
     fun handlePush(intent: Intent?) = apply {
         val payload = intent?.extras?.let { extras ->
@@ -265,7 +290,7 @@ object Klaviyo {
     /**
      * Checks whether a push notification payload originated from Klaviyo
      *
-     * @param payload
+     * @param payload The String:String data from the push message, or intent extras
      */
     fun isKlaviyoPush(payload: Map<String, String>) = payload.containsKey("_k")
 }

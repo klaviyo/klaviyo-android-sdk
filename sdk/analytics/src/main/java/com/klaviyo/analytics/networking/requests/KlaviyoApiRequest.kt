@@ -43,7 +43,7 @@ internal open class KlaviyoApiRequest(
     /**
      * Creates a representation of this [KlaviyoApiRequest] in JSON
      *
-     * Note that subclass information is lost in the process.
+     * NOTE: subclass information is lost in the process.
      * The important data to send the API request is retained.
      *
      * @return
