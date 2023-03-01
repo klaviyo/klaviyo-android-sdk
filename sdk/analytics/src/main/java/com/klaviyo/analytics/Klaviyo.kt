@@ -50,6 +50,22 @@ object Klaviyo {
     }
 
     /**
+     * Replaces the currently tracked profile with a new [Profile] object
+     * @see resetProfile is called first, then the new profile object is saved
+     *
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
+     *
+     * @param profile A map-like object representing properties of the new user
+     * @return Returns [Klaviyo] for call chaining
+     */
+    fun setProfile(profile: Profile): Klaviyo = apply {
+        resetProfile()
+        UserInfo.updateFromProfile(profile)
+        debouncedProfileUpdate(profile)
+    }
+
+    /**
      * Assigns an email address to the currently tracked Klaviyo profile
      *
      * The SDK keeps track of current profile details to
@@ -71,11 +87,11 @@ object Klaviyo {
     /**
      * Assigns a phone number to the currently tracked Klaviyo profile
      *
-     * The SDK keeps track of current profile details to
-     * build analytics requests with profile identifiers
-     *
      * NOTE: Phone number format is not validated, but should conform to Klaviyo formatting
      * see (documentation)[https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo]
+     *
+     * The SDK keeps track of current profile details to
+     * build analytics requests with profile identifiers
      *
      * This should be called whenever the active user in your app changes
      * (e.g. after a fresh login)
@@ -94,6 +110,9 @@ object Klaviyo {
     /**
      * Assigns a unique identifier to associate the currently tracked Klaviyo profile
      * with a profile in an external system, such as a point-of-sale system.
+     *
+     * NOTE: Please consult (documentation)[https://help.klaviyo.com/hc/en-us/articles/12902308138011-Understanding-identity-resolution-in-Klaviyo-]
+     * to familiarize yourself with identity resolution before using this identifier.
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
@@ -164,22 +183,6 @@ object Klaviyo {
                 debouncedProfileUpdate(Profile(mapOf(propertyKey to value)))
             }
         }
-    }
-
-    /**
-     * Replaces the currently tracked profile with a new [Profile] object
-     * @see resetProfile is called first, then the new profile object is saved
-     *
-     * The SDK keeps track of current profile details to
-     * build analytics requests with profile identifiers
-     *
-     * @param profile A map-like object representing properties of the new user
-     * @return Returns [Klaviyo] for call chaining
-     */
-    fun setProfile(profile: Profile): Klaviyo = apply {
-        resetProfile()
-        UserInfo.updateFromProfile(profile)
-        debouncedProfileUpdate(profile)
     }
 
     /**
@@ -263,7 +266,7 @@ object Klaviyo {
      * From an opened push Intent, creates an [EventType.OPENED_PUSH] [Event]
      * containing appropriate tracking parameters
      *
-     * @param intent
+     * @param intent the [Intent] from opening a notification
      */
     fun handlePush(intent: Intent?) = apply {
         val payload = intent?.extras?.let { extras ->
@@ -287,7 +290,7 @@ object Klaviyo {
     /**
      * Checks whether a push notification payload originated from Klaviyo
      *
-     * @param payload
+     * @param payload The String:String data from the push message, or intent extras
      */
     fun isKlaviyoPush(payload: Map<String, String>) = payload.containsKey("_k")
 }
