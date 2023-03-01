@@ -45,6 +45,10 @@ The SDK provides helpers for identifying profiles and syncing via the
 All profile identifiers (email, phone, external ID, anonymous ID) are persisted to local storage
 so that the SDK can keep track of the current profile.
 
+Klaviyo SDK does not validate email address or phone number inputs locally, see
+[documentation](https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo)
+on proper phone number formatting
+
 Profile attributes can be set all at once: 
 ```kotlin
 val profile = Profile(mapOf(
@@ -144,7 +148,7 @@ and register it with Klaviyo SDK. To track notifications opened from the system 
 If you'd prefer to implement `FirebaseMessagingService` yourself, follow the FCM 
 setup docs including referencing your own service class in the manifest.
 Then update your implementation of `onNewToken` and `onMessageReceived` as below to communicate 
-push tokens and notifications received to the Klaviyo SDK. Note that the launcher activity 
+push tokens and notifications received to the Klaviyo SDK. The launcher activity 
 code snippets above are still required.
 ```kotlin
 import com.google.firebase.messaging.RemoteMessage

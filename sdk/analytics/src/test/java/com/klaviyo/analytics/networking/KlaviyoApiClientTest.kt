@@ -8,7 +8,6 @@ import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.KlaviyoConfig
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
