@@ -1,7 +1,6 @@
 package com.klaviyo.core
 
 import com.klaviyo.core.config.Log
-import com.klaviyo.core.config.NetworkRequest
 import com.klaviyo.core.networking.NetworkRequest
 
 internal class Logger : Log {
