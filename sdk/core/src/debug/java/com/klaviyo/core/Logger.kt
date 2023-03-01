@@ -44,6 +44,7 @@ open class Logger : Log {
 
         private val ignoreList = listOf(
             Logger::class.java.name,
+            Companion::class.java.name,
             Console::class.java.name
         )
 
@@ -55,7 +56,7 @@ open class Logger : Log {
          * Note: This will not be called if a manual tag is specified
          */
         private fun makeTag(): String = Throwable().stackTrace
-            .first { it.className !in ignoreList }
+            .first { it.className !in ignoreList && !it.className.contains(Log::class.java.name) }
             .let { element ->
                 var tag = element.className.substringAfterLast('.')
                 val m = ANONYMOUS_CLASS.matcher(tag)
