@@ -42,12 +42,6 @@ interface NetworkMonitor {
     enum class NetworkType(val position: Int) {
         Wifi(0),
         Cell(1),
-        Offline(2);
-
-        companion object {
-            fun fromPosition(position: Int) = NetworkType.values().first() {
-                it.position == position
-            }
-        }
+        Offline(2)
     }
 }
