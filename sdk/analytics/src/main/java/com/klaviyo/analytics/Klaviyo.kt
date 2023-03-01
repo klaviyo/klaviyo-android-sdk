@@ -165,11 +165,12 @@ object Klaviyo {
 
     /**
      * Replaces the currently tracked profile with a new [Profile] object
+     * @see resetProfile is called first, then the new profile object is saved
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
      *
-     * @param profile A map of properties that define the user
+     * @param profile A map-like object representing properties of the new user
      * @return Returns [Klaviyo] for call chaining
      */
     fun setProfile(profile: Profile): Klaviyo = apply {

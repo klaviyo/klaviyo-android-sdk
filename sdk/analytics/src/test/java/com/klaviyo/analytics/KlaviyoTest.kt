@@ -32,6 +32,7 @@ internal class KlaviyoTest : BaseTest() {
 
     override fun setup() {
         super.setup()
+        UserInfo.reset()
         Registry.register<ApiClient> { apiClientMock }
         every { Registry.clock } returns staticClock
         every { apiClientMock.enqueueProfile(capture(capturedProfile)) } returns Unit
