@@ -49,7 +49,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
 
     init {
         onNetworkChange {
-            Registry.log.debug("Network ${if (it) "available" else "unavailable"}")
+            Registry.log.info("Network ${if (it) "available" else "unavailable"}")
         }
     }
 

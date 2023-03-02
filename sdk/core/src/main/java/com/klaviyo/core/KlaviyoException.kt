@@ -10,5 +10,5 @@ abstract class KlaviyoException(final override val message: String) : Exception(
         log()
     }
 
-    private fun log() = Registry.log.wtf(message, this)
+    private fun log() = Registry.log.error(message, this)
 }

@@ -15,7 +15,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     private var activityObservers = mutableListOf<ActivityObserver>()
 
     init {
-        onActivityEvent { Registry.log.debug(it.type) }
+        onActivityEvent { Registry.log.info(it.type) }
     }
 
     override fun onActivityEvent(observer: ActivityObserver) {

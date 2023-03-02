@@ -44,20 +44,20 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
     fun `Lifecycle events are logged`() {
         // At this time, we expect nothing from this methods:
         KlaviyoLifecycleMonitor.onActivityStarted(mockk())
-        verify { logSpy.debug("Started") }
+        verify { logSpy.info("Started") }
         KlaviyoLifecycleMonitor.onActivityCreated(mockk(), mockk())
-        verify { logSpy.debug("Created") }
+        verify { logSpy.info("Created") }
         KlaviyoLifecycleMonitor.onActivityResumed(mockk())
-        verify { logSpy.debug("Resumed") }
+        verify { logSpy.info("Resumed") }
         KlaviyoLifecycleMonitor.onActivitySaveInstanceState(mockk(), mockk())
-        verify { logSpy.debug("SaveInstanceState") }
+        verify { logSpy.info("SaveInstanceState") }
         KlaviyoLifecycleMonitor.onActivityPaused(mockk())
-        verify { logSpy.debug("Paused") }
+        verify { logSpy.info("Paused") }
         KlaviyoLifecycleMonitor.onActivityDestroyed(mockk())
-        verify { logSpy.debug("Destroyed") }
+        verify { logSpy.info("Destroyed") }
         KlaviyoLifecycleMonitor.onActivityStopped(mockk())
-        verify { logSpy.debug("Stopped") }
-        verify { logSpy.debug("AllStopped") }
+        verify { logSpy.info("Stopped") }
+        verify { logSpy.info("AllStopped") }
     }
 
     @Test

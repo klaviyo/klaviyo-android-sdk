@@ -100,8 +100,7 @@ object Registry {
      * @param T - Type, usually an interface, to register under
      * @return Whether service is registered
      */
-    inline fun <reified T : Any> isRegistered(): Boolean = typeOf<T>().let {
-            type ->
+    inline fun <reified T : Any> isRegistered(): Boolean = typeOf<T>().let { type ->
         registry.containsKey(type) || services.containsKey(type)
     }
 

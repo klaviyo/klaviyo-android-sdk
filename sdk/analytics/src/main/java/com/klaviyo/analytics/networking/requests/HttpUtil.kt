@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.core.Registry
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -40,6 +41,8 @@ internal object HttpUtil {
             return openConnection() as HttpURLConnection
         }
 
-        throw IOException("Invalid URL protocol")
+        val exception = IOException("Invalid URL protocol")
+        Registry.log.wtf("Unexpected URL", exception)
+        throw exception
     }
 }

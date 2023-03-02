@@ -32,7 +32,19 @@ internal object KlaviyoApiClient : ApiClient {
     private var apiObservers = mutableListOf<ApiObserver>()
 
     init {
-        onApiRequest { Registry.log.debug(it.toString()) }
+        onApiRequest {
+            Registry.log.info(
+                when (it.state) {
+                    KlaviyoApiRequest.Status.Unsent.name -> "Request Enqueued"
+                    KlaviyoApiRequest.Status.PendingRetry.name -> "Request will be retried"
+                    KlaviyoApiRequest.Status.Complete.name -> "Request Completed"
+                    KlaviyoApiRequest.Status.Failed.name -> "Request Failed"
+                    else -> "Request"
+                }
+            )
+
+            Registry.log.debug(it.toString())
+        }
 
         // Stop our handler thread when all activities stop
         Registry.lifecycleMonitor.onActivityEvent {
@@ -119,24 +131,35 @@ internal object KlaviyoApiClient : ApiClient {
         // Keep track if there's any errors restoring from persistent store
         var wasMutated = false
 
+        Registry.log.info("Restoring persisted queue")
+
         Registry.dataStore.fetch(QUEUE_KEY)?.let {
             try {
                 val queue = JSONArray(it)
                 Array(queue.length()) { i -> queue.optString(i) }
             } catch (exception: JSONException) {
                 wasMutated = true
+                Registry.log.wtf("Invalid persistent queue JSON", exception)
+                Registry.log.debug(it)
                 emptyArray<String>()
             }
         }?.forEach { uuid ->
-            Registry.dataStore.fetch(uuid)?.let { json ->
-                try {
-                    val request = KlaviyoApiRequest.fromJson(JSONObject(json))
-                    if (!apiQueue.contains(request)) {
-                        apiQueue.offer(request)
-                    }
-                } catch (exception: JSONException) {
+            Registry.dataStore.fetch(uuid).let { json ->
+                if (json == null) {
+                    Registry.log.error("Missing request JSON for $uuid")
                     wasMutated = true
-                    Registry.dataStore.clear(uuid)
+                } else {
+                    try {
+                        val request = KlaviyoApiRequest.fromJson(JSONObject(json))
+                        if (!apiQueue.contains(request)) {
+                            apiQueue.offer(request)
+                        }
+                    } catch (exception: JSONException) {
+                        wasMutated = true
+                        Registry.log.wtf("Invalid request JSON $uuid", exception)
+                        Registry.dataStore.clear(uuid)
+                        Registry.log.debug(json)
+                    }
                 }
             }
         }
@@ -150,10 +173,13 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Flush current queue to persistent store
      */
-    private fun persistQueue() = Registry.dataStore.store(
-        QUEUE_KEY,
-        JSONArray(apiQueue.map { it.uuid }).toString()
-    )
+    private fun persistQueue() {
+        Registry.log.info("Persisting queue")
+        Registry.dataStore.store(
+            QUEUE_KEY,
+            JSONArray(apiQueue.map { it.uuid }).toString()
+        )
+    }
 
     /**
      * Start a network batch to process the request queue
@@ -173,12 +199,15 @@ internal object KlaviyoApiClient : ApiClient {
     private fun startBatch(force: Boolean = false) {
         stopBatch() // we only ever want one batch job running
         handler?.post(NetworkRunnable(force))
+        Registry.log.info("Started background handler")
     }
 
     /**
      * Stop all jobs on our handler thread
      */
-    private fun stopBatch() = handler?.removeCallbacksAndMessages(null)
+    private fun stopBatch() = handler?.removeCallbacksAndMessages(null).also {
+        Registry.log.info("Stopped background handler")
+    }
 
     /**
      * Runnable which flushes the API queue in batches for efficiency.
@@ -208,6 +237,8 @@ internal object KlaviyoApiClient : ApiClient {
                 return requeue()
             }
 
+            Registry.log.info("Starting network batch")
+
             while (apiQueue.isNotEmpty()) {
                 val request = apiQueue.poll()
 
@@ -227,7 +258,7 @@ internal object KlaviyoApiClient : ApiClient {
                         break
                     }
                     // Offline or at the end of the queue... either way break the loop
-                    else -> break
+                    null, KlaviyoApiRequest.Status.Unsent -> break
                 }
             }
 
@@ -235,6 +266,8 @@ internal object KlaviyoApiClient : ApiClient {
 
             if (!apiQueue.isEmpty()) {
                 requeue()
+            } else {
+                Registry.log.info("Emptied network queue")
             }
         }
 
@@ -242,6 +275,7 @@ internal object KlaviyoApiClient : ApiClient {
          * Re-queue the job to run again after [flushInterval] milliseconds
          */
         private fun requeue() {
+            Registry.log.info("Retrying network batch in $flushInterval")
             force = false
             handler?.postDelayed(this, flushInterval)
         }

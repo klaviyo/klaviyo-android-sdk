@@ -295,6 +295,7 @@ internal class KlaviyoTest : BaseTest() {
     fun `Non-klaviyo push payload is ignored`() {
         // doesn't have _k, klaviyo tracking params
         Klaviyo.handlePush(mockIntent(mapOf("other" to "3rd party push")))
+        Klaviyo.handlePush(null)
 
         verify(inverse = true) { apiClientMock.enqueueEvent(any(), any()) }
     }

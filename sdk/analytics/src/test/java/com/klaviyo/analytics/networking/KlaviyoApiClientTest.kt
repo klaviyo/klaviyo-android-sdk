@@ -85,6 +85,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         mockk<KlaviyoApiRequest>().also {
             every { it.uuid } returns uuid
             every { it.send() } returns status
+            every { it.state } returns status.name
             every { it.toJson() } returns """
                 {
                   "headers": {
@@ -150,6 +151,22 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `Supports adding and removing callbacks`() {
+        var counter = 0
+        val handler: ApiObserver = { counter++ }
+
+        KlaviyoApiClient.onApiRequest(handler)
+        KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
+
+        assertEquals(1, counter)
+
+        KlaviyoApiClient.offApiRequest(handler)
+        KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
+
+        assertEquals(1, counter)
+    }
+
+    @Test
     fun `Stops handler thread on application stop`() {
         var callCount = 0
         KlaviyoApiClient.enqueueRequest(mockRequest())
@@ -187,7 +204,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(requests.size, KlaviyoApiClient.getQueueSize())
 
         // Expected to log each enqueued request
-        verify(exactly = requests.size) { logSpy.debug(any()) }
+        verify { logSpy.debug(any()) }
     }
 
     @Test
@@ -364,7 +381,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
             mockRequest(uuid)
         }
 
-        dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, "[\"mock_uuid1\",\"mock_uuid2\"]")
+        dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, "[\"mock_uuid1\",\"mock_uuid2\",\"mock_uuid3\"]")
         dataStoreSpy.store("mock_uuid1", "{/}") // bad JSON!
         dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toJson())
 
