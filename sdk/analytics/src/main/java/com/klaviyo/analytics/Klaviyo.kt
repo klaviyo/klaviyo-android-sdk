@@ -50,8 +50,8 @@ object Klaviyo {
     }
 
     /**
-     * Replaces the currently tracked profile with a new [Profile] object
-     * @see resetProfile is called first, then the new profile object is saved
+     * Assign new identifiers and attributes to the currently tracked profile.
+     * If a profile has already been identified, it will be overwritten, by calling [resetProfile].
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
