@@ -12,6 +12,7 @@ import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.slot
 import io.mockk.unmockkObject
+import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -127,6 +128,20 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         netCallbackSlot.captured.onLost(mockk())
 
         assertEquals(6, callCount)
+    }
+
+    @Test
+    fun `Network changes are logged`() {
+        KlaviyoNetworkMonitor // Initialize, which would normally just happen when app launches
+        assert(netCallbackSlot.isCaptured)
+
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
+        netCallbackSlot.captured.onAvailable(mockk())
+        verify { logSpy.debug("Network available") }
+
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
+        netCallbackSlot.captured.onUnavailable()
+        verify { logSpy.debug("Network unavailable") }
     }
 
     @Test

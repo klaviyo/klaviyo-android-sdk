@@ -26,7 +26,14 @@ internal object KlaviyoApiClient : ApiClient {
     private var handler: Handler? = null
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
 
+    /**
+     * List of registered API observers
+     */
+    private var apiObservers = mutableListOf<ApiObserver>()
+
     init {
+        onApiRequest { Registry.log.debug(it.toString()) }
+
         // Stop our handler thread when all activities stop
         Registry.lifecycleMonitor.onActivityEvent {
             when (it) {
@@ -59,6 +66,18 @@ internal object KlaviyoApiClient : ApiClient {
         enqueueRequest(EventApiRequest(event, profile))
     }
 
+    override fun onApiRequest(observer: ApiObserver) {
+        apiObservers += observer
+    }
+
+    override fun offApiRequest(observer: ApiObserver) {
+        apiObservers -= observer
+    }
+
+    private fun broadcastApiRequest(request: KlaviyoApiRequest) {
+        apiObservers.forEach { it(request) }
+    }
+
     /**
      * Enqueues an [KlaviyoApiRequest] to run in the background
      * These requests are sent to the Klaviyo asynchronous APIs
@@ -75,8 +94,8 @@ internal object KlaviyoApiClient : ApiClient {
             if (!apiQueue.contains(request)) {
                 apiQueue.offer(request)
             }
-            Registry.log.onApiRequest(request)
             Registry.dataStore.store(request.uuid, request.toJson())
+            broadcastApiRequest(request)
         }
 
         persistQueue()
@@ -190,19 +209,21 @@ internal object KlaviyoApiClient : ApiClient {
             }
 
             while (apiQueue.isNotEmpty()) {
-                val apiRequest = apiQueue.poll()
+                val request = apiQueue.poll()
 
-                when (apiRequest?.send()) {
+                when (request?.send()) {
                     KlaviyoApiRequest.Status.Complete, KlaviyoApiRequest.Status.Failed -> {
                         // On success or absolute failure, remove from queue and persistent store
-                        Registry.dataStore.clear(apiRequest.uuid)
+                        Registry.dataStore.clear(request.uuid)
+                        broadcastApiRequest(request)
                     }
                     KlaviyoApiRequest.Status.PendingRetry -> {
                         // Encountered a retryable error
                         // Put this back on top of the queue and we'll try again with backoff
                         // TODO reset flush interval next time succeeds
-                        apiQueue.offerFirst(apiRequest)
-                        flushInterval *= apiRequest.attempts + 1
+                        apiQueue.offerFirst(request)
+                        flushInterval *= request.attempts + 1
+                        broadcastApiRequest(request)
                         break
                     }
                     // Offline or at the end of the queue... either way break the loop

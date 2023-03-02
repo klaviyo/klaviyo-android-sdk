@@ -26,6 +26,34 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     private var networkChangeObservers = mutableListOf<NetworkObserver>()
 
     /**
+     * Callback object to register with system
+     */
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+
+        override fun onAvailable(network: Network) = broadcastNetworkChange()
+
+        override fun onLost(network: Network) = broadcastNetworkChange()
+
+        override fun onUnavailable() = broadcastNetworkChange()
+
+        override fun onCapabilitiesChanged(
+            network: Network,
+            networkCapabilities: NetworkCapabilities
+        ) = broadcastNetworkChange()
+
+        override fun onLinkPropertiesChanged(
+            network: Network,
+            linkProperties: LinkProperties
+        ) = broadcastNetworkChange()
+    }
+
+    init {
+        onNetworkChange {
+            Registry.log.debug("Network ${if (it) "available" else "unavailable"}")
+        }
+    }
+
+    /**
      * Register an observer to be notified when network connectivity has changed
      *
      * @param observer
@@ -36,12 +64,20 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     }
 
     /**
-     * Register an observer to be notified when network connectivity has changed
+     * De-register an observer previously added via [onNetworkChange]
      *
      * @param observer
      */
     override fun offNetworkChange(observer: NetworkObserver) {
         networkChangeObservers -= observer
+    }
+
+    /**
+     * Invoke all registered observers with current state of network connectivity
+     */
+    private fun broadcastNetworkChange() {
+        val isConnected = isNetworkConnected()
+        networkChangeObservers.forEach { it(isConnected) }
     }
 
     /**
@@ -70,33 +106,6 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
         } else {
             NetworkMonitor.NetworkType.Offline
         }
-    }
-
-    /**
-     * Invoke all registered observers with current state of network connectivity
-     */
-    private fun broadcastNetworkChange() {
-        val isConnected = isNetworkConnected()
-        networkChangeObservers.forEach { it(isConnected) }
-    }
-
-    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
-
-        override fun onAvailable(network: Network) = broadcastNetworkChange()
-
-        override fun onLost(network: Network) = broadcastNetworkChange()
-
-        override fun onUnavailable() = broadcastNetworkChange()
-
-        override fun onCapabilitiesChanged(
-            network: Network,
-            networkCapabilities: NetworkCapabilities
-        ) = broadcastNetworkChange()
-
-        override fun onLinkPropertiesChanged(
-            network: Network,
-            linkProperties: LinkProperties
-        ) = broadcastNetworkChange()
     }
 
     /**

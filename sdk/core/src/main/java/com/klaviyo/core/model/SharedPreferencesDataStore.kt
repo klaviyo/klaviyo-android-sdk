@@ -12,7 +12,29 @@ import com.klaviyo.core.Registry
  * which of course means accessors must implement type safety checks as necessary.
  */
 internal object SharedPreferencesDataStore : DataStore {
+
     internal const val KLAVIYO_PREFS_NAME = "KlaviyoSDKPreferences"
+
+    /**
+     * List of registered observers
+     */
+    private var storeObservers = mutableListOf<StoreObserver>()
+
+    init {
+        onStoreChange { key, value -> Registry.log.debug("$key=$value") }
+    }
+
+    override fun onStoreChange(observer: StoreObserver) {
+        storeObservers += observer
+    }
+
+    override fun offStoreChange(observer: StoreObserver) {
+        storeObservers -= observer
+    }
+
+    private fun broadcastStoreChange(key: String, value: String?) {
+        storeObservers.forEach { it(key, value) }
+    }
 
     /**
      * Opens the Klaviyo SDK's shared preferences file
@@ -40,7 +62,7 @@ internal object SharedPreferencesDataStore : DataStore {
             .putString(key, value)
             .apply()
             .also {
-                Registry.log.onDataStore(key, value)
+                broadcastStoreChange(key, value)
             }
     }
 
@@ -66,7 +88,7 @@ internal object SharedPreferencesDataStore : DataStore {
             .remove(key)
             .apply()
             .also {
-                Registry.log.onDataStore(key, null)
+                broadcastStoreChange(key, null)
             }
     }
 }

@@ -120,7 +120,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        verify { logSpy.onApiRequest(any()) }
+        verify { logSpy.debug(any()) }
     }
 
     @Test
@@ -133,7 +133,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         )
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        verify { logSpy.onApiRequest(any()) }
+        verify { logSpy.debug(any()) }
     }
 
     @Test
@@ -146,7 +146,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         )
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        verify { logSpy.onApiRequest(any()) }
+        verify { logSpy.debug(any()) }
     }
 
     @Test
@@ -185,6 +185,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         KlaviyoApiClient.enqueueRequest(*requests.toTypedArray())
         assertEquals(requests.size, KlaviyoApiClient.getQueueSize())
+
+        // Expected to log each enqueued request
+        verify(exactly = requests.size) { logSpy.debug(any()) }
     }
 
     @Test
@@ -194,9 +197,14 @@ internal class KlaviyoApiClientTest : BaseTest() {
             assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
         }
 
+        verify(exactly = queueDepth) { logSpy.debug(any()) }
+
         delayedRunner!!.run()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
+
+        // Expect 2 logs per request, one for enqueued and one for completed
+        verify(exactly = queueDepth * 2) { logSpy.debug(any()) }
     }
 
     @Test
@@ -204,11 +212,14 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val requestMock = mockRequest()
 
         KlaviyoApiClient.enqueueRequest(requestMock)
+        verify(exactly = 1) { logSpy.debug(any()) }
+
         staticClock.execute(flushIntervalWifi.toLong())
 
         delayedRunner!!.run()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
+        verify(exactly = 2) { logSpy.debug(any()) }
     }
 
     @Test

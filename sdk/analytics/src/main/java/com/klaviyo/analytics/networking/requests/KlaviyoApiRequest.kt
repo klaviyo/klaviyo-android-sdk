@@ -1,7 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.core.Registry
-import com.klaviyo.core.networking.NetworkRequest
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
@@ -25,7 +24,7 @@ internal open class KlaviyoApiRequest(
     val method: RequestMethod,
     val time: String = Registry.clock.currentTimeAsString(),
     val uuid: String = UUID.randomUUID().toString()
-) : NetworkRequest {
+) : ApiRequest {
     internal enum class Status {
         Unsent, PendingRetry, Complete, Failed
     }
@@ -48,7 +47,6 @@ internal open class KlaviyoApiRequest(
                 Status.Complete, Status.Failed -> Registry.clock.currentTimeAsString()
                 else -> null
             }
-            Registry.log.onApiRequest(this)
         }
 
     protected var response: String? = null

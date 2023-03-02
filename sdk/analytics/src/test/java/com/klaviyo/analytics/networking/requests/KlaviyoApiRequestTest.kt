@@ -134,7 +134,6 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
         assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
-        verify { logSpy.onApiRequest(request) }
     }
 
     @Test
@@ -145,7 +144,6 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
 
         assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
-        verify { logSpy.onApiRequest(request) }
     }
 
     @Test
@@ -163,7 +161,6 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         // Final attempt should return fail
         assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
         assertEquals(configMock.networkMaxRetries + 1, request.attempts)
-        verify { logSpy.onApiRequest(request) }
     }
 
     @Test
@@ -183,7 +180,6 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
         assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
-        verify { logSpy.onApiRequest(request) }
     }
 
     @Test
@@ -199,7 +195,6 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
         assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
-        verify { logSpy.onApiRequest(request) }
     }
 
     private val postJson = """

@@ -1,4 +1,4 @@
-package com.klaviyo.core_shared_tests
+package com.klaviyo.core_shared_tests // ktlint-disable package-name
 
 import com.klaviyo.core.config.Clock
 

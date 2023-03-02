@@ -1,11 +1,11 @@
-package com.klaviyo.core.networking
+package com.klaviyo.analytics.networking.requests
 
 import java.net.URL
 
 /**
  * Immutable representation of the data of a network request
  */
-interface NetworkRequest {
+interface ApiRequest {
     /**
      * Unsent, PendingRetry, Complete or Failed
      */

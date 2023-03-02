@@ -2,7 +2,6 @@ package com.klaviyo.core
 
 import android.os.Build
 import com.klaviyo.core.config.Log
-import com.klaviyo.core.networking.NetworkRequest
 import java.lang.Exception
 import java.util.regex.Pattern
 
@@ -22,17 +21,6 @@ open class Logger : Log {
     override fun wtf(message: String, ex: Exception?) {
         Console.log(message, Console.Level.Assert, makeTag(), ex)
     }
-
-    override fun onLifecycleEvent(event: String) = debug(event)
-
-    override fun onNetworkChange(connected: Boolean) =
-        debug("Internet connection is " + (if (connected) "available" else "unavailable"))
-
-    override fun onApiRequest(request: NetworkRequest) =
-        debug("${request.httpMethod} to ${request.url} ${request.state}")
-
-    override fun onDataStore(key: String, value: String?) =
-        debug("$key=$value")
 
     /**
      * Inspired from reading through Timber source code

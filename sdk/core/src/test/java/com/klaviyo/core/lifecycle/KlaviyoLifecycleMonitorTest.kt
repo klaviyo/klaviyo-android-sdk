@@ -1,12 +1,14 @@
 package com.klaviyo.core.lifecycle
 
 import com.klaviyo.core.Registry
+import com.klaviyo.core_shared_tests.BaseTest
 import io.mockk.mockk
 import io.mockk.unmockkObject
+import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class KlaviyoLifecycleMonitorTest {
+class KlaviyoLifecycleMonitorTest : BaseTest() {
 
     @Test
     fun `Is registered service`() {
@@ -36,6 +38,26 @@ class KlaviyoLifecycleMonitorTest {
         KlaviyoLifecycleMonitor.onActivityPaused(mockk())
         KlaviyoLifecycleMonitor.onActivityDestroyed(mockk())
         assert(callCount == 1)
+    }
+
+    @Test
+    fun `Lifecycle events are logged`() {
+        // At this time, we expect nothing from this methods:
+        KlaviyoLifecycleMonitor.onActivityStarted(mockk())
+        verify { logSpy.debug("Started") }
+        KlaviyoLifecycleMonitor.onActivityCreated(mockk(), mockk())
+        verify { logSpy.debug("Created") }
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+        verify { logSpy.debug("Resumed") }
+        KlaviyoLifecycleMonitor.onActivitySaveInstanceState(mockk(), mockk())
+        verify { logSpy.debug("SaveInstanceState") }
+        KlaviyoLifecycleMonitor.onActivityPaused(mockk())
+        verify { logSpy.debug("Paused") }
+        KlaviyoLifecycleMonitor.onActivityDestroyed(mockk())
+        verify { logSpy.debug("Destroyed") }
+        KlaviyoLifecycleMonitor.onActivityStopped(mockk())
+        verify { logSpy.debug("Stopped") }
+        verify { logSpy.debug("AllStopped") }
     }
 
     @Test
