@@ -69,7 +69,7 @@ abstract class BaseTest {
     protected val lifecycleMonitorMock = mockk<LifecycleMonitor>()
     protected val networkMonitorMock = mockk<NetworkMonitor>()
     protected val dataStoreSpy = spyk(InMemoryDataStore())
-    protected val logSpy = spyk(TestLogger())
+    protected val logSpy = spyk(Logger())
 
     @Before
     open fun setup() {

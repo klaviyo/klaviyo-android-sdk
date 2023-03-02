@@ -6,7 +6,7 @@ import com.klaviyo.core.networking.NetworkRequest
 /**
  * Test fixture: Logger for unit tests of all build variants
  */
-class TestLogger : Log {
+class Logger : Log {
     override fun debug(message: String, ex: Exception?) { println(message) }
     override fun info(message: String, ex: Exception?) { println(message) }
     override fun error(message: String, ex: Exception?) { println(message) }
