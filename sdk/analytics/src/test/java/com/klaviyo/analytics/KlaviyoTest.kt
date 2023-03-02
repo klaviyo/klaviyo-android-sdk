@@ -79,14 +79,6 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `setProfile is debounced`() {
-        Klaviyo.setProfile(Profile().setEmail(EMAIL))
-
-        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
-        verifyProfileDebounced()
-    }
-
-    @Test
     fun `Fluent profile updates are debounced`() {
         Klaviyo.setExternalId(EXTERNAL_ID)
             .setEmail(EMAIL)
@@ -122,17 +114,33 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `setProfile is debounced`() {
+        Klaviyo.setProfile(Profile().setEmail(EMAIL))
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+        verifyProfileDebounced()
+    }
+
+    @Test
+    fun `setProfile merges into an anonymous profile`() {
+        val anonId = UserInfo.anonymousId
+
+        Klaviyo.setProfile(Profile().setEmail(EMAIL))
+
+        assertEquals(EMAIL, UserInfo.email)
+        assertEquals(anonId, UserInfo.anonymousId)
+    }
+
+    @Test
     fun `setProfile resets current profile and passes new identifiers to UserInfo`() {
         UserInfo.email = "other"
         val anonId = UserInfo.anonymousId
+        val newProfile = Profile().setExternalId(EXTERNAL_ID)
 
-        Klaviyo.setProfile(
-            Profile()
-                .setExternalId(EXTERNAL_ID)
-        )
+        Klaviyo.setProfile(newProfile)
 
-        assert(UserInfo.externalId == EXTERNAL_ID)
-        assert(UserInfo.email == "")
+        assertEquals(EXTERNAL_ID, UserInfo.externalId)
+        assertEquals("", UserInfo.email)
         assertNotEquals(anonId, UserInfo.anonymousId)
     }
 
@@ -140,7 +148,7 @@ internal class KlaviyoTest : BaseTest() {
     fun `Sets user external ID into info`() {
         Klaviyo.setExternalId(EXTERNAL_ID)
 
-        assert(UserInfo.externalId == EXTERNAL_ID)
+        assertEquals(EXTERNAL_ID, UserInfo.externalId)
         verifyProfileDebounced()
     }
 
@@ -148,7 +156,7 @@ internal class KlaviyoTest : BaseTest() {
     fun `Sets user email into info`() {
         Klaviyo.setEmail(EMAIL)
 
-        assert(UserInfo.email == EMAIL)
+        assertEquals(EMAIL, UserInfo.email)
         verifyProfileDebounced()
     }
 
@@ -156,7 +164,7 @@ internal class KlaviyoTest : BaseTest() {
     fun `Sets user phone into info`() {
         Klaviyo.setPhoneNumber(PHONE)
 
-        assert(UserInfo.phoneNumber == PHONE)
+        assertEquals(PHONE, UserInfo.phoneNumber)
         verifyProfileDebounced()
     }
 
@@ -167,7 +175,7 @@ internal class KlaviyoTest : BaseTest() {
 
         verifyProfileDebounced()
         assert(capturedProfile.isCaptured)
-        assert(capturedProfile.captured[ProfileKey.FIRST_NAME] == stubName)
+        assertEquals(stubName, capturedProfile.captured[ProfileKey.FIRST_NAME])
     }
 
     @Test
@@ -180,9 +188,9 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.resetProfile()
 
         assertNotEquals(anonId, UserInfo.anonymousId)
-        assert(UserInfo.email == "")
-        assert(UserInfo.phoneNumber == "")
-        assert(UserInfo.externalId == "")
+        assertEquals("", UserInfo.email)
+        assertEquals("", UserInfo.phoneNumber)
+        assertEquals("", UserInfo.externalId)
 
         // Shouldn't make an API request by default
         verify(inverse = true) { apiClientMock.enqueueProfile(any()) }
@@ -195,7 +203,7 @@ internal class KlaviyoTest : BaseTest() {
 
         Klaviyo.resetProfile()
 
-        assert(UserInfo.email == "")
+        assertEquals("", UserInfo.email)
         assertEquals(null, dataStoreSpy.fetch("push_token"))
         verify(exactly = 1) { apiClientMock.enqueuePushToken(any(), any()) }
     }

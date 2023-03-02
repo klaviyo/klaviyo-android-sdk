@@ -60,8 +60,15 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setProfile(profile: Profile): Klaviyo = apply {
-        resetProfile()
-        UserInfo.updateFromProfile(profile)
+        if (UserInfo.isIdentified) {
+            // If a profile with external identifiers is already in state, we must reset.
+            // This conditional is important to preserve merging with an anonymous profile.
+            resetProfile()
+        }
+
+        UserInfo.externalId = profile.externalId ?: ""
+        UserInfo.email = profile.email ?: ""
+        UserInfo.phoneNumber = profile.phoneNumber ?: ""
         debouncedProfileUpdate(profile)
     }
 

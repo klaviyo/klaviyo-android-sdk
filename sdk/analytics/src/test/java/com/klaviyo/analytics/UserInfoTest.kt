@@ -27,17 +27,6 @@ internal class UserInfoTest : BaseTest() {
     }
 
     @Test
-    fun `Updates UserInfo identifiers from a Profile object`() {
-        UserInfo.email = EMAIL
-
-        val profile = Profile().setExternalId(EXTERNAL_ID).setPhoneNumber(PHONE)
-
-        UserInfo.updateFromProfile(profile)
-
-        assertUserInfoIdentifiers()
-    }
-
-    @Test
     fun `create and store a new UUID if one does not exists in data store`() {
         val anonId = UserInfo.anonymousId
         val fetched = dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name)
