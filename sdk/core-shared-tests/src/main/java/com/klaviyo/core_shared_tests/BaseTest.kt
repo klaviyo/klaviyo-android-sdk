@@ -1,4 +1,4 @@
-package com.klaviyo.core_shared_tests // ktlint-disable package-name
+package com.klaviyo.core_shared_tests
 
 import android.content.Context
 import android.os.Build

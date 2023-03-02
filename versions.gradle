@@ -3,7 +3,7 @@ ext {
     gradleBuildToolsVersion = '7.3.1'
     gradleKotlinVersion = '1.7.20'
     dokkaVersion = '1.7.20'
-    gradleKtlintVersion = "11.2.0"
+    gradleKtlintVersion = "11.0.0"
 
     // android versioning
     androidCompileVersion = 33
@@ -11,7 +11,7 @@ ext {
     minSDKVersion = 23
     targetSDKVersion = 33
 
-    // project naming and versioning
+    // project versioning
     versionCode = 1
     versionName = '1.0.1'
 
