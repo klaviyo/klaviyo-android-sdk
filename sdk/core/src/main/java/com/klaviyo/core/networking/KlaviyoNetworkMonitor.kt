@@ -114,6 +114,8 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     private fun initializeNetworkListener() {
         if (this::networkRequest.isInitialized) return
 
+        Registry.log.debug("Attached network monitor")
+
         networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
