@@ -3,7 +3,7 @@ ext {
     gradleBuildToolsVersion = '7.4.0'
     gradleKotlinVersion = '1.7.20'
     dokkaVersion = '1.7.20'
-    gradleKtlintVersion = "11.0.0"
+    gradleKtlintVersion = "11.3.1"
 
     // android versioning
     androidCompileVersion = 33

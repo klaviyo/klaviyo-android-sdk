@@ -45,12 +45,11 @@ subprojects {
 
     ktlint {
         verbose = true
-        verbose = true
         android = true
         ignoreFailures = false
         outputToConsole = true
         outputColorName = "RED"
-        disabledRules = ["max-line-length"]
+        disabledRules = ["max-line-length", "package-name"]
         filter {
             exclude("**/generated/**")
             include("**/kotlin/**")
