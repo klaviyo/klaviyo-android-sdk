@@ -16,6 +16,10 @@ evaluationDependsOn(':sdk')
 
 def ext = rootProject.ext
 
+android {
+    namespace 'com.klaviyo.core_shared_tests'
+}
+
 dependencies {
     //Depends upon core interfaces for mocking/fixtures
     implementation project(':sdk:core')

@@ -3,6 +3,10 @@ evaluationDependsOn(':sdk')
 
 def ext = rootProject.ext
 
+android {
+    namespace 'com.klaviyo.push_fcm'
+}
+
 dependencies {
     implementation project(':sdk:core')
     implementation project(':sdk:analytics')
