@@ -12,6 +12,7 @@ import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.slot
 import io.mockk.unmockkObject
+import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -58,6 +59,24 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
     @Test
     fun `Network online if connectivityManager's active network is online`() {
         assert(KlaviyoNetworkMonitor.isNetworkConnected())
+    }
+
+    @Test
+    fun `Maps transport capabilities to network types correctly`() {
+        // No network capabilities = offline
+        every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns null
+        every { capabilitiesMock.hasTransport(any()) } returns false
+        assertEquals(NetworkMonitor.NetworkType.Offline, KlaviyoNetworkMonitor.getNetworkType())
+
+        // We'll treat internet without a particular transport method as cell
+        every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock
+        assertEquals(NetworkMonitor.NetworkType.Cell, KlaviyoNetworkMonitor.getNetworkType())
+
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) } returns true
+        assertEquals(NetworkMonitor.NetworkType.Cell, KlaviyoNetworkMonitor.getNetworkType())
+
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } returns true
+        assertEquals(NetworkMonitor.NetworkType.Wifi, KlaviyoNetworkMonitor.getNetworkType())
     }
 
     @Test
@@ -109,6 +128,20 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         netCallbackSlot.captured.onLost(mockk())
 
         assertEquals(6, callCount)
+    }
+
+    @Test
+    fun `Network changes are logged`() {
+        KlaviyoNetworkMonitor // Initialize, which would normally just happen when app launches
+        assert(netCallbackSlot.isCaptured)
+
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
+        netCallbackSlot.captured.onAvailable(mockk())
+        verify { logSpy.info("Network available") }
+
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
+        netCallbackSlot.captured.onUnavailable()
+        verify { logSpy.info("Network unavailable") }
     }
 
     @Test

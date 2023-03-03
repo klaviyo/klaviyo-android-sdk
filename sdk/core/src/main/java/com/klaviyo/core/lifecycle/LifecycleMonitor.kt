@@ -7,6 +7,8 @@ typealias ActivityObserver = (activity: ActivityEvent) -> Unit
 
 sealed class ActivityEvent(val activity: Activity? = null, val bundle: Bundle? = null) {
 
+    val type: String get() = this.javaClass.simpleName
+
     class Created(activity: Activity, bundle: Bundle?) : ActivityEvent(activity, bundle)
 
     class Started(activity: Activity) : ActivityEvent(activity)

@@ -6,24 +6,28 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import com.klaviyo.core.BuildConfig
+import com.klaviyo.core.KlaviyoException
+import com.klaviyo.core.Registry
 import com.klaviyo.core.networking.NetworkMonitor
 
 /**
  * Exception that is thrown when the the Klaviyo API token is missing from the config
  */
-class MissingAPIKey : Exception("You must declare an API key for the Klaviyo SDK")
+class MissingAPIKey : KlaviyoException("You must declare an API key for the Klaviyo SDK")
 
 /**
  * Exception that is thrown when the application context is missing from the config
  */
-class MissingContext : Exception("You must add your application context to the Klaviyo SDK")
+class MissingContext : KlaviyoException("You must add your application context to the Klaviyo SDK")
 
 /**
  * Exception to throw when a permission is not declared for the application context
  *
  * @param permission
  */
-class MissingPermission(permission: String) : Exception("You must declare $permission in your manifest to use the Klaviyo SDK")
+class MissingPermission(permission: String) : KlaviyoException(
+    "You must declare $permission in your manifest to use the Klaviyo SDK"
+)
 
 /**
  * Stores all configuration related to the Klaviyo Android SDK.
@@ -77,7 +81,11 @@ object KlaviyoConfig : Config {
         private set
     override var networkTimeout = NETWORK_TIMEOUT_DEFAULT
         private set
-    override var networkFlushIntervals = intArrayOf(NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT, NETWORK_FLUSH_INTERVAL_CELL_DEFAULT, NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT)
+    override var networkFlushIntervals = intArrayOf(
+        NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT,
+        NETWORK_FLUSH_INTERVAL_CELL_DEFAULT,
+        NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT
+    )
         private set
     override var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private set
@@ -92,9 +100,18 @@ object KlaviyoConfig : Config {
         private var applicationContext: Context? = null
         private var debounceInterval: Int = DEBOUNCE_INTERVAL
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
-        private var networkFlushIntervals: IntArray = intArrayOf(NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT, NETWORK_FLUSH_INTERVAL_CELL_DEFAULT, NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT)
+        private var networkFlushIntervals: IntArray = intArrayOf(
+            NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT,
+            NETWORK_FLUSH_INTERVAL_CELL_DEFAULT,
+            NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT
+        )
         private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private var networkMaxRetries = NETWORK_MAX_RETRIES_DEFAULT
+
+        private val requiredPermissions = arrayOf(
+            Manifest.permission.ACCESS_NETWORK_STATE,
+            Manifest.permission.CHANGE_NETWORK_STATE
+        )
 
         override fun apiKey(apiKey: String) = apply {
             this.apiKey = apiKey
@@ -108,7 +125,9 @@ object KlaviyoConfig : Config {
             if (debounceInterval >= 0) {
                 this.debounceInterval = debounceInterval
             } else {
-                // TODO Logging
+                Registry.log.error(
+                    "${KlaviyoConfig::debounceInterval.name} must be greater or equal to 0"
+                )
             }
         }
 
@@ -116,31 +135,22 @@ object KlaviyoConfig : Config {
             if (networkTimeout >= 0) {
                 this.networkTimeout = networkTimeout
             } else {
-                // TODO Logging
+                Registry.log.error(
+                    "${KlaviyoConfig::networkTimeout.name} must be greater or equal to 0"
+                )
             }
         }
 
-        override fun networkFlushIntervalWifi(networkFlushInterval: Int) = apply {
+        override fun networkFlushInterval(
+            networkFlushInterval: Int,
+            type: NetworkMonitor.NetworkType
+        ) = apply {
             if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[NetworkMonitor.NetworkType.WIFI.position] = networkFlushInterval
+                this.networkFlushIntervals[type.position] = networkFlushInterval
             } else {
-                // TODO Logging
-            }
-        }
-
-        override fun networkFlushIntervalCell(networkFlushInterval: Int) = apply {
-            if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[NetworkMonitor.NetworkType.CELL.position] = networkFlushInterval
-            } else {
-                // TODO Logging
-            }
-        }
-
-        override fun networkFlushIntervalOffline(networkFlushInterval: Int) = apply {
-            if (networkFlushInterval >= 0) {
-                this.networkFlushIntervals[NetworkMonitor.NetworkType.OFFLINE.position] = networkFlushInterval
-            } else {
-                // TODO Logging
+                Registry.log.error(
+                    "${KlaviyoConfig::networkFlushIntervals.name} must be greater or equal to 0"
+                )
             }
         }
 
@@ -148,7 +158,9 @@ object KlaviyoConfig : Config {
             if (networkFlushDepth > 0) {
                 this.networkFlushDepth = networkFlushDepth
             } else {
-                // TODO Logging
+                Registry.log.error(
+                    "${KlaviyoConfig::networkFlushDepth.name} must be greater than 0"
+                )
             }
         }
 
@@ -156,7 +168,9 @@ object KlaviyoConfig : Config {
             if (networkMaxRetries >= 0) {
                 this.networkMaxRetries = networkMaxRetries
             } else {
-                // TODO Logging
+                Registry.log.error(
+                    "${KlaviyoConfig::networkMaxRetries.name} must be greater or equal to 0"
+                )
             }
         }
 
@@ -169,11 +183,14 @@ object KlaviyoConfig : Config {
             }
 
             val permissions = applicationContext!!.packageManager.getPackageInfoCompat(
-                applicationContext!!.packageName, PackageManager.GET_PERMISSIONS
+                applicationContext!!.packageName,
+                PackageManager.GET_PERMISSIONS
             ).requestedPermissions ?: emptyArray()
 
-            if (Manifest.permission.ACCESS_NETWORK_STATE !in permissions) {
-                throw MissingPermission(Manifest.permission.ACCESS_NETWORK_STATE)
+            requiredPermissions.forEach { permission ->
+                if (permission !in permissions) {
+                    throw MissingPermission(permission)
+                }
             }
 
             KlaviyoConfig.apiKey = apiKey
@@ -193,5 +210,6 @@ internal fun PackageManager.getPackageInfoCompat(packageName: String, flags: Int
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(flags.toLong()))
     } else {
-        @Suppress("DEPRECATION") getPackageInfo(packageName, flags)
+        @Suppress("DEPRECATION")
+        getPackageInfo(packageName, flags)
     }

@@ -6,7 +6,6 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.KlaviyoConfig
 
 /**
  * Service for monitoring the application lifecycle and network connectivity
@@ -27,55 +26,8 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     private var networkChangeObservers = mutableListOf<NetworkObserver>()
 
     /**
-     * Register an observer to be notified when network connectivity has changed
-     *
-     * @param observer
+     * Callback object to register with system
      */
-    override fun onNetworkChange(observer: NetworkObserver) {
-        initializeNetworkListener()
-        networkChangeObservers += observer
-    }
-
-    /**
-     * Register an observer to be notified when network connectivity has changed
-     *
-     * @param observer
-     */
-    override fun offNetworkChange(observer: NetworkObserver) {
-        networkChangeObservers -= observer
-    }
-
-    /**
-     * Instant check of network connectivity
-     *
-     * @return
-     */
-    override fun isNetworkConnected(): Boolean = connectivityManager
-        .getNetworkCapabilities(connectivityManager.activeNetwork)
-        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ?: false
-
-    /**
-     * Check what type of network connection is currently servicing the device
-     *
-     * @return Integer representing the current network type
-     */
-    override fun getNetworkType(): Int {
-        if (connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
-            return NetworkMonitor.NetworkType.WIFI.position
-        } else if (connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true) {
-            return NetworkMonitor.NetworkType.CELL.position
-        }
-        return NetworkMonitor.NetworkType.OFFLINE.position
-    }
-
-    /**
-     * Invoke all registered observers with current state of network connectivity
-     */
-    private fun broadcastNetworkChange() {
-        val isConnected = isNetworkConnected()
-        networkChangeObservers.forEach { it(isConnected) }
-    }
-
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
 
         override fun onAvailable(network: Network) = broadcastNetworkChange()
@@ -95,11 +47,74 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
         ) = broadcastNetworkChange()
     }
 
+    init {
+        onNetworkChange {
+            Registry.log.info("Network ${if (it) "available" else "unavailable"}")
+        }
+    }
+
+    /**
+     * Register an observer to be notified when network connectivity has changed
+     *
+     * @param observer
+     */
+    override fun onNetworkChange(observer: NetworkObserver) {
+        initializeNetworkListener()
+        networkChangeObservers += observer
+    }
+
+    /**
+     * De-register an observer previously added via [onNetworkChange]
+     *
+     * @param observer
+     */
+    override fun offNetworkChange(observer: NetworkObserver) {
+        networkChangeObservers -= observer
+    }
+
+    /**
+     * Invoke all registered observers with current state of network connectivity
+     */
+    private fun broadcastNetworkChange() {
+        val isConnected = isNetworkConnected()
+        networkChangeObservers.forEach { it(isConnected) }
+    }
+
+    /**
+     * Instant check of network connectivity
+     *
+     * @return
+     */
+    override fun isNetworkConnected(): Boolean = connectivityManager
+        .getNetworkCapabilities(connectivityManager.activeNetwork)
+        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ?: false
+
+    /**
+     * Check what type of network connection is currently servicing the device
+     *
+     * @return The current network type
+     */
+    override fun getNetworkType(): NetworkMonitor.NetworkType {
+        val net = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+
+        return if (net?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
+            NetworkMonitor.NetworkType.Wifi
+        } else if (net?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true ||
+            net?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        ) {
+            NetworkMonitor.NetworkType.Cell
+        } else {
+            NetworkMonitor.NetworkType.Offline
+        }
+    }
+
     /**
      * One-time setup to observe network changes with connectivityManager
      */
     private fun initializeNetworkListener() {
         if (this::networkRequest.isInitialized) return
+
+        Registry.log.debug("Attached network monitor")
 
         networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)

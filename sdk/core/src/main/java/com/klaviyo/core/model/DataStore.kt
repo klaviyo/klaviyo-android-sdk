@@ -1,5 +1,7 @@
 package com.klaviyo.core.model
 
+typealias StoreObserver = (key: String, value: String?) -> Unit
+
 /**
  * Simple interface for a data persistence "engine" that can read and write to disk
  *
@@ -8,9 +10,41 @@ package com.klaviyo.core.model
  * which of course means accessors must implement type safety checks as necessary.
  */
 interface DataStore {
+
+    /**
+     * Retrieve the value for the given key from the persistent store
+     *
+     * @param key
+     * @return The stored value, or null if the key is not set
+     */
     fun fetch(key: String): String?
 
+    /**
+     * Save a key/value pair to the persistent store
+     *
+     * @param key
+     * @param value
+     */
     fun store(key: String, value: String)
 
+    /**
+     * Remove a key from the persistent store
+     *
+     * @param key
+     */
     fun clear(key: String)
+
+    /**
+     * Register an observer to be notified when any changes are made to persistent store
+     *
+     * @param observer
+     */
+    fun onStoreChange(observer: StoreObserver)
+
+    /**
+     * De-register an observer previously added with [onStoreChange]
+     *
+     * @param observer
+     */
+    fun offStoreChange(observer: StoreObserver)
 }

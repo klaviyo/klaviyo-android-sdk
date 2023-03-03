@@ -24,19 +24,30 @@ internal open class KlaviyoApiRequest(
     val method: RequestMethod,
     val time: String = Registry.clock.currentTimeAsString(),
     val uuid: String = UUID.randomUUID().toString()
-) {
+) : ApiRequest {
     internal enum class Status {
         Unsent, PendingRetry, Complete, Failed
     }
 
-    open var headers: Map<String, String> = emptyMap()
-    open var query: Map<String, String> = emptyMap()
+    override val startTime: String = time
+    override var endTime: String? = null
+
+    override var headers: Map<String, String> = emptyMap()
+    override var query: Map<String, String> = emptyMap()
     open var body: JSONObject? = null
 
     var attempts = 0
         private set
 
     protected var status: Status = Status.Unsent
+        set(value) {
+            if (field == value) return
+            field = value
+            endTime = when (status) {
+                Status.Complete, Status.Failed -> Registry.clock.currentTimeAsString()
+                else -> null
+            }
+        }
 
     protected var response: String? = null
 
@@ -58,7 +69,11 @@ internal open class KlaviyoApiRequest(
         .accumulate(BODY_JSON_KEY, body)
         .toString()
 
-    open fun formatBody(): String? = body?.let { JSONObject(mapOf(DATA to it)).toString() }
+    override val httpMethod: String get() = method.name
+    override val state: String get() = status.name
+    override fun formatBody(): String? = body?.let { JSONObject(mapOf(DATA to it)).toString() }
+    override fun formatResponse(): String? = response
+    override fun toString(): String = toJson()
 
     /**
      * To facilitate deduplication, we will treat UUID as a unique identifier
@@ -169,16 +184,17 @@ internal open class KlaviyoApiRequest(
     /**
      * Compiles the base url, path and query data into a [URL] object
      */
-    val url: URL
+    override val url: URL
         get() {
             val baseUrl = Registry.config.baseUrl
             val queryMap = query.map { (key, value) -> "$key=$value" }
             val queryString = queryMap.joinToString(separator = "&")
 
-            return if (queryString.isEmpty())
+            return if (queryString.isEmpty()) {
                 URL("$baseUrl/$urlPath")
-            else
+            } else {
                 URL("$baseUrl/$urlPath?$queryString")
+            }
         }
 
     /**
@@ -188,6 +204,7 @@ internal open class KlaviyoApiRequest(
      */
     fun send(): Status {
         if (!Registry.networkMonitor.isNetworkConnected()) {
+            Registry.log.debug("Send prevented while network unavailable")
             return status
         }
 
@@ -202,6 +219,7 @@ internal open class KlaviyoApiRequest(
                 connection.disconnect()
             }
         } catch (ex: IOException) {
+            Registry.log.error(ex.message ?: "", ex)
             status = Status.Failed
             status
         }
@@ -245,8 +263,11 @@ internal open class KlaviyoApiRequest(
         status = when (connection.responseCode) {
             in HTTP_OK until HTTP_MULT_CHOICE -> Status.Complete
             HTTP_RETRY -> {
-                if (attempts <= Registry.config.networkMaxRetries) Status.PendingRetry
-                else Status.Failed
+                if (attempts <= Registry.config.networkMaxRetries) {
+                    Status.PendingRetry
+                } else {
+                    Status.Failed
+                }
             }
             // TODO - Special handling of unauthorized i.e. 401 and 403?
             // TODO - Special handling of server errors 500 and 503?

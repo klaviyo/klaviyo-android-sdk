@@ -1,6 +1,5 @@
 package com.klaviyo.analytics.networking.requests
 
-import com.klaviyo.core.config.KlaviyoConfig
 import com.klaviyo.core_shared_tests.BaseTest
 import io.mockk.every
 import io.mockk.mockkObject
@@ -198,10 +197,38 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
     }
 
-    private val postJson =
-        "{\"headers\":{\"headerKey\":\"headerValue\"},\"method\":\"POST\",\"query\":{\"queryKey\":\"queryValue\"},\"time\":\"time\",\"body\":{\"bodyKey\":\"bodyValue\"},\"uuid\":\"uuid\",\"url_path\":\"test\"}"
-    private val getJson =
-        "{\"headers\":{\"headerKey\":\"headerValue\"},\"method\":\"GET\",\"query\":{\"queryKey\":\"queryValue\"},\"time\":\"time\",\"uuid\":\"uuid\",\"url_path\":\"test\"}"
+    private val postJson = """
+        {
+          "headers": {
+            "headerKey": "headerValue"
+          },
+          "method": "POST",
+          "query": {
+            "queryKey": "queryValue"
+          },
+          "time": "time",
+          "body": {
+            "bodyKey": "bodyValue"
+          },
+          "uuid": "uuid",
+          "url_path": "test"
+        }
+    """.trimIndent()
+
+    private val getJson = """
+        {
+          "headers": {
+            "headerKey": "headerValue"
+          },
+          "method": "GET",
+          "query": {
+            "queryKey": "queryValue"
+          },
+          "time": "time",
+          "uuid": "uuid",
+          "url_path": "test"
+        }
+    """.trimIndent()
 
     @Test
     fun `Serializes POST to JSON`() {
@@ -218,7 +245,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
         val actualJson = post.toJson()
 
-        assertEquals(postJson, actualJson)
+        compareJson(JSONObject(postJson), JSONObject(actualJson))
     }
 
     @Test
@@ -235,7 +262,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
         val actualJson = post.toJson()
 
-        assertEquals(getJson, actualJson)
+        compareJson(JSONObject(getJson), JSONObject(actualJson))
     }
 
     @Test

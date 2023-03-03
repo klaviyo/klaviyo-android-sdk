@@ -1,6 +1,7 @@
 package com.klaviyo.core_shared_tests
 
 import com.klaviyo.core.model.DataStore
+import com.klaviyo.core.model.StoreObserver
 
 /**
  * Implementation of DataStore that just uses an in-memory map
@@ -20,4 +21,8 @@ class InMemoryDataStore : DataStore {
     override fun clear(key: String) {
         store.remove(key)
     }
+
+    // Test fixture doesn't need an observer implementation
+    override fun onStoreChange(observer: StoreObserver) {}
+    override fun offStoreChange(observer: StoreObserver) {}
 }

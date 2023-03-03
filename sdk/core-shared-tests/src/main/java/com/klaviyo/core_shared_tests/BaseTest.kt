@@ -69,6 +69,7 @@ abstract class BaseTest {
     protected val lifecycleMonitorMock = mockk<LifecycleMonitor>()
     protected val networkMonitorMock = mockk<NetworkMonitor>()
     protected val dataStoreSpy = spyk(InMemoryDataStore())
+    protected val logSpy = spyk(Logger())
 
     @Before
     open fun setup() {
@@ -79,6 +80,7 @@ abstract class BaseTest {
         every { Registry.networkMonitor } returns networkMonitorMock
         every { Registry.dataStore } returns dataStoreSpy
         every { Registry.clock } returns StaticClock(TIME, ISO_TIME)
+        every { Registry.log } returns logSpy
 
         // Mock using latest SDK
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)

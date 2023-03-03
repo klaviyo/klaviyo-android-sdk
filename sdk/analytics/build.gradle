@@ -14,8 +14,8 @@ afterEvaluate {
         publications {
             // Creates a Maven publication called "release".
             release(MavenPublication) {
-                from components.release
-                groupId = ext.groupId
+                from components[ext.publishBuildVariant]
+                groupId = klaviyoGroupId
                 artifactId = 'analytics'
                 version = ext.versionName
             }

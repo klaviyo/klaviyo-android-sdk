@@ -2,10 +2,10 @@ package com.klaviyo.analytics.networking
 
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Base64
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
@@ -17,7 +17,6 @@ import com.klaviyo.core_shared_tests.StaticClock
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
-import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
@@ -51,10 +50,14 @@ internal class KlaviyoApiClientTest : BaseTest() {
         delayedRunner = null
 
         every { Registry.clock } returns staticClock
-        every { configMock.networkFlushIntervals } returns intArrayOf(flushIntervalWifi, flushIntervalCell, flushIntervalOffline)
+        every { configMock.networkFlushIntervals } returns intArrayOf(
+            flushIntervalWifi,
+            flushIntervalCell,
+            flushIntervalOffline
+        )
         every { configMock.networkFlushDepth } returns queueDepth
         every { networkMonitorMock.isNetworkConnected() } returns false
-        every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.WIFI.position
+        every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
         every { lifecycleMonitorMock.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
         every { networkMonitorMock.onNetworkChange(capture(slotOnNetworkChange)) } returns Unit
 
@@ -82,10 +85,24 @@ internal class KlaviyoApiClientTest : BaseTest() {
     ): KlaviyoApiRequest =
         mockk<KlaviyoApiRequest>().also {
             every { it.uuid } returns uuid
+            every { it.state } returns status.name
             every { it.send() } returns status
-            every { it.toJson() } returns "{\"headers\":{\"headerKey\":\"headerValue\"},\"method\":\"GET\",\"query\":{\"queryKey\":\"queryValue\"},\"time\":\"time\",\"uuid\":\"$uuid\",\"url_path\":\"test\"}"
+            every { it.toJson() } returns """
+                {
+                  "headers": {
+                    "headerKey": "headerValue"
+                  },
+                  "method": "GET",
+                  "query": {
+                    "queryKey": "queryValue"
+                  },
+                  "time": "time",
+                  "uuid": "$uuid",
+                  "url_path": "test"
+                }
+            """.trimIndent()
             every { it.equals(any()) } answers { a ->
-                it.uuid == (a.invocation.args[0] as KlaviyoApiRequest).uuid
+                it.uuid == (a.invocation.args[0] as? KlaviyoApiRequest)?.uuid
             }
         }
 
@@ -100,9 +117,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Enqueues a profile API call`() {
-        mockkStatic(Base64::class)
-        every { Base64.encodeToString(any(), any()) } returns "mock"
-
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
         KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
@@ -132,6 +146,47 @@ internal class KlaviyoApiClientTest : BaseTest() {
         )
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Supports adding and removing callbacks`() {
+        var counter = 0
+        val handler: ApiObserver = { counter++ }
+
+        KlaviyoApiClient.onApiRequest(handler)
+        KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
+
+        assertEquals(1, counter)
+
+        KlaviyoApiClient.offApiRequest(handler)
+        KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
+
+        assertEquals(1, counter)
+    }
+
+    @Test
+    fun `Invokes callback and logs when request enqueued`() {
+        var cbRequest: ApiRequest? = null
+        KlaviyoApiClient.onApiRequest { cbRequest = it }
+
+        val request = mockRequest()
+        KlaviyoApiClient.enqueueRequest(request)
+        assertEquals(request, cbRequest)
+        verify { logSpy.debug(request.toString()) }
+    }
+
+    @Test
+    fun `Invokes callback and logs when request sent`() {
+        every { configMock.networkFlushDepth } returns 1
+        val request = mockRequest()
+        KlaviyoApiClient.enqueueRequest(request)
+
+        var cbRequest: ApiRequest? = null
+        KlaviyoApiClient.onApiRequest { cbRequest = it }
+
+        delayedRunner!!.run()
+        assertEquals(request, cbRequest)
+        verify { logSpy.debug(request.toString()) }
     }
 
     @Test
@@ -189,6 +244,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val requestMock = mockRequest()
 
         KlaviyoApiClient.enqueueRequest(requestMock)
+
         staticClock.execute(flushIntervalWifi.toLong())
 
         delayedRunner!!.run()
@@ -338,7 +394,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
             mockRequest(uuid)
         }
 
-        dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, "[\"mock_uuid1\",\"mock_uuid2\"]")
+        dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, "[\"mock_uuid1\",\"mock_uuid2\",\"mock_uuid3\"]")
         dataStoreSpy.store("mock_uuid1", "{/}") // bad JSON!
         dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toJson())
 

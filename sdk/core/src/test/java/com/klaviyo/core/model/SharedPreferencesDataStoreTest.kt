@@ -48,6 +48,9 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
         verify { preferenceMock.edit() }
         verify { editorMock.putString(stubKey, stubValue) }
         verify { editorMock.apply() }
+
+        // And verify log output
+        verify { logSpy.debug("$stubKey=$stubValue") }
     }
 
     @Test
@@ -61,6 +64,9 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
         verify { preferenceMock.edit() }
         verify { editorMock.remove(stubKey) }
         verify { editorMock.apply() }
+
+        // And verify log output
+        verify { logSpy.debug("$stubKey=null") }
     }
 
     @Test
