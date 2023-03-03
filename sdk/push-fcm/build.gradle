@@ -5,6 +5,13 @@ def ext = rootProject.ext
 
 android {
     namespace 'com.klaviyo.push_fcm'
+
+    publishing {
+        singleVariant(ext.publishBuildVariant) {
+            withSourcesJar()
+            withJavadocJar()
+        }
+    }
 }
 
 dependencies {

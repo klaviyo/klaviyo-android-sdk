@@ -5,6 +5,13 @@ def ext = rootProject.ext
 
 android {
     namespace 'com.klaviyo.core'
+
+    publishing {
+        singleVariant(ext.publishBuildVariant) {
+            withSourcesJar()
+            withJavadocJar()
+        }
+    }
 }
 
 dependencies {
