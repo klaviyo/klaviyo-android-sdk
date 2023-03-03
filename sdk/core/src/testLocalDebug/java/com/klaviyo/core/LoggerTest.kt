@@ -16,6 +16,12 @@ class LoggerTest : BaseTest() {
     }
 
     @Test
+    fun `Invoke console verbose`() {
+        Logger().verbose(stubMsg)
+        verify { MockLog.v(any(), stubMsg, null) }
+    }
+
+    @Test
     fun `Invoke console debug`() {
         Logger().debug(stubMsg)
         verify { MockLog.d(any(), stubMsg, null) }

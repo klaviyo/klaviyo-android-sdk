@@ -2,6 +2,12 @@ package android.util
 
 object MockLog {
     @JvmStatic
+    fun v(tag: String?, msg: String?, t: Throwable?): Int {
+        println("VERBOSE: $tag $msg $t")
+        return 0
+    }
+
+    @JvmStatic
     fun d(tag: String?, msg: String?, t: Throwable?): Int {
         println("DEBUG: $tag $msg $t")
         return 0

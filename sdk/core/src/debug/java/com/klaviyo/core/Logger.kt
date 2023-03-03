@@ -6,6 +6,10 @@ import java.lang.Exception
 import java.util.regex.Pattern
 
 open class Logger : Log {
+    override fun verbose(message: String, ex: Exception?) {
+        Console.log(message, Console.Level.Verbose, makeTag(), ex)
+    }
+
     override fun debug(message: String, ex: Exception?) {
         Console.log(message, Console.Level.Debug, makeTag(), ex)
     }

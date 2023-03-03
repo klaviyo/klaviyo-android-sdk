@@ -3,7 +3,15 @@ package com.klaviyo.core.config
 interface Log {
 
     /**
-     * Verbose debugging output
+     * Verbose output
+     *
+     * @param message
+     * @param ex
+     */
+    fun verbose(message: String, ex: Exception? = null)
+
+    /**
+     * Debugging output
      *
      * @param message
      * @param ex
