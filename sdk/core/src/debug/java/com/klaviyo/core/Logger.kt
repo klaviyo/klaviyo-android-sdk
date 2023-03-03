@@ -47,6 +47,8 @@ open class Logger : Log {
             .first { it.className !in ignoreList && !it.className.contains(Log::class.java.name) }
             .let { element ->
                 var tag = element.className.substringAfterLast('.')
+                tag = if (element.methodName == "invoke") "$tag:${element.lineNumber}" else tag
+
                 val m = ANONYMOUS_CLASS.matcher(tag)
                 if (m.find()) {
                     tag = m.replaceAll("")

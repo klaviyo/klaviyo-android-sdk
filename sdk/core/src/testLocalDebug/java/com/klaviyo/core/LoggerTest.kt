@@ -1,8 +1,8 @@
 package com.klaviyo.core
 
+import android.util.MockLog
 import com.klaviyo.core_shared_tests.BaseTest
-import io.mockk.every
-import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.verify
 import org.junit.Test
 
@@ -12,37 +12,37 @@ class LoggerTest : BaseTest() {
     private val expectedTag = "LoggerTest"
 
     override fun setup() {
-        mockkObject(Console)
-        every { Console.log(any(), any(), any(), any()) } returns 0
+        mockkStatic(MockLog::class)
     }
 
     @Test
     fun `Invoke console debug`() {
         Logger().debug(stubMsg)
-        verify { Console.log(stubMsg, Console.Level.Debug, any(), null) }
+        verify { MockLog.d(any(), stubMsg, null) }
     }
 
     @Test
     fun `Invoke console info`() {
         Logger().info(stubMsg)
-        verify { Console.log(stubMsg, Console.Level.Info, any(), null) }
+        verify { MockLog.i(any(), stubMsg, null) }
     }
 
     @Test
     fun `Invoke console error`() {
         Logger().error(stubMsg)
-        verify { Console.log(stubMsg, Console.Level.Error, any(), null) }
+        verify { MockLog.e(any(), stubMsg, null) }
     }
 
     @Test
     fun wtf() {
-        Logger().wtf(stubMsg)
-        verify { Console.log(stubMsg, Console.Level.Assert, any(), null) }
+        val ex = Exception("error")
+        Logger().wtf(stubMsg, ex)
+        verify { MockLog.wtf(expectedTag, stubMsg, ex) }
     }
 
     @Test
     fun `Determines enclosing class as tag`() {
-        Logger().debug(stubMsg)
-        verify { Console.log(stubMsg, any(), expectedTag, null) }
+        Logger().debug("")
+        verify { MockLog.d(expectedTag, any(), null) }
     }
 }
