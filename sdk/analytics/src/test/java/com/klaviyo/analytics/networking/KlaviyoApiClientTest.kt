@@ -5,6 +5,7 @@ import android.os.HandlerThread
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
@@ -101,7 +102,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
                 }
             """.trimIndent()
             every { it.equals(any()) } answers { a ->
-                it.uuid == (a.invocation.args[0] as KlaviyoApiRequest).uuid
+                it.uuid == (a.invocation.args[0] as? KlaviyoApiRequest)?.uuid
             }
         }
 
@@ -121,7 +122,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        verify { logSpy.debug(any()) }
     }
 
     @Test
@@ -134,7 +134,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
         )
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        verify { logSpy.debug(any()) }
     }
 
     @Test
@@ -147,7 +146,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
         )
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        verify { logSpy.debug(any()) }
     }
 
     @Test
@@ -164,6 +162,31 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
 
         assertEquals(1, counter)
+    }
+
+    @Test
+    fun `Invokes callback and logs when request enqueued`() {
+        var cbRequest: ApiRequest? = null
+        KlaviyoApiClient.onApiRequest { cbRequest = it }
+
+        val request = mockRequest()
+        KlaviyoApiClient.enqueueRequest(request)
+        assertEquals(request, cbRequest)
+        verify { logSpy.debug(request.toString()) }
+    }
+
+    @Test
+    fun `Invokes callback and logs when request sent`() {
+        every { configMock.networkFlushDepth } returns 1
+        val request = mockRequest()
+        KlaviyoApiClient.enqueueRequest(request)
+
+        var cbRequest: ApiRequest? = null
+        KlaviyoApiClient.onApiRequest { cbRequest = it }
+
+        delayedRunner!!.run()
+        assertEquals(request, cbRequest)
+        verify { logSpy.debug(request.toString()) }
     }
 
     @Test
@@ -202,9 +225,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         KlaviyoApiClient.enqueueRequest(*requests.toTypedArray())
         assertEquals(requests.size, KlaviyoApiClient.getQueueSize())
-
-        // Expected to log each enqueued request
-        verify { logSpy.debug(any()) }
     }
 
     @Test
@@ -214,14 +234,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
             assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
         }
 
-        verify(exactly = queueDepth) { logSpy.debug(any()) }
-
         delayedRunner!!.run()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
-
-        // Expect 2 logs per request, one for enqueued and one for completed
-        verify(exactly = queueDepth * 2) { logSpy.debug(any()) }
     }
 
     @Test
@@ -229,14 +244,12 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val requestMock = mockRequest()
 
         KlaviyoApiClient.enqueueRequest(requestMock)
-        verify(exactly = 1) { logSpy.debug(any()) }
 
         staticClock.execute(flushIntervalWifi.toLong())
 
         delayedRunner!!.run()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
-        verify(exactly = 2) { logSpy.debug(any()) }
     }
 
     @Test

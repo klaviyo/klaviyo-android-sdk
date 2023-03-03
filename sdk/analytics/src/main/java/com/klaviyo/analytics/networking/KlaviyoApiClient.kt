@@ -38,8 +38,7 @@ internal object KlaviyoApiClient : ApiClient {
                     KlaviyoApiRequest.Status.Unsent.name -> "Request Enqueued"
                     KlaviyoApiRequest.Status.PendingRetry.name -> "Request will be retried"
                     KlaviyoApiRequest.Status.Complete.name -> "Request Completed"
-                    KlaviyoApiRequest.Status.Failed.name -> "Request Failed"
-                    else -> "Request"
+                    else -> "Request Failed"
                 }
             )
 
