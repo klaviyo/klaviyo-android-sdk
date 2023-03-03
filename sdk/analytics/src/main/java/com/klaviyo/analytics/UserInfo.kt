@@ -61,15 +61,9 @@ internal object UserInfo {
     private val generateUuid = { UUID.randomUUID().toString() }
 
     /**
-     * Updates [UserInfo] identifiers in state from a given [Profile] object
-     *
-     * @param profile
+     * Indicate whether we currently have externally-set profile identifiers
      */
-    fun updateFromProfile(profile: Profile) = apply {
-        externalId = profile.externalId ?: externalId
-        email = profile.email ?: email
-        phoneNumber = profile.phoneNumber ?: phoneNumber
-    }
+    val isIdentified get() = (externalId.isNotEmpty() || email.isNotEmpty() || phoneNumber.isNotEmpty())
 
     /**
      * Reset all user identifiers to defaults

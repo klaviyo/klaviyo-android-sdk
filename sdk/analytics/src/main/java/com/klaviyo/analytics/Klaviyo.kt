@@ -50,8 +50,8 @@ object Klaviyo {
     }
 
     /**
-     * Replaces the currently tracked profile with a new [Profile] object
-     * @see resetProfile is called first, then the new profile object is saved
+     * Assign new identifiers and attributes to the currently tracked profile.
+     * If a profile has already been identified it will be overwritten by calling [resetProfile].
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
@@ -60,8 +60,15 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setProfile(profile: Profile): Klaviyo = apply {
-        resetProfile()
-        UserInfo.updateFromProfile(profile)
+        if (UserInfo.isIdentified) {
+            // If a profile with external identifiers is already in state, we must reset.
+            // This conditional is important to preserve merging with an anonymous profile.
+            resetProfile()
+        }
+
+        UserInfo.externalId = profile.externalId ?: ""
+        UserInfo.email = profile.email ?: ""
+        UserInfo.phoneNumber = profile.phoneNumber ?: ""
         debouncedProfileUpdate(profile)
     }
 
