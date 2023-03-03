@@ -8,7 +8,6 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
-import com.klaviyo.push_fcm.KlaviyoPushService
 
 class SampleApplication : Application() {
     override fun onCreate() {

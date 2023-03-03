@@ -16,8 +16,8 @@ android {
 
 dependencies {
     implementation project(':sdk:core')
+    testImplementation project(':sdk:fixtures')
 
-    testImplementation project(":sdk:core-shared-tests")
 }
 
 afterEvaluate {

@@ -1,4 +1,4 @@
-package com.klaviyo.push_fcm
+package com.klaviyo.pushFcm
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage

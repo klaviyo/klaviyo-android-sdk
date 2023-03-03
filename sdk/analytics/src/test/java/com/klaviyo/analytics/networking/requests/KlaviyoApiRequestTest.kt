@@ -1,6 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
-import com.klaviyo.core_shared_tests.BaseTest
+import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.slot

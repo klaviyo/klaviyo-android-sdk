@@ -1,7 +1,7 @@
 package com.klaviyo.core
 
 import android.util.MockLog
-import com.klaviyo.core_shared_tests.BaseTest
+import com.klaviyo.fixtures.BaseTest
 import io.mockk.mockkStatic
 import io.mockk.verify
 import org.junit.Test

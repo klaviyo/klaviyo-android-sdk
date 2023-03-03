@@ -49,7 +49,7 @@ subprojects {
         ignoreFailures = false
         outputToConsole = true
         outputColorName = "RED"
-        disabledRules = ["max-line-length", "package-name"]
+        disabledRules = ["max-line-length"]
         filter {
             exclude("**/generated/**")
             include("**/kotlin/**")

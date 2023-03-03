@@ -1,8 +1,8 @@
-package com.klaviyo.push_fcm
+package com.klaviyo.pushFcm
 
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.core_shared_tests.BaseTest
+import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject

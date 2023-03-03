@@ -1,5 +1,5 @@
 /**
- * core-shared-tests is exactly what it sounds like:
+ * fixtures is exactly what it sounds like:
  * a module for sharing test fixtures without duplicating effort.
  *
  * This follows a slightly unconventional pattern in that testing code is part of the main package
@@ -17,7 +17,7 @@ evaluationDependsOn(':sdk')
 def ext = rootProject.ext
 
 android {
-    namespace 'com.klaviyo.core_shared_tests'
+    namespace 'com.klaviyo.fixtures'
 }
 
 dependencies {

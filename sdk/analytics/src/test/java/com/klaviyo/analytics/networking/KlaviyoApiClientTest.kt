@@ -12,8 +12,8 @@ import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
-import com.klaviyo.core_shared_tests.BaseTest
-import com.klaviyo.core_shared_tests.StaticClock
+import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.StaticClock
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
