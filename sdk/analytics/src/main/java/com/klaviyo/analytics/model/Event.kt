@@ -9,7 +9,8 @@ class Event(val type: EventType, properties: Map<EventKey, Serializable>?) :
     BaseModel<EventKey, Event>(properties) {
 
     constructor(type: String, properties: Map<EventKey, Serializable>?) : this(
-        EventType.CUSTOM(type), properties
+        EventType.CUSTOM(type),
+        properties
     )
 
     constructor(type: EventType) : this(type, null)

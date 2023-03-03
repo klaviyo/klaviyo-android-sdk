@@ -65,10 +65,10 @@ internal class ProfileApiRequest(profile: Profile) : KlaviyoApiRequest(
                 extract(ProfileKey.LONGITUDE),
                 extract(ProfileKey.REGION),
                 extract(ProfileKey.ZIP),
-                extract(ProfileKey.TIMEZONE),
+                extract(ProfileKey.TIMEZONE)
             ),
 
-            PROPERTIES to properties, // Any remaining custom keys are properties
+            PROPERTIES to properties // Any remaining custom keys are properties
         ),
         META to mapOf(
             // It is critical for JSON encoding that we convert all keys to strings

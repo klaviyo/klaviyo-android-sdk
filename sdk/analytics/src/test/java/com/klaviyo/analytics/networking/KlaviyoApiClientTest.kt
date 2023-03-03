@@ -394,7 +394,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
             mockRequest(uuid)
         }
 
-        dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, "[\"mock_uuid1\",\"mock_uuid2\",\"mock_uuid3\"]")
+        val jsonArray = "[\"mock_uuid1\",\"mock_uuid2\",\"mock_uuid3\"]"
+        dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, jsonArray)
         dataStoreSpy.store("mock_uuid1", "{/}") // bad JSON!
         dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toJson())
 
