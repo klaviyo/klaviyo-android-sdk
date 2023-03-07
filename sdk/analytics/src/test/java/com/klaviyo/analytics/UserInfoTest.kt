@@ -2,7 +2,7 @@ package com.klaviyo.analytics
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
-import com.klaviyo.core_shared_tests.BaseTest
+import com.klaviyo.fixtures.BaseTest
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals

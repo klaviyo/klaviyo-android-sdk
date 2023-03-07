@@ -45,7 +45,6 @@ subprojects {
 
     ktlint {
         verbose = true
-        verbose = true
         android = true
         ignoreFailures = false
         outputToConsole = true

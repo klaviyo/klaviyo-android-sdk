@@ -7,7 +7,7 @@ import android.os.Build
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.networking.NetworkMonitor
-import com.klaviyo.core_shared_tests.BaseTest
+import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic

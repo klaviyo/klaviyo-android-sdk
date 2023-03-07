@@ -1,7 +1,7 @@
 package com.klaviyo.core.lifecycle
 
 import com.klaviyo.core.Registry
-import com.klaviyo.core_shared_tests.BaseTest
+import com.klaviyo.fixtures.BaseTest
 import io.mockk.mockk
 import io.mockk.unmockkObject
 import io.mockk.verify

@@ -1,4 +1,4 @@
-package com.klaviyo.core_shared_tests
+package com.klaviyo.fixtures
 
 import com.klaviyo.core.model.DataStore
 import com.klaviyo.core.model.StoreObserver

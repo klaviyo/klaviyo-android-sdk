@@ -16,7 +16,7 @@ import org.json.JSONObject
  */
 internal class EventApiRequest(
     event: Event,
-    profile: Profile,
+    profile: Profile
 ) : KlaviyoApiRequest(
     PATH,
     RequestMethod.POST

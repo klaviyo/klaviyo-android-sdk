@@ -115,7 +115,7 @@ as well as foreground and data notifications via the `onMessageReceived` method.
 
 ```xml
 
-<service android:name="com.klaviyo.push_fcm.KlaviyoPushService" android:exported="false">
+<service android:name="com.klaviyo.pushFcm.KlaviyoPushService" android:exported="false">
     <intent-filter>
         <action android:name="com.google.firebase.MESSAGING_EVENT" />
     </intent-filter>

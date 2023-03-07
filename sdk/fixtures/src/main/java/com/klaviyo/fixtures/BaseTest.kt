@@ -1,4 +1,4 @@
-package com.klaviyo.core_shared_tests
+package com.klaviyo.fixtures
 
 import android.content.Context
 import android.os.Build

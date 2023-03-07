@@ -6,7 +6,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.klaviyo.core.Registry
-import com.klaviyo.core_shared_tests.BaseTest
+import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor

@@ -2,7 +2,7 @@ package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
-import com.klaviyo.core_shared_tests.BaseTest
+import com.klaviyo.fixtures.BaseTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test

@@ -55,6 +55,6 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
         ProfileKey.EXTERNAL_ID to (this.externalId ?: ""),
         ProfileKey.EMAIL to (this.email ?: ""),
         ProfileKey.PHONE_NUMBER to (this.phoneNumber ?: ""),
-        ProfileKey.ANONYMOUS_ID to (this.anonymousId ?: ""),
+        ProfileKey.ANONYMOUS_ID to (this.anonymousId ?: "")
     ).filter { it.value.isNotEmpty() }
 }

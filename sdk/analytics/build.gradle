@@ -3,10 +3,21 @@ evaluationDependsOn(':sdk')
 
 def ext = rootProject.ext
 
+android {
+    namespace 'com.klaviyo.analytics'
+
+    publishing {
+        singleVariant(ext.publishBuildVariant) {
+            withSourcesJar()
+            withJavadocJar()
+        }
+    }
+}
+
 dependencies {
     implementation project(':sdk:core')
+    testImplementation project(':sdk:fixtures')
 
-    testImplementation project(":sdk:core-shared-tests")
 }
 
 afterEvaluate {

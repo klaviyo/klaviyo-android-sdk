@@ -12,8 +12,8 @@ import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
-import com.klaviyo.core_shared_tests.BaseTest
-import com.klaviyo.core_shared_tests.StaticClock
+import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.StaticClock
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -394,7 +394,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
             mockRequest(uuid)
         }
 
-        dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, "[\"mock_uuid1\",\"mock_uuid2\",\"mock_uuid3\"]")
+        val jsonArray = "[\"mock_uuid1\",\"mock_uuid2\",\"mock_uuid3\"]"
+        dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, jsonArray)
         dataStoreSpy.store("mock_uuid1", "{/}") // bad JSON!
         dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toJson())
 
