@@ -1,4 +1,3 @@
 // sdk modules
 include ':sdk'
 include ':sdk:core', ':sdk:analytics', ':sdk:push-fcm', ':sdk:fixtures'
-include ':sample'
