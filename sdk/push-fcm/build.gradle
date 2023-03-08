@@ -19,7 +19,6 @@ dependencies {
     implementation project(':sdk:analytics')
     implementation "com.google.firebase:firebase-messaging:$ext.fcmVersion"
     testImplementation project(':sdk:fixtures')
-
 }
 
 afterEvaluate {
