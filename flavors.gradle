@@ -1,13 +1,13 @@
 ext {
+    def localProperties = new Properties()
+    if (rootProject.file("local.properties").canRead()) {
+        localProperties.load(new FileInputStream(rootProject.file("local.properties")))
+    }
+
     /**
      * Extracted product flavor as a closure to be applied for all android projects
      */
     flavorConfig = {
-        def localProperties = new Properties()
-        if (rootProject.file("local.properties").canRead()) {
-            localProperties.load(new FileInputStream(rootProject.file("local.properties")))
-        }
-
         //Using build flavor as a convenient way to toggle between local and production servers
         // using the "Active Build Variant" feature in Android Studio.
         // You must also add localKlaviyoServerUrl to local.properties (untracked in git)
@@ -25,6 +25,6 @@ ext {
         }
     }
 
-    //Name of build variant that we actually publish
-    publishBuildVariant="productionRelease"
+    //Name of build variant that we actually publish, pulled from gradle.properties or local.properties override
+    publishBuildVariant = "${localProperties['publishBuildVariant'] ?: "productionRelease"}"
 }
