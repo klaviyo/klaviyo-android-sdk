@@ -2,30 +2,25 @@ package com.klaviyo.sdktestapp
 
 import android.app.Application
 import com.google.firebase.messaging.FirebaseMessaging
-import com.klaviyo.coresdk.Klaviyo
-import com.klaviyo.coresdk.KlaviyoConfig
-import com.klaviyo.coresdk.KlaviyoLifecycleCallbackListener
-import com.klaviyo.push.KlaviyoPushService
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventType
 
 class TestApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        KlaviyoConfig.Builder()
-            .apiKey(BuildConfig.KLAVIYO_COMPANY_ID)
-            .applicationContext(applicationContext)
-            .networkFlushDepth(2)
-            .networkFlushInterval(10000)
-            .networkUseAnalyticsBatchQueue(true)
-            .build()
+        Klaviyo.initialize(BuildConfig.KLAVIYO_COMPANY_ID, applicationContext)
 
-        Klaviyo.setUserEmail(BuildConfig.DEFAULT_EMAIL)
+        Klaviyo.setEmail(BuildConfig.DEFAULT_EMAIL)
 
         // Fetches the current push token and registers with Push SDK
         FirebaseMessaging.getInstance().token.addOnSuccessListener {
-            KlaviyoPushService().onNewToken(it)
+            Klaviyo.setPushToken(it)
         }
 
-        registerActivityLifecycleCallbacks(KlaviyoLifecycleCallbackListener())
+        Klaviyo.createEvent(Event(EventType.CUSTOM("Launched App")))
+
+        registerActivityLifecycleCallbacks(Klaviyo.lifecycleCallbacks)
     }
 }

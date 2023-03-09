@@ -1,7 +1,3 @@
 <resources>
     <string name="app_name">SDKTestApp</string>
-
-    <string name="event_name_input">Event Name</string>
-    <string name="send">Send</string>
-    <string name="push_token_title">Push Token:</string>
 </resources>
