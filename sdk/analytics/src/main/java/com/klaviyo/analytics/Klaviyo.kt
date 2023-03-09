@@ -276,6 +276,16 @@ object Klaviyo {
     }
 
     /**
+     * Creates an [Event] associated with the currently tracked profile
+     *
+     * Convenience method for creating an event with no other properties
+     *
+     * @param eventType [EventType] to create
+     * @return Returns [Klaviyo] for call chaining
+     */
+    fun createEvent(eventType: EventType): Klaviyo = createEvent(Event(eventType))
+
+    /**
      * From an opened push Intent, creates an [EventType.OPENED_PUSH] [Event]
      * containing appropriate tracking parameters
      *

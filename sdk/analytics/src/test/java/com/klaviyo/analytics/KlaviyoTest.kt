@@ -317,4 +317,13 @@ internal class KlaviyoTest : BaseTest() {
             apiClientMock.enqueueEvent(stubEvent, any())
         }
     }
+
+    @Test
+    fun `Enqueue an event API call conveniently`() {
+        Klaviyo.createEvent(EventType.VIEWED_PRODUCT)
+
+        verify(exactly = 1) {
+            apiClientMock.enqueueEvent(match { it.type == EventType.VIEWED_PRODUCT }, any())
+        }
+    }
 }
