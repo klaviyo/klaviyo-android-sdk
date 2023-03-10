@@ -7,6 +7,7 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
+import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
@@ -34,18 +35,10 @@ internal object KlaviyoApiClient : ApiClient {
     init {
         onApiRequest { r ->
             when (r.state) {
-                KlaviyoApiRequest.Status.Unsent.name -> Registry.log.debug(
-                    "${r.type} Request enqueued"
-                )
-                KlaviyoApiRequest.Status.Inflight.name -> Registry.log.debug(
-                    "${r.type} Request inflight"
-                )
-                KlaviyoApiRequest.Status.PendingRetry.name -> Registry.log.error(
-                    "${r.type} Request failed, will retry"
-                )
-                KlaviyoApiRequest.Status.Complete.name -> Registry.log.info(
-                    "${r.type} Request completed"
-                )
+                Status.Unsent.name -> Registry.log.debug("${r.type} Request enqueued")
+                Status.Inflight.name -> Registry.log.debug("${r.type} Request inflight")
+                Status.PendingRetry.name -> Registry.log.error("${r.type} Request retrying")
+                Status.Complete.name -> Registry.log.info("${r.type} Request completed")
                 else -> Registry.log.error("${r.type} Request failed")
             }
 
@@ -255,12 +248,12 @@ internal object KlaviyoApiClient : ApiClient {
                 val request = apiQueue.poll()
 
                 when (request?.send { broadcastApiRequest(request) }) {
-                    KlaviyoApiRequest.Status.Complete, KlaviyoApiRequest.Status.Failed -> {
+                    Status.Complete, Status.Failed -> {
                         // On success or absolute failure, remove from queue and persistent store
                         Registry.dataStore.clear(request.uuid)
                         broadcastApiRequest(request)
                     }
-                    KlaviyoApiRequest.Status.PendingRetry -> {
+                    Status.PendingRetry -> {
                         // Encountered a retryable error
                         // Put this back on top of the queue and we'll try again with backoff
                         // TODO reset flush interval next time succeeds
