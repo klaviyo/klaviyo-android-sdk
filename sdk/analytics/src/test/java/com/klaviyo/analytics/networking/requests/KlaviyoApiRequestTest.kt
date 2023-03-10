@@ -87,6 +87,20 @@ internal class KlaviyoApiRequestTest : BaseTest() {
     }
 
     @Test
+    fun `Invokes pre-send callback when inflight`() {
+        withConnectionMock(URL(stubFullUrl))
+        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
+
+        var called = false
+        request.send {
+            called = true
+            assertEquals(KlaviyoApiRequest.Status.Inflight.name, request.state)
+        }
+
+        assert(called)
+    }
+
+    @Test
     fun `Builds url with multiple query parameters`() {
         val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET).apply {
             query = mapOf("first" to "second", "query" to "1", "flag" to "false")

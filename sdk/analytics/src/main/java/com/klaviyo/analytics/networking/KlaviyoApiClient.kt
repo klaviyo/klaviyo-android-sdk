@@ -241,7 +241,7 @@ internal object KlaviyoApiClient : ApiClient {
             while (apiQueue.isNotEmpty()) {
                 val request = apiQueue.poll()
 
-                when (request?.send()) {
+                when (request?.send { broadcastApiRequest(request) }) {
                     KlaviyoApiRequest.Status.Complete, KlaviyoApiRequest.Status.Failed -> {
                         // On success or absolute failure, remove from queue and persistent store
                         Registry.dataStore.clear(request.uuid)
@@ -257,7 +257,7 @@ internal object KlaviyoApiClient : ApiClient {
                         break
                     }
                     // Offline or at the end of the queue... either way break the loop
-                    null, KlaviyoApiRequest.Status.Unsent -> break
+                    else -> break
                 }
             }
 

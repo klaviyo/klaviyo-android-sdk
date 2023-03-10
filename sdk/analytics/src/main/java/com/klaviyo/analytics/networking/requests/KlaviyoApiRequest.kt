@@ -29,7 +29,7 @@ internal open class KlaviyoApiRequest(
     override val id: String = uuid
 
     internal enum class Status {
-        Unsent, PendingRetry, Complete, Failed
+        Unsent, Inflight, PendingRetry, Complete, Failed
     }
 
     override val startTime: String = time
@@ -205,17 +205,20 @@ internal open class KlaviyoApiRequest(
      *
      * @returns The string value of the response body, if one was returned
      */
-    fun send(): Status {
+    fun send(beforeSend: (() -> Unit)? = null): Status {
         if (!Registry.networkMonitor.isNetworkConnected()) {
             Registry.log.debug("Send prevented while network unavailable")
             return status
         }
+
+        status = Status.Inflight
 
         return try {
             val connection = buildUrlConnection()
 
             try {
                 attempts++
+                beforeSend?.invoke()
                 connection.connect()
                 parseResponse(connection)
             } finally {

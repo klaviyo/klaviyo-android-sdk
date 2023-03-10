@@ -13,7 +13,7 @@ interface ApiRequest {
     val id: String
 
     /**
-     * Unsent, PendingRetry, Complete or Failed
+     * Unsent, Inflight, PendingRetry, Complete or Failed
      */
     val state: String
 
