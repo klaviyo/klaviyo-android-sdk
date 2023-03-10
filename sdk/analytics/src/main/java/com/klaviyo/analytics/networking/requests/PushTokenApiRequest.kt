@@ -4,7 +4,6 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
 import java.io.Serializable
 import java.net.HttpURLConnection
-import java.net.URLEncoder
 import org.json.JSONObject
 
 /**
@@ -28,8 +27,7 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
     }
 
     override var headers: Map<String, String> = mapOf(
-        HEADER_ACCEPT to TYPE_HTML,
-        HEADER_CONTENT to TYPE_FORM
+        HEADER_CONTENT to TYPE_JSON
     )
 
     /**
@@ -47,7 +45,7 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
     )
 
     // V2 API had this funky data format mixing json and form fields
-    override fun formatBody(): String = "$DATA=" + URLEncoder.encode("$body", "utf-8")
+    override fun formatBody(): String = body.toString()
 
     override fun parseResponse(connection: HttpURLConnection): Status {
         super.parseResponse(connection)

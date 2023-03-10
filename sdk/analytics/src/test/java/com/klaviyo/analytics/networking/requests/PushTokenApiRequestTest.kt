@@ -9,7 +9,6 @@ import io.mockk.spyk
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLEncoder
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -19,8 +18,7 @@ internal class PushTokenApiRequestTest : BaseTest() {
     private var profile = Profile().setAnonymousId(ANON_ID)
 
     private val expectedHeaders = mapOf(
-        "Accept" to "text/html",
-        "Content-Type" to "application/x-www-form-urlencoded"
+        "Content-Type" to "application/json"
     )
 
     @Test
@@ -63,8 +61,8 @@ internal class PushTokenApiRequestTest : BaseTest() {
         assertEquals(PUSH_TOKEN, props?.optJSONObject("\$append")?.optString("\$android_tokens"))
         assertEquals(5, props?.length()) // no other fields!
 
-        // Already confirmed the contents, just confirm that the body uses this odd data=json format, url encoded
-        assertEquals(request.formatBody(), "data=" + URLEncoder.encode("${request.body}", "utf-8"))
+        // Already confirmed the contents, just confirm that the body doesn't add anything else
+        assertEquals(request.formatBody(), "${request.body}")
     }
 
     @Test

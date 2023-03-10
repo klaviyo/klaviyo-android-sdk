@@ -104,9 +104,7 @@ internal open class KlaviyoApiRequest(
         const val HEADER_CONTENT = "Content-Type"
         const val HEADER_ACCEPT = "Accept"
         const val HEADER_REVISION = "Revision"
-        const val TYPE_HTML = "text/html"
         const val TYPE_JSON = "application/json"
-        const val TYPE_FORM = "application/x-www-form-urlencoded"
         const val V3_REVISION = "2023-01-24"
 
         private const val HTTP_OK = HttpURLConnection.HTTP_OK
