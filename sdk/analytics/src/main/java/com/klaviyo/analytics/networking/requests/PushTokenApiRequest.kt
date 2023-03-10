@@ -4,6 +4,7 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
 import java.io.Serializable
 import java.net.HttpURLConnection
+import java.net.URLEncoder
 import org.json.JSONObject
 
 /**
@@ -26,6 +27,11 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
         const val ANDROID_TOKEN = "\$android_tokens"
     }
 
+    override var headers: Map<String, String> = mapOf(
+        HEADER_ACCEPT to TYPE_HTML,
+        HEADER_CONTENT to TYPE_FORM
+    )
+
     /**
      * Only send profile's identifiers, plus the push token as an appended property
      */
@@ -41,7 +47,7 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
     )
 
     // V2 API had this funky data format mixing json and form fields
-    override fun formatBody(): String = "$DATA=$body"
+    override fun formatBody(): String = "$DATA=" + URLEncoder.encode("$body", "utf-8")
 
     override fun parseResponse(connection: HttpURLConnection): Status {
         super.parseResponse(connection)
