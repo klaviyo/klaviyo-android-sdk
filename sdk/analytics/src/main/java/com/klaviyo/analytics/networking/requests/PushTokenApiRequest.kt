@@ -26,6 +26,10 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
         const val ANDROID_TOKEN = "\$android_tokens"
     }
 
+    override var headers: Map<String, String> = mapOf(
+        HEADER_CONTENT to TYPE_JSON
+    )
+
     /**
      * Only send profile's identifiers, plus the push token as an appended property
      */
@@ -41,7 +45,7 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
     )
 
     // V2 API had this funky data format mixing json and form fields
-    override fun formatBody(): String = "$DATA=$body"
+    override fun formatBody(): String = body.toString()
 
     override fun parseResponse(connection: HttpURLConnection): Status {
         super.parseResponse(connection)

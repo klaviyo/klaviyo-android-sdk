@@ -17,6 +17,10 @@ internal class PushTokenApiRequestTest : BaseTest() {
     private val expectedMethod = RequestMethod.POST
     private var profile = Profile().setAnonymousId(ANON_ID)
 
+    private val expectedHeaders = mapOf(
+        "Content-Type" to "application/json"
+    )
+
     @Test
     fun `Uses the correct endpoint`() {
         assertEquals(expectedUrlPath, PushTokenApiRequest(PUSH_TOKEN, profile).urlPath)
@@ -28,8 +32,8 @@ internal class PushTokenApiRequestTest : BaseTest() {
     }
 
     @Test
-    fun `Does not set headers`() {
-        assert(PushTokenApiRequest(PUSH_TOKEN, profile).headers.isEmpty())
+    fun `Sets proper headers`() {
+        assertEquals(expectedHeaders, PushTokenApiRequest(PUSH_TOKEN, profile).headers)
     }
 
     @Test
@@ -57,8 +61,8 @@ internal class PushTokenApiRequestTest : BaseTest() {
         assertEquals(PUSH_TOKEN, props?.optJSONObject("\$append")?.optString("\$android_tokens"))
         assertEquals(5, props?.length()) // no other fields!
 
-        // Already confirmed the contents, just confirm that the body uses this odd data=json format
-        assertEquals(request.formatBody(), "data=${request.body}")
+        // Already confirmed the contents, just confirm that the body doesn't add anything else
+        assertEquals(request.formatBody(), "${request.body}")
     }
 
     @Test
