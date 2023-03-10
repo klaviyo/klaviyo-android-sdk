@@ -1,5 +1,7 @@
 # klaviyo-android-sdk
-
+![Latest](https://jitpack.io/v/klaviyo/klaviyo-android-sdk.svg)
+![Build Status](https://github.com/klaviyo/klaviyo-android-sdk/actions/workflows/android-master.yml/badge.svg)
+![Releases](https://github.com/klaviyo/klaviyo-android-sdk/releases)
 ## DISCLAIMER
 *This project is still in pre-alpha,
 breaking changes are still being made to the API. 
@@ -12,8 +14,22 @@ Once integrated, your marketing team will be able to better understand your app 
 send them timely push notifications via FCM.
 
 ## Installation
-
-[//]: # (TODO publish the SDK and document install steps)
+1. Include the [JitPack](https://jitpack.io/#klaviyo/klaviyo-android-sdk) repository in your project's build.gradle.kts
+    ```kotlin
+    allprojects {
+        repositories {
+            maven(url = "https://jitpack.io")
+        }
+    }
+    ```
+2. Add this dependency to your app's build.gradle.kts
+    ```kotlin
+    dependencies {
+        implementation("com.github.klaviyo:klaviyo-android-sdk:core:1.0.0")
+        implementation("com.github.klaviyo:klaviyo-android-sdk:analytics:1.0.0")
+        implementation("com.github.klaviyo:klaviyo-android-sdk:push-fcm:1.0.0")
+    }
+    ```
 
 ## Core SDK
 
