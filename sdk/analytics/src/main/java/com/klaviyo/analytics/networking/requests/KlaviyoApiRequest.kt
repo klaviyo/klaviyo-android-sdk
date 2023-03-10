@@ -27,6 +27,7 @@ internal open class KlaviyoApiRequest(
 ) : ApiRequest {
 
     override val id: String = uuid
+    override val type: String = urlPath
 
     internal enum class Status {
         Unsent, Inflight, PendingRetry, Complete, Failed

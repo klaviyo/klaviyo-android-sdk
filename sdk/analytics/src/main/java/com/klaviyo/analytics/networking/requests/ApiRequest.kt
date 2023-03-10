@@ -13,6 +13,11 @@ interface ApiRequest {
     val id: String
 
     /**
+     * Readable title of this type of request
+     */
+    val type: String
+
+    /**
      * Unsent, Inflight, PendingRetry, Complete or Failed
      */
     val state: String

@@ -20,6 +20,7 @@ import io.mockk.mockkObject
 import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
+import java.net.URL
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -85,7 +86,20 @@ internal class KlaviyoApiClientTest : BaseTest() {
     ): KlaviyoApiRequest =
         mockk<KlaviyoApiRequest>().also {
             every { it.uuid } returns uuid
+            every { it.id } returns uuid
+            every { it.type } returns "Mock"
             every { it.state } returns status.name
+            every { it.httpMethod } returns "GET"
+            every { it.url } returns URL("https://mock.com")
+            every { it.headers } returns mapOf("headerKey" to "headerValue")
+            every { it.query } returns mapOf("queryKey" to "queryValue")
+            every { it.formatBody() } returns null
+            every { it.formatResponse() } returns when (status) {
+                KlaviyoApiRequest.Status.Complete,
+                KlaviyoApiRequest.Status.Failed,
+                KlaviyoApiRequest.Status.PendingRetry -> ""
+                else -> null
+            }
             every { it.send(any()) } returns status
             every { it.toJson() } returns """
                 {
@@ -169,10 +183,10 @@ internal class KlaviyoApiClientTest : BaseTest() {
         var cbRequest: ApiRequest? = null
         KlaviyoApiClient.onApiRequest { cbRequest = it }
 
-        val request = mockRequest()
+        val request = mockRequest(status = KlaviyoApiRequest.Status.Unsent)
         KlaviyoApiClient.enqueueRequest(request)
         assertEquals(request, cbRequest)
-        verify { logSpy.debug(request.toString()) }
+        verify { logSpy.debug(match { it.contains("queue") }) }
     }
 
     @Test
@@ -186,7 +200,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         delayedRunner!!.run()
         assertEquals(request, cbRequest)
-        verify { logSpy.debug(request.toString()) }
+        verify { logSpy.info(match { it.contains("complete") }) }
     }
 
     @Test

@@ -22,6 +22,8 @@ internal class EventApiRequest(
     RequestMethod.POST
 ) {
 
+    override val type: String = "Create Event"
+
     private companion object {
         const val PATH = "client/events/"
         const val METRIC = "metric"

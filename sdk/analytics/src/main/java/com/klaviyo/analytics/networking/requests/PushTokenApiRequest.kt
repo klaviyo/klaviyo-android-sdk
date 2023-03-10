@@ -19,6 +19,8 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
     RequestMethod.POST
 ) {
 
+    override val type: String = "Push Token"
+
     private companion object {
         const val PATH = "api/identify"
         const val TOKEN = "token"

@@ -32,17 +32,30 @@ internal object KlaviyoApiClient : ApiClient {
     private var apiObservers = mutableListOf<ApiObserver>()
 
     init {
-        onApiRequest {
-            Registry.log.info(
-                when (it.state) {
-                    KlaviyoApiRequest.Status.Unsent.name -> "Request Enqueued"
-                    KlaviyoApiRequest.Status.PendingRetry.name -> "Request will be retried"
-                    KlaviyoApiRequest.Status.Complete.name -> "Request Completed"
-                    else -> "Request Failed"
-                }
-            )
+        onApiRequest { r ->
+            when (r.state) {
+                KlaviyoApiRequest.Status.Unsent.name -> Registry.log.debug(
+                    "${r.type} Request enqueued"
+                )
+                KlaviyoApiRequest.Status.Inflight.name -> Registry.log.debug(
+                    "${r.type} Request inflight"
+                )
+                KlaviyoApiRequest.Status.PendingRetry.name -> Registry.log.error(
+                    "${r.type} Request failed, will retry"
+                )
+                KlaviyoApiRequest.Status.Complete.name -> Registry.log.info(
+                    "${r.type} Request completed"
+                )
+                else -> Registry.log.error("${r.type} Request failed")
+            }
 
-            Registry.log.debug(it.toString())
+            r.formatResponse()?.let { response ->
+                Registry.log.verbose("${r.httpMethod}: ${r.url}")
+                Registry.log.verbose("Headers: ${r.headers}")
+                Registry.log.verbose("Query: ${r.query}")
+                Registry.log.verbose("Body: ${r.formatBody()}")
+                Registry.log.verbose(response)
+            }
         }
 
         // Stop our handler thread when all activities stop
