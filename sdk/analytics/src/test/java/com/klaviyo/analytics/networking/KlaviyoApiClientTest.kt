@@ -86,7 +86,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         mockk<KlaviyoApiRequest>().also {
             every { it.uuid } returns uuid
             every { it.state } returns status.name
-            every { it.send() } returns status
+            every { it.send(any()) } returns status
             every { it.toJson() } returns """
                 {
                   "headers": {
@@ -302,7 +302,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         while (request1.attempts < configMock.networkMaxRetries) {
             // Run before advancing the clock: it shouldn't attempt any sends
             job.run()
-            verify(exactly = attempts) { request1.send() }
+            verify(exactly = attempts) { request1.send(any()) }
 
             attempts++
 
@@ -316,8 +316,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
             assertEquals(2, KlaviyoApiClient.getQueueSize())
             assertNotNull(dataStoreSpy.fetch(request1.uuid))
             assertNotNull(dataStoreSpy.fetch(request2.uuid))
-            verify(exactly = attempts) { request1.send() }
-            verify(inverse = true) { request2.send() }
+            verify(exactly = attempts) { request1.send(any()) }
+            verify(inverse = true) { request2.send(any()) }
         }
     }
 
