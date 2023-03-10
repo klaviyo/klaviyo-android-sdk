@@ -6,6 +6,12 @@ import java.net.URL
  * Immutable representation of the data of a network request
  */
 interface ApiRequest {
+
+    /**
+     * Unique identifier of this request
+     */
+    val id: String
+
     /**
      * Unsent, PendingRetry, Complete or Failed
      */

@@ -25,6 +25,9 @@ internal open class KlaviyoApiRequest(
     val time: String = Registry.clock.currentTimeAsString(),
     val uuid: String = UUID.randomUUID().toString()
 ) : ApiRequest {
+
+    override val id: String = uuid
+
     internal enum class Status {
         Unsent, PendingRetry, Complete, Failed
     }
