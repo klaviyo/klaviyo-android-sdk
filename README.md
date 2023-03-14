@@ -1,7 +1,7 @@
 # klaviyo-android-sdk
-[![Latest](https://jitpack.io/v/klaviyo/klaviyo-android-sdk.svg)]()
-[![GitHub Release](https://img.shields.io/github/release/klaviyo/klaviyo-android-sdk.svg?style=flat)]()
-[![Build Status](https://github.com/klaviyo/klaviyo-android-sdk/actions/workflows/android-master.yml/badge.svg)]()
+[![Latest](https://jitpack.io/v/klaviyo/klaviyo-android-sdk.svg)](https://jitpack.io/#klaviyo/klaviyo-android-sdk)
+[![GitHub Release](https://img.shields.io/github/release/klaviyo/klaviyo-android-sdk.svg?style=flat)](https://github.com/klaviyo/klaviyo-android-sdk/releases)
+[![Build Status](https://github.com/klaviyo/klaviyo-android-sdk/actions/workflows/android-master.yml/badge.svg)](https://github.com/klaviyo/klaviyo-android-sdk/actions/workflows/android-master.yml)
 ## DISCLAIMER
 *This project is still in pre-alpha,
 breaking changes are still being made to the API. 
