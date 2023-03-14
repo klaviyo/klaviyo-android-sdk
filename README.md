@@ -15,19 +15,27 @@ send them timely push notifications via FCM.
 
 ## Installation
 1. Include the [JitPack](https://jitpack.io/#klaviyo/klaviyo-android-sdk) repository in your project's build.gradle.kts
-    ```kotlin
+    ```groovy
     allprojects {
         repositories {
+            // build.gradle.kts
             maven(url = "https://jitpack.io")
+            // build.gradle
+            maven { url "https://jitpack.io" }
         }
     }
     ```
 2. Add this dependency to your app's build.gradle.kts
-    ```kotlin
+    ```groovy
     dependencies {
+        // build.gradle.kts
         implementation("com.github.klaviyo:klaviyo-android-sdk:core:1.0.0")
         implementation("com.github.klaviyo:klaviyo-android-sdk:analytics:1.0.0")
         implementation("com.github.klaviyo:klaviyo-android-sdk:push-fcm:1.0.0")
+        // build.gradle
+        implementation "com.github.klaviyo:klaviyo-android-sdk:core:1.0.0"
+        implementation "com.github.klaviyo:klaviyo-android-sdk:analytics:1.0.0"
+        implementation "com.github.klaviyo:klaviyo-android-sdk:push-fcm:1.0.0"
     }
     ```
 
