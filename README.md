@@ -1,7 +1,7 @@
 # klaviyo-android-sdk
 ![Latest](https://jitpack.io/v/klaviyo/klaviyo-android-sdk.svg)
-![Build Status](https://github.com/klaviyo/klaviyo-android-sdk/actions/workflows/android-master.yml/badge.svg)
 ![Releases](https://github.com/klaviyo/klaviyo-android-sdk/releases)
+![Build Status](https://github.com/klaviyo/klaviyo-android-sdk/actions/workflows/android-master.yml/badge.svg)
 ## DISCLAIMER
 *This project is still in pre-alpha,
 breaking changes are still being made to the API. 
