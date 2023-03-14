@@ -86,20 +86,13 @@ internal class KlaviyoApiClientTest : BaseTest() {
     ): KlaviyoApiRequest =
         mockk<KlaviyoApiRequest>().also {
             every { it.uuid } returns uuid
-            every { it.id } returns uuid
             every { it.type } returns "Mock"
             every { it.state } returns status.name
             every { it.httpMethod } returns "GET"
             every { it.url } returns URL("https://mock.com")
             every { it.headers } returns mapOf("headerKey" to "headerValue")
             every { it.query } returns mapOf("queryKey" to "queryValue")
-            every { it.formatBody() } returns null
-            every { it.formatResponse() } returns when (status) {
-                KlaviyoApiRequest.Status.Complete,
-                KlaviyoApiRequest.Status.Failed,
-                KlaviyoApiRequest.Status.PendingRetry -> ""
-                else -> null
-            }
+            every { it.responseBody } returns null
             every { it.send(any()) } returns status
             every { it.toJson() } returns """
                 {

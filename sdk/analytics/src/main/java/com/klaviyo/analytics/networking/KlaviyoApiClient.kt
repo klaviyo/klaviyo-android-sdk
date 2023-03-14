@@ -42,12 +42,12 @@ internal object KlaviyoApiClient : ApiClient {
                 else -> Registry.log.error("${r.type} Request failed")
             }
 
-            r.formatResponse()?.let { response ->
+            r.responseBody?.let { response ->
                 Registry.log.verbose("${r.httpMethod}: ${r.url}")
                 Registry.log.verbose("Headers: ${r.headers}")
                 Registry.log.verbose("Query: ${r.query}")
-                Registry.log.verbose("Body: ${r.formatBody()}")
-                Registry.log.verbose(response)
+                Registry.log.verbose("Body: ${r.requestBody}")
+                Registry.log.verbose("${r.responseCode} $response")
             }
         }
 

@@ -53,7 +53,7 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
         super.parseResponse(connection)
 
         // V2 APIs did not properly use status codes.
-        if (status == Status.Complete && response == "0") {
+        if (status == Status.Complete && responseBody == "0") {
             status = Status.Failed
         }
 

@@ -49,7 +49,7 @@ internal class EventApiRequest(
             PROFILE to profile.getIdentifiers().mapKeys { it.key.specialKey() },
             METRIC to mapOf(NAME to event.type.name),
             VALUE to event.value,
-            TIME to time,
+            TIME to queuedTime,
             PROPERTIES to event.toMap(),
             allowEmptyMaps = true
         )
