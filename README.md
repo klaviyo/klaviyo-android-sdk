@@ -14,7 +14,7 @@ Once integrated, your marketing team will be able to better understand your app 
 send them timely push notifications via FCM.
 
 ## Installation
-1. Include the [JitPack](https://jitpack.io/#klaviyo/klaviyo-android-sdk) repository in your project's build.gradle.kts
+1. Include the [JitPack](https://jitpack.io/#klaviyo/klaviyo-android-sdk) repository in your project's build file
     ```groovy
     allprojects {
         repositories {
@@ -25,7 +25,7 @@ send them timely push notifications via FCM.
         }
     }
     ```
-2. Add this dependency to your app's build.gradle.kts
+2. Add this dependency to your app's build file
     ```groovy
     dependencies {
         // build.gradle.kts
