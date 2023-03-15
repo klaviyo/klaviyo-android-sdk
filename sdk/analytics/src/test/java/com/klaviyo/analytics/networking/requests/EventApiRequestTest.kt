@@ -67,7 +67,7 @@ internal class EventApiRequestTest : BaseTest() {
                     "$phoneKey": "$PHONE"
                   },
                   "properties": {},
-                  "time": $TIME
+                  "time": "$ISO_TIME"
                 }
               }
             }
@@ -95,7 +95,7 @@ internal class EventApiRequestTest : BaseTest() {
                   "properties": {
                     "custom_value": "200"
                   },
-                  "time": $TIME
+                  "time": "$ISO_TIME"
                 }
               }
             }
@@ -125,7 +125,7 @@ internal class EventApiRequestTest : BaseTest() {
                   "properties": {
                     "custom_value": "200"
                   },
-                  "time": $TIME
+                  "time": "$ISO_TIME"
                 }
               }
             }

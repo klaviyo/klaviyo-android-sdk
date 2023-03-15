@@ -43,10 +43,11 @@ internal object KlaviyoApiClient : ApiClient {
             }
 
             r.responseBody?.let { response ->
+                val body = r.requestBody?.let { JSONObject(it).toString(2) }
                 Registry.log.verbose("${r.httpMethod}: ${r.url}")
                 Registry.log.verbose("Headers: ${r.headers}")
                 Registry.log.verbose("Query: ${r.query}")
-                Registry.log.verbose("Body: ${r.requestBody}")
+                Registry.log.verbose("Body: $body")
                 Registry.log.verbose("${r.responseCode} $response")
             }
         }

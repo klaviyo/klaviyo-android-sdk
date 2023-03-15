@@ -8,7 +8,7 @@ class SystemClockTest {
     @Test
     fun `Clock uses proper date format`() {
         val regex7 = "^\\d{4}(-\\d\\d(-\\d\\d(T\\d\\d:\\d\\d(:\\d\\d)?(\\.\\d+)?(([+-]\\d\\d:*\\d\\d)|Z)?)?)?)?\$".toRegex()
-        val dateString = SystemClock.currentTimeAsString()
+        val dateString = SystemClock.isoTime()
         assert(regex7.matches(dateString))
     }
 
