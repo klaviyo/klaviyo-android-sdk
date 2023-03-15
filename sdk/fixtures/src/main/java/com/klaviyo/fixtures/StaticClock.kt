@@ -9,7 +9,7 @@ import com.klaviyo.core.config.Clock
  */
 class StaticClock(var time: Long, private val formatted: String) : Clock {
     override fun currentTimeMillis(): Long = time
-    override fun currentTimeAsString(): String = formatted
+    override fun isoTime(milliseconds: Long): String = formatted
 
     override fun schedule(delay: Long, task: () -> Unit): Clock.Cancellable {
         val scheduledTask = ScheduledTask(currentTimeMillis() + delay, task)

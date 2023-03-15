@@ -16,8 +16,8 @@ internal object SystemClock : Clock {
         return System.currentTimeMillis()
     }
 
-    override fun currentTimeAsString(): String {
-        return format.format(Date(currentTimeMillis()))
+    override fun isoTime(milliseconds: Long): String {
+        return format.format(Date(milliseconds))
     }
 
     override fun schedule(delay: Long, task: () -> Unit): Clock.Cancellable = Timer()

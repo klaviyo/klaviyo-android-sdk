@@ -19,6 +19,8 @@ internal class ProfileApiRequest(profile: Profile) : KlaviyoApiRequest(
     RequestMethod.POST
 ) {
 
+    override val type: String = "Identify Profile"
+
     private companion object {
         const val PATH = "client/profiles/"
         const val LOCATION = "location"

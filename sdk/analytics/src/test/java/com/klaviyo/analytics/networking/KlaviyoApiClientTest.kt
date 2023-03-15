@@ -20,6 +20,7 @@ import io.mockk.mockkObject
 import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
+import java.net.URL
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -85,8 +86,14 @@ internal class KlaviyoApiClientTest : BaseTest() {
     ): KlaviyoApiRequest =
         mockk<KlaviyoApiRequest>().also {
             every { it.uuid } returns uuid
+            every { it.type } returns "Mock"
             every { it.state } returns status.name
-            every { it.send() } returns status
+            every { it.httpMethod } returns "GET"
+            every { it.url } returns URL("https://mock.com")
+            every { it.headers } returns mapOf("headerKey" to "headerValue")
+            every { it.query } returns mapOf("queryKey" to "queryValue")
+            every { it.responseBody } returns null
+            every { it.send(any()) } returns status
             every { it.toJson() } returns """
                 {
                   "headers": {
@@ -169,10 +176,10 @@ internal class KlaviyoApiClientTest : BaseTest() {
         var cbRequest: ApiRequest? = null
         KlaviyoApiClient.onApiRequest { cbRequest = it }
 
-        val request = mockRequest()
+        val request = mockRequest(status = KlaviyoApiRequest.Status.Unsent)
         KlaviyoApiClient.enqueueRequest(request)
         assertEquals(request, cbRequest)
-        verify { logSpy.debug(request.toString()) }
+        verify { logSpy.debug(match { it.contains("queue") }) }
     }
 
     @Test
@@ -186,7 +193,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         delayedRunner!!.run()
         assertEquals(request, cbRequest)
-        verify { logSpy.debug(request.toString()) }
+        verify { logSpy.info(match { it.contains("complete") }) }
     }
 
     @Test
@@ -302,7 +309,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         while (request1.attempts < configMock.networkMaxRetries) {
             // Run before advancing the clock: it shouldn't attempt any sends
             job.run()
-            verify(exactly = attempts) { request1.send() }
+            verify(exactly = attempts) { request1.send(any()) }
 
             attempts++
 
@@ -316,8 +323,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
             assertEquals(2, KlaviyoApiClient.getQueueSize())
             assertNotNull(dataStoreSpy.fetch(request1.uuid))
             assertNotNull(dataStoreSpy.fetch(request2.uuid))
-            verify(exactly = attempts) { request1.send() }
-            verify(inverse = true) { request2.send() }
+            verify(exactly = attempts) { request1.send(any()) }
+            verify(inverse = true) { request2.send(any()) }
         }
     }
 

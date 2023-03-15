@@ -6,20 +6,36 @@ import java.net.URL
  * Immutable representation of the data of a network request
  */
 interface ApiRequest {
+
     /**
-     * Unsent, PendingRetry, Complete or Failed
+     * Unique identifier of this request
+     */
+    val uuid: String
+
+    /**
+     * Readable title of this type of request
+     */
+    val type: String
+
+    /**
+     * Unsent, Inflight, PendingRetry, Complete or Failed
      */
     val state: String
 
     /**
-     * Time the request was initiated
+     * Time the request was enqueued
      */
-    val startTime: String
+    val queuedTime: Long
 
     /**
-     * Time the request was completed or failed
+     * Time the request was made
      */
-    val endTime: String?
+    val startTime: Long?
+
+    /**
+     * Time the response was received, regardless of status
+     */
+    val endTime: Long?
 
     /**
      * URL of the request, omitting query string
@@ -46,20 +62,20 @@ interface ApiRequest {
      *
      * @return
      */
-    fun formatBody(): String?
+    val requestBody: String?
 
     /**
-     * Render the response as a string
+     * HTTP status code, if the request has been sent
+     *
+     * @return
+     */
+    val responseCode: Int?
+
+    /**
+     * Render the response as a string, if the request has been sent
      * Format depends on the endpoint, see Klaviyo API documentation
      *
      * @return
      */
-    fun formatResponse(): String?
-
-    /**
-     * Render the whole request object as a JSON string
-     *
-     * @return
-     */
-    override fun toString(): String
+    val responseBody: String?
 }

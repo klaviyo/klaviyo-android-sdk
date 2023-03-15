@@ -7,6 +7,7 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
+import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
@@ -32,17 +33,23 @@ internal object KlaviyoApiClient : ApiClient {
     private var apiObservers = mutableListOf<ApiObserver>()
 
     init {
-        onApiRequest {
-            Registry.log.info(
-                when (it.state) {
-                    KlaviyoApiRequest.Status.Unsent.name -> "Request Enqueued"
-                    KlaviyoApiRequest.Status.PendingRetry.name -> "Request will be retried"
-                    KlaviyoApiRequest.Status.Complete.name -> "Request Completed"
-                    else -> "Request Failed"
-                }
-            )
+        onApiRequest { r ->
+            when (r.state) {
+                Status.Unsent.name -> Registry.log.debug("${r.type} Request enqueued")
+                Status.Inflight.name -> Registry.log.debug("${r.type} Request inflight")
+                Status.PendingRetry.name -> Registry.log.error("${r.type} Request retrying")
+                Status.Complete.name -> Registry.log.info("${r.type} Request completed")
+                else -> Registry.log.error("${r.type} Request failed")
+            }
 
-            Registry.log.debug(it.toString())
+            r.responseBody?.let { response ->
+                val body = r.requestBody?.let { JSONObject(it).toString(2) }
+                Registry.log.verbose("${r.httpMethod}: ${r.url}")
+                Registry.log.verbose("Headers: ${r.headers}")
+                Registry.log.verbose("Query: ${r.query}")
+                Registry.log.verbose("Body: $body")
+                Registry.log.verbose("${r.responseCode} $response")
+            }
         }
 
         // Stop our handler thread when all activities stop
@@ -241,13 +248,13 @@ internal object KlaviyoApiClient : ApiClient {
             while (apiQueue.isNotEmpty()) {
                 val request = apiQueue.poll()
 
-                when (request?.send()) {
-                    KlaviyoApiRequest.Status.Complete, KlaviyoApiRequest.Status.Failed -> {
+                when (request?.send { broadcastApiRequest(request) }) {
+                    Status.Complete, Status.Failed -> {
                         // On success or absolute failure, remove from queue and persistent store
                         Registry.dataStore.clear(request.uuid)
                         broadcastApiRequest(request)
                     }
-                    KlaviyoApiRequest.Status.PendingRetry -> {
+                    Status.PendingRetry -> {
                         // Encountered a retryable error
                         // Put this back on top of the queue and we'll try again with backoff
                         // TODO reset flush interval next time succeeds
@@ -257,7 +264,7 @@ internal object KlaviyoApiClient : ApiClient {
                         break
                     }
                     // Offline or at the end of the queue... either way break the loop
-                    null, KlaviyoApiRequest.Status.Unsent -> break
+                    Status.Inflight, Status.Unsent, null -> break
                 }
             }
 

@@ -22,6 +22,8 @@ internal class EventApiRequest(
     RequestMethod.POST
 ) {
 
+    override val type: String = "Create Event"
+
     private companion object {
         const val PATH = "client/events/"
         const val METRIC = "metric"
@@ -47,7 +49,7 @@ internal class EventApiRequest(
             PROFILE to profile.getIdentifiers().mapKeys { it.key.specialKey() },
             METRIC to mapOf(NAME to event.type.name),
             VALUE to event.value,
-            TIME to time,
+            TIME to Registry.clock.isoTime(queuedTime),
             PROPERTIES to event.toMap(),
             allowEmptyMaps = true
         )
