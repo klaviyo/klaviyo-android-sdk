@@ -70,6 +70,7 @@
         </span></div>
       <h3 class=""> Identifying a Profile</h3>
       <p class="paragraph">The SDK provides helpers for identifying profiles and syncing via the  <a href="https://developers.klaviyo.com/en/reference/create_client_profile">Klaviyo client API</a>. All profile identifiers (email, phone, external ID, anonymous ID) are persisted to local storage so that the SDK can keep track of the current profile.</p>
+      <p class="paragraph">Klaviyo SDK does not validate email address or phone number inputs locally, see <a href="https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo">documentation</a> on proper phone number formatting</p>
       <p class="paragraph">Profile attributes can be set all at once: </p>
       <div class="sample-container">
         <pre><code class="block lang-kotlin" theme="idea">val profile = Profile(mapOf(<br>    ProfileKey.EMAIL to &quot;kermit@example.com&quot;,<br>    ProfileKey.FIRST_NAME to &quot;Kermit&quot;<br>))<br>Klaviyo.setProfile(profile)</code></pre>
@@ -82,8 +83,8 @@
 <span class="top-right-position"><span class="copy-icon"></span>
           <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
         </span></div>
-      <p class="paragraph">Either way, the SDK will group and batch API calls to limit resource usage. </p>
-      <p class="paragraph"><strong>Profile updates are additive</strong>. To start a new profile altogether (e.g. if a user logs out) call <code class="lang-kotlin">Klaviyo.resetProfile()</code> first to reset all identifiers and start tracking a new profile:</p>
+      <p class="paragraph">Either way, the SDK will group and batch API calls to limit resource usage.</p>
+      <p class="paragraph"><strong>All the fluent setter methods are additive</strong>. To start a <i>new</i> profile altogether (e.g. if a user logs out) either call <code class="lang-kotlin">Klaviyo.resetProfile()</code>  to clear the currently tracked profile identifiers (e.g. on logout), or use <code class="lang-kotlin">Klaviyo.setProfile(profile)</code> to overwrite it with a new profile object. </p>
       <div class="sample-container">
         <pre><code class="block lang-kotlin" theme="idea">//Start a profile for Kermit<br>Klaviyo.setEmail(&quot;kermit@example.com&quot;)<br>    .setPhoneNumber(&quot;+12223334444&quot;)<br>    .setProfileAttribute(ProfileKey.FIRST_NAME, &quot;Kermit&quot;)<br><br>//Stop tracking Kermit<br>Klaviyo.resetProfile()<br><br>//Start new profile for Robin with new IDs<br>Klaviyo.setEmail(&quot;robin@example.com&quot;)<br>    .setPhoneNumber(&quot;+5556667777&quot;)<br>    .setProfileAttribute(ProfileKey.FIRST_NAME, &quot;Robin&quot;)</code></pre>
 <span class="top-right-position"><span class="copy-icon"></span>
@@ -109,7 +110,7 @@
       <h3 class=""> KlaviyoPushService</h3>
       <p class="paragraph">The Klaviyo Push SDK for Android works as a wrapper around <code class="lang-kotlin">FirebaseMessagingService</code> so the  setup process is very similar to the Firebase client documentation linked above. You should follow all other setup recommendations from the FCM documentation. Register <code class="lang-kotlin">KlaviyoPushService</code> to receive MESSAGING_EVENT intents. This allows Klaviyo Push SDK  to receive new and updated push tokens via the <code class="lang-kotlin">onNewToken</code> method,  as well as foreground and data notifications via the <code class="lang-kotlin">onMessageReceived</code> method.</p>
       <div class="sample-container">
-        <pre><code class="block lang-xml" theme="idea">&lt;service android:name=&quot;com.klaviyo.push_fcm.KlaviyoPushService&quot; android:exported=&quot;false&quot;&gt;<br>    &lt;intent-filter&gt;<br>        &lt;action android:name=&quot;com.google.firebase.MESSAGING_EVENT&quot; /&gt;<br>    &lt;/intent-filter&gt;<br>&lt;/service&gt;</code></pre>
+        <pre><code class="block lang-xml" theme="idea">&lt;service android:name=&quot;com.klaviyo.pushFcm.KlaviyoPushService&quot; android:exported=&quot;false&quot;&gt;<br>    &lt;intent-filter&gt;<br>        &lt;action android:name=&quot;com.google.firebase.MESSAGING_EVENT&quot; /&gt;<br>    &lt;/intent-filter&gt;<br>&lt;/service&gt;</code></pre>
 <span class="top-right-position"><span class="copy-icon"></span>
           <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
         </span></div>
@@ -120,12 +121,13 @@
           <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
         </span></div>
       <h3 class=""> Manual implementation of <code class="lang-kotlin">FirebaseMessagingService</code> (Advanced)</h3>
-      <p class="paragraph">If you'd prefer to implement <code class="lang-kotlin">FirebaseMessagingService</code> yourself, follow the FCM  setup docs including referencing your own service class in the manifest. Then update your implementation of <code class="lang-kotlin">onNewToken</code> and <code class="lang-kotlin">onMessageReceived</code> as below to communicate  push tokens and notifications received to the Klaviyo SDK. Note that the launcher activity  code snippets above are still required.</p>
+      <p class="paragraph">If you'd prefer to implement <code class="lang-kotlin">FirebaseMessagingService</code> yourself, follow the FCM  setup docs including referencing your own service class in the manifest. Then update your implementation of <code class="lang-kotlin">onNewToken</code> and <code class="lang-kotlin">onMessageReceived</code> as below to communicate  push tokens and notifications received to the Klaviyo SDK. The launcher activity  code snippets above are still required.</p>
       <div class="sample-container">
         <pre><code class="block lang-kotlin" theme="idea">import com.google.firebase.messaging.RemoteMessage<br>import com.klaviyo.push.KlaviyoPushService<br><br>class YourPushService: FirebaseMessagingService() {<br>    override fun onNewToken(newToken: String) {<br>        super.onNewToken(newToken)<br>        Klaviyo.setPushToken(newToken)<br>    }<br><br>    override fun onMessageReceived(message: RemoteMessage) {<br>        super.onMessageReceived(message)<br>        //You should decide how you want to handle messages receive in foreground<br>    }<br>}</code></pre>
 <span class="top-right-position"><span class="copy-icon"></span>
           <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
         </span></div>
+      <p class="paragraph"><strong>A note on push tokens and multiple profiles:</strong> Klaviyo SDK will disassociate the device push token from the current profile whenever it is reset by calling <code class="lang-kotlin">setProfile</code> or <code class="lang-kotlin">resetProfile</code>.  You should call <code class="lang-kotlin">setPushToken</code> again after resetting the currently tracked profile  to explicitly to associate the device token to the new profile.</p>
       <h2 class=""> Code Documentation</h2>
       <p class="paragraph">Browse complete code documentation autogenerated with dokka <a href="https://klaviyo.github.io/klaviyo-android-sdk/">here</a></p>
     </div>
@@ -152,12 +154,12 @@
           <div><span class="brief-comment"></span></div>
         </div>
       </div>
-<a data-name="-1013431738%2FMain%2F0" anchor-label="core-shared-tests" id="-1013431738%2FMain%2F0" data-filterable-set=""></a>
+<a data-name="1811326475%2FMain%2F0" anchor-label="fixtures" id="1811326475%2FMain%2F0" data-filterable-set=""></a>
       <div class="table-row">
         <div class="main-subrow ">
           <div class="w-100"><span class="inline-flex">
-              <div><a href="sdk/core-shared-tests/index.html">core-shared-tests</a></div>
-<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1013431738%2FMain%2F0"></span>
+              <div><a href="sdk/fixtures/index.html">fixtures</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1811326475%2FMain%2F0"></span>
                 <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
               </span></span></div>
           <div><span class="brief-comment"></span></div>
