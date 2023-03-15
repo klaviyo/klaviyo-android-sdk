@@ -264,7 +264,7 @@ internal object KlaviyoApiClient : ApiClient {
                         break
                     }
                     // Offline or at the end of the queue... either way break the loop
-                    else -> break
+                    Status.Inflight, Status.Unsent, null -> break
                 }
             }
 
