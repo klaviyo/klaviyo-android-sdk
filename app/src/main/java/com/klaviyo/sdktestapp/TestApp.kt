@@ -8,6 +8,7 @@ class TestApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // TODO: Fetch this from the SDK's data store, attempting to remember last session instead of falling back to default?
         Klaviyo.initialize(BuildConfig.KLAVIYO_COMPANY_ID, applicationContext)
 
         // Fetches the current push token and registers with Push SDK

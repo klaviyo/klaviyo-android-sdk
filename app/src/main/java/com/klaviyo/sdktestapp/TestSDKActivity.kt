@@ -43,8 +43,11 @@ import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.rememberPagerState
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.sdktestapp.view.EventsList
+import com.klaviyo.sdktestapp.viewmodel.AccountInfoViewModel
 import com.klaviyo.sdktestapp.viewmodel.EventsViewModel
 import com.klaviyo.sdktestapp.viewmodel.PushSettingsViewModel
+import java.util.logging.Level
+import java.util.logging.Logger
 import kotlinx.coroutines.launch
 
 class TestSDKActivity : ComponentActivity() {
@@ -61,6 +64,7 @@ class TestSDKActivity : ComponentActivity() {
         }
 
     private val pushSettingsViewModel: PushSettingsViewModel = PushSettingsViewModel(this, pushNotificationContract)
+    private val accountInfoViewModel: AccountInfoViewModel = AccountInfoViewModel(this)
     private val eventsViewModel = EventsViewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,6 +75,7 @@ class TestSDKActivity : ComponentActivity() {
         setContent {
             MainScreen(
                 pushSettingsViewModel = pushSettingsViewModel,
+                accountInfoViewModel = accountInfoViewModel,
                 eventsViewModel = eventsViewModel
             )
         }
@@ -78,7 +83,9 @@ class TestSDKActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        Logger.getLogger("RESUME").log(Level.INFO, "resumed")
         pushSettingsViewModel.refreshViewModel()
+        accountInfoViewModel.refreshViewModel()
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -111,6 +118,7 @@ fun TabScreen(
 @OptIn(ExperimentalPagerApi::class)
 fun MainScreen(
     pushSettingsViewModel: PushSettingsViewModel,
+    accountInfoViewModel: AccountInfoViewModel,
     eventsViewModel: EventsViewModel
 ) {
     val tabRowItems = listOf(
@@ -118,9 +126,12 @@ fun MainScreen(
             title = "Account Info",
             screen = {
                 TabScreen {
-                    Text(
-                        text = "Account Info Screen",
-                        style = MaterialTheme.typography.body1,
+                    AccountInfo(
+                        viewModel = accountInfoViewModel,
+                        setApiKey = accountInfoViewModel::setApiKey,
+                        onCreate = accountInfoViewModel::create,
+                        onClear = accountInfoViewModel::reset,
+                        onCopyAnonymousId = accountInfoViewModel::copyAnonymousId,
                     )
                 }
             },

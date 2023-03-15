@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
@@ -26,79 +25,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.constraintlayout.compose.ConstraintLayout
-import androidx.constraintlayout.compose.Dimension
+import com.klaviyo.sdktestapp.view.CopyText
 
-@Composable
-private fun PushTokenView(
-    pushToken: String = "",
-    onTokenCopied: () -> Unit = {},
-) {
-    ConstraintLayout(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colors.surface)
-            .padding(16.dp),
-    ) {
-        val (label, tokenField, copyButton) = createRefs()
-        Text(
-            text = "Push Token",
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.constrainAs(label) {
-                top.linkTo(parent.top)
-                bottom.linkTo(tokenField.top)
-                start.linkTo(parent.start)
-            },
-            style = MaterialTheme.typography.caption,
-        )
-        Text(
-            text = pushToken.ifEmpty { "No Push Token" },
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .selectable(selected = false, enabled = false, null) {}
-                .constrainAs(tokenField) {
-                    top.linkTo(label.bottom)
-                    bottom.linkTo(parent.bottom)
-                    start.linkTo(parent.start)
-                    end.linkTo(copyButton.start, 16.dp)
-                    width = Dimension.fillToConstraints
-                },
-        )
-        Button(
-            enabled = pushToken.isNotBlank(),
-            onClick = onTokenCopied,
-            elevation = ButtonDefaults.elevation(0.dp),
-            shape = CircleShape,
-            modifier = Modifier.constrainAs(copyButton) {
-                top.linkTo(parent.top)
-                bottom.linkTo(parent.bottom)
-                end.linkTo(parent.end)
-            },
-        ) {
-            Text(
-                text = "Copy",
-            )
-        }
-    }
-}
-
-@Preview(group = "PushTokenView")
+@Preview(group = "CopyText")
 @Composable
 private fun EmptyPushToken() {
-    PushTokenView(
-        pushToken = ""
+    CopyText(
+        value = "",
+        defaultValue = "No Push Token",
+        label = "Push Token"
     )
 }
 
-@Preview(group = "PushTokenView")
+@Preview(group = "CopyText")
 @Composable
 private fun HasPushToken() {
-    PushTokenView(
-        pushToken = "onac784y5oa9283n569a285c6pa9283cwa9v38v5nap93w86v5p"
+    CopyText(
+        value = "onac784y5oa9283n569a285c6pa9283cwa9v38v5nap93w86v5p",
+        label = "Push Token"
     )
 }
 
@@ -162,9 +108,11 @@ fun PushSettings(
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
-            PushTokenView(
-                pushToken = pushToken,
-                onTokenCopied = onCopyPushToken,
+            CopyText(
+                value = pushToken,
+                defaultValue = "No Push Token",
+                label = "Push Token",
+                onTextCopied = onCopyPushToken,
             )
         }
     }
