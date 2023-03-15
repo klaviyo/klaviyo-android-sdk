@@ -14,6 +14,7 @@ import androidx.compose.material.BottomAppBar
 import androidx.compose.material.BottomNavigationItem
 import androidx.compose.material.Colors
 import androidx.compose.material.ContentAlpha
+import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
 import androidx.compose.material.LocalContentAlpha
 import androidx.compose.material.MaterialTheme
@@ -22,9 +23,11 @@ import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
 import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.primarySurface
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -39,6 +42,8 @@ import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.rememberPagerState
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.sdktestapp.view.EventsList
+import com.klaviyo.sdktestapp.viewmodel.EventsViewModel
 import com.klaviyo.sdktestapp.viewmodel.PushSettingsViewModel
 import kotlinx.coroutines.launch
 
@@ -56,6 +61,7 @@ class TestSDKActivity : ComponentActivity() {
         }
 
     private val pushSettingsViewModel: PushSettingsViewModel = PushSettingsViewModel(this, pushNotificationContract)
+    private val eventsViewModel = EventsViewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +69,10 @@ class TestSDKActivity : ComponentActivity() {
         onNewIntent(intent)
 
         setContent {
-            MainScreen(pushSettingsViewModel = pushSettingsViewModel)
+            MainScreen(
+                pushSettingsViewModel = pushSettingsViewModel,
+                eventsViewModel = eventsViewModel
+            )
         }
     }
 
@@ -101,7 +110,8 @@ fun TabScreen(
 @Composable
 @OptIn(ExperimentalPagerApi::class)
 fun MainScreen(
-    pushSettingsViewModel: PushSettingsViewModel
+    pushSettingsViewModel: PushSettingsViewModel,
+    eventsViewModel: EventsViewModel
 ) {
     val tabRowItems = listOf(
         TabRowItem(
@@ -120,10 +130,11 @@ fun MainScreen(
             title = "Events",
             screen = {
                 TabScreen {
-                    Text(
-                        text = "Events Screen",
-                        style = MaterialTheme.typography.body1,
-                    )
+                    // TODO action button to clear screen
+                    EventsList(eventsViewModel.viewState.events) { event ->
+                        // TODO navigate to event detail page
+                        println(event)
+                    }
                 }
             },
             icon = Icons.Outlined.Notifications,
@@ -157,7 +168,7 @@ fun MainScreen(
             secondaryVariant = Color(0xFFFF00FF),
             error = Color(0xFFFFFF00),
             surface = Color.White, //
-            onSurface = Color(0xFF6750A4), //
+            onSurface = Color(0xFF333333), //
             onBackground = Color(0xFF000000),
             onError = Color(0xFF888888),
             onPrimary = Color.White, //
@@ -166,6 +177,20 @@ fun MainScreen(
         ),
     ) {
         Scaffold(
+            floatingActionButton = {
+                if (pagerState.currentPage == 1) {
+                    FloatingActionButton(
+                        backgroundColor = MaterialTheme.colors.primarySurface,
+                        onClick = { eventsViewModel.createEvent() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Create an Event",
+                        )
+                    }
+                }
+            },
+            isFloatingActionButtonDocked = false,
             scaffoldState = scaffoldState,
             topBar = {
                 TopAppBar(
