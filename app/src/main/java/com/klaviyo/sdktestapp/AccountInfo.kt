@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Text
@@ -51,11 +53,15 @@ fun AccountInfo(
 
     Box {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.background(Color.White).padding(16.dp),
+                modifier = Modifier
+                    .background(Color.White)
+                    .padding(16.dp),
             ) {
                 androidx.compose.material3.OutlinedTextField(
                     value = viewModel.viewModel.accountId.value,
@@ -85,7 +91,9 @@ fun AccountInfo(
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.background(Color.White).padding(16.dp),
+                modifier = Modifier
+                    .background(Color.White)
+                    .padding(16.dp),
             ) {
                 androidx.compose.material3.OutlinedTextField(
                     value = viewModel.viewModel.externalId.value,
@@ -99,7 +107,9 @@ fun AccountInfo(
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.background(Color.White).padding(16.dp),
+                modifier = Modifier
+                    .background(Color.White)
+                    .padding(16.dp),
             ) {
                 androidx.compose.material3.OutlinedTextField(
                     value = viewModel.viewModel.email.value,
@@ -113,7 +123,9 @@ fun AccountInfo(
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.background(Color.White).padding(16.dp),
+                modifier = Modifier
+                    .background(Color.White)
+                    .padding(16.dp),
             ) {
                 androidx.compose.material3.OutlinedTextField(
                     value = viewModel.viewModel.phoneNumber.value,
@@ -127,7 +139,9 @@ fun AccountInfo(
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.background(Color.White).padding(16.dp),
+                modifier = Modifier
+                    .background(Color.White)
+                    .padding(16.dp),
             ) {
                 Box(modifier = Modifier.weight(1f, fill = true))
                 CopyText(
@@ -140,7 +154,9 @@ fun AccountInfo(
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.background(Color.White).padding(16.dp),
+                modifier = Modifier
+                    .background(Color.White)
+                    .padding(16.dp),
             ) {
                 Box(modifier = Modifier.weight(1f, fill = true))
                 Button(
@@ -160,7 +176,9 @@ fun AccountInfo(
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.background(Color.White).padding(16.dp),
+                modifier = Modifier
+                    .background(Color.White)
+                    .padding(16.dp),
             ) {
                 Box(modifier = Modifier.weight(1f, fill = true))
                 Button(
