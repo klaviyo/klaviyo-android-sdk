@@ -5,6 +5,8 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.primaryConstructor
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -26,6 +28,13 @@ data class Event(
 
     private companion object {
         private val format = SimpleDateFormat("HH:mm:ss", Locale.US)
+
+        private val primaryProps get() = Event::class.primaryConstructor!!
+            .parameters
+            .map { it.name }
+            .let { params ->
+                Event::class.memberProperties.filter { it.name in params }
+            }
     }
 
     enum class State {
@@ -39,11 +48,7 @@ data class Event(
     val host = "${url.protocol}://${url.host}"
     val endpoint = "${url.path}?" + query.map { (k, v) -> "$k=$v" }.joinToString("&")
     val formattedHeaders: String = JSONObject(headers).toString(2)
-    val formattedBody = try {
-        requestBody?.let { JSONObject(requestBody).toString(2) } ?: ""
-    } catch (e: JSONException) {
-        ""
-    }
+    val formattedBody = bodyAsJson()?.toString(2) ?: ""
 
     constructor(apiRequest: ApiRequest) : this(
         id = apiRequest.uuid,
@@ -68,4 +73,27 @@ data class Event(
     )
 
     fun formatDate(date: Date): String = format.format(date)
+
+    override fun toString() = toString(null)
+
+    fun toString(indents: Int?) = try {
+        indents?.let { (toJson().toString(indents)) } ?: toJson().toString()
+    } catch (e: JSONException) {
+        "Serializing error: ${e.message}"
+    }
+
+    private fun toJson() = JSONObject(this.toMap())
+
+    private fun toMap(): Map<String, Any?> = primaryProps.associate {
+        when (it.name) {
+            Event::requestBody.name -> it.name to (bodyAsJson() ?: requestBody)
+            else -> it.name to it.get(this)
+        }
+    }
+
+    private fun bodyAsJson() = try {
+        requestBody?.let { JSONObject(requestBody) }
+    } catch (e: JSONException) {
+        null
+    }
 }

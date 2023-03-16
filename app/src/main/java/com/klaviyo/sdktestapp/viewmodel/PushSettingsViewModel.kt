@@ -4,8 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -17,10 +15,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.app.ActivityCompat
-import androidx.core.content.getSystemService
 import com.klaviyo.analytics.Klaviyo
-import java.util.logging.Level
-import java.util.logging.Logger
+import com.klaviyo.sdktestapp.services.Clipboard
 
 @SuppressLint("InlinedApi") // Safe to use the keyword. ActivityCompat handles API level differences
 class PushSettingsViewModel(
@@ -114,8 +110,6 @@ class PushSettingsViewModel(
     }
 
     fun copyPushToken() {
-        Logger.getLogger("Push Token").log(Level.INFO, viewModel.pushToken)
-        val clipData = ClipData.newPlainText("Push Token", viewModel.pushToken)
-        context.getSystemService<ClipboardManager>()?.setPrimaryClip(clipData)
+        Clipboard(context).logAndCopy("Push Token", viewModel.pushToken)
     }
 }

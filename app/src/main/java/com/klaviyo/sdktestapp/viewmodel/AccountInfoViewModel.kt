@@ -1,15 +1,13 @@
 package com.klaviyo.sdktestapp.viewmodel
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.content.getSystemService
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
+import com.klaviyo.sdktestapp.services.Clipboard
 import java.util.logging.Level
 import java.util.logging.Logger
 
@@ -83,8 +81,6 @@ class AccountInfoViewModel(
     }
 
     fun copyAnonymousId() {
-        Logger.getLogger("Anonymous ID").log(Level.INFO, viewModel.anonymousId)
-        val clipData = ClipData.newPlainText("Anonymous ID", viewModel.anonymousId)
-        context.getSystemService<ClipboardManager>()?.setPrimaryClip(clipData)
+        Clipboard(context).logAndCopy("Anonymous ID", viewModel.anonymousId)
     }
 }

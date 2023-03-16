@@ -1,11 +1,20 @@
 package com.klaviyo.sdktestapp.view
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.Surface
+import androidx.compose.material.Card
+import androidx.compose.material.Icon
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -19,11 +28,30 @@ fun EventsList(
     onEventClick: (Event) -> Unit,
 ) {
     if (events.isEmpty()) {
-        Surface {
-            Text(text = "None")
+        Card(
+            modifier = modifier.then(
+                Modifier.fillMaxWidth()
+                    .padding(8.dp)
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(8.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ListAlt,
+                    contentDescription = "Empty List",
+                    Modifier.size(50.dp)
+                )
+                Text(text = "No recent events", style = MaterialTheme.typography.h6)
+            }
         }
     } else {
-        LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        LazyColumn(
+            modifier = modifier.then(Modifier.fillMaxWidth()),
+            verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
             itemsIndexed(
                 events,
                 key = { _, event -> event.id }
