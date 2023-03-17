@@ -27,9 +27,9 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         KlaviyoLifecycleMonitor.onActivityStarted(mockk())
         KlaviyoLifecycleMonitor.onActivityStarted(mockk())
         KlaviyoLifecycleMonitor.onActivityStopped(mockk())
-        assert(callCount == 0)
+        assertEquals(0, callCount)
         KlaviyoLifecycleMonitor.onActivityStopped(mockk())
-        assert(callCount == 1)
+        assertEquals(1, callCount)
 
         // At this time, we expect nothing from this methods:
         KlaviyoLifecycleMonitor.onActivityCreated(mockk(), mockk())
@@ -37,7 +37,7 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         KlaviyoLifecycleMonitor.onActivitySaveInstanceState(mockk(), mockk())
         KlaviyoLifecycleMonitor.onActivityPaused(mockk())
         KlaviyoLifecycleMonitor.onActivityDestroyed(mockk())
-        assert(callCount == 1)
+        assertEquals(1, callCount)
     }
 
     @Test
@@ -53,8 +53,6 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         verify { logSpy.info("SaveInstanceState") }
         KlaviyoLifecycleMonitor.onActivityPaused(mockk())
         verify { logSpy.info("Paused") }
-        KlaviyoLifecycleMonitor.onActivityDestroyed(mockk())
-        verify { logSpy.info("Destroyed") }
         KlaviyoLifecycleMonitor.onActivityStopped(mockk())
         verify { logSpy.info("Stopped") }
         verify { logSpy.info("AllStopped") }
@@ -69,7 +67,6 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         var pausedCount = 0
         var stoppedCount = 0
         var allStoppedCount = 0
-        var destroyedCount = 0
 
         KlaviyoLifecycleMonitor.onActivityEvent {
             when (it) {
@@ -80,7 +77,6 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
                 is ActivityEvent.Paused -> pausedCount++
                 is ActivityEvent.Stopped -> stoppedCount++
                 is ActivityEvent.AllStopped -> allStoppedCount++
-                is ActivityEvent.Destroyed -> destroyedCount++
             }
         }
 
@@ -90,7 +86,6 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         KlaviyoLifecycleMonitor.onActivitySaveInstanceState(mockk(), mockk())
         KlaviyoLifecycleMonitor.onActivityPaused(mockk())
         KlaviyoLifecycleMonitor.onActivityStopped(mockk())
-        KlaviyoLifecycleMonitor.onActivityDestroyed(mockk())
 
         assertEquals(1, createdCount)
         assertEquals(1, startedCount)
@@ -99,7 +94,6 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         assertEquals(1, pausedCount)
         assertEquals(1, stoppedCount)
         assertEquals(1, allStoppedCount)
-        assertEquals(1, destroyedCount)
     }
 
     @Test

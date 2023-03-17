@@ -55,7 +55,7 @@ internal object KlaviyoApiClient : ApiClient {
         // Stop our handler thread when all activities stop
         Registry.lifecycleMonitor.onActivityEvent {
             when (it) {
-                is ActivityEvent.AllStopped -> stopBatch()
+                is ActivityEvent.AllStopped -> startBatch(true)
                 else -> Unit
             }
         }

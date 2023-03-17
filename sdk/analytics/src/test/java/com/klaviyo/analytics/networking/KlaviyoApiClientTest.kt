@@ -206,7 +206,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
             callCount++
         }
 
-        slotOnActivityEvent.captured(ActivityEvent.Paused(mockk()))
         slotOnActivityEvent.captured(ActivityEvent.AllStopped())
 
         assertEquals(1, callCount)
