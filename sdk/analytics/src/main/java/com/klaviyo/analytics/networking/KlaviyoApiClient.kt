@@ -253,6 +253,11 @@ internal object KlaviyoApiClient : ApiClient {
                 val request = apiQueue.poll()
 
                 when (request?.send { broadcastApiRequest(request) }) {
+                    Status.Unsent -> {
+                        // Incomplete state: put it back on the queue and break out of serial queue
+                        apiQueue.offerFirst(request)
+                        break
+                    }
                     Status.Complete, Status.Failed -> {
                         // On success or absolute failure, remove from queue and persistent store
                         Registry.dataStore.clear(request.uuid)
@@ -267,8 +272,11 @@ internal object KlaviyoApiClient : ApiClient {
                         broadcastApiRequest(request)
                         break
                     }
-                    // Offline or at the end of the queue... either way break the loop
-                    Status.Inflight, Status.Unsent, null -> break
+                    // These should not strictly be possible...
+                    Status.Inflight -> Registry.log.wtf(
+                        "Request state was not updated from Inflight"
+                    )
+                    null -> Registry.log.wtf("Queue contains an empty request")
                 }
             }
 

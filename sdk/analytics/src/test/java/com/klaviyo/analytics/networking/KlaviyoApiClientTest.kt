@@ -294,6 +294,18 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `An unsent request is not removed from the queue`() {
+        val uuid = "uuid-failed"
+        KlaviyoApiClient.enqueueRequest(mockRequest(uuid, KlaviyoApiRequest.Status.Unsent))
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        KlaviyoApiClient.NetworkRunnable(true).run()
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertNotNull(dataStoreSpy.fetch(uuid))
+    }
+
+    @Test
     fun `Rate limited requests are retried with a backoff`() {
         val request1 = mockRequest("uuid-retry", KlaviyoApiRequest.Status.PendingRetry)
         val request2 = mockRequest("uuid-unsent", KlaviyoApiRequest.Status.Unsent)
