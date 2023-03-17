@@ -252,12 +252,12 @@ internal object KlaviyoApiClient : ApiClient {
                     Status.Complete, Status.Failed -> {
                         // On success or absolute failure, remove from queue and persistent store
                         Registry.dataStore.clear(request.uuid)
+                        flushInterval = Registry.config.networkFlushIntervals[networkType].toLong()
                         broadcastApiRequest(request)
                     }
                     Status.PendingRetry -> {
                         // Encountered a retryable error
                         // Put this back on top of the queue and we'll try again with backoff
-                        // TODO reset flush interval next time succeeds
                         apiQueue.offerFirst(request)
                         flushInterval *= request.attempts + 1
                         broadcastApiRequest(request)
