@@ -222,7 +222,11 @@ internal object KlaviyoApiClient : ApiClient {
      *
      * @property force Boolean that will force the queue to flush now
      */
-    class NetworkRunnable(private var force: Boolean = false) : Runnable {
+    internal class NetworkRunnable(force: Boolean = false) : Runnable {
+
+        var force = force
+            private set
+
         private val queueInitTime = Registry.clock.currentTimeMillis()
 
         private var networkType: Int = Registry.networkMonitor.getNetworkType().position

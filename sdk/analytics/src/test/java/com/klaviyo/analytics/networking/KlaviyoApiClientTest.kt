@@ -202,8 +202,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueRequest(mockRequest())
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         assert(slotOnActivityEvent.isCaptured)
-        every { mockHandler.removeCallbacksAndMessages(null) } answers {
-            callCount++
+        every { mockHandler.post(match { it is KlaviyoApiClient.NetworkRunnable && it.force }) } answers {
+            callCount++ > 0
         }
 
         slotOnActivityEvent.captured(ActivityEvent.AllStopped())
