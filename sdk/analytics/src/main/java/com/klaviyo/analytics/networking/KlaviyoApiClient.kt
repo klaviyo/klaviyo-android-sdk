@@ -84,7 +84,11 @@ internal object KlaviyoApiClient : ApiClient {
         enqueueRequest(EventApiRequest(event, profile))
     }
 
-    override fun onApiRequest(observer: ApiObserver) {
+    override fun onApiRequest(withHistory: Boolean, observer: ApiObserver) {
+        if (withHistory) {
+            apiQueue.forEach(observer)
+        }
+
         apiObservers += observer
     }
 

@@ -160,7 +160,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         var counter = 0
         val handler: ApiObserver = { counter++ }
 
-        KlaviyoApiClient.onApiRequest(handler)
+        KlaviyoApiClient.onApiRequest(observer = handler)
         KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
 
         assertEquals(1, counter)
@@ -169,6 +169,18 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
 
         assertEquals(1, counter)
+    }
+
+    @Test
+    fun `Invokes callback with existing queue if requested`() {
+        var cbRequest: ApiRequest? = null
+        val request = mockRequest(status = KlaviyoApiRequest.Status.Unsent)
+        KlaviyoApiClient.enqueueRequest(request)
+
+        KlaviyoApiClient.onApiRequest(true) { cbRequest = it }
+
+        assertEquals(request, cbRequest)
+        verify { logSpy.debug(match { it.contains("queue") }) }
     }
 
     @Test

@@ -54,7 +54,7 @@ interface ApiClient {
      *
      * @param observer
      */
-    fun onApiRequest(observer: ApiObserver)
+    fun onApiRequest(withHistory: Boolean = false, observer: ApiObserver)
 
     /**
      * De-register an observer from [onApiRequest]
