@@ -129,7 +129,7 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Reset the in-memory queue to the queue from data store
      */
-    fun restoreQueue() {
+    override fun restoreQueue() {
         while (apiQueue.isNotEmpty()) {
             apiQueue.remove()
         }
@@ -179,13 +179,18 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Flush current queue to persistent store
      */
-    private fun persistQueue() {
+    override fun persistQueue() {
         Registry.log.info("Persisting queue")
         Registry.dataStore.store(
             QUEUE_KEY,
             JSONArray(apiQueue.map { it.uuid }).toString()
         )
     }
+
+    /**
+     * Start
+     */
+    override fun flushQueue() = startBatch(true)
 
     /**
      * Start a network batch to process the request queue

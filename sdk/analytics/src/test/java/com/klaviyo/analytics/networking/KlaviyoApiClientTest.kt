@@ -277,7 +277,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
             assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
         }
 
-        KlaviyoApiClient.NetworkRunnable(true).run()
+        KlaviyoApiClient.flushQueue()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
     }
@@ -287,7 +287,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val fail = "uuid-failed"
         KlaviyoApiClient.enqueueRequest(mockRequest(fail, KlaviyoApiRequest.Status.Failed))
 
-        KlaviyoApiClient.NetworkRunnable(true).run()
+        KlaviyoApiClient.flushQueue()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
         assertNull(dataStoreSpy.fetch(fail))
@@ -299,7 +299,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueRequest(mockRequest(uuid, KlaviyoApiRequest.Status.Unsent))
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        KlaviyoApiClient.NetworkRunnable(true).run()
+        KlaviyoApiClient.flushQueue()
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         assertNotNull(dataStoreSpy.fetch(uuid))
@@ -366,7 +366,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertNotEquals(null, dataStoreSpy.fetch("mock_uuid"))
         assertEquals("[\"mock_uuid\"]", dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY))
 
-        KlaviyoApiClient.NetworkRunnable(true).run()
+        KlaviyoApiClient.flushQueue()
 
         assertEquals(null, dataStoreSpy.fetch("mock_uuid"))
         assertEquals("[]", dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY))
