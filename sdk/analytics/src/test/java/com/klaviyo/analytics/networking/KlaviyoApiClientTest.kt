@@ -197,7 +197,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Stops handler thread on application stop`() {
+    fun `Flushes queue immediately on all stopped`() {
         var callCount = 0
         KlaviyoApiClient.enqueueRequest(mockRequest())
         assertEquals(1, KlaviyoApiClient.getQueueSize())
