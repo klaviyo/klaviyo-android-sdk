@@ -76,8 +76,8 @@ internal open class KlaviyoApiRequest(
         .accumulate(METHOD_JSON_KEY, method.name)
         .accumulate(TIME_JSON_KEY, queuedTime)
         .accumulate(UUID_JSON_KEY, uuid)
-        .accumulate(HEADERS_JSON_KEY, headers)
-        .accumulate(QUERY_JSON_KEY, query)
+        .accumulate(HEADERS_JSON_KEY, JSONObject(headers))
+        .accumulate(QUERY_JSON_KEY, JSONObject(query))
         .accumulate(BODY_JSON_KEY, body)
         .toString()
 
@@ -141,7 +141,6 @@ internal open class KlaviyoApiRequest(
          * @throws JSONException If required fields are missing or improperly formatted
          */
         fun fromJson(json: JSONObject): KlaviyoApiRequest {
-            // TODO - restore to child class to optimize storage space!
             val urlPath = json.getString(PATH_JSON_KEY)
             val method = when (json.getString(METHOD_JSON_KEY)) {
                 RequestMethod.POST.name -> RequestMethod.POST
