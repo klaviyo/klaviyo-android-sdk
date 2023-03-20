@@ -15,7 +15,7 @@ interface ApiRequest {
     /**
      * Readable title of this type of request
      */
-    val type: String
+    val title: String
 
     /**
      * Unsent, Inflight, PendingRetry, Complete or Failed

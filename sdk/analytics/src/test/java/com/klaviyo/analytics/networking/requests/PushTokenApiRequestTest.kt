@@ -9,7 +9,6 @@ import io.mockk.spyk
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -45,9 +44,10 @@ internal class PushTokenApiRequestTest : BaseTest() {
     @Test
     fun `JSON interoperability`() {
         val request = PushTokenApiRequest(PUSH_TOKEN, profile)
-        val requestJson = JSONObject(request.toJson())
+        val requestJson = request.toJson()
         val revivedRequest = KlaviyoApiRequest.fromJson(requestJson)
-        assertEquals(revivedRequest, request)
+        assert(revivedRequest is PushTokenApiRequest)
+        compareJson(requestJson, revivedRequest.toJson())
     }
 
     @Test
@@ -71,7 +71,7 @@ internal class PushTokenApiRequestTest : BaseTest() {
         assertEquals(5, props?.length()) // no other fields!
 
         // Already confirmed the contents, just confirm that the body doesn't add anything else
-        assertEquals(request.formatBody(), "${request.body}")
+        assertEquals(request.requestBody, "${request.body}")
     }
 
     @Test

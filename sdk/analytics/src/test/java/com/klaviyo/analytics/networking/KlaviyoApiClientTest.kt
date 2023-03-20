@@ -86,7 +86,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     ): KlaviyoApiRequest =
         mockk<KlaviyoApiRequest>().also {
             every { it.uuid } returns uuid
-            every { it.type } returns "Mock"
+            every { it.title } returns "Mock"
             every { it.state } returns status.name
             every { it.httpMethod } returns "GET"
             every { it.url } returns URL("https://mock.com")
@@ -94,7 +94,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
             every { it.query } returns mapOf("queryKey" to "queryValue")
             every { it.responseBody } returns null
             every { it.send(any()) } returns status
-            every { it.toJson() } returns """
+            every { it.toJson() } returns JSONObject(
+                """
                 {
                   "headers": {
                     "headerKey": "headerValue"
@@ -107,7 +108,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
                   "uuid": "$uuid",
                   "url_path": "test"
                 }
-            """.trimIndent()
+            """
+            )
+            every { it.toString() } returns it.toJson().toString()
             every { it.equals(any()) } answers { a ->
                 it.uuid == (a.invocation.args[0] as? KlaviyoApiRequest)?.uuid
             }
@@ -395,8 +398,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         val expectedQueue = "[\"mock_uuid1\",\"mock_uuid2\"]"
         dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, expectedQueue)
-        dataStoreSpy.store("mock_uuid1", mockRequest("mock_uuid1").toJson())
-        dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toJson())
+        dataStoreSpy.store("mock_uuid1", mockRequest("mock_uuid1").toString())
+        dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
         KlaviyoApiClient.restoreQueue()
         val actualQueue = dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY)
@@ -427,7 +430,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val jsonArray = "[\"mock_uuid1\",\"mock_uuid2\",\"mock_uuid3\"]"
         dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, jsonArray)
         dataStoreSpy.store("mock_uuid1", "{/}") // bad JSON!
-        dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toJson())
+        dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
         KlaviyoApiClient.restoreQueue()
         val actualQueue = dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY)
