@@ -9,6 +9,7 @@ import io.mockk.spyk
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -39,6 +40,14 @@ internal class PushTokenApiRequestTest : BaseTest() {
     @Test
     fun `Does not set a query`() {
         assert(PushTokenApiRequest(PUSH_TOKEN, profile).query.isEmpty())
+    }
+
+    @Test
+    fun `JSON interoperability`() {
+        val request = PushTokenApiRequest(PUSH_TOKEN, profile)
+        val requestJson = JSONObject(request.toJson())
+        val revivedRequest = KlaviyoApiRequest.fromJson(requestJson)
+        assertEquals(revivedRequest, request)
     }
 
     @Test

@@ -12,6 +12,21 @@ typealias ApiObserver = (request: ApiRequest) -> Unit
 interface ApiClient {
 
     /**
+     * Tell the client to write its queue to the persistent store
+     */
+    fun persistQueue()
+
+    /**
+     * Tell the client to restore its queue from the persistent store engine
+     */
+    fun restoreQueue()
+
+    /**
+     * Tell the client to attempt to flush network request queue now
+     */
+    fun flushQueue()
+
+    /**
      * Queue an API request to save [Profile] data to Klaviyo
      *
      * @param profile
@@ -39,7 +54,7 @@ interface ApiClient {
      *
      * @param observer
      */
-    fun onApiRequest(observer: ApiObserver)
+    fun onApiRequest(withHistory: Boolean = false, observer: ApiObserver)
 
     /**
      * De-register an observer from [onApiRequest]

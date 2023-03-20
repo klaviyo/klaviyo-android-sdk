@@ -160,7 +160,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         var counter = 0
         val handler: ApiObserver = { counter++ }
 
-        KlaviyoApiClient.onApiRequest(handler)
+        KlaviyoApiClient.onApiRequest(observer = handler)
         KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
 
         assertEquals(1, counter)
@@ -169,6 +169,18 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
 
         assertEquals(1, counter)
+    }
+
+    @Test
+    fun `Invokes callback with existing queue if requested`() {
+        var cbRequest: ApiRequest? = null
+        val request = mockRequest(status = KlaviyoApiRequest.Status.Unsent)
+        KlaviyoApiClient.enqueueRequest(request)
+
+        KlaviyoApiClient.onApiRequest(true) { cbRequest = it }
+
+        assertEquals(request, cbRequest)
+        verify { logSpy.debug(match { it.contains("queue") }) }
     }
 
     @Test
@@ -197,16 +209,15 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Stops handler thread on application stop`() {
+    fun `Flushes queue immediately on all stopped`() {
         var callCount = 0
         KlaviyoApiClient.enqueueRequest(mockRequest())
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         assert(slotOnActivityEvent.isCaptured)
-        every { mockHandler.removeCallbacksAndMessages(null) } answers {
-            callCount++
+        every { mockHandler.post(match { it is KlaviyoApiClient.NetworkRunnable && it.force }) } answers {
+            callCount++ > 0
         }
 
-        slotOnActivityEvent.captured(ActivityEvent.Paused(mockk()))
         slotOnActivityEvent.captured(ActivityEvent.AllStopped())
 
         assertEquals(1, callCount)
@@ -278,7 +289,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
             assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
         }
 
-        KlaviyoApiClient.NetworkRunnable(true).run()
+        KlaviyoApiClient.flushQueue()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
     }
@@ -288,10 +299,22 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val fail = "uuid-failed"
         KlaviyoApiClient.enqueueRequest(mockRequest(fail, KlaviyoApiRequest.Status.Failed))
 
-        KlaviyoApiClient.NetworkRunnable(true).run()
+        KlaviyoApiClient.flushQueue()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
         assertNull(dataStoreSpy.fetch(fail))
+    }
+
+    @Test
+    fun `An unsent request is not removed from the queue`() {
+        val uuid = "uuid-failed"
+        KlaviyoApiClient.enqueueRequest(mockRequest(uuid, KlaviyoApiRequest.Status.Unsent))
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        KlaviyoApiClient.flushQueue()
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertNotNull(dataStoreSpy.fetch(uuid))
     }
 
     @Test
@@ -355,7 +378,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertNotEquals(null, dataStoreSpy.fetch("mock_uuid"))
         assertEquals("[\"mock_uuid\"]", dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY))
 
-        KlaviyoApiClient.NetworkRunnable(true).run()
+        KlaviyoApiClient.flushQueue()
 
         assertEquals(null, dataStoreSpy.fetch("mock_uuid"))
         assertEquals("[]", dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY))

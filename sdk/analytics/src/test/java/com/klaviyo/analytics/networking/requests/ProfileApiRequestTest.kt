@@ -46,6 +46,14 @@ internal class ProfileApiRequestTest : BaseTest() {
     }
 
     @Test
+    fun `JSON interoperability`() {
+        val request = ProfileApiRequest(stubProfile)
+        val requestJson = JSONObject(request.toJson())
+        val revivedRequest = KlaviyoApiRequest.fromJson(requestJson)
+        assertEquals(revivedRequest, request)
+    }
+
+    @Test
     fun `Formats body correctly`() {
         val expectJson = """{
             "data": {

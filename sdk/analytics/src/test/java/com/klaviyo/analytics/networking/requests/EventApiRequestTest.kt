@@ -47,6 +47,14 @@ internal class EventApiRequestTest : BaseTest() {
         assertEquals(expectedQueryData, EventApiRequest(stubEvent, stubProfile).query)
     }
 
+    @Test
+    fun `JSON interoperability`() {
+        val request = EventApiRequest(stubEvent, stubProfile)
+        val requestJson = JSONObject(request.toJson())
+        val revivedRequest = KlaviyoApiRequest.fromJson(requestJson)
+        assertEquals(revivedRequest, request)
+    }
+
     private val emailKey = "\$email"
     private val anonKey = "\$anonymous"
     private val phoneKey = "\$phone_number"

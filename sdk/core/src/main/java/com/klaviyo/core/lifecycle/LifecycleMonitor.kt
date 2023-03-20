@@ -22,8 +22,6 @@ sealed class ActivityEvent(val activity: Activity? = null, val bundle: Bundle? =
     class Stopped(activity: Activity) : ActivityEvent(activity)
 
     class AllStopped : ActivityEvent()
-
-    class Destroyed(activity: Activity) : ActivityEvent(activity)
 }
 
 /**
