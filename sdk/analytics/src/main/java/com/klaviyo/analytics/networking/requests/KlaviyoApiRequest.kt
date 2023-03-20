@@ -134,7 +134,7 @@ internal open class KlaviyoApiRequest(
     /**
      * Descriptive title of this request, e.g. for debugging
      */
-    override val title: String = urlPath
+    override val type: String = urlPath
 
     /**
      * String representation of the current request state

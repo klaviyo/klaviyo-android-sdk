@@ -25,7 +25,7 @@ internal class PushTokenApiRequest(
         const val ANDROID_TOKEN = "\$android_tokens"
     }
 
-    override val title: String = "Push Token"
+    override val type: String = "Push Token"
 
     override var headers: Map<String, String> = mapOf(
         HEADER_CONTENT to TYPE_JSON

@@ -35,11 +35,11 @@ internal object KlaviyoApiClient : ApiClient {
     init {
         onApiRequest { r ->
             when (r.state) {
-                Status.Unsent.name -> Registry.log.debug("${r.title} Request enqueued")
-                Status.Inflight.name -> Registry.log.debug("${r.title} Request inflight")
-                Status.PendingRetry.name -> Registry.log.error("${r.title} Request retrying")
-                Status.Complete.name -> Registry.log.info("${r.title} Request completed")
-                else -> Registry.log.error("${r.title} Request failed")
+                Status.Unsent.name -> Registry.log.debug("${r.type} Request enqueued")
+                Status.Inflight.name -> Registry.log.debug("${r.type} Request inflight")
+                Status.PendingRetry.name -> Registry.log.error("${r.type} Request retrying")
+                Status.Complete.name -> Registry.log.info("${r.type} Request completed")
+                else -> Registry.log.error("${r.type} Request failed")
             }
 
             r.responseBody?.let { response ->

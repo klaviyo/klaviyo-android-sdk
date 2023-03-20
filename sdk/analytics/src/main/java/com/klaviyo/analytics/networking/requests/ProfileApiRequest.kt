@@ -24,7 +24,7 @@ internal class ProfileApiRequest(
         const val IDENTIFIERS = "identifiers"
     }
 
-    override var title: String = "Identify Profile"
+    override var type: String = "Identify Profile"
 
     override var headers: Map<String, String> = mapOf(
         HEADER_CONTENT to TYPE_JSON,

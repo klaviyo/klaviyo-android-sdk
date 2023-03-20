@@ -24,7 +24,7 @@ internal class EventApiRequest(
         const val TIME = "time"
     }
 
-    override var title: String = "Create Event"
+    override var type: String = "Create Event"
 
     override var headers: Map<String, String> = mapOf(
         HEADER_CONTENT to TYPE_JSON,

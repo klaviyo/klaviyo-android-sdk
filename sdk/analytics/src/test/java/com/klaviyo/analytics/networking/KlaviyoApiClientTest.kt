@@ -86,7 +86,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     ): KlaviyoApiRequest =
         mockk<KlaviyoApiRequest>().also {
             every { it.uuid } returns uuid
-            every { it.title } returns "Mock"
+            every { it.type } returns "Mock"
             every { it.state } returns status.name
             every { it.httpMethod } returns "GET"
             every { it.url } returns URL("https://mock.com")
