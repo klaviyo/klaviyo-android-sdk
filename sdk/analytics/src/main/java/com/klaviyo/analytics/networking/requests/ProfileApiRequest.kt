@@ -36,6 +36,8 @@ internal class ProfileApiRequest(
         COMPANY_ID to Registry.config.apiKey
     )
 
+    override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
+
     constructor(profile: Profile) : this() {
         // Create a mutable copy of the profile
         // We'll pop off all the enumerated keys as we build the body

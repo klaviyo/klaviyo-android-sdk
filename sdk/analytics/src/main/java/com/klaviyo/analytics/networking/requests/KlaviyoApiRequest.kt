@@ -49,9 +49,10 @@ internal open class KlaviyoApiRequest(
         const val TYPE_JSON = "application/json"
         const val V3_REVISION = "2023-01-24"
 
-        private const val HTTP_OK = HttpURLConnection.HTTP_OK
-        private const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
-        private const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
+        const val HTTP_OK = HttpURLConnection.HTTP_OK
+        const val HTTP_ACCEPTED = HttpURLConnection.HTTP_ACCEPTED
+        const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
+        const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
 
         // JSON keys for persistence
         private const val TYPE_JSON_KEY = "request_type"
@@ -221,6 +222,12 @@ internal open class KlaviyoApiRequest(
         protected set
 
     /**
+     * Expected status code from the API backend
+     * This varies by version/endpoint so we can override the code by subclass
+     */
+    protected open val successCodes = HTTP_OK until HTTP_MULT_CHOICE
+
+    /**
      * HTTP Status code from last send attempt
      * null if unsent
      */
@@ -341,8 +348,7 @@ internal open class KlaviyoApiRequest(
         responseCode = connection.responseCode
 
         status = when (responseCode) {
-            // TODO only 202 is a success though...
-            in HTTP_OK until HTTP_MULT_CHOICE -> Status.Complete
+            in successCodes -> Status.Complete
             HTTP_RETRY -> {
                 if (attempts <= Registry.config.networkMaxRetries) {
                     Status.PendingRetry

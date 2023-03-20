@@ -31,6 +31,8 @@ internal class PushTokenApiRequest(
         HEADER_CONTENT to TYPE_JSON
     )
 
+    override val successCodes: IntRange get() = HTTP_OK..HTTP_OK
+
     override fun parseResponse(connection: HttpURLConnection): Status {
         super.parseResponse(connection)
 

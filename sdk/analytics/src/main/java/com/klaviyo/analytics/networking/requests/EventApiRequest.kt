@@ -36,6 +36,8 @@ internal class EventApiRequest(
         COMPANY_ID to Registry.config.apiKey
     )
 
+    override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
+
     constructor(event: Event, profile: Profile) : this() {
         body = jsonMapOf(
             DATA to mapOf(
