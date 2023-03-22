@@ -8,6 +8,7 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
+import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
@@ -160,7 +161,7 @@ internal object KlaviyoApiClient : ApiClient {
                     wasMutated = true
                 } else {
                     try {
-                        val request = KlaviyoApiRequest.fromJson(JSONObject(json))
+                        val request = KlaviyoApiRequestDecoder.fromJson(JSONObject(json))
                         if (!apiQueue.contains(request)) {
                             apiQueue.offer(request)
                         }

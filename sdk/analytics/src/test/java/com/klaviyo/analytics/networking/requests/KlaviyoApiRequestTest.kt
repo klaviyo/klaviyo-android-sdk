@@ -289,7 +289,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
     @Test
     fun `Deserializes POST from JSON`() {
-        val post = KlaviyoApiRequest.fromJson(JSONObject(postJson))
+        val post = KlaviyoApiRequestDecoder.fromJson(JSONObject(postJson))
 
         assertEquals("test", post.urlPath)
         assertEquals(RequestMethod.POST, post.method)
@@ -305,7 +305,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
     @Test
     fun `Deserializes GET from JSON`() {
-        val get = KlaviyoApiRequest.fromJson(JSONObject(getJson))
+        val get = KlaviyoApiRequestDecoder.fromJson(JSONObject(getJson))
 
         assertEquals("test", get.urlPath)
         assertEquals(RequestMethod.GET, get.method)

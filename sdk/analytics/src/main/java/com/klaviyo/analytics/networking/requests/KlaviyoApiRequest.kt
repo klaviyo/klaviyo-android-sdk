@@ -8,7 +8,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
-import org.json.JSONException
 import org.json.JSONObject
 
 /**
@@ -55,46 +54,14 @@ internal open class KlaviyoApiRequest(
         const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
 
         // JSON keys for persistence
-        private const val TYPE_JSON_KEY = "request_type"
-        private const val PATH_JSON_KEY = "url_path"
-        private const val METHOD_JSON_KEY = "method"
-        private const val TIME_JSON_KEY = "time"
-        private const val UUID_JSON_KEY = "uuid"
-        private const val HEADERS_JSON_KEY = "headers"
-        private const val QUERY_JSON_KEY = "query"
-        private const val BODY_JSON_KEY = "body"
-
-        /**
-         * Construct a request from a JSON object
-         *
-         * @param json JSONObject to decode
-         * @return Request object of original subclass type
-         * @throws JSONException If required fields are missing or improperly formatted
-         */
-        fun fromJson(json: JSONObject): KlaviyoApiRequest {
-            val urlPath = json.getString(PATH_JSON_KEY)
-            val method = when (json.getString(METHOD_JSON_KEY)) {
-                RequestMethod.POST.name -> RequestMethod.POST
-                else -> RequestMethod.GET
-            }
-            val time = json.getLong(TIME_JSON_KEY)
-            val uuid = json.getString(UUID_JSON_KEY)
-
-            return when (json.optString(TYPE_JSON_KEY)) {
-                ProfileApiRequest::class.simpleName -> ProfileApiRequest(time, uuid)
-                EventApiRequest::class.simpleName -> EventApiRequest(time, uuid)
-                PushTokenApiRequest::class.simpleName -> PushTokenApiRequest(time, uuid)
-                else -> KlaviyoApiRequest(urlPath, method, time, uuid)
-            }.apply {
-                headers = json.getJSONObject(HEADERS_JSON_KEY).let {
-                    it.keys().asSequence().associateWith { k -> it.getString(k) }
-                }
-                query = json.getJSONObject(QUERY_JSON_KEY).let {
-                    it.keys().asSequence().associateWith { k -> it.getString(k) }
-                }
-                body = json.optJSONObject(BODY_JSON_KEY)
-            }
-        }
+        const val TYPE_JSON_KEY = "request_type"
+        const val PATH_JSON_KEY = "url_path"
+        const val METHOD_JSON_KEY = "method"
+        const val TIME_JSON_KEY = "time"
+        const val UUID_JSON_KEY = "uuid"
+        const val HEADERS_JSON_KEY = "headers"
+        const val QUERY_JSON_KEY = "query"
+        const val BODY_JSON_KEY = "body"
 
         /**
          * Helper function to format the body of the request

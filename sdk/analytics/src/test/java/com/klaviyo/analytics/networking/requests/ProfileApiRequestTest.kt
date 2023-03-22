@@ -49,7 +49,7 @@ internal class ProfileApiRequestTest : BaseTest() {
     fun `JSON interoperability`() {
         val request = ProfileApiRequest(stubProfile)
         val requestJson = request.toJson()
-        val revivedRequest = KlaviyoApiRequest.fromJson(requestJson)
+        val revivedRequest = KlaviyoApiRequestDecoder.fromJson(requestJson)
         assert(revivedRequest is ProfileApiRequest)
         compareJson(requestJson, revivedRequest.toJson())
     }

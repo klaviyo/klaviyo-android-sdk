@@ -45,7 +45,7 @@ internal class PushTokenApiRequestTest : BaseTest() {
     fun `JSON interoperability`() {
         val request = PushTokenApiRequest(PUSH_TOKEN, profile)
         val requestJson = request.toJson()
-        val revivedRequest = KlaviyoApiRequest.fromJson(requestJson)
+        val revivedRequest = KlaviyoApiRequestDecoder.fromJson(requestJson)
         assert(revivedRequest is PushTokenApiRequest)
         compareJson(requestJson, revivedRequest.toJson())
     }

@@ -51,7 +51,7 @@ internal class EventApiRequestTest : BaseTest() {
     fun `JSON interoperability`() {
         val request = EventApiRequest(stubEvent, stubProfile)
         val requestJson = request.toJson()
-        val revivedRequest = KlaviyoApiRequest.fromJson(requestJson)
+        val revivedRequest = KlaviyoApiRequestDecoder.fromJson(requestJson)
         assert(revivedRequest is EventApiRequest)
         compareJson(requestJson, revivedRequest.toJson())
     }

@@ -7,6 +7,7 @@ import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
+import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
@@ -390,8 +391,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Restores queue from persistent store`() {
-        mockkObject(KlaviyoApiRequest.Companion)
-        every { KlaviyoApiRequest.Companion.fromJson(any()) } answers { a ->
+        mockkObject(KlaviyoApiRequestDecoder)
+        every { KlaviyoApiRequestDecoder.fromJson(any()) } answers { a ->
             val uuid = (a.invocation.args[0] as JSONObject).getString("uuid")
             mockRequest(uuid)
         }
@@ -421,8 +422,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Handles bad queue item JSON gracefully`() {
-        mockkObject(KlaviyoApiRequest.Companion)
-        every { KlaviyoApiRequest.Companion.fromJson(any()) } answers { a ->
+        mockkObject(KlaviyoApiRequestDecoder)
+        every { KlaviyoApiRequestDecoder.fromJson(any()) } answers { a ->
             val uuid = (a.invocation.args[0] as JSONObject).getString("uuid")
             mockRequest(uuid)
         }
@@ -445,6 +446,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
         dataStoreSpy.clear(KlaviyoApiClient.QUEUE_KEY)
         KlaviyoApiClient.restoreQueue()
         assertEquals(0, KlaviyoApiClient.getQueueSize())
-        unmockkObject(KlaviyoApiRequest.Companion)
+        unmockkObject(KlaviyoApiClient)
+        unmockkObject(KlaviyoApiRequestDecoder)
+        unmockkObject(KlaviyoApiClient.HandlerUtil)
     }
 }
