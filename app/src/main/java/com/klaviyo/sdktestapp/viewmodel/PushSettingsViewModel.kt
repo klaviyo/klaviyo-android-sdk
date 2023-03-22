@@ -9,13 +9,17 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.app.ActivityCompat
+import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.pushFcm.KlaviyoNotification
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 import com.klaviyo.sdktestapp.services.Clipboard
 
 @SuppressLint("InlinedApi") // Safe to use the keyword. ActivityCompat handles API level differences
@@ -51,6 +55,21 @@ class PushSettingsViewModel(
             isPushEnabled = isPushEnabled(),
             pushToken = getPushToken(),
         )
+    }
+
+    fun sendLocalNotification() {
+        val localMessage = RemoteMessage(
+            Bundle().apply {
+                putString("_k", "fake tracking param")
+                putString("title", "Local Notification")
+                putString("body", "Triggered from app.")
+                putString("small_icon", "ic_hand")
+            }
+        )
+
+        localMessage.title
+
+        KlaviyoNotification(localMessage).displayNotification(context)
     }
 
     fun requestPushNotifications() {

@@ -8,8 +8,6 @@ import androidx.compose.runtime.setValue
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.sdktestapp.services.Clipboard
-import java.util.logging.Level
-import java.util.logging.Logger
 
 class AccountInfoViewModel(
     private val context: Context
@@ -64,18 +62,18 @@ class AccountInfoViewModel(
     }
 
     fun setApiKey() {
-        Logger.getLogger("SET_API_KEY").log(Level.INFO, viewModel.accountId.value)
+        Registry.log.info(viewModel.accountId.value)
         Registry.configBuilder.apiKey(viewModel.accountId.value)
     }
 
     fun create() {
-        Logger.getLogger("CREATE_PROFILE").log(Level.INFO, "External ID: ${viewModel.externalId.value}, Email: ${viewModel.email.value}, Phone Number: ${viewModel.phoneNumber.value}")
+        Registry.log.info("External ID: ${viewModel.externalId.value}, Email: ${viewModel.email.value}, Phone Number: ${viewModel.phoneNumber.value}")
         Klaviyo.setExternalId(viewModel.externalId.value).setEmail(viewModel.email.value).setPhoneNumber(viewModel.phoneNumber.value)
         refreshViewModel()
     }
 
     fun reset() {
-        Logger.getLogger("CLEAR_PROFILE").log(Level.INFO, "Cleared all profile identifiers from state")
+        Registry.log.info("Clear profile identifiers from state")
         Klaviyo.resetProfile()
         refreshViewModel()
     }

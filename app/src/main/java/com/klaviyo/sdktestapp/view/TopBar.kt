@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.klaviyo.sdktestapp.viewmodel.NavigationState
+import com.klaviyo.sdktestapp.viewmodel.TabIndex
 
 @Composable
 fun TopBar(navState: NavigationState) {
@@ -59,7 +60,7 @@ fun NavButton(navAction: NavigationState.Action) {
 @Preview
 @Composable
 fun RootTopBar() {
-    TopBar(NavigationState(title = "Preview"))
+    TopBar(NavigationState(tab = TabIndex.Events, title = "Preview"))
 }
 
 @Preview
@@ -67,6 +68,7 @@ fun RootTopBar() {
 fun RootTopBarWithActions() {
     TopBar(
         NavigationState(
+            tab = TabIndex.Events,
             title = "Preview",
             actions = listOf(
                 NavigationState.Action(
@@ -85,7 +87,13 @@ fun RootTopBarWithActions() {
 @Preview
 @Composable
 fun DetailTopBar() {
-    TopBar(NavigationState(title = "Detail Page", navAction = NavigationState.makeBackButton {}))
+    TopBar(
+        NavigationState(
+            tab = TabIndex.Events,
+            title = "Detail Page",
+            navAction = NavigationState.makeBackButton {}
+        )
+    )
 }
 
 @Preview
@@ -93,6 +101,7 @@ fun DetailTopBar() {
 fun DetailTopBarWithActions() {
     TopBar(
         NavigationState(
+            tab = TabIndex.Events,
             title = "Detail Page",
             navAction = NavigationState.makeBackButton {},
             actions = listOf(

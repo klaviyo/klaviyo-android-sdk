@@ -16,22 +16,11 @@ import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.primarySurface
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
-import com.google.accompanist.pager.ExperimentalPagerApi
-import com.google.accompanist.pager.HorizontalPager
-import com.google.accompanist.pager.rememberPagerState
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.sdktestapp.view.EventsPage
 import com.klaviyo.sdktestapp.view.TopBar
@@ -40,9 +29,8 @@ import com.klaviyo.sdktestapp.viewmodel.EventsViewModel
 import com.klaviyo.sdktestapp.viewmodel.NavigationState
 import com.klaviyo.sdktestapp.viewmodel.NavigationViewModel
 import com.klaviyo.sdktestapp.viewmodel.PushSettingsViewModel
-import java.util.logging.Level
-import java.util.logging.Logger
-import kotlinx.coroutines.launch
+import com.klaviyo.sdktestapp.viewmodel.TabIndex
+import com.klaviyo.sdktestapp.viewmodel.TabRowItem
 
 class TestSDKActivity : ComponentActivity() {
 
@@ -57,10 +45,11 @@ class TestSDKActivity : ComponentActivity() {
             }
         }
 
-    private val navigationViewModel = NavigationViewModel(NavigationState(""))
+    private val navigationViewModel = NavigationViewModel(NavigationState(TabIndex.Profile, ""))
     private val accountInfoViewModel: AccountInfoViewModel = AccountInfoViewModel(this)
     private val eventsViewModel = EventsViewModel(this)
-    private val pushSettingsViewModel: PushSettingsViewModel = PushSettingsViewModel(this, pushNotificationContract)
+    private val pushSettingsViewModel: PushSettingsViewModel =
+        PushSettingsViewModel(this, pushNotificationContract)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,7 +68,6 @@ class TestSDKActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        Logger.getLogger("RESUME").log(Level.INFO, "resumed")
         pushSettingsViewModel.refreshViewModel()
         accountInfoViewModel.refreshViewModel()
     }
@@ -87,88 +75,29 @@ class TestSDKActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
 
+        intent?.data?.let {
+            val path = it.host
+            var index = 0
+            when (path) {
+                "accountInfo" -> index = 0
+                "requestLog" -> index = 1
+                "settings" -> index = 2
+            }
+
+            navigationViewModel.navigateToTab(index)
+        }
+
         Klaviyo.handlePush(intent)
     }
 }
 
-// TODO extract models and composables into individual files?
-data class TabRowItem(
-    val title: String,
-    val icon: ImageVector,
-    val screen: @Composable () -> Unit,
-)
-
 @Composable
-private fun TabScreen(
-    content: @Composable () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 12.dp),
-    ) {
-        content()
-    }
-}
-
-@Composable
-@OptIn(ExperimentalPagerApi::class)
 fun MainScreen(
     navigationViewModel: NavigationViewModel,
     accountInfoViewModel: AccountInfoViewModel,
     eventsViewModel: EventsViewModel,
     pushSettingsViewModel: PushSettingsViewModel,
 ) {
-    val tabRowItems = listOf(
-        TabRowItem(
-            title = "Account Info",
-            screen = {
-                TabScreen {
-                    AccountInfo(
-                        viewModel = accountInfoViewModel,
-                        setApiKey = accountInfoViewModel::setApiKey,
-                        onCreate = accountInfoViewModel::create,
-                        onClear = accountInfoViewModel::reset,
-                        onCopyAnonymousId = accountInfoViewModel::copyAnonymousId,
-                    )
-                }
-            },
-            icon = Icons.Outlined.AccountCircle,
-        ),
-        TabRowItem(
-            title = "Events",
-            screen = {
-                TabScreen {
-                    EventsPage(
-                        events = eventsViewModel.viewState.events,
-                        selectedEvent = eventsViewModel.detailEvent,
-                        onClearClicked = eventsViewModel::clearEvents,
-                        onEventClick = eventsViewModel::selectEvent,
-                        onCopyClicked = eventsViewModel::copyEvent,
-                        onNavigate = navigationViewModel::onNavigate
-                    )
-                }
-            },
-            icon = Icons.Outlined.Notifications,
-        ),
-        TabRowItem(
-            title = "Push Settings",
-            screen = {
-                TabScreen {
-                    PushSettings(
-                        isPushEnabled = pushSettingsViewModel.viewModel.isPushEnabled,
-                        pushToken = pushSettingsViewModel.viewModel.pushToken,
-                        onCopyPushToken = pushSettingsViewModel::copyPushToken,
-                        onOpenNotificationSettings = pushSettingsViewModel::openSettings,
-                        onRequestedPushNotification = pushSettingsViewModel::requestPushNotifications
-                    )
-                }
-            },
-            icon = Icons.Outlined.Settings,
-        )
-    )
-    val pagerState = rememberPagerState()
-    val coroutineScope = rememberCoroutineScope()
     val scaffoldState = rememberScaffoldState()
 
     MaterialTheme(
@@ -189,54 +118,81 @@ fun MainScreen(
         ),
     ) {
         Scaffold(
-            floatingActionButton = {
-                // TODO Roll this into NavigationState?
-                if (pagerState.currentPage == 1) {
-                    FloatingActionButton(
-                        backgroundColor = MaterialTheme.colors.primarySurface,
-                        onClick = { eventsViewModel.createEvent() }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Create an Event",
-                        )
-                    }
-                }
-            },
-            isFloatingActionButtonDocked = false,
             scaffoldState = scaffoldState,
             topBar = { TopBar(navigationViewModel.navState) },
+            floatingActionButton = { ActionButton(navigationViewModel.navState.floatingAction) },
             bottomBar = {
-                BottomAppBar {
-                    tabRowItems.forEachIndexed { index, tabRow ->
-                        BottomNavigationItem(
-                            icon = {
-                                Icon(
-                                    imageVector = tabRow.icon,
-                                    contentDescription = tabRow.title,
-                                )
-                            },
-                            selected = index == pagerState.currentPage,
-                            onClick = {
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            },
-                            label = { Text(text = tabRow.title) }
-                        )
-                    }
+                BottomBar(navigationViewModel.tabRowItems, navigationViewModel.navState.tab.index) { index ->
+                    navigationViewModel.navigateToTab(index)
                 }
             },
         ) { padding ->
-            HorizontalPager(
-                state = pagerState,
-                count = tabRowItems.size,
-                contentPadding = padding,
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
             ) {
-                val tab = tabRowItems[pagerState.currentPage]
-                navigationViewModel.onNavigate(NavigationState(tab.title))
-                tab.screen()
+                when (navigationViewModel.navState.tab) {
+                    TabIndex.Profile -> AccountInfo(
+                        viewModel = accountInfoViewModel,
+                        setApiKey = accountInfoViewModel::setApiKey,
+                        onCreate = accountInfoViewModel::create,
+                        onClear = accountInfoViewModel::reset,
+                        onCopyAnonymousId = accountInfoViewModel::copyAnonymousId,
+                    )
+                    TabIndex.Events -> EventsPage(
+                        events = eventsViewModel.viewState.events,
+                        selectedEvent = eventsViewModel.detailEvent,
+                        onAddClicked = eventsViewModel::createEvent,
+                        onClearClicked = eventsViewModel::clearEvents,
+                        onEventClick = eventsViewModel::selectEvent,
+                        onCopyClicked = eventsViewModel::copyEvent,
+                        onNavigate = navigationViewModel::onNavigate
+                    )
+                    TabIndex.Settings -> PushSettings(
+                        isPushEnabled = pushSettingsViewModel.viewModel.isPushEnabled,
+                        pushToken = pushSettingsViewModel.viewModel.pushToken,
+                        onCopyPushToken = pushSettingsViewModel::copyPushToken,
+                        onOpenNotificationSettings = pushSettingsViewModel::openSettings,
+                        onRequestedPushNotification = pushSettingsViewModel::requestPushNotifications,
+                        onSendLocalNotification = pushSettingsViewModel::sendLocalNotification
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun ActionButton(action: NavigationState.Action?) {
+    if (action == null) return
+
+    FloatingActionButton(
+        backgroundColor = MaterialTheme.colors.primarySurface,
+        onClick = action.onClick
+    ) {
+        Icon(
+            imageVector = action.imageVector(),
+            contentDescription = action.contentDescription
+        )
+    }
+}
+
+@Composable
+private fun BottomBar(tabRowItems: List<TabRowItem>, currentPage: Int, onTabClick: (Int) -> Unit) {
+    BottomAppBar {
+        tabRowItems.forEachIndexed { index, tabRow ->
+            BottomNavigationItem(
+                icon = {
+                    Icon(
+                        imageVector = tabRow.imageVector(),
+                        contentDescription = tabRow.title,
+                    )
+                },
+                selected = index == currentPage,
+                onClick = { onTabClick(index) },
+                label = { Text(text = tabRow.title) }
+            )
         }
     }
 }

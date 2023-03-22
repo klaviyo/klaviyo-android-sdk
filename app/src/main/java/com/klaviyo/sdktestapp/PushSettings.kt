@@ -55,6 +55,7 @@ fun PushSettings(
     onRequestedPushNotification: () -> Unit = {},
     onOpenNotificationSettings: () -> Unit = {},
     onCopyPushToken: () -> Unit = {},
+    onSendLocalNotification: () -> Unit = {},
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     Box {
@@ -114,6 +115,32 @@ fun PushSettings(
                 label = "Push Token",
                 onTextCopied = onCopyPushToken,
             )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .background(MaterialTheme.colors.surface)
+                    .clickable(
+                        onClick = onOpenNotificationSettings,
+                        enabled = true,
+                        interactionSource = interactionSource,
+                        indication = rememberRipple(bounded = true),
+                    )
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            ) {
+                Button(
+                    enabled = true,
+                    onClick = onSendLocalNotification,
+                    elevation = ButtonDefaults.elevation(0.dp),
+                    shape = CircleShape,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Trigger Local Notification",
+                    )
+                }
+            }
         }
     }
 }

@@ -2,22 +2,87 @@ package com.klaviyo.sdktestapp.viewmodel
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
 
 class NavigationViewModel(firstState: NavigationState) {
+
+    val tabRowItems = listOf(
+        TabRowItem(
+            tab = TabIndex.Profile,
+            title = "Account Info",
+            imageVector = { Icons.Outlined.AccountCircle },
+        ),
+        TabRowItem(
+            tab = TabIndex.Events,
+            title = "Events",
+            imageVector = { Icons.Outlined.Notifications },
+        ),
+        TabRowItem(
+            tab = TabIndex.Settings,
+            title = "Push Settings",
+            imageVector = { Icons.Outlined.Settings },
+        )
+    )
+
     var navState by mutableStateOf(firstState)
 
     fun onNavigate(newNavigationState: NavigationState) {
         navState = newNavigationState
     }
+
+    fun navigateToTab(index: Int) {
+        val tab = tabRowItems[index]
+        onNavigate(
+            NavigationState(
+                tab = tab.tab,
+                title = tab.title,
+            )
+        )
+    }
 }
 
+enum class TabIndex(val index: Int) {
+    Profile(0),
+    Events(1),
+    Settings(2);
+
+    companion object {
+        fun fromIndex(index: Int): TabIndex {
+            return when (index) {
+                0 -> Profile
+                1 -> Events
+                else -> Settings
+            }
+        }
+    }
+}
+
+data class TabRowItem(
+    val tab: TabIndex,
+    val title: String,
+    val imageVector: () -> ImageVector,
+)
+
+/**
+ * Represents overall navigation state, consumed by scaffold
+ *
+ * @property tab - Which tab index is displayed
+ * @property title - Title of the page (default to tab's title)
+ * @property navAction - Nav action button, in top left of scaffold
+ * @property floatingAction - Floating action button definition
+ * @property actions - Additional actions, top right
+ */
 data class NavigationState(
+    val tab: TabIndex,
     val title: String,
     val navAction: Action? = null,
+    val floatingAction: Action? = null,
     val actions: List<Action>? = null,
 ) {
     companion object {
@@ -28,9 +93,17 @@ data class NavigationState(
         )
     }
 
-    constructor(title: String, navAction: Action? = null, vararg actions: Action) : this(
-        title,
-        navAction,
+    constructor(
+        tab: TabIndex,
+        title: String,
+        navAction: Action? = null,
+        floatingAction: Action? = null,
+        vararg actions: Action
+    ) : this(
+        tab = tab,
+        title = title,
+        navAction = navAction,
+        floatingAction = floatingAction,
         actions.toList()
     )
 
