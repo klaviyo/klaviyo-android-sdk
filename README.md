@@ -164,7 +164,7 @@ methods in your service.
 in order to provide consistent notification formatting. As a result, all Klaviyo notifications are
 handled via `onMessageReceived` regardless of the app being in the background or foreground.
 If you are working with multiple remote sources, you can check whether a message originated 
-from Klaviyo with the extension method `RemoteMessage.isKlaviyoMessage`.
+from Klaviyo with the extension method `RemoteMessage.isKlaviyoNotification`.
 
 1. Example of sub-classing `KlaviyoPushService`:
 ```kotlin
@@ -189,7 +189,7 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.pushFcm.KlaviyoNotification
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 
 open class YourPushService : FirebaseMessagingService() {
 
@@ -202,9 +202,9 @@ open class YourPushService : FirebaseMessagingService() {
         super.onMessageReceived(message)
 
         //This extension method allows you to distinguish Klaviyo from other sources
-        if (message.isKlaviyoMessage) {
+        if (message.isKlaviyoNotification) {
             //Note: As a safeguard this method also checks the origin of the message,
-            //  and will only create a notification if the message originated from Klaviyo
+            // and will only create a notification if the message originated from Klaviyo
             KlaviyoNotification(message).displayNotification(this)
         }
     }

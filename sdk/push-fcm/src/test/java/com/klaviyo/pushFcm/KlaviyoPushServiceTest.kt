@@ -28,7 +28,7 @@ class KlaviyoPushServiceTest : BaseTest() {
 
         mockkConstructor(KlaviyoNotification::class)
 
-        every { anyConstructed<KlaviyoNotification>().displayNotification(any()) } returns Unit
+        every { anyConstructed<KlaviyoNotification>().displayNotification(any()) } returns true
     }
 
     @Test
