@@ -7,6 +7,7 @@ import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
+import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
@@ -94,7 +95,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
             every { it.query } returns mapOf("queryKey" to "queryValue")
             every { it.responseBody } returns null
             every { it.send(any()) } returns status
-            every { it.toJson() } returns """
+            every { it.toJson() } returns JSONObject(
+                """
                 {
                   "headers": {
                     "headerKey": "headerValue"
@@ -107,7 +109,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
                   "uuid": "$uuid",
                   "url_path": "test"
                 }
-            """.trimIndent()
+            """
+            )
+            every { it.toString() } returns it.toJson().toString()
             every { it.equals(any()) } answers { a ->
                 it.uuid == (a.invocation.args[0] as? KlaviyoApiRequest)?.uuid
             }
@@ -387,16 +391,16 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Restores queue from persistent store`() {
-        mockkObject(KlaviyoApiRequest.Companion)
-        every { KlaviyoApiRequest.Companion.fromJson(any()) } answers { a ->
+        mockkObject(KlaviyoApiRequestDecoder)
+        every { KlaviyoApiRequestDecoder.fromJson(any()) } answers { a ->
             val uuid = (a.invocation.args[0] as JSONObject).getString("uuid")
             mockRequest(uuid)
         }
 
         val expectedQueue = "[\"mock_uuid1\",\"mock_uuid2\"]"
         dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, expectedQueue)
-        dataStoreSpy.store("mock_uuid1", mockRequest("mock_uuid1").toJson())
-        dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toJson())
+        dataStoreSpy.store("mock_uuid1", mockRequest("mock_uuid1").toString())
+        dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
         KlaviyoApiClient.restoreQueue()
         val actualQueue = dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY)
@@ -418,8 +422,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Handles bad queue item JSON gracefully`() {
-        mockkObject(KlaviyoApiRequest.Companion)
-        every { KlaviyoApiRequest.Companion.fromJson(any()) } answers { a ->
+        mockkObject(KlaviyoApiRequestDecoder)
+        every { KlaviyoApiRequestDecoder.fromJson(any()) } answers { a ->
             val uuid = (a.invocation.args[0] as JSONObject).getString("uuid")
             mockRequest(uuid)
         }
@@ -427,7 +431,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val jsonArray = "[\"mock_uuid1\",\"mock_uuid2\",\"mock_uuid3\"]"
         dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, jsonArray)
         dataStoreSpy.store("mock_uuid1", "{/}") // bad JSON!
-        dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toJson())
+        dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
         KlaviyoApiClient.restoreQueue()
         val actualQueue = dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY)
@@ -442,6 +446,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
         dataStoreSpy.clear(KlaviyoApiClient.QUEUE_KEY)
         KlaviyoApiClient.restoreQueue()
         assertEquals(0, KlaviyoApiClient.getQueueSize())
-        unmockkObject(KlaviyoApiRequest.Companion)
+        unmockkObject(KlaviyoApiClient)
+        unmockkObject(KlaviyoApiRequestDecoder)
+        unmockkObject(KlaviyoApiClient.HandlerUtil)
     }
 }

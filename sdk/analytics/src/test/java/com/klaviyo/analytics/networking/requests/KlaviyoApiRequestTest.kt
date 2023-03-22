@@ -191,7 +191,8 @@ internal class KlaviyoApiRequestTest : BaseTest() {
     @Test
     fun `Successful POST with body`() {
         val connectionMock = withConnectionMock(URL(stubFullUrl))
-        val expectedBody = JSONObject("{\"test\":1}")
+        val stubBody = "{\"test\":1}"
+        val expectedBody = JSONObject(stubBody)
 
         every { connectionMock.responseCode } returns 200
 
@@ -201,7 +202,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         val actualResponse = request.send()
 
         assert(bodySlot.isCaptured)
-        assertEquals("{\"data\":{\"test\":1}}", bodySlot.captured)
+        assertEquals(stubBody, bodySlot.captured)
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
         assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
@@ -224,6 +225,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
     private val postJson = """
         {
+          "request_type": "KlaviyoApiRequest",
           "headers": {
             "headerKey": "headerValue"
           },
@@ -242,6 +244,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
     private val getJson = """
         {
+          "request_type": "KlaviyoApiRequest",
           "headers": {
             "headerKey": "headerValue"
           },
@@ -267,9 +270,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
             body = JSONObject(mapOf("bodyKey" to "bodyValue"))
         }
 
-        val actualJson = post.toJson()
-
-        compareJson(JSONObject(postJson), JSONObject(actualJson))
+        compareJson(JSONObject(postJson), post.toJson())
     }
 
     @Test
@@ -283,14 +284,12 @@ internal class KlaviyoApiRequestTest : BaseTest() {
             query = mapOf("queryKey" to "queryValue")
         }
 
-        val actualJson = post.toJson()
-
-        compareJson(JSONObject(getJson), JSONObject(actualJson))
+        compareJson(JSONObject(getJson), post.toJson())
     }
 
     @Test
     fun `Deserializes POST from JSON`() {
-        val post = KlaviyoApiRequest.fromJson(JSONObject(postJson))
+        val post = KlaviyoApiRequestDecoder.fromJson(JSONObject(postJson))
 
         assertEquals("test", post.urlPath)
         assertEquals(RequestMethod.POST, post.method)
@@ -306,7 +305,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
     @Test
     fun `Deserializes GET from JSON`() {
-        val get = KlaviyoApiRequest.fromJson(JSONObject(getJson))
+        val get = KlaviyoApiRequestDecoder.fromJson(JSONObject(getJson))
 
         assertEquals("test", get.urlPath)
         assertEquals(RequestMethod.GET, get.method)
