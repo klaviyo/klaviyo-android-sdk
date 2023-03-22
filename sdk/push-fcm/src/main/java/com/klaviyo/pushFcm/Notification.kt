@@ -12,6 +12,18 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.Registry
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_id
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_importance
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_name
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.clickAction
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.deepLink
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationCount
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationPriority
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.smallIcon
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.sound
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 
 class Notification(private val message: RemoteMessage) {
 
@@ -21,7 +33,7 @@ class Notification(private val message: RemoteMessage) {
      * NOTE: We always send data-only messages, so all the payload keys are of our choosing.
      *  For consistency, I've chosen to mostly shadow the FCM notification object keys though.
      *
-     * See Extensions.kt where accessors are defined as property extensions to [RemoteMessage]
+     * See [KlaviyoRemoteMessage] where accessors are defined as extension properties [RemoteMessage]
      */
     companion object {
         internal const val CHANNEL_ID_KEY = "channel_id"

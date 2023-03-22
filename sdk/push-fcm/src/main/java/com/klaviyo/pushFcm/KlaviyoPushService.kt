@@ -3,6 +3,7 @@ package com.klaviyo.pushFcm
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 
 /**
  * Implementation of the FCM messaging service that runs when the parent application is started
