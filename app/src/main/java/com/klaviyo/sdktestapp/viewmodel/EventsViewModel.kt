@@ -42,7 +42,7 @@ class EventsViewModel(private val context: Context) {
     /**
      * Register a callback for all of the SDK's API requests state changes.
      */
-    private fun observeSdk() = Registry.get<ApiClient>().onApiRequest { request ->
+    private fun observeSdk() = Registry.get<ApiClient>().onApiRequest(true) { request ->
         _events[request.uuid] = Event(request)
 
         if (_events.count() > MAX_ITEMS) {
