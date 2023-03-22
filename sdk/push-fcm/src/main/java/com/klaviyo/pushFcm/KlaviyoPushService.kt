@@ -3,7 +3,7 @@ package com.klaviyo.pushFcm
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
 
 /**
  * Implementation of the FCM messaging service that runs when the parent application is started
@@ -41,8 +41,8 @@ open class KlaviyoPushService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
 
-        if (message.isKlaviyoNotification) {
-            Notification(message).displayNotification(this)
+        if (message.isKlaviyoMessage) {
+            KlaviyoNotification(message).displayNotification(this)
         }
     }
 }

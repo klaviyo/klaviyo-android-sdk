@@ -111,7 +111,7 @@ setup process is very similar to the Firebase client documentation linked above.
 You should follow all other setup recommendations from the FCM documentation.
 Register `KlaviyoPushService` to receive MESSAGING_EVENT intents. This allows Klaviyo Push SDK 
 to receive new and updated push tokens via the `onNewToken` method, 
-as well as foreground and data notifications via the `onMessageReceived` method.
+as well as display notifications via the `onMessageReceived` method.
 
 ```xml
 
@@ -144,17 +144,55 @@ and register it with Klaviyo SDK. To track notifications opened from the system 
     }
 ```
 
+To specify a notification icon, add the following metadata to your app manifest. 
+Absent this, the application's launcher icon will be used.
+```xml
+    <meta-data
+        android:name="com.klaviyo.push.default_notification_icon"
+        android:resource="{YOUR_ICON_RESOURCE}" />
+```
+
 ### Manual implementation of `FirebaseMessagingService` (Advanced)
-If you'd prefer to implement `FirebaseMessagingService` yourself, follow the FCM 
-setup docs including referencing your own service class in the manifest.
-Then update your implementation of `onNewToken` and `onMessageReceived` as below to communicate 
-push tokens and notifications received to the Klaviyo SDK. The launcher activity 
-code snippets above are still required.
+
+If you'd prefer to have your own implementation of `FirebaseMessagingService`,
+follow the FCM setup docs including referencing your own service class in the manifest.
+The launcher activity code snippets above are still required. You may either sub-class
+`KlaviyoPushService` directly, or follow the example below to invoke the necessary Klaviyo SDK
+methods in your service.
+
+**Note** Klaviyo uses [`data` messages](https://firebase.google.com/docs/cloud-messaging/android/receive)
+in order to provide consistent notification formatting. As a result, all Klaviyo notifications are
+handled via `onMessageReceived` regardless of the app being in the background or foreground.
+If you are working with multiple remote sources, you can check whether a message originated 
+from Klaviyo with the extension method `RemoteMessage.isKlaviyoMessage`.
+
+1. Example of sub-classing `KlaviyoPushService`:
 ```kotlin
 import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.push.KlaviyoPushService
+import com.klaviyo.pushFcm.KlaviyoPushService
 
-class YourPushService: FirebaseMessagingService() {
+class YourPushService: KlaviyoPushService() {
+    override fun onNewToken(newToken: String) {
+        //Invoking the super method will ensure Klaviyo SDK gets the new token
+        super.onNewToken(newToken)
+    }
+
+    override fun onMessageReceived(message: RemoteMessage) {
+        //Invoking the super method allows Klaviyo SDK to handle Klaviyo messages
+        super.onMessageReceived(message)
+    }
+}
+```
+2. Example of sub-classing `FirebaseMessagingService` and invoking Klaviyo SDK manually:
+```kotlin
+import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.pushFcm.KlaviyoNotification
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
+
+open class YourPushService : FirebaseMessagingService() {
+
     override fun onNewToken(newToken: String) {
         super.onNewToken(newToken)
         Klaviyo.setPushToken(newToken)
@@ -162,7 +200,13 @@ class YourPushService: FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        //You should decide how you want to handle messages receive in foreground
+
+        //This extension method allows you to distinguish Klaviyo from other sources
+        if (message.isKlaviyoMessage) {
+            //Note: As a safeguard this method also checks the origin of the message,
+            //  and will only create a notification if the message originated from Klaviyo
+            KlaviyoNotification(message).displayNotification(this)
+        }
     }
 }
 ```

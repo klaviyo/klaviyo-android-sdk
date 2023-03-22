@@ -26,9 +26,9 @@ class KlaviyoPushServiceTest : BaseTest() {
         mockkObject(Klaviyo)
         every { Klaviyo.setPushToken(any()) } returns Klaviyo
 
-        mockkConstructor(Notification::class)
+        mockkConstructor(KlaviyoNotification::class)
 
-        every { anyConstructed<Notification>().displayNotification(any()) } returns Unit
+        every { anyConstructed<KlaviyoNotification>().displayNotification(any()) } returns Unit
     }
 
     @Test
@@ -44,7 +44,7 @@ class KlaviyoPushServiceTest : BaseTest() {
 
         pushService.onMessageReceived(msg)
 
-        verify { anyConstructed<Notification>().displayNotification(any()) }
+        verify { anyConstructed<KlaviyoNotification>().displayNotification(any()) }
     }
 
     @Test
@@ -70,7 +70,7 @@ class KlaviyoPushServiceTest : BaseTest() {
 
         pushService.onMessageReceived(msg)
 
-        verify(inverse = true) { anyConstructed<Notification>().displayNotification(any()) }
+        verify(inverse = true) { anyConstructed<KlaviyoNotification>().displayNotification(any()) }
     }
 
     @Test
@@ -81,6 +81,6 @@ class KlaviyoPushServiceTest : BaseTest() {
 
         pushService.onMessageReceived(msg)
 
-        verify(inverse = true) { anyConstructed<Notification>().displayNotification(any()) }
+        verify(inverse = true) { anyConstructed<KlaviyoNotification>().displayNotification(any()) }
     }
 }

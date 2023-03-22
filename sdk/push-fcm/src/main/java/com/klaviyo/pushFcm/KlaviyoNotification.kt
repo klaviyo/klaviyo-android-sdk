@@ -19,13 +19,14 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_importance
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_name
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.clickAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.deepLink
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationCount
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationPriority
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.smallIcon
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.sound
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 
-class Notification(private val message: RemoteMessage) {
+class KlaviyoNotification(private val message: RemoteMessage) {
 
     /**
      * Constants and extension properties
@@ -62,15 +63,21 @@ class Notification(private val message: RemoteMessage) {
     /**
      * Formats and displays a notification based on the remote message data payload
      *
+     * NOTE: This verifies the origin of the message and the permission state for notifications
+     *  so it will return false if notification permission is not enabled or the remote message
+     *  is not a notification payload that originated from Klaviyo
+     *
      * @param context
+     * @return Whether a message was displayed
      */
-    fun displayNotification(context: Context) {
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
+    fun displayNotification(context: Context): Boolean {
+        if (!message.isKlaviyoNotification ||
+            ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
         ) {
-            return
+            return false
         }
 
         createNotificationChannel(context)
@@ -81,6 +88,8 @@ class Notification(private val message: RemoteMessage) {
                 generateId(),
                 buildNotification(context)
             )
+
+        return true
     }
 
     /**

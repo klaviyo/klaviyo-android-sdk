@@ -27,33 +27,33 @@ object KlaviyoRemoteMessage {
      * Parse channel ID or fallback on default
      */
     val RemoteMessage.channel_id: String
-        get() = this.data[Notification.CHANNEL_ID_KEY] ?: "Default"
+        get() = this.data[KlaviyoNotification.CHANNEL_ID_KEY] ?: "Default"
 
     /**
      * Parse channel name or fallback on default
      */
     val RemoteMessage.channel_name: String
-        get() = this.data[Notification.CHANNEL_NAME_KEY] ?: "Default"
+        get() = this.data[KlaviyoNotification.CHANNEL_NAME_KEY] ?: "Default"
 
     /**
      * Parse channel description or fallback on default
      */
     val RemoteMessage.channel_description: String
-        get() = this.data[Notification.CHANNEL_DESCRIPTION_KEY]
+        get() = this.data[KlaviyoNotification.CHANNEL_DESCRIPTION_KEY]
             ?: "Push notifications default channel"
 
     /**
      * Parse channel importance or fallback on default
      */
     val RemoteMessage.channel_importance: Int
-        get() = this.data[Notification.CHANNEL_IMPORTANCE_KEY]?.toInt()
+        get() = this.data[KlaviyoNotification.CHANNEL_IMPORTANCE_KEY]?.toInt()
             ?: NotificationManagerCompat.IMPORTANCE_DEFAULT
 
     /**
      * Parse out notification priority or fallback on default
      */
     val RemoteMessage.notificationPriority: Int
-        get() = this.data[Notification.NOTIFICATION_PRIORITY]?.toInt()
+        get() = this.data[KlaviyoNotification.NOTIFICATION_PRIORITY]?.toInt()
             ?: NotificationCompat.PRIORITY_DEFAULT
 
     /**
@@ -70,35 +70,38 @@ object KlaviyoRemoteMessage {
     /**
      * Parse notification title text
      */
-    val RemoteMessage.title: String? get() = this.data[Notification.TITLE_KEY]
+    val RemoteMessage.title: String? get() = this.data[KlaviyoNotification.TITLE_KEY]
 
     /**
      * Parse notification body text
      */
-    val RemoteMessage.body: String? get() = this.data[Notification.BODY_KEY]
+    val RemoteMessage.body: String? get() = this.data[KlaviyoNotification.BODY_KEY]
 
     /**
      * Parse deep link into a [Uri] if present
      */
-    val RemoteMessage.deepLink: Uri? get() = this.data[Notification.URL_KEY]?.let { Uri.parse(it) }
+    val RemoteMessage.deepLink: Uri?
+        get() = this.data[KlaviyoNotification.URL_KEY]?.let { Uri.parse(it) }
 
     /**
      * Parse click action (activity or intent filter)
      * Click action could be explicitly sent, or we should use ACTION_VIEW if a deep link is sent
      */
     val RemoteMessage.clickAction: String?
-        get() = this.data[Notification.CLICK_ACTION_KEY] ?: deepLink?.let { Intent.ACTION_VIEW }
+        get() = this.data[KlaviyoNotification.CLICK_ACTION_KEY]
+            ?: deepLink?.let { Intent.ACTION_VIEW }
 
     /**
      * Parse [Uri] to sound resource
      */
-    val RemoteMessage.sound: Uri? get() = this.data[Notification.SOUND_KEY]?.let { Uri.parse(it) }
+    val RemoteMessage.sound: Uri?
+        get() = this.data[KlaviyoNotification.SOUND_KEY]?.let { Uri.parse(it) }
 
     /**
      * Parse out notification count from payload (for app badging)
      */
     val RemoteMessage.notificationCount: Int
-        get() = this.data[Notification.NOTIFICATION_COUNT_KEY]?.toInt() ?: 1
+        get() = this.data[KlaviyoNotification.NOTIFICATION_COUNT_KEY]?.toInt() ?: 1
 
     /**
      * Determine the resource ID of the small icon
@@ -110,7 +113,7 @@ object KlaviyoRemoteMessage {
      */
     val RemoteMessage.smallIcon: Int
         @SuppressLint("DiscouragedApi")
-        get() = this.data[Notification.SMALL_ICON_KEY].let { resourceKey ->
+        get() = this.data[KlaviyoNotification.SMALL_ICON_KEY].let { resourceKey ->
             val packageManager = Registry.config.applicationContext.packageManager
             val pkgName = Registry.config.applicationContext.packageName
             val resources = Registry.config.applicationContext.resources
