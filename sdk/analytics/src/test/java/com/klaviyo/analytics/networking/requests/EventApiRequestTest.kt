@@ -47,6 +47,15 @@ internal class EventApiRequestTest : BaseTest() {
         assertEquals(expectedQueryData, EventApiRequest(stubEvent, stubProfile).query)
     }
 
+    @Test
+    fun `JSON interoperability`() {
+        val request = EventApiRequest(stubEvent, stubProfile)
+        val requestJson = request.toJson()
+        val revivedRequest = KlaviyoApiRequestDecoder.fromJson(requestJson)
+        assert(revivedRequest is EventApiRequest)
+        compareJson(requestJson, revivedRequest.toJson())
+    }
+
     private val emailKey = "\$email"
     private val anonKey = "\$anonymous"
     private val phoneKey = "\$phone_number"
@@ -74,7 +83,7 @@ internal class EventApiRequestTest : BaseTest() {
         """
 
         val request = EventApiRequest(stubEvent, stubProfile)
-        compareJson(JSONObject(expectJson), JSONObject(request.formatBody()!!))
+        compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
     }
 
     @Test
@@ -104,7 +113,7 @@ internal class EventApiRequestTest : BaseTest() {
         stubEvent.setProperty("custom_value", "200")
         val request = EventApiRequest(stubEvent, stubProfile)
 
-        compareJson(JSONObject(expectJson), JSONObject(request.formatBody()!!))
+        compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
     }
 
     @Test
@@ -138,6 +147,6 @@ internal class EventApiRequestTest : BaseTest() {
         stubProfile.setExternalId("ext_id")
         stubEvent.setProperty("custom_value", "100")
 
-        compareJson(JSONObject(expectJson), JSONObject(request.formatBody()!!))
+        compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
     }
 }

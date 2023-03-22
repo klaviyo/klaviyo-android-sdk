@@ -4,7 +4,6 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.core.Registry
 import java.io.Serializable
-import org.json.JSONObject
 
 /**
  * Defines the content of an API request to identify [Profile] data
@@ -12,12 +11,11 @@ import org.json.JSONObject
  * Using V3 API
  *
  * @constructor
- * @param profile attributes to send
  */
-internal class ProfileApiRequest(profile: Profile) : KlaviyoApiRequest(
-    PATH,
-    RequestMethod.POST
-) {
+internal class ProfileApiRequest(
+    queuedTime: Long? = null,
+    uuid: String? = null
+) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     private companion object {
         const val PATH = "client/profiles/"
@@ -26,12 +24,7 @@ internal class ProfileApiRequest(profile: Profile) : KlaviyoApiRequest(
         const val IDENTIFIERS = "identifiers"
     }
 
-    /**
-     * Create a mutable copy of the profile
-     * We'll pop off all the enumerated keys as we build the body d
-     * Then any remaining pairs are custom keys
-     */
-    private val properties = profile.toMap().toMutableMap()
+    override var type: String = "Identify Profile"
 
     override var headers: Map<String, String> = mapOf(
         HEADER_CONTENT to TYPE_JSON,
@@ -43,48 +36,49 @@ internal class ProfileApiRequest(profile: Profile) : KlaviyoApiRequest(
         COMPANY_ID to Registry.config.apiKey
     )
 
-    override var body: JSONObject? = jsonMapOf(
-        TYPE to PROFILE,
-        ATTRIBUTES to filteredMapOf( // All of the enumerated keys are "attributes"
-            extract(ProfileKey.EMAIL),
-            extract(ProfileKey.PHONE_NUMBER),
-            extract(ProfileKey.EXTERNAL_ID),
-            extract(ProfileKey.ANONYMOUS_ID),
-            extract(ProfileKey.FIRST_NAME),
-            extract(ProfileKey.LAST_NAME),
-            extract(ProfileKey.ORGANIZATION),
-            extract(ProfileKey.TITLE),
-            extract(ProfileKey.IMAGE),
+    override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
 
-            LOCATION to filteredMapOf(
-                extract(ProfileKey.ADDRESS1),
-                extract(ProfileKey.ADDRESS2),
-                extract(ProfileKey.CITY),
-                extract(ProfileKey.COUNTRY),
-                extract(ProfileKey.LATITUDE),
-                extract(ProfileKey.LONGITUDE),
-                extract(ProfileKey.REGION),
-                extract(ProfileKey.ZIP),
-                extract(ProfileKey.TIMEZONE)
-            ),
+    constructor(profile: Profile) : this() {
+        // Create a mutable copy of the profile
+        // We'll pop off all the enumerated keys as we build the body
+        // Then any remaining pairs are custom keys
+        val properties = profile.toMap().toMutableMap()
+        fun extract(key: ProfileKey): Pair<String, Serializable?> =
+            key.name to properties.remove(key.name)
 
-            PROPERTIES to properties // Any remaining custom keys are properties
-        ),
-        META to mapOf(
-            // It is critical for JSON encoding that we convert all keys to strings
-            IDENTIFIERS to profile.getIdentifiers().mapKeys { it.key.name }
+        body = jsonMapOf(
+            DATA to mapOf(
+                TYPE to PROFILE,
+                ATTRIBUTES to filteredMapOf( // All of the enumerated keys are "attributes"
+                    extract(ProfileKey.EMAIL),
+                    extract(ProfileKey.PHONE_NUMBER),
+                    extract(ProfileKey.EXTERNAL_ID),
+                    extract(ProfileKey.ANONYMOUS_ID),
+                    extract(ProfileKey.FIRST_NAME),
+                    extract(ProfileKey.LAST_NAME),
+                    extract(ProfileKey.ORGANIZATION),
+                    extract(ProfileKey.TITLE),
+                    extract(ProfileKey.IMAGE),
+
+                    LOCATION to filteredMapOf(
+                        extract(ProfileKey.ADDRESS1),
+                        extract(ProfileKey.ADDRESS2),
+                        extract(ProfileKey.CITY),
+                        extract(ProfileKey.COUNTRY),
+                        extract(ProfileKey.LATITUDE),
+                        extract(ProfileKey.LONGITUDE),
+                        extract(ProfileKey.REGION),
+                        extract(ProfileKey.ZIP),
+                        extract(ProfileKey.TIMEZONE)
+                    ),
+
+                    PROPERTIES to properties // Any remaining custom keys are properties
+                ),
+                META to mapOf(
+                    // It is critical for JSON encoding that we convert all keys to strings
+                    IDENTIFIERS to profile.getIdentifiers().mapKeys { it.key.name }
+                )
+            )
         )
-    )
-
-    /**
-     * As we build the body, extract keys from the profile object
-     * That way, all remaining pairs can be used in the properties overload
-     *
-     * It is critical for JSON encoding that we convert all keys to strings
-     *
-     * @param key
-     * @return
-     */
-    private fun extract(key: ProfileKey): Pair<String, Serializable?> =
-        key.name to properties.remove(key.name)
+    }
 }

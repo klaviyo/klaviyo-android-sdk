@@ -11,13 +11,12 @@ import org.json.JSONObject
  *
  * Using legacy V2 API until push tokens are supported by a V3 endpoint
  *
- * @param token The push token
- * @param profile Profile identifiers that the token belongs to
+ * @constructor
  */
-internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApiRequest(
-    PATH,
-    RequestMethod.POST
-) {
+internal class PushTokenApiRequest(
+    queuedTime: Long? = null,
+    uuid: String? = null
+) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     private companion object {
         const val PATH = "api/identify"
@@ -26,35 +25,36 @@ internal class PushTokenApiRequest(token: String, profile: Profile) : KlaviyoApi
         const val ANDROID_TOKEN = "\$android_tokens"
     }
 
+    override val type: String = "Push Token"
+
     override var headers: Map<String, String> = mapOf(
         HEADER_CONTENT to TYPE_JSON
     )
 
-    /**
-     * Only send profile's identifiers, plus the push token as an appended property
-     */
-    private val properties: Map<String, Serializable> = profile.getIdentifiers()
-        .mapKeys { it.key.specialKey() }
-        .plus(APPEND to hashMapOf(ANDROID_TOKEN to token))
-
-    override var body: JSONObject? = JSONObject(
-        mapOf(
-            TOKEN to Registry.config.apiKey, // API Key, not to be confused with the push token!
-            PROPERTIES to JSONObject(properties)
-        )
-    )
-
-    // V2 API had this funky data format mixing json and form fields
-    override fun formatBody(): String = body.toString()
+    override val successCodes: IntRange get() = HTTP_OK..HTTP_OK
 
     override fun parseResponse(connection: HttpURLConnection): Status {
         super.parseResponse(connection)
 
         // V2 APIs did not properly use status codes.
-        if (status == Status.Complete && response == "0") {
+        if (status == Status.Complete && responseBody == "0") {
             status = Status.Failed
         }
 
         return status
+    }
+
+    constructor(token: String, profile: Profile) : this() {
+        // Only send profile's identifiers, plus the push token as an appended property
+        val properties: Map<String, Serializable> = profile.getIdentifiers()
+            .mapKeys { it.key.specialKey() }
+            .plus(APPEND to hashMapOf(ANDROID_TOKEN to token))
+
+        body = JSONObject(
+            mapOf(
+                TOKEN to Registry.config.apiKey, // API Key, not to be confused with the push token!
+                PROPERTIES to JSONObject(properties)
+            )
+        )
     }
 }

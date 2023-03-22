@@ -15,6 +15,7 @@ import javax.net.ssl.HttpsURLConnection
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
@@ -52,9 +53,9 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
     @Test
     fun `Treats same UUID as equal requests for deduplication`() {
-        val request1 = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET, "", "uuid1")
-        val request2 = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET, "", "uuid2")
-        val request3 = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET, "", "uuid2")
+        val request1 = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET, uuid = "uuid1")
+        val request2 = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET, uuid = "uuid2")
+        val request3 = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET, uuid = "uuid2")
 
         assertNotEquals(request1, null)
         assertNotEquals(request1, request2)
@@ -84,6 +85,30 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         request.send()
 
         verify { connectionMock.setRequestProperty("header", "value") }
+    }
+
+    @Test
+    fun `Invokes pre-send callback when inflight`() {
+        withConnectionMock(URL(stubFullUrl))
+        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
+
+        var called = false
+        request.send {
+            called = true
+            assertEquals(KlaviyoApiRequest.Status.Inflight.name, request.state)
+        }
+
+        assert(called)
+    }
+
+    @Test
+    fun `Sets send time on send`() {
+        withConnectionMock(URL(stubFullUrl))
+        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
+
+        assertNull(request.startTime)
+        request.send()
+        assertEquals(TIME, request.startTime)
     }
 
     @Test
@@ -166,7 +191,8 @@ internal class KlaviyoApiRequestTest : BaseTest() {
     @Test
     fun `Successful POST with body`() {
         val connectionMock = withConnectionMock(URL(stubFullUrl))
-        val expectedBody = JSONObject("{\"test\":1}")
+        val stubBody = "{\"test\":1}"
+        val expectedBody = JSONObject(stubBody)
 
         every { connectionMock.responseCode } returns 200
 
@@ -176,7 +202,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         val actualResponse = request.send()
 
         assert(bodySlot.isCaptured)
-        assertEquals("{\"data\":{\"test\":1}}", bodySlot.captured)
+        assertEquals(stubBody, bodySlot.captured)
         verify { connectionMock.connect() }
         verify { connectionMock.disconnect() }
         assertEquals(KlaviyoApiRequest.Status.Complete, actualResponse)
@@ -199,6 +225,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
     private val postJson = """
         {
+          "request_type": "KlaviyoApiRequest",
           "headers": {
             "headerKey": "headerValue"
           },
@@ -206,7 +233,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
           "query": {
             "queryKey": "queryValue"
           },
-          "time": "time",
+          "time": $TIME,
           "body": {
             "bodyKey": "bodyValue"
           },
@@ -217,6 +244,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
     private val getJson = """
         {
+          "request_type": "KlaviyoApiRequest",
           "headers": {
             "headerKey": "headerValue"
           },
@@ -224,7 +252,7 @@ internal class KlaviyoApiRequestTest : BaseTest() {
           "query": {
             "queryKey": "queryValue"
           },
-          "time": "time",
+          "time": $TIME,
           "uuid": "uuid",
           "url_path": "test"
         }
@@ -235,17 +263,14 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         val post = KlaviyoApiRequest(
             "test",
             RequestMethod.POST,
-            "time",
-            "uuid"
+            uuid = "uuid"
         ).apply {
             headers = mapOf("headerKey" to "headerValue")
             query = mapOf("queryKey" to "queryValue")
             body = JSONObject(mapOf("bodyKey" to "bodyValue"))
         }
 
-        val actualJson = post.toJson()
-
-        compareJson(JSONObject(postJson), JSONObject(actualJson))
+        compareJson(JSONObject(postJson), post.toJson())
     }
 
     @Test
@@ -253,25 +278,22 @@ internal class KlaviyoApiRequestTest : BaseTest() {
         val post = KlaviyoApiRequest(
             "test",
             RequestMethod.GET,
-            "time",
-            "uuid"
+            uuid = "uuid"
         ).apply {
             headers = mapOf("headerKey" to "headerValue")
             query = mapOf("queryKey" to "queryValue")
         }
 
-        val actualJson = post.toJson()
-
-        compareJson(JSONObject(getJson), JSONObject(actualJson))
+        compareJson(JSONObject(getJson), post.toJson())
     }
 
     @Test
     fun `Deserializes POST from JSON`() {
-        val post = KlaviyoApiRequest.fromJson(JSONObject(postJson))
+        val post = KlaviyoApiRequestDecoder.fromJson(JSONObject(postJson))
 
         assertEquals("test", post.urlPath)
         assertEquals(RequestMethod.POST, post.method)
-        assertEquals("time", post.time)
+        assertEquals(TIME, post.queuedTime)
         assertEquals("uuid", post.uuid)
         assert(post.headers.count() == 1)
         assertEquals("headerValue", post.headers["headerKey"])
@@ -283,11 +305,11 @@ internal class KlaviyoApiRequestTest : BaseTest() {
 
     @Test
     fun `Deserializes GET from JSON`() {
-        val get = KlaviyoApiRequest.fromJson(JSONObject(getJson))
+        val get = KlaviyoApiRequestDecoder.fromJson(JSONObject(getJson))
 
         assertEquals("test", get.urlPath)
         assertEquals(RequestMethod.GET, get.method)
-        assertEquals("time", get.time)
+        assertEquals(TIME, get.queuedTime)
         assertEquals("uuid", get.uuid)
         assert(get.headers.count() == 1)
         assertEquals("headerValue", get.headers["headerKey"])

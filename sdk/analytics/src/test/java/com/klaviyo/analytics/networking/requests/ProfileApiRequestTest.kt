@@ -46,6 +46,15 @@ internal class ProfileApiRequestTest : BaseTest() {
     }
 
     @Test
+    fun `JSON interoperability`() {
+        val request = ProfileApiRequest(stubProfile)
+        val requestJson = request.toJson()
+        val revivedRequest = KlaviyoApiRequestDecoder.fromJson(requestJson)
+        assert(revivedRequest is ProfileApiRequest)
+        compareJson(requestJson, revivedRequest.toJson())
+    }
+
+    @Test
     fun `Formats body correctly`() {
         val expectJson = """{
             "data": {
@@ -107,7 +116,7 @@ internal class ProfileApiRequestTest : BaseTest() {
 
         val request = ProfileApiRequest(stubProfile)
 
-        compareJson(JSONObject(expectJson), JSONObject(request.formatBody()!!))
+        compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
     }
 
     @Test
@@ -140,6 +149,6 @@ internal class ProfileApiRequestTest : BaseTest() {
 
         val request = ProfileApiRequest(stubProfile)
 
-        compareJson(JSONObject(expectJson), JSONObject(request.formatBody()!!))
+        compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
     }
 }

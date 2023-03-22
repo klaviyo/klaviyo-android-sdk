@@ -42,6 +42,15 @@ internal class PushTokenApiRequestTest : BaseTest() {
     }
 
     @Test
+    fun `JSON interoperability`() {
+        val request = PushTokenApiRequest(PUSH_TOKEN, profile)
+        val requestJson = request.toJson()
+        val revivedRequest = KlaviyoApiRequestDecoder.fromJson(requestJson)
+        assert(revivedRequest is PushTokenApiRequest)
+        compareJson(requestJson, revivedRequest.toJson())
+    }
+
+    @Test
     fun `Body includes only API key, profile identifiers, and push token`() {
         profile
             .setExternalId(EXTERNAL_ID)
@@ -62,7 +71,7 @@ internal class PushTokenApiRequestTest : BaseTest() {
         assertEquals(5, props?.length()) // no other fields!
 
         // Already confirmed the contents, just confirm that the body doesn't add anything else
-        assertEquals(request.formatBody(), "${request.body}")
+        assertEquals(request.requestBody, "${request.body}")
     }
 
     @Test

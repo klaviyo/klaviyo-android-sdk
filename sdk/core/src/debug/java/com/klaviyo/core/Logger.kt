@@ -45,7 +45,7 @@ open class Logger : Log {
          * this will use the class name without any anonymous class suffixes (e.g., `Foo$1`
          * becomes `Foo`).
          *
-         * Note: This will not be called if a manual tag is specified
+         * NOTE: This will not be called if a manual tag is specified
          */
         private fun makeTag(): String = Throwable().stackTrace
             .first { it.className !in ignoreList && !it.className.contains(Log::class.java.name) }

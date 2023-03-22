@@ -8,7 +8,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
-import org.json.JSONException
 import org.json.JSONObject
 
 /**
@@ -16,79 +15,21 @@ import org.json.JSONObject
  *
  * @property urlPath URL this request will be connecting to as string
  * @property method The [RequestMethod] will determine the type of request being made
- * @property time The wall clock time that the request was enqueued
+ * @property queuedTime The wall clock time that the request was enqueued
  * @property uuid unique identifier of this request
+ *
+ * @constructor
  */
 internal open class KlaviyoApiRequest(
     val urlPath: String,
     val method: RequestMethod,
-    val time: String = Registry.clock.currentTimeAsString(),
-    val uuid: String = UUID.randomUUID().toString()
+    queuedTime: Long? = null,
+    uuid: String? = null
 ) : ApiRequest {
+
     internal enum class Status {
-        Unsent, PendingRetry, Complete, Failed
+        Unsent, Inflight, PendingRetry, Complete, Failed
     }
-
-    override val startTime: String = time
-    override var endTime: String? = null
-
-    override var headers: Map<String, String> = emptyMap()
-    override var query: Map<String, String> = emptyMap()
-    open var body: JSONObject? = null
-
-    var attempts = 0
-        private set
-
-    protected var status: Status = Status.Unsent
-        set(value) {
-            if (field == value) return
-            field = value
-            endTime = when (status) {
-                Status.Complete, Status.Failed -> Registry.clock.currentTimeAsString()
-                else -> null
-            }
-        }
-
-    protected var response: String? = null
-
-    /**
-     * Creates a representation of this [KlaviyoApiRequest] in JSON
-     *
-     * NOTE: subclass information is lost in the process.
-     * The important data to send the API request is retained.
-     *
-     * @return
-     */
-    fun toJson(): String = JSONObject()
-        .accumulate(PATH_JSON_KEY, urlPath)
-        .accumulate(METHOD_JSON_KEY, method.name)
-        .accumulate(TIME_JSON_KEY, time)
-        .accumulate(UUID_JSON_KEY, uuid)
-        .accumulate(HEADERS_JSON_KEY, headers)
-        .accumulate(QUERY_JSON_KEY, query)
-        .accumulate(BODY_JSON_KEY, body)
-        .toString()
-
-    override val httpMethod: String get() = method.name
-    override val state: String get() = status.name
-    override fun formatBody(): String? = body?.let { JSONObject(mapOf(DATA to it)).toString() }
-    override fun formatResponse(): String? = response
-    override fun toString(): String = toJson()
-
-    /**
-     * To facilitate deduplication, we will treat UUID as a unique identifier
-     * such that even if a request is deserialized from JSON it is still
-     * "equal" to its original object, regardless of instance or subclass
-     *
-     * @param other
-     * @return
-     */
-    override fun equals(other: Any?): Boolean = when (other) {
-        is KlaviyoApiRequest -> uuid == other.uuid
-        else -> super.equals(other)
-    }
-
-    override fun hashCode(): Int = uuid.hashCode()
 
     companion object {
         // Common keywords
@@ -107,49 +48,20 @@ internal open class KlaviyoApiRequest(
         const val TYPE_JSON = "application/json"
         const val V3_REVISION = "2023-01-24"
 
-        private const val HTTP_OK = HttpURLConnection.HTTP_OK
-        private const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
-        private const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
+        const val HTTP_OK = HttpURLConnection.HTTP_OK
+        const val HTTP_ACCEPTED = HttpURLConnection.HTTP_ACCEPTED
+        const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
+        const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
 
         // JSON keys for persistence
-        private const val PATH_JSON_KEY = "url_path"
-        private const val METHOD_JSON_KEY = "method"
-        private const val TIME_JSON_KEY = "time"
-        private const val UUID_JSON_KEY = "uuid"
-        private const val HEADERS_JSON_KEY = "headers"
-        private const val QUERY_JSON_KEY = "query"
-        private const val BODY_JSON_KEY = "body"
-
-        /**
-         * Construct a request from a JSON object
-         *
-         * Returns [KlaviyoApiRequest] no matter what subclass it was before encoding.
-         * This is functionally the same and saves us some trouble
-         *
-         * @param json
-         * @return
-         * @throws JSONException If required fields are missing or improperly formatted
-         */
-        fun fromJson(json: JSONObject): KlaviyoApiRequest {
-            // TODO - restore to child class to optimize storage space!
-            val urlPath = json.getString(PATH_JSON_KEY)
-            val method = when (json.getString(METHOD_JSON_KEY)) {
-                RequestMethod.POST.name -> RequestMethod.POST
-                else -> RequestMethod.GET
-            }
-            val time = json.getString(TIME_JSON_KEY)
-            val uuid = json.getString(UUID_JSON_KEY)
-
-            return KlaviyoApiRequest(urlPath, method, time, uuid).apply {
-                headers = json.getJSONObject(HEADERS_JSON_KEY).let {
-                    it.keys().asSequence().associateWith { k -> it.getString(k) }
-                }
-                query = json.getJSONObject(QUERY_JSON_KEY).let {
-                    it.keys().asSequence().associateWith { k -> it.getString(k) }
-                }
-                body = json.optJSONObject(BODY_JSON_KEY)
-            }
-        }
+        const val TYPE_JSON_KEY = "request_type"
+        const val PATH_JSON_KEY = "url_path"
+        const val METHOD_JSON_KEY = "method"
+        const val TIME_JSON_KEY = "time"
+        const val UUID_JSON_KEY = "uuid"
+        const val HEADERS_JSON_KEY = "headers"
+        const val QUERY_JSON_KEY = "query"
+        const val BODY_JSON_KEY = "body"
 
         /**
          * Helper function to format the body of the request
@@ -182,6 +94,37 @@ internal open class KlaviyoApiRequest(
     }
 
     /**
+     * Local unique identifier of this request for keyed storage
+     */
+    override val uuid: String = uuid ?: UUID.randomUUID().toString()
+
+    /**
+     * Descriptive title of this request, e.g. for debugging
+     */
+    override val type: String = urlPath
+
+    /**
+     * String representation of the current request state
+     */
+    override val state: String get() = status.name
+
+    /**
+     * Internal tracking of the request status
+     * When status changes, this setter updates start and end timestamps
+     */
+    protected var status: Status = Status.Unsent
+        set(value) {
+            if (field == value) return
+            field = value
+
+            if (value == Status.Inflight) {
+                startTime = Registry.clock.currentTimeMillis()
+            } else if (status in arrayOf(Status.Complete, Status.Failed)) {
+                endTime = Registry.clock.currentTimeMillis()
+            }
+        }
+
+    /**
      * Compiles the base url, path and query data into a [URL] object
      */
     override val url: URL
@@ -198,21 +141,129 @@ internal open class KlaviyoApiRequest(
         }
 
     /**
+     * String representation of HTTP method
+     */
+    override val httpMethod: String = method.name
+
+    /**
+     * HTTP request headers
+     */
+    override var headers: Map<String, String> = emptyMap()
+
+    /**
+     * HTTP request query params
+     */
+    override var query: Map<String, String> = emptyMap()
+
+    /**
+     * JSON request body
+     */
+    open var body: JSONObject? = null
+
+    /**
+     * Convert request body to string
+     */
+    override val requestBody: String? get() = body?.toString()
+
+    /**
+     * Tracks number of attempts to limit retries
+     */
+    var attempts = 0
+        private set
+
+    /**
+     * Timestamp request was first enqueued
+     */
+    override val queuedTime: Long = queuedTime ?: Registry.clock.currentTimeMillis()
+
+    /**
+     * Timestamp of latest send attempt
+     */
+    override var startTime: Long? = null
+        protected set
+
+    /**
+     * Timestamp of latest send attempt completion
+     */
+    override var endTime: Long? = null
+        protected set
+
+    /**
+     * Expected status code from the API backend
+     * This varies by version/endpoint so we can override the code by subclass
+     */
+    protected open val successCodes = HTTP_OK until HTTP_MULT_CHOICE
+
+    /**
+     * HTTP Status code from last send attempt
+     * null if unsent
+     */
+    override var responseCode: Int? = null
+        protected set
+
+    /**
+     * Body of response content from last send attempt
+     */
+    override var responseBody: String? = null
+        protected set
+
+    /**
+     * Creates a representation of this [KlaviyoApiRequest] in JSON
+     *
+     * @return A JSON representation that can be deserialized back into an API request object
+     */
+    fun toJson(): JSONObject = JSONObject()
+        .accumulate(TYPE_JSON_KEY, this::class.simpleName)
+        .accumulate(PATH_JSON_KEY, urlPath)
+        .accumulate(METHOD_JSON_KEY, method.name)
+        .accumulate(TIME_JSON_KEY, queuedTime)
+        .accumulate(UUID_JSON_KEY, uuid)
+        .accumulate(HEADERS_JSON_KEY, JSONObject(headers))
+        .accumulate(QUERY_JSON_KEY, JSONObject(query))
+        .accumulate(BODY_JSON_KEY, body)
+
+    /**
+     * For consistency, format as JSON when representing API requests as string
+     */
+    final override fun toString(): String = toJson().toString()
+
+    /**
+     * To facilitate deduplication, we will treat UUID as a unique identifier
+     * such that even if a request is deserialized from JSON it is still
+     * "equal" to its original object, regardless of instance or subclass
+     *
+     * @param other
+     * @return
+     */
+    override fun equals(other: Any?): Boolean = when (other) {
+        is KlaviyoApiRequest -> uuid == other.uuid
+        else -> super.equals(other)
+    }
+
+    /**
+     * @return UUID as hashcode for equality comparisons
+     */
+    override fun hashCode(): Int = uuid.hashCode()
+
+    /**
      * Builds and sends a network request to Klaviyo and then parses and handles the response
      *
      * @returns The string value of the response body, if one was returned
      */
-    fun send(): Status {
+    fun send(beforeSend: () -> Unit = { }): Status {
         if (!Registry.networkMonitor.isNetworkConnected()) {
             Registry.log.debug("Send prevented while network unavailable")
             return status
         }
+
+        status = Status.Inflight
 
         return try {
             val connection = buildUrlConnection()
 
             try {
                 attempts++
+                beforeSend.invoke()
                 connection.connect()
                 parseResponse(connection)
             } finally {
@@ -227,7 +278,8 @@ internal open class KlaviyoApiRequest(
 
     /**
      * Opens a connection against the given [URL]
-     * Connection type is either [HttpURLConnection] or [HttpsURLConnection] depending on the [URL] protocol
+     * Connection type is either [HttpURLConnection] or
+     * [HttpsURLConnection] depending on the [URL] protocol
      */
     private fun buildUrlConnection(): HttpURLConnection {
         val connection = HttpUtil.openConnection(url)
@@ -240,10 +292,10 @@ internal open class KlaviyoApiRequest(
         connection.readTimeout = Registry.config.networkTimeout
         connection.connectTimeout = Registry.config.networkTimeout
 
-        val bodyString = formatBody() ?: return connection
-
-        connection.doOutput = true
-        HttpUtil.writeToConnection(bodyString, connection)
+        requestBody?.let {
+            connection.doOutput = true
+            HttpUtil.writeToConnection(it, connection)
+        }
 
         return connection
     }
@@ -260,8 +312,10 @@ internal open class KlaviyoApiRequest(
      */
     protected open fun parseResponse(connection: HttpURLConnection): Status {
         // https://developers.klaviyo.com/en/docs/rate_limits_and_error_handling
-        status = when (connection.responseCode) {
-            in HTTP_OK until HTTP_MULT_CHOICE -> Status.Complete
+        responseCode = connection.responseCode
+
+        status = when (responseCode) {
+            in successCodes -> Status.Complete
             HTTP_RETRY -> {
                 if (attempts <= Registry.config.networkMaxRetries) {
                     Status.PendingRetry
@@ -279,7 +333,7 @@ internal open class KlaviyoApiRequest(
             else -> connection.errorStream
         }
 
-        response = BufferedReader(InputStreamReader(stream)).use { it.readText() }
+        responseBody = BufferedReader(InputStreamReader(stream)).use { it.readText() }
 
         return status
     }

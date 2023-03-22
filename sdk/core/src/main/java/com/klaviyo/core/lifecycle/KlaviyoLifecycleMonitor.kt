@@ -63,7 +63,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     override fun onActivityDestroyed(activity: Activity) {
-        broadcastEvent(ActivityEvent.Destroyed(activity))
+        // Warning: onActivityDestroyed is unreliable, I'm not even going to try to broadcast it
     }
 
     //endregion
