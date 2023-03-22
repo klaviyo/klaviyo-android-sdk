@@ -226,22 +226,23 @@ In order to set up a push notification to deep link into your apps, there are br
 #### Step 1: Add intent filters for incoming links
 
 1. Add the below XML into your `AndroidManifest.xml` 
-2. Replace the scheme to match your app's scheme. Essentially, you would replace example with whatever scheme you want your app to use. We recommend this be unique to your app.
-
+2. Replace the scheme to match your app's scheme. Essentially, you would replace example with 
+   whatever scheme you want your app to use. We recommend this be unique to your app.
 
 ```xml
     <intent-filter android:label="@string/filter_view_example_gizmos">
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
-        <!-- Accepts URIs that begin with "example://” -->
-        <data android:scheme="example"/>
+        <!-- Accepts URIs that begin with "example://host.com” -->
+        <data android:scheme="example" android:host="host.com"/>
     </intent-filter>
 ```
 
 #### Step 2: Read the data from the incoming links and route to the appropriate views
 
-Once you have the intent filters setup in step 1, now you can read the deep link and route it to the appropriate views. Here's a code sample on how you'd do it.
+Once you have the intent filters setup in step 1, now you can read the deep link and 
+route it to the appropriate views. Here's a code sample on how you'd do it.
 
 ```kotlin
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -255,19 +256,22 @@ override fun onCreate(savedInstanceState: Bundle?) {
 
 #### Step 3: Test your deep links
 
-* Make sure to have [android debug bridge (adb)](https://developer.android.com/studio/command-line/adb) installed on your terminal. Instructions on how to install it are in the attached link.
+* Make sure to have [android debug bridge (adb)](https://developer.android.com/studio/command-line/adb) 
+  installed on your terminal. Instructions on how to install it are in the attached link.
 * Once you have `adb` installed you can run the below command to test the deep link 
 
 ```shell
 $ adb shell am start
         -W -a android.intent.action.VIEW
         -d <URI> <PACKAGE>
-
 ```
 
-Finally, in order to perform integration testing you can send push notifications from Klaviyo's Push editor within the Klaviyo website. Here you can build and send a push notification through Klaviyo to make sure that the URI shows up in the handler you implemented in Step 2.
+Finally, in order to perform integration testing you can send push notifications from 
+Klaviyo's Push editor within the Klaviyo website. Here you can build and send a push notification
+through Klaviyo to make sure that the URI shows up in the handler you implemented in Step 2.
 
-For a more in detail information on deep linking refer android developer documentation [here](https://klaviyo.tpondemand.com/entity/164512-update-android-sdk-readme-with-deep).
+For more in-depth information on deep linking,
+refer to [android developer documentation](https://developer.android.com/training/app-links/deep-linking).
 
 
 ## Code Documentation
