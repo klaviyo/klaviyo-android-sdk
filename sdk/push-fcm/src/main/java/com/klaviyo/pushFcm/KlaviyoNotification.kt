@@ -149,7 +149,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 setPackage(pkgName)
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
-        } ?: Registry.config.applicationContext.packageManager.getLaunchIntentForPackage(pkgName)
+        } ?: Registry.config.applicationContext.packageManager.getLaunchIntentForPackage(pkgName)?.apply {
+            putExtras(message.toIntent())
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
 
         return PendingIntent.getActivity(
             context,
