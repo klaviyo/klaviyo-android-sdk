@@ -197,7 +197,7 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `Reset re-associates push token to new anonymous profile and removes from store`() {
+    fun `Reset removes push token from store`() {
         UserInfo.email = EMAIL
         dataStoreSpy.store("push_token", PUSH_TOKEN)
 
@@ -205,7 +205,6 @@ internal class KlaviyoTest : BaseTest() {
 
         assertEquals("", UserInfo.email)
         assertEquals(null, dataStoreSpy.fetch("push_token"))
-        verify(exactly = 1) { apiClientMock.enqueuePushToken(any(), any()) }
     }
 
     @Test
