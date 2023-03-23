@@ -238,8 +238,8 @@ object Klaviyo {
     /**
      * Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile
      *
-     * NOTE: if a push token was registered to the current profile, Klaviyo will disassociate it
-     * from the current profile. Call `setPushToken` again to associate this device to a new profile
+     * NOTE: if a push token was registered to the current profile, you will need to
+     * call `setPushToken` again to associate this device to a new profile
      *
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
