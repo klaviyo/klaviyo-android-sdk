@@ -252,16 +252,8 @@ object Klaviyo {
         // Clear profile identifiers from state
         UserInfo.reset()
 
-        // If we had a push token, re-associate it with an anonymous ID, then erase the local copy
-        // Someday we'll just have a delete token API endpoint -- this is a workaround.
-        getPushToken()?.let { pushToken ->
-            Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
-            Registry.dataStore.clear(EventKey.PUSH_TOKEN.name)
-
-            // Reset that anonymous ID too so that we don't inadvertently use this token push
-            // on a new profile created later without the app developer's say-so
-            UserInfo.reset()
-        }
+        // If we had a push token, erase the local copy
+        Registry.dataStore.clear(EventKey.PUSH_TOKEN.name)
     }
 
     /**
