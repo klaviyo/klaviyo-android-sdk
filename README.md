@@ -7,8 +7,8 @@
 
 ## DISCLAIMER
 
-*This project is still in pre-alpha,
-breaking changes are still being made to the API.
+*This project is in a closed beta,
+breaking changes could still being made to the API.
 This is not yet intended for public use*
 
 Android SDK allows developers to incorporate Klaviyo event and profile tracking functionality
@@ -137,9 +137,9 @@ Klaviyo.setEmail("robin@example.com")
 ### Tracking Events
 
 The SDK also provides tools for tracking analytics events to the Klaviyo API.
-A list of previously defined event names is provided in `EventType`, or
-use `EventType.CUSTOM("name")`
-to for custom name. Additional event properties can be specified as part of `EventModel`
+A list of common Klaviyo-defined event names is provided in `EventType`, or
+you can use `EventType.CUSTOM("name")`for custom event names.
+Additional event properties can be specified as part of `EventModel`
 
 ```kotlin
 val event = Event(EventType.VIEWED_PRODUCT)
@@ -162,7 +162,7 @@ Klaviyo.createEvent(event)
 The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService` so the
 setup process is very similar to the Firebase client documentation linked above.
 You should follow all other setup recommendations from the FCM documentation.
-Register `KlaviyoPushService` to receive MESSAGING_EVENT intents. This allows Klaviyo Push SDK
+Register `KlaviyoPushService` to receive MESSAGING_EVENT intents. This allows Klaviyo's Push SDK
 to receive new and updated push tokens via the `onNewToken` method,
 as well as display notifications via the `onMessageReceived` method.
 
