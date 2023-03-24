@@ -11,10 +11,6 @@ subprojects {
         compileSdkVersion ext.androidCompileVersion
         buildToolsVersion ext.buildToolsVersion
 
-        compileOptions {
-            targetCompatibility JavaVersion.VERSION_11
-        }
-
         defaultConfig {
             minSdkVersion ext.minSDKVersion
             targetSdkVersion ext.targetSDKVersion
