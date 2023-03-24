@@ -12,7 +12,6 @@ subprojects {
         buildToolsVersion ext.buildToolsVersion
 
         compileOptions {
-            sourceCompatibility JavaVersion.VERSION_20
             targetCompatibility JavaVersion.VERSION_11
         }
 
