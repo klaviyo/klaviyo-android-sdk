@@ -8,10 +8,10 @@
 ## DISCLAIMER
 
 *This project is in a closed beta,
-breaking changes could still being made to the API.
+breaking changes could still be made to the API.
 This is not yet intended for public use*
 
-Android SDK allows developers to incorporate Klaviyo event and profile tracking functionality
+The Klaviyo Android SDK allows developers to incorporate Klaviyo event and profile tracking functionality
 within native Android applications.
 The SDK assists in identifying users and tracking user events.
 Once integrated, your marketing team will be able to better understand your app users' needs and
@@ -120,15 +120,15 @@ to clear the currently tracked profile identifiers (e.g. on logout),
 or use `Klaviyo.setProfile(profile)` to overwrite it with a new profile object.
 
 ```kotlin
-//Start a profile for Kermit
+// Start a profile for Kermit
 Klaviyo.setEmail("kermit@example.com")
     .setPhoneNumber("+12223334444")
     .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
 
-//Stop tracking Kermit
+// Stop tracking Kermit
 Klaviyo.resetProfile()
 
-//Start new profile for Robin with new IDs
+// Start a new profile for Robin
 Klaviyo.setEmail("robin@example.com")
     .setPhoneNumber("+5556667777")
     .setProfileAttribute(ProfileKey.FIRST_NAME, "Robin")
@@ -137,8 +137,8 @@ Klaviyo.setEmail("robin@example.com")
 ### Tracking Events
 
 The SDK also provides tools for tracking analytics events to the Klaviyo API.
-A list of common Klaviyo-defined event names is provided in `EventType`, or
-you can use `EventType.CUSTOM("name")`for custom event names.
+A list of common Klaviyo-defined event names is provided in [EventType](https://klaviyo.github.io/klaviyo-android-sdk/sdk/analytics/com.klaviyo.analytics.model/-event-type/), or
+you can use `EventType.CUSTOM("name")` for custom event names.
 Additional event properties can be specified as part of `EventModel`
 
 ```kotlin
@@ -162,12 +162,11 @@ Klaviyo.createEvent(event)
 The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService` so the
 setup process is very similar to the Firebase client documentation linked above.
 You should follow all other setup recommendations from the FCM documentation.
-Register `KlaviyoPushService` to receive MESSAGING_EVENT intents. This allows Klaviyo's Push SDK
+Register `KlaviyoPushService` to receive `MESSAGING_EVENT` intents. This allows Klaviyo's Push SDK
 to receive new and updated push tokens via the `onNewToken` method,
 as well as display notifications via the `onMessageReceived` method.
 
 ```xml
-
 <service android:name="com.klaviyo.pushFcm.KlaviyoPushService" android:exported="false">
     <intent-filter>
         <action android:name="com.google.firebase.MESSAGING_EVENT" />
@@ -180,12 +179,12 @@ and register it with Klaviyo SDK. To track notifications opened from the system 
 (i.e. received while the app is backgrounded) pass the `Intent` to KlaviyoPushService.
 
 ```kotlin
-    override fun onCreate(savedInstanceState: Bundle?) {
+override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
-    //Fetches the current push token and registers with Push SDK
-    FirebaseMessaging.getInstance().token.addOnSuccessListener {
-        Klaviyo.setPushToken(it)
+    // Fetches the current push token and registers with Push SDK
+    FirebaseMessaging.getInstance().token.addOnSuccessListener { pushToken ->
+        Klaviyo.setPushToken(pushToken)
     }
 
     onNewIntent(intent)
@@ -194,7 +193,7 @@ and register it with Klaviyo SDK. To track notifications opened from the system 
 override fun onNewIntent(intent: Intent?) {
     super.onNewIntent(intent)
 
-    //Tracks when a system tray notification is opened
+    // Tracks when a system tray notification is opened
     Klaviyo.handlePush(intent)
 }
 ```
@@ -203,7 +202,6 @@ To specify a notification icon, add the following metadata to your app manifest.
 Absent this, the application's launcher icon will be used.
 
 ```xml
-
 <meta-data android:name="com.klaviyo.push.default_notification_icon"
     android:resource="{YOUR_ICON_RESOURCE}" />
 ```
@@ -218,7 +216,7 @@ methods in your service.
 
 **Note** Klaviyo
 uses [`data` messages](https://firebase.google.com/docs/cloud-messaging/android/receive)
-in order to provide consistent notification formatting. As a result, all Klaviyo notifications are
+to provide consistent notification formatting. As a result, all Klaviyo notifications are
 handled via `onMessageReceived` regardless of the app being in the background or foreground.
 If you are working with multiple remote sources, you can check whether a message originated
 from Klaviyo with the extension method `RemoteMessage.isKlaviyoNotification`.
@@ -231,12 +229,12 @@ import com.klaviyo.pushFcm.KlaviyoPushService
 
 class YourPushService : KlaviyoPushService() {
     override fun onNewToken(newToken: String) {
-        //Invoking the super method will ensure Klaviyo SDK gets the new token
+        // Invoking the super method will ensure Klaviyo SDK gets the new token
         super.onNewToken(newToken)
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        //Invoking the super method allows Klaviyo SDK to handle Klaviyo messages
+        // Invoking the super method allows Klaviyo SDK to handle Klaviyo messages
         super.onMessageReceived(message)
     }
 }
@@ -261,9 +259,9 @@ open class YourPushService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
 
-        //This extension method allows you to distinguish Klaviyo from other sources
+        // This extension method allows you to distinguish Klaviyo from other sources
         if (message.isKlaviyoNotification) {
-            //Note: As a safeguard this method also checks the origin of the message,
+            // Note: As a safeguard, this method also checks the origin of the message,
             // and will only create a notification if the message originated from Klaviyo
             KlaviyoNotification(message).displayNotification(this)
         }
@@ -274,11 +272,11 @@ open class YourPushService : FirebaseMessagingService() {
 **A note on push tokens and multiple profiles:** Klaviyo SDK will disassociate the device push token
 from the current profile whenever it is reset by calling `setProfile` or `resetProfile`.
 You should call `setPushToken` again after resetting the currently tracked profile
-to explicitly to associate the device token to the new profile.
+to explicitly associate the device token to the new profile.
 
 ### Deep linking in push notification 
 
-In order to set up a push notification to deep link into your apps, there are broadly three steps - 
+To set up a push notification to deep link into your apps, there are broadly three steps - 
 1. Add intent filters for incoming links. 
 2. Read the data from the incoming links and route to the appropriate views.
 3. Test your deep links.
@@ -286,22 +284,22 @@ In order to set up a push notification to deep link into your apps, there are br
 #### Step 1: Add intent filters for incoming links
 
 1. Add the below XML into your `AndroidManifest.xml` 
-2. Replace the scheme to match your app's scheme. Essentially, you would replace example with 
+2. Replace the scheme to match your app's scheme. Essentially, you would replace "example" with 
    whatever scheme you want your app to use. We recommend this be unique to your app.
 
 ```xml
-    <intent-filter android:label="@string/filter_view_example_gizmos">
-        <action android:name="android.intent.action.VIEW" />
-        <category android:name="android.intent.category.DEFAULT" />
-        <category android:name="android.intent.category.BROWSABLE" />
-        <!-- Accepts URIs that begin with "example://host.com” -->
-        <data android:scheme="example" android:host="host.com"/>
-    </intent-filter>
+<intent-filter android:label="@string/filter_view_example_gizmos">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <!-- Accepts URIs that begin with "example://host.com” -->
+    <data android:scheme="example" android:host="host.com"/>
+</intent-filter>
 ```
 
 #### Step 2: Read the data from the incoming links and route to the appropriate views
 
-Once you have the intent filters setup in step 1, now you can read the deep link and 
+Now that you have the intent filters set up in Step 1, you can read the deep link and 
 route it to the appropriate views. Here's a code sample on how you'd do it.
 
 ```kotlin
@@ -321,13 +319,13 @@ override fun onCreate(savedInstanceState: Bundle?) {
 * Once you have `adb` installed you can run the below command to test the deep link 
 
 ```shell
-$ adb shell am start
+adb shell am start
         -W -a android.intent.action.VIEW
         -d <URI> <PACKAGE>
 ```
 
-Finally, in order to perform integration testing you can send push notifications from 
-Klaviyo's Push editor within the Klaviyo website. Here you can build and send a push notification
+Finally, to perform integration testing you can send push notifications from 
+Klaviyo's Push editor within the [Klaviyo website](https://www.klaviyo.com/). Here you can build and send a push notification
 through Klaviyo to make sure that the URI shows up in the handler you implemented in Step 2.
 
 For more in-depth information on deep linking,
@@ -337,4 +335,4 @@ refer to [android developer documentation](https://developer.android.com/trainin
 ## Code Documentation
 
 Browse complete code documentation autogenerated with
-dokka [here](https://klaviyo.github.io/klaviyo-android-sdk/)
+Dokka [here](https://klaviyo.github.io/klaviyo-android-sdk/)
