@@ -35,11 +35,27 @@ allprojects {
     }
 }
 
+dependencies {
+    dokkaHtmlMultiModulePlugin "org.jetbrains.dokka:versioning-plugin:${dokkaVersion}"
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
 dokkaHtmlMultiModule {
-    outputDirectory = file("${buildDir}/../docs")
+    def docs = "${buildDir}/../docs"
+    outputDirectory = file("${docs}/${versionName}")
     includes.from("README.md")
+
+    String versioningConfiguration = """
+        {
+          "version": "${versionName}",
+          "olderVersionsDir": "${docs}"
+        }
+        """
+
+    pluginsMapConfiguration.set(
+        ["org.jetbrains.dokka.versioning.VersioningPlugin": versioningConfiguration]
+    )
 }
