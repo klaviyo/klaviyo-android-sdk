@@ -8,11 +8,11 @@
 * [ ] Other (fill in...)
 
 ## Short Description
-<!-- Feature / Problem overview -->
+<!-- Describe the feature or bug that your pull request addresses -->
 
 
 ## Changelog / Code Overview
-<!-- What was changed / added / removed and why. If you changed the frontend please include screenshots -->
+<!-- What was changed / added / removed and why -->
 
 
 ## Test Plan
@@ -20,9 +20,9 @@
 
 
 ## What to look for
-<!-- Call out what each team/reviewer should look for and a rough time estimate. -->
+<!-- Call out what reviewers should look for -->
 
 
 ## Related Issues/Tickets
-<!-- Any relevant links to TP / Sentry / RFC -->
+<!-- Link to relevant issues or discussion -->
 
