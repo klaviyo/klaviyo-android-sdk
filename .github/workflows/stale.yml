@@ -1,5 +1,7 @@
 # This workflow warns and then closes issues and PRs that have had no activity for a specified amount of time.
 #
+# It should run at 9am EST (if I did the UTC date math right)
+#
 # You can adjust the behavior by modifying this file.
 # For more information, see:
 # https://github.com/actions/stale
@@ -21,9 +23,7 @@ jobs:
     - uses: actions/stale@v5
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-        stale-issue-message: 'This issue has been inactive for 60 days, and will be closed after 7 days of inactivity.'
-        stale-pr-message: 'This pull request has been inactive for 60 days, and will be closed after 7 days of inactivity.'
-
+        stale-issue-message: 'This issue has been inactive for 60 days, and will be closed after 7 additional days of inactivity.'
+        stale-pr-message: 'This pull request has been inactive for 60 days, and will be closed after 7 additional days of inactivity.'
         close-issue-message: 'This issue has been closed due to inactivity.'
         close-pr-message: 'This pull request has been closed due to inactivity.'
-        
