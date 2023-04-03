@@ -1,11 +1,14 @@
 ---
 name: Issue Report
-about: Create a report to help us improve
+about: Report an issue to help us improve
+title: "[BUG]"
+labels: bug
+assignees: ''
 
 ---
 
 **Issue Overview**
-<!-- Brief overview of the issue -->
+<!-- Brief overview of the issue, please include relevant logs or screenshots if possible -->
 
 **Expected behavior**
 <!-- A clear and concise description of what you expected to happen. -->
