@@ -35,19 +35,19 @@ If a related issue doesn't exist, you can open a new issue using a relevant [iss
 If you want to recommend a code fix for an existing issue, you are welcome to open a PR with a fix.
 
 1. Fork the repository and clone to your machine, open in Android Studio 
-2. Once the project has synced, run `./gradlew addKtlintFormatGitPreCommitHook` to install our
+1. Once the project has synced, run `./gradlew addKtlintFormatGitPreCommitHook` to install our
    pre-commit code formatting rules. 
-3. We recommend selecting the `productionDebug` build variant to make use of our debug logging.
-4. Make your changes to the SDK. While we encourage test-driven development, we will not require 
+1. We recommend selecting the `productionDebug` build variant to make use of our debug logging.
+1. Make your changes to the SDK. While we encourage test-driven development, we will not require 
    unit tests to submit a PR. That said, tests are an easy way to verify your changes as you go. 
    We have a very high coverage rate, so there are plenty of examples to follow.
-5. We also encourage you to test your changes against your own app. First, add [mavenLocal](https://docs.gradle.org/current/userguide/declaring_repositories.html#sec:case-for-maven-local) 
+1. We also encourage you to test your changes against your own app. First, add [mavenLocal](https://docs.gradle.org/current/userguide/declaring_repositories.html#sec:case-for-maven-local) 
    as the first repository in your gradle file. Then run the following command to compile a local copy 
    of the SDK for your app to consume. *Remember to remove `mavenLocal` when you're finished.*
    ```
    .gradlew publishToMavenLocal
    ``` 
-7. Commit the changes once you are happy with them, please include a detailed commit message. 
+1. Commit the changes once you are happy with them, please include a detailed commit message. 
 
 ### Pull Request
 
