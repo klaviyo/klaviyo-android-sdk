@@ -7,12 +7,9 @@ body:
       value: |
         Thank you for contributing to the Klaviyo Android SDK!
         
-        Before you submit your issue, please complete each text area below with the relevant details
-        for your bug, and complete the steps in the checklist.
+        Before you submit your issue, please complete each text area below with the relevant details for your bug, and complete the steps in the checklist.
         
-        We welcome your input! If you have any code suggestions regarding your issue, feel free to 
-        [submit a pull request](https://github.com/klaviyo/klaviyo-android-sdk/pulls) 
-        in addition to creating an issue.
+        We welcome your input! If you have any code suggestions regarding your issue, feel free to [submit a pull request](https://github.com/klaviyo/klaviyo-android-sdk/pulls) after creating an issue.
   - type: textarea
     attributes:
       label: Description
@@ -20,9 +17,7 @@ body:
       description: |
         A short description of the incorrect behavior.
         
-        If you think this issue has been recently introduced and did not occur in an earlier 
-        version, please note that. If possible, include the last version that the behavior was 
-        correct in addition to your current version.
+        If you think this issue has been recently introduced and did not occur in an earlier version, please note that. If possible, include the last version that the behavior was correct in addition to your current version.
     validations:
       required: true
   - type: checkboxes
