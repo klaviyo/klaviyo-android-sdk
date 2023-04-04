@@ -1,26 +1,21 @@
-# Purpose
+# Description
+<!-- Briefly describe the feature or bug that your pull request addresses -->
 
-**Type of PR**
-* [ ] Bug Fix
-* [ ] Feature Work
-* [ ] Revert
-* [ ] Refactor / Code Cleanup
-* [ ] Other (fill in...)
+# Check List
 
-## Short Description
-<!-- Describe the feature or bug that your pull request addresses -->
+- [ ] Are you changing anything with the public API?
+- [ ] Are your changes backwards compatible with previous SDK Versions?
+- [ ] Have you tested this change on real device?
+- [ ] Have you added unit test coverage for your changes?
+- [ ] Have you verified that your changes are compatible with all Android versions the SDK currently supports?
 
 
 ## Changelog / Code Overview
-<!-- What was changed / added / removed and why -->
+<!-- What was changed / added / removed and why. Attach screenshots or other supporting materials -->
 
 
 ## Test Plan
 <!-- How was this code tested / How should reviewers test it? -->
-
-
-## What to look for
-<!-- Call out what reviewers should look for -->
 
 
 ## Related Issues/Tickets
