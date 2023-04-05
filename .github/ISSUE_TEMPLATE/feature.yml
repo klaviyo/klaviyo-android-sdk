@@ -9,9 +9,7 @@ body:
         
         Before you submit your issue, please complete each text area below with as much detail as you can.
         
-        We welcome your input! If you have any code suggestions regarding your issue, feel free to 
-        [submit a pull request](https://github.com/klaviyo/klaviyo-android-sdk/pulls) 
-        in addition to creating an issue.
+        We welcome your input! If you have any code suggestions regarding your issue, feel free to [submit a pull request](https://github.com/klaviyo/klaviyo-android-sdk/pulls) after creating an issue.
   - type: textarea
     attributes:
       label: Description
