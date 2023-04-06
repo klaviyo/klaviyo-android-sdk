@@ -64,6 +64,7 @@ class AccountInfoViewModel(
     fun setApiKey() {
         Registry.log.info(viewModel.accountId.value)
         Registry.configBuilder.apiKey(viewModel.accountId.value)
+        Klaviyo.initialize(viewModel.accountId.value, applicationContext = context.applicationContext)
     }
 
     fun create() {

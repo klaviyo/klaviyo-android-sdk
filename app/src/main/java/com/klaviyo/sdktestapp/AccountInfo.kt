@@ -1,6 +1,7 @@
 package com.klaviyo.sdktestapp
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,8 +12,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.Text
+import androidx.compose.material.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Start
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -86,7 +90,16 @@ fun AccountInfo(
                             )
                         }
                     },
-                    modifier = Modifier.weight(1f, fill = true)
+                    modifier = Modifier.weight(1f, fill = true),
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Outlined.Start,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .clickable { setApiKey() }
+                                .padding(16.dp)
+                        )
+                    }
                 )
             }
             Row(
@@ -163,7 +176,6 @@ fun AccountInfo(
                     elevation = ButtonDefaults.elevation(0.dp),
                     shape = CircleShape,
                     onClick = {
-                        setApiKey()
                         onCreate()
                     },
                     enabled = viewModel.viewModel.accountId.value.length == 6
