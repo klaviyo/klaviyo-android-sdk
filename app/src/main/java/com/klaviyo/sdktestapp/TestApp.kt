@@ -1,20 +1,23 @@
 package com.klaviyo.sdktestapp
 
 import android.app.Application
-import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.sdktestapp.services.CompanyService
 
 class TestApp : Application() {
+
+    /**
+     * Public reference to companyService this so it can be accessed from Activities
+     * Storing Context in a static var is a memory leak, so this is the better option
+     */
+    lateinit var companyService: CompanyService
+        private set
+
     override fun onCreate() {
         super.onCreate()
 
-        // TODO: Fetch this from the SDK's data store, attempting to remember last session instead of falling back to default?
-        Klaviyo.initialize(BuildConfig.KLAVIYO_COMPANY_ID, applicationContext)
-
-        // Fetches the current push token and registers with Push SDK
-        FirebaseMessaging.getInstance().token.addOnSuccessListener {
-            Klaviyo.setPushToken(it)
-        }
+        // Company service initializes Klaviyo SDK, manages persistent company ID across sessions
+        companyService = CompanyService(applicationContext)
 
         registerActivityLifecycleCallbacks(Klaviyo.lifecycleCallbacks)
     }

@@ -45,9 +45,12 @@ class TestSDKActivity : ComponentActivity() {
             }
         }
 
-    private val navigationViewModel = NavigationViewModel(NavigationState(TabIndex.Profile, ""))
+    private val navigationViewModel = NavigationViewModel()
+
     private val accountInfoViewModel: AccountInfoViewModel = AccountInfoViewModel(this)
+
     private val eventsViewModel = EventsViewModel(this)
+
     private val pushSettingsViewModel: PushSettingsViewModel =
         PushSettingsViewModel(this, pushNotificationContract)
 
@@ -66,12 +69,6 @@ class TestSDKActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        pushSettingsViewModel.refreshViewModel()
-        accountInfoViewModel.refreshViewModel()
-    }
-
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
 
@@ -84,7 +81,7 @@ class TestSDKActivity : ComponentActivity() {
                 "settings" -> index = 2
             }
 
-            navigationViewModel.navigateToTab(index)
+            navigationViewModel.navigateTo(TabIndex.fromIndex(index))
         }
 
         Klaviyo.handlePush(intent)
@@ -122,8 +119,11 @@ fun MainScreen(
             topBar = { TopBar(navigationViewModel.navState) },
             floatingActionButton = { ActionButton(navigationViewModel.navState.floatingAction) },
             bottomBar = {
-                BottomBar(navigationViewModel.tabRowItems, navigationViewModel.navState.tab.index) { index ->
-                    navigationViewModel.navigateToTab(index)
+                BottomBar(
+                    navigationViewModel.tabRowItems,
+                    navigationViewModel.navState.tab.index
+                ) { index ->
+                    navigationViewModel.navigateTo(TabIndex.fromIndex(index))
                 }
             },
         ) { padding ->
@@ -134,7 +134,7 @@ fun MainScreen(
             ) {
                 when (navigationViewModel.navState.tab) {
                     TabIndex.Profile -> AccountInfo(
-                        viewModel = accountInfoViewModel,
+                        viewState = accountInfoViewModel.viewState,
                         setApiKey = accountInfoViewModel::setApiKey,
                         onCreate = accountInfoViewModel::create,
                         onClear = accountInfoViewModel::reset,
@@ -150,12 +150,12 @@ fun MainScreen(
                         onNavigate = navigationViewModel::onNavigate
                     )
                     TabIndex.Settings -> PushSettings(
-                        isPushEnabled = pushSettingsViewModel.viewModel.isPushEnabled,
-                        pushToken = pushSettingsViewModel.viewModel.pushToken,
+                        viewState = pushSettingsViewModel.viewState,
                         onCopyPushToken = pushSettingsViewModel::copyPushToken,
                         onOpenNotificationSettings = pushSettingsViewModel::openSettings,
                         onRequestedPushNotification = pushSettingsViewModel::requestPushNotifications,
-                        onSendLocalNotification = pushSettingsViewModel::sendLocalNotification
+                        onRequestPushToken = pushSettingsViewModel::setSdkPushToken,
+                        onSendLocalNotification = pushSettingsViewModel::sendLocalNotification,
                     )
                 }
             }

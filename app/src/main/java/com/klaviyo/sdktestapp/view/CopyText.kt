@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
@@ -67,9 +68,19 @@ fun CopyText(
                 end.linkTo(parent.end)
             },
         ) {
-            Text(
-                text = copyButtonLabel,
-            )
+            Text(text = copyButtonLabel)
         }
     }
+}
+
+@Preview
+@Composable
+private fun PreviewCopyText() {
+    CopyText("Sample copy string", "Default Value", "PreviewCopyText")
+}
+
+@Preview
+@Composable
+private fun PreviewEmptyCopyText() {
+    CopyText("", "Default Value", "PreviewEmptyCopyText")
 }

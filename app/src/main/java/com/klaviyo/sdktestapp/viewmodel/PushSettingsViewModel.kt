@@ -18,9 +18,13 @@ import androidx.compose.runtime.setValue
 import androidx.core.app.ActivityCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.model.EventKey
+import com.klaviyo.core.Registry
+import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.pushFcm.KlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 import com.klaviyo.sdktestapp.services.Clipboard
+import com.klaviyo.sdktestapp.services.PushService
 
 @SuppressLint("InlinedApi") // Safe to use the keyword. ActivityCompat handles API level differences
 class PushSettingsViewModel(
@@ -28,20 +32,38 @@ class PushSettingsViewModel(
     private val pushNotificationContract: ActivityResultLauncher<String>,
 ) {
 
-    data class ViewModel(
-        val isPushEnabled: Boolean,
+    data class ViewState(
+        val isNotificationPermitted: Boolean,
         val pushToken: String,
     )
 
-    var viewModel by mutableStateOf(
-        ViewModel(
-            isPushEnabled = false,
+    var viewState by mutableStateOf(
+        ViewState(
+            isNotificationPermitted = false,
             pushToken = "",
         )
     )
         private set
 
-    private fun isPushEnabled(): Boolean = ActivityCompat.checkSelfPermission(
+    init {
+        Registry.dataStore.onStoreChange { key, _ ->
+            // Observe SDK data store for changes to the push token key
+            if (key == EventKey.PUSH_TOKEN.name) refreshViewModel()
+        }
+
+        Registry.lifecycleMonitor.onActivityEvent {
+            // On application resume, re-check permission state
+            if (it is ActivityEvent.Resumed) refreshViewModel()
+        }
+    }
+
+    /**
+     * Check if we have user's permission to post notifications
+     * NOTE: Not the same as whether we have a push token
+     *
+     * @return
+     */
+    private fun isNotificationPermissionGranted(): Boolean = ActivityCompat.checkSelfPermission(
         context,
         Manifest.permission.POST_NOTIFICATIONS
     ) == PackageManager.PERMISSION_GRANTED
@@ -51,11 +73,13 @@ class PushSettingsViewModel(
     }
 
     fun refreshViewModel() {
-        viewModel = ViewModel(
-            isPushEnabled = isPushEnabled(),
+        viewState = ViewState(
+            isNotificationPermitted = isNotificationPermissionGranted(),
             pushToken = getPushToken(),
         )
     }
+
+    fun setSdkPushToken() = PushService.setSdkPushToken()
 
     fun sendLocalNotification() {
         val localMessage = RemoteMessage(
@@ -75,7 +99,7 @@ class PushSettingsViewModel(
     fun requestPushNotifications() {
         // https://klaviyo.atlassian.net/wiki/spaces/EN/pages/3675848705/Android+Notification+Permission
         when {
-            isPushEnabled() -> {
+            isNotificationPermissionGranted() -> {
                 // GRANTED - We have notification permission
                 // Safeguard: this method shouldn't be called from the UI if push is already enabled
                 return
@@ -123,12 +147,16 @@ class PushSettingsViewModel(
     }
 
     fun openSettings() {
-        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", context.packageName, null)
+        )
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+
         context.startActivity(intent)
     }
 
     fun copyPushToken() {
-        Clipboard(context).logAndCopy("Push Token", viewModel.pushToken)
+        Clipboard(context).logAndCopy("Push Token", viewState.pushToken)
     }
 }

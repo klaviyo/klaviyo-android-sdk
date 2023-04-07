@@ -3,6 +3,7 @@ package com.klaviyo.sdktestapp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,36 +29,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.klaviyo.sdktestapp.view.CopyText
-
-@Preview(group = "CopyText")
-@Composable
-private fun EmptyPushToken() {
-    CopyText(
-        value = "",
-        defaultValue = "No Push Token",
-        label = "Push Token"
-    )
-}
-
-@Preview(group = "CopyText")
-@Composable
-private fun HasPushToken() {
-    CopyText(
-        value = "onac784y5oa9283n569a285c6pa9283cwa9v38v5nap93w86v5p",
-        label = "Push Token"
-    )
-}
+import com.klaviyo.sdktestapp.viewmodel.PushSettingsViewModel
 
 @Composable
 fun PushSettings(
-    isPushEnabled: Boolean = false,
-    pushToken: String = "",
+    viewState: PushSettingsViewModel.ViewState,
     onRequestedPushNotification: () -> Unit = {},
     onOpenNotificationSettings: () -> Unit = {},
     onCopyPushToken: () -> Unit = {},
+    onRequestPushToken: () -> Unit = {},
     onSendLocalNotification: () -> Unit = {},
 ) {
+    val isPushEnabled = viewState.isNotificationPermitted
+    val pushToken = viewState.pushToken
     val interactionSource = remember { MutableInteractionSource() }
+
     Box {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -111,33 +97,40 @@ fun PushSettings(
             Spacer(modifier = Modifier.height(12.dp))
             CopyText(
                 value = pushToken,
-                defaultValue = "No Push Token",
+                defaultValue = "No Push Token on Profile",
                 label = "Push Token",
                 onTextCopied = onCopyPushToken,
             )
             Spacer(modifier = Modifier.height(12.dp))
             Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .background(MaterialTheme.colors.surface)
-                    .clickable(
-                        onClick = onOpenNotificationSettings,
-                        enabled = true,
-                        interactionSource = interactionSource,
-                        indication = rememberRipple(bounded = true),
-                    )
                     .fillMaxWidth()
                     .padding(16.dp),
             ) {
                 Button(
                     enabled = true,
+                    onClick = onRequestPushToken,
+                    elevation = ButtonDefaults.elevation(0.dp),
+                    shape = CircleShape,
+                    modifier = Modifier.weight(1f).padding(end = 4.dp)
+                ) {
+                    Text(
+                        text = "Set SDK Token",
+                    )
+                }
+
+                Button(
+                    enabled = isPushEnabled,
                     onClick = onSendLocalNotification,
                     elevation = ButtonDefaults.elevation(0.dp),
                     shape = CircleShape,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.weight(1f).padding(start = 4.dp)
                 ) {
                     Text(
-                        text = "Trigger Local Notification",
+                        text = "Create Notification",
                     )
                 }
             }
@@ -149,8 +142,10 @@ fun PushSettings(
 @Composable
 private fun DisabledPushSettings() {
     PushSettings(
-        isPushEnabled = false,
-        pushToken = "alkj4h2to9s87rglknaucy490w37tnv0w3857cscwo87n5syos857nycoyoli3yhsj",
+        PushSettingsViewModel.ViewState(
+            isNotificationPermitted = false,
+            pushToken = "alkj4h2to9s87rglknaucy490w37tnv0w3857cscwo87n5syos857nycoyoli3yhsj",
+        )
     )
 }
 
@@ -158,7 +153,9 @@ private fun DisabledPushSettings() {
 @Composable
 private fun EnabledPushSettings() {
     PushSettings(
-        isPushEnabled = true,
-        pushToken = "alkj4h2to9s87rglknaucy490w37tnv0w3857cscwo87n5syos857nycoyoli3yhsj",
+        PushSettingsViewModel.ViewState(
+            isNotificationPermitted = true,
+            pushToken = "alkj4h2to9s87rglknaucy490w37tnv0w3857cscwo87n5syos857nycoyoli3yhsj",
+        )
     )
 }

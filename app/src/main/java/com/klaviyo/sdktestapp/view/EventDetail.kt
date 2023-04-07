@@ -46,7 +46,8 @@ fun EventDetail(
             EventDetailItem(title = "Host", body = event.host)
             EventDetailItem(title = "Endpoint", body = event.endpoint)
             EventDetailItem(title = "HTTP Method", body = event.httpMethod)
-            EventDetailItem(title = "Timestamp", body = event.startTime.toString())
+            EventDetailItem(title = "Queued Time", body = event.queuedTime.toString())
+            EventDetailItem(title = "Request Time", body = event.startTime?.toString() ?: "Unsent")
             EventDetailItem(title = "Headers", body = event.formattedHeaders)
             EventDetailItem(title = "Body", body = event.formattedBody)
         }
@@ -56,7 +57,7 @@ fun EventDetail(
                 val seconds = duration.toDouble() / 1000
 
                 EventDetailItem(title = "Status code", body = event.responseCode.toString())
-                EventDetailItem(title = "Timestamp", body = event.endTime.toString())
+                EventDetailItem(title = "Response Time", body = event.endTime.toString())
                 EventDetailItem(title = "Duration", body = "${seconds}s")
 
                 if (!event.response.isNullOrEmpty()) {

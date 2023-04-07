@@ -10,7 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
 
-class NavigationViewModel(firstState: NavigationState) {
+class NavigationViewModel {
 
     val tabRowItems = listOf(
         TabRowItem(
@@ -30,21 +30,14 @@ class NavigationViewModel(firstState: NavigationState) {
         )
     )
 
-    var navState by mutableStateOf(firstState)
+    var navState: NavigationState by mutableStateOf(tabRowItems.first().getNavState())
+        private set
 
     fun onNavigate(newNavigationState: NavigationState) {
         navState = newNavigationState
     }
 
-    fun navigateToTab(index: Int) {
-        val tab = tabRowItems[index]
-        onNavigate(
-            NavigationState(
-                tab = tab.tab,
-                title = tab.title,
-            )
-        )
-    }
+    fun navigateTo(tab: TabIndex) = onNavigate(tabRowItems[tab.index].getNavState())
 }
 
 enum class TabIndex(val index: Int) {
@@ -67,7 +60,12 @@ data class TabRowItem(
     val tab: TabIndex,
     val title: String,
     val imageVector: () -> ImageVector,
-)
+) {
+    fun getNavState(): NavigationState = NavigationState(
+        tab = tab,
+        title = title,
+    )
+}
 
 /**
  * Represents overall navigation state, consumed by scaffold

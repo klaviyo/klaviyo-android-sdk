@@ -37,7 +37,6 @@ android {
             debuggable = true
             signingConfig signingConfigs.debug
             buildConfigField "String", "KLAVIYO_COMPANY_ID", localProperties['companyId'] ?: '"9BX3wh"'
-            buildConfigField "String", "DEFAULT_EMAIL", localProperties['defaultEmail'] ?: '"sdktest@test.com"'
         }
     }
     compileOptions {
