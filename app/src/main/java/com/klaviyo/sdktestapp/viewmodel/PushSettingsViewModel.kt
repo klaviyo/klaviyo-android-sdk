@@ -96,6 +96,11 @@ class PushSettingsViewModel(
         KlaviyoNotification(localMessage).displayNotification(context)
     }
 
+    fun imGonnaWreckIt() {
+        // Force a crash for crashlytics
+        throw RuntimeException("Test Crash")
+    }
+
     fun requestPushNotifications() {
         // https://klaviyo.atlassian.net/wiki/spaces/EN/pages/3675848705/Android+Notification+Permission
         when {
