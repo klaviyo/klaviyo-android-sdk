@@ -1,5 +1,6 @@
 package com.klaviyo.sdktestapp.viewmodel
 
+import android.os.Bundle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.outlined.AccountCircle
@@ -9,6 +10,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.ktx.Firebase
 
 class NavigationViewModel {
 
@@ -37,7 +40,10 @@ class NavigationViewModel {
         navState = newNavigationState
     }
 
-    fun navigateTo(tab: TabIndex) = onNavigate(tabRowItems[tab.index].getNavState())
+    fun navigateTo(tab: TabIndex) {
+        Firebase.analytics.logEvent("navigate", Bundle().apply { putString("tab", tab.name) })
+        onNavigate(tabRowItems[tab.index].getNavState())
+    }
 }
 
 enum class TabIndex(val index: Int) {
