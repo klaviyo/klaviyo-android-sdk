@@ -164,7 +164,7 @@ fun AccountInfo(
             }
             FormRow {
                 CopyText(
-                    value = viewState.anonymousId,
+                    value = viewState.anonymousId.value,
                     defaultValue = "No Anonymous ID",
                     label = "Anonymous ID",
                     onTextCopied = onCopyAnonymousId,
@@ -189,7 +189,7 @@ fun AccountInfo(
                     enabled = viewState.externalId.value.isNotEmpty() ||
                         viewState.email.value.isNotEmpty() ||
                         viewState.phoneNumber.value.isNotEmpty() ||
-                        viewState.anonymousId.isNotEmpty(),
+                        viewState.anonymousId.value.isNotEmpty(),
                 ) {
                     Text(text = "Reset Profile")
                 }
@@ -220,7 +220,7 @@ private fun FilledAccountInfo() {
     viewModel.viewState.externalId.value = "1234567890"
     viewModel.viewState.email.value = "test@test.com"
     viewModel.viewState.phoneNumber.value = "+155512345678"
-    viewModel.viewState.anonymousId = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"
+    viewModel.viewState.anonymousId.value = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"
     AccountInfo(viewModel.viewState)
 }
 
@@ -233,7 +233,7 @@ private fun AccountInfoNoAccountId() {
     viewModel.viewState.externalId.value = "1234567890"
     viewModel.viewState.email.value = "test@test.com"
     viewModel.viewState.phoneNumber.value = "+155512345678"
-    viewModel.viewState.anonymousId = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"
+    viewModel.viewState.anonymousId.value = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"
     AccountInfo(viewModel.viewState)
 }
 
@@ -246,7 +246,7 @@ private fun AccountInfoDisabledClearButton() {
     viewModel.viewState.externalId.value = ""
     viewModel.viewState.email.value = ""
     viewModel.viewState.phoneNumber.value = ""
-    viewModel.viewState.anonymousId = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"
+    viewModel.viewState.anonymousId.value = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"
     AccountInfo(viewModel.viewState)
 }
 
@@ -259,6 +259,6 @@ private fun AccountInfoInvalidAccountId() {
     viewModel.viewState.externalId.value = "1234567890"
     viewModel.viewState.email.value = "test@test.com"
     viewModel.viewState.phoneNumber.value = "+155512345678"
-    viewModel.viewState.anonymousId = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"
+    viewModel.viewState.anonymousId.value = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"
     AccountInfo(viewModel.viewState)
 }

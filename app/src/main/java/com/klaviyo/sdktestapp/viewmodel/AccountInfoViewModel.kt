@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.core.Registry
 import com.klaviyo.sdktestapp.TestApp
 import com.klaviyo.sdktestapp.services.Clipboard
@@ -23,43 +24,27 @@ class AccountInfoViewModel(private val context: Context) {
         var externalId: MutableState<String>,
         var email: MutableState<String>,
         var phoneNumber: MutableState<String>,
-        var anonymousId: String,
+        var anonymousId: MutableState<String>,
     )
 
-    var viewState by mutableStateOf(
-        ViewState(
-            accountId = mutableStateOf(accountId),
-            externalId = mutableStateOf(externalId),
-            email = mutableStateOf(email),
-            phoneNumber = mutableStateOf(phoneNumber),
-            anonymousId = anonymousId
-        )
+    val viewState = ViewState(
+        accountId = mutableStateOf(Registry.config.apiKey),
+        externalId = mutableStateOf(Klaviyo.getExternalId() ?: ""),
+        email = mutableStateOf(Klaviyo.getEmail() ?: ""),
+        phoneNumber = mutableStateOf(Klaviyo.getPhoneNumber() ?: ""),
+        anonymousId = mutableStateOf(Registry.dataStore.fetch(ANON_KEY) ?: "")
     )
-        private set
-
-    private val accountId: String get() = Registry.config.apiKey
-
-    private val externalId: String get() = Klaviyo.getExternalId() ?: ""
-
-    private val email: String get() = Klaviyo.getEmail() ?: ""
-
-    private val phoneNumber: String get() = Klaviyo.getPhoneNumber() ?: ""
-
-    private val anonymousId: String get() = Registry.dataStore.fetch(ANON_KEY) ?: ""
 
     init {
-        // Anonymous ID is generated internally, so we can just observe for it being set
-        Registry.dataStore.onStoreChange { key, _ -> if (key == ANON_KEY) refreshViewModel() }
-    }
-
-    private fun refreshViewModel() {
-        viewState = ViewState(
-            accountId = mutableStateOf(accountId),
-            externalId = mutableStateOf(externalId),
-            email = mutableStateOf(email),
-            phoneNumber = mutableStateOf(phoneNumber),
-            anonymousId = anonymousId,
-        )
+        // Observe persistent store for all identifier changes
+        Registry.dataStore.onStoreChange { key, value ->
+            when (key) {
+                ANON_KEY -> viewState.anonymousId.value = value ?: ""
+                ProfileKey.EXTERNAL_ID.name -> viewState.externalId.value = value ?: ""
+                ProfileKey.EMAIL.name -> viewState.email.value = value ?: ""
+                ProfileKey.PHONE_NUMBER.name -> viewState.phoneNumber.value = value ?: ""
+            }
+        }
     }
 
     fun setApiKey() {
@@ -87,17 +72,14 @@ class AccountInfoViewModel(private val context: Context) {
 
         // Send push token along with the new profile
         PushService.setSdkPushToken()
-
-        refreshViewModel()
     }
 
     fun reset() {
         Registry.log.info("Clear profile identifiers from state")
         Klaviyo.resetProfile()
-        refreshViewModel()
     }
 
     fun copyAnonymousId() {
-        Clipboard(context).logAndCopy("Anonymous ID", viewState.anonymousId)
+        Clipboard(context).logAndCopy("Anonymous ID", viewState.anonymousId.value)
     }
 }
