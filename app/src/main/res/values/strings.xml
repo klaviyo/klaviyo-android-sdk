@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">SDKTestApp</string>
+    <string name="app_name">Klaviyo Push</string>
     <string name="deep_link_handler">DeepLink</string>
 </resources>
