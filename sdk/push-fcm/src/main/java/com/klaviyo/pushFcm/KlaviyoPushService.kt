@@ -3,6 +3,7 @@ package com.klaviyo.pushFcm
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.Registry
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 
 /**
@@ -43,6 +44,8 @@ open class KlaviyoPushService : FirebaseMessagingService() {
 
         if (message.isKlaviyoNotification) {
             KlaviyoNotification(message).displayNotification(this)
+        } else {
+            Registry.log.info("Passing on FCM message from unknown origin")
         }
     }
 }

@@ -84,6 +84,11 @@ object KlaviyoRemoteMessage {
         get() = this.data[KlaviyoNotification.URL_KEY]?.let { Uri.parse(it) }
 
     /**
+     * Parse image url if present
+     */
+    val RemoteMessage.imageUrl: String? get() = this.data[KlaviyoNotification.IMAGE_KEY]
+
+    /**
      * Parse click action (activity or intent filter)
      * Click action could be explicitly sent, or we should use ACTION_VIEW if a deep link is sent
      */
