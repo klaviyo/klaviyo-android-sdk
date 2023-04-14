@@ -1,9 +1,13 @@
 package com.klaviyo.sdktestapp.services
 
+import android.content.Context
+import android.os.Bundle
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.pushFcm.KlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoPushService
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 
 class PushService : KlaviyoPushService() {
 
@@ -15,6 +19,21 @@ class PushService : KlaviyoPushService() {
             FirebaseMessaging.getInstance().token.addOnSuccessListener {
                 Klaviyo.setPushToken(it)
             }
+        }
+
+        fun createLocalNotification(context: Context) {
+            val localMessage = RemoteMessage(
+                Bundle().apply {
+                    putString("_k", "fake tracking param")
+                    putString("title", "Local Notification")
+                    putString("body", "Triggered from app.")
+//                    putString("small_icon", "ic_hand")
+                }
+            )
+
+            localMessage.title
+
+            KlaviyoNotification(localMessage).displayNotification(context)
         }
     }
 

@@ -43,7 +43,7 @@
 
         <meta-data
             android:name="com.klaviyo.push.default_notification_icon"
-            android:resource="@drawable/ic_rocket" />
+            android:resource="@drawable/ic_notification" />
 
     </application>
 
