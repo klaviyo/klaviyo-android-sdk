@@ -1,5 +1,5 @@
-# A workflow to publish a build to google play console when a release is published
-name: Deploy to Alpha
+# A workflow to publish a build to Google Play Console internal track whenever a release is published
+name: Deploy to Internal Track
 
 on:
   release:
