@@ -76,9 +76,9 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
     // Maven SDK dependencies -- You can compile localDebug from the SDK and reference that build variant here
-    implementation "com.klaviyo:core:1.0.0"
-    implementation "com.klaviyo:analytics:1.0.0"
-    implementation "com.klaviyo:push-fcm:1.0.0"
+    implementation("com.github.klaviyo.klaviyo-android-sdk:core:1.0.0")
+    implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:1.0.0")
+    implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:1.0.0")
 
     // Compose
     def composeBom = platform('androidx.compose:compose-bom:2022.10.00')
