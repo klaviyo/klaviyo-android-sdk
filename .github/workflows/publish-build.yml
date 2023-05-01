@@ -39,5 +39,4 @@ jobs:
           packageName: com.klaviyo.sdktestapp
           releaseFile: app/build/outputs/bundle/release/app-release.aab
           track: internal
-          status: inProgress
-          userFraction: 1.0
+          status: completed
