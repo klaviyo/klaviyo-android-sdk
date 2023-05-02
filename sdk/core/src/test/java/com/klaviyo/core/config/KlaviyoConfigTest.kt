@@ -49,6 +49,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
             .applicationContext(contextMock)
+            .baseUrl("fakeurl")
             .debounceInterval(1)
             .networkTimeout(2)
             .networkFlushInterval(1, NetworkMonitor.NetworkType.Wifi)
@@ -60,6 +61,7 @@ internal class KlaviyoConfigTest : BaseTest() {
 
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
         assertEquals(contextMock, KlaviyoConfig.applicationContext)
+        assertEquals("fakeurl", KlaviyoConfig.baseUrl)
         assertEquals(1, KlaviyoConfig.debounceInterval)
         assertEquals(2, KlaviyoConfig.networkTimeout)
         assertEquals(
