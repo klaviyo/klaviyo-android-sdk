@@ -11,6 +11,12 @@ subprojects {
         compileSdkVersion ext.androidCompileVersion
         buildToolsVersion ext.buildToolsVersion
 
+        def localProperties = new Properties()
+        if (rootProject.file("local.properties").canRead()) {
+            localProperties.load(new FileInputStream(rootProject.file("local.properties")))
+        }
+        def serverTarget = localProperties['localKlaviyoServerUrl'] ?: klaviyoServerUrl
+
         defaultConfig {
             minSdkVersion ext.minSDKVersion
             targetSdkVersion ext.targetSDKVersion
@@ -23,13 +29,13 @@ subprojects {
             release {
                 minifyEnabled false
                 proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
             }
             debug {
                 debuggable = true
+                buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
             }
         }
-
-        with ext.flavorConfig
     }
 
     dependencies {

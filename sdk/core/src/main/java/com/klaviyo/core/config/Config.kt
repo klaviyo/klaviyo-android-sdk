@@ -19,6 +19,7 @@ interface Config {
     interface Builder {
         fun apiKey(apiKey: String): Builder
         fun applicationContext(context: Context): Builder
+        fun baseUrl(baseUrl: String): Builder
         fun debounceInterval(debounceInterval: Int): Builder
         fun networkTimeout(networkTimeout: Int): Builder
         fun networkFlushInterval(networkFlushInterval: Int, type: NetworkMonitor.NetworkType): Builder

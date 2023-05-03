@@ -74,7 +74,8 @@ object KlaviyoConfig : Config {
      */
     private const val NETWORK_MAX_RETRIES_DEFAULT: Int = 4
 
-    override val baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
+    override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
+        private set
     override lateinit var apiKey: String private set
     override lateinit var applicationContext: Context private set
     override var debounceInterval = DEBOUNCE_INTERVAL
@@ -98,6 +99,7 @@ object KlaviyoConfig : Config {
     class Builder : Config.Builder {
         private var apiKey: String = ""
         private var applicationContext: Context? = null
+        private var baseUrl: String? = null
         private var debounceInterval: Int = DEBOUNCE_INTERVAL
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
         private var networkFlushIntervals: IntArray = intArrayOf(
@@ -119,6 +121,10 @@ object KlaviyoConfig : Config {
 
         override fun applicationContext(context: Context) = apply {
             this.applicationContext = context
+        }
+
+        override fun baseUrl(baseUrl: String): Config.Builder = apply {
+            this.baseUrl = baseUrl
         }
 
         override fun debounceInterval(debounceInterval: Int) = apply {
@@ -192,6 +198,8 @@ object KlaviyoConfig : Config {
                     throw MissingPermission(permission)
                 }
             }
+
+            baseUrl?.let { KlaviyoConfig.baseUrl = it }
 
             KlaviyoConfig.apiKey = apiKey
             KlaviyoConfig.applicationContext = applicationContext as Context
