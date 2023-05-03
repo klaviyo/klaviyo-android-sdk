@@ -22,24 +22,22 @@ android {
         applicationId "com.klaviyo.sdktestapp"
         minSdkVersion 23
         targetSdkVersion 33
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
+
+    def defaultCompany = localProperties['companyId'] ?: '"LuYLmF"'
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            buildConfigField "String", "KLAVIYO_COMPANY_ID", '"LuYLmF"'
+            buildConfigField "String", "KLAVIYO_COMPANY_ID", defaultCompany
         }
         debug {
             debuggable = true
-            buildConfigField "String", "KLAVIYO_COMPANY_ID", '"LuYLmF"'
-        }
-        localDebug {
-            debuggable = true
-            signingConfig signingConfigs.debug
-            buildConfigField "String", "KLAVIYO_COMPANY_ID", localProperties['companyId'] ?: '"9BX3wh"'
+            buildConfigField "String", "KLAVIYO_COMPANY_ID", defaultCompany
         }
     }
     compileOptions {
@@ -76,9 +74,9 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
     // Maven SDK dependencies -- You can compile localDebug from the SDK and reference that build variant here
-    implementation "com.klaviyo:core:1.0.0"
-    implementation "com.klaviyo:analytics:1.0.0"
-    implementation "com.klaviyo:push-fcm:1.0.0"
+    implementation 'com.github.klaviyo.klaviyo-android-sdk:core:1.0.0'
+    implementation 'com.github.klaviyo.klaviyo-android-sdk:analytics:1.0.0'
+    implementation 'com.github.klaviyo.klaviyo-android-sdk:push-fcm:1.0.0'
 
     // Compose
     def composeBom = platform('androidx.compose:compose-bom:2022.10.00')

@@ -31,11 +31,7 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        mavenLocal {
-            content {
-                includeGroup "com.klaviyo"
-            }
-        }
+        maven { url "https://jitpack.io" }
     }
 }
 

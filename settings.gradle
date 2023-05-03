@@ -1,1 +1,18 @@
 include ':app'
+
+// Substitute the jitpack SDK dependency for your local instance of the project
+def folder = new File('../klaviyo-android-sdk/')
+def allowComposite = true //Flag to disable composite build and use jitpack SDK version
+
+if (allowComposite && folder.exists()) {
+    includeBuild(folder) {
+        dependencySubstitution {
+            // substitute remote dependency with local module
+            substitute module("com.github.klaviyo.klaviyo-android-sdk:core") using project(":sdk:core")
+
+            substitute module("com.github.klaviyo.klaviyo-android-sdk:analytics") using project(":sdk:analytics")
+
+            substitute module("com.github.klaviyo.klaviyo-android-sdk:push-fcm") using project(":sdk:push-fcm")
+        }
+    }
+}

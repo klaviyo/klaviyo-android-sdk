@@ -1,12 +1,10 @@
-# A workflow for controlling the actions taken by CI whenever we merge code into master
+# A workflow for controlling the acions taken by CI whenever we push a commit to an open pull request
 
-name: Android Test App Master CI
+name: Android Test App Feature CI
 
-# Triggers the workflow on when code is merged into master
+# Triggers the workflow whenever a pull request is opened, reopened or has commits pushed to it
 on:
-  push:
-    branches:
-      - 'master'
+  pull_request
 
 jobs:
   # This workflow contains a single job for running our tests
@@ -14,46 +12,37 @@ jobs:
     name: Run Unit Tests
 
     # The type of runner that the job will run on
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
       - uses: actions/checkout@v2
 
       # Sets up a JDK on the job so that we can run Java code
-      - name: Set up JDK 1.8
+      - name: Set up JDK 11
         uses: actions/setup-java@v1
         with:
-          java-version: 1.8
+          java-version: 11
 
       # Call Gradle to run the unit tests
       - name: Unit Tests
         run: bash ./gradlew test --stacktrace
+  ktlint:
+    name: Run ktlintCheck
 
-  apk:
-    name: Generate APK
     # The type of runner that the job will run on
-    runs-on: ubuntu-20.04
-    needs: test
+    runs-on: ubuntu-22.04
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
       - uses: actions/checkout@v2
 
       # Sets up a JDK on the job so that we can run Java code
-      - name: Set up JDK 1.8
+      - name: Set up JDK 11
         uses: actions/setup-java@v1
         with:
-          java-version: 1.8
+          java-version: 11
 
-      # Call Gradle to build our our debug APK
-      - name: Build debug APK
-        run: bash ./gradlew assembleDebug --stacktrace
-
-      # Stores the generated APK to an outputs folder
-      - name: Store APK
-        uses: actions/upload-artifact@v2
-        with:
-          name: test-app
-          path: app/build/outputs/apk/debug/apk-debug.apk
-
+      # Call Gradle to run ktlint check
+      - name: KtlintCheck
+        run: bash ./gradlew ktlintCheck
