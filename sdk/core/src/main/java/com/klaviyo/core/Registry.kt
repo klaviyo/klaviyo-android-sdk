@@ -16,8 +16,12 @@ import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
 class MissingConfig : Exception("Klaviyo SDK accessed before initializing")
-class MissingRegistration(type: KType) : Exception("No service registered for $type")
-class InvalidRegistration(type: KType) : Exception("Registered service does not match $type")
+class MissingRegistration(type: KType) : Exception(
+    "No service registered for ${type::class.qualifiedName}"
+)
+class InvalidRegistration(type: KType) : Exception(
+    "Registered service does not match ${type::class.qualifiedName}"
+)
 
 typealias Registration = () -> Any
 
