@@ -39,8 +39,13 @@ class RegistryTest {
         Registry.get<TesWrongDependency>()
     }
 
-    @Test(expected = MissingDependency::class)
-    fun `Throws when dependency is missing`() {
+    @Test(expected = MissingConfig::class)
+    fun `Throws MissingConfig if SDK is uninitialized`() {
+        Registry.config
+    }
+
+    @Test(expected = MissingRegistration::class)
+    fun `Throws MissingRegistration for unregistered service`() {
         Registry.get<TestMissingDependency>()
     }
 }

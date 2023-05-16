@@ -78,6 +78,8 @@ class TestApp : Application() {
     }
 }
 ```
+`Klaviyo.initialize()` *must* be called before any other SDK methods can be invoked, thus it 
+should be added to your `Application.onCreate`.
 
 ### Identifying a Profile
 
@@ -158,7 +160,6 @@ Klaviyo.createEvent(event)
 
 ### KlaviyoPushService
 
-[//]: # (TODO Document firebase setup, google services JSON etc)
 The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService` so the
 setup process is very similar to the Firebase client documentation linked above.
 You should follow all other setup recommendations from the FCM documentation.
@@ -178,9 +179,17 @@ Additionally, update your launcher activity to retrieve the _current_ device tok
 and register it with Klaviyo SDK. To track notifications opened from the system tray
 (i.e. received while the app is backgrounded) pass the `Intent` to KlaviyoPushService.
 
+Reminder that `Klaviyo.initialize` is required to use any Klaviyo SDK functionality, even 
+if you are only using Klaviyo SDK for push notifications and not analytics.
+
 ```kotlin
 override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    
+    /* ... */
+    
+    // Initialize is required to use any Klaviyo SDK functionality 
+    Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
 
     // Fetches the current push token and registers with Push SDK
     FirebaseMessaging.getInstance().token.addOnSuccessListener { pushToken ->
