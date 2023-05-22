@@ -15,8 +15,13 @@ import com.klaviyo.core.networking.NetworkMonitor
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
-class MissingDependency(type: KType) : Exception("No service registered for $type")
-class InvalidRegistration(type: KType) : Exception("Registered service does not match $type")
+class MissingConfig : Exception("Klaviyo SDK accessed before initializing")
+class MissingRegistration(type: KType) : Exception(
+    "No service registered for ${type::class.qualifiedName}"
+)
+class InvalidRegistration(type: KType) : Exception(
+    "Registered service does not match ${type::class.qualifiedName}"
+)
 
 typealias Registration = () -> Any
 
@@ -109,7 +114,7 @@ object Registry {
      *
      * @param T - Type of service, usually an interface
      * @return The instance of the service
-     * @throws MissingDependency If no service is registered of that type
+     * @throws MissingRegistration If no service is registered of that type
      */
     inline fun <reified T : Any> get(): T {
         val type = typeOf<T>()
@@ -123,7 +128,13 @@ object Registry {
                 return s
             }
             is Any -> throw InvalidRegistration(type)
-            else -> throw MissingDependency(type)
+            else -> {
+                if (type == typeOf<Config>()) {
+                    throw MissingConfig()
+                } else {
+                    throw throw MissingRegistration(type)
+                }
+            }
         }
     }
 }
