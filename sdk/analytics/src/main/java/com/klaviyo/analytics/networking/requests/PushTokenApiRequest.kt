@@ -28,7 +28,8 @@ internal class PushTokenApiRequest(
     override val type: String = "Push Token"
 
     override var headers: Map<String, String> = mapOf(
-        HEADER_CONTENT to TYPE_JSON
+        HEADER_CONTENT to TYPE_JSON,
+        HEADER_USER_AGENT to Registry.config.userAgent
     )
 
     override val successCodes: IntRange get() = HTTP_OK..HTTP_OK
