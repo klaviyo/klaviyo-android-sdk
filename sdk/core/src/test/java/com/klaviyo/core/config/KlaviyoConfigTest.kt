@@ -8,6 +8,7 @@ import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -19,12 +20,16 @@ internal class KlaviyoConfigTest : BaseTest() {
 
     private val mockPackageManager = mockk<PackageManager>()
     private val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
+    private val mockVersionCode = 123
     private val mockPackageInfo = mockk<PackageInfo>().apply {
         requestedPermissions = arrayOf(
             Manifest.permission.ACCESS_NETWORK_STATE,
             Manifest.permission.CHANGE_NETWORK_STATE
         )
+        every { longVersionCode } returns 1L
+        versionCode = mockVersionCode
     }
+    private val mockApplicationLabel = "Mock Application Label"
 
     @Test
     fun `Is registered service`() = assert(Registry.configBuilder is KlaviyoConfig.Builder)
@@ -41,6 +46,7 @@ internal class KlaviyoConfigTest : BaseTest() {
                 mockPackageManagerFlags
             )
         } returns mockPackageInfo
+        every { mockPackageManager.getApplicationLabel(mockApplicationInfo) } returns mockApplicationLabel
         every { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) } returns mockPackageInfo
     }
 
@@ -184,5 +190,21 @@ internal class KlaviyoConfigTest : BaseTest() {
             PackageManager.GET_PERMISSIONS
         )
         verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) }
+    }
+
+    @Test
+    fun `getVersionCode detects platform properly`() {
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 28)
+        mockPackageInfo.getVersionCode()
+        verify {
+            mockPackageInfo.longVersionCode
+        }
+
+        clearMocks(mockPackageInfo)
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
+        assertEquals(mockVersionCode, mockPackageInfo.getVersionCode())
+        verify(exactly = 0) {
+            mockPackageInfo.longVersionCode
+        }
     }
 }
