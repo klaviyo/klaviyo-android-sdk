@@ -18,7 +18,8 @@ internal class PushTokenApiRequestTest : BaseTest() {
     private var profile = Profile().setAnonymousId(ANON_ID)
 
     private val expectedHeaders = mapOf(
-        "Content-Type" to "application/json"
+        "Content-Type" to "application/json",
+        "User-Agent" to "Testing/1.2.3 (a.b.c; build:1; Android 2) klaviyo/3.2.1"
     )
 
     @Test
