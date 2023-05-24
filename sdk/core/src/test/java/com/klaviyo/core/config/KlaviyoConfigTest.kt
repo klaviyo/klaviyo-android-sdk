@@ -8,7 +8,6 @@ import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.fixtures.BaseTest
-import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -26,7 +25,9 @@ internal class KlaviyoConfigTest : BaseTest() {
             Manifest.permission.ACCESS_NETWORK_STATE,
             Manifest.permission.CHANGE_NETWORK_STATE
         )
-        every { longVersionCode } returns 1L
+        packageName = "Mock Package Name"
+        versionName = "Mock Version Name"
+        every { longVersionCode } returns mockVersionCode.toLong()
         versionCode = mockVersionCode
     }
     private val mockApplicationLabel = "Mock Application Label"
@@ -52,6 +53,7 @@ internal class KlaviyoConfigTest : BaseTest() {
 
     @Test
     fun `KlaviyoConfig Builder sets variables successfully`() {
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
             .applicationContext(contextMock)
@@ -66,6 +68,10 @@ internal class KlaviyoConfigTest : BaseTest() {
             .build()
 
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
+        assertEquals(
+            "Mock Application Label/Mock Version Name (Mock Package Name; build:123; Android 33) klaviyo-android/1.0.1",
+            KlaviyoConfig.userAgent
+        )
         assertEquals(contextMock, KlaviyoConfig.applicationContext)
         assertEquals("fakeurl", KlaviyoConfig.baseUrl)
         assertEquals(1, KlaviyoConfig.debounceInterval)
@@ -194,16 +200,15 @@ internal class KlaviyoConfigTest : BaseTest() {
 
     @Test
     fun `getVersionCode detects platform properly`() {
-        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 28)
-        mockPackageInfo.getVersionCode()
-        verify {
-            mockPackageInfo.longVersionCode
-        }
-
-        clearMocks(mockPackageInfo)
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
         assertEquals(mockVersionCode, mockPackageInfo.getVersionCode())
         verify(exactly = 0) {
+            mockPackageInfo.longVersionCode
+        }
+
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 28)
+        mockPackageInfo.getVersionCode()
+        verify {
             mockPackageInfo.longVersionCode
         }
     }
