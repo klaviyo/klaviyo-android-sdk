@@ -53,7 +53,6 @@ internal class KlaviyoConfigTest : BaseTest() {
 
     @Test
     fun `KlaviyoConfig Builder sets variables successfully`() {
-        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
             .applicationContext(contextMock)
@@ -69,7 +68,7 @@ internal class KlaviyoConfigTest : BaseTest() {
 
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
         assertEquals(
-            "Mock Application Label/Mock Version Name (Mock Package Name; build:123; Android 33) klaviyo-android/1.0.1",
+            "Mock Application Label/Mock Version Name (Mock Package Name; build:123; Android 33) klaviyo-android/${BuildConfig.VERSION}",
             KlaviyoConfig.userAgent
         )
         assertEquals(contextMock, KlaviyoConfig.applicationContext)
