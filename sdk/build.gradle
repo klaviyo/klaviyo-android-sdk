@@ -30,10 +30,12 @@ subprojects {
                 minifyEnabled false
                 proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
+                buildConfigField "String", "VERSION", "\"${ext.versionName}\""
             }
             debug {
                 debuggable = true
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
+                buildConfigField "String", "VERSION", "\"${ext.versionName}\""
             }
         }
     }
