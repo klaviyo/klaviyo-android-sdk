@@ -71,7 +71,7 @@ jobs:
           java-version: '11'
           java-package: jdk
 
-      # Call Gradle to build our our debug AAR
+      # Call Gradle to build our debug AAR
       - name: Build debug AAR
         run: ./gradlew assembleDebug --stacktrace --no-daemon
 
