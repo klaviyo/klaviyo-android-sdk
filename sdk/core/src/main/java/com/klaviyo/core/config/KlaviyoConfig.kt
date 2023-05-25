@@ -77,6 +77,7 @@ object KlaviyoConfig : Config {
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
         private set
     override lateinit var apiKey: String private set
+    override lateinit var userAgent: String private set
     override lateinit var applicationContext: Context private set
     override var debounceInterval = DEBOUNCE_INTERVAL
         private set
@@ -184,25 +185,21 @@ object KlaviyoConfig : Config {
             if (apiKey.isEmpty()) {
                 throw MissingAPIKey()
             }
-            if (applicationContext == null) {
-                throw MissingContext()
-            }
 
-            val permissions = applicationContext!!.packageManager.getPackageInfoCompat(
-                applicationContext!!.packageName,
+            val context = applicationContext ?: throw MissingContext()
+
+            val packageInfo = context.packageManager.getPackageInfoCompat(
+                context.packageName,
                 PackageManager.GET_PERMISSIONS
-            ).requestedPermissions ?: emptyArray()
+            )
+            packageInfo.assertRequiredPermissions(requiredPermissions)
 
-            requiredPermissions.forEach { permission ->
-                if (permission !in permissions) {
-                    throw MissingPermission(permission)
-                }
-            }
+            val userAgent = buildUserAgent(context, packageInfo)
 
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
-
             KlaviyoConfig.apiKey = apiKey
-            KlaviyoConfig.applicationContext = applicationContext as Context
+            KlaviyoConfig.userAgent = userAgent
+            KlaviyoConfig.applicationContext = context
             KlaviyoConfig.debounceInterval = debounceInterval
             KlaviyoConfig.networkTimeout = networkTimeout
             KlaviyoConfig.networkFlushIntervals = networkFlushIntervals
@@ -213,6 +210,26 @@ object KlaviyoConfig : Config {
         }
     }
 }
+
+internal fun PackageInfo.assertRequiredPermissions(requiredPermissions: Array<String>) {
+    val permissions = requestedPermissions?.toSet() ?: emptySet()
+    requiredPermissions.firstOrNull { it !in permissions }?.let { throw MissingPermission(it) }
+}
+
+internal fun buildUserAgent(context: Context, packageInfo: PackageInfo): String {
+    val versionCode = packageInfo.getVersionCode()
+    val applicationName = context.packageManager.getApplicationLabel(context.applicationInfo)
+
+    return "$applicationName/${packageInfo.versionName} (${packageInfo.packageName}; build:$versionCode; Android ${Build.VERSION.SDK_INT}) klaviyo-android/${BuildConfig.VERSION}"
+}
+
+internal fun PackageInfo.getVersionCode(): Int =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        (longVersionCode and 0xffffffffL).toInt()
+    } else {
+        @Suppress("DEPRECATION")
+        versionCode
+    }
 
 internal fun PackageManager.getPackageInfoCompat(packageName: String, flags: Int = 0): PackageInfo =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

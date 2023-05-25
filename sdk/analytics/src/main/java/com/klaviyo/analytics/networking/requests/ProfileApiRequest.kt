@@ -29,7 +29,8 @@ internal class ProfileApiRequest(
     override var headers: Map<String, String> = mapOf(
         HEADER_CONTENT to TYPE_JSON,
         HEADER_ACCEPT to TYPE_JSON,
-        HEADER_REVISION to V3_REVISION
+        HEADER_REVISION to V3_REVISION,
+        HEADER_USER_AGENT to Registry.config.userAgent
     )
 
     override var query: Map<String, String> = mapOf(

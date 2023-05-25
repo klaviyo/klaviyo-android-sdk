@@ -43,6 +43,7 @@ internal open class KlaviyoApiRequest(
 
         // Headers
         const val HEADER_CONTENT = "Content-Type"
+        const val HEADER_USER_AGENT = "User-Agent"
         const val HEADER_ACCEPT = "Accept"
         const val HEADER_REVISION = "Revision"
         const val TYPE_JSON = "application/json"
