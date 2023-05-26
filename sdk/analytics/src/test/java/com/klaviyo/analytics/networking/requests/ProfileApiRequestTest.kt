@@ -2,12 +2,11 @@ package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
-import com.klaviyo.fixtures.BaseTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-internal class ProfileApiRequestTest : BaseTest() {
+internal class ProfileApiRequestTest : BaseRequestTest() {
 
     private val expectedUrlPath = "client/profiles/"
 

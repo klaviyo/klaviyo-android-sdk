@@ -2,7 +2,6 @@ package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
-import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.spyk
@@ -12,7 +11,7 @@ import java.net.URL
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-internal class PushTokenApiRequestTest : BaseTest() {
+internal class PushTokenApiRequestTest : BaseRequestTest() {
     private val expectedUrlPath = "api/identify"
     private val expectedMethod = RequestMethod.POST
     private var profile = Profile().setAnonymousId(ANON_ID)
