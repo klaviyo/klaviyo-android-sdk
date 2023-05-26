@@ -49,7 +49,7 @@ internal class EventApiRequest(
                     METRIC to mapOf(NAME to event.type.name),
                     VALUE to event.value,
                     TIME to Registry.clock.isoTime(queuedTime),
-                    PROPERTIES to event.toMap(),
+                    PROPERTIES to event.toMap() + DeviceProperties.buildMetaData(),
                     allowEmptyMaps = true
                 )
             )

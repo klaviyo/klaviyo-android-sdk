@@ -12,7 +12,7 @@ internal object DeviceProperties {
         Build.BRAND
     }
 
-    val deviceModel: String by lazy {
+    val model: String by lazy {
         Build.MODEL
     }
 
@@ -50,9 +50,22 @@ internal object DeviceProperties {
         "$applicationLabel/$appVersion ($applicationId; build:$appVersionCode; $platform $osVersion) klaviyo-android/$sdkVersion"
     }
 
-    internal val packageInfo: PackageInfo by lazy {
+    private val packageInfo: PackageInfo by lazy {
         Registry.config.applicationContext.packageManager.getPackageInfoCompat(applicationId)
     }
+
+    fun buildMetaData(): Map<String, String?> = mapOf(
+        "Device Manufacturer" to manufacturer,
+        "Device Model" to model,
+        "OS Name" to platform,
+        "OS Version" to osVersion,
+        "SDK Version" to sdkVersion,
+        "App Version" to appVersion,
+        "App Build" to appVersionCode,
+        "Application ID" to applicationId,
+        "Application Name" to applicationLabel,
+        "Push Token" to Klaviyo.getPushToken()
+    )
 }
 
 internal fun PackageInfo.getVersionCodeCompat(): Int =
