@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
 import java.io.Serializable
@@ -29,7 +30,7 @@ internal class PushTokenApiRequest(
 
     override var headers: Map<String, String> = mapOf(
         HEADER_CONTENT to TYPE_JSON,
-        HEADER_USER_AGENT to Registry.config.userAgent
+        HEADER_USER_AGENT to DeviceProperties.userAgent
     )
 
     override val successCodes: IntRange get() = HTTP_OK..HTTP_OK

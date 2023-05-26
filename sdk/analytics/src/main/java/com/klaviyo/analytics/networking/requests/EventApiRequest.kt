@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
@@ -30,7 +31,7 @@ internal class EventApiRequest(
         HEADER_CONTENT to TYPE_JSON,
         HEADER_ACCEPT to TYPE_JSON,
         HEADER_REVISION to V3_REVISION,
-        HEADER_USER_AGENT to Registry.config.userAgent
+        HEADER_USER_AGENT to DeviceProperties.userAgent
     )
 
     override var query: Map<String, String> = mapOf(
