@@ -17,7 +17,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
         "Content-Type" to "application/json",
         "Accept" to "application/json",
         "Revision" to "2023-01-24",
-        "User-Agent" to "Testing/1.2.3 (a.b.c; build:1; Android 2) klaviyo/3.2.1"
+        "User-Agent" to "Mock User Agent"
     )
 
     private val stubEvent: Event = Event(EventType.CUSTOM("Test Event"))
