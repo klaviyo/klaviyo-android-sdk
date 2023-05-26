@@ -77,7 +77,6 @@ object KlaviyoConfig : Config {
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
         private set
     override lateinit var apiKey: String private set
-    override lateinit var userAgent: String private set
     override lateinit var applicationContext: Context private set
     override var debounceInterval = DEBOUNCE_INTERVAL
         private set
@@ -194,11 +193,8 @@ object KlaviyoConfig : Config {
             )
             packageInfo.assertRequiredPermissions(requiredPermissions)
 
-            val userAgent = buildUserAgent(context, packageInfo)
-
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
             KlaviyoConfig.apiKey = apiKey
-            KlaviyoConfig.userAgent = userAgent
             KlaviyoConfig.applicationContext = context
             KlaviyoConfig.debounceInterval = debounceInterval
             KlaviyoConfig.networkTimeout = networkTimeout
@@ -216,22 +212,7 @@ internal fun PackageInfo.assertRequiredPermissions(requiredPermissions: Array<St
     requiredPermissions.firstOrNull { it !in permissions }?.let { throw MissingPermission(it) }
 }
 
-internal fun buildUserAgent(context: Context, packageInfo: PackageInfo): String {
-    val versionCode = packageInfo.getVersionCode()
-    val applicationName = context.packageManager.getApplicationLabel(context.applicationInfo)
-
-    return "$applicationName/${packageInfo.versionName} (${packageInfo.packageName}; build:$versionCode; Android ${Build.VERSION.SDK_INT}) klaviyo-android/${BuildConfig.VERSION}"
-}
-
-internal fun PackageInfo.getVersionCode(): Int =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-        (longVersionCode and 0xffffffffL).toInt()
-    } else {
-        @Suppress("DEPRECATION")
-        versionCode
-    }
-
-internal fun PackageManager.getPackageInfoCompat(packageName: String, flags: Int = 0): PackageInfo =
+fun PackageManager.getPackageInfoCompat(packageName: String, flags: Int = 0): PackageInfo =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(flags.toLong()))
     } else {

@@ -8,7 +8,6 @@ interface Config {
 
     val apiKey: String
     val applicationContext: Context
-    val userAgent: String
 
     val debounceInterval: Int
 
