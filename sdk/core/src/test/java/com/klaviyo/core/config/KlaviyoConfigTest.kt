@@ -17,7 +17,6 @@ import org.junit.Test
 
 internal class KlaviyoConfigTest : BaseTest() {
 
-    private val mockPackageManager = mockk<PackageManager>()
     private val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
     private val mockVersionCode = 123
     private val mockPackageInfo = mockk<PackageInfo>().apply {
