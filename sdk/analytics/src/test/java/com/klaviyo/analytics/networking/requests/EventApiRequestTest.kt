@@ -78,7 +78,18 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "$anonKey": "$ANON_ID",
                     "$phoneKey": "$PHONE"
                   },
-                  "properties": {},
+                  "properties": {
+                    "Device Manufacturer": "Mock Manufacturer",
+                    "Device Model": "Mock Model",
+                    "OS Name": "Mock Platform",
+                    "OS Version": "Mock OS Version",
+                    "SDK Version": "Mock SDK Version",
+                    "App Version": "Mock App Version",
+                    "App Build": "Mock Version Code",
+                    "Application ID": "Mock Application Id",
+                    "Application Name": "Mock Application Label",
+                    "Push Token": "Mock Push Token"
+                  },
                   "time": "$ISO_TIME"
                 }
               }
@@ -106,7 +117,17 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "$phoneKey": "$PHONE"
                   },
                   "properties": {
-                    "custom_value": "200"
+                    "custom_value": "200",
+                    "Device Manufacturer": "Mock Manufacturer",
+                    "Device Model": "Mock Model",
+                    "OS Name": "Mock Platform",
+                    "OS Version": "Mock OS Version",
+                    "SDK Version": "Mock SDK Version",
+                    "App Version": "Mock App Version",
+                    "App Build": "Mock Version Code",
+                    "Application ID": "Mock Application Id",
+                    "Application Name": "Mock Application Label",
+                    "Push Token": "Mock Push Token"
                   },
                   "time": "$ISO_TIME"
                 }
@@ -137,7 +158,17 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "$phoneKey": "$PHONE"
                   },
                   "properties": {
-                    "custom_value": "200"
+                    "custom_value": "200",
+                    "Device Manufacturer": "Mock Manufacturer",
+                    "Device Model": "Mock Model",
+                    "OS Name": "Mock Platform",
+                    "OS Version": "Mock OS Version",
+                    "SDK Version": "Mock SDK Version",
+                    "App Version": "Mock App Version",
+                    "App Build": "Mock Version Code",
+                    "Application ID": "Mock Application Id",
+                    "Application Name": "Mock Application Label",
+                    "Push Token": "Mock Push Token"
                   },
                   "time": "$ISO_TIME"
                 }
