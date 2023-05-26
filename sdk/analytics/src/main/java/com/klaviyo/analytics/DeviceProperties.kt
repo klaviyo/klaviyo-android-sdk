@@ -50,7 +50,7 @@ internal object DeviceProperties {
         "$applicationLabel/$appVersion ($applicationId; build:$appVersionCode; $platform $osVersion) klaviyo-android/$sdkVersion"
     }
 
-    private val packageInfo: PackageInfo by lazy {
+    internal val packageInfo: PackageInfo by lazy {
         Registry.config.applicationContext.packageManager.getPackageInfoCompat(applicationId)
     }
 }

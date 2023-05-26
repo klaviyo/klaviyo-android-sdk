@@ -2,6 +2,7 @@ package com.klaviyo.fixtures
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.os.Build
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
@@ -59,9 +60,11 @@ abstract class BaseTest {
     }
 
     protected val mockApplicationInfo = mockk<ApplicationInfo>()
+    protected val mockPackageManager = mockk<PackageManager>()
 
     protected val contextMock = mockk<Context>().apply {
         every { applicationInfo } returns mockApplicationInfo
+        every { packageManager } returns mockPackageManager
     }
 
     protected val configMock = mockk<Config>().apply {
