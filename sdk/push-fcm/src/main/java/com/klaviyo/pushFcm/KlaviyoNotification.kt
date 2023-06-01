@@ -6,14 +6,14 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.HandlerThread
 import android.os.Looper
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.google.android.gms.tasks.Tasks
-import com.google.firebase.messaging.ImageDownload
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.Registry
 import com.klaviyo.core.networking.HandlerUtil
@@ -31,8 +31,10 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationPriority
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.smallIcon
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.sound
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
+import java.net.URL
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
@@ -60,7 +62,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val SOUND_KEY = "sound"
         internal const val NOTIFICATION_COUNT_KEY = "notification_count"
         internal const val NOTIFICATION_PRIORITY = "notification_priority"
-        private const val DOWNLOAD_TIMEOUT = 5
+        private const val DOWNLOAD_TIMEOUT_MS = 5_000
 
         /**
          * Get an integer ID to associate with a notification or its pending intent
@@ -127,29 +129,21 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             return false
         }
 
-        // Handle notification on a background looper
-        // This ensures that we don't do any async work such as image download on the main thread.
-        HandlerUtil.getHandler(getBackgroundLooper()).post {
-            createNotificationChannel(context)
+        createNotificationChannel(context)
 
-            val notification = buildNotification(context)
+        val notification = buildNotification(context)
 
-            // Check for rich push image
-            message.imageUrl?.let {
-                ImageDownload.create(it)
-            }?.let {
-                // If valid image URL is present, download and apply to the notification
-                fetchAndApplyImage(notification, it)
-            }
-
-            NotificationManagerCompat
-                .from(context)
-                .notify(generateId(), notification.build())
-
-            handlerThread?.looper?.quitSafely().also {
-                handlerThread = null
-            }
+        // Check for rich push image
+        message.imageUrl?.let {
+            URL(it)
+        }?.let {
+            // If valid image URL is present, download and apply to the notification
+            fetchAndApplyImage(notification, it)
         }
+
+        NotificationManagerCompat
+            .from(context)
+            .notify(generateId(), notification.build())
 
         return true
     }
@@ -189,16 +183,20 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
     private fun fetchAndApplyImage(
         builder: NotificationCompat.Builder,
-        download: ImageDownload
+        imageUrl: URL
     ) {
-        val executor = Executors.newSingleThreadExecutor()
-
+        val executor = Executors.newCachedThreadPool()
+        var task: Future<Bitmap>? = null
         try {
-            // Start the download
-            download.start(executor)
-
-            // Await the image download with a 5s timeout
-            val bitmap = Tasks.await(download.task, DOWNLOAD_TIMEOUT.toLong(), TimeUnit.SECONDS)
+            task = executor.submit<Bitmap> {
+                // Start the download
+                val bytes: ByteArray = imageUrl.openStream().use { connectionInputStream ->
+                    connectionInputStream.readBytes()
+                }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
+            // Await the image download with a timeout
+            val bitmap = task.get(DOWNLOAD_TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
 
             // If completed, add the bitmap as the largeIcon (collapsed) and bigPicture (expanded)
             builder.setLargeIcon(bitmap)
@@ -216,9 +214,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             // Note: we could continue the download but allow the notification to display
             // This would require also cancelling the download if the user taps on the notification
             // The behavior in this method is the same as FCM notification messages.
-            Registry.log.error("Image download timed out at ${DOWNLOAD_TIMEOUT}s", e)
+            Registry.log.error("Image download timed out at ${DOWNLOAD_TIMEOUT_MS}ms", e)
         } finally {
-            download.close()
+            task?.cancel(true)
             executor.shutdown()
         }
     }
