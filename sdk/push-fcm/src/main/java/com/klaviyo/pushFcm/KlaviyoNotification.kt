@@ -140,7 +140,12 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
 
-    private fun String.toURL(): URL? = runCatching { URL(this) }.onFailure { Registry.log.error("Error converting string to URL", it) }.getOrNull()
+    private fun String.toURL(): URL? = runCatching { URL(this) }.onFailure {
+        Registry.log.error(
+            "Error converting string to URL",
+            it
+        )
+    }.getOrNull()
 
     private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
         val executor = Executors.newCachedThreadPool()
