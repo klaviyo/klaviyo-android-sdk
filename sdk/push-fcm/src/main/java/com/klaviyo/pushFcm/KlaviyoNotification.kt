@@ -80,7 +80,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      *  is not a notification payload that originated from Klaviyo
      *
      * @param context
-     * @return Whether we will be able to display the message
+     * @return Whether a message was displayed
      */
     @WorkerThread
     fun displayNotification(context: Context): Boolean {
@@ -97,13 +97,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
         val notification = buildNotification(context)
 
-        // Check for rich push image
-        message.imageUrl?.let {
-            URL(it)
-        }?.let {
-            // If valid image URL is present, download and apply to the notification
-            fetchAndApplyImage(notification, it)
-        }
+        // Check for valid rich push image url, download and apply to the notification
+        message.imageUrl?.toURL()?.applyToNotification(builder = notification)
 
         NotificationManagerCompat
             .from(context)
@@ -145,16 +140,15 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
 
-    private fun fetchAndApplyImage(
-        builder: NotificationCompat.Builder,
-        imageUrl: URL
-    ) {
+    private fun String.toURL(): URL? = runCatching { URL(this) }.onFailure { Registry.log.error("Error converting string to URL", it) }.getOrNull()
+
+    private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
         val executor = Executors.newCachedThreadPool()
         var task: Future<Bitmap>? = null
         try {
             task = executor.submit<Bitmap> {
                 // Start the download
-                val bytes: ByteArray = imageUrl.openStream().use { connectionInputStream ->
+                val bytes: ByteArray = openStream().use { connectionInputStream ->
                     connectionInputStream.readBytes()
                 }
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
