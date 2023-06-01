@@ -8,15 +8,13 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.HandlerThread
-import android.os.Looper
+import androidx.annotation.WorkerThread
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.Registry
-import com.klaviyo.core.networking.HandlerUtil
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_id
@@ -72,41 +70,6 @@ class KlaviyoNotification(private val message: RemoteMessage) {
          * NOTE: The FCM SDK also uses a timestamp to construct its integer IDs
          */
         private fun generateId() = Registry.clock.currentTimeMillis().toInt()
-
-        /**
-         * Name of private thread, if necessary
-         */
-        private val threadName = KlaviyoNotification::class.simpleName
-
-        /**
-         * Private thread for handling notifications, if necessary
-         */
-        private var handlerThread: HandlerThread? = null
-
-        /**
-         * Get appropriate looper from which to process and publish the notification.
-         * - If a message is received from a background service, return the current looper.
-         * - If a message is received on the UI thread, create a background looper to process it.
-         *
-         * @return
-         */
-        private fun getBackgroundLooper(): Looper {
-            val currentLooper = Looper.myLooper()
-
-            return if (currentLooper is Looper && !Looper.getMainLooper().isCurrentThread) {
-                currentLooper
-            } else {
-                val thread = handlerThread ?: HandlerUtil.getHandlerThread(threadName).also {
-                    handlerThread = it
-                }
-
-                if (!thread.isAlive) {
-                    thread.start()
-                }
-
-                thread.looper
-            }
-        }
     }
 
     /**
@@ -119,6 +82,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * @param context
      * @return Whether we will be able to display the message
      */
+    @WorkerThread
     fun displayNotification(context: Context): Boolean {
         if (!message.isKlaviyoNotification ||
             ActivityCompat.checkSelfPermission(
