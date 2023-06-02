@@ -1,6 +1,8 @@
 package com.klaviyo.analytics.networking
 
 import android.os.Handler
+import android.os.HandlerThread
+import android.os.Looper
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.EventApiRequest
@@ -11,7 +13,6 @@ import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
-import com.klaviyo.core.networking.HandlerUtil
 import java.util.concurrent.ConcurrentLinkedDeque
 import org.json.JSONArray
 import org.json.JSONException
@@ -307,5 +308,13 @@ internal object KlaviyoApiClient : ApiClient {
             force = false
             handler?.postDelayed(this, flushInterval)
         }
+    }
+
+    /**
+     * Abstraction of our interactions with handlers/threads for isolation purposes
+     */
+    internal object HandlerUtil {
+        fun getHandler(looper: Looper) = Handler(looper)
+        fun getHandlerThread(name: String?) = HandlerThread(name)
     }
 }

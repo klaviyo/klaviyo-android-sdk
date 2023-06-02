@@ -5,13 +5,13 @@ import android.os.HandlerThread
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil as HandlerUtil
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
-import com.klaviyo.core.networking.HandlerUtil
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.fixtures.BaseTest
