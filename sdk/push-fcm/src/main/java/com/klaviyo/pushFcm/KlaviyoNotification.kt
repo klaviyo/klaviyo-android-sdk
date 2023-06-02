@@ -98,7 +98,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         val notification = buildNotification(context)
 
         // Check for valid rich push image url, download and apply to the notification
-        message.imageUrl?.toURL()?.applyToNotification(builder = notification)
+        message.imageUrl?.applyToNotification(builder = notification)
 
         NotificationManagerCompat
             .from(context)
@@ -139,13 +139,6 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
-
-    private fun String.toURL(): URL? = runCatching { URL(this) }.onFailure {
-        Registry.log.error(
-            "Error converting string to URL",
-            it
-        )
-    }.getOrNull()
 
     private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
         val executor = Executors.newCachedThreadPool()
