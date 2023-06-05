@@ -63,7 +63,7 @@ internal object DeviceProperties {
         "Device Model" to model,
         "OS Name" to platform,
         "OS Version" to osVersion,
-        "SDK Name" to sdkVersion,
+        "SDK Name" to sdkName,
         "SDK Version" to sdkVersion,
         "App Name" to applicationLabel,
         "App ID" to applicationId,
