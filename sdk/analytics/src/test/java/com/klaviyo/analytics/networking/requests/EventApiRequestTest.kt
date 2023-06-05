@@ -83,11 +83,12 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "Device Model": "Mock Model",
                     "OS Name": "Mock Platform",
                     "OS Version": "Mock OS Version",
+                    "SDK Name": "Mock SDK",
                     "SDK Version": "Mock SDK Version",
                     "App Version": "Mock App Version",
                     "App Build": "Mock Version Code",
-                    "Application ID": "Mock Application Id",
-                    "Application Name": "Mock Application Label",
+                    "App ID": "Mock App ID",
+                    "App Name": "Mock Application Label",
                     "Push Token": "Mock Push Token"
                   },
                   "time": "$ISO_TIME"
@@ -122,11 +123,12 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "Device Model": "Mock Model",
                     "OS Name": "Mock Platform",
                     "OS Version": "Mock OS Version",
+                    "SDK Name": "Mock SDK",
                     "SDK Version": "Mock SDK Version",
                     "App Version": "Mock App Version",
                     "App Build": "Mock Version Code",
-                    "Application ID": "Mock Application Id",
-                    "Application Name": "Mock Application Label",
+                    "App ID": "Mock App ID",
+                    "App Name": "Mock Application Label",
                     "Push Token": "Mock Push Token"
                   },
                   "time": "$ISO_TIME"
@@ -163,11 +165,12 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "Device Model": "Mock Model",
                     "OS Name": "Mock Platform",
                     "OS Version": "Mock OS Version",
+                    "SDK Name": "Mock SDK",
                     "SDK Version": "Mock SDK Version",
                     "App Version": "Mock App Version",
                     "App Build": "Mock Version Code",
-                    "Application ID": "Mock Application Id",
-                    "Application Name": "Mock Application Label",
+                    "App ID": "Mock App ID",
+                    "App Name": "Mock Application Label",
                     "Push Token": "Mock Push Token"
                   },
                   "time": "$ISO_TIME"
