@@ -36,6 +36,10 @@ internal object DeviceProperties {
         BuildConfig.VERSION
     }
 
+    val sdkName: String by lazy {
+        "klaviyo-android-sdk"
+    }
+
     val applicationId: String by lazy {
         Registry.config.applicationContext.packageName
     }
@@ -59,11 +63,12 @@ internal object DeviceProperties {
         "Device Model" to model,
         "OS Name" to platform,
         "OS Version" to osVersion,
+        "SDK Name" to sdkVersion,
         "SDK Version" to sdkVersion,
+        "App Name" to applicationLabel,
+        "App ID" to applicationId,
         "App Version" to appVersion,
         "App Build" to appVersionCode,
-        "Application ID" to applicationId,
-        "Application Name" to applicationLabel,
         "Push Token" to Klaviyo.getPushToken()
     )
 }
