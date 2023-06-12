@@ -22,6 +22,20 @@ class InMemoryDataStore : DataStore {
         store.remove(key)
     }
 
+    /**
+     * Uses fetch/store implementations above
+     *
+     * @param key
+     * @param fallback
+     */
+    override fun fetchOrCreate(key: String, fallback: () -> String) = fetch(key)
+        .let { it ?: "" }
+        .ifEmpty {
+            val value = fallback()
+            store(key, value)
+            value
+        }
+
     // Test fixture doesn't need an observer implementation
     override fun onStoreChange(observer: StoreObserver) {}
     override fun offStoreChange(observer: StoreObserver) {}

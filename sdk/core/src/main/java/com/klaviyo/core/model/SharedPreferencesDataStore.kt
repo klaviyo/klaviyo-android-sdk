@@ -78,6 +78,20 @@ internal object SharedPreferencesDataStore : DataStore {
     }
 
     /**
+     * Uses fetch/store implementations above
+     *
+     * @param key
+     * @param fallback
+     */
+    override fun fetchOrCreate(key: String, fallback: () -> String) = fetch(key)
+        .let { it ?: "" }
+        .ifEmpty {
+            val value = fallback()
+            store(key, value)
+            value
+        }
+
+    /**
      * Remove a value from shared preferences if set
      *
      * @param key The identifying key to remove from persistent store
