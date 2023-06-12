@@ -5,8 +5,19 @@ import android.os.Build
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getPackageInfoCompat
+import java.util.UUID
 
 internal object DeviceProperties {
+
+    private const val DEVICE_ID_KEY = "device_id"
+
+    /**
+     * UUID for this Device + SDK installation
+     * should only be generated one time, stored for the life of the app installation
+     */
+    val device_id: String by lazy {
+        Registry.dataStore.fetchOrCreate(DEVICE_ID_KEY) { UUID.randomUUID().toString() }
+    }
 
     val manufacturer: String by lazy {
         Build.BRAND
@@ -59,6 +70,7 @@ internal object DeviceProperties {
     }
 
     fun buildMetaData(): Map<String, String?> = mapOf(
+        "Device ID" to device_id,
         "Device Manufacturer" to manufacturer,
         "Device Model" to model,
         "OS Name" to platform,

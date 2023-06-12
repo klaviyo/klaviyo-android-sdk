@@ -79,6 +79,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "$phoneKey": "$PHONE"
                   },
                   "properties": {
+                    "Device ID": "Mock Device ID",
                     "Device Manufacturer": "Mock Manufacturer",
                     "Device Model": "Mock Model",
                     "OS Name": "Mock Platform",
@@ -119,6 +120,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
                   },
                   "properties": {
                     "custom_value": "200",
+                    "Device ID": "Mock Device ID",
                     "Device Manufacturer": "Mock Manufacturer",
                     "Device Model": "Mock Model",
                     "OS Name": "Mock Platform",
@@ -161,6 +163,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
                   },
                   "properties": {
                     "custom_value": "200",
+                    "Device ID": "Mock Device ID",
                     "Device Manufacturer": "Mock Manufacturer",
                     "Device Model": "Mock Model",
                     "OS Name": "Mock Platform",
