@@ -21,7 +21,7 @@ internal class PushTokenApiRequest(
         const val METADATA = "device_metadata"
     }
 
-    override val type: String = "Push Tokens"
+    override val type: String = "Push Token"
 
     /**
      * HTTP request headers
@@ -56,7 +56,7 @@ internal class PushTokenApiRequest(
                     PROFILE to mapOf(
                         DATA to mapOf(
                             TYPE to PROFILE,
-                            ATTRIBUTES to profile.getIdentifiers()
+                            ATTRIBUTES to profile.getIdentifiers().mapKeys { it.key.name }
                         )
                     )
                 )
