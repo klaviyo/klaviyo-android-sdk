@@ -16,7 +16,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
     private val expectedHeaders = mapOf(
         "Content-Type" to "application/json",
         "Accept" to "application/json",
-        "Revision" to "2023-01-24",
+        "Revision" to "2023-06-06",
         "User-Agent" to "Mock User Agent"
     )
 
@@ -82,7 +82,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "Device ID": "Mock Device ID",
                     "Device Manufacturer": "Mock Manufacturer",
                     "Device Model": "Mock Model",
-                    "OS Name": "Mock Platform",
+                    "OS Name": "Android",
                     "OS Version": "Mock OS Version",
                     "SDK Name": "Mock SDK",
                     "SDK Version": "Mock SDK Version",
@@ -123,7 +123,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "Device ID": "Mock Device ID",
                     "Device Manufacturer": "Mock Manufacturer",
                     "Device Model": "Mock Model",
-                    "OS Name": "Mock Platform",
+                    "OS Name": "Android",
                     "OS Version": "Mock OS Version",
                     "SDK Name": "Mock SDK",
                     "SDK Version": "Mock SDK Version",
@@ -166,7 +166,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "Device ID": "Mock Device ID",
                     "Device Manufacturer": "Mock Manufacturer",
                     "Device Model": "Mock Model",
-                    "OS Name": "Mock Platform",
+                    "OS Name": "Android",
                     "OS Version": "Mock OS Version",
                     "SDK Name": "Mock SDK",
                     "SDK Version": "Mock SDK Version",

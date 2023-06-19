@@ -3,9 +3,6 @@ package com.klaviyo.analytics.networking.requests
 import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
-import java.io.Serializable
-import java.net.HttpURLConnection
-import org.json.JSONObject
 
 /**
  * Defines the content of an API request to append a push token to a [Profile]
@@ -20,42 +17,49 @@ internal class PushTokenApiRequest(
 ) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     private companion object {
-        const val PATH = "api/identify"
-        const val TOKEN = "token"
-        const val APPEND = "\$append"
-        const val ANDROID_TOKEN = "\$android_tokens"
+        const val PATH = "client/push-tokens"
+        const val METADATA = "device_metadata"
     }
 
-    override val type: String = "Push Token"
+    override val type: String = "Push Tokens"
 
+    /**
+     * HTTP request headers
+     */
     override var headers: Map<String, String> = mapOf(
         HEADER_CONTENT to TYPE_JSON,
+        HEADER_ACCEPT to TYPE_JSON,
+        HEADER_REVISION to V3_REVISION,
         HEADER_USER_AGENT to DeviceProperties.userAgent
     )
 
-    override val successCodes: IntRange get() = HTTP_OK..HTTP_OK
+    /**
+     * HTTP request query params
+     */
+    override var query: Map<String, String> = mapOf(
+        COMPANY_ID to Registry.config.apiKey
+    )
 
-    override fun parseResponse(connection: HttpURLConnection): Status {
-        super.parseResponse(connection)
-
-        // V2 APIs did not properly use status codes.
-        if (status == Status.Complete && responseBody == "0") {
-            status = Status.Failed
-        }
-
-        return status
-    }
+    override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
 
     constructor(token: String, profile: Profile) : this() {
-        // Only send profile's identifiers, plus the push token as an appended property
-        val properties: Map<String, Serializable> = profile.getIdentifiers()
-            .mapKeys { it.key.specialKey() }
-            .plus(APPEND to hashMapOf(ANDROID_TOKEN to token))
-
-        body = JSONObject(
-            mapOf(
-                TOKEN to Registry.config.apiKey, // API Key, not to be confused with the push token!
-                PROPERTIES to JSONObject(properties)
+        body = jsonMapOf(
+            DATA to mapOf(
+                TYPE to PUSH_TOKEN,
+                ATTRIBUTES to filteredMapOf(
+                    "token_id" to token,
+                    "platform" to DeviceProperties.platform,
+                    "vendor" to "FCM",
+                    "enablement_status" to "AUTHORIZED",
+                    "background" to "AVAILABLE",
+                    METADATA to DeviceProperties.buildMetaData(),
+                    PROFILE to mapOf(
+                        DATA to mapOf(
+                            TYPE to PROFILE,
+                            ATTRIBUTES to profile.getIdentifiers()
+                        )
+                    )
+                )
             )
         )
     }
