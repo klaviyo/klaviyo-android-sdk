@@ -15,7 +15,7 @@ internal class ProfileApiRequestTest : BaseRequestTest() {
     private val expectedHeaders = mapOf(
         "Content-Type" to "application/json",
         "Accept" to "application/json",
-        "Revision" to "2023-01-24",
+        "Revision" to "2023-06-06",
         "User-Agent" to "Mock User Agent"
     )
 

@@ -1,5 +1,6 @@
 package com.klaviyo.analytics
 
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.os.Build
 import com.klaviyo.core.BuildConfig
@@ -69,7 +70,7 @@ internal object DeviceProperties {
         Registry.config.applicationContext.packageManager.getPackageInfoCompat(applicationId)
     }
 
-    fun buildMetaData(): Map<String, String?> = mapOf(
+    fun buildEventMetaData(): Map<String, String?> = mapOf(
         "Device ID" to device_id,
         "Device Manufacturer" to manufacturer,
         "Device Model" to model,
@@ -83,6 +84,28 @@ internal object DeviceProperties {
         "App Build" to appVersionCode,
         "Push Token" to Klaviyo.getPushToken()
     )
+
+    fun buildMetaData(): Map<String, String?> = mapOf(
+        "device_id" to device_id,
+        "manufacturer" to manufacturer,
+        "device_model" to model,
+        "os_name" to platform,
+        "os_version" to osVersion,
+        "klaviyo_sdk" to sdkName,
+        "sdk_version" to sdkVersion,
+        "app_name" to applicationLabel,
+        "app_id" to applicationId,
+        "app_version" to appVersion,
+        "app_build" to appVersionCode,
+        "environment" to getEnvironment()
+    )
+
+    private fun getEnvironment(): String =
+        if (Registry.config.applicationContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            "debug"
+        } else {
+            "release"
+        }
 }
 
 internal fun PackageInfo.getVersionCodeCompat(): Int =

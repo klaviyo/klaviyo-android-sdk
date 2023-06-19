@@ -52,6 +52,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         mockkObject(DeviceProperties)
         every { DeviceProperties.userAgent } returns "Mock User Agent"
+        every { DeviceProperties.buildEventMetaData() } returns emptyMap()
         every { DeviceProperties.buildMetaData() } returns emptyMap()
 
         delayedRunner = null

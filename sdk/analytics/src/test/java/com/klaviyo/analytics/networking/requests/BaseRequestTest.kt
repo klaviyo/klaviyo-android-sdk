@@ -21,7 +21,7 @@ internal open class BaseRequestTest : BaseTest() {
         every { DeviceProperties.sdkName } returns "Mock SDK"
         every { DeviceProperties.sdkVersion } returns "Mock SDK Version"
         every { DeviceProperties.applicationId } returns "Mock App ID"
-        every { DeviceProperties.platform } returns "Mock Platform"
+        every { DeviceProperties.platform } returns "Android"
         every { DeviceProperties.device_id } returns "Mock Device ID"
         every { DeviceProperties.manufacturer } returns "Mock Manufacturer"
         every { DeviceProperties.osVersion } returns "Mock OS Version"
