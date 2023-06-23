@@ -285,7 +285,7 @@ object Klaviyo {
      */
     fun handlePush(intent: Intent?) = apply {
         if (intent?.isKlaviyoIntent != true) {
-            Registry.log.info("Non-klaviyo intent ignored")
+            Registry.log.info("Non-Klaviyo intent ignored")
             return@apply
         }
 
