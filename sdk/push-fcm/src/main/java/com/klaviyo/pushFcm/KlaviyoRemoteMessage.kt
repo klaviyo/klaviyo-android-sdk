@@ -32,7 +32,7 @@ object KlaviyoRemoteMessage {
     fun Intent.appendKlaviyoExtras(message: RemoteMessage) = apply {
         if (message.isKlaviyoMessage) {
             message.data.forEach {
-                this.putExtra(it.key, it.value)
+                this.putExtra("com.klaviyo.${it.key}", it.value)
             }
         }
     }

@@ -289,16 +289,15 @@ object Klaviyo {
             return@apply
         }
 
-        val payload = intent.extras?.let { extras ->
-            extras.keySet().associateWith { key -> extras.getString(key, "") }
-        } ?: emptyMap()
+        val event = Event(EventType.OPENED_PUSH)
+        val extras = intent.extras
 
-        val event = Event(
-            EventType.OPENED_PUSH,
-            payload.mapKeys {
-                EventKey.CUSTOM(it.key)
+        extras?.keySet()?.forEach { key ->
+            if (key.contains("com.klaviyo")) {
+                val eventKey = EventKey.CUSTOM(key.replace("com.klaviyo.", ""))
+                event[eventKey] = extras.getString(key, "")
             }
-        )
+        }
 
         getPushToken()?.let { event[EventKey.PUSH_TOKEN] = it }
 
@@ -306,15 +305,8 @@ object Klaviyo {
     }
 
     /**
-     * Checks whether a push notification payload originated from Klaviyo
-     *
-     * @param payload The String:String data from the push message, or intent extras
-     */
-    fun isKlaviyoPush(payload: Map<String, String>) = payload.containsKey("_k")
-
-    /**
-     * Identify if an intent originated from a Klaviyo notification
+     * Checks whether a notification intent originated from Klaviyo
      */
     val Intent.isKlaviyoIntent: Boolean
-        get() = this.getStringExtra("_k")?.isNotEmpty() ?: false
+        get() = this.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
 }
