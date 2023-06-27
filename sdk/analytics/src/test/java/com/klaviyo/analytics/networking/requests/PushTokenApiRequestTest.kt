@@ -20,6 +20,7 @@ internal class PushTokenApiRequestTest : BaseRequestTest() {
         .setAnonymousId(ANON_ID)
         .setEmail(EMAIL)
         .setPhoneNumber(PHONE)
+        .setExternalId(EXTERNAL_ID)
 
     @Test
     fun `Uses correct endpoint`() {
@@ -51,13 +52,13 @@ internal class PushTokenApiRequestTest : BaseRequestTest() {
     }
 
     @Test
-    fun `Builds body request without properties`() {
+    fun `Builds body request`() {
         val expectJson = """
             {
               "data": {
                 "type": "push-token",
                 "attributes": {
-                  "token_id": "$PUSH_TOKEN",
+                  "token": "$PUSH_TOKEN",
                   "platform": "Android",
                   "vendor": "FCM",
                   "enablement_status": "AUTHORIZED",
@@ -66,9 +67,18 @@ internal class PushTokenApiRequestTest : BaseRequestTest() {
                     "data": {
                       "type": "profile",
                       "attributes": {
-                        "anonymous_id": "$ANON_ID",
                         "email": "$EMAIL",
-                        "phone_number": "$PHONE"
+                        "phone_number": "$PHONE",
+                        "external_id": "$EXTERNAL_ID",
+                        "anonymous_id": "$ANON_ID"
+                      },
+                      "meta": {
+                        "identifiers": {
+                          "email": "$EMAIL",
+                          "phone_number": "$PHONE",
+                          "external_id": "$EXTERNAL_ID",
+                          "anonymous_id": "$ANON_ID"
+                        }
                       }
                     }
                   },

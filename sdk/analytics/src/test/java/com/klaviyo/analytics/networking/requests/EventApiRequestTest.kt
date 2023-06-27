@@ -26,6 +26,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
         .setAnonymousId(ANON_ID)
         .setEmail(EMAIL)
         .setPhoneNumber(PHONE)
+        .setExternalId(EXTERNAL_ID)
 
     @Test
     fun `Uses correct endpoint`() {
@@ -68,12 +69,31 @@ internal class EventApiRequestTest : BaseRequestTest() {
                 "type": "event",
                 "attributes": {
                   "metric": {
-                    "name": "${stubEvent.type}"
+                    "data": {
+                      "type": "metric",
+                      "attributes": {
+                        "name": "${stubEvent.type}"
+                      }
+                    }
                   },
                   "profile": {
-                    "$emailKey": "$EMAIL",
-                    "$anonKey": "$ANON_ID",
-                    "$phoneKey": "$PHONE"
+                    "data": {
+                      "type": "profile",
+                      "attributes": {
+                        "email": "$EMAIL",
+                        "phone_number": "$PHONE",
+                        "external_id": "$EXTERNAL_ID",
+                        "anonymous_id": "$ANON_ID"
+                      },
+                      "meta": {
+                        "identifiers": {
+                          "email": "$EMAIL",
+                          "phone_number": "$PHONE",
+                          "external_id": "$EXTERNAL_ID",
+                          "anonymous_id": "$ANON_ID"
+                        }
+                      }
+                    }
                   },
                   "properties": {
                     "Device ID": "Mock Device ID",
@@ -107,12 +127,31 @@ internal class EventApiRequestTest : BaseRequestTest() {
                 "type": "event",
                 "attributes": {
                   "metric": {
-                    "name": "${stubEvent.type}"
+                    "data": {
+                      "type": "metric",
+                      "attributes": {
+                        "name": "${stubEvent.type}"
+                      }
+                    }
                   },
                   "profile": {
-                    "$emailKey": "$EMAIL",
-                    "$anonKey": "$ANON_ID",
-                    "$phoneKey": "$PHONE"
+                    "data": {
+                      "type": "profile",
+                      "attributes": {
+                        "email": "$EMAIL",
+                        "phone_number": "$PHONE",
+                        "external_id": "$EXTERNAL_ID",
+                        "anonymous_id": "$ANON_ID"
+                      },
+                      "meta": {
+                        "identifiers": {
+                          "email": "$EMAIL",
+                          "phone_number": "$PHONE",
+                          "external_id": "$EXTERNAL_ID",
+                          "anonymous_id": "$ANON_ID"
+                        }
+                      }
+                    }
                   },
                   "properties": {
                     "custom_value": "200",
@@ -149,12 +188,31 @@ internal class EventApiRequestTest : BaseRequestTest() {
                 "type": "event",
                 "attributes": {
                   "metric": {
-                    "name": "${stubEvent.type}"
+                    "data": {
+                      "type": "metric",
+                      "attributes": {
+                        "name": "${stubEvent.type}"
+                      }
+                    }
                   },
                   "profile": {
-                    "$emailKey": "$EMAIL",
-                    "$anonKey": "$ANON_ID",
-                    "$phoneKey": "$PHONE"
+                    "data": {
+                      "type": "profile",
+                      "attributes": {
+                        "email": "$EMAIL",
+                        "phone_number": "$PHONE",
+                        "external_id": "$EXTERNAL_ID",
+                        "anonymous_id": "$ANON_ID"
+                      },
+                      "meta": {
+                        "identifiers": {
+                          "email": "$EMAIL",
+                          "phone_number": "$PHONE",
+                          "external_id": "$EXTERNAL_ID",
+                          "anonymous_id": "$ANON_ID"
+                        }
+                      }
+                    }
                   },
                   "properties": {
                     "custom_value": "200",
