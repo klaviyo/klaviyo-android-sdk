@@ -47,18 +47,13 @@ internal class PushTokenApiRequest(
             DATA to mapOf(
                 TYPE to PUSH_TOKEN,
                 ATTRIBUTES to filteredMapOf(
-                    "token_id" to token,
+                    "token" to token,
                     "platform" to DeviceProperties.platform,
                     "vendor" to "FCM",
                     "enablement_status" to "AUTHORIZED",
                     "background" to "AVAILABLE",
                     METADATA to DeviceProperties.buildMetaData(),
-                    PROFILE to mapOf(
-                        DATA to mapOf(
-                            TYPE to PROFILE,
-                            ATTRIBUTES to profile.getIdentifiers().mapKeys { it.key.name }
-                        )
-                    )
+                    PROFILE to mapOf(*ProfileApiRequest.formatBody(profile))
                 )
             )
         )

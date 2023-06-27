@@ -16,7 +16,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
     private val expectedHeaders = mapOf(
         "Content-Type" to "application/json",
         "Accept" to "application/json",
-        "Revision" to "2023-06-06.pre",
+        "Revision" to "2023-07-15.pre",
         "User-Agent" to "Mock User Agent"
     )
 

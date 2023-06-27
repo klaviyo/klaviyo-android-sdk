@@ -45,8 +45,13 @@ internal class EventApiRequest(
             DATA to mapOf(
                 TYPE to EVENT,
                 ATTRIBUTES to filteredMapOf(
-                    PROFILE to profile.getIdentifiers().mapKeys { it.key.specialKey() },
-                    METRIC to mapOf(NAME to event.type.name),
+                    PROFILE to mapOf(*ProfileApiRequest.formatBody(profile)),
+                    METRIC to mapOf(
+                        DATA to mapOf(
+                            TYPE to METRIC,
+                            ATTRIBUTES to mapOf(NAME to event.type.name)
+                        )
+                    ),
                     VALUE to event.value,
                     TIME to Registry.clock.isoTime(queuedTime),
                     PROPERTIES to event.toMap() + DeviceProperties.buildEventMetaData(),
