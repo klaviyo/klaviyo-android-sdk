@@ -9,7 +9,7 @@ package com.klaviyo.analytics.model
 sealed class EventType(name: String) : Keyword(name) {
 
     // Push-related
-    object OPENED_PUSH : EventType("\$opened_push")
+    internal object OPENED_PUSH : EventType("\$opened_push")
 
     // Product viewing events
     object VIEWED_PRODUCT : EventType("\$viewed_product")
