@@ -1,7 +1,8 @@
 include ':app'
 
 // Substitute the jitpack SDK dependency for your local instance of the project
-def folder = new File('../klaviyo-android-sdk/')
+def useInternal = false
+def folder = useInternal ? new File('../klaviyo-android-sdk-internal/') : new File('../klaviyo-android-sdk/')
 def allowComposite = true //Flag to disable composite build and use jitpack SDK version
 
 if (allowComposite && folder.exists()) {
