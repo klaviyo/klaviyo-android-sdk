@@ -127,7 +127,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * Build a [Notification] instance based on the [RemoteMessage] payload
      *
      * @param context
-     * @return [Notification] to display
+     * @return [Notification.Builder] to display
      */
     private fun buildNotification(context: Context): NotificationCompat.Builder =
         NotificationCompat.Builder(context, message.channel_id)
