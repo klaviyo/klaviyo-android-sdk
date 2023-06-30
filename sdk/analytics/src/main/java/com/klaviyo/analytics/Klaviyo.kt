@@ -284,30 +284,29 @@ object Klaviyo {
      * @param intent the [Intent] from opening a notification
      */
     fun handlePush(intent: Intent?) = apply {
-        val payload = intent?.extras?.let { extras ->
-            extras.keySet().associateWith { key -> extras.getString(key, "") }
-        } ?: emptyMap()
-
-        if (isKlaviyoPush(payload)) {
-            val event = Event(
-                EventType.OPENED_PUSH,
-                payload.mapKeys {
-                    EventKey.CUSTOM(it.key)
-                }
-            )
-
-            getPushToken()?.let { event[EventKey.PUSH_TOKEN] = it }
-
-            createEvent(event)
-        } else {
-            Registry.log.info("Non-klaviyo intent ignored")
+        if (intent?.isKlaviyoIntent != true) {
+            Registry.log.info("Non-Klaviyo intent ignored")
+            return@apply
         }
+
+        val event = Event(EventType.OPENED_PUSH)
+        val extras = intent.extras
+
+        extras?.keySet()?.forEach { key ->
+            if (key.contains("com.klaviyo")) {
+                val eventKey = EventKey.CUSTOM(key.replace("com.klaviyo.", ""))
+                event[eventKey] = extras.getString(key, "")
+            }
+        }
+
+        getPushToken()?.let { event[EventKey.PUSH_TOKEN] = it }
+
+        createEvent(event)
     }
 
     /**
-     * Checks whether a push notification payload originated from Klaviyo
-     *
-     * @param payload The String:String data from the push message, or intent extras
+     * Checks whether a notification intent originated from Klaviyo
      */
-    fun isKlaviyoPush(payload: Map<String, String>) = payload.containsKey("_k")
+    val Intent.isKlaviyoIntent: Boolean
+        get() = this.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
 }

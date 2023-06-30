@@ -12,7 +12,7 @@ ext {
     targetSDKVersion = 33
 
     // project versioning
-    versionCode = 4
+    versionCode = 5
     versionName = '1.2.0'
 
     // dependencies
