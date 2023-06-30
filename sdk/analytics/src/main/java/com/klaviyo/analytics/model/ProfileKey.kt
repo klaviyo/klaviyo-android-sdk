@@ -40,7 +40,8 @@ sealed class ProfileKey(name: String) : Keyword(name) {
      */
     internal fun specialKey(): String = when (this) {
         ANONYMOUS_ID -> "\$anonymous"
-        EXTERNAL_ID, EMAIL, PHONE_NUMBER -> "$$name"
+        EXTERNAL_ID -> "\$id"
+        EMAIL, PHONE_NUMBER -> "$$name"
         else -> name
     }
 }
