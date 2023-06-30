@@ -49,7 +49,8 @@ internal object DeviceProperties {
     }
 
     val sdkName: String by lazy {
-        "klaviyo-android-sdk"
+//        "klaviyo-android-sdk"
+        "android"
     }
 
     val applicationId: String by lazy {
