@@ -283,8 +283,8 @@ extensions such as `import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body` to acc
 We also provide an `Intent.appendKlaviyoExtras(RemoteMessage)` extension method, which attaches the data to your
 notification intent that the Klaviyo SDK requires in order to track opens when you call `Klaviyo.handlePush(intent)`.
 
-**A note on push tokens and multiple profiles:** Klaviyo SDK will disassociate the device push token
-from the current profile whenever it is reset by calling `setProfile` or `resetProfile`.
+#### Push tokens and multiple profiles
+Klaviyo SDK will disassociate the device push token from the current profile whenever it is reset by calling `setProfile` or `resetProfile`.
 You should call `setPushToken` again after resetting the currently tracked profile
 to explicitly associate the device token to the new profile.
 
