@@ -5,6 +5,7 @@ import android.os.HandlerThread
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil as HandlerUtil
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
@@ -63,8 +64,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
         every { lifecycleMonitorMock.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
         every { networkMonitorMock.onNetworkChange(capture(slotOnNetworkChange)) } returns Unit
 
-        mockkObject(KlaviyoApiClient.HandlerUtil)
-        every { KlaviyoApiClient.HandlerUtil.getHandler(any()) } returns mockHandler.apply {
+        mockkObject(HandlerUtil)
+        every { HandlerUtil.getHandler(any()) } returns mockHandler.apply {
             every { removeCallbacksAndMessages(any()) } returns Unit
             every { post(any()) } answers { a ->
                 (a.invocation.args[0] as KlaviyoApiClient.NetworkRunnable).run()
@@ -75,7 +76,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
                 true
             }
         }
-        every { KlaviyoApiClient.HandlerUtil.getHandlerThread(any()) } returns mockk<HandlerThread>().apply {
+        every { HandlerUtil.getHandlerThread(any()) } returns mockk<HandlerThread>().apply {
             every { start() } returns Unit
             every { looper } returns mockk()
         }
@@ -448,6 +449,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
         unmockkObject(KlaviyoApiClient)
         unmockkObject(KlaviyoApiRequestDecoder)
-        unmockkObject(KlaviyoApiClient.HandlerUtil)
+        unmockkObject(HandlerUtil)
     }
 }

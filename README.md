@@ -16,6 +16,8 @@ The SDK assists in identifying users and tracking user events.
 Once integrated, your marketing team will be able to better understand your app users' needs and
 send them timely push notifications via FCM.
 
+> ⚠️ **We support Android API level 23 and above** ⚠️
+
 ## Installation
 
 1. Include the [JitPack](https://jitpack.io/#klaviyo/klaviyo-android-sdk) repository in your
@@ -345,6 +347,9 @@ through Klaviyo to make sure that the URI shows up in the handler you implemente
 For more in-depth information on deep linking,
 refer to [android developer documentation](https://developer.android.com/training/app-links/deep-linking).
 
+### Rich push notification 
+
+In order for rich push notifications to work on your app, your app needs to be on or above version 1.2.0 of the Klaviyo SDK
 
 ## Code Documentation
 
