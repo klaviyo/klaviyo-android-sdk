@@ -12,8 +12,8 @@ ext {
     targetSDKVersion = 33
 
     // project versioning
-    versionCode = 6
-    versionName = '1.2.0-beta1'
+    versionCode = 5
+    versionName = '1.2.0-beta'
 
     // dependencies
     coreKTXVersion = '1.9.0'
