@@ -349,7 +349,7 @@ refer to [android developer documentation](https://developer.android.com/trainin
 
 ### Rich push notification 
 
-In order for rich push notifications to work on your app, your app needs to be on or above version 1.2.0-beta1 of the Klaviyo SDK
+In order for rich push notifications to work on your app, your app needs to be on or above version 1.2.0-beta of the Klaviyo SDK
 
 ## Code Documentation
 
