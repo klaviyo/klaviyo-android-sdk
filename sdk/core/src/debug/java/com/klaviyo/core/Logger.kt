@@ -2,27 +2,26 @@ package com.klaviyo.core
 
 import android.os.Build
 import com.klaviyo.core.config.Log
-import java.lang.Exception
 import java.util.regex.Pattern
 
 open class Logger : Log {
-    override fun verbose(message: String, ex: Exception?) {
+    override fun verbose(message: String, ex: Throwable?) {
         Console.log(message, Console.Level.Verbose, makeTag(), ex)
     }
 
-    override fun debug(message: String, ex: Exception?) {
+    override fun debug(message: String, ex: Throwable?) {
         Console.log(message, Console.Level.Debug, makeTag(), ex)
     }
 
-    override fun info(message: String, ex: Exception?) {
+    override fun info(message: String, ex: Throwable?) {
         Console.log(message, Console.Level.Info, makeTag(), ex)
     }
 
-    override fun error(message: String, ex: Exception?) {
+    override fun error(message: String, ex: Throwable?) {
         Console.log(message, Console.Level.Error, makeTag(), ex)
     }
 
-    override fun wtf(message: String, ex: Exception?) {
+    override fun wtf(message: String, ex: Throwable?) {
         Console.log(message, Console.Level.Assert, makeTag(), ex)
     }
 
