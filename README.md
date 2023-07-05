@@ -279,8 +279,14 @@ open class YourPushService : FirebaseMessagingService() {
 }
 ```
 
-**A note on push tokens and multiple profiles:** Klaviyo SDK will disassociate the device push token
-from the current profile whenever it is reset by calling `setProfile` or `resetProfile`.
+#### Custom Notification Display
+If you wish to fully customize the display of notifications, we provide a set of `RemoteMessage` 
+extensions such as `import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body` to access all the properties sent from Klaviyo.
+We also provide an `Intent.appendKlaviyoExtras(RemoteMessage)` extension method, which attaches the data to your
+notification intent that the Klaviyo SDK requires in order to track opens when you call `Klaviyo.handlePush(intent)`.
+
+#### Push tokens and multiple profiles
+Klaviyo SDK will disassociate the device push token from the current profile whenever it is reset by calling `setProfile` or `resetProfile`.
 You should call `setPushToken` again after resetting the currently tracked profile
 to explicitly associate the device token to the new profile.
 

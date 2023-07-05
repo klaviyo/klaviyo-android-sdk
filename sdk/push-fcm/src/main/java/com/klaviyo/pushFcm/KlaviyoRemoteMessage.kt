@@ -25,6 +25,20 @@ import java.net.URL
 object KlaviyoRemoteMessage {
 
     /**
+     * Append requisite data from a remote message to an intent
+     * for displaying a notification
+     *
+     * @param message
+     */
+    fun Intent.appendKlaviyoExtras(message: RemoteMessage) = apply {
+        if (message.isKlaviyoMessage) {
+            message.data.forEach {
+                this.putExtra("com.klaviyo.${it.key}", it.value)
+            }
+        }
+    }
+
+    /**
      * Parse channel ID or fallback on default
      */
     val RemoteMessage.channel_id: String
