@@ -16,7 +16,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.app.ActivityCompat
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.sdktestapp.services.Clipboard
@@ -44,7 +43,7 @@ class PushSettingsViewModel(
     init {
         Registry.dataStore.onStoreChange { key, _ ->
             // Observe SDK data store for changes to the push token key
-            if (key == EventKey.PUSH_TOKEN.name) refreshViewModel()
+            if (key == "push_token") refreshViewModel()
         }
 
         Registry.lifecycleMonitor.onActivityEvent {
