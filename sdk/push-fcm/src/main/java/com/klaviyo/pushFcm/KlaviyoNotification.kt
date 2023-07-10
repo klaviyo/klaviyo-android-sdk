@@ -6,6 +6,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.annotation.WorkerThread
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
@@ -20,12 +23,19 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_importance
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_name
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.clickAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.deepLink
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.imageUrl
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationCount
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationPriority
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.smallIcon
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.sound
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
+import java.net.URL
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 class KlaviyoNotification(private val message: RemoteMessage) {
 
@@ -46,10 +56,12 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val TITLE_KEY = "title"
         internal const val BODY_KEY = "body"
         internal const val URL_KEY = "url"
+        internal const val IMAGE_KEY = "image_url"
         internal const val CLICK_ACTION_KEY = "click_action"
         internal const val SOUND_KEY = "sound"
         internal const val NOTIFICATION_COUNT_KEY = "notification_count"
         internal const val NOTIFICATION_PRIORITY = "notification_priority"
+        private const val DOWNLOAD_TIMEOUT_MS = 5_000
 
         /**
          * Get an integer ID to associate with a notification or its pending intent
@@ -71,6 +83,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * @param context
      * @return Whether a message was displayed
      */
+    @WorkerThread
     fun displayNotification(context: Context): Boolean {
         if (!message.isKlaviyoNotification ||
             ActivityCompat.checkSelfPermission(
@@ -83,12 +96,14 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
         createNotificationChannel(context)
 
+        val notification = buildNotification(context)
+
+        // Check for valid rich push image url, download and apply to the notification
+        message.imageUrl?.applyToNotification(builder = notification)
+
         NotificationManagerCompat
             .from(context)
-            .notify(
-                generateId(),
-                buildNotification(context)
-            )
+            .notify(generateId(), notification.build())
 
         return true
     }
@@ -113,9 +128,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * Build a [Notification] instance based on the [RemoteMessage] payload
      *
      * @param context
-     * @return [Notification] to display
+     * @return [Notification.Builder] to display
      */
-    private fun buildNotification(context: Context): Notification =
+    private fun buildNotification(context: Context): NotificationCompat.Builder =
         NotificationCompat.Builder(context, message.channel_id)
             .setContentIntent(createIntent(context))
             .setSmallIcon(message.smallIcon)
@@ -125,7 +140,43 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
-            .build()
+
+    private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
+        val executor = Executors.newCachedThreadPool()
+        var task: Future<Bitmap>? = null
+        try {
+            task = executor.submit<Bitmap> {
+                // Start the download
+                val bytes: ByteArray = openStream().use { connectionInputStream ->
+                    connectionInputStream.readBytes()
+                }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
+            // Await the image download with a timeout
+            val bitmap = task.get(DOWNLOAD_TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
+
+            // If completed, add the bitmap as the largeIcon (collapsed) and bigPicture (expanded)
+            builder.setLargeIcon(bitmap)
+            builder.setStyle(
+                NotificationCompat.BigPictureStyle()
+                    .bigPicture(bitmap)
+                    .bigLargeIcon(null)
+            )
+        } catch (e: ExecutionException) {
+            Registry.log.error("Image download failed: ${e.cause}", e)
+        } catch (e: InterruptedException) {
+            Registry.log.error("Image download interrupted: ${e.cause}", e)
+            Thread.currentThread().interrupt()
+        } catch (e: TimeoutException) {
+            // Note: we could continue the download but allow the notification to display
+            // This would require also cancelling the download if the user taps on the notification
+            // The behavior in this method is the same as FCM notification messages.
+            Registry.log.error("Image download timed out at ${DOWNLOAD_TIMEOUT_MS}ms", e)
+        } finally {
+            task?.cancel(true)
+            executor.shutdown()
+        }
+    }
 
     /**
      * Create "pending" intent for the notification: essentially a token that
@@ -150,7 +201,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 setPackage(pkgName)
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
-        } ?: Registry.config.applicationContext.packageManager.getLaunchIntentForPackage(pkgName)?.apply {
+        } ?: context.packageManager.getLaunchIntentForPackage(pkgName)?.apply {
             appendKlaviyoExtras(message)
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }

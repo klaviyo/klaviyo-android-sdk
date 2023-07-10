@@ -16,6 +16,7 @@ import androidx.core.content.res.ResourcesCompat
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.Registry
+import java.net.URL
 
 /**
  * Extension functions for RemoteMessage
@@ -96,6 +97,15 @@ object KlaviyoRemoteMessage {
      */
     val RemoteMessage.deepLink: Uri?
         get() = this.data[KlaviyoNotification.URL_KEY]?.let { Uri.parse(it) }
+
+    /**
+     * Parse image url if present
+     */
+    val RemoteMessage.imageUrl: URL? get() = this.data[KlaviyoNotification.IMAGE_KEY]?.toURL()
+
+    private fun String.toURL(): URL? = runCatching { URL(this) }.onFailure {
+        Registry.log.error("Error converting string to URL", it)
+    }.getOrNull()
 
     /**
      * Parse click action (activity or intent filter)

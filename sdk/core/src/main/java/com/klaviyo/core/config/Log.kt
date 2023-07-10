@@ -8,7 +8,7 @@ interface Log {
      * @param message
      * @param ex
      */
-    fun verbose(message: String, ex: Exception? = null)
+    fun verbose(message: String, ex: Throwable? = null)
 
     /**
      * Debugging output
@@ -16,7 +16,7 @@ interface Log {
      * @param message
      * @param ex
      */
-    fun debug(message: String, ex: Exception? = null)
+    fun debug(message: String, ex: Throwable? = null)
 
     /**
      * Informational output
@@ -24,7 +24,7 @@ interface Log {
      * @param message
      * @param ex
      */
-    fun info(message: String, ex: Exception? = null)
+    fun info(message: String, ex: Throwable? = null)
 
     /**
      * Encountered an error or exception
@@ -32,7 +32,7 @@ interface Log {
      * @param message
      * @param ex
      */
-    fun error(message: String, ex: Exception? = null)
+    fun error(message: String, ex: Throwable? = null)
 
     /**
      * Encountered a completely unexpected scenario
@@ -40,5 +40,5 @@ interface Log {
      * @param message
      * @param ex
      */
-    fun wtf(message: String, ex: Exception? = null)
+    fun wtf(message: String, ex: Throwable? = null)
 }
