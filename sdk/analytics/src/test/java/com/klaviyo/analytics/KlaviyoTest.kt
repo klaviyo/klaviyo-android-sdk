@@ -245,9 +245,40 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(Klaviyo.getPushToken(), PUSH_TOKEN)
     }
 
-    private val stubPushPayload = mapOf(
-        "body" to "Message body",
-        "_k" to """{
+    private fun mockIntent(payload: Map<String, String>): Intent {
+        // Mocking an intent to return the stub push payload...
+        val intent = mockk<Intent>()
+        val bundle = mockk<Bundle>()
+        var gettingKey = ""
+        every { intent.extras } returns bundle
+        every { bundle.keySet() } returns payload.keys
+        every {
+            intent.getStringExtra(
+                match { s ->
+                    gettingKey = s // there must be a better way to do this...
+                    true
+                }
+            )
+        } answers { payload[gettingKey] }
+        every {
+            bundle.getString(
+                match { s ->
+                    gettingKey = s // there must be a better way to do this...
+                    true
+                },
+                String()
+            )
+        } answers { payload[gettingKey] }
+
+        return intent
+    }
+
+    @Test
+    fun `Handling opened push Intent enqueues $opened_push API Call`() {
+        // Handle push intent
+        val stubIntentExtras = mapOf(
+            "com.klaviyo.body" to "Message body",
+            "com.klaviyo._k" to """{
               "Push Platform": "android",
               "$\flow": "",
               "$\message": "01GK4P5W6AV4V3APTJ727JKSKQ",
@@ -261,39 +292,9 @@ internal class KlaviyoTest : BaseTest() {
               "timestamp": "2022-12-16T15:40:24.049427+00:00",
               "x": "manual"
             }"""
-    )
+        )
 
-    private fun mockIntent(payload: Map<String, String>): Intent {
-        // Mocking an intent to return the stub push payload...
-        val intent = mockk<Intent>()
-        val bundle = mockk<Bundle>()
-        var gettingKey = ""
-        every { intent.extras } returns bundle
-        every { bundle.keySet() } returns payload.keys
-        every {
-            bundle.getString(
-                match { s ->
-                    gettingKey = s // there must be a better way to do this...
-                    payload.containsKey(s)
-                },
-                String()
-            )
-        } returns (payload[gettingKey] ?: "")
-
-        return intent
-    }
-
-    @Test
-    fun `Identifies push payload origin`() {
-        // Handle push intent
-        assertEquals(true, Klaviyo.isKlaviyoPush(stubPushPayload))
-        assertEquals(false, Klaviyo.isKlaviyoPush(mapOf("other" to "3rd party push")))
-    }
-
-    @Test
-    fun `Handling opened push Intent enqueues $opened_push API Call`() {
-        // Handle push intent
-        Klaviyo.handlePush(mockIntent(stubPushPayload))
+        Klaviyo.handlePush(mockIntent(stubIntentExtras))
 
         verify { apiClientMock.enqueueEvent(any(), any()) }
     }
@@ -301,7 +302,7 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `Non-klaviyo push payload is ignored`() {
         // doesn't have _k, klaviyo tracking params
-        Klaviyo.handlePush(mockIntent(mapOf("other" to "3rd party push")))
+        Klaviyo.handlePush(mockIntent(mapOf("com.other.package.message" to "3rd party push")))
         Klaviyo.handlePush(null)
 
         verify(inverse = true) { apiClientMock.enqueueEvent(any(), any()) }

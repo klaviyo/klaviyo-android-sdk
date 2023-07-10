@@ -11,7 +11,7 @@ sealed class EventKey(name: String) : Keyword(name) {
     /**
      * For [EventType.OPENED_PUSH] events, append the device token as an event property
      */
-    object PUSH_TOKEN : EventKey("push_token")
+    internal object PUSH_TOKEN : EventKey("push_token")
 
     class CUSTOM(propertyName: String) : EventKey(propertyName)
 }

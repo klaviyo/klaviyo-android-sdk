@@ -24,6 +24,7 @@ internal class EventApiRequestTest : BaseTest() {
     private val stubEvent: Event = Event(EventType.CUSTOM("Test Event"))
 
     private val stubProfile = Profile()
+        .setExternalId(EXTERNAL_ID)
         .setAnonymousId(ANON_ID)
         .setEmail(EMAIL)
         .setPhoneNumber(PHONE)
@@ -57,6 +58,7 @@ internal class EventApiRequestTest : BaseTest() {
         compareJson(requestJson, revivedRequest.toJson())
     }
 
+    private val externalId = "\$id"
     private val emailKey = "\$email"
     private val anonKey = "\$anonymous"
     private val phoneKey = "\$phone_number"
@@ -72,6 +74,7 @@ internal class EventApiRequestTest : BaseTest() {
                     "name": "${stubEvent.type}"
                   },
                   "profile": {
+                    "$externalId": "$EXTERNAL_ID",
                     "$emailKey": "$EMAIL",
                     "$anonKey": "$ANON_ID",
                     "$phoneKey": "$PHONE"
@@ -98,6 +101,7 @@ internal class EventApiRequestTest : BaseTest() {
                     "name": "${stubEvent.type}"
                   },
                   "profile": {
+                    "$externalId": "$EXTERNAL_ID",
                     "$emailKey": "$EMAIL",
                     "$anonKey": "$ANON_ID",
                     "$phoneKey": "$PHONE"
@@ -128,6 +132,7 @@ internal class EventApiRequestTest : BaseTest() {
                     "name": "${stubEvent.type}"
                   },
                   "profile": {
+                    "$externalId": "$EXTERNAL_ID",
                     "$emailKey": "$EMAIL",
                     "$anonKey": "$ANON_ID",
                     "$phoneKey": "$PHONE"

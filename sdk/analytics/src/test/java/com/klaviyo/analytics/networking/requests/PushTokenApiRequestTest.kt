@@ -64,7 +64,7 @@ internal class PushTokenApiRequestTest : BaseTest() {
         val props = request.body?.optJSONObject("properties")
 
         assertEquals(API_KEY, request.body?.optString("token"))
-        assertEquals(EXTERNAL_ID, props?.optString("\$external_id"))
+        assertEquals(EXTERNAL_ID, props?.optString("\$id"))
         assertEquals(EMAIL, props?.optString("\$email"))
         assertEquals(PHONE, props?.optString("\$phone_number"))
         assertEquals(ANON_ID, props?.optString("\$anonymous"))

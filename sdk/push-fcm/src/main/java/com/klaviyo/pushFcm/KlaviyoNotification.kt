@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.Registry
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_id
@@ -143,14 +144,14 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         // Create intent to open the activity and/or deep link if specified
         // Else fall back on the default launcher intent for the package
         val action = message.clickAction?.let {
-            message.toIntent().apply {
+            Intent().appendKlaviyoExtras(message).apply {
                 action = message.clickAction
                 data = message.deepLink
                 setPackage(pkgName)
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
         } ?: Registry.config.applicationContext.packageManager.getLaunchIntentForPackage(pkgName)?.apply {
-            putExtras(message.toIntent())
+            appendKlaviyoExtras(message)
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
 
