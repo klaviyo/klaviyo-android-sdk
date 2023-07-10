@@ -1,8 +1,10 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
+import io.mockk.every
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -28,6 +30,11 @@ internal class EventApiRequestTest : BaseRequestTest() {
         .setEmail(EMAIL)
         .setPhoneNumber(PHONE)
         .setExternalId(EXTERNAL_ID)
+
+    override fun setup() {
+        super.setup()
+        every { Klaviyo.getPushToken() } returns "Mock Push Token"
+    }
 
     @Test
     fun `Uses correct endpoint`() {

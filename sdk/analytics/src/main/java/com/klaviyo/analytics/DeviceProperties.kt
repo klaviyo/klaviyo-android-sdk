@@ -1,8 +1,12 @@
 package com.klaviyo.analytics
 
+import android.Manifest
+import android.app.ActivityManager
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.app.ActivityCompat
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getPackageInfoCompat
@@ -16,7 +20,7 @@ internal object DeviceProperties {
      * UUID for this Device + SDK installation
      * should only be generated one time, stored for the life of the app installation
      */
-    val device_id: String by lazy {
+    val deviceId: String by lazy {
         Registry.dataStore.fetchOrCreate(DEVICE_ID_KEY) { UUID.randomUUID().toString() }
     }
 
@@ -49,9 +53,18 @@ internal object DeviceProperties {
     }
 
     val sdkName: String by lazy {
-//        "klaviyo-android-sdk"
-        "android"
+        "klaviyo-android-sdk"
     }
+
+    val backgroundData: Boolean by lazy {
+        activityManager.isBackgroundRestrictedCompat()
+    }
+
+    val notificationPermission: Boolean
+        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ActivityCompat.checkSelfPermission(
+            Registry.config.applicationContext,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) != PackageManager.PERMISSION_GRANTED
 
     val applicationId: String by lazy {
         Registry.config.applicationContext.packageName
@@ -71,8 +84,12 @@ internal object DeviceProperties {
         Registry.config.applicationContext.packageManager.getPackageInfoCompat(applicationId)
     }
 
+    private val activityManager: ActivityManager by lazy {
+        Registry.config.applicationContext.getSystemService(ActivityManager::class.java)
+    }
+
     fun buildEventMetaData(): Map<String, String?> = mapOf(
-        "Device ID" to device_id,
+        "Device ID" to deviceId,
         "Device Manufacturer" to manufacturer,
         "Device Model" to model,
         "OS Name" to platform,
@@ -87,7 +104,7 @@ internal object DeviceProperties {
     )
 
     fun buildMetaData(): Map<String, String?> = mapOf(
-        "device_id" to device_id,
+        "device_id" to deviceId,
         "manufacturer" to manufacturer,
         "device_model" to model,
         "os_name" to platform,
@@ -115,4 +132,11 @@ internal fun PackageInfo.getVersionCodeCompat(): Int =
     } else {
         @Suppress("DEPRECATION")
         versionCode
+    }
+
+internal fun ActivityManager.isBackgroundRestrictedCompat(): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        isBackgroundRestricted
+    } else {
+        false
     }

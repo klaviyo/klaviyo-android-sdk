@@ -19,6 +19,19 @@ internal class PushTokenApiRequest(
     private companion object {
         const val PATH = "client/push-tokens"
         const val METADATA = "device_metadata"
+        const val TOKEN = "token"
+        const val PLATFORM = "platform"
+
+        const val VENDOR = "vendor"
+        const val VENDOR_FCM = "FCM"
+
+        const val ENABLEMENT_STATUS = "enablement_status"
+        const val NOTIFICATIONS_ENABLED = "AUTHORIZED"
+        const val NOTIFICATIONS_DISABLED = "UNAUTHORIZED"
+
+        const val BACKGROUND = "background"
+        const val BG_AVAILABLE = "AVAILABLE"
+        const val BG_UNAVAILABLE = "UNAVAILABLE"
     }
 
     override val type: String = "Push Token"
@@ -47,11 +60,11 @@ internal class PushTokenApiRequest(
             DATA to mapOf(
                 TYPE to PUSH_TOKEN,
                 ATTRIBUTES to filteredMapOf(
-                    "token" to token,
-                    "platform" to DeviceProperties.platform,
-                    "vendor" to "FCM",
-                    "enablement_status" to "AUTHORIZED",
-                    "background" to "AVAILABLE",
+                    TOKEN to token,
+                    PLATFORM to DeviceProperties.platform,
+                    VENDOR to VENDOR_FCM,
+                    ENABLEMENT_STATUS to if (DeviceProperties.notificationPermission) NOTIFICATIONS_ENABLED else NOTIFICATIONS_DISABLED,
+                    BACKGROUND to if (DeviceProperties.backgroundData) BG_AVAILABLE else BG_UNAVAILABLE,
                     METADATA to DeviceProperties.buildMetaData(),
                     PROFILE to mapOf(*ProfileApiRequest.formatBody(profile))
                 )
