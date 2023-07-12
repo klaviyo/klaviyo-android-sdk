@@ -12,7 +12,7 @@ internal class PushTokenApiRequestTest : BaseRequestTest() {
     private val expectedHeaders = mapOf(
         "Content-Type" to "application/json",
         "Accept" to "application/json",
-        "Revision" to "2023-07-15.pre",
+        "Revision" to "2023-07-15",
         "User-Agent" to "Mock User Agent"
     )
 
@@ -71,14 +71,6 @@ internal class PushTokenApiRequestTest : BaseRequestTest() {
                         "phone_number": "$PHONE",
                         "external_id": "$EXTERNAL_ID",
                         "anonymous_id": "$ANON_ID"
-                      },
-                      "meta": {
-                        "identifiers": {
-                          "email": "$EMAIL",
-                          "phone_number": "$PHONE",
-                          "external_id": "$EXTERNAL_ID",
-                          "anonymous_id": "$ANON_ID"
-                        }
                       }
                     }
                   },

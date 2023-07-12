@@ -21,8 +21,6 @@ internal class ProfileApiRequest(
     companion object {
         private const val PATH = "client/profiles/"
         private const val LOCATION = "location"
-        private const val META = "meta"
-        private const val IDENTIFIERS = "identifiers"
 
         fun formatBody(profile: Profile): Array<Pair<String, Any>> {
             // Create a mutable copy of the profile
@@ -59,10 +57,6 @@ internal class ProfileApiRequest(
                         ),
 
                         PROPERTIES to properties // Any remaining custom keys are properties
-                    ),
-                    META to mapOf(
-                        // It is critical for JSON encoding that we convert all keys to strings
-                        IDENTIFIERS to profile.getIdentifiers().mapKeys { it.key.name }
                     )
                 )
             )

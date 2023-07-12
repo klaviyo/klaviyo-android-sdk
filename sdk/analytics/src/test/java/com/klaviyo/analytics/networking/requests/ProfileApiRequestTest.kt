@@ -15,7 +15,7 @@ internal class ProfileApiRequestTest : BaseRequestTest() {
     private val expectedHeaders = mapOf(
         "Content-Type" to "application/json",
         "Accept" to "application/json",
-        "Revision" to "2023-07-15.pre",
+        "Revision" to "2023-07-15",
         "User-Agent" to "Mock User Agent"
     )
 
@@ -84,14 +84,6 @@ internal class ProfileApiRequestTest : BaseRequestTest() {
                     "custom_key1": "custom_1",
                     "custom_key2": "custom_2"
                   }
-                },
-                "meta": {
-                  "identifiers": {
-                    "email": "$EMAIL",
-                    "phone_number": "$PHONE",
-                    "external_id": "$EXTERNAL_ID",
-                    "anonymous_id": "$ANON_ID"
-                  }
                 }
             }
         }"""
@@ -131,14 +123,6 @@ internal class ProfileApiRequestTest : BaseRequestTest() {
                   "anonymous_id": "$ANON_ID",
                   "first_name": "Sarah",
                   "last_name": "Mason"
-                },
-                "meta": {
-                  "identifiers": {
-                    "email": "$EMAIL",
-                    "phone_number": "$PHONE",
-                    "external_id": "$EXTERNAL_ID",
-                    "anonymous_id": "$ANON_ID"
-                  }
                 }
             }
         }"""

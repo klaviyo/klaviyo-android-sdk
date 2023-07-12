@@ -31,7 +31,7 @@ internal class PushTokenApiRequest(
 
         const val BACKGROUND = "background"
         const val BG_AVAILABLE = "AVAILABLE"
-        const val BG_UNAVAILABLE = "UNAVAILABLE"
+        const val BG_UNAVAILABLE = "DENIED"
     }
 
     override val type: String = "Push Token"
