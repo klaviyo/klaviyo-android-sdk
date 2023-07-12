@@ -28,14 +28,6 @@ interface DataStore {
     fun store(key: String, value: String)
 
     /**
-     * Fetch a key from store, or generate and store a new value if not found
-     *
-     * @param key
-     * @param fallback
-     */
-    fun fetchOrCreate(key: String, fallback: () -> String): String
-
-    /**
      * Remove a key from the persistent store
      *
      * @param key
@@ -56,3 +48,12 @@ interface DataStore {
      */
     fun offStoreChange(observer: StoreObserver)
 }
+
+/**
+ * Fetch a key from store, or generate and store a new value if not found
+ *
+ * @param key
+ * @param fallback
+ */
+fun DataStore.fetchOrCreate(key: String, fallback: () -> String): String =
+    fetch(key) ?: fallback().also { store(key, it) }

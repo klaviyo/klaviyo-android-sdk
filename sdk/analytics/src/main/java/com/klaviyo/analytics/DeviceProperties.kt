@@ -10,6 +10,7 @@ import androidx.core.app.ActivityCompat
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getPackageInfoCompat
+import com.klaviyo.core.model.fetchOrCreate
 import java.util.UUID
 
 internal object DeviceProperties {
