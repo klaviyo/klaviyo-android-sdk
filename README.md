@@ -5,11 +5,6 @@
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/klaviyo/klaviyo-android-sdk)](https://github.com/klaviyo/klaviyo-android-sdk/releases)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/klaviyo/klaviyo-android-sdk/android-master.yml)](https://github.com/klaviyo/klaviyo-android-sdk/actions/workflows/android-master.yml)
 
-## DISCLAIMER
-
-*This project is currently in open beta while we continue to add additional features and seek feedback from users.
-The release is stable and publicly available, with no known critical bugs or issues.*
-
 The Klaviyo Android SDK allows developers to incorporate Klaviyo event and profile tracking functionality
 within native Android applications.
 The SDK assists in identifying users and tracking user events.
