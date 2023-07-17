@@ -2,11 +2,13 @@ package com.klaviyo.analytics.networking
 
 import android.os.Handler
 import android.os.HandlerThread
+import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil as HandlerUtil
 import com.klaviyo.analytics.networking.requests.ApiRequest
+import com.klaviyo.analytics.networking.requests.BaseRequestTest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.core.Registry
@@ -14,7 +16,6 @@ import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
-import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.StaticClock
 import io.mockk.every
 import io.mockk.mockk
@@ -32,7 +33,7 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
-internal class KlaviyoApiClientTest : BaseTest() {
+internal class KlaviyoApiClientTest : BaseRequestTest() {
     private val flushIntervalWifi = 10_000
     private val flushIntervalCell = 20_000
     private val flushIntervalOffline = 30_000
@@ -49,6 +50,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+
+        every { DeviceProperties.buildEventMetaData() } returns emptyMap()
+        every { DeviceProperties.buildMetaData() } returns emptyMap()
 
         delayedRunner = null
 

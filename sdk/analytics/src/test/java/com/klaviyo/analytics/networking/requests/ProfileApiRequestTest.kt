@@ -2,12 +2,11 @@ package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
-import com.klaviyo.fixtures.BaseTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-internal class ProfileApiRequestTest : BaseTest() {
+internal class ProfileApiRequestTest : BaseRequestTest() {
 
     private val expectedUrlPath = "client/profiles/"
 
@@ -16,8 +15,8 @@ internal class ProfileApiRequestTest : BaseTest() {
     private val expectedHeaders = mapOf(
         "Content-Type" to "application/json",
         "Accept" to "application/json",
-        "Revision" to "2023-01-24",
-        "User-Agent" to "Testing/1.2.3 (a.b.c; build:1; Android 2) klaviyo/3.2.1"
+        "Revision" to "2023-07-15",
+        "User-Agent" to "Mock User Agent"
     )
 
     private val stubProfile = Profile()
@@ -85,14 +84,6 @@ internal class ProfileApiRequestTest : BaseTest() {
                     "custom_key1": "custom_1",
                     "custom_key2": "custom_2"
                   }
-                },
-                "meta": {
-                  "identifiers": {
-                    "email": "$EMAIL",
-                    "phone_number": "$PHONE",
-                    "external_id": "$EXTERNAL_ID",
-                    "anonymous_id": "$ANON_ID"
-                  }
                 }
             }
         }"""
@@ -132,14 +123,6 @@ internal class ProfileApiRequestTest : BaseTest() {
                   "anonymous_id": "$ANON_ID",
                   "first_name": "Sarah",
                   "last_name": "Mason"
-                },
-                "meta": {
-                  "identifiers": {
-                    "email": "$EMAIL",
-                    "phone_number": "$PHONE",
-                    "external_id": "$EXTERNAL_ID",
-                    "anonymous_id": "$ANON_ID"
-                  }
                 }
             }
         }"""

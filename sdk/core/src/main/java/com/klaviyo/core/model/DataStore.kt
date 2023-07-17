@@ -48,3 +48,12 @@ interface DataStore {
      */
     fun offStoreChange(observer: StoreObserver)
 }
+
+/**
+ * Fetch a key from store, or generate and store a new value if not found
+ *
+ * @param key
+ * @param fallback
+ */
+fun DataStore.fetchOrCreate(key: String, fallback: () -> String): String =
+    fetch(key) ?: fallback().also { store(key, it) }

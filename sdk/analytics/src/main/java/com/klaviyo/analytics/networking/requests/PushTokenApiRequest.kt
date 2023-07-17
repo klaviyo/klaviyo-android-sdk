@@ -1,10 +1,8 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
-import java.io.Serializable
-import java.net.HttpURLConnection
-import org.json.JSONObject
 
 /**
  * Defines the content of an API request to append a push token to a [Profile]
@@ -19,42 +17,57 @@ internal class PushTokenApiRequest(
 ) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     private companion object {
-        const val PATH = "api/identify"
+        const val PATH = "client/push-tokens"
+        const val METADATA = "device_metadata"
         const val TOKEN = "token"
-        const val APPEND = "\$append"
-        const val ANDROID_TOKEN = "\$android_tokens"
+        const val PLATFORM = "platform"
+
+        const val VENDOR = "vendor"
+        const val VENDOR_FCM = "FCM"
+
+        const val ENABLEMENT_STATUS = "enablement_status"
+        const val NOTIFICATIONS_ENABLED = "AUTHORIZED"
+        const val NOTIFICATIONS_DISABLED = "UNAUTHORIZED"
+
+        const val BACKGROUND = "background"
+        const val BG_AVAILABLE = "AVAILABLE"
+        const val BG_UNAVAILABLE = "DENIED"
     }
 
     override val type: String = "Push Token"
 
+    /**
+     * HTTP request headers
+     */
     override var headers: Map<String, String> = mapOf(
         HEADER_CONTENT to TYPE_JSON,
-        HEADER_USER_AGENT to Registry.config.userAgent
+        HEADER_ACCEPT to TYPE_JSON,
+        HEADER_REVISION to V3_REVISION,
+        HEADER_USER_AGENT to DeviceProperties.userAgent
     )
 
-    override val successCodes: IntRange get() = HTTP_OK..HTTP_OK
+    /**
+     * HTTP request query params
+     */
+    override var query: Map<String, String> = mapOf(
+        COMPANY_ID to Registry.config.apiKey
+    )
 
-    override fun parseResponse(connection: HttpURLConnection): Status {
-        super.parseResponse(connection)
-
-        // V2 APIs did not properly use status codes.
-        if (status == Status.Complete && responseBody == "0") {
-            status = Status.Failed
-        }
-
-        return status
-    }
+    override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
 
     constructor(token: String, profile: Profile) : this() {
-        // Only send profile's identifiers, plus the push token as an appended property
-        val properties: Map<String, Serializable> = profile.getIdentifiers()
-            .mapKeys { it.key.specialKey() }
-            .plus(APPEND to hashMapOf(ANDROID_TOKEN to token))
-
-        body = JSONObject(
-            mapOf(
-                TOKEN to Registry.config.apiKey, // API Key, not to be confused with the push token!
-                PROPERTIES to JSONObject(properties)
+        body = jsonMapOf(
+            DATA to mapOf(
+                TYPE to PUSH_TOKEN,
+                ATTRIBUTES to filteredMapOf(
+                    TOKEN to token,
+                    PLATFORM to DeviceProperties.platform,
+                    VENDOR to VENDOR_FCM,
+                    ENABLEMENT_STATUS to if (DeviceProperties.notificationPermission) NOTIFICATIONS_ENABLED else NOTIFICATIONS_DISABLED,
+                    BACKGROUND to if (DeviceProperties.backgroundData) BG_AVAILABLE else BG_UNAVAILABLE,
+                    METADATA to DeviceProperties.buildMetaData(),
+                    PROFILE to mapOf(*ProfileApiRequest.formatBody(profile))
+                )
             )
         )
     }
