@@ -54,6 +54,24 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
     }
 
     @Test
+    fun `Fetch or create uses Klaviyo preferences`() {
+        withPreferenceMock()
+        withWriteStringMock(stubKey, stubValue)
+        every { preferenceMock.getString(stubKey, "") } returns null
+
+        SharedPreferencesDataStore.fetchOrCreate(stubKey) { stubValue }
+
+        verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
+        verify { preferenceMock.getString(stubKey, "") }
+        verify { preferenceMock.edit() }
+        verify { editorMock.putString(stubKey, stubValue) }
+        verify { editorMock.apply() }
+
+        // And verify log output for writing
+        verify { logSpy.debug("$stubKey=$stubValue") }
+    }
+
+    @Test
     fun `Removing key uses Klaviyo preferences`() {
         withPreferenceMock()
         withWriteStringMock(stubKey, stubValue)

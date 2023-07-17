@@ -2,6 +2,7 @@ package com.klaviyo.fixtures
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.os.Build
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
@@ -25,7 +26,6 @@ import org.junit.Before
 abstract class BaseTest {
     companion object {
         const val API_KEY = "stub_public_api_key"
-        const val USER_AGENT = "Testing/1.2.3 (a.b.c; build:1; Android 2) klaviyo/3.2.1"
         const val EMAIL = "test@domain.com"
         const val PHONE = "+12223334444"
         const val EXTERNAL_ID = "abcdefg"
@@ -60,15 +60,16 @@ abstract class BaseTest {
     }
 
     protected val mockApplicationInfo = mockk<ApplicationInfo>()
+    protected val mockPackageManager = mockk<PackageManager>()
 
     protected val contextMock = mockk<Context>().apply {
         every { applicationInfo } returns mockApplicationInfo
+        every { packageManager } returns mockPackageManager
     }
 
     protected val configMock = mockk<Config>().apply {
         every { apiKey } returns API_KEY
         every { applicationContext } returns contextMock
-        every { userAgent } returns USER_AGENT
         every { networkMaxRetries } returns 4
         every { networkFlushIntervals } returns intArrayOf(10_000, 30_000, 60_000)
         every { baseUrl } returns "https://test.fake-klaviyo.com"

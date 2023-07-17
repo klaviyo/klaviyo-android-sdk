@@ -17,7 +17,6 @@ import org.junit.Test
 
 internal class KlaviyoConfigTest : BaseTest() {
 
-    private val mockPackageManager = mockk<PackageManager>()
     private val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
     private val mockVersionCode = 123
     private val mockPackageInfo = mockk<PackageInfo>().apply {
@@ -67,10 +66,6 @@ internal class KlaviyoConfigTest : BaseTest() {
             .build()
 
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
-        assertEquals(
-            "Mock Application Label/Mock Version Name (Mock Package Name; build:123; Android 33) klaviyo-android/${BuildConfig.VERSION}",
-            KlaviyoConfig.userAgent
-        )
         assertEquals(contextMock, KlaviyoConfig.applicationContext)
         assertEquals("fakeurl", KlaviyoConfig.baseUrl)
         assertEquals(1, KlaviyoConfig.debounceInterval)
@@ -195,20 +190,5 @@ internal class KlaviyoConfigTest : BaseTest() {
             PackageManager.GET_PERMISSIONS
         )
         verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) }
-    }
-
-    @Test
-    fun `getVersionCode detects platform properly`() {
-        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
-        assertEquals(mockVersionCode, mockPackageInfo.getVersionCode())
-        verify(exactly = 0) {
-            mockPackageInfo.longVersionCode
-        }
-
-        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 28)
-        mockPackageInfo.getVersionCode()
-        verify {
-            mockPackageInfo.longVersionCode
-        }
     }
 }

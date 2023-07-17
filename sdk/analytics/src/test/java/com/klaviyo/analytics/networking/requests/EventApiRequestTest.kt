@@ -1,14 +1,15 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
-import com.klaviyo.fixtures.BaseTest
+import io.mockk.every
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-internal class EventApiRequestTest : BaseTest() {
+internal class EventApiRequestTest : BaseRequestTest() {
 
     private val expectedUrlPath = "client/events/"
 
@@ -17,8 +18,8 @@ internal class EventApiRequestTest : BaseTest() {
     private val expectedHeaders = mapOf(
         "Content-Type" to "application/json",
         "Accept" to "application/json",
-        "Revision" to "2023-01-24",
-        "User-Agent" to "Testing/1.2.3 (a.b.c; build:1; Android 2) klaviyo/3.2.1"
+        "Revision" to "2023-07-15",
+        "User-Agent" to "Mock User Agent"
     )
 
     private val stubEvent: Event = Event(EventType.CUSTOM("Test Event"))
@@ -28,6 +29,12 @@ internal class EventApiRequestTest : BaseTest() {
         .setAnonymousId(ANON_ID)
         .setEmail(EMAIL)
         .setPhoneNumber(PHONE)
+        .setExternalId(EXTERNAL_ID)
+
+    override fun setup() {
+        super.setup()
+        every { Klaviyo.getPushToken() } returns "Mock Push Token"
+    }
 
     @Test
     fun `Uses correct endpoint`() {
@@ -71,15 +78,38 @@ internal class EventApiRequestTest : BaseTest() {
                 "type": "event",
                 "attributes": {
                   "metric": {
-                    "name": "${stubEvent.type}"
+                    "data": {
+                      "type": "metric",
+                      "attributes": {
+                        "name": "${stubEvent.type}"
+                      }
+                    }
                   },
                   "profile": {
-                    "$externalId": "$EXTERNAL_ID",
-                    "$emailKey": "$EMAIL",
-                    "$anonKey": "$ANON_ID",
-                    "$phoneKey": "$PHONE"
+                    "data": {
+                      "type": "profile",
+                      "attributes": {
+                        "email": "$EMAIL",
+                        "phone_number": "$PHONE",
+                        "external_id": "$EXTERNAL_ID",
+                        "anonymous_id": "$ANON_ID"
+                      }
+                    }
                   },
-                  "properties": {},
+                  "properties": {
+                    "Device ID": "Mock Device ID",
+                    "Device Manufacturer": "Mock Manufacturer",
+                    "Device Model": "Mock Model",
+                    "OS Name": "Android",
+                    "OS Version": "Mock OS Version",
+                    "SDK Name": "Mock SDK",
+                    "SDK Version": "Mock SDK Version",
+                    "App Version": "Mock App Version",
+                    "App Build": "Mock Version Code",
+                    "App ID": "Mock App ID",
+                    "App Name": "Mock Application Label",
+                    "Push Token": "Mock Push Token"
+                  },
                   "time": "$ISO_TIME"
                 }
               }
@@ -98,16 +128,38 @@ internal class EventApiRequestTest : BaseTest() {
                 "type": "event",
                 "attributes": {
                   "metric": {
-                    "name": "${stubEvent.type}"
+                    "data": {
+                      "type": "metric",
+                      "attributes": {
+                        "name": "${stubEvent.type}"
+                      }
+                    }
                   },
                   "profile": {
-                    "$externalId": "$EXTERNAL_ID",
-                    "$emailKey": "$EMAIL",
-                    "$anonKey": "$ANON_ID",
-                    "$phoneKey": "$PHONE"
+                    "data": {
+                      "type": "profile",
+                      "attributes": {
+                        "email": "$EMAIL",
+                        "phone_number": "$PHONE",
+                        "external_id": "$EXTERNAL_ID",
+                        "anonymous_id": "$ANON_ID"
+                      }
+                    }
                   },
                   "properties": {
-                    "custom_value": "200"
+                    "custom_value": "200",
+                    "Device ID": "Mock Device ID",
+                    "Device Manufacturer": "Mock Manufacturer",
+                    "Device Model": "Mock Model",
+                    "OS Name": "Android",
+                    "OS Version": "Mock OS Version",
+                    "SDK Name": "Mock SDK",
+                    "SDK Version": "Mock SDK Version",
+                    "App Version": "Mock App Version",
+                    "App Build": "Mock Version Code",
+                    "App ID": "Mock App ID",
+                    "App Name": "Mock Application Label",
+                    "Push Token": "Mock Push Token"
                   },
                   "time": "$ISO_TIME"
                 }
@@ -129,16 +181,38 @@ internal class EventApiRequestTest : BaseTest() {
                 "type": "event",
                 "attributes": {
                   "metric": {
-                    "name": "${stubEvent.type}"
+                    "data": {
+                      "type": "metric",
+                      "attributes": {
+                        "name": "${stubEvent.type}"
+                      }
+                    }
                   },
                   "profile": {
-                    "$externalId": "$EXTERNAL_ID",
-                    "$emailKey": "$EMAIL",
-                    "$anonKey": "$ANON_ID",
-                    "$phoneKey": "$PHONE"
+                    "data": {
+                      "type": "profile",
+                      "attributes": {
+                        "email": "$EMAIL",
+                        "phone_number": "$PHONE",
+                        "external_id": "$EXTERNAL_ID",
+                        "anonymous_id": "$ANON_ID"
+                      }
+                    }
                   },
                   "properties": {
-                    "custom_value": "200"
+                    "custom_value": "200",
+                    "Device ID": "Mock Device ID",
+                    "Device Manufacturer": "Mock Manufacturer",
+                    "Device Model": "Mock Model",
+                    "OS Name": "Android",
+                    "OS Version": "Mock OS Version",
+                    "SDK Name": "Mock SDK",
+                    "SDK Version": "Mock SDK Version",
+                    "App Version": "Mock App Version",
+                    "App Build": "Mock Version Code",
+                    "App ID": "Mock App ID",
+                    "App Name": "Mock Application Label",
+                    "Push Token": "Mock Push Token"
                   },
                   "time": "$ISO_TIME"
                 }
