@@ -54,7 +54,7 @@ internal object DeviceProperties {
     }
 
     val sdkName: String by lazy {
-        "klaviyo-android-sdk"
+        "android"
     }
 
     val backgroundData: Boolean by lazy {
