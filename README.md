@@ -344,7 +344,8 @@ refer to [android developer documentation](https://developer.android.com/trainin
 
 ### Rich push notification 
 
-In order for rich push notifications to work on your app, your app needs to be on version 1.2.0-beta or above of the Klaviyo SDK. This feature is currently only available for a focus group and should be available to everyone else fairly soon. 
+Rich push notification is the ability to add images to your push notification messages.
+This feature is supported in version 1.3.1 and above of the Klaviyo Android SDK. No additional setup is needed to support rich push.
 
 ## Code Documentation
 [//]: # (REMINDER: Update documentation branch with new dokka docs when updating version number)
