@@ -62,10 +62,16 @@ internal object DeviceProperties {
     }
 
     val notificationPermission: Boolean
-        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ActivityCompat.checkSelfPermission(
-            Registry.config.applicationContext,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) != PackageManager.PERMISSION_GRANTED
+        get() {
+            // Notification permissions only expected from Android 13 onwards
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                return ActivityCompat.checkSelfPermission(
+                    Registry.config.applicationContext,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+            return true
+        }
 
     val applicationId: String by lazy {
         Registry.config.applicationContext.packageName
