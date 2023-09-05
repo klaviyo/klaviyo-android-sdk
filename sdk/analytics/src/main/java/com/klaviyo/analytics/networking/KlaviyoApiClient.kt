@@ -24,7 +24,7 @@ import org.json.JSONObject
 internal object KlaviyoApiClient : ApiClient {
     internal const val QUEUE_KEY = "klaviyo_api_request_queue"
 
-    private val handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
+    private var handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
     private var handler: Handler? = null
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
 
@@ -208,6 +208,10 @@ internal object KlaviyoApiClient : ApiClient {
      */
     private fun initBatch() {
         synchronized(this) {
+            if (handlerThread.state == Thread.State.TERMINATED) {
+                handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
+            }
+
             if (handlerThread.state == Thread.State.NEW) {
                 handlerThread.start()
                 handler = HandlerUtil.getHandler(handlerThread.looper)
