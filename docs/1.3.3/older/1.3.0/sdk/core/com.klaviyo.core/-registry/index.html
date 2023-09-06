@@ -1,0 +1,249 @@
+<!doctype html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>Registry</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg"><script>var pathToRoot = "../../../../";</script>    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/jetbrains-mono.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+<div class="navigation-wrapper" id="navigation-wrapper">
+    <div id="leftToggler"><span class="icon-toggler"></span></div>
+    <div class="library-name">
+<a href="../../../../index.html">
+<span>klaviyo-android-sdk</span>            </a>    </div>
+    <div>
+<dokka-template-command data="{&quot;@class&quot;:&quot;org.jetbrains.dokka.base.templating.ReplaceVersionsCommand&quot;,&quot;location&quot;:&quot;com.klaviyo.core/-registry/index.html&quot;}"><div class="versions-dropdown">
+  <div class="versions-dropdown-button">1.3.0</div>
+  <div class="versions-dropdown-data"><a href="../../../../../../sdk/core/com.klaviyo.core/-registry/index.html">1.3.3</a><a href="../../../../../1.3.2/sdk/core/com.klaviyo.core/-registry/index.html">1.3.2</a><a href="../../../../../1.3.1/sdk/core/com.klaviyo.core/-registry/index.html">1.3.1</a><a href="index.html">1.3.0</a><a href="../../../../../1.2.0-beta/sdk/core/com.klaviyo.core/-registry/index.html">1.2.0-beta</a><a href="../../../../../1.1.1/sdk/core/com.klaviyo.core/-registry/index.html">1.1.1</a><a href="../../../../../1.1.0/sdk/core/com.klaviyo.core/-registry/index.html">1.1.0</a><a href="../../../../../1.0.1/sdk/core/com.klaviyo.core/-registry/index.html">1.0.1</a><a href="../../../../../1.0.0/sdk/core/com.klaviyo.core/-registry/index.html">1.0.0</a></div>
+</div>
+</dokka-template-command>    </div>
+    <div class="pull-right d-flex">
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":sdk:core:dokkaHtmlPartial/release">androidJvm</button>
+        </div>
+        <button id="theme-toggle-button"><span id="theme-toggle"></span></button>
+        <div id="searchBar"></div>
+    </div>
+</div>
+<div id="container">
+    <div id="leftColumn">
+        <div id="sideMenu"></div>
+    </div>
+    <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="core::com.klaviyo.core/Registry///PointingToDeclaration//-1357061740">
+  <div class="breadcrumbs"><a href="../../index.html">core</a><span class="delimiter">/</span><a href="../index.html">com.klaviyo.core</a><span class="delimiter">/</span><span class="current">Registry</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span><span>Registry</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">object </span><a href="index.html">Registry</a></div><p class="paragraph">Services registry for decoupling SDK components Acts as a very basic Service Locator for internal SDK dependencies</p><p class="paragraph">Core dependencies are defined as properties for ease of access. Dynamic dependencies can be defined and fetched with the add/get methods. At this time I treat all our services as singletons</p><p class="paragraph">Technical note on the dynamic registry methods:</p><ul><li><p class="paragraph">noinline keyword allows us to store the Registration lambdas</p></li><li><p class="paragraph">inline methods make it possible to use generics properly here</p></li><li><p class="paragraph">@PublishedApi is required so that the inlined methods can read/write to private registry without leaving the type-erased methods fully public</p></li></ul></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,FUNCTION,PROPERTY">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="1311168411%2FFunctions%2F-1357061740" anchor-label="get" id="1311168411%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="get.html"><span><span>get</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1311168411%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">inline </span><span class="token keyword">fun </span><span class="token operator">&lt;</span><span class="token keyword"></span><a href="get.html">T</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-any/index.html">Any</a><span class="token operator">&gt; </span><a href="get.html"><span class="token function">get</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="get.html">T</a></div><div class="brief "><p class="paragraph">Get a registered service by type</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1594270205%2FFunctions%2F-1357061740" anchor-label="isRegistered" id="1594270205%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="is-registered.html"><span>is</span><wbr><span><span>Registered</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1594270205%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">inline </span><span class="token keyword">fun </span><span class="token operator">&lt;</span><span class="token keyword"></span><a href="is-registered.html">T</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-any/index.html">Any</a><span class="token operator">&gt; </span><a href="is-registered.html"><span class="token function">isRegistered</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Query whether a service of type is already registered</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-622101123%2FFunctions%2F-1357061740" anchor-label="register" id="-622101123%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="register.html"><span><span>register</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-622101123%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">inline </span><span class="token keyword">fun </span><span class="token operator">&lt;</span><span class="token keyword"></span><a href="register.html">T</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-any/index.html">Any</a><span class="token operator">&gt; </span><a href="register.html"><span class="token function">register</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">service<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-any/index.html">Any</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Register a service for a type, specified by generic parameter Typical usage would be to register the singleton implementation of an interface</p></div><div class="symbol monospace"><span class="token keyword">inline </span><span class="token keyword">fun </span><span class="token operator">&lt;</span><span class="token keyword"></span><a href="register.html">T</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-any/index.html">Any</a><span class="token operator">&gt; </span><a href="register.html"><span class="token function">register</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">noinline </span>registration<span class="token operator">: </span><a href="../index.html#1145490810%2FClasslikes%2F-1357061740">Registration</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Lazily register a service builder for a type, specified by generic parameter Typical usage would be to register a builder method for the implementation of an interface</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="-775947037%2FProperties%2F-1357061740" anchor-label="clock" id="-775947037%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="clock.html"><span><span>clock</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-775947037%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="clock.html">clock</a><span class="token operator">: </span><a href="../../com.klaviyo.core.config/-clock/index.html">Clock</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-437128249%2FProperties%2F-1357061740" anchor-label="config" id="-437128249%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="config.html"><span><span>config</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-437128249%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="config.html">config</a><span class="token operator">: </span><a href="../../com.klaviyo.core.config/-config/index.html">Config</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="974347608%2FProperties%2F-1357061740" anchor-label="configBuilder" id="974347608%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="config-builder.html"><span>config</span><wbr><span><span>Builder</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="974347608%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="config-builder.html">configBuilder</a><span class="token operator">: </span><a href="../../com.klaviyo.core.config/-config/-builder/index.html">Config.Builder</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="762986426%2FProperties%2F-1357061740" anchor-label="dataStore" id="762986426%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="data-store.html"><span>data</span><wbr><span><span>Store</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="762986426%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="data-store.html">dataStore</a><span class="token operator">: </span><a href="../../com.klaviyo.core.model/-data-store/index.html">DataStore</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="454785733%2FProperties%2F-1357061740" anchor-label="lifecycleCallbacks" id="454785733%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="lifecycle-callbacks.html"><span>lifecycle</span><wbr><span><span>Callbacks</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="454785733%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="lifecycle-callbacks.html">lifecycleCallbacks</a><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/app/Application.ActivityLifecycleCallbacks.html">Application.ActivityLifecycleCallbacks</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1900631751%2FProperties%2F-1357061740" anchor-label="lifecycleMonitor" id="-1900631751%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="lifecycle-monitor.html"><span>lifecycle</span><wbr><span><span>Monitor</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1900631751%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="lifecycle-monitor.html">lifecycleMonitor</a><span class="token operator">: </span><a href="../../com.klaviyo.core.lifecycle/-lifecycle-monitor/index.html">LifecycleMonitor</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="660433773%2FProperties%2F-1357061740" anchor-label="log" id="660433773%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="log.html"><span><span>log</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="660433773%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="log.html">log</a><span class="token operator">: </span><a href="../../com.klaviyo.core.config/-log/index.html">Log</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="250289917%2FProperties%2F-1357061740" anchor-label="networkMonitor" id="250289917%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="network-monitor.html"><span>network</span><wbr><span><span>Monitor</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="250289917%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="network-monitor.html">networkMonitor</a><span class="token operator">: </span><a href="../../com.klaviyo.core.networking/-network-monitor/index.html">NetworkMonitor</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2023 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+    </div>
+</div>
+</body>
+</html>
+
+
