@@ -24,7 +24,7 @@ import org.json.JSONObject
 internal object KlaviyoApiClient : ApiClient {
     internal const val QUEUE_KEY = "klaviyo_api_request_queue"
 
-    private val handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
+    private var handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
     private var handler: Handler? = null
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
 
@@ -199,11 +199,23 @@ internal object KlaviyoApiClient : ApiClient {
 
     /**
      * Start a network batch to process the request queue
+     *
+     * This method is synchronized to avoid potentially starting the same thread twice.
+     * Since we only ever have one thread running for our network requests, this is fine but if we ever extrapolate on this, we may want to revisit this logic
+     * e.g: Synchronizing on the object instance (this) because I don't think we need to synchronize on anything else in this object. We may want to use a proper lock if we need more synchronized blocks or utilize more threading
+     *
+     * Furthermore, it should be noted that we check the thread state to ensure that the thread is not yet started (in new state) before trying to start it. This is more accurate than checking isAlive on the thread (https://stackoverflow.com/questions/58668916/thread-start-throwing-exception-after-thread-isalive-check)
      */
     private fun initBatch() {
-        if (!handlerThread.isAlive) {
-            handlerThread.start()
-            handler = HandlerUtil.getHandler(handlerThread.looper)
+        synchronized(this) {
+            if (handlerThread.state == Thread.State.TERMINATED) {
+                handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
+            }
+
+            if (handlerThread.state == Thread.State.NEW) {
+                handlerThread.start()
+                handler = HandlerUtil.getHandler(handlerThread.looper)
+            }
         }
 
         startBatch()
