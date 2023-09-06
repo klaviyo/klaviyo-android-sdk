@@ -83,6 +83,7 @@ internal class KlaviyoApiClientTest : BaseRequestTest() {
         every { HandlerUtil.getHandlerThread(any()) } returns mockk<HandlerThread>().apply {
             every { start() } returns Unit
             every { looper } returns mockk()
+            every { state } returns Thread.State.NEW
         }
     }
 
