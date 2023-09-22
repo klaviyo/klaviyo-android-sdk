@@ -56,4 +56,6 @@ interface DataStore {
  * @param fallback
  */
 fun DataStore.fetchOrCreate(key: String, fallback: () -> String): String =
-    fetch(key) ?: fallback().also { store(key, it) }
+    fetch(key) ?: fallback().also {
+        store(key, it)
+    }

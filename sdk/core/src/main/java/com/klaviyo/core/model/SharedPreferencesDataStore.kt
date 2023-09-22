@@ -74,7 +74,7 @@ internal object SharedPreferencesDataStore : DataStore {
      * @return The value read from the shared preferences for the given key
      */
     override fun fetch(key: String): String? {
-        return openSharedPreferences().getString(key, "")
+        return openSharedPreferences().getString(key, null)
     }
 
     /**
