@@ -22,3 +22,7 @@ IntelliJ files
 
 # Mac OS files
 .DS_Store
+
+# Android/FCM
+google-services.json
+

@@ -1,8 +1,5 @@
 apply plugin: 'com.android.application'
 
-// gotta apply those google services for fcm
-apply plugin: 'com.google.gms.google-services'
-
 // Add the Crashlytics Gradle plugin
 apply plugin: 'com.google.firebase.crashlytics'
 
