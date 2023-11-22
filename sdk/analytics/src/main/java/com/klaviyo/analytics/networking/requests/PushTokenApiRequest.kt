@@ -71,4 +71,15 @@ internal class PushTokenApiRequest(
             )
         )
     }
+
+    override fun equals(other: Any?): Boolean {
+        return when (other) {
+            is PushTokenApiRequest -> body.toString() == other.body.toString()
+            else -> super.equals(other)
+        }
+    }
+
+    override fun hashCode(): Int {
+        return body.toString().hashCode()
+    }
 }

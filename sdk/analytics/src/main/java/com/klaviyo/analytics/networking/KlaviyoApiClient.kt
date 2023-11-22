@@ -26,6 +26,7 @@ internal object KlaviyoApiClient : ApiClient {
 
     private var handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
     private var handler: Handler? = null
+    private var networkRunning: Boolean = false
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
 
     /**
@@ -109,19 +110,22 @@ internal object KlaviyoApiClient : ApiClient {
      * if this is the first request made since launch.
      */
     fun enqueueRequest(vararg requests: KlaviyoApiRequest) {
-        if (apiQueue.isEmpty()) {
+        if (!networkRunning) {
             initBatch()
         }
 
-        for (request in requests) {
+        var addedRequest = false
+        requests.forEach { request ->
             if (!apiQueue.contains(request)) {
                 apiQueue.offer(request)
+                Registry.dataStore.store(request.uuid, request.toString())
+                broadcastApiRequest(request)
+                addedRequest = true
             }
-            Registry.dataStore.store(request.uuid, request.toString())
-            broadcastApiRequest(request)
         }
-
-        persistQueue()
+        if (addedRequest) {
+            persistQueue()
+        }
     }
 
     /**
@@ -135,9 +139,7 @@ internal object KlaviyoApiClient : ApiClient {
      * Reset the in-memory queue to the queue from data store
      */
     override fun restoreQueue() {
-        while (apiQueue.isNotEmpty()) {
-            apiQueue.remove()
-        }
+        apiQueue.clear()
 
         // Keep track if there's any errors restoring from persistent store
         var wasMutated = false
@@ -178,7 +180,7 @@ internal object KlaviyoApiClient : ApiClient {
         // If errors were encountered, update persistent store with corrected queue
         if (wasMutated) persistQueue()
 
-        if (apiQueue.isNotEmpty()) initBatch()
+        if (!networkRunning) initBatch()
     }
 
     /**
@@ -227,13 +229,16 @@ internal object KlaviyoApiClient : ApiClient {
     private fun startBatch(force: Boolean = false) {
         stopBatch() // we only ever want one batch job running
         handler?.post(NetworkRunnable(force))
+        networkRunning = true
         Registry.log.info("Started background handler")
     }
 
     /**
      * Stop all jobs on our handler thread
      */
-    private fun stopBatch() = handler?.removeCallbacksAndMessages(null).also {
+    private fun stopBatch() {
+        handler?.removeCallbacksAndMessages(null)
+        networkRunning = false
         Registry.log.info("Stopped background handler")
     }
 
