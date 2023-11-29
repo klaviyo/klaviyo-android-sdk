@@ -137,7 +137,7 @@ private fun QueuedRequest() {
             httpMethod = "POST",
             headers = mapOf("Accepts" to "preview/header"),
             query = mapOf("company_id" to "fakeId"),
-            requestBody = """{"data":{"type":"profile","attributes":{"email":"evan.masseau+demo@gmail.com","phone_number":"+18024240572","external_id":"test","anonymous_id":"1068d3ee-b6fc-40cb-9d61-21faa5a37821"},"meta":{"identifiers":{"external_id":"test","email":"evan.masseau+demo@gmail.com","phone_number":"+18024240572","anonymous_id":"1068d3ee-b6fc-40cb-9d61-21faa5a37821"}}}}""",
+            requestBody = """{"data":{"type":"profile","attributes":{"email":"evan.masseau+demo@gmail.com","phone_number":"+18024240572","external_id":"test","anonymous_id":"1068d3ee-b6fc-40cb-9d61-21faa5a37821"}}}""",
             responseCode = null
         )
     )
@@ -171,14 +171,6 @@ private fun CompleteRequest() {
                             "phone_number": "+18024240572",
                             "external_id": "test",
                             "anonymous_id": "1068d3ee-b6fc-40cb-9d61-21faa5a37821"
-                        },
-                        "meta": {
-                            "identifiers": {
-                                "external_id": "test",
-                                "email": "evan.masseau+demo@gmail.com",
-                                "phone_number": "+18024240572",
-                                "anonymous_id": "1068d3ee-b6fc-40cb-9d61-21faa5a37821"
-                            }
                         }
                     }
                 }

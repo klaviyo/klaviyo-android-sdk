@@ -3,9 +3,7 @@ package com.klaviyo.sdktestapp.viewmodel
 import android.app.Activity
 import android.content.Context
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.core.Registry

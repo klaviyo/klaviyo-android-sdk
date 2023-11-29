@@ -1,4 +1,4 @@
-package com.klaviyo.sdktestapp
+package com.klaviyo.sdktestapp.view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,8 +37,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.klaviyo.sdktestapp.view.CopyText
-import com.klaviyo.sdktestapp.view.ErrorRed
 import com.klaviyo.sdktestapp.viewmodel.AccountInfoViewModel
 
 @OptIn(ExperimentalMaterial3Api::class) // Outlined text fields in Material 3 have nice caption text for error states but they are experimental so you have to opt in
