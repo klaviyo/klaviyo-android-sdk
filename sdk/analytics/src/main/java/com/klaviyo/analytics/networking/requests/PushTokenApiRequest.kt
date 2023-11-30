@@ -3,6 +3,7 @@ package com.klaviyo.analytics.networking.requests
 import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
+import org.json.JSONObject
 
 /**
  * Defines the content of an API request to append a push token to a [Profile]
@@ -55,18 +56,32 @@ internal class PushTokenApiRequest(
 
     override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
 
+    override var body: JSONObject? = null
+        get() {
+            // Update body to include Event metadata whenever the body is retrieved (typically during sending) so the latest data is included
+            field?.getJSONObject(DATA)?.getJSONObject(ATTRIBUTES)?.apply {
+                put(
+                    ENABLEMENT_STATUS,
+                    if (DeviceProperties.notificationPermission) NOTIFICATIONS_ENABLED else NOTIFICATIONS_DISABLED
+                )
+                put(
+                    BACKGROUND,
+                    if (DeviceProperties.backgroundData) BG_AVAILABLE else BG_UNAVAILABLE
+                )
+                put(METADATA, DeviceProperties.buildMetaData())
+            }
+            return field
+        }
+
     constructor(token: String, profile: Profile) : this() {
         body = jsonMapOf(
             DATA to mapOf(
                 TYPE to PUSH_TOKEN,
                 ATTRIBUTES to filteredMapOf(
+                    PROFILE to mapOf(*ProfileApiRequest.formatBody(profile)),
                     TOKEN to token,
                     PLATFORM to DeviceProperties.platform,
-                    VENDOR to VENDOR_FCM,
-                    ENABLEMENT_STATUS to if (DeviceProperties.notificationPermission) NOTIFICATIONS_ENABLED else NOTIFICATIONS_DISABLED,
-                    BACKGROUND to if (DeviceProperties.backgroundData) BG_AVAILABLE else BG_UNAVAILABLE,
-                    METADATA to DeviceProperties.buildMetaData(),
-                    PROFILE to mapOf(*ProfileApiRequest.formatBody(profile))
+                    VENDOR to VENDOR_FCM
                 )
             )
         )

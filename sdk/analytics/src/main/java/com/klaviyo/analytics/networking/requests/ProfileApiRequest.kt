@@ -43,7 +43,6 @@ internal class ProfileApiRequest(
                         extract(ProfileKey.ORGANIZATION),
                         extract(ProfileKey.TITLE),
                         extract(ProfileKey.IMAGE),
-
                         LOCATION to filteredMapOf(
                             extract(ProfileKey.ADDRESS1),
                             extract(ProfileKey.ADDRESS2),
@@ -55,7 +54,6 @@ internal class ProfileApiRequest(
                             extract(ProfileKey.ZIP),
                             extract(ProfileKey.TIMEZONE)
                         ),
-
                         PROPERTIES to properties // Any remaining custom keys are properties
                     )
                 )
@@ -79,13 +77,6 @@ internal class ProfileApiRequest(
     override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
 
     constructor(profile: Profile) : this() {
-        // Create a mutable copy of the profile
-        // We'll pop off all the enumerated keys as we build the body
-        // Then any remaining pairs are custom keys
-        val properties = profile.toMap().toMutableMap()
-        fun extract(key: ProfileKey): Pair<String, Serializable?> =
-            key.name to properties.remove(key.name)
-
         body = jsonMapOf(*formatBody(profile))
     }
 }

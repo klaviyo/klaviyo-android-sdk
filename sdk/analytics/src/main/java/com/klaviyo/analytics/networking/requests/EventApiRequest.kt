@@ -4,6 +4,7 @@ import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
+import org.json.JSONObject
 
 /**
  * Defines the content of an API request to track an [Event] for a given [Profile]
@@ -40,6 +41,17 @@ internal class EventApiRequest(
 
     override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
 
+    override var body: JSONObject? = null
+        get() {
+            // Update body to include Event metadata whenever the body is retrieved (typically during sending) so the latest data is included
+            field?.getJSONObject(DATA)?.getJSONObject(ATTRIBUTES)?.getJSONObject(PROPERTIES)?.apply {
+                DeviceProperties.buildEventMetaData().forEach { entry ->
+                    put(entry.key, entry.value)
+                }
+            }
+            return field
+        }
+
     constructor(event: Event, profile: Profile) : this() {
         body = jsonMapOf(
             DATA to mapOf(
@@ -54,7 +66,7 @@ internal class EventApiRequest(
                     ),
                     VALUE to event.value,
                     TIME to Registry.clock.isoTime(queuedTime),
-                    PROPERTIES to event.toMap() + DeviceProperties.buildEventMetaData(),
+                    PROPERTIES to event.toMap(),
                     allowEmptyMaps = true
                 )
             )
