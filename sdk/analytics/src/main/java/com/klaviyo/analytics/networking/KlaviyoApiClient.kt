@@ -26,7 +26,6 @@ internal object KlaviyoApiClient : ApiClient {
 
     private var handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
     private var handler: Handler? = null
-    private var networkRunning: Boolean = false
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
 
     /**
@@ -110,7 +109,7 @@ internal object KlaviyoApiClient : ApiClient {
      * if this is the first request made since launch.
      */
     fun enqueueRequest(vararg requests: KlaviyoApiRequest) {
-        if (!networkRunning) {
+        if (apiQueue.isEmpty()) {
             initBatch()
         }
 
@@ -180,7 +179,7 @@ internal object KlaviyoApiClient : ApiClient {
         // If errors were encountered, update persistent store with corrected queue
         if (wasMutated) persistQueue()
 
-        if (!networkRunning) initBatch()
+        if (apiQueue.isNotEmpty()) initBatch()
     }
 
     /**
@@ -229,7 +228,6 @@ internal object KlaviyoApiClient : ApiClient {
     private fun startBatch(force: Boolean = false) {
         stopBatch() // we only ever want one batch job running
         handler?.post(NetworkRunnable(force))
-        networkRunning = true
         Registry.log.info("Started background handler")
     }
 
@@ -238,7 +236,6 @@ internal object KlaviyoApiClient : ApiClient {
      */
     private fun stopBatch() {
         handler?.removeCallbacksAndMessages(null)
-        networkRunning = false
         Registry.log.info("Stopped background handler")
     }
 
