@@ -68,7 +68,7 @@ internal class PushTokenApiRequest(
                     BACKGROUND,
                     if (DeviceProperties.backgroundData) BG_AVAILABLE else BG_UNAVAILABLE
                 )
-                put(METADATA, DeviceProperties.buildMetaData())
+                put(METADATA, JSONObject(DeviceProperties.buildMetaData()))
             }
             return field
         }
