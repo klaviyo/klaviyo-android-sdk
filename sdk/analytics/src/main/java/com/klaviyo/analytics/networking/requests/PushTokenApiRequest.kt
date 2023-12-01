@@ -73,6 +73,8 @@ internal class PushTokenApiRequest(
             return field
         }
 
+    private lateinit var initialBody: String
+
     constructor(token: String, profile: Profile) : this() {
         body = jsonMapOf(
             DATA to mapOf(
@@ -84,17 +86,19 @@ internal class PushTokenApiRequest(
                     VENDOR to VENDOR_FCM
                 )
             )
-        )
+        ).also {
+            initialBody = it.toString()
+        }
     }
 
     override fun equals(other: Any?): Boolean {
         return when (other) {
-            is PushTokenApiRequest -> body.toString() == other.body.toString()
+            is PushTokenApiRequest -> initialBody == other.initialBody
             else -> super.equals(other)
         }
     }
 
     override fun hashCode(): Int {
-        return body.toString().hashCode()
+        return initialBody.hashCode()
     }
 }
