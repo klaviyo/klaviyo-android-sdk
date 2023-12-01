@@ -52,6 +52,13 @@ internal class PushTokenApiRequestTest : BaseRequestTest() {
     }
 
     @Test
+    fun `Requests are equal if the token and profile are equal`() {
+        val aRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        val bRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        assertEquals(aRequest, bRequest)
+    }
+
+    @Test
     fun `Builds body request`() {
         val expectJson = """
             {
