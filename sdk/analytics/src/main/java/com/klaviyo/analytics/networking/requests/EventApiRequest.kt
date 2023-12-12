@@ -43,7 +43,7 @@ internal class EventApiRequest(
 
     override var body: JSONObject? = null
         get() {
-            // Update body to include Event metadata whenever the body is retrieved (typically during sending) so the latest data is included
+            // Update body to include Device metadata whenever the body is retrieved (typically during sending) so the latest data is included
             field?.getJSONObject(DATA)?.getJSONObject(ATTRIBUTES)?.getJSONObject(PROPERTIES)?.apply {
                 DeviceProperties.buildEventMetaData().forEach { entry ->
                     put(entry.key, entry.value)
