@@ -56,8 +56,8 @@ class EventsViewModel(private val context: Context) {
         refreshState()
     }
 
-    fun createEvent() {
-        Klaviyo.createEvent(EventType.CUSTOM("Test Event"))
+    fun createEvent(eventType: EventType) {
+        Klaviyo.createEvent(eventType)
     }
 
     fun selectEvent(event: Event? = null) {

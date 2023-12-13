@@ -27,7 +27,7 @@ class PushService : KlaviyoPushService() {
                     putString("_k", "fake tracking param")
                     putString("title", "Local Notification")
                     putString("body", "Triggered from app.")
-//                    putString("small_icon", "ic_hand")
+                    putString("small_icon", "ic_mouse")
                 }
             )
 

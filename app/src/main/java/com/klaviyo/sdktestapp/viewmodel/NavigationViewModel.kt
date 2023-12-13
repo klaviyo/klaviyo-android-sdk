@@ -114,6 +114,7 @@ data class NavigationState(
     data class Action(
         val imageVector: () -> ImageVector,
         val contentDescription: String,
-        val onClick: () -> Unit
+        val subActions: List<Action>? = null,
+        val onClick: () -> Unit,
     )
 }

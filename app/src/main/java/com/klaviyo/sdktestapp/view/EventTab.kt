@@ -8,6 +8,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CopyAll
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.RemoveRedEye
+import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.primarySurface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
+import com.klaviyo.analytics.model.EventType
 import com.klaviyo.sdktestapp.viewmodel.Event
 import com.klaviyo.sdktestapp.viewmodel.NavigationState
 import com.klaviyo.sdktestapp.viewmodel.TabIndex
@@ -25,7 +29,7 @@ import java.net.URL
 fun EventsPage(
     events: List<Event>,
     selectedEvent: Event?,
-    onAddClicked: () -> Unit,
+    onCreateEvent: (EventType) -> Unit,
     onClearClicked: () -> Unit,
     onCopyClicked: () -> Unit,
     onEventClick: (Event?) -> Unit,
@@ -42,7 +46,7 @@ fun EventsPage(
                 NavigationState.Action(
                     imageVector = { Icons.Default.CopyAll },
                     contentDescription = "Copy",
-                    onCopyClicked
+                    onClick = onCopyClicked
                 )
             )
         )
@@ -59,12 +63,31 @@ fun EventsPage(
                 floatingAction = NavigationState.Action(
                     imageVector = { Icons.Default.Add },
                     contentDescription = "Add Event",
-                    onAddClicked
-                ),
+                    subActions = listOf(
+                        NavigationState.Action(
+                            imageVector = { Icons.Filled.Science },
+                            contentDescription = "Test Event",
+                        ) {
+                            onCreateEvent(EventType.CUSTOM("Test Event"))
+                        },
+                        NavigationState.Action(
+                            imageVector = { Icons.Filled.RemoveRedEye },
+                            contentDescription = "Viewed Product",
+                        ) {
+                            onCreateEvent(EventType.VIEWED_PRODUCT)
+                        },
+                        NavigationState.Action(
+                            imageVector = { Icons.Filled.Search },
+                            contentDescription = "Searched Products",
+                        ) {
+                            onCreateEvent(EventType.SEARCHED_PRODUCTS)
+                        }
+                    )
+                ) { },
                 NavigationState.Action(
                     imageVector = { Icons.Default.DeleteSweep },
                     contentDescription = "Clear List",
-                    onClearClicked
+                    onClick = onClearClicked
                 )
             )
         )
@@ -101,7 +124,7 @@ fun PreviewEventsTab() {
         EventsPage(
             events = events,
             selectedEvent = selectedEvent,
-            onAddClicked = { events.add(createPreviewEvent(i++)) },
+            onCreateEvent = { events.add(createPreviewEvent(i++)) },
             onClearClicked = { events.clear() },
             onCopyClicked = { /* */ },
             onEventClick = { selectedEvent = it },

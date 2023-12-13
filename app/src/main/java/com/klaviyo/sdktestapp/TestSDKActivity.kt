@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.sdktestapp.view.MainScreen
 import com.klaviyo.sdktestapp.viewmodel.AccountInfoViewModel
 import com.klaviyo.sdktestapp.viewmodel.EventsViewModel
 import com.klaviyo.sdktestapp.viewmodel.NavigationViewModel

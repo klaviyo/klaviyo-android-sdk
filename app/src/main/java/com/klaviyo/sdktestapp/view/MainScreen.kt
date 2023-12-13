@@ -1,4 +1,4 @@
-package com.klaviyo.sdktestapp
+package com.klaviyo.sdktestapp.view
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -6,23 +6,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.BottomAppBar
 import androidx.compose.material.BottomNavigationItem
 import androidx.compose.material.Colors
-import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
-import androidx.compose.material.primarySurface
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.klaviyo.sdktestapp.view.AccountInfo
-import com.klaviyo.sdktestapp.view.EventsPage
-import com.klaviyo.sdktestapp.view.PushSettings
-import com.klaviyo.sdktestapp.view.TopBar
 import com.klaviyo.sdktestapp.viewmodel.AccountInfoViewModel
 import com.klaviyo.sdktestapp.viewmodel.EventsViewModel
-import com.klaviyo.sdktestapp.viewmodel.NavigationState
 import com.klaviyo.sdktestapp.viewmodel.NavigationViewModel
 import com.klaviyo.sdktestapp.viewmodel.PushSettingsViewModel
 import com.klaviyo.sdktestapp.viewmodel.TabIndex
@@ -57,7 +50,9 @@ fun MainScreen(
         Scaffold(
             scaffoldState = scaffoldState,
             topBar = { TopBar(navigationViewModel.navState) },
-            floatingActionButton = { ActionButton(navigationViewModel.navState.floatingAction) },
+            floatingActionButton = {
+                navigationViewModel.navState.floatingAction?.let { ActionButton(it) }
+            },
             bottomBar = {
                 BottomBar(
                     navigationViewModel.tabRowItems,
@@ -84,7 +79,7 @@ fun MainScreen(
                     TabIndex.Events -> EventsPage(
                         events = eventsViewModel.viewState.events,
                         selectedEvent = eventsViewModel.detailEvent,
-                        onAddClicked = eventsViewModel::createEvent,
+                        onCreateEvent = eventsViewModel::createEvent,
                         onClearClicked = eventsViewModel::clearEvents,
                         onEventClick = eventsViewModel::selectEvent,
                         onCopyClicked = eventsViewModel::copyEvent,
@@ -102,21 +97,6 @@ fun MainScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ActionButton(action: NavigationState.Action?) {
-    if (action == null) return
-
-    FloatingActionButton(
-        backgroundColor = MaterialTheme.colors.primarySurface,
-        onClick = action.onClick
-    ) {
-        Icon(
-            imageVector = action.imageVector(),
-            contentDescription = action.contentDescription
-        )
     }
 }
 
