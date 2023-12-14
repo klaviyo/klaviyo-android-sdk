@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.app.ActivityCompat
+import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
@@ -75,6 +76,13 @@ class PushSettingsViewModel(
     }
 
     fun setSdkPushToken() = PushService.setSdkPushToken()
+
+    fun expirePushToken() {
+        FirebaseMessaging.getInstance().deleteToken()
+            .addOnSuccessListener {
+                setSdkPushToken()
+            }
+    }
 
     fun sendLocalNotification() = PushService.createLocalNotification(context)
 

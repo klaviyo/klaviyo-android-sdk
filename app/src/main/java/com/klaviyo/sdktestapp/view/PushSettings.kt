@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.klaviyo.sdktestapp.viewmodel.PushSettingsViewModel
@@ -37,6 +38,7 @@ fun PushSettings(
     onOpenNotificationSettings: () -> Unit = {},
     onCopyPushToken: () -> Unit = {},
     onRequestPushToken: () -> Unit = {},
+    onExpirePushToken: () -> Unit = {},
     onSendLocalNotification: () -> Unit = {},
 ) {
     val isPushEnabled = viewState.isNotificationPermitted
@@ -118,9 +120,21 @@ fun PushSettings(
                 ) {
                     Text(
                         text = "Set SDK Token",
+                        textAlign = TextAlign.Center,
                     )
                 }
-
+                Button(
+                    enabled = true,
+                    onClick = onExpirePushToken,
+                    elevation = ButtonDefaults.elevation(0.dp),
+                    shape = CircleShape,
+                    modifier = Modifier.weight(1f).padding(end = 4.dp)
+                ) {
+                    Text(
+                        text = "Expire Push Token",
+                        textAlign = TextAlign.Center,
+                    )
+                }
                 Button(
                     enabled = isPushEnabled,
                     onClick = onSendLocalNotification,
@@ -130,6 +144,7 @@ fun PushSettings(
                 ) {
                     Text(
                         text = "Create Notification",
+                        textAlign = TextAlign.Center,
                     )
                 }
             }
