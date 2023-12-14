@@ -113,15 +113,18 @@ internal object KlaviyoApiClient : ApiClient {
             initBatch()
         }
 
-        for (request in requests) {
+        var addedRequest = false
+        requests.forEach { request ->
             if (!apiQueue.contains(request)) {
                 apiQueue.offer(request)
+                Registry.dataStore.store(request.uuid, request.toString())
+                broadcastApiRequest(request)
+                addedRequest = true
             }
-            Registry.dataStore.store(request.uuid, request.toString())
-            broadcastApiRequest(request)
         }
-
-        persistQueue()
+        if (addedRequest) {
+            persistQueue()
+        }
     }
 
     /**
@@ -135,9 +138,7 @@ internal object KlaviyoApiClient : ApiClient {
      * Reset the in-memory queue to the queue from data store
      */
     override fun restoreQueue() {
-        while (apiQueue.isNotEmpty()) {
-            apiQueue.remove()
-        }
+        apiQueue.clear()
 
         // Keep track if there's any errors restoring from persistent store
         var wasMutated = false
@@ -233,7 +234,8 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Stop all jobs on our handler thread
      */
-    private fun stopBatch() = handler?.removeCallbacksAndMessages(null).also {
+    private fun stopBatch() {
+        handler?.removeCallbacksAndMessages(null)
         Registry.log.info("Stopped background handler")
     }
 
