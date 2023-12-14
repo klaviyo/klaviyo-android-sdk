@@ -154,6 +154,21 @@ internal class KlaviyoApiClientTest : BaseRequestTest() {
     }
 
     @Test
+    fun `Enqueuing the same push token API call multiple times only queues the first`() {
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+
+        repeat(5) {
+            KlaviyoApiClient.enqueuePushToken(
+                PUSH_TOKEN,
+                Profile().setAnonymousId(ANON_ID)
+            )
+        }
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        verify(exactly = 1) { logSpy.info("Persisting queue") }
+    }
+
+    @Test
     fun `Enqueues an event API call`() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
