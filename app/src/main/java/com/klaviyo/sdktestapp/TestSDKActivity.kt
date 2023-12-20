@@ -10,7 +10,7 @@ import com.klaviyo.sdktestapp.view.MainScreen
 import com.klaviyo.sdktestapp.viewmodel.AccountInfoViewModel
 import com.klaviyo.sdktestapp.viewmodel.EventsViewModel
 import com.klaviyo.sdktestapp.viewmodel.NavigationViewModel
-import com.klaviyo.sdktestapp.viewmodel.PushSettingsViewModel
+import com.klaviyo.sdktestapp.viewmodel.SettingsViewModel
 import com.klaviyo.sdktestapp.viewmodel.TabIndex
 
 class TestSDKActivity : ComponentActivity() {
@@ -18,11 +18,11 @@ class TestSDKActivity : ComponentActivity() {
     private val pushNotificationContract =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             // This is the callback from notification permission prompt. It is only called on API 33+
-            pushSettingsViewModel.refreshViewModel()
+            settingsViewModel.refreshViewModel()
 
             if (!granted) {
                 // DENIED - Tell the user the consequences of their actions...
-                pushSettingsViewModel.alertPermissionDenied()
+                settingsViewModel.alertPermissionDenied()
             }
         }
 
@@ -32,8 +32,8 @@ class TestSDKActivity : ComponentActivity() {
 
     private val eventsViewModel = EventsViewModel(this)
 
-    private val pushSettingsViewModel: PushSettingsViewModel =
-        PushSettingsViewModel(this, pushNotificationContract)
+    private val settingsViewModel: SettingsViewModel =
+        SettingsViewModel(this, pushNotificationContract)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,7 +45,7 @@ class TestSDKActivity : ComponentActivity() {
                 navigationViewModel = navigationViewModel,
                 accountInfoViewModel = accountInfoViewModel,
                 eventsViewModel = eventsViewModel,
-                pushSettingsViewModel = pushSettingsViewModel,
+                settingsViewModel = settingsViewModel,
             )
         }
     }

@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.result.ActivityResultLauncher
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -19,11 +20,12 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.sdktestapp.TestApp
 import com.klaviyo.sdktestapp.services.Clipboard
 import com.klaviyo.sdktestapp.services.PushService
 
 @SuppressLint("InlinedApi") // Safe to use the keyword. ActivityCompat handles API level differences
-class PushSettingsViewModel(
+class SettingsViewModel(
     private val context: Context,
     private val pushNotificationContract: ActivityResultLauncher<String>,
 ) {
@@ -31,12 +33,14 @@ class PushSettingsViewModel(
     data class ViewState(
         val isNotificationPermitted: Boolean,
         val pushToken: String,
+        val baseUrl: MutableState<String>,
     )
 
     var viewState by mutableStateOf(
         ViewState(
             isNotificationPermitted = false,
             pushToken = "",
+            baseUrl = mutableStateOf(Registry.config.baseUrl),
         )
     )
         private set
@@ -72,6 +76,7 @@ class PushSettingsViewModel(
         viewState = ViewState(
             isNotificationPermitted = isNotificationPermissionGranted(),
             pushToken = getPushToken(),
+            baseUrl = mutableStateOf(Registry.config.baseUrl),
         )
     }
 
@@ -85,6 +90,12 @@ class PushSettingsViewModel(
     }
 
     fun sendLocalNotification() = PushService.createLocalNotification(context)
+
+    fun setBaseUrl() {
+        val app = (context as Activity).application
+        val configService = (app as TestApp).configService
+        configService.setBaseUrl(viewState.baseUrl.value)
+    }
 
     fun imGonnaWreckIt() {
         // Force a crash for crashlytics

@@ -47,8 +47,8 @@ class AccountInfoViewModel(private val context: Context) {
 
     fun setApiKey() {
         val app = (context as Activity).application
-        val companyService = (app as TestApp).companyService
-        companyService.setCompanyId(viewState.accountId.value)
+        val configService = (app as TestApp).configService
+        configService.setCompanyId(viewState.accountId.value)
     }
 
     fun create() {

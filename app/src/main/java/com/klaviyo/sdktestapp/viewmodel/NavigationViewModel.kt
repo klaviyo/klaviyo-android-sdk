@@ -28,7 +28,7 @@ class NavigationViewModel {
         ),
         TabRowItem(
             tab = TabIndex.Settings,
-            title = "Push Settings",
+            title = "Settings",
             imageVector = { Icons.Outlined.Settings },
         )
     )

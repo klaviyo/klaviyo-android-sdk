@@ -6,7 +6,7 @@ import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.sdktestapp.services.CompanyService
+import com.klaviyo.sdktestapp.services.ConfigService
 
 class TestApp : Application() {
 
@@ -14,19 +14,20 @@ class TestApp : Application() {
      * Public reference to companyService this so it can be accessed from Activities
      * Storing Context in a static var is a memory leak, so this is the better option
      */
-    lateinit var companyService: CompanyService
+    lateinit var configService: ConfigService
         private set
 
     override fun onCreate() {
         super.onCreate()
 
         // Company service initializes Klaviyo SDK, manages persistent company ID across sessions
-        companyService = CompanyService(applicationContext)
+        configService = ConfigService(applicationContext)
 
         Firebase.analytics.logEvent(
             FirebaseAnalytics.Event.APP_OPEN,
             Bundle().apply {
-                putString(CompanyService.COMPANY_ID_KEY, companyService.companyId)
+                putString(ConfigService.COMPANY_ID_KEY, configService.companyId)
+                putString(ConfigService.BASE_URL_KEY, configService.baseUrl)
             }
         )
 

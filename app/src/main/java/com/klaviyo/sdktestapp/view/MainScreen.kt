@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
 import com.klaviyo.sdktestapp.viewmodel.AccountInfoViewModel
 import com.klaviyo.sdktestapp.viewmodel.EventsViewModel
 import com.klaviyo.sdktestapp.viewmodel.NavigationViewModel
-import com.klaviyo.sdktestapp.viewmodel.PushSettingsViewModel
+import com.klaviyo.sdktestapp.viewmodel.SettingsViewModel
 import com.klaviyo.sdktestapp.viewmodel.TabIndex
 import com.klaviyo.sdktestapp.viewmodel.TabRowItem
 
@@ -26,7 +26,7 @@ fun MainScreen(
     navigationViewModel: NavigationViewModel,
     accountInfoViewModel: AccountInfoViewModel,
     eventsViewModel: EventsViewModel,
-    pushSettingsViewModel: PushSettingsViewModel,
+    settingsViewModel: SettingsViewModel,
 ) {
     val scaffoldState = rememberScaffoldState()
 
@@ -86,13 +86,14 @@ fun MainScreen(
                         onNavigate = navigationViewModel::onNavigate
                     )
 
-                    TabIndex.Settings -> PushSettings(
-                        viewState = pushSettingsViewModel.viewState,
-                        onCopyPushToken = pushSettingsViewModel::copyPushToken,
-                        onOpenNotificationSettings = pushSettingsViewModel::openSettings,
-                        onRequestedPushNotification = pushSettingsViewModel::requestPushNotifications,
-                        onRequestPushToken = pushSettingsViewModel::setSdkPushToken,
-                        onSendLocalNotification = pushSettingsViewModel::sendLocalNotification,
+                    TabIndex.Settings -> Settings(
+                        viewState = settingsViewModel.viewState,
+                        onCopyPushToken = settingsViewModel::copyPushToken,
+                        onOpenNotificationSettings = settingsViewModel::openSettings,
+                        onRequestedPushNotification = settingsViewModel::requestPushNotifications,
+                        onRequestPushToken = settingsViewModel::setSdkPushToken,
+                        onSendLocalNotification = settingsViewModel::sendLocalNotification,
+                        setBaseUrl = settingsViewModel::setBaseUrl,
                     )
                 }
             }
