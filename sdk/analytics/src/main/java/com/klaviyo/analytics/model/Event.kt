@@ -17,7 +17,7 @@ class Event(val type: EventType, properties: Map<EventKey, Serializable>?) :
 
     constructor(type: String) : this(type, null)
 
-    fun setValue(value: Double) = apply { this.value = value }
+    fun setValue(value: Double?) = apply { this.value = value }
     var value: Double?
         get() = when (val value = this[EventKey.VALUE]) {
             is Double -> value
