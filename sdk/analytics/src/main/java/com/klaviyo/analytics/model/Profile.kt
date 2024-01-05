@@ -12,28 +12,28 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
 
     fun setExternalId(identifier: String) = apply { this.externalId = identifier }
     var externalId: String?
-        get() = (this[ProfileKey.EXTERNAL_ID]) as String?
+        get() = this[ProfileKey.EXTERNAL_ID] as? String
         set(value) {
             this[ProfileKey.EXTERNAL_ID] = value
         }
 
     fun setEmail(email: String) = apply { this.email = email }
     var email: String?
-        get() = (this[ProfileKey.EMAIL]) as String?
+        get() = this[ProfileKey.EMAIL] as? String
         set(value) {
             this[ProfileKey.EMAIL] = value
         }
 
     fun setPhoneNumber(phoneNumber: String) = apply { this.phoneNumber = phoneNumber }
     var phoneNumber: String?
-        get() = (this[ProfileKey.PHONE_NUMBER]) as String?
+        get() = this[ProfileKey.PHONE_NUMBER] as? String
         set(value) {
             this[ProfileKey.PHONE_NUMBER] = value
         }
 
     internal fun setAnonymousId(anonymousId: String) = apply { this.anonymousId = anonymousId }
     internal var anonymousId: String?
-        get() = (this[ProfileKey.ANONYMOUS_ID]) as String
+        get() = this[ProfileKey.ANONYMOUS_ID] as? String
         set(value) {
             this[ProfileKey.ANONYMOUS_ID] = value
         }
