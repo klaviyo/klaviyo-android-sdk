@@ -82,7 +82,7 @@ internal class ModelTests : BaseTest() {
     @Test
     fun `Event properties are reflected in toMap representation`() {
         val event = Event("test").also {
-            it.setValue("$1")
+            it.setValue(1.0)
             it.setProperty(EventKey.EVENT_ID, "id")
             it.setProperty(EventKey.CUSTOM("custom"), "custom")
         }
@@ -90,10 +90,10 @@ internal class ModelTests : BaseTest() {
         val eventMap = event.toMap()
 
         assertEquals("test", event.type.name)
-        assertEquals("$1", event.value)
+        assertEquals(1.0, event.value)
         assertNull(eventMap["type"])
         assertEquals("id", eventMap[EventKey.EVENT_ID.name])
-        assertEquals("$1", eventMap[EventKey.VALUE.name])
+        assertEquals(1.0, eventMap[EventKey.VALUE.name])
         assertEquals("custom", eventMap["custom"])
     }
 
