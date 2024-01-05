@@ -80,6 +80,29 @@ internal class ModelTests : BaseTest() {
     }
 
     @Test
+    fun `Type mismatches are handled gracefully for named properties`() {
+        val profile = Profile(
+            mapOf(
+                ProfileKey.EXTERNAL_ID to 123,
+                ProfileKey.EMAIL to 123,
+                ProfileKey.PHONE_NUMBER to 123
+            )
+        )
+        assertEquals("123", profile.externalId)
+        assertEquals("123", profile.email)
+        assertEquals("123", profile.phoneNumber)
+
+        val event = Event(
+            "test",
+            mapOf(
+                EventKey.VALUE to "123.45"
+            )
+        )
+
+        assertEquals(123.45, event.value)
+    }
+
+    @Test
     fun `Event properties are reflected in toMap representation`() {
         val event = Event("test").also {
             it.setValue(1.0)

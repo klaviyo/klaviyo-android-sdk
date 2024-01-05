@@ -19,16 +19,22 @@ class Event(val type: EventType, properties: Map<EventKey, Serializable>?) :
 
     fun setValue(value: Double) = apply { this.value = value }
     var value: Double?
-        get() = this[EventKey.VALUE] as? Double
+        get() = when (val value = this[EventKey.VALUE]) {
+            is Double -> value
+            else -> try {
+                value.toString().toDouble()
+            } catch (e: NumberFormatException) {
+                null
+            }
+        }
         set(value) {
             this[EventKey.VALUE] = value
         }
 
-    override fun setProperty(key: EventKey, value: Serializable) = apply {
+    override fun setProperty(key: EventKey, value: Serializable?) = apply {
         this[key] = value
     }
 
-    override fun setProperty(key: String, value: Serializable) = apply {
-        this[EventKey.CUSTOM(key)] = value
-    }
+    override fun setProperty(key: String, value: Serializable?) =
+        setProperty(EventKey.CUSTOM(key), value)
 }
