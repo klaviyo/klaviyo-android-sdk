@@ -5,7 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
-import com.klaviyo.analytics.model.EventType
+import com.klaviyo.analytics.model.MetricName
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
@@ -310,7 +310,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Enqueue an event API call`() {
-        val stubEvent = Event(EventType.VIEWED_PRODUCT).also { it[EventKey.VALUE] = 1 }
+        val stubEvent = Event(MetricName.VIEWED_PRODUCT).also { it[EventKey.VALUE] = 1 }
         Klaviyo.createEvent(stubEvent)
 
         verify(exactly = 1) {
@@ -320,10 +320,10 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Enqueue an event API call conveniently`() {
-        Klaviyo.createEvent(EventType.VIEWED_PRODUCT)
+        Klaviyo.createEvent(MetricName.VIEWED_PRODUCT)
 
         verify(exactly = 1) {
-            apiClientMock.enqueueEvent(match { it.type == EventType.VIEWED_PRODUCT }, any())
+            apiClientMock.enqueueEvent(match { it.type == MetricName.VIEWED_PRODUCT }, any())
         }
     }
 }

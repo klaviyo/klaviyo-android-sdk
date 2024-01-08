@@ -6,10 +6,36 @@ package com.klaviyo.analytics.model
  *
  * @property name String value of the event which is recognized by Klaviyo as a registered event
  */
-sealed class EventType(name: String) : Keyword(name) {
+sealed class MetricName(name: String) : Keyword(name) {
+    internal object OPENED_PUSH : MetricName("\$opened_push")
+
+    object OPENED_APP : MetricName("Opened App")
+    object VIEWED_PRODUCT : MetricName("Viewed Product")
+    object ADDED_TO_CART : MetricName("Added to Cart")
+    object STARTED_CHECKOUT : MetricName("Started Checkout")
+
+    class CUSTOM(name: String) : MetricName(name)
+}
+
+/**
+ * Events recognized by Klaviyo
+ * Custom events can be defined using the [CUSTOM] inner class
+ *
+ * @property name String value of the event which is recognized by Klaviyo as a registered event
+ */
+@Deprecated(
+    """
+    These event metric names were erroneously included in the first version of the SDK. 
+    To better match with Klaviyo's on-site integrations the event name values have been corrected. 
+    See MetricName for the newly corrected values.
+    EventType will be removed in the next major release
+""",
+    replaceWith = ReplaceWith("com.klaviyo.analytics.model.MetricName")
+)
+sealed class EventType(name: String) : MetricName(name) {
 
     // Push-related
-    internal object OPENED_PUSH : EventType("\$opened_push")
+    internal object OPENED_PUSH : EventType(MetricName.OPENED_PUSH.name)
 
     // Product viewing events
     object VIEWED_PRODUCT : EventType("\$viewed_product")

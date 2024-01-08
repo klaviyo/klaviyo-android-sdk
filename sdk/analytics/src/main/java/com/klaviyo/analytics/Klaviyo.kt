@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
-import com.klaviyo.analytics.model.EventType
+import com.klaviyo.analytics.model.MetricName
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
@@ -272,13 +272,13 @@ object Klaviyo {
      *
      * Convenience method for creating an event with no other properties
      *
-     * @param eventType [EventType] to create
+     * @param eventType [MetricName] to create
      * @return Returns [Klaviyo] for call chaining
      */
-    fun createEvent(eventType: EventType): Klaviyo = createEvent(Event(eventType))
+    fun createEvent(eventType: MetricName): Klaviyo = createEvent(Event(eventType))
 
     /**
-     * From an opened push Intent, creates an [EventType.OPENED_PUSH] [Event]
+     * From an opened push Intent, creates an [MetricName.OPENED_PUSH] [Event]
      * containing appropriate tracking parameters
      *
      * @param intent the [Intent] from opening a notification
@@ -289,7 +289,7 @@ object Klaviyo {
             return@apply
         }
 
-        val event = Event(EventType.OPENED_PUSH)
+        val event = Event(MetricName.OPENED_PUSH)
         val extras = intent.extras
 
         extras?.keySet()?.forEach { key ->

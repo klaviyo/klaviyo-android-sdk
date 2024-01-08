@@ -4,7 +4,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.model.EventType
+import com.klaviyo.analytics.model.MetricName
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil as HandlerUtil
 import com.klaviyo.analytics.networking.requests.ApiRequest
@@ -173,7 +173,7 @@ internal class KlaviyoApiClientTest : BaseRequestTest() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
         KlaviyoApiClient.enqueueEvent(
-            Event(EventType.CUSTOM("mock")),
+            Event(MetricName.CUSTOM("mock")),
             Profile().setAnonymousId(ANON_ID)
         )
 

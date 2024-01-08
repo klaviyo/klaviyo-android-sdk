@@ -44,6 +44,13 @@ class KeywordsTest {
 
     @Test
     fun `Event type keys`() {
+        assertEquals("\$opened_push", MetricName.OPENED_PUSH.name)
+        assertEquals("Opened App", MetricName.OPENED_APP.name)
+        assertEquals("Viewed Product", MetricName.VIEWED_PRODUCT.name)
+        assertEquals("Added to Cart", MetricName.ADDED_TO_CART.name)
+        assertEquals("Started Checkout", MetricName.STARTED_CHECKOUT.name)
+        assertEquals("custom", MetricName.CUSTOM("custom").name)
+
         assertEquals("\$opened_push", EventType.OPENED_PUSH.name)
         assertEquals("\$viewed_product", EventType.VIEWED_PRODUCT.name)
         assertEquals("\$searched_products", EventType.SEARCHED_PRODUCTS.name)
@@ -63,7 +70,12 @@ class KeywordsTest {
         assertEquals(expectedCustomKey, EventType.CUSTOM(expectedCustomKey).name)
 
         // Test the equals operator works properly on custom keys
-        val custom = EventType.CUSTOM(expectedCustomKey)
+        var custom: MetricName = MetricName.CUSTOM(expectedCustomKey)
+        assert(custom == MetricName.CUSTOM(expectedCustomKey))
+        assert(custom != MetricName.CUSTOM(expectedCustomKey + "1"))
+
+        // Test the equals operator works properly on custom keys
+        custom = EventType.CUSTOM(expectedCustomKey)
         assert(custom == EventType.CUSTOM(expectedCustomKey))
         assert(custom != EventType.CUSTOM(expectedCustomKey + "1"))
     }
