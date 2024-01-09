@@ -28,11 +28,11 @@ sealed class EventMetric(name: String) : Keyword(name) {
     These metric names were erroneously provided in the first version of the SDK. 
     The keywords are spelled incorrectly, and many of are intended to be used serverside only.
     To better match Klaviyo's on-site integrations, the metric keywords have been corrected. 
-    Use MetricName for corrected values, or use MetricName.CUSTOM to define other metric names.
+    Use EventMetric for corrected values, or use EventMetric.CUSTOM to define other metric names.
     
     EventType will be removed in the next major release. 
 """,
-    replaceWith = ReplaceWith("com.klaviyo.analytics.model.MetricName")
+    replaceWith = ReplaceWith("com.klaviyo.analytics.model.EventMetric")
 )
 sealed class EventType(name: String) : EventMetric(name) {
 
