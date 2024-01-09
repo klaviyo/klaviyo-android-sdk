@@ -67,6 +67,7 @@ class KeywordsTest {
         assertEquals("\$failed_payment", EventType.FAILED_PAYMENT.name)
 
         val expectedCustomKey = Math.random().toString() + "_key"
+        assertEquals(expectedCustomKey, MetricName.CUSTOM(expectedCustomKey).name)
         assertEquals(expectedCustomKey, EventType.CUSTOM(expectedCustomKey).name)
 
         // Test the equals operator works properly on custom keys
