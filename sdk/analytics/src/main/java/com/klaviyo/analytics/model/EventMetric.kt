@@ -6,15 +6,15 @@ package com.klaviyo.analytics.model
  *
  * @property name String that represents the name of the metric
  */
-sealed class MetricName(name: String) : Keyword(name) {
-    internal object OPENED_PUSH : MetricName("\$opened_push")
+sealed class EventMetric(name: String) : Keyword(name) {
+    internal object OPENED_PUSH : EventMetric("\$opened_push")
 
-    object OPENED_APP : MetricName("Opened App")
-    object VIEWED_PRODUCT : MetricName("Viewed Product")
-    object ADDED_TO_CART : MetricName("Added to Cart")
-    object STARTED_CHECKOUT : MetricName("Started Checkout")
+    object OPENED_APP : EventMetric("Opened App")
+    object VIEWED_PRODUCT : EventMetric("Viewed Product")
+    object ADDED_TO_CART : EventMetric("Added to Cart")
+    object STARTED_CHECKOUT : EventMetric("Started Checkout")
 
-    class CUSTOM(name: String) : MetricName(name)
+    class CUSTOM(name: String) : EventMetric(name)
 }
 
 /**
@@ -34,10 +34,10 @@ sealed class MetricName(name: String) : Keyword(name) {
 """,
     replaceWith = ReplaceWith("com.klaviyo.analytics.model.MetricName")
 )
-sealed class EventType(name: String) : MetricName(name) {
+sealed class EventType(name: String) : EventMetric(name) {
 
     // Push-related
-    internal object OPENED_PUSH : EventType(MetricName.OPENED_PUSH.name)
+    internal object OPENED_PUSH : EventType(EventMetric.OPENED_PUSH.name)
 
     // Product viewing events
     object VIEWED_PRODUCT : EventType("\$viewed_product")

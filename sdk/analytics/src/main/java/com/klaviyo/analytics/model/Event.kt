@@ -5,15 +5,15 @@ import java.io.Serializable
 /**
  * Controls the data that can be input into a map of event attributes recognised by Klaviyo
  */
-class Event(val type: MetricName, properties: Map<EventKey, Serializable>?) :
+class Event(val type: EventMetric, properties: Map<EventKey, Serializable>?) :
     BaseModel<EventKey, Event>(properties) {
 
     constructor(type: String, properties: Map<EventKey, Serializable>?) : this(
-        MetricName.CUSTOM(type),
+        EventMetric.CUSTOM(type),
         properties
     )
 
-    constructor(type: MetricName) : this(type, null)
+    constructor(type: EventMetric) : this(type, null)
 
     constructor(type: String) : this(type, null)
 

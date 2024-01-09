@@ -44,12 +44,12 @@ class KeywordsTest {
 
     @Test
     fun `Event type keys`() {
-        assertEquals("\$opened_push", MetricName.OPENED_PUSH.name)
-        assertEquals("Opened App", MetricName.OPENED_APP.name)
-        assertEquals("Viewed Product", MetricName.VIEWED_PRODUCT.name)
-        assertEquals("Added to Cart", MetricName.ADDED_TO_CART.name)
-        assertEquals("Started Checkout", MetricName.STARTED_CHECKOUT.name)
-        assertEquals("custom", MetricName.CUSTOM("custom").name)
+        assertEquals("\$opened_push", EventMetric.OPENED_PUSH.name)
+        assertEquals("Opened App", EventMetric.OPENED_APP.name)
+        assertEquals("Viewed Product", EventMetric.VIEWED_PRODUCT.name)
+        assertEquals("Added to Cart", EventMetric.ADDED_TO_CART.name)
+        assertEquals("Started Checkout", EventMetric.STARTED_CHECKOUT.name)
+        assertEquals("custom", EventMetric.CUSTOM("custom").name)
 
         assertEquals("\$opened_push", EventType.OPENED_PUSH.name)
         assertEquals("\$viewed_product", EventType.VIEWED_PRODUCT.name)
@@ -67,13 +67,13 @@ class KeywordsTest {
         assertEquals("\$failed_payment", EventType.FAILED_PAYMENT.name)
 
         val expectedCustomKey = Math.random().toString() + "_key"
-        assertEquals(expectedCustomKey, MetricName.CUSTOM(expectedCustomKey).name)
+        assertEquals(expectedCustomKey, EventMetric.CUSTOM(expectedCustomKey).name)
         assertEquals(expectedCustomKey, EventType.CUSTOM(expectedCustomKey).name)
 
         // Test the equals operator works properly on custom keys
-        var custom: MetricName = MetricName.CUSTOM(expectedCustomKey)
-        assert(custom == MetricName.CUSTOM(expectedCustomKey))
-        assert(custom != MetricName.CUSTOM(expectedCustomKey + "1"))
+        var custom: EventMetric = EventMetric.CUSTOM(expectedCustomKey)
+        assert(custom == EventMetric.CUSTOM(expectedCustomKey))
+        assert(custom != EventMetric.CUSTOM(expectedCustomKey + "1"))
 
         // Test the equals operator works properly on custom keys
         custom = EventType.CUSTOM(expectedCustomKey)

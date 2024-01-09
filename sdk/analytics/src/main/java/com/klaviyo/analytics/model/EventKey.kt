@@ -9,7 +9,7 @@ sealed class EventKey(name: String) : Keyword(name) {
     object VALUE : EventKey("\$value")
 
     /**
-     * For [MetricName.OPENED_PUSH] events, append the device token as an event property
+     * For [EventMetric.OPENED_PUSH] events, append the device token as an event property
      */
     internal object PUSH_TOKEN : EventKey("push_token")
 
