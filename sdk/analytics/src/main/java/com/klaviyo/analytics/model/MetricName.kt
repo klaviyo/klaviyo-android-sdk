@@ -1,10 +1,10 @@
 package com.klaviyo.analytics.model
 
 /**
- * Events recognized by Klaviyo
- * Custom events can be defined using the [CUSTOM] inner class
+ * Common clientside event metrics recognized by Klaviyo
+ * Custom metrics can be defined with the [CUSTOM] inner class
  *
- * @property name String value of the event which is recognized by Klaviyo as a registered event
+ * @property name String that represents the name of the metric
  */
 sealed class MetricName(name: String) : Keyword(name) {
     internal object OPENED_PUSH : MetricName("\$opened_push")
@@ -18,17 +18,19 @@ sealed class MetricName(name: String) : Keyword(name) {
 }
 
 /**
- * Events recognized by Klaviyo
+ * Events recognized by Klaviyo (Deprecated)
  * Custom events can be defined using the [CUSTOM] inner class
  *
  * @property name String value of the event which is recognized by Klaviyo as a registered event
  */
 @Deprecated(
     """
-    These event metric names were erroneously included in the first version of the SDK. 
-    To better match with Klaviyo's on-site integrations the event name values have been corrected. 
-    See MetricName for the newly corrected values.
-    EventType will be removed in the next major release
+    These metric names were erroneously provided in the first version of the SDK. 
+    The keywords are spelled incorrectly, and many of are intended to be used serverside only.
+    To better match Klaviyo's on-site integrations, the metric keywords have been corrected. 
+    Use MetricName for corrected values, or use MetricName.CUSTOM to define other metric names.
+    
+    EventType will be removed in the next major release. 
 """,
     replaceWith = ReplaceWith("com.klaviyo.analytics.model.MetricName")
 )
