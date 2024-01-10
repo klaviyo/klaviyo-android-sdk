@@ -80,7 +80,7 @@ internal class ModelTests : BaseTest() {
     }
 
     @Test
-    fun `Profile identifiers type is enforced without crashing`() {
+    fun `Type of special model properties is enforced without crashing`() {
         val profile = Profile(
             mapOf(
                 ProfileKey.EXTERNAL_ID to 0,
