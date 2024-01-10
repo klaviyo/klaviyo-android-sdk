@@ -80,6 +80,24 @@ internal class ModelTests : BaseTest() {
     }
 
     @Test
+    fun `Profile identifiers type is enforced without crashing`() {
+        val profile = Profile(
+            mapOf(
+                ProfileKey.EXTERNAL_ID to 0,
+                ProfileKey.EMAIL to 0,
+                ProfileKey.PHONE_NUMBER to 0
+            )
+        )
+
+        assertEquals("0", profile.externalId)
+        assertEquals("0", profile.email)
+        assertEquals("0", profile.phoneNumber)
+
+        val event = Event("test", mapOf(EventKey.VALUE to 0))
+        assertEquals("0", event.value)
+    }
+
+    @Test
     fun `Event properties are reflected in toMap representation`() {
         val event = Event("test").also {
             it.setValue("$1")
