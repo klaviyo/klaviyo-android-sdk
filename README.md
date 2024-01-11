@@ -135,12 +135,12 @@ Klaviyo.setEmail("robin@example.com")
 ### Tracking Events
 
 The SDK also provides tools for tracking analytics events to the Klaviyo API.
-A list of common Klaviyo-defined event names is provided in [EventType](https://klaviyo.github.io/klaviyo-android-sdk/1.0.0/sdk/analytics/com.klaviyo.analytics.model/-event-type/), or
-you can use `EventType.CUSTOM("name")` for custom event names.
+A list of common Klaviyo-defined event metrics is provided in `EventMetric`, or
+you can use `EventMetric.CUSTOM("name")` for custom event metric names.
 Additional event properties can be specified as part of `EventModel`
 
 ```kotlin
-val event = Event(EventType.VIEWED_PRODUCT)
+val event = Event(EventMetric.VIEWED_PRODUCT)
     .setProperty(EventKey.VALUE, "10")
     .setProperty(EventKey.CUSTOM("custom_key"), "value")
 Klaviyo.createEvent(event)
