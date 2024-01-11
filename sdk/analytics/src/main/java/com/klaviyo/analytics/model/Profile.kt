@@ -10,51 +10,41 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
 
     constructor() : this(null)
 
-    fun setExternalId(identifier: String) = apply { this.externalId = identifier }
+    fun setExternalId(identifier: String?) = apply { this.externalId = identifier }
     var externalId: String?
-        get() = (this[ProfileKey.EXTERNAL_ID]) as String?
+        get() = (this[ProfileKey.EXTERNAL_ID])?.toString()
         set(value) {
             this[ProfileKey.EXTERNAL_ID] = value
         }
 
-    fun setEmail(email: String) = apply { this.email = email }
+    fun setEmail(email: String?) = apply { this.email = email }
     var email: String?
-        get() = (this[ProfileKey.EMAIL]) as String?
+        get() = (this[ProfileKey.EMAIL])?.toString()
         set(value) {
             this[ProfileKey.EMAIL] = value
         }
 
-    fun setPhoneNumber(phoneNumber: String) = apply { this.phoneNumber = phoneNumber }
+    fun setPhoneNumber(phoneNumber: String?) = apply { this.phoneNumber = phoneNumber }
     var phoneNumber: String?
-        get() = (this[ProfileKey.PHONE_NUMBER]) as String?
+        get() = (this[ProfileKey.PHONE_NUMBER])?.toString()
         set(value) {
             this[ProfileKey.PHONE_NUMBER] = value
         }
 
-    internal fun setAnonymousId(anonymousId: String) = apply { this.anonymousId = anonymousId }
+    internal fun setAnonymousId(anonymousId: String?) = apply { this.anonymousId = anonymousId }
     internal var anonymousId: String?
-        get() = (this[ProfileKey.ANONYMOUS_ID]) as String
+        get() = (this[ProfileKey.ANONYMOUS_ID])?.toString()
         set(value) {
             this[ProfileKey.ANONYMOUS_ID] = value
         }
 
-    override fun setProperty(key: ProfileKey, value: Serializable) = apply {
+    override fun setProperty(key: ProfileKey, value: Serializable?) = apply {
         this[key] = value
     }
 
-    override fun setProperty(key: String, value: Serializable) = apply {
+    override fun setProperty(key: String, value: Serializable?) = apply {
         this[ProfileKey.CUSTOM(key)] = value
     }
 
     override fun merge(other: Profile) = apply { super.merge(other) }
-
-    /**
-     * Get a map of just the unique identifiers of this profile
-     */
-    internal fun getIdentifiers(): Map<ProfileKey, String> = mapOf(
-        ProfileKey.EXTERNAL_ID to (this.externalId ?: ""),
-        ProfileKey.EMAIL to (this.email ?: ""),
-        ProfileKey.PHONE_NUMBER to (this.phoneNumber ?: ""),
-        ProfileKey.ANONYMOUS_ID to (this.anonymousId ?: "")
-    ).filter { it.value.isNotEmpty() }
 }
