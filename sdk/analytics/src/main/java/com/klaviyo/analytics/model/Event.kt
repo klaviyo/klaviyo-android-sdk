@@ -5,23 +5,17 @@ import java.io.Serializable
 /**
  * Controls the data that can be input into a map of event attributes recognised by Klaviyo
  */
-class Event(val type: EventMetric, properties: Map<EventKey, Serializable>?) :
+class Event(val metric: EventMetric, properties: Map<EventKey, Serializable>?) :
     BaseModel<EventKey, Event>(properties) {
+
+    constructor(metric: String, properties: Map<EventKey, Serializable>?) : this(
+        EventMetric.CUSTOM(metric),
+        properties
+    )
 
     constructor(metric: EventMetric) : this(metric, null)
 
-    @Deprecated(
-        "Use Event constructor with EventMetric instead. See migration guide for details.",
-        ReplaceWith("Event(metric)")
-    )
-    constructor(type: EventType) : this(type, null)
-
-    constructor(type: String) : this(type, null)
-
-    constructor(type: String, properties: Map<EventKey, Serializable>?) : this(
-        EventMetric.CUSTOM(type),
-        properties
-    )
+    constructor(metric: String) : this(metric, null)
 
     fun setValue(value: Double?) = apply { this.value = value }
     var value: Double?
