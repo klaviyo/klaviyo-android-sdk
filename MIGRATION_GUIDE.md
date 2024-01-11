@@ -2,6 +2,20 @@
 This document provides guidance on how to migrate from the old version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
+## 2.0.0 Breaking Changes
+*`EventType` has been removed in favor of `EventMetric`.*
+The reasoning is explained below, see [1.4.0 Deprecations](#140-deprecations) for details and code samples.
+Additionally, for consistent naming conventions `Event.type` has been renamed to `Event.metric`,
+including all argument labels in `Event` constructors. For example:
+
+```kotlin
+//Old code: Will no longer compile
+val event = Event(type="Custom Event")
+
+//New code: Corrected argument label
+val event = Event(metric="Custom Event")
+```
+
 ## 1.4.0 Deprecations
 *`EventType` is deprecated in favor of `EventMetric`.* `EventType` will be removed in the next major release.
 
