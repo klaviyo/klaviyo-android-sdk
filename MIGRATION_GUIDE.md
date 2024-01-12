@@ -2,6 +2,11 @@
 This document provides guidance on how to migrate from the old version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
+## 2.0.0 Breaking Changes
+*Type of `Event.value` has been correct to `Double`*
+In version 1.x, `Event.value` was incorrectly typed as `String`. Klaviyo's API expects `value` to be numeric, and 
+while the backend will implicitly convert a numeric string to a number, it is better to be explicit about the type.
+
 ## 1.4.0 Deprecations
 *`EventType` is deprecated in favor of `EventMetric`.* `EventType` will be removed in the next major release.
 

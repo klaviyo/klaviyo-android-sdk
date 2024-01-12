@@ -23,9 +23,16 @@ class Event(val type: EventMetric, properties: Map<EventKey, Serializable>?) :
         properties
     )
 
-    fun setValue(value: String?) = apply { this.value = value }
-    var value: String?
-        get() = this[EventKey.VALUE]?.toString()
+    fun setValue(value: Double?) = apply { this.value = value }
+    var value: Double?
+        get() = when (val value = this[EventKey.VALUE]) {
+            is Double -> value
+            else -> try {
+                value.toString().toDouble()
+            } catch (e: NumberFormatException) {
+                null
+            }
+        }
         set(value) {
             this[EventKey.VALUE] = value
         }
@@ -34,7 +41,6 @@ class Event(val type: EventMetric, properties: Map<EventKey, Serializable>?) :
         this[key] = value
     }
 
-    override fun setProperty(key: String, value: Serializable?) = apply {
-        this[EventKey.CUSTOM(key)] = value
-    }
+    override fun setProperty(key: String, value: Serializable?) =
+        setProperty(EventKey.CUSTOM(key), value)
 }
