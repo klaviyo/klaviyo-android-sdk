@@ -6,6 +6,19 @@ It will be updated as new versions are released including deprecations or breaki
 *Type of `Event.value` has been correct to `Double`*
 In version 1.x, `Event.value` was incorrectly typed as `String`. Klaviyo's API expects `value` to be numeric, and 
 while the backend will implicitly convert a numeric string to a number, it is better to be explicit about the type.
+```kotlin
+// Old code: accepted strings (though still would be converted to a number on the server)
+val event = Event("Test").setValue("1.0")
+// Or
+val event = Event("Test")
+event.value = "1.0"
+
+//New code: type has been corrected to Double
+val event = Event("Test").setValue(1.0)
+// Or
+val event = Event("Test")
+event.value = 1.0
+```
 
 ## 1.4.0 Deprecations
 *`EventType` is deprecated in favor of `EventMetric`.* `EventType` will be removed in the next major release.
