@@ -51,34 +51,13 @@ class KeywordsTest {
         assertEquals("Started Checkout", EventMetric.STARTED_CHECKOUT.name)
         assertEquals("custom", EventMetric.CUSTOM("custom").name)
 
-        assertEquals("\$opened_push", EventType.OPENED_PUSH.name)
-        assertEquals("\$viewed_product", EventType.VIEWED_PRODUCT.name)
-        assertEquals("\$searched_products", EventType.SEARCHED_PRODUCTS.name)
-        assertEquals("\$started_checkout", EventType.STARTED_CHECKOUT.name)
-        assertEquals("\$placed_order", EventType.PLACED_ORDER.name)
-        assertEquals("\$ordered_product", EventType.ORDERED_PRODUCT.name)
-        assertEquals("\$cancelled_order", EventType.CANCELLED_ORDER.name)
-        assertEquals("\$refunded_order", EventType.REFUNDED_ORDER.name)
-        assertEquals("\$paid_for_order", EventType.PAID_FOR_ORDER.name)
-        assertEquals("\$subscribed_to_back_in_stock", EventType.SUBSCRIBED_TO_BACK_IN_STOCK.name)
-        assertEquals("\$subscribed_to_coming_soon", EventType.SUBSCRIBED_TO_COMING_SOON.name)
-        assertEquals("\$subscribed_to_list", EventType.SUBSCRIBED_TO_LIST.name)
-        assertEquals("\$successful_payment", EventType.SUCCESSFUL_PAYMENT.name)
-        assertEquals("\$failed_payment", EventType.FAILED_PAYMENT.name)
-
         val expectedCustomKey = Math.random().toString() + "_key"
         assertEquals(expectedCustomKey, EventMetric.CUSTOM(expectedCustomKey).name)
-        assertEquals(expectedCustomKey, EventType.CUSTOM(expectedCustomKey).name)
 
         // Test the equals operator works properly on custom keys
-        var custom: EventMetric = EventMetric.CUSTOM(expectedCustomKey)
+        val custom: EventMetric = EventMetric.CUSTOM(expectedCustomKey)
         assert(custom == EventMetric.CUSTOM(expectedCustomKey))
         assert(custom != EventMetric.CUSTOM(expectedCustomKey + "1"))
-
-        // Test the equals operator works properly on custom keys
-        custom = EventType.CUSTOM(expectedCustomKey)
-        assert(custom == EventType.CUSTOM(expectedCustomKey))
-        assert(custom != EventType.CUSTOM(expectedCustomKey + "1"))
     }
 
     @Test

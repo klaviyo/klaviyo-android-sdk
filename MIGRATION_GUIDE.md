@@ -3,7 +3,20 @@ This document provides guidance on how to migrate from the old version of the SD
 It will be updated as new versions are released including deprecations or breaking changes.
 
 ## 2.0.0 Breaking Changes
-*Type of `Event.value` has been correct to `Double`*
+#### Removed `EventType` in favor of `EventMetric`.
+The reasoning is explained below, see [1.4.0 Deprecations](#140-deprecations) for details and code samples.
+Additionally, for consistent naming conventions `Event.type` has been renamed to `Event.metric`,
+including all argument labels in `Event` constructors. For example:
+
+```kotlin
+//Old code: Will no longer compile
+val event = Event(type="Custom Event")
+
+//New code: Corrected argument label
+val event = Event(metric="Custom Event")
+```
+
+#### Corrected `Event.value` from `String` to `Double`
 In version 1.x, `Event.value` was incorrectly typed as `String`. Klaviyo's API expects `value` to be numeric, and 
 while the backend will implicitly convert a numeric string to a number, it is better to be explicit about the type.
 ```kotlin
@@ -21,8 +34,7 @@ event.value = 1.0
 ```
 
 ## 1.4.0 Deprecations
-*`EventType` is deprecated in favor of `EventMetric`.* `EventType` will be removed in the next major release.
-
+#### Deprecated `EventType` in favor of `EventMetric`
 It was recently discovered that the Android SDK was using legacy event names for some common events, 
 like "Viewed Product" and some events that are associated with server actions, like "Ordered Product."
 As a result, if your account used these standard events, they were being logged with names like "$viewed_product"

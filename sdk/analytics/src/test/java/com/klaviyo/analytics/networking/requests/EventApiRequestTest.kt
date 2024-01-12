@@ -81,7 +81,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "data": {
                       "type": "metric",
                       "attributes": {
-                        "name": "${stubEvent.type}"
+                        "name": "${stubEvent.metric}"
                       }
                     }
                   },
@@ -131,7 +131,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "data": {
                       "type": "metric",
                       "attributes": {
-                        "name": "${stubEvent.type}"
+                        "name": "${stubEvent.metric}"
                       }
                     }
                   },
@@ -184,7 +184,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
                     "data": {
                       "type": "metric",
                       "attributes": {
-                        "name": "${stubEvent.type}"
+                        "name": "${stubEvent.metric}"
                       }
                     }
                   },

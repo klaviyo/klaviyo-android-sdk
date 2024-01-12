@@ -107,7 +107,7 @@ internal class ModelTests : BaseTest() {
 
         val eventMap = event.toMap()
 
-        assertEquals("test", event.type.name)
+        assertEquals("test", event.metric.name)
         assertEquals(1.0, event.value)
         assertNull(eventMap["type"])
         assertEquals("id", eventMap[EventKey.EVENT_ID.name])
