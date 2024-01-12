@@ -37,15 +37,15 @@ send them timely push notifications via FCM.
    ```kotlin
    // build.gradle.kts
    dependencies {
-       implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:1.4.0")
-       implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:1.4.0")
+       implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:2.0.0-alpha.1")
+       implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.0.0-alpha.1")
    }
    ```
    ```groovy
    // build.gradle
    dependencies {
-       implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:1.4.0"
-       implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:1.4.0"
+       implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:2.0.0-alpha.1"
+       implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.0.0-alpha.1"
    }
    ```
 
