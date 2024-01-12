@@ -16,7 +16,7 @@ jobs:
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       # Sets up a JDK on the job so that we can run Java code
       - name: Set up JDK 11
@@ -44,7 +44,7 @@ jobs:
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       # Sets up a JDK on the job so that we can run Java code
       - name: Set up JDK 11
