@@ -141,8 +141,8 @@ Additional event properties can be specified as part of `EventModel`
 
 ```kotlin
 val event = Event(EventMetric.VIEWED_PRODUCT)
-    .setProperty(EventKey.VALUE, "10")
-    .setProperty(EventKey.CUSTOM("custom_key"), "value")
+    .setProperty(EventKey.CUSTOM("Product"), "Coffee Mug")
+    .setValue(10.0)
 Klaviyo.createEvent(event)
 ```
 
