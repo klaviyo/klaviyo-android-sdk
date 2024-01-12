@@ -44,6 +44,13 @@ class KeywordsTest {
 
     @Test
     fun `Event type keys`() {
+        assertEquals("\$opened_push", EventMetric.OPENED_PUSH.name)
+        assertEquals("Opened App", EventMetric.OPENED_APP.name)
+        assertEquals("Viewed Product", EventMetric.VIEWED_PRODUCT.name)
+        assertEquals("Added to Cart", EventMetric.ADDED_TO_CART.name)
+        assertEquals("Started Checkout", EventMetric.STARTED_CHECKOUT.name)
+        assertEquals("custom", EventMetric.CUSTOM("custom").name)
+
         assertEquals("\$opened_push", EventType.OPENED_PUSH.name)
         assertEquals("\$viewed_product", EventType.VIEWED_PRODUCT.name)
         assertEquals("\$searched_products", EventType.SEARCHED_PRODUCTS.name)
@@ -60,10 +67,16 @@ class KeywordsTest {
         assertEquals("\$failed_payment", EventType.FAILED_PAYMENT.name)
 
         val expectedCustomKey = Math.random().toString() + "_key"
+        assertEquals(expectedCustomKey, EventMetric.CUSTOM(expectedCustomKey).name)
         assertEquals(expectedCustomKey, EventType.CUSTOM(expectedCustomKey).name)
 
         // Test the equals operator works properly on custom keys
-        val custom = EventType.CUSTOM(expectedCustomKey)
+        var custom: EventMetric = EventMetric.CUSTOM(expectedCustomKey)
+        assert(custom == EventMetric.CUSTOM(expectedCustomKey))
+        assert(custom != EventMetric.CUSTOM(expectedCustomKey + "1"))
+
+        // Test the equals operator works properly on custom keys
+        custom = EventType.CUSTOM(expectedCustomKey)
         assert(custom == EventType.CUSTOM(expectedCustomKey))
         assert(custom != EventType.CUSTOM(expectedCustomKey + "1"))
     }

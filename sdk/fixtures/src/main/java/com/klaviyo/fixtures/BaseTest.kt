@@ -97,6 +97,9 @@ abstract class BaseTest {
     /**
      * Gross way to modify a final static field through reflection
      *
+     * NOTE This will break in future Java versions, but is the only way to mock
+     * SDK version and retain compiler verification of our compatibility tests
+     *
      * @param field
      * @param newValue
      */

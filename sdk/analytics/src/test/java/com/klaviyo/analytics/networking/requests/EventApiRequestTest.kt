@@ -2,7 +2,7 @@ package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.model.EventType
+import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import io.mockk.every
 import org.json.JSONObject
@@ -22,7 +22,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
         "User-Agent" to "Mock User Agent"
     )
 
-    private val stubEvent: Event = Event(EventType.CUSTOM("Test Event"))
+    private val stubEvent: Event = Event(EventMetric.CUSTOM("Test Event"))
 
     private val stubProfile = Profile()
         .setExternalId(EXTERNAL_ID)
