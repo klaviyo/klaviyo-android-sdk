@@ -88,7 +88,7 @@ private fun RequestComponent(
             }
         )
         headerIcon(
-            modifier = Modifier.constrainAs(icon) {
+            Modifier.constrainAs(icon) {
                 end.linkTo(parent.end)
                 top.linkTo(parent.top)
                 bottom.linkTo(parent.bottom)

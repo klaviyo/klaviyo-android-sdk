@@ -5,7 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.analytics.model.EventType
+import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
 import com.klaviyo.sdktestapp.services.Clipboard
@@ -40,7 +40,7 @@ class EventsViewModel(private val context: Context) {
     }
 
     /**
-     * Register a callback for all of the SDK's API requests state changes.
+     * Register a callback for all the SDK's API requests state changes.
      */
     private fun observeSdk() = Registry.get<ApiClient>().onApiRequest(true) { request ->
         _events[request.uuid] = Event(request)
@@ -56,8 +56,8 @@ class EventsViewModel(private val context: Context) {
         refreshState()
     }
 
-    fun createEvent(eventType: EventType) {
-        Klaviyo.createEvent(eventType)
+    fun createEvent(metric: EventMetric) {
+        Klaviyo.createEvent(metric)
     }
 
     fun selectEvent(event: Event? = null) {

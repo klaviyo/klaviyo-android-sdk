@@ -6,6 +6,7 @@ import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.sdktestapp.services.ConfigService
 
 class TestApp : Application() {
@@ -22,6 +23,8 @@ class TestApp : Application() {
 
         // Company service initializes Klaviyo SDK, manages persistent company ID across sessions
         configService = ConfigService(applicationContext)
+
+        Klaviyo.createEvent(EventMetric.OPENED_APP)
 
         Firebase.analytics.logEvent(
             FirebaseAnalytics.Event.APP_OPEN,

@@ -58,7 +58,8 @@ fun Settings(
 ) {
     val isPushEnabled = viewState.isNotificationPermitted
     val pushToken = viewState.pushToken
-    val interactionSource = remember { MutableInteractionSource() }
+    val settingsLinkInteractionSource = remember { MutableInteractionSource() }
+    val serverSetInteractionSource = remember { MutableInteractionSource() }
     val focusManager = LocalFocusManager.current
     val focusRequester = FocusRequester()
 
@@ -84,7 +85,7 @@ fun Settings(
             modifier = Modifier.clickable(
                 onClick = onOpenNotificationSettings,
                 enabled = true,
-                interactionSource = interactionSource,
+                interactionSource = settingsLinkInteractionSource,
                 indication = rememberRipple(bounded = true),
             )
         ) {
@@ -154,8 +155,6 @@ fun Settings(
         }
         Spacer(modifier = Modifier.height(12.dp))
         FormRow {
-            val interactionSource = remember { MutableInteractionSource() }
-
             Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                 Row(modifier = Modifier.padding(0.dp)) {
                     OutlinedTextField(
@@ -179,7 +178,7 @@ fun Settings(
                                             setBaseUrl()
                                         },
                                         enabled = true,
-                                        interactionSource = interactionSource,
+                                        interactionSource = serverSetInteractionSource,
                                         indication = rememberRipple(bounded = true),
                                     )
                                     .padding(16.dp)
