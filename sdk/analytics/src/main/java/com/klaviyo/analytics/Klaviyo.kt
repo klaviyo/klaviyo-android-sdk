@@ -271,12 +271,14 @@ object Klaviyo {
     /**
      * Creates an [Event] associated with the currently tracked profile
      *
-     * Convenience method for creating an event with no other properties
+     * Convenience method for creating an event with a metric, optional value, and no other properties
      *
      * @param metric [EventMetric] to create
+     * @param value [Double?] value to assign the event
      * @return Returns [Klaviyo] for call chaining
      */
-    fun createEvent(metric: EventMetric): Klaviyo = createEvent(Event(metric))
+    fun createEvent(metric: EventMetric, value: Double? = null): Klaviyo =
+        createEvent(Event(metric).setValue(value))
 
     /**
      * Creates an [Event] associated with the currently tracked profile
