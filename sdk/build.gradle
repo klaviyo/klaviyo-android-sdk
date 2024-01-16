@@ -86,7 +86,7 @@ subprojects {
                 skipEmptyPackages.set(true)
                 suppressInheritedMembers.set(true)
 
-                jdkVersion.set(11)
+                jdkVersion.set(17)
             }
         }
     }
