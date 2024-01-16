@@ -25,6 +25,10 @@ subprojects {
             versionName ext.versionName
         }
 
+        buildFeatures {
+            buildConfig = true
+        }
+
         buildTypes {
             release {
                 minifyEnabled false
