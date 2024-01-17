@@ -1,7 +1,5 @@
 ext {
-    // build dependencies
-    gradleBuildToolsVersion = '8.2.1' //This is the AGP (Android Gradle Plugin) version
-    gradleKotlinVersion = '1.7.20'
+    // build dependencies - not managed by refreshVersions
     dokkaVersion = '1.7.20'
     gradleKtlintVersion = "11.3.1"
 
@@ -14,20 +12,4 @@ ext {
     // project versioning
     versionCode = 9
     versionName = '2.0.0-alpha.1' // Reminder: Update version in README samples and update documentation branch
-
-    // dependencies
-    coreKTXVersion = '1.9.0'
-    kotlinSTDVersion = '1.7.20'
-    fcmVersion = '23.1.1'
-
-    // testing dependencies
-    junitVersion = '4.13.2'
-    junitAndroidVersion = '1.1.5'
-    testRunnerVersion = '1.5.2'
-    testRulesVersion = '1.5.0'
-    mockkVersion = "1.13.3"
-    jsonVersion = '20200518'
-
-    // instrumentation testing dependencies
-    espressoVersion = '3.5.1'
 }

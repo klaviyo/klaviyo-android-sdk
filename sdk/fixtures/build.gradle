@@ -26,11 +26,11 @@ dependencies {
     implementation project(':sdk:analytics')
 
     /***** Testing Dependencies *****/
-    api "junit:junit:$ext.junitVersion"
-    api "androidx.test:runner:$ext.testRunnerVersion"
-    api "androidx.test:rules:$ext.testRulesVersion"
+    api Testing.junit4
+    api AndroidX.test.runner
+    api AndroidX.test.rules
     // Mocking Dependencies
-    api "io.mockk:mockk:$ext.mockkVersion"
+    api Testing.mockK
     // JSON is bundled with the Android SDK so we need real objects to test against
-    api "org.json:json:$ext.jsonVersion"
+    api "org.json:json:_"
 }
