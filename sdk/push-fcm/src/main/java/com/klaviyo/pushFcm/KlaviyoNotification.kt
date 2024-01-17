@@ -86,9 +86,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
     fun displayNotification(context: Context): Boolean {
         if (!message.isKlaviyoNotification ||
             ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) != PackageManager.PERMISSION_GRANTED
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
         ) {
             return false
         }
@@ -119,7 +119,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 NotificationChannelCompat.Builder(message.channel_id, message.channel_importance)
                     .setName(message.channel_name)
                     .setDescription(message.channel_description)
-                    .build(),
+                    .build()
             )
     }
 
@@ -144,15 +144,13 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         val executor = Executors.newCachedThreadPool()
         var task: Future<Bitmap>? = null
         try {
-            task =
-                executor.submit<Bitmap> {
-                    // Start the download
-                    val bytes: ByteArray =
-                        openStream().use { connectionInputStream ->
-                            connectionInputStream.readBytes()
-                        }
-                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            task = executor.submit<Bitmap> {
+                // Start the download
+                val bytes: ByteArray = openStream().use { connectionInputStream ->
+                    connectionInputStream.readBytes()
                 }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
             // Await the image download with a timeout
             val bitmap = task.get(DOWNLOAD_TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
 
@@ -161,7 +159,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             builder.setStyle(
                 NotificationCompat.BigPictureStyle()
                     .bigPicture(bitmap)
-                    .bigLargeIcon(null as Bitmap?),
+                    .bigLargeIcon(null as Bitmap?)
             )
         } catch (e: ExecutionException) {
             Registry.log.error("Image download failed: ${e.cause}", e)
@@ -195,24 +193,23 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
         // Create intent to open the activity and/or deep link if specified
         // Else fall back on the default launcher intent for the package
-        val action =
-            message.clickAction?.let {
-                Intent().appendKlaviyoExtras(message).apply {
-                    action = message.clickAction
-                    data = message.deepLink
-                    setPackage(pkgName)
-                    addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                }
-            } ?: context.packageManager.getLaunchIntentForPackage(pkgName)?.apply {
-                appendKlaviyoExtras(message)
+        val action = message.clickAction?.let {
+            Intent().appendKlaviyoExtras(message).apply {
+                action = message.clickAction
+                data = message.deepLink
+                setPackage(pkgName)
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
+        } ?: context.packageManager.getLaunchIntentForPackage(pkgName)?.apply {
+            appendKlaviyoExtras(message)
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
 
         return PendingIntent.getActivity(
             context,
             generateId(),
             action,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
         )
     }
 }
