@@ -57,6 +57,13 @@ internal class PushTokenApiRequest(
     override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
 
     override var body: JSONObject? = null
+        set(value) {
+            if (!this::initialBody.isInitialized) {
+                initialBody = value?.toString() ?: ""
+            }
+
+            field = value
+        }
         get() {
             // Update body to include Device metadata whenever the body is retrieved (typically during sending) so the latest data is included
             field?.getJSONObject(DATA)?.getJSONObject(ATTRIBUTES)?.apply {
@@ -86,9 +93,7 @@ internal class PushTokenApiRequest(
                     VENDOR to VENDOR_FCM
                 )
             )
-        ).also {
-            initialBody = it.toString()
-        }
+        )
     }
 
     override fun equals(other: Any?): Boolean {

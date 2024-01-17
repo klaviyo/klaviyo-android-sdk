@@ -3,6 +3,7 @@ package com.klaviyo.analytics.networking.requests
 import com.klaviyo.analytics.model.Profile
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 internal class PushTokenApiRequestTest : BaseRequestTest() {
@@ -21,6 +22,18 @@ internal class PushTokenApiRequestTest : BaseRequestTest() {
         .setEmail(EMAIL)
         .setPhoneNumber(PHONE)
         .setExternalId(EXTERNAL_ID)
+
+    @Test
+    fun `Equality operator`() {
+        val aRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        val bRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        assertEquals(aRequest, bRequest)
+
+        // At this time, decoding from JSON does not preserve equality check for push token requests
+        // But at least it should not crash to compare them
+        val bRequestDecoded = KlaviyoApiRequestDecoder.fromJson(bRequest.toJson())
+        assertNotEquals(aRequest, bRequestDecoded)
+    }
 
     @Test
     fun `Uses correct endpoint`() {
