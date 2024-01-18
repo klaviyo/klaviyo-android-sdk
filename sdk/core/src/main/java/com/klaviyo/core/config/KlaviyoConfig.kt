@@ -11,7 +11,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.networking.NetworkMonitor
 
 /**
- * Exception that is thrown when the the Klaviyo API token is missing from the config
+ * Exception that is thrown when the Klaviyo API token is missing from the config
  */
 class MissingAPIKey : KlaviyoException("You must declare an API key for the Klaviyo SDK")
 
@@ -51,7 +51,7 @@ object KlaviyoConfig : Config {
     /**
      * Intervals between flushing network queue, and the basis for retry with exponential backoff
      *
-     * Reasoning: A 30 second interval should give radios time to go back to sleep between batches,
+     * Reasoning: A 30-second interval should give radios time to go back to sleep between batches,
      * four retries with a typical backoff pattern would then be 30s, 60s, 3m, 12m.
      */
     private const val NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT: Int = 10_000

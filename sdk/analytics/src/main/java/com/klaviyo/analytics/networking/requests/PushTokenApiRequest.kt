@@ -56,32 +56,6 @@ internal class PushTokenApiRequest(
 
     override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
 
-    override var body: JSONObject? = null
-        set(value) {
-            if (!this::initialBody.isInitialized) {
-                initialBody = value?.toString() ?: ""
-            }
-
-            field = value
-        }
-        get() {
-            // Update body to include Device metadata whenever the body is retrieved (typically during sending) so the latest data is included
-            field?.getJSONObject(DATA)?.getJSONObject(ATTRIBUTES)?.apply {
-                put(
-                    ENABLEMENT_STATUS,
-                    if (DeviceProperties.notificationPermission) NOTIFICATIONS_ENABLED else NOTIFICATIONS_DISABLED
-                )
-                put(
-                    BACKGROUND,
-                    if (DeviceProperties.backgroundData) BG_AVAILABLE else BG_UNAVAILABLE
-                )
-                put(METADATA, JSONObject(DeviceProperties.buildMetaData()))
-            }
-            return field
-        }
-
-    private lateinit var initialBody: String
-
     constructor(token: String, profile: Profile) : this() {
         body = jsonMapOf(
             DATA to mapOf(
@@ -96,14 +70,30 @@ internal class PushTokenApiRequest(
         )
     }
 
+    // Update body to include Device metadata whenever the body is retrieved (typically during sending) so the latest data is included
+    override val requestBody: String?
+        get() = body?.apply {
+            optJSONObject(DATA)?.optJSONObject(ATTRIBUTES)?.apply {
+                put(
+                    ENABLEMENT_STATUS,
+                    if (DeviceProperties.notificationPermission) NOTIFICATIONS_ENABLED else NOTIFICATIONS_DISABLED
+                )
+                put(
+                    BACKGROUND,
+                    if (DeviceProperties.backgroundData) BG_AVAILABLE else BG_UNAVAILABLE
+                )
+                put(METADATA, JSONObject(DeviceProperties.buildMetaData()))
+            }
+        }?.toString()
+
     override fun equals(other: Any?): Boolean {
         return when (other) {
-            is PushTokenApiRequest -> initialBody == other.initialBody
+            is PushTokenApiRequest -> body.toString() == other.body.toString()
             else -> super.equals(other)
         }
     }
 
     override fun hashCode(): Int {
-        return initialBody.hashCode()
+        return body.toString().hashCode()
     }
 }
