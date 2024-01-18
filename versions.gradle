@@ -11,5 +11,5 @@ ext {
 
     // project versioning
     versionCode = 10
-    versionName = '2.0.0-alpha.1' // Reminder: Update version in README samples and update documentation branch
+    versionName = '2.0.0-alpha.2' // Reminder: Update version in README samples and update documentation branch
 }
