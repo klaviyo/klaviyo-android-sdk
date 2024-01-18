@@ -18,10 +18,10 @@ buildscript {
         // NOTE: These are dependencies for the build script itself
         // Do not place your application dependencies here;
         // they belong in the individual module build.gradle files
-        classpath "com.android.tools.build:gradle:${gradleBuildToolsVersion}"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${gradleKotlinVersion}"
-        classpath "org.jetbrains.dokka:dokka-gradle-plugin:${dokkaVersion}"
-        classpath "org.jlleitschuh.gradle:ktlint-gradle:${gradleKtlintVersion}"
+        classpath Android.tools.build.gradlePlugin
+        classpath Kotlin.gradlePlugin
+        classpath "org.jetbrains.dokka:dokka-gradle-plugin:_"
+        classpath "org.jlleitschuh.gradle:ktlint-gradle:_"
     }
 }
 
@@ -38,11 +38,11 @@ allprojects {
     }
 }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
+tasks.register('clean', Delete) {
+    delete rootProject.layout.buildDirectory
 }
 
 dokkaHtmlMultiModule {
-    outputDirectory = file("${buildDir}/../docs")
+    outputDirectory = file("${layout.buildDirectory}/../docs")
     includes.from("README.md")
 }

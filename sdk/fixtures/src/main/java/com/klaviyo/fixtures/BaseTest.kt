@@ -14,6 +14,7 @@ import io.mockk.mockkObject
 import io.mockk.spyk
 import io.mockk.unmockkObject
 import java.lang.reflect.Field
+import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import org.json.JSONObject
 import org.junit.After
@@ -97,19 +98,35 @@ abstract class BaseTest {
     /**
      * Gross way to modify a final static field through reflection
      *
-     * NOTE This will break in future Java versions, but is the only way to mock
-     * SDK version and retain compiler verification of our compatibility tests
-     *
      * @param field
      * @param newValue
      */
     @Throws(Exception::class)
     protected fun setFinalStatic(field: Field, newValue: Any?) {
         field.isAccessible = true
-        val modifiersField: Field = Field::class.java.getDeclaredField("modifiers")
-        modifiersField.isAccessible = true
-        modifiersField.setInt(field, field.modifiers and Modifier.FINAL.inv())
+
+        getModifiersField().also {
+            it.isAccessible = true
+            it.set(field, field.modifiers and Modifier.FINAL.inv())
+        }
         field.set(null, newValue)
+    }
+
+    private fun getModifiersField(): Field = try {
+        Field::class.java.getDeclaredField("modifiers")
+    } catch (e: NoSuchFieldException) {
+        try {
+            val getDeclaredFields0: Method = Class::class.java.getDeclaredMethod(
+                "getDeclaredFields0",
+                Boolean::class.javaPrimitiveType
+            )
+            getDeclaredFields0.isAccessible = true
+            @Suppress("unchecked_cast")
+            (getDeclaredFields0.invoke(Field::class.java, false) as Array<Field>).first { it.name == "modifiers" }
+        } catch (ex: ReflectiveOperationException) {
+            e.addSuppressed(ex)
+            throw e
+        }
     }
 
     @After

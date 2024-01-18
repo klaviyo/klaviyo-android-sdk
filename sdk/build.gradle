@@ -25,6 +25,15 @@ subprojects {
             versionName ext.versionName
         }
 
+        buildFeatures {
+            buildConfig = true
+        }
+
+        compileOptions {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+
         buildTypes {
             release {
                 minifyEnabled false
@@ -38,17 +47,31 @@ subprojects {
                 buildConfigField "String", "VERSION", "\"${ext.versionName}\""
             }
         }
+
+        testOptions {
+            unitTests.all {
+                // JVM Arguments required for various unit test mocks via Mockk as of Java 17
+                jvmArgs(
+                        "--add-opens", "java.base/java.lang=ALL-UNNAMED",
+                        "--add-opens", "java.base/java.lang.reflect=ALL-UNNAMED",
+                        "--add-opens", "java.base/java.net=ALL-UNNAMED",
+                        "--add-opens", "java.base/javax.net.ssl=ALL-UNNAMED",
+                        "--add-opens", "java.base/sun.net.www.protocol.https=ALL-UNNAMED",
+                        "--add-exports", "java.base/sun.net.www.protocol.https=ALL-UNNAMED",
+                )
+            }
+        }
     }
 
     dependencies {
         /***** Main Dependencies *****/
         //Kotlin Dependencies
-        implementation "androidx.core:core-ktx:$ext.coreKTXVersion"
-        implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$ext.kotlinSTDVersion"
+        implementation AndroidX.core.ktx
+        implementation Kotlin.stdlib.jdk8
 
         /***** Instrumentation Testing Dependencies *****/
-        androidTestImplementation "androidx.test:runner:$ext.testRunnerVersion"
-        androidTestImplementation "androidx.test.espresso:espresso-core:$ext.espressoVersion"
+        androidTestImplementation AndroidX.test.runner
+        androidTestImplementation AndroidX.test.espresso.core
     }
 
     ktlint {
@@ -73,7 +96,7 @@ subprojects {
                 skipEmptyPackages.set(true)
                 suppressInheritedMembers.set(true)
 
-                jdkVersion.set(11)
+                jdkVersion.set(17)
             }
         }
     }
