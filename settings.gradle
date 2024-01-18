@@ -5,3 +5,9 @@ plugins {
 // sdk modules
 include ':sdk'
 include ':sdk:core', ':sdk:analytics', ':sdk:push-fcm', ':sdk:fixtures'
+
+refreshVersions {
+    rejectVersionIf {
+        candidate.stabilityLevel.isLessStableThan(current.stabilityLevel)
+    }
+}
