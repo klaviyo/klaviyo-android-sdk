@@ -23,6 +23,17 @@ internal class PushTokenApiRequestTest : BaseRequestTest() {
         .setExternalId(EXTERNAL_ID)
 
     @Test
+    fun `Equality operator`() {
+        val aRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        val bRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        assertEquals(aRequest, bRequest)
+
+        val bRequestDecoded = KlaviyoApiRequestDecoder.fromJson(bRequest.toJson())
+        assertEquals(aRequest, bRequestDecoded)
+        assertEquals(aRequest.hashCode(), bRequestDecoded.hashCode())
+    }
+
+    @Test
     fun `Uses correct endpoint`() {
         assertEquals(expectedUrlPath, PushTokenApiRequest(PUSH_TOKEN, stubProfile).urlPath)
     }

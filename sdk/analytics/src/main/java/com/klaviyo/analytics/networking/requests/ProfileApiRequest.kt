@@ -33,7 +33,7 @@ internal class ProfileApiRequest(
             return arrayOf(
                 DATA to mapOf(
                     TYPE to PROFILE,
-                    ATTRIBUTES to filteredMapOf( // All of the enumerated keys are "attributes"
+                    ATTRIBUTES to filteredMapOf( // All the enumerated keys are "attributes"
                         extract(ProfileKey.EMAIL),
                         extract(ProfileKey.PHONE_NUMBER),
                         extract(ProfileKey.EXTERNAL_ID),
