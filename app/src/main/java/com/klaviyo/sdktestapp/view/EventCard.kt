@@ -34,7 +34,7 @@ fun EventCard(
         modifier = modifier.then(
             Modifier.fillMaxWidth()
         ),
-        color = MaterialTheme.colors.surface,
+        color = MaterialTheme.colors.surface
     ) {
         ConstraintLayout(
             Modifier
@@ -42,7 +42,7 @@ fun EventCard(
                     onClick = { onEventClick() },
                     enabled = true,
                     interactionSource = interactionSource,
-                    indication = rememberRipple(bounded = true),
+                    indication = rememberRipple(bounded = true)
                 )
                 .fillMaxWidth()
                 .padding(8.dp)
@@ -97,7 +97,7 @@ private fun PreviewEventCard() {
         event = Event(
             id = "",
             type = "Profile",
-            url = URL("https://preview.com"),
+            url = URL("https://preview.com")
         ),
         modifier = Modifier.padding(5.dp)
     ) { }

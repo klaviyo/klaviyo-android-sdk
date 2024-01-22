@@ -19,17 +19,17 @@ class NavigationViewModel {
         TabRowItem(
             tab = TabIndex.Profile,
             title = "Account Info",
-            imageVector = { Icons.Outlined.AccountCircle },
+            imageVector = { Icons.Outlined.AccountCircle }
         ),
         TabRowItem(
             tab = TabIndex.Events,
             title = "Events",
-            imageVector = { Icons.Outlined.Notifications },
+            imageVector = { Icons.Outlined.Notifications }
         ),
         TabRowItem(
             tab = TabIndex.Settings,
             title = "Settings",
-            imageVector = { Icons.Outlined.Settings },
+            imageVector = { Icons.Outlined.Settings }
         )
     )
 
@@ -65,11 +65,11 @@ enum class TabIndex(val index: Int) {
 data class TabRowItem(
     val tab: TabIndex,
     val title: String,
-    val imageVector: () -> ImageVector,
+    val imageVector: () -> ImageVector
 ) {
     fun getNavState(): NavigationState = NavigationState(
         tab = tab,
-        title = title,
+        title = title
     )
 }
 
@@ -87,7 +87,7 @@ data class NavigationState(
     val title: String,
     val navAction: Action? = null,
     val floatingAction: Action? = null,
-    val actions: List<Action>? = null,
+    val actions: List<Action>? = null
 ) {
     companion object {
         fun makeBackButton(navAction: () -> Unit) = Action(
@@ -115,6 +115,6 @@ data class NavigationState(
         val imageVector: () -> ImageVector,
         val contentDescription: String,
         val subActions: List<Action>? = null,
-        val onClick: () -> Unit,
+        val onClick: () -> Unit
     )
 }

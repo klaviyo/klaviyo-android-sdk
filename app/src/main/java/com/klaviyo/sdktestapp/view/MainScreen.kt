@@ -26,7 +26,7 @@ fun MainScreen(
     navigationViewModel: NavigationViewModel,
     accountInfoViewModel: AccountInfoViewModel,
     eventsViewModel: EventsViewModel,
-    settingsViewModel: SettingsViewModel,
+    settingsViewModel: SettingsViewModel
 ) {
     val scaffoldState = rememberScaffoldState()
 
@@ -44,8 +44,8 @@ fun MainScreen(
             onError = Color(0xFF888888),
             onPrimary = Color.White, //
             onSecondary = Color(0xFF88FF88),
-            isLight = true,
-        ),
+            isLight = true
+        )
     ) {
         Scaffold(
             scaffoldState = scaffoldState,
@@ -60,7 +60,7 @@ fun MainScreen(
                 ) { index ->
                     navigationViewModel.navigateTo(TabIndex.fromIndex(index))
                 }
-            },
+            }
         ) { padding ->
             Box(
                 modifier = Modifier
@@ -73,7 +73,7 @@ fun MainScreen(
                         setApiKey = accountInfoViewModel::setApiKey,
                         onCreate = accountInfoViewModel::create,
                         onClear = accountInfoViewModel::reset,
-                        onCopyAnonymousId = accountInfoViewModel::copyAnonymousId,
+                        onCopyAnonymousId = accountInfoViewModel::copyAnonymousId
                     )
 
                     TabIndex.Events -> EventsPage(
@@ -93,7 +93,7 @@ fun MainScreen(
                         onRequestedPushNotification = settingsViewModel::requestPushNotifications,
                         onRequestPushToken = settingsViewModel::setSdkPushToken,
                         onSendLocalNotification = settingsViewModel::sendLocalNotification,
-                        setBaseUrl = settingsViewModel::setBaseUrl,
+                        setBaseUrl = settingsViewModel::setBaseUrl
                     )
                 }
             }
@@ -109,7 +109,7 @@ private fun BottomBar(tabRowItems: List<TabRowItem>, currentPage: Int, onTabClic
                 icon = {
                     Icon(
                         imageVector = tabRow.imageVector(),
-                        contentDescription = tabRow.title,
+                        contentDescription = tabRow.title
                     )
                 },
                 selected = index == currentPage,

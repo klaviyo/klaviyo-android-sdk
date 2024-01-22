@@ -1,19 +1,36 @@
-include ':app'
+plugins {
+    id "de.fayard.refreshVersions" version "0.60.3"
+}
 
-// Substitute the jitpack SDK dependency for your local instance of the project
+include ":app"
+
+// Composite Build:
+// This section can substitute a local copy of the SDK for the remote dependency
+// This is useful for testing changes to the SDK locally
+// see https://docs.gradle.org/current/userguide/composite_builds.html
+// Note: turn off composite build before using refreshVersions
+def allowComposite = false
 def useInternal = false
-def folder = useInternal ? new File('../klaviyo-android-sdk-internal/') : new File('../klaviyo-android-sdk/')
-def allowComposite = true //Flag to disable composite build and use jitpack SDK version
 
-if (allowComposite && folder.exists()) {
-    includeBuild(folder) {
-        dependencySubstitution {
-            // substitute remote dependency with local module
-            substitute module("com.github.klaviyo.klaviyo-android-sdk:core") using project(":sdk:core")
+if (allowComposite) {
+    def sdkDirectory = useInternal ? new File("../klaviyo-android-sdk-internal/") : new File("../klaviyo-android-sdk/")
 
-            substitute module("com.github.klaviyo.klaviyo-android-sdk:analytics") using project(":sdk:analytics")
+    if (sdkDirectory.exists()) {
+        includeBuild(sdkDirectory) {
+            dependencySubstitution {
+                // substitute remote dependency with local module
+                substitute module("com.github.klaviyo.klaviyo-android-sdk:core") using project(":sdk:core")
 
-            substitute module("com.github.klaviyo.klaviyo-android-sdk:push-fcm") using project(":sdk:push-fcm")
+                substitute module("com.github.klaviyo.klaviyo-android-sdk:analytics") using project(":sdk:analytics")
+
+                substitute module("com.github.klaviyo.klaviyo-android-sdk:push-fcm") using project(":sdk:push-fcm")
+            }
         }
+    }
+}
+
+refreshVersions {
+    rejectVersionIf {
+        candidate.stabilityLevel.isLessStableThan(current.stabilityLevel)
     }
 }

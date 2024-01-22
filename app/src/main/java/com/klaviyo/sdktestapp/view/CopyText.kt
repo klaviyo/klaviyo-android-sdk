@@ -24,13 +24,13 @@ fun CopyText(
     defaultValue: String = "",
     label: String = "",
     onTextCopied: () -> Unit = {},
-    copyButtonLabel: String = "Copy",
+    copyButtonLabel: String = "Copy"
 ) {
     ConstraintLayout(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White)
-            .padding(16.dp),
+            .padding(16.dp)
     ) {
         val (labelField, displayField, copyButton) = createRefs()
         Text(
@@ -41,7 +41,7 @@ fun CopyText(
                 bottom.linkTo(displayField.top)
                 start.linkTo(parent.start)
             },
-            fontSize = 12.sp,
+            fontSize = 12.sp
         )
         Text(
             text = value.ifEmpty { defaultValue },
@@ -55,7 +55,7 @@ fun CopyText(
                     start.linkTo(parent.start)
                     end.linkTo(copyButton.start, 16.dp)
                     width = Dimension.fillToConstraints
-                },
+                }
         )
         Button(
             enabled = value.isNotBlank(),
@@ -66,7 +66,7 @@ fun CopyText(
                 top.linkTo(parent.top)
                 bottom.linkTo(parent.bottom)
                 end.linkTo(parent.end)
-            },
+            }
         ) {
             Text(text = copyButtonLabel)
         }

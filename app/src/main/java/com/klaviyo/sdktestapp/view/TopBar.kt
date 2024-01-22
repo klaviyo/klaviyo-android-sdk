@@ -29,13 +29,13 @@ fun TopBar(navState: NavigationState) {
                 text = navState.title,
                 style = MaterialTheme.typography.h6,
                 textAlign = navState.navAction?.let { TextAlign.Left } ?: TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
             )
         },
         navigationIcon = navState.navAction?.let { { NavButton(navAction = it) } },
         actions = navState.actions?.let { { it.map { NavButton(navAction = it) } } } ?: {},
         modifier = Modifier.fillMaxWidth(),
-        elevation = 1.dp,
+        elevation = 1.dp
     )
 }
 
@@ -52,7 +52,7 @@ fun NavButton(navAction: NavigationState.Action) {
                 onClick = navAction.onClick,
                 enabled = true,
                 interactionSource = interactionSource,
-                indication = rememberRipple(bounded = true),
+                indication = rememberRipple(bounded = true)
             )
     )
 }
@@ -73,12 +73,12 @@ fun RootTopBarWithActions() {
             actions = listOf(
                 NavigationState.Action(
                     imageVector = { Icons.Default.PestControl },
-                    contentDescription = "Bug",
+                    contentDescription = "Bug"
                 ) {},
                 NavigationState.Action(
                     imageVector = { Icons.Default.PestControlRodent },
-                    contentDescription = "Mouse",
-                ) {},
+                    contentDescription = "Mouse"
+                ) {}
             )
         )
     )
@@ -107,12 +107,12 @@ fun DetailTopBarWithActions() {
             actions = listOf(
                 NavigationState.Action(
                     imageVector = { Icons.Default.PestControl },
-                    contentDescription = "Bug",
+                    contentDescription = "Bug"
                 ) {},
                 NavigationState.Action(
                     imageVector = { Icons.Default.PestControlRodent },
-                    contentDescription = "Mouse",
-                ) {},
+                    contentDescription = "Mouse"
+                ) {}
             )
         )
     )

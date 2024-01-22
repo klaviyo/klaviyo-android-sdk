@@ -41,12 +41,12 @@ fun AccountInfo(
     setApiKey: () -> Unit = { },
     onCreate: () -> Unit = { },
     onClear: () -> Unit = {},
-    onCopyAnonymousId: () -> Unit = {},
+    onCopyAnonymousId: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
     ) {
         val focusManager = LocalFocusManager.current
         val keyboardActions = KeyboardActions(
@@ -101,11 +101,11 @@ fun AccountInfo(
                                 },
                                 enabled = true,
                                 interactionSource = interactionSource,
-                                indication = rememberRipple(bounded = true),
+                                indication = rememberRipple(bounded = true)
                             )
                             .padding(16.dp)
                     )
-                },
+                }
             )
         }
         Divider()
@@ -121,7 +121,7 @@ fun AccountInfo(
                     keyboardType = KeyboardType.Ascii
                 ),
                 keyboardActions = keyboardActions,
-                modifier = Modifier.weight(1f, fill = true),
+                modifier = Modifier.weight(1f, fill = true)
             )
         }
         FormRow {
@@ -136,7 +136,7 @@ fun AccountInfo(
                     keyboardType = KeyboardType.Email
                 ),
                 keyboardActions = keyboardActions,
-                modifier = Modifier.weight(1f, fill = true),
+                modifier = Modifier.weight(1f, fill = true)
             )
         }
         FormRow {
@@ -159,7 +159,7 @@ fun AccountInfo(
                 value = viewState.anonymousId.value,
                 defaultValue = "No Anonymous ID",
                 label = "Anonymous ID",
-                onTextCopied = onCopyAnonymousId,
+                onTextCopied = onCopyAnonymousId
             )
         }
         FormRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -169,7 +169,7 @@ fun AccountInfo(
                 onClick = { onCreate() },
                 enabled = viewState.accountId.value.length == 6,
                 colors = ButtonDefaults.buttonColors(),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f)
             ) {
                 Text(text = "Create Profile")
             }
@@ -182,7 +182,7 @@ fun AccountInfo(
                     viewState.email.value.isNotEmpty() ||
                     viewState.phoneNumber.value.isNotEmpty() ||
                     viewState.anonymousId.value.isNotEmpty(),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f)
             ) {
                 Text(text = "Reset Profile")
             }
@@ -195,14 +195,14 @@ private fun makePreviewState(
     externalId: String = "123456,7890",
     email: String = "test@test.com",
     phoneNumber: String = "+155512345678",
-    anonymousId: String = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c",
+    anonymousId: String = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"
 ): AccountInfoViewModel.ViewState {
     return AccountInfoViewModel.ViewState(
         accountId = mutableStateOf(accountId),
         externalId = mutableStateOf(externalId),
         email = mutableStateOf(email),
         phoneNumber = mutableStateOf(phoneNumber),
-        anonymousId = mutableStateOf(anonymousId),
+        anonymousId = mutableStateOf(anonymousId)
     )
 }
 
@@ -227,7 +227,7 @@ private fun AccountInfoDisabledClearButton() {
         makePreviewState(
             externalId = "",
             email = "",
-            phoneNumber = "",
+            phoneNumber = ""
         )
     }
     AccountInfo(viewModelState)

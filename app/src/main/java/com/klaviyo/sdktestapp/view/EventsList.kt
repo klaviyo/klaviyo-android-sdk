@@ -25,7 +25,7 @@ import java.net.URL
 fun EventsList(
     events: List<Event>,
     modifier: Modifier = Modifier,
-    onEventClick: (Event) -> Unit,
+    onEventClick: (Event) -> Unit
 ) {
     if (events.isEmpty()) {
         Card(
@@ -37,7 +37,7 @@ fun EventsList(
             Column(
                 modifier = Modifier.padding(8.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.CenterHorizontally,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
                     imageVector = Icons.Default.ListAlt,
@@ -69,7 +69,7 @@ private fun PreviewEvents() {
         Event(
             id = "$it",
             type = "Event $it",
-            url = URL("https://preview.com"),
+            url = URL("https://preview.com")
         )
     }
     EventsList(events) {}

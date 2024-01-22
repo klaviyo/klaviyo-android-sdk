@@ -27,20 +27,20 @@ import com.klaviyo.sdktestapp.services.PushService
 @SuppressLint("InlinedApi") // Safe to use the keyword. ActivityCompat handles API level differences
 class SettingsViewModel(
     private val context: Context,
-    private val pushNotificationContract: ActivityResultLauncher<String>,
+    private val pushNotificationContract: ActivityResultLauncher<String>
 ) {
 
     data class ViewState(
         val isNotificationPermitted: Boolean,
         val pushToken: String,
-        val baseUrl: MutableState<String>,
+        val baseUrl: MutableState<String>
     )
 
     var viewState by mutableStateOf(
         ViewState(
             isNotificationPermitted = false,
             pushToken = "",
-            baseUrl = mutableStateOf(Registry.config.baseUrl),
+            baseUrl = mutableStateOf(Registry.config.baseUrl)
         )
     )
         private set
@@ -76,7 +76,7 @@ class SettingsViewModel(
         viewState = ViewState(
             isNotificationPermitted = isNotificationPermissionGranted(),
             pushToken = getPushToken(),
-            baseUrl = mutableStateOf(Registry.config.baseUrl),
+            baseUrl = mutableStateOf(Registry.config.baseUrl)
         )
     }
 
@@ -120,7 +120,9 @@ class SettingsViewModel(
                 // Request the permission, which invokes a callback method
                 AlertDialog.Builder(context)
                     .setTitle("Notifications Permission")
-                    .setMessage("Permission must be granted in order to receive push notifications in the system tray.")
+                    .setMessage(
+                        "Permission must be granted in order to receive push notifications in the system tray."
+                    )
                     .setCancelable(true)
                     .setPositiveButton("Grant") { _, _ ->
                         // You can directly ask for the permission.

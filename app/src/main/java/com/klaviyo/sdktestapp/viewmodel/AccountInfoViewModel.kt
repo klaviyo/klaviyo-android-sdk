@@ -22,7 +22,7 @@ class AccountInfoViewModel(private val context: Context) {
         var externalId: MutableState<String>,
         var email: MutableState<String>,
         var phoneNumber: MutableState<String>,
-        var anonymousId: MutableState<String>,
+        var anonymousId: MutableState<String>
     )
 
     val viewState = ViewState(

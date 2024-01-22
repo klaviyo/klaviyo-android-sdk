@@ -59,6 +59,6 @@ fun FanOutMenu() {
                     onClick = {}
                 )
             )
-        ),
+        )
     )
 }

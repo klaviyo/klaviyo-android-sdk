@@ -24,7 +24,7 @@ class EventsViewModel(private val context: Context) {
     }
 
     data class ViewState(
-        val events: List<Event>,
+        val events: List<Event>
     )
 
     private val _events = LinkedHashMap<String, Event>()

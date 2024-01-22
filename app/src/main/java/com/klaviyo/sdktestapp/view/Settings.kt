@@ -54,7 +54,7 @@ fun Settings(
     onRequestPushToken: () -> Unit = {},
     onExpirePushToken: () -> Unit = {},
     onSendLocalNotification: () -> Unit = {},
-    setBaseUrl: () -> Unit = {},
+    setBaseUrl: () -> Unit = {}
 ) {
     val isPushEnabled = viewState.isNotificationPermitted
     val pushToken = viewState.pushToken
@@ -64,7 +64,7 @@ fun Settings(
     val focusRequester = FocusRequester()
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize()
     ) {
         FormRow {
             Text(text = "Push Notifications")
@@ -73,10 +73,10 @@ fun Settings(
                 enabled = !isPushEnabled,
                 onClick = onRequestedPushNotification,
                 elevation = ButtonDefaults.elevation(0.dp),
-                shape = CircleShape,
+                shape = CircleShape
             ) {
                 Text(
-                    text = if (isPushEnabled) "Enabled" else "Enable",
+                    text = if (isPushEnabled) "Enabled" else "Enable"
                 )
             }
         }
@@ -86,7 +86,7 @@ fun Settings(
                 onClick = onOpenNotificationSettings,
                 enabled = true,
                 interactionSource = settingsLinkInteractionSource,
-                indication = rememberRipple(bounded = true),
+                indication = rememberRipple(bounded = true)
             )
         ) {
             Text(text = "Notification Settings")
@@ -96,7 +96,7 @@ fun Settings(
                 contentDescription = "Open notification settings",
                 modifier = Modifier
                     .padding(end = 8.dp)
-                    .size(32.dp),
+                    .size(32.dp)
             )
         }
         Spacer(modifier = Modifier.height(12.dp))
@@ -104,7 +104,7 @@ fun Settings(
             value = pushToken,
             defaultValue = "No Push Token on Profile",
             label = "Push Token",
-            onTextCopied = onCopyPushToken,
+            onTextCopied = onCopyPushToken
         )
         Spacer(modifier = Modifier.height(12.dp))
         FormRow(
@@ -121,7 +121,7 @@ fun Settings(
                 Text(
                     text = "Set SDK Token",
                     textAlign = TextAlign.Center,
-                    maxLines = 2,
+                    maxLines = 2
                 )
             }
             Button(
@@ -135,7 +135,7 @@ fun Settings(
                 Text(
                     text = "Expire Push Token",
                     textAlign = TextAlign.Center,
-                    maxLines = 2,
+                    maxLines = 2
                 )
             }
             Button(
@@ -149,7 +149,7 @@ fun Settings(
                 Text(
                     text = "Create Notification",
                     textAlign = TextAlign.Center,
-                    maxLines = 2,
+                    maxLines = 2
                 )
             }
         }
@@ -164,7 +164,8 @@ fun Settings(
                             viewState.baseUrl.value = input
                         },
                         keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Send, keyboardType = KeyboardType.Uri
+                            imeAction = ImeAction.Send,
+                            keyboardType = KeyboardType.Uri
                         ),
                         keyboardActions = KeyboardActions(onSend = { setBaseUrl() }),
                         trailingIcon = {
@@ -179,14 +180,14 @@ fun Settings(
                                         },
                                         enabled = true,
                                         interactionSource = serverSetInteractionSource,
-                                        indication = rememberRipple(bounded = true),
+                                        indication = rememberRipple(bounded = true)
                                     )
                                     .padding(16.dp)
                             )
                         },
                         modifier = Modifier
                             .weight(1f, fill = true)
-                            .focusRequester(focusRequester),
+                            .focusRequester(focusRequester)
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -238,17 +239,17 @@ fun Settings(
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Bottom,
+                verticalArrangement = Arrangement.Bottom
             ) {
                 Text(
                     text = "App Version: ${AppBuildConfig.VERSION_NAME}",
                     textAlign = TextAlign.End,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Text(
                     text = "SDK Version: ${SdkBuildConfig.VERSION}",
                     textAlign = TextAlign.End,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }

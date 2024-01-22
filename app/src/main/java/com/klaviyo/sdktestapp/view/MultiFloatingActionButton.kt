@@ -90,7 +90,9 @@ fun MultiFloatingActionButton(
     val stateChange: () -> Unit = {
         currentState = if (stateTransition.currentState == MultiFabState.EXPANDED) {
             MultiFabState.COLLAPSED
-        } else MultiFabState.EXPANDED
+        } else {
+            MultiFabState.EXPANDED
+        }
         onStateChanged?.invoke(currentState)
     }
     val rotation: Float by stateTransition.animateFloat(
@@ -111,7 +113,7 @@ fun MultiFloatingActionButton(
         currentState = MultiFabState.COLLAPSED
     }
 
-    val modifier = if (currentState == MultiFabState.EXPANDED)
+    val modifier = if (currentState == MultiFabState.EXPANDED) {
         Modifier
             .fillMaxSize()
             .clickable(
@@ -119,7 +121,10 @@ fun MultiFloatingActionButton(
                 interactionSource = remember { MutableInteractionSource() }
             ) {
                 currentState = MultiFabState.COLLAPSED
-            } else Modifier.fillMaxSize()
+            }
+    } else {
+        Modifier.fillMaxSize()
+    }
 
     Box(modifier = modifier, contentAlignment = Alignment.BottomEnd) {
         Box(
@@ -145,14 +150,14 @@ fun MultiFloatingActionButton(
             }
             Column(
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.Bottom,
+                verticalArrangement = Arrangement.Bottom
             ) {
                 items.forEach { item ->
                     SmallFloatingActionButtonRow(
                         item = item,
                         containerColor = containerColor,
                         showLabel = showLabels,
-                        stateTransition = stateTransition,
+                        stateTransition = stateTransition
                     )
                     Spacer(modifier = Modifier.height(20.dp))
                 }
@@ -185,7 +190,8 @@ fun SmallFloatingActionButtonRow(
     val alpha: Float by stateTransition.animateFloat(
         transitionSpec = {
             tween(durationMillis = 50)
-        }, label = ""
+        },
+        label = ""
     ) { state ->
         if (state == MultiFabState.EXPANDED) 1f else 0f
     }

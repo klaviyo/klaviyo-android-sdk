@@ -45,7 +45,7 @@ class TestSDKActivity : ComponentActivity() {
                 navigationViewModel = navigationViewModel,
                 accountInfoViewModel = accountInfoViewModel,
                 eventsViewModel = eventsViewModel,
-                settingsViewModel = settingsViewModel,
+                settingsViewModel = settingsViewModel
             )
         }
     }

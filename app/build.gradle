@@ -1,13 +1,12 @@
-apply plugin: 'com.android.application'
+apply plugin: "com.android.application"
 
-// gotta apply those google services for fcm
-// uncomment the below line after adding in the google-services.json file (from mobile team shared value in 1pass) under app/
-apply plugin: 'com.google.gms.google-services'
+// If you're seeing a failure related to google services, make sure you've added the google-services.json file to your project
+apply plugin: "com.google.gms.google-services"
 
 // Add the Crashlytics Gradle plugin
-apply plugin: 'com.google.firebase.crashlytics'
+apply plugin: "com.google.firebase.crashlytics"
 
-apply plugin: 'kotlin-android'
+apply plugin: "kotlin-android"
 
 apply plugin: "org.jlleitschuh.gradle.ktlint"
 
@@ -17,23 +16,24 @@ if (rootProject.file("local.properties").canRead()) {
 }
 
 android {
-    compileSdkVersion 34
-    buildToolsVersion "33.0.0"
+    namespace "com.klaviyo.sdktestapp"
+    compileSdk 34
+    buildToolsVersion="34.0.0"
     defaultConfig {
         applicationId "com.klaviyo.sdktestapp"
         minSdkVersion 23
-        targetSdkVersion 33
+        targetSdkVersion 34
         versionCode 10
         versionName "2.0.0-alpha.3"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    def defaultCompany = localProperties['companyId'] ?: '"LuYLmF"'
+    def defaultCompany = localProperties["companyId"] ?: "\"LuYLmF\""
 
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             buildConfigField "String", "KLAVIYO_COMPANY_ID", defaultCompany
         }
         debug {
@@ -42,15 +42,16 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     buildFeatures {
-        viewBinding true
+        buildConfig = true
         compose true
+        viewBinding true
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     composeOptions {
         kotlinCompilerExtensionVersion "1.5.8"
@@ -72,50 +73,50 @@ ktlint {
 }
 
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation fileTree(dir: "libs", include: ["*.jar"])
 
     // Maven SDK dependencies -- You can compile localDebug from the SDK and reference that build variant here
-    implementation "com.github.klaviyo.klaviyo-android-sdk:core:$klaviyo_version"
-    implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:$klaviyo_version"
-    implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:$klaviyo_version"
+    implementation "com.github.klaviyo.klaviyo-android-sdk:core:_"
+    implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:_"
+    implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:_"
 
     // Compose
-    def composeBom = platform('androidx.compose:compose-bom:2022.10.00')
+    def composeBom = platform(AndroidX.compose.bom)
     implementation(composeBom)
     androidTestImplementation(composeBom)
-    implementation "androidx.compose.runtime:runtime"
-    implementation "androidx.compose.ui:ui"
-    implementation "androidx.compose.foundation:foundation"
-    implementation "androidx.compose.foundation:foundation-layout"
-    implementation "androidx.constraintlayout:constraintlayout-compose:1.0.1"
-    implementation "androidx.compose.material:material"
-    implementation "androidx.compose.material3:material3:1.0.1"
-    implementation "androidx.compose.material:material-icons-extended"
-    implementation "androidx.compose.runtime:runtime-livedata"
-    implementation "androidx.compose.ui:ui-tooling"
-    implementation "com.google.accompanist:accompanist-themeadapter-material:0.28.0"
-    implementation "com.google.accompanist:accompanist-pager:0.28.0"
-    implementation "com.google.accompanist:accompanist-pager-indicators:0.28.0"
-    implementation "androidx.activity:activity-compose:1.6.1"
-    implementation 'androidx.activity:activity-ktx:1.6.1'
+    implementation AndroidX.compose.runtime
+    implementation AndroidX.compose.ui
+    implementation AndroidX.compose.foundation
+    implementation AndroidX.compose.foundation.layout
+    implementation AndroidX.constraintLayout.compose
+    implementation AndroidX.compose.material
+    implementation AndroidX.compose.material3
+    implementation AndroidX.compose.material.icons.extended
+    implementation AndroidX.compose.runtime.liveData
+    implementation AndroidX.compose.ui.tooling
+    implementation "com.google.accompanist:accompanist-themeadapter-material:_"
+    implementation "com.google.accompanist:accompanist-pager:_"
+    implementation "com.google.accompanist:accompanist-pager-indicators:_"
+    implementation AndroidX.activity.compose
+    implementation AndroidX.activity.ktx
 
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    implementation 'androidx.appcompat:appcompat:1.5.1'
-    implementation 'androidx.core:core-ktx:1.9.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation "androidx.navigation:navigation-compose:2.5.3"
-    implementation 'androidx.viewpager2:viewpager2:1.0.0'
-    implementation 'com.google.android.material:material:1.7.0'
+    implementation Kotlin.stdlib.jdk8
+    implementation AndroidX.appCompat
+    implementation AndroidX.core.ktx
+    implementation AndroidX.constraintLayout
+    implementation AndroidX.navigation.compose
+    implementation AndroidX.viewPager2
+    implementation Google.android.material
 
     // Import the BoM for the Firebase platform
-    implementation platform('com.google.firebase:firebase-bom:31.4.0')
-    implementation "com.google.firebase:firebase-messaging-ktx" //FCM for push notifications
-    implementation 'com.google.firebase:firebase-crashlytics-ktx'
-    implementation 'com.google.firebase:firebase-analytics-ktx'
+    implementation platform(Firebase.bom)
+    implementation Firebase.cloudMessagingKtx //FCM for push notifications
+    implementation Firebase.crashlyticsKtx
+    implementation Firebase.analyticsKtx
 
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test:runner:1.5.1'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.0'
+    testImplementation Testing.junit4
+    androidTestImplementation AndroidX.test.runner
+    androidTestImplementation AndroidX.test.espresso.core
 
-    implementation "org.jetbrains.kotlin:kotlin-reflect:1.7.20"
+    implementation "org.jetbrains.kotlin:kotlin-reflect:_"
 }

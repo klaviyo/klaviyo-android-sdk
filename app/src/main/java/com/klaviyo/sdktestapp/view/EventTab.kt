@@ -34,7 +34,7 @@ fun EventsPage(
     onClearClicked: () -> Unit,
     onCopyClicked: () -> Unit,
     onEventClick: (Event?) -> Unit,
-    onNavigate: (NavigationState) -> Unit,
+    onNavigate: (NavigationState) -> Unit
 ) {
     if (selectedEvent is Event) {
         // Set tab bar content for detail view
@@ -68,11 +68,11 @@ fun EventsPage(
                         EventMetric.VIEWED_PRODUCT to Icons.Filled.RemoveRedEye,
                         EventMetric.ADDED_TO_CART to Icons.Filled.AddShoppingCart,
                         EventMetric.STARTED_CHECKOUT to Icons.Filled.ShoppingCartCheckout,
-                        EventMetric.CUSTOM("Test Event") to Icons.Filled.Science,
+                        EventMetric.CUSTOM("Test Event") to Icons.Filled.Science
                     ).map { (metric, icon) ->
                         NavigationState.Action(
                             imageVector = { icon },
-                            contentDescription = metric.name,
+                            contentDescription = metric.name
                         ) {
                             onCreateEvent(metric)
                         }
@@ -122,7 +122,7 @@ fun PreviewEventsTab() {
             onClearClicked = { events.clear() },
             onCopyClicked = { /* */ },
             onEventClick = { selectedEvent = it },
-            onNavigate = { navigationState = it },
+            onNavigate = { navigationState = it }
         )
 
         navigationState.floatingAction?.let { action ->

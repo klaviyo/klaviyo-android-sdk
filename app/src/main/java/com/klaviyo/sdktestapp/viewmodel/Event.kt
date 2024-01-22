@@ -23,7 +23,7 @@ data class Event(
     val query: Map<String, String> = emptyMap(),
     val requestBody: String? = null,
     val responseCode: Int? = null,
-    val response: String? = null,
+    val response: String? = null
 ) {
 
     private companion object {
@@ -69,7 +69,7 @@ data class Event(
         query = apiRequest.query,
         requestBody = apiRequest.requestBody,
         responseCode = apiRequest.responseCode,
-        response = apiRequest.responseBody,
+        response = apiRequest.responseBody
     )
 
     fun formatDate(date: Date): String = format.format(date)

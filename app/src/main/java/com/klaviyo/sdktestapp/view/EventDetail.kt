@@ -100,7 +100,7 @@ private fun RequestComponent(
         shape = RoundedCornerShape(pad),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = pad),
+            .padding(bottom = pad)
     ) {
         Column(
             modifier = Modifier.padding(pad),
@@ -121,7 +121,7 @@ private fun EventDetailItem(title: String, body: String) {
 @Preview(
     group = "Events",
     showBackground = true,
-    backgroundColor = 0xFFF0EAE2,
+    backgroundColor = 0xFFF0EAE2
 )
 @Composable
 private fun QueuedRequest() {
@@ -146,7 +146,7 @@ private fun QueuedRequest() {
 @Preview(
     group = "Events",
     showBackground = true,
-    backgroundColor = 0xFFF0EAE2,
+    backgroundColor = 0xFFF0EAE2
 )
 @Composable
 private fun CompleteRequest() {
