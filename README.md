@@ -97,9 +97,10 @@ class TestApp : Application() {
 }
 ```
 
-`Klaviyo.initialize()` **must** be called before any other SDK methods can be invoked, thus it 
-should be added to `Application.onCreate`. Since we require lifecycle callbacks, it is necessary to subclass 
-[`Application`](https://developer.android.com/reference/android/app/Application) and register the callbacks there.
+`Klaviyo.initialize()` **must** be called before any other SDK methods can be invoked.
+Because we require lifecycle callbacks, it is necessary to subclass
+[`Application`](https://developer.android.com/reference/android/app/Application)
+to initialize and register callbacks in `Application.onCreate`.
 
 ## Profile Identification
 The SDK provides methods to identify profiles and sync via the
