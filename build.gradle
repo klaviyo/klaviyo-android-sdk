@@ -31,11 +31,26 @@ plugins {
     id "org.jlleitschuh.gradle.ktlint" version "${gradleKtlintVersion}"
 }
 
+dependencies {
+    dokkaHtmlMultiModulePlugin "org.jetbrains.dokka:versioning-plugin:${dokkaVersion}"
+}
+
 tasks.register('clean', Delete) {
     delete rootProject.layout.buildDirectory
 }
 
 dokkaHtmlMultiModule {
-    outputDirectory = file("${layout.buildDirectory}/../docs")
+    outputDirectory = layout.buildDirectory.dir("../docs/${versionName}")
     includes.from("README.md")
+
+    String versioningConfiguration = """
+        {
+          "version": "${versionName}",
+          "olderVersionsDir": "${layout.buildDirectory.dir('../docs/')}"
+        }
+    """
+
+    pluginsMapConfiguration.set(
+        ["org.jetbrains.dokka.versioning.VersioningPlugin": versioningConfiguration]
+    )
 }
