@@ -84,6 +84,8 @@ import com.klaviyo.push.KlaviyoPushService
 
 class TestApp : Application() {
     override fun onCreate() {
+        super.onCreate()
+
         /* ... */
         
         // Initialize is required to use any Klaviyo SDK functionality 
@@ -262,54 +264,54 @@ ensuring that `Klaviyo.handlePush(intent)` is called when your app is opened fro
 **Deep Links** allow you to navigate to a particular page within your app in response to the user 
 opening a notification. There are broadly three steps to implement deep links in your app. 
 
-##### Add intent filters for incoming links
+1. Add intent filters for incoming links
 Add an intent filter to the activity element of your `AndroidManifest.xml` file.
 Replace the scheme and host to match the URI scheme that you will embed in your push notifications. 
 
-```xml
-<intent-filter android:label="@string/filter_view_example_gizmos">
-    <action android:name="android.intent.action.VIEW" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <category android:name="android.intent.category.BROWSABLE" />
-    <!-- Accepts URIs formatted "example://host.com” -->
-    <data android:scheme="example" android:host="host.com"/>
-</intent-filter>
-```
+    ```xml
+    <intent-filter android:label="@string/filter_view_example_gizmos">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <!-- Accepts URIs formatted "example://host.com” -->
+        <data android:scheme="example" android:host="host.com"/>
+    </intent-filter>
+    ```
 
-##### Read data from incoming intents 
+2. Read data from incoming intents 
 When the app is opened from a deep link, the intent that started the activity contains data for the deep link.
 You can parse the URI from the intent's data property and use it to navigate to the appropriate part of your app. 
 
-```kotlin
-override fun onCreate(savedInstanceState: Bundle?) {
-    /* ... */
+    ```kotlin
+    override fun onCreate(savedInstanceState: Bundle?) {
+        /* ... */
+        
+        onNewIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        // Tracks when a system tray notification is opened
+        Klaviyo.handlePush(intent)
     
-    onNewIntent(intent)
-}
+        // Read deep link data from intent
+        val action: String? = intent?.action 
+        val deepLink: Uri? = intent?.data
+    }
+    ```
 
-override fun onNewIntent(intent: Intent?) {
-    // Tracks when a system tray notification is opened
-    Klaviyo.handlePush(intent)
-   
-    // Read deep link data from intent
-    val action: String? = intent?.action 
-    val deepLink: Uri? = intent?.data
-}
-```
-
-##### Test your deep links
+3. Test your deep links
 Using [android debug bridge (adb)](https://developer.android.com/studio/command-line/adb), run the following command to launch your app via an intent
 containing a deep link to test your deep link handler.
 
-```shell
-adb shell am start
-    -W -a android.intent.action.VIEW
-    -d <URI> <PACKAGE>
-```
+    ```shell
+    adb shell am start
+        -W -a android.intent.action.VIEW
+        -d <URI> <PACKAGE>
+    ```
 
-To perform integration testing, you can send a
-[preview push notification](https://help.klaviyo.com/hc/en-us/articles/18011985278875) 
-containing a deep link from the Klaviyo push editor. 
+    To perform integration testing, you can send a
+    [preview push notification](https://help.klaviyo.com/hc/en-us/articles/18011985278875) 
+    containing a deep link from the Klaviyo push editor. 
 
 For additional resources on deep linking, refer to
 - [Android developer documentation](https://developer.android.com/training/app-links/deep-linking)
@@ -327,57 +329,57 @@ handled via `onMessageReceived` regardless of the app being in the background or
 If you are working with multiple remote sources, you can check whether a message originated
 from Klaviyo with the extension method `RemoteMessage.isKlaviyoNotification`.
 
-#### Subclass `KlaviyoPushService`:
-```kotlin
-import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.pushFcm.KlaviyoPushService
+1. Subclass `KlaviyoPushService`:
+    ```kotlin
+    import com.google.firebase.messaging.RemoteMessage
+    import com.klaviyo.pushFcm.KlaviyoPushService
 
-class YourPushService : KlaviyoPushService() {
-    override fun onNewToken(newToken: String) {
-        // Invoking the super method will ensure Klaviyo SDK gets the new token
-        super.onNewToken(newToken)
-    }
+    class YourPushService : KlaviyoPushService() {
+        override fun onNewToken(newToken: String) {
+            // Invoking the super method will ensure Klaviyo SDK gets the new token
+            super.onNewToken(newToken)
+        }
 
-    override fun onMessageReceived(message: RemoteMessage) {
-        // Invoking the super method allows Klaviyo SDK to handle Klaviyo messages
-        super.onMessageReceived(message)
-       
-        // This extension method allows you to distinguish Klaviyo from other sources
-        if (!message.isKlaviyoNotification) {
-            // Handle non-Klaviyo messages
+        override fun onMessageReceived(message: RemoteMessage) {
+            // Invoking the super method allows Klaviyo SDK to handle Klaviyo messages
+            super.onMessageReceived(message)
+        
+            // This extension method allows you to distinguish Klaviyo from other sources
+            if (!message.isKlaviyoNotification) {
+                // Handle non-Klaviyo messages
+            }
         }
     }
-}
-```
+    ```
 
-#### Subclass `FirebaseMessagingService` and invoke Klaviyo SDK methods directly
-```kotlin
-import com.google.firebase.messaging.FirebaseMessagingService
-import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.pushFcm.KlaviyoNotification
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
+2. Subclass `FirebaseMessagingService` and invoke Klaviyo SDK methods directly
+    ```kotlin
+    import com.google.firebase.messaging.FirebaseMessagingService
+    import com.google.firebase.messaging.RemoteMessage
+    import com.klaviyo.analytics.Klaviyo
+    import com.klaviyo.pushFcm.KlaviyoNotification
+    import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 
-open class YourPushService : FirebaseMessagingService() {
+    open class YourPushService : FirebaseMessagingService() {
 
-    override fun onNewToken(newToken: String) {
-        super.onNewToken(newToken)
-        Klaviyo.setPushToken(newToken)
-    }
+        override fun onNewToken(newToken: String) {
+            super.onNewToken(newToken)
+            Klaviyo.setPushToken(newToken)
+        }
 
-    override fun onMessageReceived(message: RemoteMessage) {
-        super.onMessageReceived(message)
+        override fun onMessageReceived(message: RemoteMessage) {
+            super.onMessageReceived(message)
 
-        // This extension method allows you to distinguish Klaviyo from other sources
-        if (message.isKlaviyoNotification) {
-            // Handle displaying a notification from Klaviyo
-            KlaviyoNotification(message).displayNotification(this)
-        } else {
-            // Handle non-Klaviyo messages
+            // This extension method allows you to distinguish Klaviyo from other sources
+            if (message.isKlaviyoNotification) {
+                // Handle displaying a notification from Klaviyo
+                KlaviyoNotification(message).displayNotification(this)
+            } else {
+                // Handle non-Klaviyo messages
+            }
         }
     }
-}
-```
+    ```
 
 #### Custom Notification Display
 If you wish to fully customize the display of notifications, we provide a set of `RemoteMessage` 
