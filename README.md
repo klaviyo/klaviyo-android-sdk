@@ -22,8 +22,8 @@ send them timely push notifications via FCM.
       <summary>Kotlin DSL</summary>
 
       ```kotlin
-      // build.gradle.kts
-      allprojects {
+      // settings.gradle.kts
+      dependencyResolutionManagement {
           repositories {
               maven(url = "https://jitpack.io")
           }
@@ -35,8 +35,8 @@ send them timely push notifications via FCM.
       <summary>Groovy</summary>
 
       ```groovy
-      // build.gradle
-      allprojects {
+      // settings.gradle
+      dependencyResolutionManagement {
           repositories {
               maven { url "https://jitpack.io" }
           }
@@ -202,7 +202,7 @@ will be used if present, else we fall back on the application's launcher icon.
 
 ### Collecting Push Tokens
 In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo.
-This is done via the `Klaviyo.setPushToken` method, which registers push tokens and authorization state
+This is done via the `Klaviyo.setPushToken` method, which registers push token and current authorization state
 via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
 Once registered in your manifest, `KlaviyoPushService` will receive *new* push tokens via the `onNewToken` method.
 We also recommend retrieving the current token on app startup and registering it with Klaviyo SDK.
@@ -221,6 +221,13 @@ override fun onCreate(savedInstanceState: Bundle?) {
 
 **Reminder**: `Klaviyo.initialize` is required before using any other Klaviyo SDK functionality, even 
 if you are only using the SDK for push notifications and not analytics.
+
+> Android 13 introduced a new [runtime permission](https://developer.android.com/develop/ui/views/notifications/notification-permission#new-apps)
+ for displaying notifications. The Klaviyo SDK automatically adds the
+ [`POST_NOTIFICATIONS`](https://developer.android.com/reference/android/Manifest.permission#POST_NOTIFICATIONS)
+ permission to the manifest, but you will need to request user permission according to Android
+ best practices and the best user experience in the context of your application. The linked resources
+ provide code examples for requesting permission and handling the user's response.
 
 #### Push tokens and multiple profiles
 Klaviyo SDK will disassociate the device push token from the current profile whenever it is reset by calling 
@@ -326,14 +333,17 @@ For additional resources on deep linking, refer to
 ### Advanced Setup
 If you'd prefer to have your own implementation of `FirebaseMessagingService`,
 follow the FCM setup docs including referencing your own service class in the manifest.
-The launcher activity code snippets for handling push tokens and intents are still required.
+The `Application` code snippets above for handling push tokens and intents are still required.
 You may either subclass `KlaviyoPushService` or invoke the necessary Klaviyo SDK methods in your service.
 
-**Note** Klaviyo uses [`data` messages](https://firebase.google.com/docs/cloud-messaging/android/receive)
-to provide consistent notification formatting. As a result, all Klaviyo notifications are
-handled via `onMessageReceived` regardless of the app being in the background or foreground.
-If you are working with multiple remote sources, you can check whether a message originated
-from Klaviyo with the extension method `RemoteMessage.isKlaviyoNotification`.
+```xml
+<!-- AndroidManifest.xml -->
+<service android:name="your.package.name.YourPushService" android:exported="false">
+    <intent-filter>
+        <action android:name="com.google.firebase.MESSAGING_EVENT" />
+    </intent-filter>
+</service>
+```
 
 1. Subclass `KlaviyoPushService`:
     ```kotlin
@@ -387,6 +397,12 @@ from Klaviyo with the extension method `RemoteMessage.isKlaviyoNotification`.
         }
     }
     ```
+
+**Note** Klaviyo uses [`data` messages](https://firebase.google.com/docs/cloud-messaging/android/receive)
+to provide consistent notification formatting. As a result, all Klaviyo notifications are
+handled via `onMessageReceived` regardless of the app being in the background or foreground.
+If you are working with multiple remote sources, you can check whether a message originated
+from Klaviyo with the extension method `RemoteMessage.isKlaviyoNotification`.
 
 #### Custom Notification Display
 If you wish to fully customize the display of notifications, we provide a set of `RemoteMessage` 
