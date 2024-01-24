@@ -7,7 +7,8 @@
 
 The Klaviyo Android SDK allows developers to incorporate Klaviyo analytics and push notification functionality
 in their native Android applications. The SDK assists in identifying users and tracking user events via the 
-latest Klaviyo RESTful client APIs. To reduce performance overhead, API requests are queued and sent in batches. 
+latest [Klaviyo client APIs](https://developers.klaviyo.com/en/reference/api_overview).
+To reduce performance overhead, API requests are queued and sent in batches. 
 The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.
 
 Once integrated, your marketing team will be able to better understand your app users' needs and
@@ -103,8 +104,8 @@ Because we require lifecycle callbacks, it is necessary to subclass
 to initialize and register callbacks in `Application.onCreate`.
 
 ## Profile Identification
-The SDK provides methods to identify profiles and sync via the
-[Klaviyo client API](https://developers.klaviyo.com/en/reference/create_client_profile).
+The SDK provides methods to identify profiles via the
+[Create Client Profile API](https://developers.klaviyo.com/en/reference/create_client_profile).
 All profile identifiers (email, phone, external ID, anonymous ID) are persisted to local storage
 so that the SDK can keep track of the current profile.
 
@@ -157,7 +158,8 @@ Klaviyo.setEmail("robin@example.com")
 ```
 
 ## Event Tracking
-The SDK also provides tools for tracking analytics events to the Klaviyo API.
+The SDK also provides tools for tracking analytics events via the
+[Create Client Event API](https://developers.klaviyo.com/en/reference/create_client_event).
 A list of common Klaviyo-defined event metrics is provided in `EventMetric`, or
 you can use `EventMetric.CUSTOM("name")` for custom event metric names.
 Additional event properties can be specified as part of `EventModel`
@@ -173,9 +175,8 @@ Klaviyo.createEvent(event)
 
 ### Prerequisites
 - A [Firebase account](https://firebase.google.com/docs/android/setup) for your Android app.
+- Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client) documentation.
 - Configure [Android push](https://help.klaviyo.com/hc/en-us/articles/14750928993307) in your Klaviyo account settings.
-- Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client)
-  documentation.
 
 ### Setup
 The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService`, so the
@@ -203,9 +204,11 @@ will be used if present, else we fall back on the application's launcher icon.
 
 ### Collecting Push Tokens
 In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo.
-This is done via the `Klaviyo.setPushToken` method. Once registered in your manifest, `KlaviyoPushService` will receive
-*new* push tokens via the `onNewToken` method. We also recommend retrieving the current token on app startup 
-and registering it with Klaviyo SDK. Add the following to your `Application.onCreate` method. 
+This is done via the `Klaviyo.setPushToken` method, which registers push tokens and authorization state
+via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
+Once registered in your manifest, `KlaviyoPushService` will receive *new* push tokens via the `onNewToken` method.
+We also recommend retrieving the current token on app startup and registering it with Klaviyo SDK.
+Add the following to your `Application.onCreate` method. 
 
 ```kotlin
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -228,15 +231,16 @@ to explicitly associate the device token to the new profile.
 
 ### Receiving Push Notifications
 `KlaviyoPushService` will handle displaying all notifications via the `onMessageReceived` method regardless of
-whether the app is in the foreground or background. If you wish to customize how notifications are displayed, see
-[Advanced Setup](#advanced-setup).
+whether the app is in the foreground or background. You can send test notifications to a specific token using
+the [push notification preview](https://help.klaviyo.com/hc/en-us/articles/18011985278875) feature in order
+to test your integration. If you wish to customize how notifications are displayed, see [Advanced Setup](#advanced-setup).
 
 #### Rich Push
-**Rich Push** is the ability to add images to your push notification messages. This feature is supported in 
-version 1.3.1 and up of the Klaviyo Android SDK. No additional setup is needed to support rich push. 
-Downloading the image and attaching it to the notification is handled within `KlaviyoPushService`. If an image
-fails to download (e.g. if the device has a poor network connection) the notification will be displayed without
-an image after the download times out.
+[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to 
+push notification messages. This feature is supported in version 1.3.1 and up of the Klaviyo Android SDK.
+No additional setup is needed to support rich push. Downloading the image and attaching it to the notification
+is handled within `KlaviyoPushService`. If an image fails to download (e.g. if the device has a poor network 
+connection) the notification will be displayed without an image after the download times out.
 
 #### Tracking Open Events
 To track push notification opens, you must call `Klaviyo.handlePush(intent)` when your app is launched from an intent.
@@ -262,12 +266,14 @@ override fun onNewIntent(intent: Intent?) {
 ensuring that `Klaviyo.handlePush(intent)` is called when your app is opened from a notification.
 
 #### Deep Linking 
-**Deep Links** allow you to navigate to a particular page within your app in response to the user 
-opening a notification. There are broadly three steps to implement deep links in your app. 
+[Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular
+page within your app in response to the user opening a notification. There are broadly three steps to implement
+deep links in your app. 
 
-1. Add intent filters for incoming links
-Add an intent filter to the activity element of your `AndroidManifest.xml` file.
-Replace the scheme and host to match the URI scheme that you will embed in your push notifications. 
+1. Add intent filters for incoming links:
+
+    Add an intent filter to the activity element of your `AndroidManifest.xml` file.
+    Replace the scheme and host to match the URI scheme that you will embed in your push notifications. 
 
     ```xml
     <intent-filter android:label="@string/filter_view_example_gizmos">
@@ -279,9 +285,10 @@ Replace the scheme and host to match the URI scheme that you will embed in your 
     </intent-filter>
     ```
 
-2. Read data from incoming intents 
-When the app is opened from a deep link, the intent that started the activity contains data for the deep link.
-You can parse the URI from the intent's data property and use it to navigate to the appropriate part of your app. 
+2. Read data from incoming intents:
+
+    When the app is opened from a deep link, the intent that started the activity contains data for the deep link.
+    You can parse the URI from the intent's data property and use it to navigate to the appropriate part of your app. 
 
     ```kotlin
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -300,9 +307,10 @@ You can parse the URI from the intent's data property and use it to navigate to 
     }
     ```
 
-3. Test your deep links
-Using [android debug bridge (adb)](https://developer.android.com/studio/command-line/adb), run the following command to launch your app via an intent
-containing a deep link to test your deep link handler.
+3. Test your deep links:
+
+    Using [android debug bridge (adb)](https://developer.android.com/studio/command-line/adb),
+    run the following command to launch your app via an intent containing a deep link to test your deep link handler.
 
     ```shell
     adb shell am start
@@ -314,9 +322,8 @@ containing a deep link to test your deep link handler.
     [preview push notification](https://help.klaviyo.com/hc/en-us/articles/18011985278875) 
     containing a deep link from the Klaviyo push editor. 
 
-For additional resources on deep linking, refer to
-- [Android developer documentation](https://developer.android.com/training/app-links/deep-linking)
-- [Klaviyo help center](https://help.klaviyo.com/hc/en-us/articles/14750403974043)
+For additional resources on deep linking, refer to 
+[Android developer documentation](https://developer.android.com/training/app-links/deep-linking)
 
 ### Advanced Setup
 If you'd prefer to have your own implementation of `FirebaseMessagingService`,
