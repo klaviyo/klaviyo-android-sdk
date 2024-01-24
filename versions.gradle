@@ -1,33 +1,15 @@
 ext {
-    // build dependencies
-    gradleBuildToolsVersion = '7.3.1'
-    gradleKotlinVersion = '1.7.20'
+    // build dependencies - not managed by refreshVersions
     dokkaVersion = '1.8.10'
     gradleKtlintVersion = "11.3.1"
 
     // android versioning
-    androidCompileVersion = 33
-    buildToolsVersion = '30.0.3'
     minSDKVersion = 23
-    targetSDKVersion = 33
+    targetSDKVersion = 34
+    androidCompileVersion = targetSDKVersion
+    buildToolsVersion = '34.0.0'
 
     // project versioning
-    versionCode = 9
-    versionName = '1.4.1' // Reminder: Update version in README samples and update documentation branch
-
-    // dependencies
-    coreKTXVersion = '1.9.0'
-    kotlinSTDVersion = '1.7.20'
-    fcmVersion = '23.1.1'
-
-    // testing dependencies
-    junitVersion = '4.13.2'
-    junitAndroidVersion = '1.1.5'
-    testRunnerVersion = '1.5.2'
-    testRulesVersion = '1.5.0'
-    mockkVersion = "1.13.3"
-    jsonVersion = '20200518'
-
-    // instrumentation testing dependencies
-    espressoVersion = '3.5.1'
+    versionCode = 12
+    versionName = '2.0.0' // Reminder: Update version in README and docs/index.html, and update documentation branch
 }
