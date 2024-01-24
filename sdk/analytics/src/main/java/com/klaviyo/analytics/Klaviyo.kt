@@ -6,7 +6,6 @@ import android.content.Intent
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
-import com.klaviyo.analytics.model.EventType
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
@@ -264,33 +263,21 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun createEvent(event: Event): Klaviyo = apply {
-        Registry.log.info("Enqueuing ${event.type.name} event")
+        Registry.log.info("Enqueuing ${event.metric.name} event")
         Registry.get<ApiClient>().enqueueEvent(event, UserInfo.getAsProfile())
     }
 
     /**
      * Creates an [Event] associated with the currently tracked profile
      *
-     * Convenience method for creating an event with no other properties
+     * Convenience method for creating an event with a metric, optional value, and no other properties
      *
      * @param metric [EventMetric] to create
+     * @param value [Double?] value to assign the event
      * @return Returns [Klaviyo] for call chaining
      */
-    fun createEvent(metric: EventMetric): Klaviyo = createEvent(Event(metric))
-
-    /**
-     * Creates an [Event] associated with the currently tracked profile
-     *
-     * Convenience method for creating an event with no other properties
-     *
-     * @param eventType [EventType] to create
-     * @return Returns [Klaviyo] for call chaining
-     */
-    @Deprecated(
-        "EventType is deprecated in favor of EventMetric. See migration guide for details.",
-        ReplaceWith("com.klaviyo.analytics.Klaviyo.createEvent(metric)")
-    )
-    fun createEvent(eventType: EventType): Klaviyo = createEvent(Event(eventType))
+    fun createEvent(metric: EventMetric, value: Double? = null): Klaviyo =
+        createEvent(Event(metric).setValue(value))
 
     /**
      * From an opened push Intent, creates an [EventMetric.OPENED_PUSH] [Event]

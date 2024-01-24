@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 class KlaviyoNotification(private val message: RemoteMessage) {
-
     /**
      * Constants and extension properties
      *
@@ -160,7 +159,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             builder.setStyle(
                 NotificationCompat.BigPictureStyle()
                     .bigPicture(bitmap)
-                    .bigLargeIcon(null)
+                    .bigLargeIcon(null as Bitmap?)
             )
         } catch (e: ExecutionException) {
             Registry.log.error("Image download failed: ${e.cause}", e)

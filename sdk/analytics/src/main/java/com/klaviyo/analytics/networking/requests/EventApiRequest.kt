@@ -61,7 +61,7 @@ internal class EventApiRequest(
                     METRIC to mapOf(
                         DATA to mapOf(
                             TYPE to METRIC,
-                            ATTRIBUTES to mapOf(NAME to event.type.name)
+                            ATTRIBUTES to mapOf(NAME to event.metric.name)
                         )
                     ),
                     VALUE to event.value,

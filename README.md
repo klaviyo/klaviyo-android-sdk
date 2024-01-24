@@ -37,15 +37,15 @@ send them timely push notifications via FCM.
    ```kotlin
    // build.gradle.kts
    dependencies {
-       implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:1.4.1")
-       implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:1.4.1")
+       implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:2.0.0")
+       implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.0.0")
    }
    ```
    ```groovy
    // build.gradle
    dependencies {
-       implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:1.4.1"
-       implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:1.4.1"
+       implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:2.0.0"
+       implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.0.0"
    }
    ```
 
@@ -141,8 +141,8 @@ Additional event properties can be specified as part of `EventModel`
 
 ```kotlin
 val event = Event(EventMetric.VIEWED_PRODUCT)
-    .setProperty(EventKey.VALUE, "10")
-    .setProperty(EventKey.CUSTOM("custom_key"), "value")
+    .setProperty(EventKey.CUSTOM("Product"), "Coffee Mug")
+    .setValue(10.0)
 Klaviyo.createEvent(event)
 ```
 
