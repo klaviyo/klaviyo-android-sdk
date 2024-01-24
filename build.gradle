@@ -47,16 +47,15 @@ tasks.register('clean', Delete) {
 }
 
 dokkaHtmlMultiModule {
-    def docs = "${layout.buildDirectory}/../docs"
-    outputDirectory = file("${docs}/${versionName}")
+    outputDirectory = layout.buildDirectory.dir("../docs/${versionName}")
     includes.from("README.md")
 
     String versioningConfiguration = """
         {
           "version": "${versionName}",
-          "olderVersionsDir": "${docs}"
+          "olderVersionsDir": "${layout.buildDirectory.dir('../docs/')}"
         }
-        """
+    """
 
     pluginsMapConfiguration.set(
         ["org.jetbrains.dokka.versioning.VersioningPlugin": versioningConfiguration]
