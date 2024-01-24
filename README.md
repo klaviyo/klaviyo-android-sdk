@@ -80,8 +80,6 @@ so we can gracefully manage background processes.
 // Application subclass 
 import android.app.Application
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.analytics.lifecycle.KlaviyoLifecycleMonitor
-import com.klaviyo.push.KlaviyoPushService
 
 class TestApp : Application() {
     override fun onCreate() {
@@ -341,6 +339,7 @@ from Klaviyo with the extension method `RemoteMessage.isKlaviyoNotification`.
     ```kotlin
     import com.google.firebase.messaging.RemoteMessage
     import com.klaviyo.pushFcm.KlaviyoPushService
+    import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 
     class YourPushService : KlaviyoPushService() {
         override fun onNewToken(newToken: String) {
@@ -368,7 +367,7 @@ from Klaviyo with the extension method `RemoteMessage.isKlaviyoNotification`.
     import com.klaviyo.pushFcm.KlaviyoNotification
     import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 
-    open class YourPushService : FirebaseMessagingService() {
+    class YourPushService : FirebaseMessagingService() {
 
         override fun onNewToken(newToken: String) {
             super.onNewToken(newToken)
