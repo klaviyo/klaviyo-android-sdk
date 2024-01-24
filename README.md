@@ -12,7 +12,7 @@ To reduce performance overhead, API requests are queued and sent in batches.
 The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.
 
 Once integrated, your marketing team will be able to better understand your app users' needs and
-send them timely push notifications via FCM.
+send them timely push notifications via [FCM (Firebase Cloud Messaging)](https://firebase.google.com/docs/cloud-messaging).
 
 > ⚠️ **We support Android API level 23 and above** ⚠️
 
@@ -70,11 +70,12 @@ send them timely push notifications via FCM.
    </details>
 
 ## Initialization
-The SDK must be initialized with the public API key for your Klaviyo account.
-We require access to the `applicationContext` so the SDK can be responsive to
-changes in network conditions and persist data via `SharedPreferences`.
-You must also register the Klaviyo SDK for activity lifecycle callbacks per the example code,
-so we can gracefully manage background processes.
+The SDK must be initialized with the 6-character 
+[public API key](https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1)
+for your Klaviyo account. We require access to the `applicationContext` so the
+SDK can be responsive to changes in network conditions and persist data via
+`SharedPreferences`. You must also register the Klaviyo SDK for activity lifecycle
+callbacks per the example code, so we can gracefully manage background processes.
 
 ```kotlin
 // Application subclass 
