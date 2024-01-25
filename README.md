@@ -112,7 +112,6 @@ A profile can be identified by any combination of the following:
 - Individual's phone number in [E.164 format](https://help.klaviyo.com/hc/en-us/articles/360046055671#h_01HE5ZYJEAHZKY6WZW7BAD36BG)
 
 Identifiers are persisted to local storage so that the SDK can keep track of the current profile.
-[documentation](https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo)
 
 Profile identifiers and other attributes can be set all at once as a `map`:
 
@@ -225,11 +224,12 @@ override fun onCreate(savedInstanceState: Bundle?) {
 **Reminder**: `Klaviyo.initialize` is required before using any other Klaviyo SDK functionality, even 
 if you are only using the SDK for push notifications and not analytics.
 
-> Android 13 introduced a new [runtime permission](https://developer.android.com/develop/ui/views/notifications/notification-permission#new-apps)
+> Android 13 introduced a new [runtime permission](https://developer.android.com/develop/ui/views/notifications/notification-permission)
  for displaying notifications. The Klaviyo SDK automatically adds the
  [`POST_NOTIFICATIONS`](https://developer.android.com/reference/android/Manifest.permission#POST_NOTIFICATIONS)
- permission to the manifest, but you will need to request user permission according to Android
- best practices and the best user experience in the context of your application. The linked resources
+ permission to the manifest, but you will need to request user permission according to 
+ [Android best practices](https://source.android.com/docs/core/display/notification-perm)
+ and the best user experience in the context of your application. The linked resources
  provide code examples for requesting permission and handling the user's response.
 
 #### Push tokens and multiple profiles
