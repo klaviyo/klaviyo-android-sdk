@@ -2,6 +2,13 @@ plugins {
     id 'de.fayard.refreshVersions' version '0.60.3'
 }
 
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
 // sdk modules
 include ':sdk'
 include ':sdk:core', ':sdk:analytics', ':sdk:push-fcm', ':sdk:fixtures'
