@@ -70,9 +70,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
    </details>
 
 ## Initialization
-The SDK must be initialized with the 6-character 
+The SDK must be initialized with the short alphanumeric
 [public API key](https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1)
-for your Klaviyo account. We require access to the `applicationContext` so the
+for your Klaviyo account, also known as your Site ID. We require access to the `applicationContext` so the
 SDK can be responsive to changes in network conditions and persist data via
 `SharedPreferences`. You must also register the Klaviyo SDK for activity lifecycle
 callbacks per the example code, so we can gracefully manage background processes.
@@ -82,13 +82,13 @@ callbacks per the example code, so we can gracefully manage background processes
 import android.app.Application
 import com.klaviyo.analytics.Klaviyo
 
-class TestApp : Application() {
+class YourApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
         /* ... */
         
-        // Initialize is required to use any Klaviyo SDK functionality 
+        // Initialize is required before invoking any other Klaviyo SDK functionality 
         Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
 
         // Required for the SDK to properly respond to lifecycle changes such as app backgrounding 
@@ -105,14 +105,16 @@ to initialize and register callbacks in `Application.onCreate`.
 ## Profile Identification
 The SDK provides methods to identify profiles via the
 [Create Client Profile API](https://developers.klaviyo.com/en/reference/create_client_profile).
-All profile identifiers (email, phone, external ID, anonymous ID) are persisted to local storage
-so that the SDK can keep track of the current profile.
+A profile can be identified by any combination of the following:
 
-Klaviyo SDK does not validate email address or phone number inputs locally, see
+- External ID: A unique identifier used by customers to associate Klaviyo profiles with profiles in an external system, such as a point-of-sale system. Format varies based on the external system.
+- Individual's email address
+- Individual's phone number in [E.164 format](https://help.klaviyo.com/hc/en-us/articles/360046055671#h_01HE5ZYJEAHZKY6WZW7BAD36BG)
+
+Identifiers are persisted to local storage so that the SDK can keep track of the current profile.
 [documentation](https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo)
-on proper phone number formatting to avoid validation issues.
 
-Profile attributes can be set all at once:
+Profile identifiers and other attributes can be set all at once as a `map`:
 
 ```kotlin
 val profile = Profile(
@@ -173,9 +175,9 @@ Klaviyo.createEvent(event)
 ## Push Notifications
 
 ### Prerequisites
-- A [Firebase account](https://firebase.google.com/docs/android/setup) for your Android app.
-- Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client) documentation.
-- Configure [Android push](https://help.klaviyo.com/hc/en-us/articles/14750928993307) in your Klaviyo account settings.
+- A [Firebase account](https://firebase.google.com/docs/android/setup) for your Android app
+- Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client) documentation
+- Configure [Android push](https://help.klaviyo.com/hc/en-us/articles/14750928993307) in your Klaviyo account settings
 
 ### Setup
 The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService`, so the
