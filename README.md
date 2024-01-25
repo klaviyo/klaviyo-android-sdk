@@ -185,11 +185,17 @@ In your `AndroidManifest.xml` file, register `KlaviyoPushService` to receive `ME
 
 ```xml
 <!-- AndroidManifest.xml -->
-<service android:name="com.klaviyo.pushFcm.KlaviyoPushService" android:exported="false">
-    <intent-filter>
-        <action android:name="com.google.firebase.MESSAGING_EVENT" />
-    </intent-filter>
-</service>
+<manifest>
+    <!-- ... -->
+    <application>
+        <!-- ... -->
+        <service android:name="com.klaviyo.pushFcm.KlaviyoPushService" android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>
 ``` 
 
 To specify an icon for Klaviyo notifications, add the following metadata element to the application component
@@ -198,8 +204,14 @@ will be used if present, else we fall back on the application's launcher icon.
 
 ```xml
 <!-- AndroidManifest.xml -->
-<meta-data android:name="com.klaviyo.push.default_notification_icon"
-    android:resource="{YOUR_ICON_RESOURCE}" />
+<manifest>
+    <!-- ... -->
+    <application>
+        <!-- ... -->
+        <meta-data android:name="com.klaviyo.push.default_notification_icon"
+            android:resource="{YOUR_ICON_RESOURCE}" />
+    </application>
+</manifest>
 ```
 
 ### Collecting Push Tokens
@@ -284,13 +296,23 @@ deep links in your app.
     Replace the scheme and host to match the URI scheme that you will embed in your push notifications. 
 
     ```xml
-    <intent-filter android:label="@string/filter_view_example_gizmos">
-        <action android:name="android.intent.action.VIEW" />
-        <category android:name="android.intent.category.DEFAULT" />
-        <category android:name="android.intent.category.BROWSABLE" />
-        <!-- Accepts URIs formatted "example://host.com” -->
-        <data android:scheme="example" android:host="host.com"/>
-    </intent-filter>
+    <!-- AndroidManifest.xml -->
+    <manifest>
+        <!-- ... -->
+        <application>
+            <!-- ... -->
+            <activity>
+                <!-- ... -->
+                <intent-filter android:label="@string/filter_view_example_gizmos">
+                    <action android:name="android.intent.action.VIEW" />
+                    <category android:name="android.intent.category.DEFAULT" />
+                    <category android:name="android.intent.category.BROWSABLE" />
+                    <!-- Accepts URIs formatted "example://host.com” -->
+                    <data android:scheme="example" android:host="host.com"/>
+                </intent-filter>
+            </activity>
+        </application>
+    </manifest>
     ```
 
 2. Read data from incoming intents:
@@ -341,11 +363,17 @@ You may either subclass `KlaviyoPushService` or invoke the necessary Klaviyo SDK
 
 ```xml
 <!-- AndroidManifest.xml -->
-<service android:name="your.package.name.YourPushService" android:exported="false">
-    <intent-filter>
-        <action android:name="com.google.firebase.MESSAGING_EVENT" />
-    </intent-filter>
-</service>
+<manifest>
+    <!-- ... -->
+    <application>
+        <!-- ... -->
+        <service android:name="your.package.name.YourPushService" android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>
 ```
 
 1. Subclass `KlaviyoPushService`:
