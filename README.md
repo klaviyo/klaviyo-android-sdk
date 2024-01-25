@@ -7,7 +7,7 @@
 
 The Klaviyo Android SDK allows developers to incorporate Klaviyo analytics and push notification functionality
 in their native Android applications. The SDK assists in identifying users and tracking user events via the 
-latest [Klaviyo client APIs](https://developers.klaviyo.com/en/reference/api_overview).
+latest [Klaviyo Client APIs](https://developers.klaviyo.com/en/reference/api_overview).
 To reduce performance overhead, API requests are queued and sent in batches. 
 The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.
 
@@ -282,7 +282,7 @@ override fun onNewIntent(intent: Intent?) {
 }
 ```
 
-**Note** intent handling may differ depending on your app's architecture. Adjust this example to your use-case, 
+**Note:** Intent handling may differ depending on your app's architecture. Adjust this example to your use-case, 
 ensuring that `Klaviyo.handlePush(intent)` is called when your app is opened from a notification.
 
 #### Deep Linking 
@@ -431,7 +431,7 @@ You may either subclass `KlaviyoPushService` or invoke the necessary Klaviyo SDK
     }
     ```
 
-**Note** Klaviyo uses [data messages](https://firebase.google.com/docs/cloud-messaging/android/receive)
+**Note:** Klaviyo uses [data messages](https://firebase.google.com/docs/cloud-messaging/android/receive)
 to provide consistent notification formatting. As a result, all Klaviyo notifications are
 handled via `onMessageReceived` regardless of the app being in the background or foreground.
 If you are working with multiple remote sources, you can check whether a message originated
