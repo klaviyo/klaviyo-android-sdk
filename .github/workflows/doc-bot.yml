@@ -33,7 +33,7 @@ jobs:
 
       - name: Update documentation branch from master
         run: |
-          git merge origin/master -m "Merge changes from master for ${{ github.sha }}"
+          git merge origin/master -m "Merge changes from master for ${{ github.sha }}" --no-edit --allow-unrelated-histories
 
       - name: Generate Dokka documentation
         run: ./gradlew dokkaHtmlMultiModule
