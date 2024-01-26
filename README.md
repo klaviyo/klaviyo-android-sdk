@@ -256,8 +256,8 @@ the [push notification preview](https://help.klaviyo.com/hc/en-us/articles/18011
 to test your integration. If you wish to customize how notifications are displayed, see [Advanced Setup](#advanced-setup).
 
 #### Rich Push
-[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to 
-push notification messages. This feature is supported in version 1.3.1 and up of the Klaviyo Android SDK.
+[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to push notification messages.
+This feature is supported in version 1.3.1 and up of the Klaviyo Android SDK.
 No additional setup is needed to support rich push. Downloading the image and attaching it to the notification
 is handled within `KlaviyoPushService`. If an image fails to download (e.g. if the device has a poor network 
 connection) the notification will be displayed without an image after the download times out.
