@@ -107,7 +107,8 @@ The SDK provides methods to identify profiles via the
 [Create Client Profile API](https://developers.klaviyo.com/en/reference/create_client_profile).
 A profile can be identified by any combination of the following:
 
-- External ID: A unique identifier used by customers to associate Klaviyo profiles with profiles in an external system, such as a point-of-sale system. Format varies based on the external system.
+- External ID: A unique identifier used by customers to associate Klaviyo profiles with profiles in an external system,
+  such as a point-of-sale system. Format varies based on the external system.
 - Individual's email address
 - Individual's phone number in [E.164 format](https://help.klaviyo.com/hc/en-us/articles/360046055671#h_01HE5ZYJEAHZKY6WZW7BAD36BG)
 
@@ -442,6 +443,11 @@ If you wish to fully customize the display of notifications, we provide a set of
 extensions such as `import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body` to access all the properties sent from Klaviyo.
 We also provide an `Intent.appendKlaviyoExtras(RemoteMessage)` extension method, which attaches the data to your
 notification intent that the Klaviyo SDK requires in order to track opens when you call `Klaviyo.handlePush(intent)`.
+
+## Contributing
+See the [contributing guide](.github/CONTRIBUTING.md) to learn how to contribute to the Klaviyo Android SDK.
+We welcome your feedback in the [discussion](https://github.com/klaviyo/klaviyo-android-sdk/discussions)
+and [issues](https://github.com/klaviyo/klaviyo-android-sdk/issues) sections of our public GitHub repository.
 
 ## License
 The Klaviyo Android SDK is available under the MIT license. See [LICENSE](./LICENSE.md) for more info.
