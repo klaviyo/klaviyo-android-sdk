@@ -303,7 +303,7 @@ deep links in your app.
             <!-- ... -->
             <activity>
                 <!-- ... -->
-                <intent-filter android:label="@string/filter_view_example_gizmos">
+                <intent-filter android:label="@string/your_intent_filter">
                     <action android:name="android.intent.action.VIEW" />
                     <category android:name="android.intent.category.DEFAULT" />
                     <category android:name="android.intent.category.BROWSABLE" />
