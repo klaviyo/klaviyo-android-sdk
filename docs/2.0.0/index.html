@@ -64,7 +64,7 @@
     <div class="cover ">
       <h1 class="">klaviyo-android-sdk</h1>
       <p class="paragraph"><a href="https://github.com/klaviyo/klaviyo-android-sdk/blob/master/LICENSE.md"></a> <a href="https://jitpack.io/#klaviyo/klaviyo-android-sdk"><img alt="Latest" src="https://jitpack.io/v/klaviyo/klaviyo-android-sdk.svg"></a> <a href="https://github.com/klaviyo/klaviyo-android-sdk/releases"></a> <a href="https://github.com/klaviyo/klaviyo-android-sdk/actions/workflows/android-master.yml"></a></p>
-      <p class="paragraph">The Klaviyo Android SDK allows developers to incorporate Klaviyo analytics and push notification functionality in their native Android applications. The SDK assists in identifying users and tracking user events via the  latest <a href="https://developers.klaviyo.com/en/reference/api_overview">Klaviyo client APIs</a>. To reduce performance overhead, API requests are queued and sent in batches.  The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.</p>
+      <p class="paragraph">The Klaviyo Android SDK allows developers to incorporate Klaviyo analytics and push notification functionality in their native Android applications. The SDK assists in identifying users and tracking user events via the  latest <a href="https://developers.klaviyo.com/en/reference/api_overview">Klaviyo Client APIs</a>. To reduce performance overhead, API requests are queued and sent in batches.  The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.</p>
       <p class="paragraph">Once integrated, your marketing team will be able to better understand your app users' needs and send them timely push notifications via <a href="https://firebase.google.com/docs/cloud-messaging">FCM (Firebase Cloud Messaging)</a>.</p>
       <blockquote class="quotation">
         <p class="paragraph">⚠️ <strong>We support Android API level 23 and above</strong> ⚠️</p>
@@ -114,7 +114,7 @@
       <p class="paragraph">The SDK provides methods to identify profiles via the <a href="https://developers.klaviyo.com/en/reference/create_client_profile">Create Client Profile API</a>. A profile can be identified by any combination of the following:</p>
       <ul>
         <li>
-          <p class="paragraph">External ID: A unique identifier used by customers to associate Klaviyo profiles with profiles in an external system, such as a point-of-sale system. Format varies based on the external system.</p>
+          <p class="paragraph">External ID: A unique identifier used by customers to associate Klaviyo profiles with profiles in an external system,   such as a point-of-sale system. Format varies based on the external system.</p>
         </li>
         <li>
           <p class="paragraph">Individual's email address</p>
@@ -201,7 +201,7 @@
 <span class="top-right-position"><span class="copy-icon"></span>
           <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
         </span></div>
-      <p class="paragraph"><strong>Note</strong> intent handling may differ depending on your app's architecture. Adjust this example to your use-case,  ensuring that <code class="lang-kotlin">Klaviyo.handlePush(intent)</code> is called when your app is opened from a notification.</p>
+      <p class="paragraph"><strong>Note:</strong> Intent handling may differ depending on your app's architecture. Adjust this example to your use-case,  ensuring that <code class="lang-kotlin">Klaviyo.handlePush(intent)</code> is called when your app is opened from a notification.</p>
       <h4 class=""> Deep Linking </h4>
       <p class="paragraph"><a href="https://help.klaviyo.com/hc/en-us/articles/14750403974043">Deep Links</a> allow you to navigate to a particular page within your app in response to the user opening a notification. There are broadly three steps to implement deep links in your app. </p>
       <ol>
@@ -234,14 +234,16 @@
           <p class="paragraph"> To perform integration testing, you can send a     <a href="https://help.klaviyo.com/hc/en-us/articles/18011985278875">preview push notification</a>      containing a deep link from the Klaviyo push editor. </p>
         </li>
       </ol>
-      <p class="paragraph">For additional resources on deep linking, refer to  <a href="https://developer.android.com/training/app-links/deep-linking">Android developer documentation</a></p>
+      <p class="paragraph">For additional resources on deep linking, refer to  <a href="https://developer.android.com/training/app-links/deep-linking">Android developer documentation</a>.</p>
       <h3 class=""> Advanced Setup</h3>
-      <p class="paragraph">If you'd prefer to have your own implementation of <code class="lang-kotlin">FirebaseMessagingService</code>, follow the FCM setup docs including referencing your own service class in the manifest. The <code class="lang-kotlin">Application</code> code snippets above for handling push tokens and intents are still required. You may either subclass <code class="lang-kotlin">KlaviyoPushService</code> or invoke the necessary Klaviyo SDK methods in your service.</p>
+      <p class="paragraph">If you'd prefer to have your own implementation of <code class="lang-kotlin">FirebaseMessagingService</code>, follow the FCM setup docs including referencing your own service class in the manifest.</p>
       <div class="sample-container">
         <pre><code class="block lang-xml" theme="idea">&lt;!-- AndroidManifest.xml --&gt;<br>&lt;manifest&gt;<br>    &lt;!-- ... --&gt;<br>    &lt;application&gt;<br>        &lt;!-- ... --&gt;<br>        &lt;service android:name=&quot;your.package.name.YourPushService&quot; android:exported=&quot;false&quot;&gt;<br>            &lt;intent-filter&gt;<br>                &lt;action android:name=&quot;com.google.firebase.MESSAGING_EVENT&quot; /&gt;<br>            &lt;/intent-filter&gt;<br>        &lt;/service&gt;<br>    &lt;/application&gt;<br>&lt;/manifest&gt;</code></pre>
 <span class="top-right-position"><span class="copy-icon"></span>
           <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
         </span></div>
+      <p class="paragraph">The <code class="lang-kotlin">Application</code> code snippets above for handling push tokens and intents are still required.</p>
+      <p class="paragraph">You may either subclass <code class="lang-kotlin">KlaviyoPushService</code> or invoke the necessary Klaviyo SDK methods in your service.</p>
       <ol>
         <li>
           <p class="paragraph">Subclass <code class="lang-kotlin">KlaviyoPushService</code>:</p>
@@ -260,13 +262,15 @@
             </span></div>
         </li>
       </ol>
-      <p class="paragraph"><strong>Note</strong> Klaviyo uses <a href="https://firebase.google.com/docs/cloud-messaging/android/receive"><code class="lang-kotlin">data</code> messages</a> to provide consistent notification formatting. As a result, all Klaviyo notifications are handled via <code class="lang-kotlin">onMessageReceived</code> regardless of the app being in the background or foreground. If you are working with multiple remote sources, you can check whether a message originated from Klaviyo with the extension method <code class="lang-kotlin">RemoteMessage.isKlaviyoNotification</code>.</p>
+      <p class="paragraph"><strong>Note:</strong> Klaviyo uses <a href="https://firebase.google.com/docs/cloud-messaging/android/receive">data messages</a> to provide consistent notification formatting. As a result, all Klaviyo notifications are handled via <code class="lang-kotlin">onMessageReceived</code> regardless of the app being in the background or foreground. If you are working with multiple remote sources, you can check whether a message originated from Klaviyo with the extension method <code class="lang-kotlin">RemoteMessage.isKlaviyoNotification</code>.</p>
       <h4 class=""> Custom Notification Display</h4>
       <p class="paragraph">If you wish to fully customize the display of notifications, we provide a set of <code class="lang-kotlin">RemoteMessage</code>  extensions such as <code class="lang-kotlin">import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body</code> to access all the properties sent from Klaviyo. We also provide an <code class="lang-kotlin">Intent.appendKlaviyoExtras(RemoteMessage)</code> extension method, which attaches the data to your notification intent that the Klaviyo SDK requires in order to track opens when you call <code class="lang-kotlin">Klaviyo.handlePush(intent)</code>.</p>
+      <h2 class=""> Contributing</h2>
+      <p class="paragraph">See the .github/CONTRIBUTING.md to learn how to contribute to the Klaviyo Android SDK. We welcome your feedback in the <a href="https://github.com/klaviyo/klaviyo-android-sdk/discussions">discussion</a> and <a href="https://github.com/klaviyo/klaviyo-android-sdk/issues">issues</a> sections of our public GitHub repository.</p>
       <h2 class=""> License</h2>
-      <p class="paragraph">KlaviyoSwift is available under the MIT license. See ./LICENSE.md for more info.</p>
+      <p class="paragraph">The Klaviyo Android SDK is available under the MIT license. See ./LICENSE.md for more info.</p>
       <h2 class=""> Code Documentation</h2>
-      <p class="paragraph">Browse complete code documentation autogenerated with Dokka <a href="https://klaviyo.github.io/klaviyo-android-sdk/">here</a></p>
+      <p class="paragraph">Browse complete code documentation autogenerated with Dokka <a href="https://klaviyo.github.io/klaviyo-android-sdk/">here</a>.</p>
     </div>
     <h2 class="">All modules:</h2>
     <div class="table"><a data-name="-242632249%2FMain%2F0" anchor-label="analytics" id="-242632249%2FMain%2F0" data-filterable-set=""></a>
