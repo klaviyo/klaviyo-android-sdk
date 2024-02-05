@@ -158,6 +158,11 @@ Klaviyo.setEmail("robin@example.com")
     .setProfileAttribute(ProfileKey.FIRST_NAME, "Robin")
 ```
 
+### Anonymous Tracking
+By default, Klaviyo will begin tracking unidentified users in your app when a push token is set, or if it receives an
+event to track. That way, you can track events and collect push tokens from users prior to collecting profile identifiers.
+When an email or other identifier is provided, Klaviyo will merge the data from the anonymous user to an identified user.
+
 ## Event Tracking
 The SDK also provides tools for tracking analytics events via the
 [Create Client Event API](https://developers.klaviyo.com/en/reference/create_client_event).
