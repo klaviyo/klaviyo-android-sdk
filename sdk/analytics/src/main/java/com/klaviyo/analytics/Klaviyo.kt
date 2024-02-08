@@ -318,14 +318,20 @@ object Klaviyo {
     val Intent.isKlaviyoIntent: Boolean
         get() = this.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
 
-    private inline fun <T>safeCall(fn: () -> T): T? {
-        try {
-            return fn()
+    /**
+     * Safely invoke a function and log KlaviyoExceptions rather than crash
+     */
+    private inline fun <T>safeCall(block: () -> T): T? {
+        return try {
+            block()
         } catch (e: KlaviyoException) {
-            Registry.log.error("Klaviyo SDK Exception", e)
-            return null
+            // KlaviyoException is self-logging
+            null
         }
     }
 
+    /**
+     * Safe apply function that logs KlaviyoExceptions rather than crash
+     */
     private inline fun safeApply(block: () -> Unit) = apply { safeCall { block() } }
 }

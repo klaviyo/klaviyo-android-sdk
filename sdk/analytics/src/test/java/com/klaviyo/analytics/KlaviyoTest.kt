@@ -9,7 +9,6 @@ import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
-import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
@@ -25,6 +24,54 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 internal class KlaviyoTest : BaseTest() {
+
+    companion object {
+        val stubIntentExtras = mapOf(
+            "com.klaviyo.body" to "Message body",
+            "com.klaviyo._k" to """{
+              "Push Platform": "android",
+              "$\flow": "",
+              "$\message": "01GK4P5W6AV4V3APTJ727JKSKQ",
+              "$\variation": "",
+              "Message Name": "check_push_pipeline",
+              "Message Type": "campaign",
+              "c": "6U7nPA",
+              "cr": "31698553996657051350694345805149781",
+              "m": "01GK4P5W6AV4V3APTJ727JKSKQ",
+              "t": "1671205224",
+              "timestamp": "2022-12-16T15:40:24.049427+00:00",
+              "x": "manual"
+            }"""
+        )
+
+        fun mockIntent(payload: Map<String, String>): Intent {
+            // Mocking an intent to return the stub push payload...
+            val intent = mockk<Intent>()
+            val bundle = mockk<Bundle>()
+            var gettingKey = ""
+            every { intent.extras } returns bundle
+            every { bundle.keySet() } returns payload.keys
+            every {
+                intent.getStringExtra(
+                    match { s ->
+                        gettingKey = s // there must be a better way to do this...
+                        true
+                    }
+                )
+            } answers { payload[gettingKey] }
+            every {
+                bundle.getString(
+                    match { s ->
+                        gettingKey = s // there must be a better way to do this...
+                        true
+                    },
+                    String()
+                )
+            } answers { payload[gettingKey] }
+
+            return intent
+        }
+    }
 
     private val capturedProfile = slot<Profile>()
     private val staticClock = StaticClock(TIME, ISO_TIME)
@@ -45,14 +92,6 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `Registered mock api`() {
         assertEquals(apiClientMock, Registry.get<ApiClient>())
-    }
-
-    @Test
-    fun `Fails gracefully when methods are invoked before initialize`() {
-        every { Registry.config } throws MissingConfig()
-
-        Klaviyo.setEmail(EMAIL)
-        verify { logSpy.error(any(), any<MissingConfig>()) }
     }
 
     @Test
@@ -254,55 +293,9 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(Klaviyo.getPushToken(), PUSH_TOKEN)
     }
 
-    private fun mockIntent(payload: Map<String, String>): Intent {
-        // Mocking an intent to return the stub push payload...
-        val intent = mockk<Intent>()
-        val bundle = mockk<Bundle>()
-        var gettingKey = ""
-        every { intent.extras } returns bundle
-        every { bundle.keySet() } returns payload.keys
-        every {
-            intent.getStringExtra(
-                match { s ->
-                    gettingKey = s // there must be a better way to do this...
-                    true
-                }
-            )
-        } answers { payload[gettingKey] }
-        every {
-            bundle.getString(
-                match { s ->
-                    gettingKey = s // there must be a better way to do this...
-                    true
-                },
-                String()
-            )
-        } answers { payload[gettingKey] }
-
-        return intent
-    }
-
     @Test
     fun `Handling opened push Intent enqueues $opened_push API Call`() {
         // Handle push intent
-        val stubIntentExtras = mapOf(
-            "com.klaviyo.body" to "Message body",
-            "com.klaviyo._k" to """{
-              "Push Platform": "android",
-              "$\flow": "",
-              "$\message": "01GK4P5W6AV4V3APTJ727JKSKQ",
-              "$\variation": "",
-              "Message Name": "check_push_pipeline",
-              "Message Type": "campaign",
-              "c": "6U7nPA",
-              "cr": "31698553996657051350694345805149781",
-              "m": "01GK4P5W6AV4V3APTJ727JKSKQ",
-              "t": "1671205224",
-              "timestamp": "2022-12-16T15:40:24.049427+00:00",
-              "x": "manual"
-            }"""
-        )
-
         Klaviyo.handlePush(mockIntent(stubIntentExtras))
 
         verify { apiClientMock.enqueueEvent(any(), any()) }
