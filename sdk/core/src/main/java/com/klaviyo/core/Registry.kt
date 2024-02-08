@@ -74,6 +74,16 @@ object Registry {
     }
 
     /**
+     * Remove registered service by type, specified by generic parameter
+     *
+     * @param T - Type, usually an interface, to register under
+     */
+    inline fun <reified T : Any> unregister() {
+        registry.remove(typeOf<T>())
+        services.remove(typeOf<T>())
+    }
+
+    /**
      * Register a service for a type, specified by generic parameter
      * Typical usage would be to register the singleton implementation of an interface
      *
@@ -82,8 +92,8 @@ object Registry {
      */
     inline fun <reified T : Any> register(service: Any) {
         val type = typeOf<T>()
+        unregister<T>()
         services[type] = service
-        registry.remove(type)
     }
 
     /**
@@ -95,7 +105,7 @@ object Registry {
      */
     inline fun <reified T : Any> register(noinline registration: Registration) {
         val type = typeOf<T>()
-        services.remove(type)
+        unregister<T>()
         registry[type] = registration
     }
 

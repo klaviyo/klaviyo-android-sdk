@@ -6,6 +6,7 @@ import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.Log
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.Logger
@@ -31,6 +32,7 @@ internal class KlaviyoUninitializedTest {
 
     @Before
     fun setup() {
+        Registry.unregister<Config>()
         Registry.register<Log>(logger)
         Registry.register<ApiClient>(mockApiClient)
     }
