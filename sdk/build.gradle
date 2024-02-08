@@ -1,6 +1,6 @@
 subprojects {
     def ext = rootProject.ext
-    def javaVersion = JavaVersion.VERSION_17
+    def javaVersion = JavaVersion.VERSION_11
 
     apply plugin: "com.android.library"
     apply plugin: "kotlin-android"
