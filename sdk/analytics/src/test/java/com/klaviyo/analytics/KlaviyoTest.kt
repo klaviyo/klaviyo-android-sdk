@@ -9,6 +9,7 @@ import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
@@ -44,6 +45,14 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `Registered mock api`() {
         assertEquals(apiClientMock, Registry.get<ApiClient>())
+    }
+
+    @Test
+    fun `Fails gracefully when methods are invoked before initialize`() {
+        every { Registry.config } throws MissingConfig()
+
+        Klaviyo.setEmail(EMAIL)
+        verify { logSpy.error(any(), any<MissingConfig>()) }
     }
 
     @Test

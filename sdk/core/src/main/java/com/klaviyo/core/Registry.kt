@@ -15,11 +15,11 @@ import com.klaviyo.core.networking.NetworkMonitor
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
-class MissingConfig : Exception("Klaviyo SDK accessed before initializing")
-class MissingRegistration(type: KType) : Exception(
+class MissingConfig : KlaviyoException("Klaviyo SDK accessed before initializing")
+class MissingRegistration(type: KType) : KlaviyoException(
     "No service registered for ${type::class.qualifiedName}"
 )
-class InvalidRegistration(type: KType) : Exception(
+class InvalidRegistration(type: KType) : KlaviyoException(
     "Registered service does not match ${type::class.qualifiedName}"
 )
 
