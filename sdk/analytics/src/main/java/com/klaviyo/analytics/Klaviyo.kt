@@ -211,7 +211,7 @@ object Klaviyo {
     private fun debouncedProfileUpdate(profile: Profile) {
         // Log for traceability
         val operation = pendingProfile?.let { "Merging" } ?: "Starting"
-        Registry.log.info("$operation profile update")
+        Registry.log.verbose("$operation profile update")
 
         // Merge new changes into pending transaction
         pendingProfile = pendingProfile?.merge(profile) ?: profile
@@ -230,7 +230,7 @@ object Klaviyo {
      * Enqueue pending profile changes as an API call and then clear slate
      */
     private fun flushPendingProfile() = pendingProfile?.let {
-        Registry.log.info("Flushing profile update")
+        Registry.log.verbose("Flushing profile update")
         Registry.get<ApiClient>().enqueueProfile(it)
         pendingProfile = null
     }
@@ -263,7 +263,7 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun createEvent(event: Event): Klaviyo = apply {
-        Registry.log.info("Enqueuing ${event.metric.name} event")
+        Registry.log.verbose("Enqueuing ${event.metric.name} event")
         Registry.get<ApiClient>().enqueueEvent(event, UserInfo.getAsProfile())
     }
 
@@ -287,7 +287,7 @@ object Klaviyo {
      */
     fun handlePush(intent: Intent?) = apply {
         if (intent?.isKlaviyoIntent != true) {
-            Registry.log.info("Non-Klaviyo intent ignored")
+            Registry.log.verbose("Non-Klaviyo intent ignored")
             return@apply
         }
 

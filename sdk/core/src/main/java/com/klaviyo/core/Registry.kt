@@ -70,7 +70,7 @@ object Registry {
     internal val registry = mutableMapOf<KType, Registration>()
 
     init {
-        register<Log> { Logger() }
+        register<Log> { KLog() }
     }
 
     /**

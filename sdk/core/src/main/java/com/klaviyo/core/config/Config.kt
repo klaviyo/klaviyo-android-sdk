@@ -16,6 +16,8 @@ interface Config {
     val networkFlushDepth: Int
     val networkMaxRetries: Int
 
+    fun getManifestInt(key: String, defaultValue: Int): Int
+
     interface Builder {
         fun apiKey(apiKey: String): Builder
         fun applicationContext(context: Context): Builder
