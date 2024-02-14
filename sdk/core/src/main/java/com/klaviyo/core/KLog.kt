@@ -13,7 +13,12 @@ open class KLog : Log {
         get() {
             if (_logLevel == null && Registry.isRegistered<Config>()) {
                 _logLevel = Registry.config.getManifestInt(LOG_LEVEL, defaultLogLevel.ordinal).let {
-                    Level.entries.getOrNull(it)
+                    Level.entries.getOrNull(it) ?: defaultLogLevel.also { default ->
+                        default.log(
+                            "KlaviyoLog",
+                            "Invalid log level $it detected in manifest, defaulting to $default."
+                        )
+                    }
                 }
             }
 
@@ -92,12 +97,20 @@ open class KLog : Log {
                 if (m.find()) {
                     tag = m.replaceAll("")
                 }
+
+                // Make sure tag contains our name
+                if (!tag.lowercase().contains("klaviyo")) {
+                    tag = "Klaviyo.$tag"
+                }
+
                 // Tag length limit was removed in API 26.
-                return if (tag.length <= MAX_TAG_LENGTH || Build.VERSION.SDK_INT >= 26) {
+                tag = if (tag.length <= MAX_TAG_LENGTH || Build.VERSION.SDK_INT >= 26) {
                     tag
                 } else {
                     tag.substring(0, MAX_TAG_LENGTH)
                 }
+
+                return tag
             }
     }
 }

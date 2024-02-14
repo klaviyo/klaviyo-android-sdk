@@ -66,4 +66,12 @@ class KLogTest {
             }
         }
     }
+
+    @Test
+    fun `Log tag contains Klaviyo`() {
+        val log = KLog()
+        log.logLevel = Level.Verbose
+        log.verbose("msg")
+        verify { Level.Verbose.log(match { it.contains("Klaviyo") }, any(), any()) }
+    }
 }
