@@ -21,6 +21,13 @@ class MissingAPIKey : KlaviyoException("You must declare an API key for the Klav
 class MissingContext : KlaviyoException("You must add your application context to the Klaviyo SDK")
 
 /**
+ * Exception that is thrown when the application context is missing from the config
+ */
+class LifecycleException : KlaviyoException(
+    "Failed to attach lifecycle listeners to the application"
+)
+
+/**
  * Exception to throw when a permission is not declared for the application context
  *
  * @param permission

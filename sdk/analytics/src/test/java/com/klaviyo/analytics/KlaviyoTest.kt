@@ -67,10 +67,10 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `Klaviyo makes core lifecycle callbacks service available`() {
+    fun `Klaviyo does not make core lifecycle callbacks service publicly available`() {
         val mockLifecycleCallbacks = mockk<ActivityLifecycleCallbacks>()
         every { Registry.lifecycleCallbacks } returns mockLifecycleCallbacks
-        assertEquals(mockLifecycleCallbacks, Klaviyo.lifecycleCallbacks)
+        assertNotEquals(mockLifecycleCallbacks, Klaviyo.lifecycleCallbacks)
     }
 
     private fun verifyProfileDebounced() {
