@@ -10,9 +10,7 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
-import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.Clock
 import com.klaviyo.core.config.Config
 
 /**
@@ -28,6 +26,8 @@ object Klaviyo {
      * availability and application termination
      */
     val lifecycleCallbacks: ActivityLifecycleCallbacks get() = Registry.lifecycleCallbacks
+
+    private val operationQueue = OperationQueue()
 
     init {
         // Since analytics platform owns ApiClient, we must register the service on initialize
@@ -70,7 +70,7 @@ object Klaviyo {
         UserInfo.externalId = profile.externalId ?: ""
         UserInfo.email = profile.email ?: ""
         UserInfo.phoneNumber = profile.phoneNumber ?: ""
-        debouncedProfileUpdate(profile)
+        operationQueue.debounceProfileUpdate(profile)
     }
 
     /**
@@ -182,63 +182,20 @@ object Klaviyo {
         when (propertyKey) {
             ProfileKey.EMAIL -> {
                 UserInfo.email = value
-                debouncedProfileUpdate(UserInfo.getAsProfile())
+                operationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
             }
             ProfileKey.EXTERNAL_ID -> {
                 UserInfo.externalId = value
-                debouncedProfileUpdate(UserInfo.getAsProfile())
+                operationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
             }
             ProfileKey.PHONE_NUMBER -> {
                 UserInfo.phoneNumber = value
-                debouncedProfileUpdate(UserInfo.getAsProfile())
+                operationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
             }
             else -> {
-                debouncedProfileUpdate(Profile(mapOf(propertyKey to value)))
+                operationQueue.debounceProfileUpdate(Profile(mapOf(propertyKey to value)))
             }
         }
-    }
-
-    /**
-     * Debounce timer for enqueuing profile API calls
-     */
-    private var timer: Clock.Cancellable? = null
-
-    /**
-     * Pending batch of profile updates to be merged into one API call
-     */
-    private var pendingProfile: Profile? = null
-
-    /**
-     * Uses debounce mechanism to merge profile changes
-     * within a short span of time into one API transaction
-     *
-     * @param profile Incoming profile attribute changes
-     */
-    private fun debouncedProfileUpdate(profile: Profile) {
-        // Log for traceability
-        val operation = pendingProfile?.let { "Merging" } ?: "Starting"
-        Registry.log.info("$operation profile update")
-
-        // Merge new changes into pending transaction
-        pendingProfile = pendingProfile?.merge(profile) ?: profile
-
-        // Add current identifiers from UserInfo to pending transaction
-        pendingProfile = UserInfo.getAsProfile().merge(pendingProfile!!)
-
-        // Reset timer
-        timer?.cancel()
-        timer = Registry.clock.schedule(Registry.config.debounceInterval.toLong()) {
-            flushPendingProfile()
-        }
-    }
-
-    /**
-     * Enqueue pending profile changes as an API call and then clear slate
-     */
-    private fun flushPendingProfile() = pendingProfile?.let {
-        Registry.log.info("Flushing profile update")
-        Registry.get<ApiClient>().enqueueProfile(it)
-        pendingProfile = null
     }
 
     /**
@@ -252,8 +209,7 @@ object Klaviyo {
      */
     fun resetProfile() = safeApply {
         // Flush any pending profile changes immediately
-        timer?.cancel()
-        flushPendingProfile()
+        operationQueue.flushProfile()
 
         // Clear profile identifiers from state
         UserInfo.reset()
@@ -317,21 +273,4 @@ object Klaviyo {
      */
     val Intent.isKlaviyoIntent: Boolean
         get() = this.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
-
-    /**
-     * Safely invoke a function and log KlaviyoExceptions rather than crash
-     */
-    private inline fun <T>safeCall(block: () -> T): T? {
-        return try {
-            block()
-        } catch (e: KlaviyoException) {
-            // KlaviyoException is self-logging
-            null
-        }
-    }
-
-    /**
-     * Safe apply function that logs KlaviyoExceptions rather than crash
-     */
-    private inline fun safeApply(block: () -> Unit) = apply { safeCall { block() } }
 }
