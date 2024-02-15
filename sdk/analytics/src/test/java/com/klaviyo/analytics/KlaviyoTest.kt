@@ -1,5 +1,6 @@
 package com.klaviyo.analytics
 
+import android.app.Application
 import android.app.Application.ActivityLifecycleCallbacks
 import android.content.Intent
 import android.os.Bundle
@@ -47,22 +48,31 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `Klaviyo initializes properly creates new config service`() {
+    fun `initialize properly creates new config service and attaches lifecycle listeners`() {
         val builderMock = mockk<Config.Builder>()
         every { Registry.configBuilder } returns builderMock
         every { builderMock.apiKey(any()) } returns builderMock
         every { builderMock.applicationContext(any()) } returns builderMock
         every { builderMock.build() } returns configMock
 
+        val mockApplication = mockk<Application>()
+        every { contextMock.applicationContext } returns mockApplication.also {
+            every { it.unregisterActivityLifecycleCallbacks(any()) } returns Unit
+            every { it.registerActivityLifecycleCallbacks(any()) } returns Unit
+        }
+
         Klaviyo.initialize(
             apiKey = API_KEY,
             applicationContext = contextMock
         )
 
+        val expectedListener = Registry.lifecycleCallbacks
         verifyAll {
             builderMock.apiKey(API_KEY)
             builderMock.applicationContext(contextMock)
             builderMock.build()
+            mockApplication.unregisterActivityLifecycleCallbacks(match { it == expectedListener })
+            mockApplication.registerActivityLifecycleCallbacks(match { it == expectedListener })
         }
     }
 
