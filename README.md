@@ -454,12 +454,12 @@ The SDK contains logging at different levels from `verbose` to `assert`. By defa
 in a production environment and at the `warning` level in a debug environment. You can change the log level by adding 
 the following metadata tag to your manifest file. 
 * `0` = disable logging entirely
-* `1` = `Assert` only
-* `2` = `Error` and above
-* `3` = `Warning` and above
-* `4` = `Info` and above
-* `5` = `Debug` and above
-* `6` = `Verbose` and above
+* `1` = `Verbose` and above
+* `2` = `Debug` and above
+* `3` = `Info` and above
+* `4` = `Warning` and above
+* `5` = `Error` and above
+* `6` = `Assert` only
 
 ```xml
 <!-- AndroidManifest.xml -->    
