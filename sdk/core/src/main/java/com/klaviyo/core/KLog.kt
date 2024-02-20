@@ -50,14 +50,7 @@ open class KLog : Log {
 
     private companion object {
         /**
-         * Log level key for manifest, specifying the minimum log level to output:
-         * 0 = disable logging entirely
-         * 1 = Assert only
-         * 2 = Error and above
-         * 3 = Warning and above
-         * 4 = Info and above
-         * 5 = Debug and above
-         * 6 = Verbose and above
+         * Log level key for manifest, specifying the minimum log level to output, see [Log.logLevel]
          */
         private const val LOG_LEVEL = "com.klaviyo.core.log_level"
 
