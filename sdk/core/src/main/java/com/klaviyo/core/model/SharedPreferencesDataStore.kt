@@ -21,7 +21,7 @@ internal object SharedPreferencesDataStore : DataStore {
     private var storeObservers = mutableListOf<StoreObserver>()
 
     init {
-        onStoreChange { key, value -> Registry.log.debug("$key=$value") }
+        onStoreChange { key, value -> Registry.log.verbose("$key=$value") }
     }
 
     override fun onStoreChange(observer: StoreObserver) {

@@ -45,7 +45,7 @@ open class KlaviyoPushService : FirebaseMessagingService() {
         if (message.isKlaviyoNotification) {
             KlaviyoNotification(message).displayNotification(this)
         } else {
-            Registry.log.info("Passing on FCM message from unknown origin")
+            Registry.log.info("Ignoring non-Klaviyo RemoteMessage")
         }
     }
 }

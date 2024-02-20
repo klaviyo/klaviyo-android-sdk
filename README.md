@@ -449,6 +449,31 @@ extensions such as `import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body` to acc
 We also provide an `Intent.appendKlaviyoExtras(RemoteMessage)` extension method, which attaches the data to your
 notification intent that the Klaviyo SDK requires in order to track opens when you call `Klaviyo.handlePush(intent)`.
 
+## Troubleshooting
+The SDK contains logging at different levels from `verbose` to `assert`. By default, the SDK logs at the `error` level
+in a production environment and at the `warning` level in a debug environment. You can change the log level by adding 
+the following metadata tag to your manifest file. 
+* `0` = disable logging entirely
+* `1` = `Verbose` and above
+* `2` = `Debug` and above
+* `3` = `Info` and above
+* `4` = `Warning` and above
+* `5` = `Error` and above
+* `6` = `Assert` only
+
+```xml
+<!-- AndroidManifest.xml -->    
+<manifest>
+    <!-- ... -->
+    <application>
+        <!-- Enable SDK debug logging -->
+        <meta-data
+            android:name="com.klaviyo.core.log_level"
+            android:value="2" />
+    </application>
+</manifest>
+```
+
 ## Contributing
 See the [contributing guide](.github/CONTRIBUTING.md) to learn how to contribute to the Klaviyo Android SDK.
 We welcome your feedback in the [discussion](https://github.com/klaviyo/klaviyo-android-sdk/discussions)

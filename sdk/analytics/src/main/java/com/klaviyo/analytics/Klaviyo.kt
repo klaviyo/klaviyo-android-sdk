@@ -227,7 +227,7 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun createEvent(event: Event): Klaviyo = safeApply {
-        Registry.log.info("Enqueuing ${event.metric.name} event")
+        Registry.log.verbose("Enqueuing ${event.metric.name} event")
         Registry.get<ApiClient>().enqueueEvent(event, UserInfo.getAsProfile())
     }
 
@@ -251,7 +251,7 @@ object Klaviyo {
      */
     fun handlePush(intent: Intent?) = safeApply {
         if (intent?.isKlaviyoIntent != true) {
-            Registry.log.info("Non-Klaviyo intent ignored")
+            Registry.log.verbose("Non-Klaviyo intent ignored")
             return this
         }
 

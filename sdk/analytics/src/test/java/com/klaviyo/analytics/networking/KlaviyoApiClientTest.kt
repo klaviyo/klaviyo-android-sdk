@@ -165,7 +165,7 @@ internal class KlaviyoApiClientTest : BaseRequestTest() {
         }
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        verify(exactly = 1) { logSpy.info("Persisting queue") }
+        verify(exactly = 1) { logSpy.verbose("Persisting queue") }
     }
 
     @Test
@@ -205,7 +205,7 @@ internal class KlaviyoApiClientTest : BaseRequestTest() {
         KlaviyoApiClient.onApiRequest(true) { cbRequest = it }
 
         assertEquals(request, cbRequest)
-        verify { logSpy.debug(match { it.contains("queue") }) }
+        verify { logSpy.verbose(match { it.contains("queue") }) }
     }
 
     @Test
@@ -216,7 +216,7 @@ internal class KlaviyoApiClientTest : BaseRequestTest() {
         val request = mockRequest(status = KlaviyoApiRequest.Status.Unsent)
         KlaviyoApiClient.enqueueRequest(request)
         assertEquals(request, cbRequest)
-        verify { logSpy.debug(match { it.contains("queue") }) }
+        verify { logSpy.verbose(match { it.contains("queue") }) }
     }
 
     @Test
@@ -230,7 +230,7 @@ internal class KlaviyoApiClientTest : BaseRequestTest() {
 
         delayedRunner!!.run()
         assertEquals(request, cbRequest)
-        verify { logSpy.info(match { it.contains("complete") }) }
+        verify { logSpy.verbose(match { it.contains("complete") }) }
     }
 
     @Test

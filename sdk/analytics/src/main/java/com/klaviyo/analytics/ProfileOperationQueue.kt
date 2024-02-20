@@ -25,7 +25,7 @@ internal class ProfileOperationQueue {
     fun debounceProfileUpdate(profile: Profile) {
         // Log for traceability
         val operation = pendingProfile?.let { "Merging" } ?: "Starting"
-        Registry.log.info("$operation profile update")
+        Registry.log.verbose("$operation profile update")
 
         // Merge new changes into pending transaction and
         // add current identifiers from UserInfo to pending transaction
@@ -45,7 +45,7 @@ internal class ProfileOperationQueue {
      */
     fun flushProfile() = pendingProfile?.let {
         timer?.cancel()
-        Registry.log.info("Flushing profile update")
+        Registry.log.verbose("Flushing profile update")
         Registry.get<ApiClient>().enqueueProfile(it)
         pendingProfile = null
     }
