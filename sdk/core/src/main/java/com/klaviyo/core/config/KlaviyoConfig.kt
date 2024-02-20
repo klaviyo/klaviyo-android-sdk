@@ -2,9 +2,12 @@ package com.klaviyo.core.config
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
+import androidx.core.content.PackageManagerCompat
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
@@ -74,6 +77,8 @@ object KlaviyoConfig : Config {
      */
     private const val NETWORK_MAX_RETRIES_DEFAULT: Int = 4
 
+    override val isDebugBuild = BuildConfig.DEBUG
+
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
         private set
     override lateinit var apiKey: String private set
@@ -92,6 +97,12 @@ object KlaviyoConfig : Config {
         private set
     override var networkMaxRetries = NETWORK_MAX_RETRIES_DEFAULT
         private set
+
+    override fun getManifestInt(key: String, defaultValue: Int): Int = if (!this::applicationContext.isInitialized) {
+        defaultValue
+    } else {
+        applicationContext.getManifestInt(key, defaultValue)
+    }
 
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
@@ -219,3 +230,41 @@ fun PackageManager.getPackageInfoCompat(packageName: String, flags: Int = 0): Pa
         @Suppress("DEPRECATION")
         getPackageInfo(packageName, flags)
     }
+
+/**
+ * Extension method since there is no support for this in yet in [PackageManagerCompat]
+ *
+ * NOTE: There is no other option than the deprecated method below Tiramisu
+ *
+ * @param pkgName
+ * @param flags
+ * @return [ApplicationInfo]
+ */
+@Suppress("DEPRECATION")
+fun PackageManager.getApplicationInfoCompat(
+    pkgName: String,
+    flags: Int = 0
+): ApplicationInfo? = try {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        getApplicationInfo(
+            pkgName,
+            PackageManager.ApplicationInfoFlags.of(flags.toLong())
+        )
+    } else {
+        getApplicationInfo(pkgName, flags)
+    }
+} catch (e: PackageManager.NameNotFoundException) {
+    Registry.log.error("Application info unavailable", e)
+    null
+}
+
+/**
+ * Extension method to get an integer value from the manifest metadata
+ */
+fun Context.getManifestInt(key: String, defaultValue: Int): Int {
+    val pkgName = packageName
+    val pkgManager = packageManager
+    val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
+    val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
+    return manifestMetadata.getInt(key, defaultValue)
+}
