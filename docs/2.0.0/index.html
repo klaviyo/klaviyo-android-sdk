@@ -267,6 +267,36 @@
       <p class="paragraph"><strong>Note:</strong> Klaviyo uses <a href="https://firebase.google.com/docs/cloud-messaging/android/receive">data messages</a> to provide consistent notification formatting. As a result, all Klaviyo notifications are handled via <code class="lang-kotlin">onMessageReceived</code> regardless of the app being in the background or foreground. If you are working with multiple remote sources, you can check whether a message originated from Klaviyo with the extension method <code class="lang-kotlin">RemoteMessage.isKlaviyoNotification</code>.</p>
       <h4 class=""> Custom Notification Display</h4>
       <p class="paragraph">If you wish to fully customize the display of notifications, we provide a set of <code class="lang-kotlin">RemoteMessage</code>  extensions such as <code class="lang-kotlin">import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body</code> to access all the properties sent from Klaviyo. We also provide an <code class="lang-kotlin">Intent.appendKlaviyoExtras(RemoteMessage)</code> extension method, which attaches the data to your notification intent that the Klaviyo SDK requires in order to track opens when you call <code class="lang-kotlin">Klaviyo.handlePush(intent)</code>.</p>
+      <h2 class=""> Troubleshooting</h2>
+      <p class="paragraph">The SDK contains logging at different levels from <code class="lang-kotlin">verbose</code> to <code class="lang-kotlin">assert</code>. By default, the SDK logs at the <code class="lang-kotlin">error</code> level in a production environment and at the <code class="lang-kotlin">warning</code> level in a debug environment. You can change the log level by adding  the following metadata tag to your manifest file. </p>
+      <ul>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">0</code> = disable logging entirely</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">1</code> = <code class="lang-kotlin">Verbose</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">2</code> = <code class="lang-kotlin">Debug</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">3</code> = <code class="lang-kotlin">Info</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">4</code> = <code class="lang-kotlin">Warning</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">5</code> = <code class="lang-kotlin">Error</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">6</code> = <code class="lang-kotlin">Assert</code> only</p>
+        </li>
+      </ul>
+      <div class="sample-container">
+        <pre><code class="block lang-xml" theme="idea">&lt;!-- AndroidManifest.xml --&gt;    <br>&lt;manifest&gt;<br>    &lt;!-- ... --&gt;<br>    &lt;application&gt;<br>        &lt;!-- Enable SDK debug logging --&gt;<br>        &lt;meta-data<br>            android:name=&quot;com.klaviyo.core.log_level&quot;<br>            android:value=&quot;2&quot; /&gt;<br>    &lt;/application&gt;<br>&lt;/manifest&gt;</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
       <h2 class=""> Contributing</h2>
       <p class="paragraph">See the .github/CONTRIBUTING.md to learn how to contribute to the Klaviyo Android SDK. We welcome your feedback in the <a href="https://github.com/klaviyo/klaviyo-android-sdk/discussions">discussion</a> and <a href="https://github.com/klaviyo/klaviyo-android-sdk/issues">issues</a> sections of our public GitHub repository.</p>
       <h2 class=""> License</h2>
