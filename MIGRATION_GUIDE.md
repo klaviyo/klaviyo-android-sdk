@@ -2,6 +2,17 @@
 This document provides guidance on how to migrate from the old version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
+## 2.1.0 Deprecations
+#### Deprecated `Klaviyo.lifecycleCallbacks`
+In an effort to reduce setup code required to integrate the Klaviyo Android SDK, we have deprecated the public property 
+`Klaviyo.lifecycleCallbacks` and will now register for lifecycle callbacks automatically upon `initialize`.
+It is no longer required to have this line in your `Application.onCreate()` method:
+```kotlin
+registerActivityLifecycleCallbacks(Klaviyo.lifecycleCallbacks)
+```
+For version 2.1.x, `Klaviyo.lifecycleCallbacks` has been replaced with a no-op implementation to avoid duplicative
+listeners, and will be removed altogether in the next major release.
+
 ## 2.0.0 Breaking Changes
 #### Removed `EventType` in favor of `EventMetric`.
 The reasoning is explained below, see [1.4.0 Deprecations](#140-deprecations) for details and code samples.

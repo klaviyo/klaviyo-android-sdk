@@ -9,7 +9,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.Log
 import com.klaviyo.fixtures.BaseTest
-import com.klaviyo.fixtures.Logger
+import com.klaviyo.fixtures.LogFixture
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
@@ -20,7 +20,7 @@ import org.junit.Test
 
 internal class KlaviyoUninitializedTest {
     companion object {
-        private val logger = spyk(Logger()).apply {
+        private val logger = spyk(LogFixture()).apply {
             every { error(any(), any<Throwable>()) } answers {
                 println(firstArg<String>())
                 secondArg<Throwable>().printStackTrace()
