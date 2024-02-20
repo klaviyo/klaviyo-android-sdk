@@ -1,5 +1,6 @@
 subprojects {
     def ext = rootProject.ext
+    def javaVersion = JavaVersion.VERSION_11
 
     apply plugin: "com.android.library"
     apply plugin: "kotlin-android"
@@ -29,13 +30,13 @@ subprojects {
             buildConfig = true
         }
 
-        kotlinOptions {
-            jvmTarget = 11
+        compileOptions {
+            sourceCompatibility = javaVersion
+            targetCompatibility = javaVersion
         }
 
-        compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_11
-            targetCompatibility = JavaVersion.VERSION_11
+        kotlinOptions {
+            jvmTarget = javaVersion.toString()
         }
 
         buildTypes {
