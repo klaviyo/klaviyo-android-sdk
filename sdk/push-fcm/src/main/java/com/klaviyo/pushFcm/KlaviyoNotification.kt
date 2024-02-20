@@ -162,15 +162,15 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                     .bigLargeIcon(null as Bitmap?)
             )
         } catch (e: ExecutionException) {
-            Registry.log.error("Image download failed: ${e.cause}", e)
+            Registry.log.warning("Image download failed: ${e.cause}", e)
         } catch (e: InterruptedException) {
-            Registry.log.error("Image download interrupted: ${e.cause}", e)
+            Registry.log.warning("Image download interrupted: ${e.cause}", e)
             Thread.currentThread().interrupt()
         } catch (e: TimeoutException) {
             // Note: we could continue the download but allow the notification to display
             // This would require also cancelling the download if the user taps on the notification
             // The behavior in this method is the same as FCM notification messages.
-            Registry.log.error("Image download timed out at ${DOWNLOAD_TIMEOUT_MS}ms", e)
+            Registry.log.warning("Image download timed out at ${DOWNLOAD_TIMEOUT_MS}ms", e)
         } finally {
             task?.cancel(true)
             executor.shutdown()

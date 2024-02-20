@@ -15,11 +15,11 @@ import com.klaviyo.core.networking.NetworkMonitor
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
-class MissingConfig : Exception("Klaviyo SDK accessed before initializing")
-class MissingRegistration(type: KType) : Exception(
+class MissingConfig : KlaviyoException("Klaviyo SDK accessed before initializing")
+class MissingRegistration(type: KType) : KlaviyoException(
     "No service registered for ${type::class.qualifiedName}"
 )
-class InvalidRegistration(type: KType) : Exception(
+class InvalidRegistration(type: KType) : KlaviyoException(
     "Registered service does not match ${type::class.qualifiedName}"
 )
 
@@ -70,7 +70,17 @@ object Registry {
     internal val registry = mutableMapOf<KType, Registration>()
 
     init {
-        register<Log> { Logger() }
+        register<Log> { KLog() }
+    }
+
+    /**
+     * Remove registered service by type, specified by generic parameter
+     *
+     * @param T - Type, usually an interface, to register under
+     */
+    inline fun <reified T : Any> unregister() {
+        registry.remove(typeOf<T>())
+        services.remove(typeOf<T>())
     }
 
     /**
@@ -82,8 +92,8 @@ object Registry {
      */
     inline fun <reified T : Any> register(service: Any) {
         val type = typeOf<T>()
+        unregister<T>()
         services[type] = service
-        registry.remove(type)
     }
 
     /**
@@ -95,7 +105,7 @@ object Registry {
      */
     inline fun <reified T : Any> register(noinline registration: Registration) {
         val type = typeOf<T>()
-        services.remove(type)
+        unregister<T>()
         registry[type] = registration
     }
 

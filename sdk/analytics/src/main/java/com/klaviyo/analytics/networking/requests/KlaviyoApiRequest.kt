@@ -254,7 +254,7 @@ internal open class KlaviyoApiRequest(
      */
     fun send(beforeSend: () -> Unit = { }): Status {
         if (!Registry.networkMonitor.isNetworkConnected()) {
-            Registry.log.debug("Send prevented while network unavailable")
+            Registry.log.verbose("Send prevented while network unavailable")
             return status
         }
 

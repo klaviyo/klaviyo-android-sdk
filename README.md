@@ -73,9 +73,12 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
 The SDK must be initialized with the short alphanumeric
 [public API key](https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1)
 for your Klaviyo account, also known as your Site ID. We require access to the `applicationContext` so the
-SDK can be responsive to changes in network conditions and persist data via
-`SharedPreferences`. You must also register the Klaviyo SDK for activity lifecycle
-callbacks per the example code, so we can gracefully manage background processes.
+SDK can be responsive to changes in application state and network conditions, and access `SharedPreferences` to
+persist data. Upon initialize, the SDK registers listeners for your application's activity lifecycle callbacks,
+to gracefully manage background processes.
+
+`Klaviyo.initialize()` **must** be called before any other SDK methods can be invoked. We recommend initializing from 
+the earliest point in your application code, such as the `Application.onCreate()` method.
 
 ```kotlin
 // Application subclass 
@@ -90,17 +93,9 @@ class YourApplication : Application() {
         
         // Initialize is required before invoking any other Klaviyo SDK functionality 
         Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
-
-        // Required for the SDK to properly respond to lifecycle changes such as app backgrounding 
-        registerActivityLifecycleCallbacks(Klaviyo.lifecycleCallbacks)
     }
 }
 ```
-
-`Klaviyo.initialize()` **must** be called before any other SDK methods can be invoked.
-Because we require lifecycle callbacks, it is necessary to subclass
-[`Application`](https://developer.android.com/reference/android/app/Application)
-to initialize and register callbacks in `Application.onCreate`.
 
 ## Profile Identification
 The SDK provides methods to identify profiles via the
@@ -448,6 +443,31 @@ If you wish to fully customize the display of notifications, we provide a set of
 extensions such as `import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body` to access all the properties sent from Klaviyo.
 We also provide an `Intent.appendKlaviyoExtras(RemoteMessage)` extension method, which attaches the data to your
 notification intent that the Klaviyo SDK requires in order to track opens when you call `Klaviyo.handlePush(intent)`.
+
+## Troubleshooting
+The SDK contains logging at different levels from `verbose` to `assert`. By default, the SDK logs at the `error` level
+in a production environment and at the `warning` level in a debug environment. You can change the log level by adding 
+the following metadata tag to your manifest file. 
+* `0` = disable logging entirely
+* `1` = `Verbose` and above
+* `2` = `Debug` and above
+* `3` = `Info` and above
+* `4` = `Warning` and above
+* `5` = `Error` and above
+* `6` = `Assert` only
+
+```xml
+<!-- AndroidManifest.xml -->    
+<manifest>
+    <!-- ... -->
+    <application>
+        <!-- Enable SDK debug logging -->
+        <meta-data
+            android:name="com.klaviyo.core.log_level"
+            android:value="2" />
+    </application>
+</manifest>
+```
 
 ## Contributing
 See the [contributing guide](.github/CONTRIBUTING.md) to learn how to contribute to the Klaviyo Android SDK.
