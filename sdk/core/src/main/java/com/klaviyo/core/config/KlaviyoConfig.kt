@@ -74,6 +74,8 @@ object KlaviyoConfig : Config {
      */
     private const val NETWORK_MAX_RETRIES_DEFAULT: Int = 4
 
+    override val isDebugBuild = BuildConfig.DEBUG
+
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
         private set
     override lateinit var apiKey: String private set
