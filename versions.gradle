@@ -10,6 +10,6 @@ ext {
     buildToolsVersion = '34.0.0'
 
     // project versioning
-    versionCode = 12
-    versionName = '2.0.0' // Reminder: Update version in README and docs/index.html, and update documentation branch
+    versionCode = 13
+    versionName = '2.1.0' // Reminder: Update version in README and docs/index.html, and update documentation branch
 }
