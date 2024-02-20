@@ -73,9 +73,12 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
 The SDK must be initialized with the short alphanumeric
 [public API key](https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1)
 for your Klaviyo account, also known as your Site ID. We require access to the `applicationContext` so the
-SDK can be responsive to changes in network conditions and persist data via
-`SharedPreferences`. You must also register the Klaviyo SDK for activity lifecycle
-callbacks per the example code, so we can gracefully manage background processes.
+SDK can be responsive to changes in application state and network conditions, and access `SharedPreferences` to
+persist data. Upon initialize, the SDK registers listeners for your application's activity lifecycle callbacks,
+to gracefully manage background processes.
+
+`Klaviyo.initialize()` **must** be called before any other SDK methods can be invoked. We recommend initializing from 
+the earliest point in your application code, such as the `Application.onCreate()` method.
 
 ```kotlin
 // Application subclass 
@@ -90,17 +93,9 @@ class YourApplication : Application() {
         
         // Initialize is required before invoking any other Klaviyo SDK functionality 
         Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
-
-        // Required for the SDK to properly respond to lifecycle changes such as app backgrounding 
-        registerActivityLifecycleCallbacks(Klaviyo.lifecycleCallbacks)
     }
 }
 ```
-
-`Klaviyo.initialize()` **must** be called before any other SDK methods can be invoked.
-Because we require lifecycle callbacks, it is necessary to subclass
-[`Application`](https://developer.android.com/reference/android/app/Application)
-to initialize and register callbacks in `Application.onCreate`.
 
 ## Profile Identification
 The SDK provides methods to identify profiles via the

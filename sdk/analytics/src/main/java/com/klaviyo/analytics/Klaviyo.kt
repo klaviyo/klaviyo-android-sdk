@@ -1,5 +1,6 @@
 package com.klaviyo.analytics
 
+import android.app.Application
 import android.app.Application.ActivityLifecycleCallbacks
 import android.content.Context
 import android.content.Intent
@@ -12,6 +13,8 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
+import com.klaviyo.core.config.LifecycleException
+import com.klaviyo.core.lifecycle.NoOpLifecycleCallbacks
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
 
@@ -22,12 +25,14 @@ import com.klaviyo.core.safeCall
  */
 object Klaviyo {
 
-    /**
-     * Klaviyo lifecycle monitor which must be attached by the parent application
-     * so that the SDK can respond to environment changes such as internet
-     * availability and application termination
-     */
-    val lifecycleCallbacks: ActivityLifecycleCallbacks get() = Registry.lifecycleCallbacks
+    @Deprecated(
+        """
+        Lifecycle callbacks are now handled internally by Klaviyo.initialize.
+        This property will be removed in the next major version.
+        """,
+        ReplaceWith("", "")
+    )
+    val lifecycleCallbacks: ActivityLifecycleCallbacks get() = NoOpLifecycleCallbacks
 
     private val profileOperationQueue = ProfileOperationQueue()
 
@@ -50,6 +55,12 @@ object Klaviyo {
                 .applicationContext(applicationContext)
                 .build()
         )
+
+        val application = applicationContext.applicationContext as? Application
+        application?.apply {
+            unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+            registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+        } ?: throw LifecycleException()
     }
 
     /**
