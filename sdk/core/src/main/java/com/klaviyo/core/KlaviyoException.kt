@@ -12,3 +12,20 @@ abstract class KlaviyoException(final override val message: String) : Exception(
 
     private fun log() = Registry.log.error(message, this)
 }
+
+/**
+ * Safely invoke a function and log KlaviyoExceptions rather than crash
+ */
+inline fun <T> safeCall(block: () -> T): T? {
+    return try {
+        block()
+    } catch (e: KlaviyoException) {
+        // KlaviyoException is self-logging
+        null
+    }
+}
+
+/**
+ * Safe apply function that logs KlaviyoExceptions rather than crash
+ */
+inline fun <T> T.safeApply(block: () -> Unit) = apply { safeCall { block() } }

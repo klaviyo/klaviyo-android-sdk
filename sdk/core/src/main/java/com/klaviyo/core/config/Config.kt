@@ -4,6 +4,7 @@ import android.content.Context
 import com.klaviyo.core.networking.NetworkMonitor
 
 interface Config {
+    val isDebugBuild: Boolean
     val baseUrl: String
 
     val apiKey: String
