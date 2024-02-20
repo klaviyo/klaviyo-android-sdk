@@ -11,7 +11,7 @@ class RegistryTest {
 
     private interface TestDependency
     private interface TestLazyDependency
-    private interface TesWrongDependency
+    private interface TestWrongDependency
     private interface TestMissingDependency
 
     @Before
@@ -50,8 +50,8 @@ class RegistryTest {
 
     @Test(expected = InvalidRegistration::class)
     fun `Throws when dependency is wrong type`() {
-        Registry.register<TesWrongDependency> { object {} }
-        Registry.get<TesWrongDependency>()
+        Registry.register<TestWrongDependency> { object {} }
+        Registry.get<TestWrongDependency>()
     }
 
     @Test(expected = MissingConfig::class)
