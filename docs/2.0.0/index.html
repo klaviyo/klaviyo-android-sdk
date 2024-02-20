@@ -103,13 +103,13 @@
 </details>        </li>
       </ol>
       <h2 class=""> Initialization</h2>
-      <p class="paragraph">The SDK must be initialized with the short alphanumeric <a href="https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1">public API key</a> for your Klaviyo account, also known as your Site ID. We require access to the <code class="lang-kotlin">applicationContext</code> so the SDK can be responsive to changes in network conditions and persist data via <code class="lang-kotlin">SharedPreferences</code>. You must also register the Klaviyo SDK for activity lifecycle callbacks per the example code, so we can gracefully manage background processes.</p>
+      <p class="paragraph">The SDK must be initialized with the short alphanumeric <a href="https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1">public API key</a> for your Klaviyo account, also known as your Site ID. We require access to the <code class="lang-kotlin">applicationContext</code> so the SDK can be responsive to changes in application state and network conditions, and access <code class="lang-kotlin">SharedPreferences</code> to persist data. Upon initialize, the SDK registers listeners for your application's activity lifecycle callbacks, to gracefully manage background processes.</p>
+      <p class="paragraph"><code class="lang-kotlin">Klaviyo.initialize()</code> <strong>must</strong> be called before any other SDK methods can be invoked. We recommend initializing from  the earliest point in your application code, such as the <code class="lang-kotlin">Application.onCreate()</code> method.</p>
       <div class="sample-container">
-        <pre><code class="block lang-kotlin" theme="idea">// Application subclass <br>import android.app.Application<br>import com.klaviyo.analytics.Klaviyo<br><br>class YourApplication : Application() {<br>    override fun onCreate() {<br>        super.onCreate()<br><br>        /* ... */<br>        <br>        // Initialize is required before invoking any other Klaviyo SDK functionality <br>        Klaviyo.initialize(&quot;KLAVIYO_PUBLIC_API_KEY&quot;, applicationContext)<br><br>        // Required for the SDK to properly respond to lifecycle changes such as app backgrounding <br>        registerActivityLifecycleCallbacks(Klaviyo.lifecycleCallbacks)<br>    }<br>}</code></pre>
+        <pre><code class="block lang-kotlin" theme="idea">// Application subclass <br>import android.app.Application<br>import com.klaviyo.analytics.Klaviyo<br><br>class YourApplication : Application() {<br>    override fun onCreate() {<br>        super.onCreate()<br><br>        /* ... */<br>        <br>        // Initialize is required before invoking any other Klaviyo SDK functionality <br>        Klaviyo.initialize(&quot;KLAVIYO_PUBLIC_API_KEY&quot;, applicationContext)<br>    }<br>}</code></pre>
 <span class="top-right-position"><span class="copy-icon"></span>
           <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
         </span></div>
-      <p class="paragraph"><code class="lang-kotlin">Klaviyo.initialize()</code> <strong>must</strong> be called before any other SDK methods can be invoked. Because we require lifecycle callbacks, it is necessary to subclass <a href="https://developer.android.com/reference/android/app/Application"><code class="lang-kotlin">Application</code></a> to initialize and register callbacks in <code class="lang-kotlin">Application.onCreate</code>.</p>
       <h2 class=""> Profile Identification</h2>
       <p class="paragraph">The SDK provides methods to identify profiles via the <a href="https://developers.klaviyo.com/en/reference/create_client_profile">Create Client Profile API</a>. A profile can be identified by any combination of the following:</p>
       <ul>
@@ -267,6 +267,36 @@
       <p class="paragraph"><strong>Note:</strong> Klaviyo uses <a href="https://firebase.google.com/docs/cloud-messaging/android/receive">data messages</a> to provide consistent notification formatting. As a result, all Klaviyo notifications are handled via <code class="lang-kotlin">onMessageReceived</code> regardless of the app being in the background or foreground. If you are working with multiple remote sources, you can check whether a message originated from Klaviyo with the extension method <code class="lang-kotlin">RemoteMessage.isKlaviyoNotification</code>.</p>
       <h4 class=""> Custom Notification Display</h4>
       <p class="paragraph">If you wish to fully customize the display of notifications, we provide a set of <code class="lang-kotlin">RemoteMessage</code>  extensions such as <code class="lang-kotlin">import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body</code> to access all the properties sent from Klaviyo. We also provide an <code class="lang-kotlin">Intent.appendKlaviyoExtras(RemoteMessage)</code> extension method, which attaches the data to your notification intent that the Klaviyo SDK requires in order to track opens when you call <code class="lang-kotlin">Klaviyo.handlePush(intent)</code>.</p>
+      <h2 class=""> Troubleshooting</h2>
+      <p class="paragraph">The SDK contains logging at different levels from <code class="lang-kotlin">verbose</code> to <code class="lang-kotlin">assert</code>. By default, the SDK logs at the <code class="lang-kotlin">error</code> level in a production environment and at the <code class="lang-kotlin">warning</code> level in a debug environment. You can change the log level by adding  the following metadata tag to your manifest file. </p>
+      <ul>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">0</code> = disable logging entirely</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">1</code> = <code class="lang-kotlin">Verbose</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">2</code> = <code class="lang-kotlin">Debug</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">3</code> = <code class="lang-kotlin">Info</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">4</code> = <code class="lang-kotlin">Warning</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">5</code> = <code class="lang-kotlin">Error</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">6</code> = <code class="lang-kotlin">Assert</code> only</p>
+        </li>
+      </ul>
+      <div class="sample-container">
+        <pre><code class="block lang-xml" theme="idea">&lt;!-- AndroidManifest.xml --&gt;    <br>&lt;manifest&gt;<br>    &lt;!-- ... --&gt;<br>    &lt;application&gt;<br>        &lt;!-- Enable SDK debug logging --&gt;<br>        &lt;meta-data<br>            android:name=&quot;com.klaviyo.core.log_level&quot;<br>            android:value=&quot;2&quot; /&gt;<br>    &lt;/application&gt;<br>&lt;/manifest&gt;</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
       <h2 class=""> Contributing</h2>
       <p class="paragraph">See the .github/CONTRIBUTING.md to learn how to contribute to the Klaviyo Android SDK. We welcome your feedback in the <a href="https://github.com/klaviyo/klaviyo-android-sdk/discussions">discussion</a> and <a href="https://github.com/klaviyo/klaviyo-android-sdk/issues">issues</a> sections of our public GitHub repository.</p>
       <h2 class=""> License</h2>
