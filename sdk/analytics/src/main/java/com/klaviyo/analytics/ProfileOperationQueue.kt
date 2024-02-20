@@ -2,11 +2,10 @@ package com.klaviyo.analytics
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.ApiClient
-import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 
-internal class OperationQueue {
+internal class ProfileOperationQueue {
     /**
      * Debounce timer for enqueuing profile API calls
      */
@@ -28,11 +27,11 @@ internal class OperationQueue {
         val operation = pendingProfile?.let { "Merging" } ?: "Starting"
         Registry.log.info("$operation profile update")
 
-        // Merge new changes into pending transaction
-        pendingProfile = pendingProfile?.merge(profile) ?: profile
-
-        // Add current identifiers from UserInfo to pending transaction
-        pendingProfile = UserInfo.getAsProfile().merge(pendingProfile!!)
+        // Merge new changes into pending transaction and
+        // add current identifiers from UserInfo to pending transaction
+        pendingProfile = UserInfo.getAsProfile().merge(
+            pendingProfile?.merge(profile) ?: profile
+        )
 
         // Reset timer
         timer?.cancel()
@@ -51,20 +50,3 @@ internal class OperationQueue {
         pendingProfile = null
     }
 }
-
-/**
- * Safely invoke a function and log KlaviyoExceptions rather than crash
- */
-internal inline fun <T>safeCall(block: () -> T): T? {
-    return try {
-        block()
-    } catch (e: KlaviyoException) {
-        // KlaviyoException is self-logging
-        null
-    }
-}
-
-/**
- * Safe apply function that logs KlaviyoExceptions rather than crash
- */
-internal inline fun Klaviyo.safeApply(block: () -> Unit) = apply { safeCall { block() } }

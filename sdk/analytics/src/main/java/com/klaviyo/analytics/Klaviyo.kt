@@ -12,6 +12,8 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
+import com.klaviyo.core.safeApply
+import com.klaviyo.core.safeCall
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -27,7 +29,7 @@ object Klaviyo {
      */
     val lifecycleCallbacks: ActivityLifecycleCallbacks get() = Registry.lifecycleCallbacks
 
-    private val operationQueue = OperationQueue()
+    private val profileOperationQueue = ProfileOperationQueue()
 
     init {
         // Since analytics platform owns ApiClient, we must register the service on initialize
@@ -70,7 +72,7 @@ object Klaviyo {
         UserInfo.externalId = profile.externalId ?: ""
         UserInfo.email = profile.email ?: ""
         UserInfo.phoneNumber = profile.phoneNumber ?: ""
-        operationQueue.debounceProfileUpdate(profile)
+        profileOperationQueue.debounceProfileUpdate(profile)
     }
 
     /**
@@ -182,18 +184,18 @@ object Klaviyo {
         when (propertyKey) {
             ProfileKey.EMAIL -> {
                 UserInfo.email = value
-                operationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
+                profileOperationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
             }
             ProfileKey.EXTERNAL_ID -> {
                 UserInfo.externalId = value
-                operationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
+                profileOperationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
             }
             ProfileKey.PHONE_NUMBER -> {
                 UserInfo.phoneNumber = value
-                operationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
+                profileOperationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
             }
             else -> {
-                operationQueue.debounceProfileUpdate(Profile(mapOf(propertyKey to value)))
+                profileOperationQueue.debounceProfileUpdate(Profile(mapOf(propertyKey to value)))
             }
         }
     }
@@ -209,7 +211,7 @@ object Klaviyo {
      */
     fun resetProfile() = safeApply {
         // Flush any pending profile changes immediately
-        operationQueue.flushProfile()
+        profileOperationQueue.flushProfile()
 
         // Clear profile identifiers from state
         UserInfo.reset()
