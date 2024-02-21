@@ -1,5 +1,6 @@
 package com.klaviyo.analytics
 
+import android.app.Application
 import android.app.Application.ActivityLifecycleCallbacks
 import android.content.Context
 import android.content.Intent
@@ -11,8 +12,11 @@ import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.Clock
 import com.klaviyo.core.config.Config
+import com.klaviyo.core.config.LifecycleException
+import com.klaviyo.core.lifecycle.NoOpLifecycleCallbacks
+import com.klaviyo.core.safeApply
+import com.klaviyo.core.safeCall
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -21,12 +25,16 @@ import com.klaviyo.core.config.Config
  */
 object Klaviyo {
 
-    /**
-     * Klaviyo lifecycle monitor which must be attached by the parent application
-     * so that the SDK can respond to environment changes such as internet
-     * availability and application termination
-     */
-    val lifecycleCallbacks: ActivityLifecycleCallbacks get() = Registry.lifecycleCallbacks
+    @Deprecated(
+        """
+        Lifecycle callbacks are now handled internally by Klaviyo.initialize.
+        This property will be removed in the next major version.
+        """,
+        ReplaceWith("", "")
+    )
+    val lifecycleCallbacks: ActivityLifecycleCallbacks get() = NoOpLifecycleCallbacks
+
+    private val profileOperationQueue = ProfileOperationQueue()
 
     init {
         // Since analytics platform owns ApiClient, we must register the service on initialize
@@ -40,13 +48,19 @@ object Klaviyo {
      * @param apiKey Your Klaviyo account's public API Key
      * @param applicationContext
      */
-    fun initialize(apiKey: String, applicationContext: Context) {
+    fun initialize(apiKey: String, applicationContext: Context) = safeCall {
         Registry.register<Config>(
             Registry.configBuilder
                 .apiKey(apiKey)
                 .applicationContext(applicationContext)
                 .build()
         )
+
+        val application = applicationContext.applicationContext as? Application
+        application?.apply {
+            unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+            registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+        } ?: throw LifecycleException()
     }
 
     /**
@@ -59,7 +73,7 @@ object Klaviyo {
      * @param profile A map-like object representing properties of the new user
      * @return Returns [Klaviyo] for call chaining
      */
-    fun setProfile(profile: Profile): Klaviyo = apply {
+    fun setProfile(profile: Profile): Klaviyo = safeApply {
         if (UserInfo.isIdentified) {
             // If a profile with external identifiers is already in state, we must reset.
             // This conditional is important to preserve merging with an anonymous profile.
@@ -69,7 +83,7 @@ object Klaviyo {
         UserInfo.externalId = profile.externalId ?: ""
         UserInfo.email = profile.email ?: ""
         UserInfo.phoneNumber = profile.phoneNumber ?: ""
-        debouncedProfileUpdate(profile)
+        profileOperationQueue.debounceProfileUpdate(profile)
     }
 
     /**
@@ -89,7 +103,7 @@ object Klaviyo {
     /**
      * @return The email of the currently tracked profile, if set
      */
-    fun getEmail(): String? = UserInfo.email.ifEmpty { null }
+    fun getEmail(): String? = safeCall { UserInfo.email.ifEmpty { null } }
 
     /**
      * Assigns a phone number to the currently tracked Klaviyo profile
@@ -112,7 +126,9 @@ object Klaviyo {
     /**
      * @return The phone number of the currently tracked profile, if set
      */
-    fun getPhoneNumber(): String? = UserInfo.phoneNumber.ifEmpty { null }
+    fun getPhoneNumber(): String? = safeCall {
+        UserInfo.phoneNumber.ifEmpty { null }
+    }
 
     /**
      * Assigns a unique identifier to associate the currently tracked Klaviyo profile
@@ -136,7 +152,9 @@ object Klaviyo {
     /**
      * @return The external ID of the currently tracked profile, if set
      */
-    fun getExternalId(): String? = UserInfo.externalId.ifEmpty { null }
+    fun getExternalId(): String? = safeCall {
+        UserInfo.externalId.ifEmpty { null }
+    }
 
     /**
      * Saves a push token and registers to the current profile
@@ -148,7 +166,7 @@ object Klaviyo {
      *
      * @param pushToken The push token provided by the device push service
      */
-    fun setPushToken(pushToken: String) = apply {
+    fun setPushToken(pushToken: String) = safeApply {
         Registry.dataStore.store(EventKey.PUSH_TOKEN.name, pushToken)
         Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
     }
@@ -156,8 +174,9 @@ object Klaviyo {
     /**
      * @return The device push token, if one has been assigned to currently tracked profile
      */
-    fun getPushToken(): String? =
+    fun getPushToken(): String? = safeCall {
         Registry.dataStore.fetch(EventKey.PUSH_TOKEN.name)?.ifEmpty { null }
+    }
 
     /**
      * Assign an attribute to the currently tracked profile by key/value pair
@@ -172,67 +191,24 @@ object Klaviyo {
      * @param value
      * @return Returns [Klaviyo] for call chaining
      */
-    fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo = apply {
+    fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo = safeApply {
         when (propertyKey) {
             ProfileKey.EMAIL -> {
                 UserInfo.email = value
-                debouncedProfileUpdate(UserInfo.getAsProfile())
+                profileOperationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
             }
             ProfileKey.EXTERNAL_ID -> {
                 UserInfo.externalId = value
-                debouncedProfileUpdate(UserInfo.getAsProfile())
+                profileOperationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
             }
             ProfileKey.PHONE_NUMBER -> {
                 UserInfo.phoneNumber = value
-                debouncedProfileUpdate(UserInfo.getAsProfile())
+                profileOperationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
             }
             else -> {
-                debouncedProfileUpdate(Profile(mapOf(propertyKey to value)))
+                profileOperationQueue.debounceProfileUpdate(Profile(mapOf(propertyKey to value)))
             }
         }
-    }
-
-    /**
-     * Debounce timer for enqueuing profile API calls
-     */
-    private var timer: Clock.Cancellable? = null
-
-    /**
-     * Pending batch of profile updates to be merged into one API call
-     */
-    private var pendingProfile: Profile? = null
-
-    /**
-     * Uses debounce mechanism to merge profile changes
-     * within a short span of time into one API transaction
-     *
-     * @param profile Incoming profile attribute changes
-     */
-    private fun debouncedProfileUpdate(profile: Profile) {
-        // Log for traceability
-        val operation = pendingProfile?.let { "Merging" } ?: "Starting"
-        Registry.log.info("$operation profile update")
-
-        // Merge new changes into pending transaction
-        pendingProfile = pendingProfile?.merge(profile) ?: profile
-
-        // Add current identifiers from UserInfo to pending transaction
-        pendingProfile = UserInfo.getAsProfile().merge(pendingProfile!!)
-
-        // Reset timer
-        timer?.cancel()
-        timer = Registry.clock.schedule(Registry.config.debounceInterval.toLong()) {
-            flushPendingProfile()
-        }
-    }
-
-    /**
-     * Enqueue pending profile changes as an API call and then clear slate
-     */
-    private fun flushPendingProfile() = pendingProfile?.let {
-        Registry.log.info("Flushing profile update")
-        Registry.get<ApiClient>().enqueueProfile(it)
-        pendingProfile = null
     }
 
     /**
@@ -244,10 +220,9 @@ object Klaviyo {
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
      */
-    fun resetProfile() {
+    fun resetProfile() = safeApply {
         // Flush any pending profile changes immediately
-        timer?.cancel()
-        flushPendingProfile()
+        profileOperationQueue.flushProfile()
 
         // Clear profile identifiers from state
         UserInfo.reset()
@@ -262,8 +237,8 @@ object Klaviyo {
      * @param event A map-like object representing the event attributes
      * @return Returns [Klaviyo] for call chaining
      */
-    fun createEvent(event: Event): Klaviyo = apply {
-        Registry.log.info("Enqueuing ${event.metric.name} event")
+    fun createEvent(event: Event): Klaviyo = safeApply {
+        Registry.log.verbose("Enqueuing ${event.metric.name} event")
         Registry.get<ApiClient>().enqueueEvent(event, UserInfo.getAsProfile())
     }
 
@@ -285,10 +260,10 @@ object Klaviyo {
      *
      * @param intent the [Intent] from opening a notification
      */
-    fun handlePush(intent: Intent?) = apply {
+    fun handlePush(intent: Intent?) = safeApply {
         if (intent?.isKlaviyoIntent != true) {
-            Registry.log.info("Non-Klaviyo intent ignored")
-            return@apply
+            Registry.log.verbose("Non-Klaviyo intent ignored")
+            return this
         }
 
         val event = Event(EventMetric.OPENED_PUSH)

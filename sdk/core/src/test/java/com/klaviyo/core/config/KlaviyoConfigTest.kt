@@ -19,6 +19,8 @@ internal class KlaviyoConfigTest : BaseTest() {
 
     private val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
     private val mockVersionCode = 123
+
+    @Suppress("DEPRECATION")
     private val mockPackageInfo = mockk<PackageInfo>().apply {
         requestedPermissions = arrayOf(
             Manifest.permission.ACCESS_NETWORK_STATE,
