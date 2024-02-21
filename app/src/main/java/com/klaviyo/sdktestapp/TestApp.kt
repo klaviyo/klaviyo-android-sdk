@@ -12,7 +12,7 @@ import com.klaviyo.sdktestapp.services.ConfigService
 class TestApp : Application() {
 
     /**
-     * Public reference to companyService this so it can be accessed from Activities
+     * Public reference to companyService this, so it can be accessed from Activities
      * Storing Context in a static var is a memory leak, so this is the better option
      */
     lateinit var configService: ConfigService
@@ -33,7 +33,5 @@ class TestApp : Application() {
                 putString(ConfigService.BASE_URL_KEY, configService.baseUrl)
             }
         )
-
-        registerActivityLifecycleCallbacks(Klaviyo.lifecycleCallbacks)
     }
 }
