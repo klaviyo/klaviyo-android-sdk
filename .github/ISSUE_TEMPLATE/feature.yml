@@ -7,9 +7,13 @@ body:
       value: |
         Thank you for contributing to the Klaviyo Android SDK!
         
-        Before you submit your issue, please complete each text area below with as much detail as you can.
+        Before you submit your issue, please read our [contributing guidelines](./CONTRIBUTING.md) and complete each
+        text area below with the relevant details for your bug.
         
-        We welcome your input! If you have any code suggestions regarding your issue, feel free to [submit a pull request](https://github.com/klaviyo/klaviyo-android-sdk/pulls) after creating an issue.
+        Note: incomplete issues may be de-prioritized or closed.
+        
+        We welcome your input! If you have any code suggestions regarding your issue, feel free to 
+        [submit a pull request](https://github.com/klaviyo/klaviyo-android-sdk/pulls) after creating an issue.
   - type: textarea
     attributes:
       label: Description

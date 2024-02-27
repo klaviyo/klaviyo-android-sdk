@@ -1,11 +1,37 @@
 # Welcome to Klaviyo SDK contributing guide
 
-Thank you for considering contributing to the Klaviyo Android SDK!
-
-Read our [Code of Conduct](./CODE_OF_CONDUCT.md) to keep our community approachable and respectable.
+Thank you for considering contributing to the Klaviyo SDK!
 
 In this guide you will get an overview of the contribution workflow from engaging in discussion to 
 opening an issue, creating a PR, reviewing, and merging the PR.
+
+We welcome your contributions and strive to respond in a timely manner. In return, we ask that you do your
+**due diligence** to answer your own questions using public resources, and check for related issues (including
+closed ones) before posting. This helps keep the discussion focused on the most important topics. Issues deemed
+off-topic or out of scope for the SDK will be closed. Likewise, please keep comments on-topic and productive. If
+you have a different question, please open a new issue rather than commenting on an unrelated issue.
+
+Before contributing, please read the [code of conduct](./CODE_OF_CONDUCT.md). We want this community to be friendly
+and respectful to each other. Please follow it in all your interactions with the project.
+
+## Github Issues
+
+If you suspect a bug or have a feature request, please open an issue, following the guidelines below:
+
+- Research your issue using public resources such as Google, Stack Overflow, Android documentation, etc.
+- Check if the issue has already been reported before.
+- Use a clear and descriptive title for the issue to identify the problem.
+- Include as much information as possible, including:
+  - The version of the SDK you are using.
+  - The version of Android you are using.
+  - Any error messages you are seeing.
+  - The expected behavior and what went wrong.
+  - Detailed steps to reproduce the issue
+  - A code snippet or a minimal example that reproduces the issue.
+
+> Answer all questions in the issue template. It is designed to help you follow all the above guidelines.
+>
+> ⚠️ Incomplete issues will be de-prioritized or closed. ⚠️
 
 ## New contributor guide
 
@@ -18,12 +44,6 @@ Here are some additional resources to help you get started:
 - [GitHub flow](https://docs.github.com/en/get-started/quickstart/github-flow)
 - [Collaborating with pull requests](https://docs.github.com/en/github/collaborating-with-pull-requests)
 
-### Discussions and questions
-
-Discussions are enabled for this repo in order to reduce the friction of getting set up and using
-the SDK in your projects. Don't hesitate to [dive in](https://github.com/klaviyo/klaviyo-android-sdk/discussions) 
-to the discussions, or open a new topic if you don't see what you're looking for.
-
 ### Create a new issue
 
 If you spot a problem, or want to suggest a new feature, first 
@@ -35,19 +55,19 @@ If a related issue doesn't exist, you can open a new issue using a relevant [iss
 If you want to recommend a code fix for an existing issue, you are welcome to open a PR with a fix.
 
 1. Fork the repository and clone to your machine, open in Android Studio 
-1. Once the project has synced, run `./gradlew addKtlintFormatGitPreCommitHook` to install our
+2. Once the project has synced, run `./gradlew addKtlintFormatGitPreCommitHook` to install our
    pre-commit code formatting rules. 
-1. We recommend selecting the `productionDebug` build variant to make use of our debug logging.
-1. Make your changes to the SDK. While we encourage test-driven development, we will not require 
+3. We recommend selecting the `productionDebug` build variant to make use of our debug logging.
+4. Make your changes to the SDK. While we encourage test-driven development, we will not require 
    unit tests to submit a PR. That said, tests are an easy way to verify your changes as you go. 
    We have a very high coverage rate, so there are plenty of examples to follow.
-1. We also encourage you to test your changes against your own app. First, add [mavenLocal](https://docs.gradle.org/current/userguide/declaring_repositories.html#sec:case-for-maven-local) 
+5. We also encourage you to test your changes against your own app. First, add [mavenLocal](https://docs.gradle.org/current/userguide/declaring_repositories.html#sec:case-for-maven-local) 
    as the first repository in your gradle file. Then run the following command to compile a local copy 
    of the SDK for your app to consume. *Remember to remove `mavenLocal` when you're finished.*
    ```
    .gradlew publishToMavenLocal
    ``` 
-1. Commit the changes once you are happy with them, please include a detailed commit message. 
+6. Commit the changes once you are happy with them, please include a detailed commit message. 
 
 ### Pull Request
 
