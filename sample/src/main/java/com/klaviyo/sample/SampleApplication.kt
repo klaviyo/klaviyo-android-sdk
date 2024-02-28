@@ -5,7 +5,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
-import com.klaviyo.analytics.model.EventType
+import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 
@@ -14,8 +14,6 @@ class SampleApplication : Application() {
         super.onCreate()
 
         Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
-
-        registerActivityLifecycleCallbacks(Klaviyo.lifecycleCallbacks)
 
         setAttributesExample()
         createEventExample()
@@ -51,7 +49,7 @@ class SampleApplication : Application() {
     }
 
     private fun createEventExample() {
-        val event = Event(EventType.VIEWED_PRODUCT)
+        val event = Event(EventMetric.VIEWED_PRODUCT)
             .setProperty(EventKey.VALUE, "100")
             .setProperty(EventKey.CUSTOM("custom_key"), "value")
 
