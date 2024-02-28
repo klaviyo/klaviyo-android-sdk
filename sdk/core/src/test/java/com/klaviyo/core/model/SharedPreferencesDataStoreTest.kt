@@ -50,7 +50,25 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
         verify { editorMock.apply() }
 
         // And verify log output
-        verify { logSpy.debug("$stubKey=$stubValue") }
+        verify { logSpy.verbose("$stubKey=$stubValue") }
+    }
+
+    @Test
+    fun `Fetch or create uses Klaviyo preferences`() {
+        withPreferenceMock()
+        withWriteStringMock(stubKey, stubValue)
+        every { preferenceMock.getString(stubKey, null) } returns null
+
+        SharedPreferencesDataStore.fetchOrCreate(stubKey) { stubValue }
+
+        verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
+        verify { preferenceMock.getString(stubKey, null) }
+        verify { preferenceMock.edit() }
+        verify { editorMock.putString(stubKey, stubValue) }
+        verify { editorMock.apply() }
+
+        // And verify log output for writing
+        verify { logSpy.verbose("$stubKey=$stubValue") }
     }
 
     @Test
@@ -66,7 +84,7 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
         verify { editorMock.apply() }
 
         // And verify log output
-        verify { logSpy.debug("$stubKey=null") }
+        verify { logSpy.verbose("$stubKey=null") }
     }
 
     @Test
@@ -74,13 +92,13 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
         val expectedString = "123" + Math.random().toString()
 
         withPreferenceMock()
-        every { preferenceMock.getString(stubKey, "") } returns expectedString
+        every { preferenceMock.getString(stubKey, null) } returns expectedString
 
         val actualString = SharedPreferencesDataStore.fetch(key = stubKey)
 
         assertEquals(expectedString, actualString)
         verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
-        verify { preferenceMock.getString(stubKey, "") }
+        verify { preferenceMock.getString(stubKey, null) }
         verify(inverse = true) { editorMock.apply() }
     }
 }

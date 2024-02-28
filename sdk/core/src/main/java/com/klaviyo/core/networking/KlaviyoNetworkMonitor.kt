@@ -49,7 +49,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
 
     init {
         onNetworkChange {
-            Registry.log.info("Network ${if (it) "available" else "unavailable"}")
+            Registry.log.verbose("Network ${if (it) "available" else "unavailable"}")
         }
     }
 
@@ -114,7 +114,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     private fun initializeNetworkListener() {
         if (this::networkRequest.isInitialized) return
 
-        Registry.log.debug("Attached network monitor")
+        Registry.log.verbose("Attached network monitor")
 
         networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)

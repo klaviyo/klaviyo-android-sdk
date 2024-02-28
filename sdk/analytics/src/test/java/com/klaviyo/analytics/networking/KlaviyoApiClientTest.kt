@@ -2,11 +2,13 @@ package com.klaviyo.analytics.networking
 
 import android.os.Handler
 import android.os.HandlerThread
+import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.model.EventType
+import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil as HandlerUtil
 import com.klaviyo.analytics.networking.requests.ApiRequest
+import com.klaviyo.analytics.networking.requests.BaseRequestTest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.core.Registry
@@ -14,7 +16,6 @@ import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
-import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.StaticClock
 import io.mockk.every
 import io.mockk.mockk
@@ -32,7 +33,7 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
-internal class KlaviyoApiClientTest : BaseTest() {
+internal class KlaviyoApiClientTest : BaseRequestTest() {
     private val flushIntervalWifi = 10_000
     private val flushIntervalCell = 20_000
     private val flushIntervalOffline = 30_000
@@ -49,6 +50,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+
+        every { DeviceProperties.buildEventMetaData() } returns emptyMap()
+        every { DeviceProperties.buildMetaData() } returns emptyMap()
 
         delayedRunner = null
 
@@ -79,6 +83,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         every { HandlerUtil.getHandlerThread(any()) } returns mockk<HandlerThread>().apply {
             every { start() } returns Unit
             every { looper } returns mockk()
+            every { state } returns Thread.State.NEW
         }
     }
 
@@ -149,11 +154,26 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `Enqueuing the same push token API call multiple times only queues the first`() {
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+
+        repeat(5) {
+            KlaviyoApiClient.enqueuePushToken(
+                PUSH_TOKEN,
+                Profile().setAnonymousId(ANON_ID)
+            )
+        }
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        verify(exactly = 1) { logSpy.verbose("Persisting queue") }
+    }
+
+    @Test
     fun `Enqueues an event API call`() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
         KlaviyoApiClient.enqueueEvent(
-            Event(EventType.CUSTOM("mock")),
+            Event(EventMetric.CUSTOM("mock")),
             Profile().setAnonymousId(ANON_ID)
         )
 
@@ -185,7 +205,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.onApiRequest(true) { cbRequest = it }
 
         assertEquals(request, cbRequest)
-        verify { logSpy.debug(match { it.contains("queue") }) }
+        verify { logSpy.verbose(match { it.contains("queue") }) }
     }
 
     @Test
@@ -196,7 +216,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val request = mockRequest(status = KlaviyoApiRequest.Status.Unsent)
         KlaviyoApiClient.enqueueRequest(request)
         assertEquals(request, cbRequest)
-        verify { logSpy.debug(match { it.contains("queue") }) }
+        verify { logSpy.verbose(match { it.contains("queue") }) }
     }
 
     @Test
@@ -210,7 +230,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         delayedRunner!!.run()
         assertEquals(request, cbRequest)
-        verify { logSpy.info(match { it.contains("complete") }) }
+        verify { logSpy.verbose(match { it.contains("complete") }) }
     }
 
     @Test

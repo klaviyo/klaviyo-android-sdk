@@ -2,6 +2,7 @@ package com.klaviyo.fixtures
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.os.Build
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
@@ -13,6 +14,7 @@ import io.mockk.mockkObject
 import io.mockk.spyk
 import io.mockk.unmockkObject
 import java.lang.reflect.Field
+import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import org.json.JSONObject
 import org.junit.After
@@ -25,7 +27,6 @@ import org.junit.Before
 abstract class BaseTest {
     companion object {
         const val API_KEY = "stub_public_api_key"
-        const val USER_AGENT = "Testing/1.2.3 (a.b.c; build:1; Android 2) klaviyo/3.2.1"
         const val EMAIL = "test@domain.com"
         const val PHONE = "+12223334444"
         const val EXTERNAL_ID = "abcdefg"
@@ -60,15 +61,16 @@ abstract class BaseTest {
     }
 
     protected val mockApplicationInfo = mockk<ApplicationInfo>()
+    protected val mockPackageManager = mockk<PackageManager>()
 
     protected val contextMock = mockk<Context>().apply {
         every { applicationInfo } returns mockApplicationInfo
+        every { packageManager } returns mockPackageManager
     }
 
     protected val configMock = mockk<Config>().apply {
         every { apiKey } returns API_KEY
         every { applicationContext } returns contextMock
-        every { userAgent } returns USER_AGENT
         every { networkMaxRetries } returns 4
         every { networkFlushIntervals } returns intArrayOf(10_000, 30_000, 60_000)
         every { baseUrl } returns "https://test.fake-klaviyo.com"
@@ -76,7 +78,7 @@ abstract class BaseTest {
     protected val lifecycleMonitorMock = mockk<LifecycleMonitor>()
     protected val networkMonitorMock = mockk<NetworkMonitor>()
     protected val dataStoreSpy = spyk(InMemoryDataStore())
-    protected val logSpy = spyk(Logger())
+    protected val logSpy = spyk(LogFixture())
 
     @Before
     open fun setup() {
@@ -102,10 +104,29 @@ abstract class BaseTest {
     @Throws(Exception::class)
     protected fun setFinalStatic(field: Field, newValue: Any?) {
         field.isAccessible = true
-        val modifiersField: Field = Field::class.java.getDeclaredField("modifiers")
-        modifiersField.isAccessible = true
-        modifiersField.setInt(field, field.modifiers and Modifier.FINAL.inv())
+
+        getModifiersField().also {
+            it.isAccessible = true
+            it.set(field, field.modifiers and Modifier.FINAL.inv())
+        }
         field.set(null, newValue)
+    }
+
+    private fun getModifiersField(): Field = try {
+        Field::class.java.getDeclaredField("modifiers")
+    } catch (e: NoSuchFieldException) {
+        try {
+            val getDeclaredFields0: Method = Class::class.java.getDeclaredMethod(
+                "getDeclaredFields0",
+                Boolean::class.javaPrimitiveType
+            )
+            getDeclaredFields0.isAccessible = true
+            @Suppress("unchecked_cast")
+            (getDeclaredFields0.invoke(Field::class.java, false) as Array<Field>).first { it.name == "modifiers" }
+        } catch (ex: ReflectiveOperationException) {
+            e.addSuppressed(ex)
+            throw e
+        }
     }
 
     @After

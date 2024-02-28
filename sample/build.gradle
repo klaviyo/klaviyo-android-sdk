@@ -7,12 +7,12 @@ def ext = rootProject.ext
 
 android {
     namespace "${klaviyoGroupId}.sample"
-    compileSdk 33
+    compileSdk 34
 
     defaultConfig {
         applicationId "${klaviyoGroupId}.sample"
         minSdk 23
-        targetSdk 33
+        targetSdk 34
         versionCode 1
         versionName "1.0"
 
@@ -31,8 +31,6 @@ android {
             debuggable = true
         }
     }
-
-    with ext.flavorConfig
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8

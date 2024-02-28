@@ -2,16 +2,19 @@ package com.klaviyo.core.config
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
+import androidx.core.content.PackageManagerCompat
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.networking.NetworkMonitor
 
 /**
- * Exception that is thrown when the the Klaviyo API token is missing from the config
+ * Exception that is thrown when the Klaviyo API token is missing from the config
  */
 class MissingAPIKey : KlaviyoException("You must declare an API key for the Klaviyo SDK")
 
@@ -19,6 +22,13 @@ class MissingAPIKey : KlaviyoException("You must declare an API key for the Klav
  * Exception that is thrown when the application context is missing from the config
  */
 class MissingContext : KlaviyoException("You must add your application context to the Klaviyo SDK")
+
+/**
+ * Exception that is thrown when the application context is missing from the config
+ */
+class LifecycleException : KlaviyoException(
+    "Failed to attach lifecycle listeners to the application"
+)
 
 /**
  * Exception to throw when a permission is not declared for the application context
@@ -51,7 +61,7 @@ object KlaviyoConfig : Config {
     /**
      * Intervals between flushing network queue, and the basis for retry with exponential backoff
      *
-     * Reasoning: A 30 second interval should give radios time to go back to sleep between batches,
+     * Reasoning: A 30-second interval should give radios time to go back to sleep between batches,
      * four retries with a typical backoff pattern would then be 30s, 60s, 3m, 12m.
      */
     private const val NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT: Int = 10_000
@@ -74,10 +84,11 @@ object KlaviyoConfig : Config {
      */
     private const val NETWORK_MAX_RETRIES_DEFAULT: Int = 4
 
+    override val isDebugBuild = BuildConfig.DEBUG
+
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
         private set
     override lateinit var apiKey: String private set
-    override lateinit var userAgent: String private set
     override lateinit var applicationContext: Context private set
     override var debounceInterval = DEBOUNCE_INTERVAL
         private set
@@ -93,6 +104,12 @@ object KlaviyoConfig : Config {
         private set
     override var networkMaxRetries = NETWORK_MAX_RETRIES_DEFAULT
         private set
+
+    override fun getManifestInt(key: String, defaultValue: Int): Int = if (!this::applicationContext.isInitialized) {
+        defaultValue
+    } else {
+        applicationContext.getManifestInt(key, defaultValue)
+    }
 
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
@@ -194,11 +211,8 @@ object KlaviyoConfig : Config {
             )
             packageInfo.assertRequiredPermissions(requiredPermissions)
 
-            val userAgent = buildUserAgent(context, packageInfo)
-
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
             KlaviyoConfig.apiKey = apiKey
-            KlaviyoConfig.userAgent = userAgent
             KlaviyoConfig.applicationContext = context
             KlaviyoConfig.debounceInterval = debounceInterval
             KlaviyoConfig.networkTimeout = networkTimeout
@@ -216,25 +230,48 @@ internal fun PackageInfo.assertRequiredPermissions(requiredPermissions: Array<St
     requiredPermissions.firstOrNull { it !in permissions }?.let { throw MissingPermission(it) }
 }
 
-internal fun buildUserAgent(context: Context, packageInfo: PackageInfo): String {
-    val versionCode = packageInfo.getVersionCode()
-    val applicationName = context.packageManager.getApplicationLabel(context.applicationInfo)
-
-    return "$applicationName/${packageInfo.versionName} (${packageInfo.packageName}; build:$versionCode; Android ${Build.VERSION.SDK_INT}) klaviyo-android/${BuildConfig.VERSION}"
-}
-
-internal fun PackageInfo.getVersionCode(): Int =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-        (longVersionCode and 0xffffffffL).toInt()
-    } else {
-        @Suppress("DEPRECATION")
-        versionCode
-    }
-
-internal fun PackageManager.getPackageInfoCompat(packageName: String, flags: Int = 0): PackageInfo =
+fun PackageManager.getPackageInfoCompat(packageName: String, flags: Int = 0): PackageInfo =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(flags.toLong()))
     } else {
         @Suppress("DEPRECATION")
         getPackageInfo(packageName, flags)
     }
+
+/**
+ * Extension method since there is no support for this in yet in [PackageManagerCompat]
+ *
+ * NOTE: There is no other option than the deprecated method below Tiramisu
+ *
+ * @param pkgName
+ * @param flags
+ * @return [ApplicationInfo]
+ */
+@Suppress("DEPRECATION")
+fun PackageManager.getApplicationInfoCompat(
+    pkgName: String,
+    flags: Int = 0
+): ApplicationInfo? = try {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        getApplicationInfo(
+            pkgName,
+            PackageManager.ApplicationInfoFlags.of(flags.toLong())
+        )
+    } else {
+        getApplicationInfo(pkgName, flags)
+    }
+} catch (e: PackageManager.NameNotFoundException) {
+    Registry.log.error("Application info unavailable", e)
+    null
+}
+
+/**
+ * Extension method to get an integer value from the manifest metadata
+ */
+fun Context.getManifestInt(key: String, defaultValue: Int): Int {
+    val pkgName = packageName
+    val pkgManager = packageManager
+    val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
+    val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
+    return manifestMetadata.getInt(key, defaultValue)
+}

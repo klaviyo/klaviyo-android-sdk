@@ -4,11 +4,11 @@ import android.content.Context
 import com.klaviyo.core.networking.NetworkMonitor
 
 interface Config {
+    val isDebugBuild: Boolean
     val baseUrl: String
 
     val apiKey: String
     val applicationContext: Context
-    val userAgent: String
 
     val debounceInterval: Int
 
@@ -16,6 +16,8 @@ interface Config {
     val networkFlushIntervals: IntArray
     val networkFlushDepth: Int
     val networkMaxRetries: Int
+
+    fun getManifestInt(key: String, defaultValue: Int): Int
 
     interface Builder {
         fun apiKey(apiKey: String): Builder

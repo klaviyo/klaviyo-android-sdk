@@ -17,7 +17,8 @@ android {
 dependencies {
     implementation project(':sdk:core')
     implementation project(':sdk:analytics')
-    implementation "com.google.firebase:firebase-messaging:$ext.fcmVersion"
+    implementation platform(Firebase.bom)
+    implementation Firebase.cloudMessaging
     testImplementation project(':sdk:fixtures')
 }
 

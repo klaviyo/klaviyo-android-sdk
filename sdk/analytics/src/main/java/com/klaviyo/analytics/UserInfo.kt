@@ -70,7 +70,7 @@ internal object UserInfo {
      * which will cause a new anonymous ID to be generated
      */
     fun reset() = apply {
-        Registry.log.info("Resetting profile")
+        Registry.log.verbose("Resetting profile")
         externalId = ""
         email = ""
         phoneNumber = ""

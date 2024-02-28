@@ -2,20 +2,17 @@ package com.klaviyo.pushFcm
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.net.Uri
 import android.os.Build
-import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.PackageManagerCompat
 import androidx.core.content.res.ResourcesCompat
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.getApplicationInfoCompat
 import java.net.URL
 
 /**
@@ -104,7 +101,7 @@ object KlaviyoRemoteMessage {
     val RemoteMessage.imageUrl: URL? get() = this.data[KlaviyoNotification.IMAGE_KEY]?.toURL()
 
     private fun String.toURL(): URL? = runCatching { URL(this) }.onFailure {
-        Registry.log.error("Error converting string to URL", it)
+        Registry.log.warning("Error converting string to URL", it)
     }.getOrNull()
 
     /**
@@ -156,13 +153,15 @@ object KlaviyoRemoteMessage {
                 try {
                     val icon = ResourcesCompat.getDrawable(resources, resId, null)
                     if (icon is AdaptiveIconDrawable) {
-                        Registry.log.error("Adaptive icon $resId is not supported for notification")
+                        Registry.log.warning(
+                            "Adaptive icon $resId is not supported for notification"
+                        )
                         false
                     } else {
                         true
                     }
                 } catch (ex: Resources.NotFoundException) {
-                    Registry.log.error("Couldn't find resource $resId for notification")
+                    Registry.log.warning("Couldn't find resource $resId for notification")
                     false
                 }
             }
@@ -180,26 +179,16 @@ object KlaviyoRemoteMessage {
                     return iconId
                 }
 
-                Registry.log.info(
+                Registry.log.warning(
                     "Icon resource $resourceKey not found. Notification will use default icon."
                 )
             }
 
-            val manifestMetadata = try {
-                val info: ApplicationInfo = packageManager
-                    .getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
-
-                info.metaData ?: Bundle.EMPTY
-            } catch (e: PackageManager.NameNotFoundException) {
-                Registry.log.error("Application metadata unavailable", e)
-                Bundle.EMPTY
-            }
-
             // We allow default icon to be specified in the manifest
-            var iconId = manifestMetadata.getInt(
+            var iconId = Registry.config.getManifestInt(
                 KlaviyoPushService.METADATA_DEFAULT_ICON,
                 // We can also try to get default icon configured for FCM
-                manifestMetadata.getInt(CommonNotificationBuilder.METADATA_DEFAULT_ICON, 0)
+                Registry.config.getManifestInt(CommonNotificationBuilder.METADATA_DEFAULT_ICON, 0)
             )
 
             if (isValidIcon(iconId)) {
@@ -207,41 +196,14 @@ object KlaviyoRemoteMessage {
                 return iconId
             }
 
-            try {
-                iconId = packageManager.getApplicationInfoCompat(pkgName).icon
+            iconId = packageManager.getApplicationInfoCompat(pkgName)?.icon ?: 0
 
-                if (isValidIcon(iconId)) {
-                    // Icon found via manifest
-                    return iconId
-                }
-            } catch (e: PackageManager.NameNotFoundException) {
-                Registry.log.error("Application info unavailable", e)
+            if (isValidIcon(iconId)) {
+                // Icon found via manifest
+                return iconId
             }
 
             // Fall back on icon-placeholder used by the OS.
             return android.R.drawable.sym_def_app_icon
-        }
-
-    /**
-     * Extension method since there is no support for this in yet in [PackageManagerCompat]
-     *
-     * NOTE: There is no other option than the deprecated method below Tiramisu
-     *
-     * @param pkgName
-     * @param flags
-     * @return [ApplicationInfo]
-     */
-    @Suppress("DEPRECATION")
-    private fun PackageManager.getApplicationInfoCompat(
-        pkgName: String,
-        flags: Int = 0
-    ): ApplicationInfo =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            getApplicationInfo(
-                pkgName,
-                PackageManager.ApplicationInfoFlags.of(flags.toLong())
-            )
-        } else {
-            getApplicationInfo(pkgName, flags)
         }
 }

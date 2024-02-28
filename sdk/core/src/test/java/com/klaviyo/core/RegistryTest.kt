@@ -1,14 +1,29 @@
 package com.klaviyo.core
 
+import com.klaviyo.core.config.Log
+import com.klaviyo.fixtures.LogFixture
+import io.mockk.spyk
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 
 class RegistryTest {
 
     private interface TestDependency
     private interface TestLazyDependency
-    private interface TesWrongDependency
+    private interface TestWrongDependency
     private interface TestMissingDependency
+
+    @Before
+    fun setup() {
+        Registry.register<Log>(spyk(LogFixture()))
+    }
+
+    @Test
+    fun `Indicates registered or unregistered services`() {
+        assertEquals(true, Registry.isRegistered<Log>())
+        assertEquals(false, Registry.isRegistered<TestMissingDependency>())
+    }
 
     @Test
     fun `Registers a dynamic dependency`() {
@@ -35,8 +50,8 @@ class RegistryTest {
 
     @Test(expected = InvalidRegistration::class)
     fun `Throws when dependency is wrong type`() {
-        Registry.register<TesWrongDependency> { object {} }
-        Registry.get<TesWrongDependency>()
+        Registry.register<TestWrongDependency> { object {} }
+        Registry.get<TestWrongDependency>()
     }
 
     @Test(expected = MissingConfig::class)

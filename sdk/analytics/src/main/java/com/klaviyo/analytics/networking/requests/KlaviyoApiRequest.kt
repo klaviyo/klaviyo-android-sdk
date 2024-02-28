@@ -40,6 +40,7 @@ internal open class KlaviyoApiRequest(
         const val COMPANY_ID = "company_id"
         const val PROFILE = "profile"
         const val EVENT = "event"
+        const val PUSH_TOKEN = "push-token"
 
         // Headers
         const val HEADER_CONTENT = "Content-Type"
@@ -47,7 +48,7 @@ internal open class KlaviyoApiRequest(
         const val HEADER_ACCEPT = "Accept"
         const val HEADER_REVISION = "Revision"
         const val TYPE_JSON = "application/json"
-        const val V3_REVISION = "2023-01-24"
+        const val V3_REVISION = "2023-07-15"
 
         const val HTTP_OK = HttpURLConnection.HTTP_OK
         const val HTTP_ACCEPTED = HttpURLConnection.HTTP_ACCEPTED
@@ -253,7 +254,7 @@ internal open class KlaviyoApiRequest(
      */
     fun send(beforeSend: () -> Unit = { }): Status {
         if (!Registry.networkMonitor.isNetworkConnected()) {
-            Registry.log.debug("Send prevented while network unavailable")
+            Registry.log.verbose("Send prevented while network unavailable")
             return status
         }
 

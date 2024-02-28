@@ -1,11 +1,12 @@
 package com.klaviyo.analytics
 
+import android.app.Application
 import android.app.Application.ActivityLifecycleCallbacks
 import android.content.Intent
 import android.os.Bundle
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
-import com.klaviyo.analytics.model.EventType
+import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
@@ -24,6 +25,54 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 internal class KlaviyoTest : BaseTest() {
+
+    companion object {
+        val stubIntentExtras = mapOf(
+            "com.klaviyo.body" to "Message body",
+            "com.klaviyo._k" to """{
+              "Push Platform": "android",
+              "$\flow": "",
+              "$\message": "01GK4P5W6AV4V3APTJ727JKSKQ",
+              "$\variation": "",
+              "Message Name": "check_push_pipeline",
+              "Message Type": "campaign",
+              "c": "6U7nPA",
+              "cr": "31698553996657051350694345805149781",
+              "m": "01GK4P5W6AV4V3APTJ727JKSKQ",
+              "t": "1671205224",
+              "timestamp": "2022-12-16T15:40:24.049427+00:00",
+              "x": "manual"
+            }"""
+        )
+
+        fun mockIntent(payload: Map<String, String>): Intent {
+            // Mocking an intent to return the stub push payload...
+            val intent = mockk<Intent>()
+            val bundle = mockk<Bundle>()
+            var gettingKey = ""
+            every { intent.extras } returns bundle
+            every { bundle.keySet() } returns payload.keys
+            every {
+                intent.getStringExtra(
+                    match { s ->
+                        gettingKey = s // there must be a better way to do this...
+                        true
+                    }
+                )
+            } answers { payload[gettingKey] }
+            every {
+                bundle.getString(
+                    match { s ->
+                        gettingKey = s // there must be a better way to do this...
+                        true
+                    },
+                    String()
+                )
+            } answers { payload[gettingKey] }
+
+            return intent
+        }
+    }
 
     private val capturedProfile = slot<Profile>()
     private val staticClock = StaticClock(TIME, ISO_TIME)
@@ -47,30 +96,39 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `Klaviyo initializes properly creates new config service`() {
+    fun `initialize properly creates new config service and attaches lifecycle listeners`() {
         val builderMock = mockk<Config.Builder>()
         every { Registry.configBuilder } returns builderMock
         every { builderMock.apiKey(any()) } returns builderMock
         every { builderMock.applicationContext(any()) } returns builderMock
         every { builderMock.build() } returns configMock
 
+        val mockApplication = mockk<Application>()
+        every { contextMock.applicationContext } returns mockApplication.also {
+            every { it.unregisterActivityLifecycleCallbacks(any()) } returns Unit
+            every { it.registerActivityLifecycleCallbacks(any()) } returns Unit
+        }
+
         Klaviyo.initialize(
             apiKey = API_KEY,
             applicationContext = contextMock
         )
 
+        val expectedListener = Registry.lifecycleCallbacks
         verifyAll {
             builderMock.apiKey(API_KEY)
             builderMock.applicationContext(contextMock)
             builderMock.build()
+            mockApplication.unregisterActivityLifecycleCallbacks(match { it == expectedListener })
+            mockApplication.registerActivityLifecycleCallbacks(match { it == expectedListener })
         }
     }
 
     @Test
-    fun `Klaviyo makes core lifecycle callbacks service available`() {
+    fun `Klaviyo does not make core lifecycle callbacks service publicly available`() {
         val mockLifecycleCallbacks = mockk<ActivityLifecycleCallbacks>()
         every { Registry.lifecycleCallbacks } returns mockLifecycleCallbacks
-        assertEquals(mockLifecycleCallbacks, Klaviyo.lifecycleCallbacks)
+        assertNotEquals(mockLifecycleCallbacks, Klaviyo.lifecycleCallbacks)
     }
 
     private fun verifyProfileDebounced() {
@@ -245,55 +303,9 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(Klaviyo.getPushToken(), PUSH_TOKEN)
     }
 
-    private fun mockIntent(payload: Map<String, String>): Intent {
-        // Mocking an intent to return the stub push payload...
-        val intent = mockk<Intent>()
-        val bundle = mockk<Bundle>()
-        var gettingKey = ""
-        every { intent.extras } returns bundle
-        every { bundle.keySet() } returns payload.keys
-        every {
-            intent.getStringExtra(
-                match { s ->
-                    gettingKey = s // there must be a better way to do this...
-                    true
-                }
-            )
-        } answers { payload[gettingKey] }
-        every {
-            bundle.getString(
-                match { s ->
-                    gettingKey = s // there must be a better way to do this...
-                    true
-                },
-                String()
-            )
-        } answers { payload[gettingKey] }
-
-        return intent
-    }
-
     @Test
     fun `Handling opened push Intent enqueues $opened_push API Call`() {
         // Handle push intent
-        val stubIntentExtras = mapOf(
-            "com.klaviyo.body" to "Message body",
-            "com.klaviyo._k" to """{
-              "Push Platform": "android",
-              "$\flow": "",
-              "$\message": "01GK4P5W6AV4V3APTJ727JKSKQ",
-              "$\variation": "",
-              "Message Name": "check_push_pipeline",
-              "Message Type": "campaign",
-              "c": "6U7nPA",
-              "cr": "31698553996657051350694345805149781",
-              "m": "01GK4P5W6AV4V3APTJ727JKSKQ",
-              "t": "1671205224",
-              "timestamp": "2022-12-16T15:40:24.049427+00:00",
-              "x": "manual"
-            }"""
-        )
-
         Klaviyo.handlePush(mockIntent(stubIntentExtras))
 
         verify { apiClientMock.enqueueEvent(any(), any()) }
@@ -310,7 +322,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Enqueue an event API call`() {
-        val stubEvent = Event(EventType.VIEWED_PRODUCT).also { it[EventKey.VALUE] = 1 }
+        val stubEvent = Event(EventMetric.VIEWED_PRODUCT).also { it[EventKey.VALUE] = 1 }
         Klaviyo.createEvent(stubEvent)
 
         verify(exactly = 1) {
@@ -320,10 +332,10 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Enqueue an event API call conveniently`() {
-        Klaviyo.createEvent(EventType.VIEWED_PRODUCT)
+        Klaviyo.createEvent(EventMetric.VIEWED_PRODUCT)
 
         verify(exactly = 1) {
-            apiClientMock.enqueueEvent(match { it.type == EventType.VIEWED_PRODUCT }, any())
+            apiClientMock.enqueueEvent(match { it.metric == EventMetric.VIEWED_PRODUCT }, any())
         }
     }
 }

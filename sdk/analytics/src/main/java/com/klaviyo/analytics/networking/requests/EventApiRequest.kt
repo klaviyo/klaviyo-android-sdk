@@ -1,8 +1,10 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
+import org.json.JSONObject
 
 /**
  * Defines the content of an API request to track an [Event] for a given [Profile]
@@ -30,7 +32,7 @@ internal class EventApiRequest(
         HEADER_CONTENT to TYPE_JSON,
         HEADER_ACCEPT to TYPE_JSON,
         HEADER_REVISION to V3_REVISION,
-        HEADER_USER_AGENT to Registry.config.userAgent
+        HEADER_USER_AGENT to DeviceProperties.userAgent
     )
 
     override var query: Map<String, String> = mapOf(
@@ -39,13 +41,29 @@ internal class EventApiRequest(
 
     override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
 
+    override var body: JSONObject? = null
+        get() {
+            // Update body to include Device metadata whenever the body is retrieved (typically during sending) so the latest data is included
+            field?.getJSONObject(DATA)?.getJSONObject(ATTRIBUTES)?.getJSONObject(PROPERTIES)?.apply {
+                DeviceProperties.buildEventMetaData().forEach { entry ->
+                    put(entry.key, entry.value)
+                }
+            }
+            return field
+        }
+
     constructor(event: Event, profile: Profile) : this() {
         body = jsonMapOf(
             DATA to mapOf(
                 TYPE to EVENT,
                 ATTRIBUTES to filteredMapOf(
-                    PROFILE to profile.getIdentifiers().mapKeys { it.key.specialKey() },
-                    METRIC to mapOf(NAME to event.type.name),
+                    PROFILE to mapOf(*ProfileApiRequest.formatBody(profile)),
+                    METRIC to mapOf(
+                        DATA to mapOf(
+                            TYPE to METRIC,
+                            ATTRIBUTES to mapOf(NAME to event.metric.name)
+                        )
+                    ),
                     VALUE to event.value,
                     TIME to Registry.clock.isoTime(queuedTime),
                     PROPERTIES to event.toMap(),

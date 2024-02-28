@@ -21,7 +21,7 @@ internal object SharedPreferencesDataStore : DataStore {
     private var storeObservers = mutableListOf<StoreObserver>()
 
     init {
-        onStoreChange { key, value -> Registry.log.debug("$key=$value") }
+        onStoreChange { key, value -> Registry.log.verbose("$key=$value") }
     }
 
     override fun onStoreChange(observer: StoreObserver) {
@@ -74,7 +74,7 @@ internal object SharedPreferencesDataStore : DataStore {
      * @return The value read from the shared preferences for the given key
      */
     override fun fetch(key: String): String? {
-        return openSharedPreferences().getString(key, "")
+        return openSharedPreferences().getString(key, null)
     }
 
     /**

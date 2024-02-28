@@ -1,6 +1,5 @@
 package com.klaviyo.analytics.networking.requests
 
-import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.slot
@@ -19,7 +18,7 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
-internal class KlaviyoApiRequestTest : BaseTest() {
+internal class KlaviyoApiRequestTest : BaseRequestTest() {
     private val stubUrlPath = "test"
     private val stubFullUrl = "${configMock.baseUrl}/$stubUrlPath"
 
