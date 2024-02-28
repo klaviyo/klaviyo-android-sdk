@@ -32,7 +32,7 @@ plugins {
 }
 
 dependencies {
-    dokkaHtmlMultiModulePlugin "org.jetbrains.dokka:versioning-plugin:${dokkaVersion}"
+    dokkaHtmlMultiModulePlugin "org.jetbrains.dokka:versioning-plugin:_"
 }
 
 tasks.register('clean', Delete) {
