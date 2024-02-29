@@ -1,13 +1,13 @@
 dependencies {
-    testImplementation project(':sdk:fixtures')
+    testImplementation project(":sdk:fixtures")
 }
-description = 'Core featureset of the Klaviyo SDK including SDK configuration, session tracking and analytics'
-evaluationDependsOn(':sdk')
+description = "Core featureset of the Klaviyo SDK including SDK configuration, session tracking and analytics"
+evaluationDependsOn(":sdk")
 
 def ext = rootProject.ext
 
 android {
-    namespace 'com.klaviyo.core'
+    namespace "${klaviyoGroupId}.core"
 
     publishing {
         singleVariant(ext.publishBuildVariant) {
@@ -25,8 +25,8 @@ afterEvaluate {
             release(MavenPublication) {
                 from components[ext.publishBuildVariant]
                 groupId = klaviyoGroupId
-                artifactId = 'core'
-                version = ext.versionName
+                artifactId = "core"
+                version = ext.versions.getProperty("version.klaviyo.versionName")
             }
         }
     }

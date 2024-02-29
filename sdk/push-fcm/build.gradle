@@ -1,10 +1,10 @@
-project.description = 'Push functionality for the Klaviyo SDK suite'
-evaluationDependsOn(':sdk')
+project.description = "Push functionality for the Klaviyo SDK suite"
+evaluationDependsOn(":sdk")
 
 def ext = rootProject.ext
 
 android {
-    namespace 'com.klaviyo.push_fcm'
+    namespace "${klaviyoGroupId}.push_fcm"
 
     publishing {
         singleVariant(ext.publishBuildVariant) {
@@ -15,11 +15,11 @@ android {
 }
 
 dependencies {
-    implementation project(':sdk:core')
-    implementation project(':sdk:analytics')
+    implementation project(":sdk:core")
+    implementation project(":sdk:analytics")
     implementation platform(Firebase.bom)
     implementation Firebase.cloudMessaging
-    testImplementation project(':sdk:fixtures')
+    testImplementation project(":sdk:fixtures")
 }
 
 afterEvaluate {
@@ -29,8 +29,8 @@ afterEvaluate {
             release(MavenPublication) {
                 from components[ext.publishBuildVariant]
                 groupId = klaviyoGroupId
-                artifactId = 'push-fcm'
-                version = ext.versionName
+                artifactId = "push-fcm"
+                version = ext.versions.getProperty("version.klaviyo.versionName")
             }
         }
     }

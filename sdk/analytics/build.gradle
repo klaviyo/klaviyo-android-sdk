@@ -1,10 +1,10 @@
-project.description = 'Public analytics API functionality for the Klaviyo SDK suite'
-evaluationDependsOn(':sdk')
+project.description = "Public analytics API functionality for the Klaviyo SDK suite"
+evaluationDependsOn(":sdk")
 
 def ext = rootProject.ext
 
 android {
-    namespace 'com.klaviyo.analytics'
+    namespace "${klaviyoGroupId}.analytics"
 
     publishing {
         singleVariant(ext.publishBuildVariant) {
@@ -15,8 +15,8 @@ android {
 }
 
 dependencies {
-    implementation project(':sdk:core')
-    testImplementation project(':sdk:fixtures')
+    implementation project(":sdk:core")
+    testImplementation project(":sdk:fixtures")
 }
 
 afterEvaluate {
@@ -26,8 +26,8 @@ afterEvaluate {
             release(MavenPublication) {
                 from components[ext.publishBuildVariant]
                 groupId = klaviyoGroupId
-                artifactId = 'analytics'
-                version = ext.versionName
+                artifactId = "analytics"
+                version = ext.versions.getProperty("version.klaviyo.versionName")
             }
         }
     }
