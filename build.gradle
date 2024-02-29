@@ -1,9 +1,8 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
+import static de.fayard.refreshVersions.core.Versions.versionFor
 
 buildscript {
     ext {
-        versions = new Properties()
-        versions.load(new FileInputStream(rootProject.file("versions.properties")))
         publishBuildVariant = "release"
     }
 
@@ -40,7 +39,7 @@ tasks.register("clean", Delete) {
 }
 
 dokkaHtmlMultiModule {
-    def versionName = rootProject.ext.versions.getProperty("version.klaviyo.versionName") as String
+    def versionName = versionFor(project, "version.klaviyo.versionName") as String
     def oldVersionsDir = layout.buildDirectory.dir("../docs/")
     outputDirectory = layout.buildDirectory.dir("../docs/${versionName}")
     includes.from("README.md")

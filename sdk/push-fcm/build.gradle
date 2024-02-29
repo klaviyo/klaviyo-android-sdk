@@ -1,3 +1,5 @@
+import static de.fayard.refreshVersions.core.Versions.versionFor
+
 project.description = "Push functionality for the Klaviyo SDK suite"
 evaluationDependsOn(":sdk")
 
@@ -30,7 +32,7 @@ afterEvaluate {
                 from components[ext.publishBuildVariant]
                 groupId = klaviyoGroupId
                 artifactId = "push-fcm"
-                version = ext.versions.getProperty("version.klaviyo.versionName")
+                version = versionFor(project, "version.klaviyo.versionName")
             }
         }
     }
