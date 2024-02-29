@@ -1,5 +1,6 @@
+import static de.fayard.refreshVersions.core.Versions.versionFor
+
 subprojects {
-    def ext = rootProject.ext
     def javaVersion = JavaVersion.VERSION_11
 
     apply plugin: "com.android.library"
@@ -9,21 +10,21 @@ subprojects {
     apply plugin: "maven-publish"
 
     android {
-        compileSdkVersion ext.androidCompileVersion
-        buildToolsVersion ext.buildToolsVersion
+        compileSdkVersion versionFor(project, "version.android.compileSdk") as Integer
+        buildToolsVersion versionFor(project, "version.android.buildTools") as String
 
         def localProperties = new Properties()
         if (rootProject.file("local.properties").canRead()) {
             localProperties.load(new FileInputStream(rootProject.file("local.properties")))
         }
-        def serverTarget = localProperties['localKlaviyoServerUrl'] ?: klaviyoServerUrl
+        def serverTarget = localProperties["localKlaviyoServerUrl"] ?: klaviyoServerUrl
 
         defaultConfig {
-            minSdkVersion ext.minSDKVersion
-            targetSdkVersion ext.targetSDKVersion
+            minSdkVersion versionFor(project, "version.android.minSdk") as Integer
+            targetSdkVersion versionFor(project, "version.android.targetSdk") as Integer
             testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-            versionCode ext.versionCode
-            versionName ext.versionName
+            versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
+            versionName versionFor(project, "version.klaviyo.versionName") as String
         }
 
         buildFeatures {
@@ -42,14 +43,14 @@ subprojects {
         buildTypes {
             release {
                 minifyEnabled false
-                proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
-                buildConfigField "String", "VERSION", "\"${ext.versionName}\""
+                buildConfigField "String", "VERSION", "\"${versionFor(project, "version.klaviyo.versionName")}\""
             }
             debug {
                 debuggable = true
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
-                buildConfigField "String", "VERSION", "\"${ext.versionName}\""
+                buildConfigField "String", "VERSION", "\"${versionFor(project, "version.klaviyo.versionName")}\""
             }
         }
 
