@@ -27,8 +27,8 @@ buildscript {
 
 plugins {
     //Project-wide dependencies
-    id 'org.jetbrains.dokka' version "${dokkaVersion}"
-    id "org.jlleitschuh.gradle.ktlint" version "${gradleKtlintVersion}"
+    id 'org.jetbrains.dokka'
+    id "org.jlleitschuh.gradle.ktlint"
 }
 
 dependencies {
