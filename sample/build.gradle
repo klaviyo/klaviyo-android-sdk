@@ -1,20 +1,22 @@
+import static de.fayard.refreshVersions.core.Versions.versionFor
+
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
 }
 
-def ext = rootProject.ext
-
 android {
     namespace "${klaviyoGroupId}.sample"
-    compileSdk 34
+    compileSdk versionFor(project, "version.android.compileSdk") as Integer
+    buildToolsVersion=versionFor(project, "version.android.buildTools") as String
 
     defaultConfig {
         applicationId "${klaviyoGroupId}.sample"
-        minSdk 23
-        targetSdk 34
-        versionCode 1
-        versionName "1.0"
+
+        minSdk versionFor(project, "version.android.minSdk") as Integer
+        targetSdk versionFor(project, "version.android.targetSdk") as Integer
+        versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
+        versionName versionFor(project, "version.klaviyo.versionName") as String
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -43,7 +45,7 @@ android {
         compose true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion '1.5.10'
+        kotlinCompilerExtensionVersion = versionFor(project, AndroidX.compose.compiler)
     }
     packagingOptions {
         resources {
