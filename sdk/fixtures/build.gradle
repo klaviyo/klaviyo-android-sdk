@@ -11,19 +11,17 @@
  * using `java-test-fixtures` but this method does not yet work in android+kotlin projects,
  * according to my research and testing as of Feb 2023.
  */
-project.description = 'Shared test fixtures for the Klaviyo SDK suite'
-evaluationDependsOn(':sdk')
-
-def ext = rootProject.ext
+project.description = "Shared test fixtures for the Klaviyo SDK suite"
+evaluationDependsOn(":sdk")
 
 android {
-    namespace 'com.klaviyo.fixtures'
+    namespace "${klaviyoGroupId}.fixtures"
 }
 
 dependencies {
     //Depends upon core interfaces for mocking/fixtures
-    implementation project(':sdk:core')
-    implementation project(':sdk:analytics')
+    implementation project(":sdk:core")
+    implementation project(":sdk:analytics")
 
     /***** Testing Dependencies *****/
     api Testing.junit4

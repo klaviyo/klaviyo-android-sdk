@@ -1,8 +1,7 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
+import static de.fayard.refreshVersions.core.Versions.versionFor
 
 buildscript {
-    apply from: 'versions.gradle'
-
     ext {
         publishBuildVariant = "release"
     }
@@ -27,26 +26,28 @@ buildscript {
 
 plugins {
     //Project-wide dependencies
-    id 'org.jetbrains.dokka' version "${dokkaVersion}"
-    id "org.jlleitschuh.gradle.ktlint" version "${gradleKtlintVersion}"
+    id "org.jetbrains.dokka"
+    id "org.jlleitschuh.gradle.ktlint"
 }
 
 dependencies {
-    dokkaHtmlMultiModulePlugin "org.jetbrains.dokka:versioning-plugin:${dokkaVersion}"
+    dokkaHtmlMultiModulePlugin "org.jetbrains.dokka:versioning-plugin:_"
 }
 
-tasks.register('clean', Delete) {
+tasks.register("clean", Delete) {
     delete rootProject.layout.buildDirectory
 }
 
 dokkaHtmlMultiModule {
+    def versionName = versionFor(project, "version.klaviyo.versionName") as String
+    def oldVersionsDir = layout.buildDirectory.dir("../docs/")
     outputDirectory = layout.buildDirectory.dir("../docs/${versionName}")
     includes.from("README.md")
 
     String versioningConfiguration = """
         {
           "version": "${versionName}",
-          "olderVersionsDir": "${layout.buildDirectory.dir('../docs/')}"
+          "olderVersionsDir": "${oldVersionsDir}"
         }
     """
 
