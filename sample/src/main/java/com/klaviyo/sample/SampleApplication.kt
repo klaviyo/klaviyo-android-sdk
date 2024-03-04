@@ -15,56 +15,42 @@ class SampleApplication : Application() {
 
         Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
 
-        setAttributesExample()
-        createEventExample()
-        setPushTokenExample()
+        setPushToken()
+
+        setProfile()
+        setProfileAttributes()
+        createEvent()
     }
 
-    private fun setProfileExample() {
-        val profile = Profile(mapOf(
-            ProfileKey.EMAIL to "kermit@example.com",
-            ProfileKey.FIRST_NAME to "Kermit"
-        ))
-
-        Klaviyo.setProfile(profile)
-    }
-
-    private fun setAttributesExample() {
-        //Start a profile for Kermit
-        Klaviyo.setEmail("kermit@example.com")
-            .setPhoneNumber("+12223334444")
-            .setExternalId("USER_IDENTIFIER")
-            .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
-            .setProfileAttribute(ProfileKey.CUSTOM("instrument"), "banjo")
-    }
-
-    private fun resetProfileExample() {
-        //Stop tracking Kermit
-        Klaviyo.resetProfile()
-
-        //Start new profile for Robin with new IDs
-        Klaviyo.setEmail("robin@example.com")
-            .setPhoneNumber("+5556667777")
-            .setProfileAttribute(ProfileKey.FIRST_NAME, "Robin")
-    }
-
-    private fun createEventExample() {
-        val event = Event(EventMetric.VIEWED_PRODUCT)
-            .setProperty(EventKey.VALUE, "100")
-            .setProperty(EventKey.CUSTOM("custom_key"), "value")
-
-        Klaviyo.createEvent(event)
-    }
-
-    private fun pushFcmExample() {
+    private fun setPushToken() {
         //Fetches the current push token and registers with Klaviyo Push-FCM
         FirebaseMessaging.getInstance().token.addOnSuccessListener {
             Klaviyo.setPushToken(it)
         }
     }
 
-    private fun setPushTokenExample() {
-        //If you choose to interface with FirebaseMessaging yourself, you can omit Push-FCM package
-        Klaviyo.setPushToken("FCM_PUSH_TOKEN")
+    private fun setProfile() {
+        //Set profile values in one batch
+        val profile = Profile(mapOf(
+            ProfileKey.EMAIL to "kermit@example.com",
+            ProfileKey.PHONE_NUMBER to "+12223334444",
+        ))
+
+        Klaviyo.setProfile(profile)
+    }
+
+    private fun setProfileAttributes() {
+        //Set profile attributes with fluent setters
+        Klaviyo.setExternalId("USER_IDENTIFIER")
+            .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
+            .setProfileAttribute(ProfileKey.CUSTOM("instrument"), "banjo")
+    }
+
+    private fun createEvent() {
+        val event = Event(EventMetric.VIEWED_PRODUCT)
+            .setProperty(EventKey.VALUE, 100)
+            .setProperty(EventKey.CUSTOM("Product"), "Lily Pad")
+
+        Klaviyo.createEvent(event)
     }
 }
