@@ -15,7 +15,8 @@ class SampleApplication : Application() {
 
         Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
 
-        setPushToken()
+        // Add google-services.json before using push in this project
+        // setPushToken()
 
         setProfile()
         setProfileAttributes()
