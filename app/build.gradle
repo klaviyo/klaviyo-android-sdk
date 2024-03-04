@@ -1,3 +1,5 @@
+import static de.fayard.refreshVersions.core.Versions.versionFor
+
 apply plugin: "com.android.application"
 
 // If you're seeing a failure related to google services, make sure you've added the google-services.json file to your project
@@ -56,7 +58,7 @@ android {
         jvmTarget = javaVersion.toString()
     }
     composeOptions {
-        kotlinCompilerExtensionVersion "1.5.8"
+        kotlinCompilerExtensionVersion = versionFor(project, AndroidX.compose.compiler)
     }
 }
 
