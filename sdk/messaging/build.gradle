@@ -16,8 +16,11 @@ android {
 
 dependencies {
     implementation project(':sdk:core')
-    api AndroidX.webkit
-    implementation AndroidX.test.ext.junit.ktx
+    implementation project(':sdk:analytics')
+
+    implementation AndroidX.webkit
+
+    testImplementation AndroidX.test.ext.junit.ktx
     testImplementation project(':sdk:fixtures')
 }
 
