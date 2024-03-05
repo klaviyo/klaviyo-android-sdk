@@ -49,8 +49,14 @@
 <div class="banner">
     <img src="https://picsum.photos/200/300.jpg" alt="Banner Image">
     <h2>IAM Test</h2>
-    <p>Test of a in app messaging.</p>
-    <button>Close</button>
+    <p>Test of an in-app message</p>
+    <button onclick="closeMessage()">Close</button>
+
+<script>
+function closeMessage() {
+  window.WebViewBridge.postMessageToNative("close", {})
+}
+</script>
 </div>
 </body>
 </html>
