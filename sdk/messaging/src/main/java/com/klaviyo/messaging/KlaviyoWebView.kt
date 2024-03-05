@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Button
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
@@ -42,10 +43,17 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
     }
 
+    private val closeButtonView: Button = Button(Registry.config.applicationContext).also {
+        it.setOnClickListener { close() }
+        it.text = "Close"
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private val webView = WebView(Registry.config.applicationContext).also {
         it.webViewClient = this
         it.settings.javaScriptEnabled = true
+
+        it.addView(closeButtonView)
 
         if (USE_NEW_FEATURES && isFeatureSupported(WEB_MESSAGE_LISTENER)) {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Supported")
