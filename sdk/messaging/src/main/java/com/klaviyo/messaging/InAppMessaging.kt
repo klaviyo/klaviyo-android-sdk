@@ -6,7 +6,8 @@ import com.klaviyo.core.Registry
 import java.io.BufferedReader
 
 object InAppMessaging {
-    fun triggerInAppMessage(activity: Activity) = activity.let { activity ->
+
+    fun triggerInAppMessage(activity: Activity) {
         val rootView = activity.getRootViewGroup()
         val webView = KlaviyoWebView()
         val html = Registry.config.applicationContext

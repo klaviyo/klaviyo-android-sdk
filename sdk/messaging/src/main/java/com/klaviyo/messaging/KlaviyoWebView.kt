@@ -14,7 +14,6 @@ import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.Log
 import java.io.BufferedReader
 import org.json.JSONException
 import org.json.JSONObject
@@ -40,8 +39,7 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
     }
 
     init {
-        Registry.log.logLevel = Log.Level.Verbose
-        WebView.setWebContentsDebuggingEnabled(true)
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -78,6 +76,7 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
         super.onPageStarted(view, url, favicon)
 
         if (!USE_NEW_FEATURES || isFeatureSupported(DOCUMENT_START_SCRIPT)) {
+            // When addDocumentStartJavaScript is not supported, we have to inject our JS onPageStarted
             webView.evaluateJavascript(getBridgeJs(), null)
         }
     }
@@ -87,23 +86,17 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
         view.addView(webView)
     }
 
-    fun loadHtml(html: String) {
-        webView.loadDataWithBaseURL(
-            Registry.config.baseUrl,
-            html,
-            MIME_TYPE,
-            null,
-            null
-        )
-    }
+    fun loadHtml(html: String) = webView.loadDataWithBaseURL(
+        Registry.config.baseUrl,
+        html,
+        MIME_TYPE,
+        null,
+        null
+    )
 
-    fun show() {
-        webView.post { webView.visibility = View.VISIBLE }
-    }
+    fun show() = webView.post { webView.visibility = View.VISIBLE }
 
-    fun close() {
-        webView.post { webView.visibility = View.GONE }
-    }
+    fun close() = webView.post { webView.visibility = View.GONE }
 
     override fun onPostMessage(
         view: WebView,
