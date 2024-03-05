@@ -10,7 +10,9 @@ import android.webkit.WebViewClient
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
+import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
+import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
+import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Log
 import java.io.BufferedReader
@@ -47,11 +49,8 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
         it.webViewClient = this
         it.settings.javaScriptEnabled = true
 
-        if (USE_NEW_FEATURES && WebViewFeature.isFeatureSupported(
-                WebViewFeature.WEB_MESSAGE_LISTENER
-            )
-        ) {
-            Registry.log.verbose("${WebViewFeature.WEB_MESSAGE_LISTENER} Supported")
+        if (USE_NEW_FEATURES && isFeatureSupported(WEB_MESSAGE_LISTENER)) {
+            Registry.log.verbose("$WEB_MESSAGE_LISTENER Supported")
             WebViewCompat.addWebMessageListener(
                 it,
                 JS_BRIDGE_NAME,
@@ -59,32 +58,26 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
                 this
             )
         } else {
-            Registry.log.verbose("${WebViewFeature.WEB_MESSAGE_LISTENER} Unsupported")
+            Registry.log.verbose("$WEB_MESSAGE_LISTENER Unsupported")
             it.addJavascriptInterface(this, JS_BRIDGE_NAME)
         }
 
-        if (USE_NEW_FEATURES && WebViewFeature.isFeatureSupported(
-                WebViewFeature.DOCUMENT_START_SCRIPT
-            )
-        ) {
-            Registry.log.verbose("${WebViewFeature.DOCUMENT_START_SCRIPT} Supported")
+        if (USE_NEW_FEATURES && isFeatureSupported(DOCUMENT_START_SCRIPT)) {
+            Registry.log.verbose("$DOCUMENT_START_SCRIPT Supported")
             WebViewCompat.addDocumentStartJavaScript(
                 it,
                 getBridgeJs(),
                 setOf(Registry.config.baseUrl)
             )
         } else {
-            Registry.log.verbose("${WebViewFeature.DOCUMENT_START_SCRIPT} Unsupported")
+            Registry.log.verbose("$DOCUMENT_START_SCRIPT Unsupported")
         }
     }
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
 
-        if (!USE_NEW_FEATURES || WebViewFeature.isFeatureSupported(
-                WebViewFeature.DOCUMENT_START_SCRIPT
-            )
-        ) {
+        if (!USE_NEW_FEATURES || isFeatureSupported(DOCUMENT_START_SCRIPT)) {
             webView.evaluateJavascript(getBridgeJs(), null)
         }
     }
