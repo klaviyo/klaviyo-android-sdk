@@ -7,9 +7,25 @@ body:
       value: |
         Thank you for contributing to the Klaviyo Android SDK!
         
-        Before you submit your issue, please complete each text area below with the relevant details for your bug, and complete the steps in the checklist.
+        Before you submit your issue, please read our [contributing guidelines](https://github.com/klaviyo/klaviyo-android-sdk/blob/master/.github/CONTRIBUTING.md)
+        and answer each question with as much detail as you can.
         
-        We welcome your input! If you have any code suggestions regarding your issue, feel free to [submit a pull request](https://github.com/klaviyo/klaviyo-android-sdk/pulls) after creating an issue.
+        > Note: incomplete issues may be de-prioritized or closed.
+        
+        We welcome your input! If you have any code suggestions regarding your issue, feel free to
+        [submit a pull request](https://github.com/klaviyo/klaviyo-android-sdk/pulls) after creating an issue.
+  - type: checkboxes
+    attributes:
+      label: Checklist
+      options:
+        - label: I have read the [contributing guidelines](https://github.com/klaviyo/klaviyo-android-sdk/blob/master/.github/CONTRIBUTING.md)
+          required: true
+        - label: I have determined whether this bug is also reproducible in a vanilla Android project
+          required: false
+        - label: If possible, I've reproduced the issue using the `master` branch or latest release of this package.
+          required: false
+        - label: This issue hasn't been addressed in an [existing GitHub issue](https://github.com/klaviyo/klaviyo-android-sdk/issues) or [pull request](https://github.com/klaviyo/klaviyo-android-sdk/pulls).
+          required: true
   - type: textarea
     attributes:
       label: Description
@@ -17,33 +33,24 @@ body:
       description: |
         A short description of the incorrect behavior.
         
-        If you think this issue has been recently introduced and did not occur in an earlier version, please note that. If possible, include the last version that the behavior was correct in addition to your current version.
+        If you think this issue has been recently introduced and did not occur in an earlier version, please note that.
+        If possible, include the last version that the behavior was correct in addition to your current version.
     validations:
       required: true
-  - type: checkboxes
-    attributes:
-      label: Checklist
-      options:
-        - label: I have determined whether this bug is also reproducible in a vanilla Android project
-          required: false
-        - label: If possible, I've reproduced the issue using the `main` branch of this package.
-          required: false
-        - label: This issue hasn't been addressed in an [existing GitHub issue](https://github.com/klaviyo/klaviyo-android-sdk/issues) or [pull request](https://github.com/klaviyo/klaviyo-android-sdk/pulls).
-          required: true
   - type: textarea
     attributes:
       label: Expected behavior
       render: markdown
       description: Describe what you expected to happen.
     validations:
-      required: false
+      required: true
   - type: textarea
     attributes:
       label: Actual behavior
       render: markdown
       description: Describe or copy/paste the behavior you observe. Include as much detail as possible, including stack traces or screenshots if available.
     validations:
-      required: false
+      required: true
   - type: textarea
     attributes:
       label: Steps to reproduce
@@ -55,12 +62,14 @@ body:
       placeholder: |
         1. ...
     validations:
-      required: false
+      required: true
   - type: input
     attributes:
       label: The Klaviyo Android SDK version information
       description: The version of the Klaviyo Android SDK used to reproduce this issue.
       placeholder: "'1.0.0' for example, or a commit hash"
+    validations:
+      required: true
   - type: input
     attributes:
       label: Device Information

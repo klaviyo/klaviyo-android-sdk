@@ -471,8 +471,7 @@ the following metadata tag to your manifest file.
 
 ## Contributing
 See the [contributing guide](.github/CONTRIBUTING.md) to learn how to contribute to the Klaviyo Android SDK.
-We welcome your feedback in the [discussion](https://github.com/klaviyo/klaviyo-android-sdk/discussions)
-and [issues](https://github.com/klaviyo/klaviyo-android-sdk/issues) sections of our public GitHub repository.
+We welcome your feedback in the [issues](https://github.com/klaviyo/klaviyo-android-sdk/issues) section of our public GitHub repository.
 
 ## License
 The Klaviyo Android SDK is available under the MIT license. See [LICENSE](./LICENSE.md) for more info.
