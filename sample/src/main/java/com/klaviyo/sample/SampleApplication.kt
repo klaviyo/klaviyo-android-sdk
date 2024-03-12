@@ -13,10 +13,11 @@ class SampleApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+        // Initialize Klaviyo SDK: Add your public API key here
+        Klaviyo.initialize("LuYLmF", applicationContext)
 
-        // Add google-services.json before using push in this project
-        // setPushToken()
+        // ADVANCED NOTE: Comment out if you wish to run the app without Firebase
+        setPushToken()
 
         setProfile()
         setProfileAttributes()
@@ -33,8 +34,8 @@ class SampleApplication : Application() {
     private fun setProfile() {
         //Set profile values in one batch
         val profile = Profile(mapOf(
-            ProfileKey.EMAIL to "kermit@example.com",
-            ProfileKey.PHONE_NUMBER to "+12223334444",
+            ProfileKey.EMAIL to "kermit@muppets.com",
+            ProfileKey.PHONE_NUMBER to "+18142875716",
         ))
 
         Klaviyo.setProfile(profile)
@@ -48,10 +49,11 @@ class SampleApplication : Application() {
     }
 
     private fun createEvent() {
-        val event = Event(EventMetric.VIEWED_PRODUCT)
+        val event = Event(EventMetric.CUSTOM("Test Event"))
             .setProperty(EventKey.VALUE, 100)
             .setProperty(EventKey.CUSTOM("Product"), "Lily Pad")
 
         Klaviyo.createEvent(event)
+        Klaviyo.createEvent(EventMetric.OPENED_APP)
     }
 }
