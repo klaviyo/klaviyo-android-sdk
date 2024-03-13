@@ -98,6 +98,11 @@ dependencies {
     implementation AndroidX.compose.ui
     implementation AndroidX.compose.ui.toolingPreview
     implementation AndroidX.compose.material
+    implementation AndroidX.compose.material.icons.extended
+    implementation AndroidX.compose.material3
+    implementation AndroidX.appCompat
+    implementation "com.google.accompanist:accompanist-themeadapter-material:_"
+    implementation Google.android.material
 
     testImplementation Testing.junit4
 
