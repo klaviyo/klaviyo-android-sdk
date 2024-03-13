@@ -14,14 +14,13 @@ class SampleApplication : Application() {
         super.onCreate()
 
         // Initialize Klaviyo SDK: Add your public API key here
-        Klaviyo.initialize("LuYLmF", applicationContext)
+        Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+
+        // Example analytics event to track "Opened App" event on launch
+        Klaviyo.createEvent(EventMetric.OPENED_APP)
 
         // ADVANCED NOTE: Comment out if you wish to run the app without Firebase
         setPushToken()
-
-        setProfile()
-        setProfileAttributes()
-        createEvent()
     }
 
     private fun setPushToken() {
@@ -29,31 +28,5 @@ class SampleApplication : Application() {
         FirebaseMessaging.getInstance().token.addOnSuccessListener {
             Klaviyo.setPushToken(it)
         }
-    }
-
-    private fun setProfile() {
-        //Set profile values in one batch
-        val profile = Profile(mapOf(
-            ProfileKey.EMAIL to "kermit@muppets.com",
-            ProfileKey.PHONE_NUMBER to "+18142875716",
-        ))
-
-        Klaviyo.setProfile(profile)
-    }
-
-    private fun setProfileAttributes() {
-        //Set profile attributes with fluent setters
-        Klaviyo.setExternalId("USER_IDENTIFIER")
-            .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
-            .setProfileAttribute(ProfileKey.CUSTOM("instrument"), "banjo")
-    }
-
-    private fun createEvent() {
-        val event = Event(EventMetric.CUSTOM("Test Event"))
-            .setProperty(EventKey.VALUE, 100)
-            .setProperty(EventKey.CUSTOM("Product"), "Lily Pad")
-
-        Klaviyo.createEvent(event)
-        Klaviyo.createEvent(EventMetric.OPENED_APP)
     }
 }
