@@ -23,11 +23,11 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_importance
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_name
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.clickAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.deepLink
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.getSmallIcon
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.imageUrl
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationCount
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationPriority
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.smallIcon
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.sound
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 import java.net.URL
@@ -132,7 +132,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
     private fun buildNotification(context: Context): NotificationCompat.Builder =
         NotificationCompat.Builder(context, message.channel_id)
             .setContentIntent(createIntent(context))
-            .setSmallIcon(message.smallIcon)
+            .setSmallIcon(message.getSmallIcon(context))
             .setContentTitle(message.title)
             .setContentText(message.body)
             .setSound(message.sound)
@@ -189,7 +189,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * @return [PendingIntent]
      */
     private fun createIntent(context: Context): PendingIntent {
-        val pkgName = Registry.config.applicationContext.packageName
+        val pkgName = context.packageName
 
         // Create intent to open the activity and/or deep link if specified
         // Else fall back on the default launcher intent for the package
