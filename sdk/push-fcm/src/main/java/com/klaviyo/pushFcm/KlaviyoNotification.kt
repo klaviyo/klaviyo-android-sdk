@@ -135,6 +135,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setSmallIcon(message.smallIcon)
             .setContentTitle(message.title)
             .setContentText(message.body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message.body))
             .setSound(message.sound)
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
