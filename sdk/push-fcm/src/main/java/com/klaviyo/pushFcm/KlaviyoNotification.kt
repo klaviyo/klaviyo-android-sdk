@@ -23,6 +23,7 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_importance
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_name
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.clickAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.deepLink
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.getColor
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.getSmallIcon
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.imageUrl
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
@@ -58,6 +59,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val IMAGE_KEY = "image_url"
         internal const val CLICK_ACTION_KEY = "click_action"
         internal const val SOUND_KEY = "sound"
+        internal const val COLOR_KEY = "color"
         internal const val NOTIFICATION_COUNT_KEY = "notification_count"
         internal const val NOTIFICATION_PRIORITY = "notification_priority"
         private const val DOWNLOAD_TIMEOUT_MS = 5_000
@@ -133,6 +135,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         NotificationCompat.Builder(context, message.channel_id)
             .setContentIntent(createIntent(context))
             .setSmallIcon(message.getSmallIcon(context))
+            .also { message.getColor(context)?.let { color -> it.setColor(color) } }
             .setContentTitle(message.title)
             .setContentText(message.body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message.body))

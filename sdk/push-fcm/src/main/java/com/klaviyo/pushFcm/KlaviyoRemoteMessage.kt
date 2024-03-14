@@ -4,11 +4,14 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
+import android.content.res.Resources.NotFoundException
+import android.graphics.Color
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
@@ -190,6 +193,47 @@ object KlaviyoRemoteMessage {
 
             // Fall back on icon-placeholder used by the OS.
             return android.R.drawable.sym_def_app_icon
+        }
+
+    /**
+     * Determine the notification color given provided context
+     */
+    fun RemoteMessage.getColor(context: Context): Int? =
+        this.data[KlaviyoNotification.COLOR_KEY].let { color ->
+            val parsedColor = color?.let {
+                try {
+                    Color.parseColor(color)
+                } catch (e: IllegalArgumentException) {
+                    Registry.log.warning(
+                        "Invalid color: $color. Notification will use default color.",
+                        e
+                    )
+                    null
+                }
+            }
+
+            if (parsedColor != null) {
+                return parsedColor
+            }
+
+            val manifestColor = context.getManifestInt(
+                KlaviyoPushService.METADATA_DEFAULT_COLOR,
+                // We can also try to get default color configured for FCM
+                context.getManifestInt(CommonNotificationBuilder.METADATA_DEFAULT_COLOR, 0)
+            )
+
+            if (manifestColor != 0) {
+                try {
+                    return ContextCompat.getColor(context, manifestColor)
+                } catch (e: NotFoundException) {
+                    Registry.log.warning(
+                        "Invalid color in manifest: $manifestColor. No color applied.",
+                        e
+                    )
+                }
+            }
+
+            return null
         }
 
     /**
