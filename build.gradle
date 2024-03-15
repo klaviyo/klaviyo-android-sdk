@@ -55,3 +55,39 @@ dokkaHtmlMultiModule {
         ["org.jetbrains.dokka.versioning.VersioningPlugin": versioningConfiguration]
     )
 }
+
+/**
+ * Command to bump the version of the project
+ * including updating README and documentation references
+ */
+public class BumpVersion extends DefaultTask {
+    private String nextVersion;
+
+    @Option(option = "nextVersion", description = "New semantic version number")
+    public void setNextVersion(String nextVersion) {
+        this.nextVersion = nextVersion;
+    }
+
+    @Input
+    public String getNextVersion() {
+        return nextVersion;
+    }
+
+    @TaskAction
+    public void bumpVersion() {
+        def currentVersion = versionFor(project, "version.klaviyo.versionName") as String
+        def nextVersion = this.getNextVersion()
+        def currentBuild = versionFor(project, "version.klaviyo.versionCode") as Integer
+        def nextBuild = currentBuild + 1
+        print("Changing semantic version number from $currentVersion to $nextVersion\n")
+        print("Auto-incrementing version code from $currentBuild to $nextBuild\n")
+
+        ant.replace(file:"versions.properties", token:"versionCode=$currentBuild", value:"versionCode=$nextBuild")
+        ant.replace(file:"versions.properties", token:"versionName=$currentVersion", value:"versionName=$nextVersion")
+        ant.replace(file:"README.md", token:"analytics:$currentVersion", value:"analytics:$nextVersion")
+        ant.replace(file:"README.md", token:"push-fcm:$currentVersion", value:"push-fcm:$nextVersion")
+        ant.replace(file:"docs/index.html", token:"$currentVersion", value:"$nextVersion")
+    }
+}
+
+tasks.register("bumpVersion", BumpVersion)
