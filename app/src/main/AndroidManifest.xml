@@ -44,6 +44,9 @@
             android:name="com.klaviyo.push.default_notification_icon"
             android:resource="@drawable/ic_notification" />
 
+        <meta-data android:name="com.klaviyo.push.default_notification_color"
+            android:resource="@color/colorAccent" />
+
         <meta-data
             android:name="com.klaviyo.core.log_level"
             android:value="5" />

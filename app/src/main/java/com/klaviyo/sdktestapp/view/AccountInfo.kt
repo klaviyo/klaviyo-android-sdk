@@ -19,7 +19,6 @@ import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -34,7 +33,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.klaviyo.sdktestapp.viewmodel.AccountInfoViewModel
 
-@OptIn(ExperimentalMaterial3Api::class) // Outlined text fields in Material 3 have nice caption text for error states but they are experimental so you have to opt in
 @Composable
 fun AccountInfo(
     viewState: AccountInfoViewModel.ViewState,

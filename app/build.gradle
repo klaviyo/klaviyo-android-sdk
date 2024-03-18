@@ -20,16 +20,18 @@ if (rootProject.file("local.properties").canRead()) {
 android {
     def javaVersion = JavaVersion.VERSION_11
 
-    namespace "com.klaviyo.sdktestapp"
-    compileSdk 34
-    buildToolsVersion="34.0.0"
+    namespace "${klaviyoGroupId}.sdktestapp"
+    compileSdkVersion versionFor(project, "version.android.compileSdk") as Integer
+    buildToolsVersion=versionFor(project, "version.android.buildTools") as String
+
     defaultConfig {
-        applicationId "com.klaviyo.sdktestapp"
-        minSdkVersion 23
-        targetSdkVersion 34
-        versionCode 12
-        versionName "2.1.0"
+        applicationId "${klaviyoGroupId}.sdktestapp"
+
+        minSdkVersion versionFor(project, "version.android.minSdk") as Integer
+        targetSdkVersion versionFor(project, "version.android.targetSdk") as Integer
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
+        versionName versionFor(project, "version.klaviyo.versionName") as String
     }
 
     def defaultCompany = localProperties["companyId"] ?: "\"LuYLmF\""

@@ -27,7 +27,9 @@ class PushService : KlaviyoPushService() {
                     putString("_k", "fake tracking param")
                     putString("title", "Local Notification")
                     putString("body", "Triggered from app.")
-                    putString("small_icon", "ic_mouse")
+//                    putString("small_icon", "ic_mouse")
+//                    putString("color", "#44883s")
+//                    putString("image_url", "https://lumiere-a.akamaihd.net/v1/images/character_themuppets_kermit_b77a431b.jpeg")
                 }
             )
 
