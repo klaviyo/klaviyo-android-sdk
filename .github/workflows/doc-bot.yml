@@ -37,7 +37,9 @@ jobs:
           git merge origin/master --commit --no-edit --strategy-option theirs
 
       - name: Generate Dokka documentation
-        run: ./gradlew dokkaHtmlMultiModule
+        run: |
+          ./gradlew dokkaHtmlMultiModule
+          git add ./docs
 
       - name: Commit and push documentation
         run: |
@@ -46,6 +48,5 @@ jobs:
             exit 0
           fi
           
-          git add .
           git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
           git push
