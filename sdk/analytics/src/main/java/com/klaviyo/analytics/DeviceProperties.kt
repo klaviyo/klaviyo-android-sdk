@@ -1,12 +1,10 @@
 package com.klaviyo.analytics
 
-import android.Manifest
 import android.app.ActivityManager
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
-import android.content.pm.PackageManager
 import android.os.Build
-import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getPackageInfoCompat
@@ -62,16 +60,7 @@ internal object DeviceProperties {
     }
 
     val notificationPermission: Boolean
-        get() {
-            // Notification permissions only expected from Android 13 onwards
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                return ActivityCompat.checkSelfPermission(
-                    Registry.config.applicationContext,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-            }
-            return true
-        }
+        get() = NotificationManagerCompat.from(Registry.config.applicationContext).areNotificationsEnabled()
 
     val applicationId: String by lazy {
         Registry.config.applicationContext.packageName
