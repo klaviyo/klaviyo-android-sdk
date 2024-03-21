@@ -1,18 +1,24 @@
 package com.klaviyo.pushFcm
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
+import android.content.res.Resources.NotFoundException
+import android.graphics.Color
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
+import com.klaviyo.core.config.getManifestInt
 import java.net.URL
 
 /**
@@ -124,57 +130,39 @@ object KlaviyoRemoteMessage {
     val RemoteMessage.notificationCount: Int
         get() = this.data[KlaviyoNotification.NOTIFICATION_COUNT_KEY]?.toInt() ?: 1
 
+    @Deprecated("Use getSmallIcon(context: Context) instead")
+    val RemoteMessage.smallIcon: Int
+        get() = try {
+            getSmallIcon(Registry.config.applicationContext)
+        } catch (e: KlaviyoException) {
+            Registry.log.warning(
+                "Klaviyo SDK is uninitialized, can't get icon without application context"
+            )
+            android.R.drawable.sym_def_app_icon
+        }
+
     /**
-     * Determine the resource ID of the small icon
+     * Determine the resource ID of the small icon from provided context
      *
      * NOTE: We have to use a discouraged API because we can't expect
      *  developers to know the Int value of their icon resources
-     *
-     * @return
      */
-    val RemoteMessage.smallIcon: Int
-        @SuppressLint("DiscouragedApi")
-        get() = this.data[KlaviyoNotification.SMALL_ICON_KEY].let { resourceKey ->
-            val packageManager = Registry.config.applicationContext.packageManager
-            val pkgName = Registry.config.applicationContext.packageName
-            val resources = Registry.config.applicationContext.resources
-
-            /**
-             * API 26 contains a bug that causes the System UI process to crash-loop (which leads to
-             * a factory reset!) if the notification icon is an adaptive icon with a gradient.
-             *
-             * @see [CommonNotificationBuilder.isValidIcon] - FCM method that I am emulating here
-             */
-            fun isValidIcon(resId: Int): Boolean = if (resId == 0) {
-                false
-            } else if (Build.VERSION.SDK_INT != Build.VERSION_CODES.O) {
-                true
-            } else {
-                try {
-                    val icon = ResourcesCompat.getDrawable(resources, resId, null)
-                    if (icon is AdaptiveIconDrawable) {
-                        Registry.log.warning(
-                            "Adaptive icon $resId is not supported for notification"
-                        )
-                        false
-                    } else {
-                        true
-                    }
-                } catch (ex: Resources.NotFoundException) {
-                    Registry.log.warning("Couldn't find resource $resId for notification")
-                    false
-                }
-            }
+    @SuppressLint("DiscouragedApi")
+    fun RemoteMessage.getSmallIcon(context: Context): Int =
+        this.data[KlaviyoNotification.SMALL_ICON_KEY].let { resourceKey ->
+            val packageManager = context.packageManager
+            val pkgName = context.packageName
+            val resources = context.resources
 
             if (!resourceKey.isNullOrEmpty()) {
                 var iconId = resources.getIdentifier(resourceKey, "drawable", pkgName)
-                if (isValidIcon(iconId)) {
+                if (isValidIcon(iconId, context)) {
                     // Drawable icon was found by identifier in resources
                     return iconId
                 }
 
                 iconId = resources.getIdentifier(resourceKey, "mipmap", pkgName)
-                if (isValidIcon(iconId)) {
+                if (isValidIcon(iconId, context)) {
                     // Mipmap icon was found by identifier in resources
                     return iconId
                 }
@@ -185,20 +173,20 @@ object KlaviyoRemoteMessage {
             }
 
             // We allow default icon to be specified in the manifest
-            var iconId = Registry.config.getManifestInt(
+            var iconId = context.getManifestInt(
                 KlaviyoPushService.METADATA_DEFAULT_ICON,
                 // We can also try to get default icon configured for FCM
-                Registry.config.getManifestInt(CommonNotificationBuilder.METADATA_DEFAULT_ICON, 0)
+                context.getManifestInt(CommonNotificationBuilder.METADATA_DEFAULT_ICON, 0)
             )
 
-            if (isValidIcon(iconId)) {
+            if (isValidIcon(iconId, context)) {
                 // Icon found via manifest
                 return iconId
             }
 
             iconId = packageManager.getApplicationInfoCompat(pkgName)?.icon ?: 0
 
-            if (isValidIcon(iconId)) {
+            if (isValidIcon(iconId, context)) {
                 // Icon found via manifest
                 return iconId
             }
@@ -206,4 +194,72 @@ object KlaviyoRemoteMessage {
             // Fall back on icon-placeholder used by the OS.
             return android.R.drawable.sym_def_app_icon
         }
+
+    /**
+     * Determine the notification color given provided context
+     */
+    fun RemoteMessage.getColor(context: Context): Int? =
+        this.data[KlaviyoNotification.COLOR_KEY].let { color ->
+            val parsedColor = color?.let {
+                try {
+                    Color.parseColor(color)
+                } catch (e: IllegalArgumentException) {
+                    Registry.log.warning(
+                        "Invalid color: $color. Notification will use default color.",
+                        e
+                    )
+                    null
+                }
+            }
+
+            if (parsedColor != null) {
+                return parsedColor
+            }
+
+            val manifestColor = context.getManifestInt(
+                KlaviyoPushService.METADATA_DEFAULT_COLOR,
+                // We can also try to get default color configured for FCM
+                context.getManifestInt(CommonNotificationBuilder.METADATA_DEFAULT_COLOR, 0)
+            )
+
+            if (manifestColor != 0) {
+                try {
+                    return ContextCompat.getColor(context, manifestColor)
+                } catch (e: NotFoundException) {
+                    Registry.log.warning(
+                        "Invalid color in manifest: $manifestColor. No color applied.",
+                        e
+                    )
+                }
+            }
+
+            return null
+        }
+
+    /**
+     * API 26 contains a bug that causes the System UI process to crash-loop (which leads to
+     * a factory reset!) if the notification icon is an adaptive icon with a gradient.
+     *
+     * @see [CommonNotificationBuilder.isValidIcon] - FCM method that I am emulating here
+     */
+    private fun isValidIcon(resId: Int, context: Context): Boolean = if (resId == 0) {
+        false
+    } else if (Build.VERSION.SDK_INT != Build.VERSION_CODES.O) {
+        true
+    } else {
+        try {
+            val icon = ResourcesCompat.getDrawable(context.resources, resId, null)
+            if (icon is AdaptiveIconDrawable) {
+                Registry.log.warning(
+                    "Adaptive icon $resId is not supported for notification"
+                )
+                false
+            } else {
+                true
+            }
+        } catch (ex: Resources.NotFoundException) {
+            Registry.log.warning("Couldn't find resource $resId for notification")
+            false
+        }
+    }
 }

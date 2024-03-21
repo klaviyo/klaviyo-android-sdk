@@ -17,6 +17,7 @@ open class KlaviyoPushService : FirebaseMessagingService() {
 
     companion object {
         const val METADATA_DEFAULT_ICON = "com.klaviyo.push.default_notification_icon"
+        const val METADATA_DEFAULT_COLOR = "com.klaviyo.push.default_notification_color"
     }
 
     /**

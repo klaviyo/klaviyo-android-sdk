@@ -56,8 +56,8 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:2.1.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.1.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:2.1.1")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.1.1")
       }
       ```
    </details>
@@ -68,8 +68,8 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:2.1.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.1.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:2.1.1"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.1.1"
        }
       ```
    </details>
@@ -204,9 +204,10 @@ In your `AndroidManifest.xml` file, register `KlaviyoPushService` to receive `ME
 </manifest>
 ``` 
 
-To specify an icon for Klaviyo notifications, add the following metadata element to the application component
-of `AndroidManifest.xml`. Absent this, the firebase key `com.google.firebase.messaging.default_notification_icon` 
-will be used if present, else we fall back on the application's launcher icon.   
+To specify an icon and/or color for Klaviyo notifications, add the following optional metadata elements to the
+application component of `AndroidManifest.xml`. Absent these keys, the firebase keys
+`com.google.firebase.messaging.default_notification_icon` and `com.google.firebase.messaging.default_notification_color` 
+will be used if present, else we fall back on the application's launcher icon, and omit setting a color.   
 
 ```xml
 <!-- AndroidManifest.xml -->
@@ -216,6 +217,8 @@ will be used if present, else we fall back on the application's launcher icon.
         <!-- ... -->
         <meta-data android:name="com.klaviyo.push.default_notification_icon"
             android:resource="{YOUR_ICON_RESOURCE}" />
+        <meta-data android:name="com.klaviyo.push.default_notification_color"
+            android:resource="{YOUR_COLOR}" />
     </application>
 </manifest>
 ```
