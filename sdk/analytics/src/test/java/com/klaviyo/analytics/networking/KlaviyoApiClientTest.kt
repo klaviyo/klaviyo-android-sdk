@@ -101,7 +101,7 @@ internal class KlaviyoApiClientTest : BaseRequestTest() {
                     KlaviyoApiRequest.Status.Complete.name -> KlaviyoApiRequest.Status.Complete
                     KlaviyoApiRequest.Status.Failed.name -> KlaviyoApiRequest.Status.Failed
                     else -> error("Invalid state")
-                } 
+                }
             }
 
             // Initial attempts value
@@ -124,7 +124,7 @@ internal class KlaviyoApiClientTest : BaseRequestTest() {
                     KlaviyoApiRequest.Status.Complete -> 202
                     KlaviyoApiRequest.Status.Failed -> 500
                     else -> null
-                } 
+                }
             }
             every { it.attempts } answers { attempts }
             every { it.toJson() } returns JSONObject(
@@ -379,7 +379,7 @@ internal class KlaviyoApiClientTest : BaseRequestTest() {
                 0 -> KlaviyoApiRequest.Status.Unsent.name
                 50 -> KlaviyoApiRequest.Status.Failed.name
                 else -> KlaviyoApiRequest.Status.PendingRetry.name
-            } 
+            }
         }
 
         // Second unset request in queue to ensure which shouldn't sent until first has failed
