@@ -1,58 +1,18 @@
 package com.klaviyo.analytics.networking.requests
 
-import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import org.json.JSONObject
-import org.junit.Assert.assertEquals
 import org.junit.Test
 
-internal class ProfileApiRequestTest : BaseRequestTest() {
+internal class ProfileApiRequestTest : BaseApiRequestTest<ProfileApiRequest>() {
 
-    private val expectedUrlPath = "client/profiles/"
+    override val expectedUrl = "client/profiles/"
 
-    private val expectedQueryData = mapOf("company_id" to API_KEY)
-
-    private val expectedHeaders = mapOf(
-        "Content-Type" to "application/json",
-        "Accept" to "application/json",
-        "Revision" to "2023-07-15",
-        "User-Agent" to "Mock User Agent"
-    )
-
-    private val stubProfile = Profile()
-        .setEmail(EMAIL)
-        .setPhoneNumber(PHONE)
-        .setExternalId(EXTERNAL_ID)
-        .setAnonymousId(ANON_ID)
+    override fun makeTestRequest(): ProfileApiRequest =
+        ProfileApiRequest(stubProfile)
 
     @Test
-    fun `Uses correct endpoint`() {
-        assertEquals(expectedUrlPath, ProfileApiRequest(stubProfile).urlPath)
-    }
-
-    @Test
-    fun `Uses correct method`() {
-        assertEquals(RequestMethod.POST, ProfileApiRequest(stubProfile).method)
-    }
-
-    @Test
-    fun `Uses correct headers`() {
-        assertEquals(expectedHeaders, ProfileApiRequest(stubProfile).headers)
-    }
-
-    @Test
-    fun `Uses API Key in query`() {
-        assertEquals(expectedQueryData, ProfileApiRequest(stubProfile).query)
-    }
-
-    @Test
-    fun `JSON interoperability`() {
-        val request = ProfileApiRequest(stubProfile)
-        val requestJson = request.toJson()
-        val revivedRequest = KlaviyoApiRequestDecoder.fromJson(requestJson)
-        assert(revivedRequest is ProfileApiRequest)
-        compareJson(requestJson, revivedRequest.toJson())
-    }
+    fun `JSON interoperability`() = testJsonInterop(makeTestRequest())
 
     @Test
     fun `Formats body correctly`() {

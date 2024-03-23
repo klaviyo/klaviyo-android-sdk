@@ -1,26 +1,15 @@
 package com.klaviyo.analytics.networking.requests
 
-import com.klaviyo.analytics.model.Profile
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-internal class PushTokenApiRequestTest : BaseRequestTest() {
-    private val expectedUrlPath = "client/push-tokens"
-    private val expectedQueryData = mapOf("company_id" to API_KEY)
+internal class PushTokenApiRequestTest : BaseApiRequestTest<PushTokenApiRequest>() {
 
-    private val expectedHeaders = mapOf(
-        "Content-Type" to "application/json",
-        "Accept" to "application/json",
-        "Revision" to "2023-07-15",
-        "User-Agent" to "Mock User Agent"
-    )
+    override val expectedUrl = "client/push-tokens"
 
-    private val stubProfile = Profile()
-        .setAnonymousId(ANON_ID)
-        .setEmail(EMAIL)
-        .setPhoneNumber(PHONE)
-        .setExternalId(EXTERNAL_ID)
+    override fun makeTestRequest(): PushTokenApiRequest =
+        PushTokenApiRequest(PUSH_TOKEN, stubProfile)
 
     @Test
     fun `Equality operator`() {
@@ -34,33 +23,7 @@ internal class PushTokenApiRequestTest : BaseRequestTest() {
     }
 
     @Test
-    fun `Uses correct endpoint`() {
-        assertEquals(expectedUrlPath, PushTokenApiRequest(PUSH_TOKEN, stubProfile).urlPath)
-    }
-
-    @Test
-    fun `Uses correct method`() {
-        assertEquals(RequestMethod.POST, PushTokenApiRequest(PUSH_TOKEN, stubProfile).method)
-    }
-
-    @Test
-    fun `Uses correct headers`() {
-        assertEquals(expectedHeaders, PushTokenApiRequest(PUSH_TOKEN, stubProfile).headers)
-    }
-
-    @Test
-    fun `Uses API Key in query`() {
-        assertEquals(expectedQueryData, PushTokenApiRequest(PUSH_TOKEN, stubProfile).query)
-    }
-
-    @Test
-    fun `JSON interoperability`() {
-        val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
-        val requestJson = request.toJson()
-        val revivedRequest = KlaviyoApiRequestDecoder.fromJson(requestJson)
-        assert(revivedRequest is PushTokenApiRequest)
-        compareJson(requestJson, revivedRequest.toJson())
-    }
+    fun `JSON interoperability`() = testJsonInterop(makeTestRequest())
 
     @Test
     fun `Requests are equal if the token and profile are equal`() {

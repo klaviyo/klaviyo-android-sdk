@@ -38,16 +38,6 @@ internal class PushTokenApiRequest(
     override val type: String = "Push Token"
 
     /**
-     * HTTP request headers
-     */
-    override var headers: Map<String, String> = mapOf(
-        HEADER_CONTENT to TYPE_JSON,
-        HEADER_ACCEPT to TYPE_JSON,
-        HEADER_REVISION to V3_REVISION,
-        HEADER_USER_AGENT to DeviceProperties.userAgent
-    )
-
-    /**
      * HTTP request query params
      */
     override var query: Map<String, String> = mapOf(

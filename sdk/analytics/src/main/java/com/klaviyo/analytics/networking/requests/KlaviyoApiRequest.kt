@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.core.Registry
 import java.io.BufferedReader
 import java.io.IOException
@@ -47,6 +48,8 @@ internal open class KlaviyoApiRequest(
         const val HEADER_USER_AGENT = "User-Agent"
         const val HEADER_ACCEPT = "Accept"
         const val HEADER_REVISION = "Revision"
+        const val HEADER_KLAVIYO_MOBILE = "X-Klaviyo-Mobile"
+        const val HEADER_KLAVIYO_ATTEMPT = "X-Klaviyo-Retry-Attempt"
         const val TYPE_JSON = "application/json"
         const val V3_REVISION = "2023-07-15"
 
@@ -150,7 +153,14 @@ internal open class KlaviyoApiRequest(
     /**
      * HTTP request headers
      */
-    override var headers: Map<String, String> = emptyMap()
+    override var headers: MutableMap<String, String> = mutableMapOf(
+        HEADER_CONTENT to TYPE_JSON,
+        HEADER_ACCEPT to TYPE_JSON,
+        HEADER_REVISION to V3_REVISION,
+        HEADER_USER_AGENT to DeviceProperties.userAgent,
+        HEADER_KLAVIYO_MOBILE to "1",
+        HEADER_KLAVIYO_ATTEMPT to "0/${Registry.config.networkMaxRetries}"
+    )
 
     /**
      * HTTP request query params
@@ -171,7 +181,11 @@ internal open class KlaviyoApiRequest(
      * Tracks number of attempts to limit retries
      */
     var attempts = 0
-        private set
+        private set(value) {
+            field = value
+            val maxRetries = Registry.config.networkMaxRetries
+            headers[HEADER_KLAVIYO_ATTEMPT] = "$value/$maxRetries"
+        }
 
     /**
      * Timestamp request was first enqueued
@@ -220,7 +234,7 @@ internal open class KlaviyoApiRequest(
         .accumulate(METHOD_JSON_KEY, method.name)
         .accumulate(TIME_JSON_KEY, queuedTime)
         .accumulate(UUID_JSON_KEY, uuid)
-        .accumulate(HEADERS_JSON_KEY, JSONObject(headers))
+        .accumulate(HEADERS_JSON_KEY, JSONObject(headers as Map<String, String>))
         .accumulate(QUERY_JSON_KEY, JSONObject(query))
         .accumulate(BODY_JSON_KEY, body)
 
