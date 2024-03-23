@@ -27,7 +27,7 @@ internal object KlaviyoApiRequestDecoder {
             else -> KlaviyoApiRequest(urlPath, method, time, uuid)
         }.apply {
             headers = json.getJSONObject(KlaviyoApiRequest.HEADERS_JSON_KEY).let {
-                it.keys().asSequence().associateWith { k -> it.getString(k) }
+                it.keys().asSequence().associateWith { k -> it.getString(k) }.toMutableMap()
             }
             query = json.getJSONObject(KlaviyoApiRequest.QUERY_JSON_KEY).let {
                 it.keys().asSequence().associateWith { k -> it.getString(k) }
