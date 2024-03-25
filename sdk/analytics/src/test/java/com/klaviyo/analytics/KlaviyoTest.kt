@@ -20,6 +20,7 @@ import io.mockk.mockkObject
 import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyAll
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -89,6 +90,11 @@ internal class KlaviyoTest : BaseTest() {
         every { apiClientMock.enqueueEvent(any(), any()) } returns Unit
         every { apiClientMock.enqueuePushToken(any(), any()) } returns Unit
         every { configMock.debounceInterval } returns debounceTime
+        UserInfo.reset()
+    }
+
+    @After
+    fun cleanup() {
         UserInfo.reset()
     }
 
