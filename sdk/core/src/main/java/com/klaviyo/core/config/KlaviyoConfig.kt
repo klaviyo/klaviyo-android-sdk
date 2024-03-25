@@ -84,7 +84,7 @@ object KlaviyoConfig : Config {
     private const val NETWORK_MAX_RETRIES_DEFAULT: Int = 50
 
     /**
-     * Maximum interval between retries for the exponential backoff
+     * Maximum interval between retries for the exponential backoff, in milliseconds (3 minutes)
      *
      * Reasoning: We don't want to wait so long that the user has left the app.
      */
