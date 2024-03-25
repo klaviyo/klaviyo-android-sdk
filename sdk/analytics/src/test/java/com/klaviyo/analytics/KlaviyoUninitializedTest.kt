@@ -35,6 +35,7 @@ internal class KlaviyoUninitializedTest {
         Registry.unregister<Config>()
         Registry.register<Log>(logger)
         Registry.register<ApiClient>(mockApiClient)
+        every { mockApiClient.onApiRequest(any(), any()) } returns Unit
     }
 
     private inline fun <reified T> assertCaught() where T : Throwable {
