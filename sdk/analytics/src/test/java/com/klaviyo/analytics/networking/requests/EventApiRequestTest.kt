@@ -5,6 +5,7 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import io.mockk.every
+import io.mockk.mockkObject
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -33,6 +34,7 @@ internal class EventApiRequestTest : BaseRequestTest() {
 
     override fun setup() {
         super.setup()
+        mockkObject(Klaviyo)
         every { Klaviyo.getPushToken() } returns "Mock Push Token"
     }
 
