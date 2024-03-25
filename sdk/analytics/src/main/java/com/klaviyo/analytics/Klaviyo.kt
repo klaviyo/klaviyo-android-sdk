@@ -167,15 +167,19 @@ object Klaviyo {
      * @param pushToken The push token provided by the device push service
      */
     fun setPushToken(pushToken: String) = safeApply {
-        Registry.dataStore.store(EventKey.PUSH_TOKEN.name, pushToken)
-        Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
+        if (UserInfo.shouldUpdatePush(pushToken)) {
+            UserInfo.setPushToken(pushToken)
+            Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
+        } else {
+            Registry.log.verbose("Push token is already set")
+        }
     }
 
     /**
      * @return The device push token, if one has been assigned to currently tracked profile
      */
     fun getPushToken(): String? = safeCall {
-        Registry.dataStore.fetch(EventKey.PUSH_TOKEN.name)?.ifEmpty { null }
+        UserInfo.pushToken.ifEmpty { null }
     }
 
     /**
@@ -226,9 +230,6 @@ object Klaviyo {
 
         // Clear profile identifiers from state
         UserInfo.reset()
-
-        // If we had a push token, erase the local copy
-        Registry.dataStore.clear(EventKey.PUSH_TOKEN.name)
     }
 
     /**

@@ -1,11 +1,18 @@
 package com.klaviyo.analytics
 
+import com.klaviyo.analytics.DeviceProperties.backgroundData
+import com.klaviyo.analytics.DeviceProperties.notificationPermission
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.model.ProfileKey.ANONYMOUS_ID
 import com.klaviyo.analytics.model.ProfileKey.EMAIL
 import com.klaviyo.analytics.model.ProfileKey.EXTERNAL_ID
 import com.klaviyo.analytics.model.ProfileKey.PHONE_NUMBER
+import com.klaviyo.analytics.model.ProfileKey.PUSH_STATE
+import com.klaviyo.analytics.model.ProfileKey.PUSH_TOKEN
+import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status.Complete
+import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import java.util.UUID
 
@@ -13,6 +20,19 @@ import java.util.UUID
  * Stores information on the currently active user
  */
 internal object UserInfo {
+
+    init {
+        Registry.get<ApiClient>().onApiRequest {
+            // Update state when a push token is successfully saved to backend
+            // Make sure it's still the same token we're tracking in state
+            if (it is PushTokenApiRequest &&
+                it.status == Complete &&
+                it.token == pushToken
+            ) {
+                setPushToken(pushToken, it.notificationPermission, it.backgroundData)
+            }
+        }
+    }
 
     /**
      * Save or clear an identifier in the persistent store and return it
@@ -56,9 +76,22 @@ internal object UserInfo {
      */
     var anonymousId: String = ""
         private set(value) { field = persist(ANONYMOUS_ID, value) }
-        get() = field.ifEmpty { fetch(ANONYMOUS_ID, generateUuid).also { anonymousId = it } }
+        get() = field.ifEmpty { fetch(ANONYMOUS_ID, ::generateUuid).also { anonymousId = it } }
 
-    private val generateUuid = { UUID.randomUUID().toString() }
+    var pushToken: String = ""
+        private set(value) {
+            field = persist(PUSH_TOKEN, value)
+        }
+        get() = field.ifEmpty { fetch(PUSH_TOKEN).also { field = it } }
+
+    private var pushState: String = ""
+        set(value) { field = persist(PUSH_STATE, value) }
+        get() = field.ifEmpty { fetch(PUSH_STATE).also { field = it } }
+
+    /**
+     * Generate a new UUID for anonymous ID
+     */
+    private fun generateUuid() = UUID.randomUUID().toString()
 
     /**
      * Indicate whether we currently have externally-set profile identifiers
@@ -75,6 +108,7 @@ internal object UserInfo {
         email = ""
         phoneNumber = ""
         anonymousId = ""
+        setPushToken("", permission = false, background = false)
     }
 
     /**
@@ -97,4 +131,23 @@ internal object UserInfo {
             profile.setPhoneNumber(phoneNumber)
         }
     }
+
+    fun shouldUpdatePush(
+        pushToken: String,
+        permission: Boolean? = null,
+        background: Boolean? = null
+    ): Boolean =
+        pushState != formatPushState(pushToken, permission, background)
+
+    fun setPushToken(token: String, permission: Boolean? = null, background: Boolean? = null) {
+        pushToken = token
+        pushState = formatPushState(pushToken, permission, background)
+    }
+
+    private fun formatPushState(
+        token: String,
+        permission: Boolean? = null,
+        background: Boolean? = null
+    ): String =
+        "$token-${permission ?: notificationPermission}-${background ?: backgroundData}"
 }

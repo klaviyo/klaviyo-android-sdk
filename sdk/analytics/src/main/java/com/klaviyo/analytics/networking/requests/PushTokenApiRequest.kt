@@ -70,17 +70,23 @@ internal class PushTokenApiRequest(
         )
     }
 
+    val notificationPermission by lazy { DeviceProperties.notificationPermission }
+
+    val backgroundData by lazy { DeviceProperties.backgroundData }
+
+    val token: String? get() = body?.optJSONObject(DATA)?.optString(TOKEN)
+
     // Update body to include Device metadata whenever the body is retrieved (typically during sending) so the latest data is included
     override val requestBody: String?
         get() = body?.apply {
             optJSONObject(DATA)?.optJSONObject(ATTRIBUTES)?.apply {
                 put(
                     ENABLEMENT_STATUS,
-                    if (DeviceProperties.notificationPermission) NOTIFICATIONS_ENABLED else NOTIFICATIONS_DISABLED
+                    if (notificationPermission) NOTIFICATIONS_ENABLED else NOTIFICATIONS_DISABLED
                 )
                 put(
                     BACKGROUND,
-                    if (DeviceProperties.backgroundData) BG_AVAILABLE else BG_UNAVAILABLE
+                    if (backgroundData) BG_AVAILABLE else BG_UNAVAILABLE
                 )
                 put(METADATA, JSONObject(DeviceProperties.buildMetaData()))
             }

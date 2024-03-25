@@ -16,6 +16,7 @@ import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.StaticClock
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
 import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyAll
@@ -81,13 +82,14 @@ internal class KlaviyoTest : BaseTest() {
 
     override fun setup() {
         super.setup()
-        UserInfo.reset()
         Registry.register<ApiClient> { apiClientMock }
         every { Registry.clock } returns staticClock
+        every { apiClientMock.onApiRequest(any(), any()) } returns Unit
         every { apiClientMock.enqueueProfile(capture(capturedProfile)) } returns Unit
         every { apiClientMock.enqueueEvent(any(), any()) } returns Unit
         every { apiClientMock.enqueuePushToken(any(), any()) } returns Unit
         every { configMock.debounceInterval } returns debounceTime
+        UserInfo.reset()
     }
 
     @Test
@@ -282,10 +284,55 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Stores push token and Enqueues a push token API call`() {
+        mockkObject(DeviceProperties)
+        every { DeviceProperties.backgroundData } returns true
+        every { DeviceProperties.notificationPermission } returns true
+
         Klaviyo.setPushToken(PUSH_TOKEN)
         assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
 
         verify(exactly = 1) {
+            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+        }
+    }
+
+    @Test
+    fun `Push token request is ignored if state has not changed`() {
+        mockkObject(DeviceProperties)
+        every { DeviceProperties.backgroundData } returns true
+        every { DeviceProperties.notificationPermission } returns true
+
+        Klaviyo.setPushToken(PUSH_TOKEN)
+        assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
+
+        verify(exactly = 1) {
+            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+        }
+
+        Klaviyo.setPushToken(PUSH_TOKEN)
+
+        verify(exactly = 1) {
+            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+        }
+    }
+
+    @Test
+    fun `Push token request is repeated if state has changed`() {
+        mockkObject(DeviceProperties)
+        every { DeviceProperties.backgroundData } returns true
+        every { DeviceProperties.notificationPermission } returns true
+
+        Klaviyo.setPushToken(PUSH_TOKEN)
+        assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
+
+        verify(exactly = 1) {
+            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+        }
+
+        every { DeviceProperties.backgroundData } returns false
+        Klaviyo.setPushToken(PUSH_TOKEN)
+
+        verify(exactly = 2) {
             apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
         }
     }

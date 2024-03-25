@@ -11,6 +11,8 @@ sealed class ProfileKey(name: String) : Keyword(name) {
     object EMAIL : ProfileKey("email")
     object PHONE_NUMBER : ProfileKey("phone_number")
     internal object ANONYMOUS_ID : ProfileKey("anonymous_id")
+    internal object PUSH_TOKEN : ProfileKey("push_token")
+    internal object PUSH_STATE : ProfileKey("push_state")
 
     // Personal information
     object FIRST_NAME : ProfileKey("first_name")
