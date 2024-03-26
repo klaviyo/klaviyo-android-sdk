@@ -64,9 +64,9 @@ object KlaviyoConfig : Config {
      * Reasoning: A 30-second interval should give radios time to go back to sleep between batches,
      * four retries with a typical backoff pattern would then be 30s, 60s, 3m, 12m.
      */
-    private const val NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT: Int = 10_000
-    private const val NETWORK_FLUSH_INTERVAL_CELL_DEFAULT: Int = 30_000
-    private const val NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT: Int = 60_000
+    private const val NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT = 10_000L
+    private const val NETWORK_FLUSH_INTERVAL_CELL_DEFAULT = 30_000L
+    private const val NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT = 60_000L
 
     /**
      * How many API requests can be enqueued before flush
@@ -79,10 +79,16 @@ object KlaviyoConfig : Config {
     /**
      * How many retries to allow an API request before permanent failure
      *
-     * Reasoning: Most likely the rate limit should be cleared within 2 retries with exp backoff.
-     * However, I wanted some extra padding for edge cases, since the consequence is lost data.
+     * Reasoning: Most likely the rate limit should be cleared within 2-3 retries with exp backoff.
      */
-    private const val NETWORK_MAX_RETRIES_DEFAULT: Int = 4
+    private const val NETWORK_MAX_RETRIES_DEFAULT: Int = 50
+
+    /**
+     * Maximum interval between retries for the exponential backoff, in milliseconds (3 minutes)
+     *
+     * Reasoning: We don't want to wait so long that the user has left the app.
+     */
+    private const val NETWORK_MAX_RETRY_INTERVAL_DEFAULT: Long = 180_000
 
     override val isDebugBuild = BuildConfig.DEBUG
 
@@ -94,7 +100,7 @@ object KlaviyoConfig : Config {
         private set
     override var networkTimeout = NETWORK_TIMEOUT_DEFAULT
         private set
-    override var networkFlushIntervals = intArrayOf(
+    override var networkFlushIntervals = longArrayOf(
         NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT,
         NETWORK_FLUSH_INTERVAL_CELL_DEFAULT,
         NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT
@@ -102,8 +108,11 @@ object KlaviyoConfig : Config {
         private set
     override var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private set
-    override var networkMaxRetries = NETWORK_MAX_RETRIES_DEFAULT
+    override var networkMaxAttempts = NETWORK_MAX_RETRIES_DEFAULT
         private set
+    override var networkMaxRetryInterval = NETWORK_MAX_RETRY_INTERVAL_DEFAULT
+        private set
+    override val networkJitterRange = 0..10
 
     override fun getManifestInt(key: String, defaultValue: Int): Int = if (!this::applicationContext.isInitialized) {
         defaultValue
@@ -120,13 +129,14 @@ object KlaviyoConfig : Config {
         private var baseUrl: String? = null
         private var debounceInterval: Int = DEBOUNCE_INTERVAL
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
-        private var networkFlushIntervals: IntArray = intArrayOf(
+        private var networkFlushIntervals = longArrayOf(
             NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT,
             NETWORK_FLUSH_INTERVAL_CELL_DEFAULT,
             NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT
         )
         private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
-        private var networkMaxRetries = NETWORK_MAX_RETRIES_DEFAULT
+        private var networkMaxAttempts = NETWORK_MAX_RETRIES_DEFAULT
+        private var networkMaxRetryInterval = NETWORK_MAX_RETRY_INTERVAL_DEFAULT
 
         private val requiredPermissions = arrayOf(
             Manifest.permission.ACCESS_NETWORK_STATE,
@@ -166,7 +176,7 @@ object KlaviyoConfig : Config {
         }
 
         override fun networkFlushInterval(
-            networkFlushInterval: Int,
+            networkFlushInterval: Long,
             type: NetworkMonitor.NetworkType
         ) = apply {
             if (networkFlushInterval >= 0) {
@@ -188,12 +198,22 @@ object KlaviyoConfig : Config {
             }
         }
 
-        override fun networkMaxRetries(networkMaxRetries: Int) = apply {
-            if (networkMaxRetries >= 0) {
-                this.networkMaxRetries = networkMaxRetries
+        override fun networkMaxAttempts(networkMaxAttempts: Int) = apply {
+            if (networkMaxAttempts >= 0) {
+                this.networkMaxAttempts = networkMaxAttempts
             } else {
                 Registry.log.error(
-                    "${KlaviyoConfig::networkMaxRetries.name} must be greater or equal to 0"
+                    "${KlaviyoConfig::networkMaxAttempts.name} must be greater or equal to 0"
+                )
+            }
+        }
+
+        override fun networkMaxRetryInterval(networkMaxRetryInterval: Long) = apply {
+            if (networkMaxRetryInterval >= 0) {
+                this.networkMaxRetryInterval = networkMaxRetryInterval
+            } else {
+                Registry.log.error(
+                    "${KlaviyoConfig::networkMaxRetryInterval.name} must be greater or equal to 0"
                 )
             }
         }
@@ -218,7 +238,8 @@ object KlaviyoConfig : Config {
             KlaviyoConfig.networkTimeout = networkTimeout
             KlaviyoConfig.networkFlushIntervals = networkFlushIntervals
             KlaviyoConfig.networkFlushDepth = networkFlushDepth
-            KlaviyoConfig.networkMaxRetries = networkMaxRetries
+            KlaviyoConfig.networkMaxAttempts = networkMaxAttempts
+            KlaviyoConfig.networkMaxRetryInterval = networkMaxRetryInterval
 
             return KlaviyoConfig
         }

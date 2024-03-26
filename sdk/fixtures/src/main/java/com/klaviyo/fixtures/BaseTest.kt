@@ -71,8 +71,10 @@ abstract class BaseTest {
     protected val configMock = mockk<Config>().apply {
         every { apiKey } returns API_KEY
         every { applicationContext } returns contextMock
-        every { networkMaxRetries } returns 4
-        every { networkFlushIntervals } returns intArrayOf(10_000, 30_000, 60_000)
+        every { networkMaxAttempts } returns 50
+        every { networkMaxRetryInterval } returns 180_000L
+        every { networkFlushIntervals } returns longArrayOf(10_000, 30_000, 60_000)
+        every { networkJitterRange } returns 0..0
         every { baseUrl } returns "https://test.fake-klaviyo.com"
     }
     protected val lifecycleMonitorMock = mockk<LifecycleMonitor>()
