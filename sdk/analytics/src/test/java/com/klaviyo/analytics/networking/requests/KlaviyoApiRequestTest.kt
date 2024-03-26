@@ -47,7 +47,7 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
 
         every { networkMonitorMock.isNetworkConnected() } returns true
         every { configMock.networkTimeout } returns 1
-        every { configMock.networkFlushIntervals } returns intArrayOf(10_000, 30_000, 60_000)
+        every { configMock.networkFlushIntervals } returns longArrayOf(10_000L, 30_000L, 60_000L)
     }
 
     @Test
@@ -177,14 +177,14 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
 
         val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
 
-        repeat(configMock.networkMaxRetries) {
+        repeat(configMock.networkMaxAttempts - 1) {
             // Should be retryable until max attempts hit
             assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
         }
 
         // Final attempt should return fail
         assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
-        assertEquals(configMock.networkMaxRetries + 1, request.attempts)
+        assertEquals(configMock.networkMaxAttempts, request.attempts)
     }
 
     @Test

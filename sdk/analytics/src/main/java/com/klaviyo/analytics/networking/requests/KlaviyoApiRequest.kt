@@ -114,8 +114,8 @@ internal open class KlaviyoApiRequest(
      * Internal tracking of the request status
      * When status changes, this setter updates start and end timestamps
      */
-    protected var status: Status = Status.Unsent
-        set(value) {
+    var status: Status = Status.Unsent
+        private set(value) {
             if (field == value) return
             field = value
 
@@ -170,7 +170,7 @@ internal open class KlaviyoApiRequest(
     /**
      * Tracks number of attempts to limit retries
      */
-    var attempts = 0
+    final override var attempts = 0
         private set
 
     /**
@@ -319,7 +319,7 @@ internal open class KlaviyoApiRequest(
         status = when (responseCode) {
             in successCodes -> Status.Complete
             HTTP_RETRY -> {
-                if (attempts <= Registry.config.networkMaxRetries) {
+                if (attempts < Registry.config.networkMaxAttempts) {
                     Status.PendingRetry
                 } else {
                     Status.Failed
