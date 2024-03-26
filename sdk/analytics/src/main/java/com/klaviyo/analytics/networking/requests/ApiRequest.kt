@@ -28,6 +28,11 @@ interface ApiRequest {
     val queuedTime: Long
 
     /**
+     * Number of send attempts
+     */
+    val attempts: Int
+
+    /**
      * Time the request was made
      */
     val startTime: Long?
