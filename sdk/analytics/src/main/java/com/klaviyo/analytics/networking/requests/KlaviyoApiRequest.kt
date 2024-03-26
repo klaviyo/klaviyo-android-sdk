@@ -114,8 +114,8 @@ internal open class KlaviyoApiRequest(
      * Internal tracking of the request status
      * When status changes, this setter updates start and end timestamps
      */
-    protected var status: Status = Status.Unsent
-        set(value) {
+    var status: Status = Status.Unsent
+        private set(value) {
             if (field == value) return
             field = value
 
