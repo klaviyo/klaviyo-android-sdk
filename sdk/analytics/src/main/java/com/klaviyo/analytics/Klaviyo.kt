@@ -167,11 +167,8 @@ object Klaviyo {
      * @param pushToken The push token provided by the device push service
      */
     fun setPushToken(pushToken: String) = safeApply {
-        if (UserInfo.shouldUpdatePush(pushToken)) {
-            UserInfo.setPushToken(pushToken)
+        UserInfo.setPushToken(pushToken) {
             Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
-        } else {
-            Registry.log.verbose("Push token is already set")
         }
     }
 

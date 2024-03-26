@@ -517,7 +517,8 @@ internal class KlaviyoApiClientTest : BaseRequestTest() {
     }
 
     @After
-    fun cleanup() {
+    override fun cleanup() {
+        super.cleanup()
         dataStoreSpy.clear(KlaviyoApiClient.QUEUE_KEY)
         KlaviyoApiClient.restoreQueue()
         assertEquals(0, KlaviyoApiClient.getQueueSize())

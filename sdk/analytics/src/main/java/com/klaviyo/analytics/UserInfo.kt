@@ -1,7 +1,5 @@
 package com.klaviyo.analytics
 
-import com.klaviyo.analytics.DeviceProperties.backgroundData
-import com.klaviyo.analytics.DeviceProperties.notificationPermission
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.model.ProfileKey.ANONYMOUS_ID
@@ -11,7 +9,7 @@ import com.klaviyo.analytics.model.ProfileKey.PHONE_NUMBER
 import com.klaviyo.analytics.model.ProfileKey.PUSH_STATE
 import com.klaviyo.analytics.model.ProfileKey.PUSH_TOKEN
 import com.klaviyo.analytics.networking.ApiClient
-import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status.Complete
+import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status.Failed
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import java.util.UUID
@@ -22,14 +20,10 @@ import java.util.UUID
 internal object UserInfo {
 
     init {
-        Registry.get<ApiClient>().onApiRequest {
-            // Update state when a push token is successfully saved to backend
-            // Make sure it's still the same token we're tracking in state
-            if (it is PushTokenApiRequest &&
-                it.status == Complete &&
-                it.token == pushToken
-            ) {
-                setPushToken(pushToken, it.notificationPermission, it.backgroundData)
+        Registry.get<ApiClient>().onApiRequest { request ->
+            // If push token request totally fails, we must remove it from state
+            if (request is PushTokenApiRequest && request.status == Failed) {
+                pushState = ""
             }
         }
     }
@@ -79,14 +73,34 @@ internal object UserInfo {
         get() = field.ifEmpty { fetch(ANONYMOUS_ID, ::generateUuid).also { anonymousId = it } }
 
     var pushToken: String = ""
-        private set(value) {
-            field = persist(PUSH_TOKEN, value)
-        }
+        private set(value) { field = persist(PUSH_TOKEN, value) }
         get() = field.ifEmpty { fetch(PUSH_TOKEN).also { field = it } }
 
+    /**
+     * Track the most recent state of push token + device metadata sent to the backend API
+     */
     private var pushState: String = ""
         set(value) { field = persist(PUSH_STATE, value) }
         get() = field.ifEmpty { fetch(PUSH_STATE).also { field = it } }
+
+    /**
+     * Save push token string to state
+     * If push token or any other device metadata have changed,
+     * invoke the onChanged callback (i.e. to enqueue the API request)
+     */
+    fun setPushToken(token: String, onChanged: () -> Unit) {
+        // Use the request body format as our state tracking value
+        val newPushState = PushTokenApiRequest(token, getAsProfile()).requestBody
+
+        if (newPushState != pushState) {
+            // Optimistic update algorithm: expect request to get to backend,
+            // on failure reset push state (see initializer). The main advantage to
+            // this algorithm is it prevents queueing duplicate requests immediately
+            pushState = newPushState ?: ""
+            pushToken = token
+            onChanged()
+        }
+    }
 
     /**
      * Generate a new UUID for anonymous ID
@@ -108,7 +122,8 @@ internal object UserInfo {
         email = ""
         phoneNumber = ""
         anonymousId = ""
-        setPushToken("", permission = false, background = false)
+        pushToken = ""
+        pushState = ""
     }
 
     /**
@@ -131,23 +146,4 @@ internal object UserInfo {
             profile.setPhoneNumber(phoneNumber)
         }
     }
-
-    fun shouldUpdatePush(
-        pushToken: String,
-        permission: Boolean? = null,
-        background: Boolean? = null
-    ): Boolean =
-        pushState != formatPushState(pushToken, permission, background)
-
-    fun setPushToken(token: String, permission: Boolean? = null, background: Boolean? = null) {
-        pushToken = token
-        pushState = formatPushState(pushToken, permission, background)
-    }
-
-    private fun formatPushState(
-        token: String,
-        permission: Boolean? = null,
-        background: Boolean? = null
-    ): String =
-        "$token-${permission ?: notificationPermission}-${background ?: backgroundData}"
 }

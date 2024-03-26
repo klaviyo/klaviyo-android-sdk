@@ -41,7 +41,8 @@ internal class EventApiRequestTest : BaseRequestTest() {
     }
 
     @After
-    fun cleanup() {
+    override fun cleanup() {
+        super.cleanup()
         unmockkObject(Klaviyo)
     }
 

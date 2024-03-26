@@ -16,7 +16,6 @@ import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.StaticClock
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkObject
 import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyAll
@@ -91,11 +90,13 @@ internal class KlaviyoTest : BaseTest() {
         every { apiClientMock.enqueuePushToken(any(), any()) } returns Unit
         every { configMock.debounceInterval } returns debounceTime
         UserInfo.reset()
+        DevicePropertiesTest.mockDeviceProperties()
     }
 
     @After
     fun cleanup() {
         UserInfo.reset()
+        DevicePropertiesTest.unmockDeviceProperties()
     }
 
     @Test
@@ -290,10 +291,6 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Stores push token and Enqueues a push token API call`() {
-        mockkObject(DeviceProperties)
-        every { DeviceProperties.backgroundData } returns true
-        every { DeviceProperties.notificationPermission } returns true
-
         Klaviyo.setPushToken(PUSH_TOKEN)
         assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
 
@@ -304,10 +301,6 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Push token request is ignored if state has not changed`() {
-        mockkObject(DeviceProperties)
-        every { DeviceProperties.backgroundData } returns true
-        every { DeviceProperties.notificationPermission } returns true
-
         Klaviyo.setPushToken(PUSH_TOKEN)
         assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
 
@@ -324,10 +317,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Push token request is repeated if state has changed`() {
-        mockkObject(DeviceProperties)
         every { DeviceProperties.backgroundData } returns true
-        every { DeviceProperties.notificationPermission } returns true
-
         Klaviyo.setPushToken(PUSH_TOKEN)
         assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
 
