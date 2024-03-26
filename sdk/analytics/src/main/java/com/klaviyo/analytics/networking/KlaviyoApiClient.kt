@@ -339,7 +339,7 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
         private fun computeRetryInterval(attempts: Int): Long {
-            val minRetryInterval = flushInterval
+            val minRetryInterval = Registry.config.networkFlushIntervals[networkType]
             val jitterSeconds = Registry.config.networkJitterRange.random()
             val exponentialBackoff = (2.0.pow(attempts).toLong() + jitterSeconds).times(1_000)
             val maxRetryInterval = Registry.config.networkMaxRetryInterval

@@ -81,7 +81,7 @@ object KlaviyoConfig : Config {
      *
      * Reasoning: Most likely the rate limit should be cleared within 2-3 retries with exp backoff.
      */
-    private const val NETWORK_MAX_RETRIES_DEFAULT: Int = 50
+    private const val NETWORK_MAX_ATTEMPTS_DEFAULT: Int = 50
 
     /**
      * Maximum interval between retries for the exponential backoff, in milliseconds (3 minutes)
@@ -108,7 +108,7 @@ object KlaviyoConfig : Config {
         private set
     override var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private set
-    override var networkMaxAttempts = NETWORK_MAX_RETRIES_DEFAULT
+    override var networkMaxAttempts = NETWORK_MAX_ATTEMPTS_DEFAULT
         private set
     override var networkMaxRetryInterval = NETWORK_MAX_RETRY_INTERVAL_DEFAULT
         private set
@@ -135,7 +135,7 @@ object KlaviyoConfig : Config {
             NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT
         )
         private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
-        private var networkMaxAttempts = NETWORK_MAX_RETRIES_DEFAULT
+        private var networkMaxAttempts = NETWORK_MAX_ATTEMPTS_DEFAULT
         private var networkMaxRetryInterval = NETWORK_MAX_RETRY_INTERVAL_DEFAULT
 
         private val requiredPermissions = arrayOf(
