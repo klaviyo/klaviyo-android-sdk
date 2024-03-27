@@ -61,6 +61,8 @@ object Klaviyo {
             unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
         } ?: throw LifecycleException()
+
+        UserInfo.startObservers()
     }
 
     /**
