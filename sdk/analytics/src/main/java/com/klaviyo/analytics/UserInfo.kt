@@ -19,7 +19,7 @@ import java.util.UUID
  */
 internal object UserInfo {
 
-    init {
+    fun startObservers() {
         Registry.get<ApiClient>().onApiRequest { request ->
             // If push token request totally fails, we must remove it from state
             if (request is PushTokenApiRequest && request.status == Failed) {
