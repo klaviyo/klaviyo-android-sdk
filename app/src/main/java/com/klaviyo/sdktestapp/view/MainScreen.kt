@@ -92,6 +92,7 @@ fun MainScreen(
                         onOpenNotificationSettings = settingsViewModel::openSettings,
                         onRequestedPushNotification = settingsViewModel::requestPushNotifications,
                         onRequestPushToken = settingsViewModel::setSdkPushToken,
+                        onExpirePushToken = settingsViewModel::expirePushToken,
                         onSendLocalNotification = settingsViewModel::sendLocalNotification,
                         setBaseUrl = settingsViewModel::setBaseUrl
                     )
