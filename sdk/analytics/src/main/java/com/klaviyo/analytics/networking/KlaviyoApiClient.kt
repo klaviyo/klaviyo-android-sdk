@@ -307,7 +307,7 @@ internal object KlaviyoApiClient : ApiClient {
                         // Encountered a retryable error
                         // Put this back on top of the queue, and we'll try again with backoff
                         apiQueue.offerFirst(request)
-                        flushInterval = computeRetryInterval(request.attempts)
+                        flushInterval = request.computeRetryInterval()
                         broadcastApiRequest(request)
                         break
                     }
@@ -338,11 +338,22 @@ internal object KlaviyoApiClient : ApiClient {
             handler?.postDelayed(this, flushInterval)
         }
 
-        private fun computeRetryInterval(attempts: Int): Long {
+        private fun KlaviyoApiRequest.computeRetryInterval(): Long {
+            try {
+                val retryAfter = this.responseHeaders?.let { it["Retry-After"]?.getOrNull(0) }
+
+                if (retryAfter?.isNotEmpty() == true) {
+                    return retryAfter.toInt() * 1_000L
+                }
+            } catch (e: NumberFormatException) {
+                Registry.log.warning("Invalid Retry-After header value", e)
+            }
+
             val minRetryInterval = Registry.config.networkFlushIntervals[networkType]
             val jitterSeconds = Registry.config.networkJitterRange.random()
             val exponentialBackoff = (2.0.pow(attempts).toLong() + jitterSeconds).times(1_000)
             val maxRetryInterval = Registry.config.networkMaxRetryInterval
+
             return min(
                 max(minRetryInterval, exponentialBackoff),
                 maxRetryInterval

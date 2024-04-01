@@ -53,7 +53,7 @@ interface ApiRequest {
     val httpMethod: String
 
     /**
-     * HTTP Headers
+     * HTTP request headers
      */
     val headers: Map<String, String>
 
@@ -75,6 +75,11 @@ interface ApiRequest {
      * @return
      */
     val responseCode: Int?
+
+    /**
+     * HTTP Response Headers
+     */
+    val responseHeaders: Map<String, List<String>>?
 
     /**
      * Render the response as a string, if the request has been sent

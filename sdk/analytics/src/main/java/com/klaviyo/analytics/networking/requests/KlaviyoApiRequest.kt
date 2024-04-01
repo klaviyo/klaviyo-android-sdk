@@ -7,7 +7,7 @@ import java.io.IOException
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.UUID
+import java.util.*
 import javax.net.ssl.HttpsURLConnection
 import org.json.JSONObject
 
@@ -218,6 +218,12 @@ internal open class KlaviyoApiRequest(
         protected set
 
     /**
+     * Response headers from Klaviyo
+     */
+    override var responseHeaders: Map<String, List<String>>? = null
+        protected set
+
+    /**
      * Body of response content from last send attempt
      */
     override var responseBody: String? = null
@@ -329,6 +335,7 @@ internal open class KlaviyoApiRequest(
     protected open fun parseResponse(connection: HttpURLConnection): Status {
         // https://developers.klaviyo.com/en/docs/rate_limits_and_error_handling
         responseCode = connection.responseCode
+        responseHeaders = connection.headerFields
 
         status = when (responseCode) {
             in successCodes -> Status.Complete
