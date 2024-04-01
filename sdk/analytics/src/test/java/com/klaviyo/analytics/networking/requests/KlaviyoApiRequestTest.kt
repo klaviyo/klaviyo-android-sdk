@@ -40,6 +40,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         every { HttpUtil.openConnection(expectedUrl) } returns connectionSpy
         every { HttpUtil.writeToConnection(capture(bodySlot), connectionSpy) } returns Unit
         every { connectionSpy.connect() } returns Unit
+        every { connectionSpy.headerFields } returns emptyMap()
         every { connectionSpy.inputStream } returns inputStream
         every { connectionSpy.errorStream } returns errorStream
 
