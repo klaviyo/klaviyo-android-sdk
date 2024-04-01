@@ -7,6 +7,7 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
+import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Companion.HEADER_RETRY_AFTER
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
@@ -340,7 +341,7 @@ internal object KlaviyoApiClient : ApiClient {
 
         private fun KlaviyoApiRequest.computeRetryInterval(): Long {
             try {
-                val retryAfter = this.responseHeaders?.let { it["Retry-After"]?.getOrNull(0) }
+                val retryAfter = this.responseHeaders?.let { it[HEADER_RETRY_AFTER]?.getOrNull(0) }
 
                 if (retryAfter?.isNotEmpty() == true) {
                     return retryAfter.toInt() * 1_000L

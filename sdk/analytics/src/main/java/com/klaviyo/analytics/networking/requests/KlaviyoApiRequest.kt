@@ -50,6 +50,7 @@ internal open class KlaviyoApiRequest(
         const val HEADER_REVISION = "Revision"
         const val HEADER_KLAVIYO_MOBILE = "X-Klaviyo-Mobile"
         const val HEADER_KLAVIYO_ATTEMPT = "X-Klaviyo-Retry-Attempt"
+        const val HEADER_RETRY_AFTER = "Retry-After"
         const val TYPE_JSON = "application/json"
         const val V3_REVISION = "2023-07-15"
 

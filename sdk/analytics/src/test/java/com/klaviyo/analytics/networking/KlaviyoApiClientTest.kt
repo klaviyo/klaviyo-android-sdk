@@ -384,6 +384,59 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `Rate limited requests are retried according Retry-After header if present`() {
+        // First unsent request, which we will retry till max attempts
+        val request1 = mockRequest("uuid-retry", KlaviyoApiRequest.Status.Unsent).also {
+            every { it.responseHeaders } returns mapOf("Retry-After" to listOf("50"))
+        }
+
+        every { request1.state } answers {
+            when (request1.attempts) {
+                0 -> KlaviyoApiRequest.Status.Unsent.name
+                50 -> KlaviyoApiRequest.Status.Failed.name
+                else -> KlaviyoApiRequest.Status.PendingRetry.name
+            }
+        }
+
+        // Second unset request in queue to ensure which shouldn't sent until first has failed
+        val request2 = mockRequest("uuid-unsent", KlaviyoApiRequest.Status.Unsent)
+
+        // Enqueue 2 requests
+        KlaviyoApiClient.enqueueRequest(request1, request2)
+
+        // Enqueueing should invoke handler.post and initialize our postedJob property
+        assertNotNull(postedJob)
+
+        // But the clock has not advanced, so no requests should have been sent yet
+        assertEquals(0, request1.attempts)
+
+        while (request1.state != KlaviyoApiRequest.Status.Failed.name) {
+            val startAttempts = request1.attempts
+
+            // Advance the time with our expected backoff interval
+            staticClock.time += 50_000L
+
+            // Run after advancing the clock (this mimics how handler.postDelay would run jobs)
+            postedJob!!.run()
+
+            // It should have attempted one send if the correct time elapsed
+            assertEquals(startAttempts + 1, request1.attempts)
+
+            // Fail test if we exceed max attempts
+            assert(request1.attempts <= 50)
+        }
+
+        // First request should have been retried exactly 50 times
+        assertEquals(50, request1.attempts)
+
+        // Upon final failure, request 1 should have been dropped from the queue
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertNull(dataStoreSpy.fetch(request1.uuid))
+
+        // Second request should have been attempted after the final failure of request 1
+        verify(exactly = 1) { request2.send(any()) }
+    }
+
     fun `Rate limited requests are retried with a backoff until max attempts`() {
         val defaultInterval = Registry.config.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
 
