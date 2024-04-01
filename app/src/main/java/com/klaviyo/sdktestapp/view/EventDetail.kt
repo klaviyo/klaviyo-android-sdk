@@ -57,6 +57,7 @@ fun EventDetail(
                 val seconds = duration.toDouble() / 1000
 
                 EventDetailItem(title = "Status code", body = event.responseCode.toString())
+                EventDetailItem(title = "Headers", body = event.responseHeaders ?: "<none>")
                 EventDetailItem(title = "Response Time", body = event.endTime.toString())
                 EventDetailItem(title = "Duration", body = "${seconds}s")
 
@@ -176,7 +177,8 @@ private fun CompleteRequest() {
                 }
             """.trimIndent(),
             responseCode = 202,
-            response = ""
+            responseHeaders = "{HEADERS}",
+            response = "{BODY}"
         )
     )
 }
