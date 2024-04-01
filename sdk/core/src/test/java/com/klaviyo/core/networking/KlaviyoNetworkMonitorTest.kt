@@ -14,6 +14,7 @@ import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 
 internal class KlaviyoNetworkMonitorTest : BaseTest() {
@@ -28,6 +29,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         var netCallbackSlot = slot<ConnectivityManager.NetworkCallback>()
     }
 
+    @Before
     override fun setup() {
         super.setup()
 

@@ -7,13 +7,15 @@ import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 internal class DevicePropertiesTest : BaseTest() {
+
     companion object {
-        private const val mockVersionCode = 123
+        private val mockVersionCode = 123
 
         fun mockDeviceProperties() {
             mockkObject(DeviceProperties)
@@ -31,6 +33,10 @@ internal class DevicePropertiesTest : BaseTest() {
             every { DeviceProperties.deviceId } returns "Mock Device ID"
             every { DeviceProperties.manufacturer } returns "Mock Manufacturer"
             every { DeviceProperties.osVersion } returns "Mock OS Version"
+        }
+
+        fun unmockDeviceProperties() {
+            unmockkObject(DeviceProperties)
         }
     }
 

@@ -14,6 +14,9 @@ import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import java.util.concurrent.ConcurrentLinkedDeque
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.pow
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -38,9 +41,18 @@ internal object KlaviyoApiClient : ApiClient {
             when (r.state) {
                 Status.Unsent.name -> Registry.log.verbose("${r.type} Request enqueued")
                 Status.Inflight.name -> Registry.log.verbose("${r.type} Request inflight")
-                Status.PendingRetry.name -> Registry.log.debug("${r.type} Request retrying")
-                Status.Complete.name -> Registry.log.verbose("${r.type} Request completed")
-                else -> Registry.log.debug("${r.type} Request failed")
+                Status.PendingRetry.name -> {
+                    val attemptsRemaining = Registry.config.networkMaxAttempts - r.attempts
+                    Registry.log.warning(
+                        "${r.type} Request failed with code ${r.responseCode}, and will be retried up to $attemptsRemaining more times."
+                    )
+                }
+                Status.Complete.name -> Registry.log.verbose(
+                    "${r.type} Request succeeded with code ${r.responseCode}"
+                )
+                else -> Registry.log.error(
+                    "${r.type} Request failed with code ${r.responseCode}, and will be dropped"
+                )
             }
 
             r.responseBody?.let { response ->
@@ -143,9 +155,9 @@ internal object KlaviyoApiClient : ApiClient {
         // Keep track if there's any errors restoring from persistent store
         var wasMutated = false
 
-        Registry.log.verbose("Restoring persisted queue")
-
         Registry.dataStore.fetch(QUEUE_KEY)?.let {
+            Registry.log.verbose("Restoring persisted queue")
+
             try {
                 val queue = JSONArray(it)
                 Array(queue.length()) { i -> queue.optString(i) }
@@ -227,16 +239,18 @@ internal object KlaviyoApiClient : ApiClient {
      */
     private fun startBatch(force: Boolean = false) {
         stopBatch() // we only ever want one batch job running
-        handler?.post(NetworkRunnable(force))
-        Registry.log.verbose("Started background handler")
+        handler?.post(NetworkRunnable(force)).also {
+            Registry.log.verbose("Posted job to network handler message queue")
+        }
     }
 
     /**
      * Stop all jobs on our handler thread
      */
     private fun stopBatch() {
-        handler?.removeCallbacksAndMessages(null)
-        Registry.log.verbose("Stopped background handler")
+        handler?.removeCallbacksAndMessages(null).also {
+            Registry.log.verbose("Cleared jobs from network handler message queue")
+        }
     }
 
     /**
@@ -251,11 +265,11 @@ internal object KlaviyoApiClient : ApiClient {
         var force = force
             private set
 
-        private val queueInitTime = Registry.clock.currentTimeMillis()
+        private var enqueuedTime = Registry.clock.currentTimeMillis()
 
         private var networkType: Int = Registry.networkMonitor.getNetworkType().position
 
-        private var flushInterval: Long = Registry.config.networkFlushIntervals[networkType].toLong()
+        private var flushInterval: Long = Registry.config.networkFlushIntervals[networkType]
 
         private val flushDepth: Int = Registry.config.networkFlushDepth
 
@@ -265,7 +279,7 @@ internal object KlaviyoApiClient : ApiClient {
          * Posts another delayed batch job if requests remains
          */
         override fun run() {
-            val queueTimePassed = Registry.clock.currentTimeMillis() - queueInitTime
+            val queueTimePassed = Registry.clock.currentTimeMillis() - enqueuedTime
 
             if (getQueueSize() < flushDepth && queueTimePassed < flushInterval && !force) {
                 return requeue()
@@ -286,14 +300,14 @@ internal object KlaviyoApiClient : ApiClient {
                         // On success or absolute failure, remove from queue and persistent store
                         Registry.dataStore.clear(request.uuid)
                         // Reset the flush interval, in case we had done any exp backoff
-                        flushInterval = Registry.config.networkFlushIntervals[networkType].toLong()
+                        flushInterval = Registry.config.networkFlushIntervals[networkType]
                         broadcastApiRequest(request)
                     }
                     Status.PendingRetry -> {
                         // Encountered a retryable error
-                        // Put this back on top of the queue and we'll try again with backoff
+                        // Put this back on top of the queue, and we'll try again with backoff
                         apiQueue.offerFirst(request)
-                        flushInterval *= request.attempts + 1
+                        flushInterval = computeRetryInterval(request.attempts)
                         broadcastApiRequest(request)
                         break
                     }
@@ -318,9 +332,21 @@ internal object KlaviyoApiClient : ApiClient {
          * Re-queue the job to run again after [flushInterval] milliseconds
          */
         private fun requeue() {
-            Registry.log.verbose("Retrying network batch in $flushInterval")
+            Registry.log.verbose("Network batch will run in $flushInterval ms")
             force = false
+            enqueuedTime = Registry.clock.currentTimeMillis()
             handler?.postDelayed(this, flushInterval)
+        }
+
+        private fun computeRetryInterval(attempts: Int): Long {
+            val minRetryInterval = Registry.config.networkFlushIntervals[networkType]
+            val jitterSeconds = Registry.config.networkJitterRange.random()
+            val exponentialBackoff = (2.0.pow(attempts).toLong() + jitterSeconds).times(1_000)
+            val maxRetryInterval = Registry.config.networkMaxRetryInterval
+            return min(
+                max(minRetryInterval, exponentialBackoff),
+                maxRetryInterval
+            )
         }
     }
 

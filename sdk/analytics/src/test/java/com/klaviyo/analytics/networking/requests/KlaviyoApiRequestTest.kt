@@ -12,6 +12,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 import org.json.JSONObject
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -48,10 +49,15 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     @Before
     override fun setup() {
         super.setup()
-
         every { networkMonitorMock.isNetworkConnected() } returns true
         every { configMock.networkTimeout } returns 1
-        every { configMock.networkFlushIntervals } returns intArrayOf(10_000, 30_000, 60_000)
+        every { configMock.networkFlushIntervals } returns longArrayOf(10_000L, 30_000L, 60_000L)
+    }
+
+    @After
+    override fun cleanup() {
+        super.cleanup()
+        unmockkObject(HttpUtil)
     }
 
     override fun makeTestRequest(): KlaviyoApiRequest =
@@ -184,15 +190,15 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
         val request = makeTestRequest()
 
-        repeat(configMock.networkMaxRetries) {
+        repeat(configMock.networkMaxAttempts - 1) {
             // Should be retryable until max attempts hit
             assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
-            assertEquals(request.headers["X-Klaviyo-Retry-Attempt"], "${it + 1}/4")
+            assertEquals(request.headers["X-Klaviyo-Retry-Attempt"], "${it + 1}/50")
         }
 
         // Final attempt should return fail
         assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
-        assertEquals(configMock.networkMaxRetries + 1, request.attempts)
+        assertEquals(configMock.networkMaxAttempts, request.attempts)
     }
 
     @Test
@@ -323,10 +329,5 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         assert(get.query.count() == 1)
         assertEquals("queryValue", get.query["queryKey"])
         assertEquals(null, get.body)
-    }
-
-    override fun clear() {
-        super.clear()
-        unmockkObject(HttpUtil)
     }
 }

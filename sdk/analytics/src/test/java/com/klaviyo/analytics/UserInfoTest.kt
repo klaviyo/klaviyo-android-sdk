@@ -11,6 +11,7 @@ import org.junit.Before
 import org.junit.Test
 
 internal class UserInfoTest : BaseTest() {
+
     @Before
     override fun setup() {
         super.setup()

@@ -4,7 +4,11 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import org.json.JSONObject
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 
 internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
@@ -16,9 +20,17 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
     override fun makeTestRequest(): EventApiRequest =
         EventApiRequest(stubEvent, stubProfile)
 
+    @Before
     override fun setup() {
         super.setup()
+        mockkObject(Klaviyo)
         every { Klaviyo.getPushToken() } returns PUSH_TOKEN
+    }
+
+    @After
+    override fun cleanup() {
+        super.cleanup()
+        unmockkObject(Klaviyo)
     }
 
     @Test
