@@ -189,6 +189,36 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `SetProfile with same identifiers doesn't enqueue profile request`() {
+        UserInfo.email = EMAIL
+        UserInfo.phoneNumber = PHONE
+        UserInfo.externalId = EXTERNAL_ID
+
+        val profile = Profile(
+            mapOf(
+                ProfileKey.EMAIL to EMAIL,
+                ProfileKey.PHONE_NUMBER to PHONE,
+                ProfileKey.EXTERNAL_ID to EXTERNAL_ID
+            )
+        )
+
+        Klaviyo.setProfile(profile)
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+
+        verifyProfileDebounced()
+    }
+
+    @Test
+    fun `SetProfile's fluent setters ignores empty strings and doesn't enqueue profile request`() {
+        Klaviyo.setProfile(Profile().setEmail("").setPhoneNumber("").setExternalId(""))
+
+        assertEquals(Klaviyo.getEmail(), null)
+        assertEquals(Klaviyo.getPhoneNumber(), null)
+        assertEquals(Klaviyo.getExternalId(), null)
+    }
+
+    @Test
     fun `setProfile merges into an anonymous profile`() {
         val anonId = UserInfo.anonymousId
 
@@ -220,6 +250,26 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `Sets empty external id doesn't enqueue profile request`() {
+        UserInfo.externalId = EXTERNAL_ID
+
+        Klaviyo.setExternalId("")
+        assertEquals(EXTERNAL_ID, UserInfo.externalId)
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `Sets external id doesn't enqueue profile request if it's the same`() {
+        UserInfo.externalId = EXTERNAL_ID
+
+        Klaviyo.setExternalId(EXTERNAL_ID)
+        assertEquals(EXTERNAL_ID, UserInfo.externalId)
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
     fun `Sets user email into info`() {
         Klaviyo.setEmail(EMAIL)
 
@@ -228,11 +278,51 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `Sets empty email into info doesn't enqueue profile request`() {
+        UserInfo.email = EMAIL
+
+        Klaviyo.setEmail("")
+        assertEquals(EMAIL, UserInfo.email)
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `setEmail does not update UserInfo when called with the same email`() {
+        val initialEmail = "test@example.com"
+        UserInfo.email = initialEmail
+
+        Klaviyo.setEmail(initialEmail)
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
     fun `Sets user phone into info`() {
         Klaviyo.setPhoneNumber(PHONE)
 
         assertEquals(PHONE, UserInfo.phoneNumber)
         verifyProfileDebounced()
+    }
+
+    @Test
+    fun `setPhoneNumber does not update UserInfo when called with the empty phone number`() {
+        val initialPhone = "+12223334444"
+        UserInfo.phoneNumber = initialPhone
+
+        Klaviyo.setPhoneNumber("")
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `setPhoneNumber does not update UserInfo when called with the same phone number`() {
+        val initialPhone = "+12223334444"
+        UserInfo.phoneNumber = initialPhone
+
+        Klaviyo.setPhoneNumber(initialPhone)
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
     }
 
     @Test

@@ -14,21 +14,27 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
     var externalId: String?
         get() = (this[ProfileKey.EXTERNAL_ID])?.toString()
         set(value) {
-            this[ProfileKey.EXTERNAL_ID] = value
+            if (!value.isNullOrEmpty()) {
+                this[ProfileKey.EXTERNAL_ID] = value
+            }
         }
 
     fun setEmail(email: String?) = apply { this.email = email }
     var email: String?
         get() = (this[ProfileKey.EMAIL])?.toString()
         set(value) {
-            this[ProfileKey.EMAIL] = value
+            if (!value.isNullOrEmpty()) {
+                this[ProfileKey.EMAIL] = value
+            }
         }
 
     fun setPhoneNumber(phoneNumber: String?) = apply { this.phoneNumber = phoneNumber }
     var phoneNumber: String?
         get() = (this[ProfileKey.PHONE_NUMBER])?.toString()
         set(value) {
-            this[ProfileKey.PHONE_NUMBER] = value
+            if (!value.isNullOrEmpty()) {
+                this[ProfileKey.PHONE_NUMBER] = value
+            }
         }
 
     internal fun setAnonymousId(anonymousId: String?) = apply { this.anonymousId = anonymousId }

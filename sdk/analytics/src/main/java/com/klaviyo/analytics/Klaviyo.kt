@@ -82,9 +82,27 @@ object Klaviyo {
             resetProfile()
         }
 
-        UserInfo.externalId = profile.externalId ?: ""
-        UserInfo.email = profile.email ?: ""
-        UserInfo.phoneNumber = profile.phoneNumber ?: ""
+        if (profile.email != null &&
+            profile.email!!.isNotEmpty() &&
+            profile.email != UserInfo.email
+        ) {
+            UserInfo.email = profile.email!!
+        }
+
+        if (profile.phoneNumber != null &&
+            profile.phoneNumber!!.isNotEmpty() &&
+            profile.phoneNumber != UserInfo.phoneNumber
+        ) {
+            UserInfo.phoneNumber = profile.phoneNumber!!
+        }
+
+        if (profile.externalId != null &&
+            profile.externalId!!.isNotEmpty() &&
+            profile.externalId != UserInfo.externalId
+        ) {
+            UserInfo.externalId = profile.externalId!!
+        }
+
         profileOperationQueue.debounceProfileUpdate(profile)
     }
 
@@ -97,10 +115,18 @@ object Klaviyo {
      * This should be called whenever the active user in your app changes
      * (e.g. after a fresh login)
      *
+     * note that if the email is empty then the SDK will ignore the email.
+     * use `resetProfile` to clear the email from the profile
+     *
      * @param email Email address for active user
      * @return Returns [Klaviyo] for call chaining
      */
-    fun setEmail(email: String): Klaviyo = this.setProfileAttribute(ProfileKey.EMAIL, email)
+    fun setEmail(email: String): Klaviyo =
+        if (email.isNotEmpty() && email != UserInfo.email) {
+            this.setProfileAttribute(ProfileKey.EMAIL, email)
+        } else {
+            this
+        }
 
     /**
      * @return The email of the currently tracked profile, if set
@@ -123,7 +149,11 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setPhoneNumber(phoneNumber: String): Klaviyo =
-        this.setProfileAttribute(ProfileKey.PHONE_NUMBER, phoneNumber)
+        if (phoneNumber.isNotEmpty() && phoneNumber != UserInfo.phoneNumber) {
+            this.setProfileAttribute(ProfileKey.PHONE_NUMBER, phoneNumber)
+        } else {
+            this
+        }
 
     /**
      * @return The phone number of the currently tracked profile, if set
@@ -149,7 +179,11 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setExternalId(externalId: String): Klaviyo =
-        this.setProfileAttribute(ProfileKey.EXTERNAL_ID, externalId)
+        if (externalId.isNotEmpty() && externalId != UserInfo.externalId) {
+            this.setProfileAttribute(ProfileKey.EXTERNAL_ID, externalId)
+        } else {
+            this
+        }
 
     /**
      * @return The external ID of the currently tracked profile, if set
