@@ -72,6 +72,8 @@ object Klaviyo {
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
      *
+     * if empty profile identifiers are passed they will be ignored
+     *
      * @param profile A map-like object representing properties of the new user
      * @return Returns [Klaviyo] for call chaining
      */
@@ -145,6 +147,9 @@ object Klaviyo {
      * This should be called whenever the active user in your app changes
      * (e.g. after a fresh login)
      *
+     * note that if the phone number is empty then the SDK will ignore it.
+     * use `resetProfile` to clear the phone number from the profile
+     *
      * @param phoneNumber Phone number for active user
      * @return Returns [Klaviyo] for call chaining
      */
@@ -174,6 +179,9 @@ object Klaviyo {
      *
      * This should be called whenever the active user in your app changes
      * (e.g. after a fresh login)
+     *
+     * note that if the external id is empty then the SDK will ignore it.
+     * use `resetProfile` to clear the external id from the profile
      *
      * @param externalId Unique identifier from external system
      * @return Returns [Klaviyo] for call chaining
