@@ -11,6 +11,7 @@ import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil as HandlerU
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
+import com.klaviyo.analytics.networking.requests.RequestMethod
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
@@ -22,6 +23,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.slot
+import io.mockk.spyk
 import io.mockk.unmockkObject
 import io.mockk.verify
 import java.net.URL
@@ -105,7 +107,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         uuid: String = "uuid",
         status: KlaviyoApiRequest.Status = KlaviyoApiRequest.Status.Complete
     ): KlaviyoApiRequest =
-        mockk<KlaviyoApiRequest>().also {
+        spyk(KlaviyoApiRequest("https://mock.com", RequestMethod.GET)).also {
             every { it.state } returns status.name
             val getState = {
                 when (it.state) {
@@ -437,11 +439,15 @@ internal class KlaviyoApiClientTest : BaseTest() {
         verify(exactly = 1) { request2.send(any()) }
     }
 
-    fun `Rate limited requests are retried with a backoff until max attempts`() {
+    @Test
+    fun `Rate limited requests are retried with backoff until max attempts in absence of Retry-After header`() {
         val defaultInterval = Registry.config.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
 
         // First unsent request, which we will retry till max attempts
-        val request1 = mockRequest("uuid-retry", KlaviyoApiRequest.Status.Unsent)
+        val request1 = mockRequest("uuid-retry", KlaviyoApiRequest.Status.Unsent).also {
+            every { it.responseHeaders } returns emptyMap()
+        }
+
         every { request1.state } answers {
             when (request1.attempts) {
                 0 -> KlaviyoApiRequest.Status.Unsent.name

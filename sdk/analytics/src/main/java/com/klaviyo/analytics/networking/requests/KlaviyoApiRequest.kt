@@ -9,6 +9,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.*
 import javax.net.ssl.HttpsURLConnection
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.pow
 import org.json.JSONObject
 
 /**
@@ -49,7 +52,7 @@ internal open class KlaviyoApiRequest(
         const val HEADER_ACCEPT = "Accept"
         const val HEADER_REVISION = "Revision"
         const val HEADER_KLAVIYO_MOBILE = "X-Klaviyo-Mobile"
-        const val HEADER_KLAVIYO_ATTEMPT = "X-Klaviyo-Retry-Attempt"
+        const val HEADER_KLAVIYO_ATTEMPT = "X-Klaviyo-Attempt-Count"
         const val HEADER_RETRY_AFTER = "Retry-After"
         const val TYPE_JSON = "application/json"
         const val V3_REVISION = "2023-07-15"
@@ -160,7 +163,7 @@ internal open class KlaviyoApiRequest(
         HEADER_REVISION to V3_REVISION,
         HEADER_USER_AGENT to DeviceProperties.userAgent,
         HEADER_KLAVIYO_MOBILE to "1",
-        HEADER_KLAVIYO_ATTEMPT to "0/${Registry.config.networkMaxAttempts}"
+        HEADER_KLAVIYO_ATTEMPT to "1/${Registry.config.networkMaxAttempts}"
     )
 
     /**
@@ -184,8 +187,7 @@ internal open class KlaviyoApiRequest(
     final override var attempts = 0
         private set(value) {
             field = value
-            val maxRetries = Registry.config.networkMaxAttempts
-            headers[HEADER_KLAVIYO_ATTEMPT] = "$value/$maxRetries"
+            headers[HEADER_KLAVIYO_ATTEMPT] = "$value/${Registry.config.networkMaxAttempts}"
         }
 
     /**
@@ -360,5 +362,36 @@ internal open class KlaviyoApiRequest(
         responseBody = BufferedReader(InputStreamReader(stream)).use { it.readText() }
 
         return status
+    }
+
+    /**
+     * Compute a retry interval based on state of the request
+     *
+     * If present, obey the Retry-After response header, plus some jitter.
+     * Absent the header, use an exponential backoff algorithm, with a
+     * floor set by current network connection, and ceiling set by the config.
+     */
+    fun computeRetryInterval(): Long {
+        val jitterSeconds = Registry.config.networkJitterRange.random()
+
+        try {
+            val retryAfter = this.responseHeaders?.let { it[HEADER_RETRY_AFTER]?.getOrNull(0) }
+
+            if (retryAfter?.isNotEmpty() == true) {
+                return (retryAfter.toInt() + jitterSeconds).times(1_000L)
+            }
+        } catch (e: NumberFormatException) {
+            Registry.log.warning("Invalid Retry-After header value", e)
+        }
+
+        val networkType = Registry.networkMonitor.getNetworkType().position
+        val minRetryInterval = Registry.config.networkFlushIntervals[networkType]
+        val exponentialBackoff = (2.0.pow(attempts).toLong() + jitterSeconds).times(1_000L)
+        val maxRetryInterval = Registry.config.networkMaxRetryInterval
+
+        return min(
+            max(minRetryInterval, exponentialBackoff),
+            maxRetryInterval
+        )
     }
 }

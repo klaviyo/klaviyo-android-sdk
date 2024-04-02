@@ -7,7 +7,6 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
-import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Companion.HEADER_RETRY_AFTER
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
@@ -15,9 +14,6 @@ import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import java.util.concurrent.ConcurrentLinkedDeque
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -337,28 +333,6 @@ internal object KlaviyoApiClient : ApiClient {
             force = false
             enqueuedTime = Registry.clock.currentTimeMillis()
             handler?.postDelayed(this, flushInterval)
-        }
-
-        private fun KlaviyoApiRequest.computeRetryInterval(): Long {
-            try {
-                val retryAfter = this.responseHeaders?.let { it[HEADER_RETRY_AFTER]?.getOrNull(0) }
-
-                if (retryAfter?.isNotEmpty() == true) {
-                    return retryAfter.toInt() * 1_000L
-                }
-            } catch (e: NumberFormatException) {
-                Registry.log.warning("Invalid Retry-After header value", e)
-            }
-
-            val minRetryInterval = Registry.config.networkFlushIntervals[networkType]
-            val jitterSeconds = Registry.config.networkJitterRange.random()
-            val exponentialBackoff = (2.0.pow(attempts).toLong() + jitterSeconds).times(1_000)
-            val maxRetryInterval = Registry.config.networkMaxRetryInterval
-
-            return min(
-                max(minRetryInterval, exponentialBackoff),
-                maxRetryInterval
-            )
         }
     }
 
