@@ -26,9 +26,11 @@ internal object KlaviyoApiRequestDecoder {
             PushTokenApiRequest::class.simpleName -> PushTokenApiRequest(time, uuid)
             else -> KlaviyoApiRequest(urlPath, method, time, uuid)
         }.apply {
-            headers = json.getJSONObject(KlaviyoApiRequest.HEADERS_JSON_KEY).let {
-                it.keys().asSequence().associateWith { k -> it.getString(k) }.toMutableMap()
-            }
+            headers.replaceAllWith(
+                json.getJSONObject(KlaviyoApiRequest.HEADERS_JSON_KEY).let {
+                    it.keys().asSequence().associateWith { k -> it.getString(k) }.toMap()
+                }
+            )
             query = json.getJSONObject(KlaviyoApiRequest.QUERY_JSON_KEY).let {
                 it.keys().asSequence().associateWith { k -> it.getString(k) }
             }

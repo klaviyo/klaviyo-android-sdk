@@ -79,7 +79,7 @@ interface ApiRequest {
     /**
      * HTTP Response Headers
      */
-    val responseHeaders: Map<String, List<String>>?
+    val responseHeaders: Map<String, List<String>>
 
     /**
      * Render the response as a string, if the request has been sent

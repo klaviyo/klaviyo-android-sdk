@@ -133,7 +133,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
                 attempts++
                 getState()
             }
-            every { it.responseHeaders } returns null
+            every { it.responseHeaders } returns emptyMap()
             every { it.responseBody } returns null
             every { it.responseCode } answers {
                 when (getState()) {

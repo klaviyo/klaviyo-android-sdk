@@ -7,7 +7,7 @@ import java.io.IOException
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.*
+import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
 import kotlin.math.max
 import kotlin.math.min
@@ -134,6 +134,15 @@ internal open class KlaviyoApiRequest(
         }
 
     /**
+     * Tracks number of attempts to limit retries
+     */
+    final override var attempts = 0
+        private set(value) {
+            field = value
+            headers[HEADER_KLAVIYO_ATTEMPT] = "$value/${Registry.config.networkMaxAttempts}"
+        }
+
+    /**
      * Compiles the base url, path and query data into a [URL] object
      */
     override val url: URL
@@ -157,13 +166,13 @@ internal open class KlaviyoApiRequest(
     /**
      * HTTP request headers
      */
-    override var headers: MutableMap<String, String> = mutableMapOf(
+    override val headers: MutableMap<String, String> = mutableMapOf(
         HEADER_CONTENT to TYPE_JSON,
         HEADER_ACCEPT to TYPE_JSON,
         HEADER_REVISION to V3_REVISION,
         HEADER_USER_AGENT to DeviceProperties.userAgent,
         HEADER_KLAVIYO_MOBILE to "1",
-        HEADER_KLAVIYO_ATTEMPT to "1/${Registry.config.networkMaxAttempts}"
+        HEADER_KLAVIYO_ATTEMPT to "$attempts/${Registry.config.networkMaxAttempts}"
     )
 
     /**
@@ -180,15 +189,6 @@ internal open class KlaviyoApiRequest(
      * Convert request body to string
      */
     override val requestBody: String? get() = body?.toString()
-
-    /**
-     * Tracks number of attempts to limit retries
-     */
-    final override var attempts = 0
-        private set(value) {
-            field = value
-            headers[HEADER_KLAVIYO_ATTEMPT] = "$value/${Registry.config.networkMaxAttempts}"
-        }
 
     /**
      * Timestamp request was first enqueued
@@ -223,7 +223,7 @@ internal open class KlaviyoApiRequest(
     /**
      * Response headers from Klaviyo
      */
-    override var responseHeaders: Map<String, List<String>>? = null
+    override var responseHeaders: Map<String, List<String>> = emptyMap()
         protected set
 
     /**
@@ -375,7 +375,7 @@ internal open class KlaviyoApiRequest(
         val jitterSeconds = Registry.config.networkJitterRange.random()
 
         try {
-            val retryAfter = this.responseHeaders?.let { it[HEADER_RETRY_AFTER]?.getOrNull(0) }
+            val retryAfter = this.responseHeaders[HEADER_RETRY_AFTER]?.getOrNull(0)
 
             if (retryAfter?.isNotEmpty() == true) {
                 return (retryAfter.toInt() + jitterSeconds).times(1_000L)
@@ -393,5 +393,14 @@ internal open class KlaviyoApiRequest(
             max(minRetryInterval, exponentialBackoff),
             maxRetryInterval
         )
+    }
+
+    /**
+     * Clear a mutable map and add new key value pairs
+     * Utility to replace all headers
+     */
+    fun <K, V> MutableMap<K, V>.replaceAllWith(newValues: Map<K, V>) = apply {
+        clear()
+        this += newValues
     }
 }

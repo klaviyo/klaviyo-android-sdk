@@ -95,7 +95,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     fun `Builds url with headers`() {
         val connectionMock = withConnectionMock(URL(expectedFullUrl))
         val request = makeTestRequest().apply {
-            headers = mutableMapOf("header" to "value")
+            headers.replaceAllWith(mapOf("header" to "value"))
         }
         request.send()
 
@@ -126,6 +126,17 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         request.send()
         assertEquals(TIME, request.startTime)
         assertEquals(TIME, request.endTime)
+    }
+
+    @Test
+    fun `Increments attempt counter on send`() {
+        withConnectionMock(URL(expectedFullUrl))
+        val request = makeTestRequest()
+
+        assertEquals(0, request.attempts)
+        request.send()
+        assertEquals(1, request.attempts)
+        assertEquals(request.headers["X-Klaviyo-Attempt-Count"], "1/50")
     }
 
     @Test
@@ -333,7 +344,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
             RequestMethod.POST,
             uuid = "uuid"
         ).apply {
-            headers = mutableMapOf("headerKey" to "headerValue")
+            headers.replaceAllWith(mapOf("headerKey" to "headerValue"))
             query = mapOf("queryKey" to "queryValue")
             body = JSONObject(mapOf("bodyKey" to "bodyValue"))
         }
@@ -348,7 +359,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
             RequestMethod.GET,
             uuid = "uuid"
         ).apply {
-            headers = mutableMapOf("headerKey" to "headerValue")
+            headers.replaceAllWith(mapOf("headerKey" to "headerValue"))
             query = mapOf("queryKey" to "queryValue")
         }
 
@@ -369,6 +380,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         assertEquals("queryValue", post.query["queryKey"])
         assert(post.body != null)
         assertEquals("{\"bodyKey\":\"bodyValue\"}", post.body.toString())
+        assertEquals(0, post.attempts)
     }
 
     @Test
@@ -384,5 +396,6 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         assert(get.query.count() == 1)
         assertEquals("queryValue", get.query["queryKey"])
         assertEquals(null, get.body)
+        assertEquals(0, get.attempts)
     }
 }

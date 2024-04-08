@@ -19,7 +19,7 @@ internal abstract class BaseApiRequestTest<T> : BaseTest() where T : KlaviyoApiR
         "Revision" to "2023-07-15",
         "User-Agent" to "Mock User Agent",
         "X-Klaviyo-Mobile" to "1",
-        "X-Klaviyo-Attempt-Count" to "1/50"
+        "X-Klaviyo-Attempt-Count" to "0/50" // Note: 0/50 is just the default, it increments to 1/50 before a real send!
     )
 
     open val expectedQuery = mapOf("company_id" to API_KEY)
