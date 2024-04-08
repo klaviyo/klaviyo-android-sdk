@@ -109,24 +109,28 @@ A profile can be identified by any combination of the following:
 
 Identifiers are persisted to local storage so that the SDK can keep track of the current profile.
 
-Profile identifiers and other attributes can be set all at once as a `map`:
+Profile identifiers and other attributes can be set all at once using the `Profile` data class:
 
 ```kotlin
 val profile = Profile(
-    mapOf(
-        ProfileKey.EMAIL to "kermit@example.com",
-        ProfileKey.FIRST_NAME to "Kermit"
+    externalId = "USER_IDENTIFIER",
+    email = "kermit@example.com",
+    phoneNumber = "+12223334444",
+    properties = mapOf(
+        ProfileKey.FIRST_NAME to "Kermit",
+        ProfileKey.CUSTOM("instrument") to "banjo"
     )
 )
+
 Klaviyo.setProfile(profile)
 ```
 
 Or individually with additive fluent setters:
 
 ```kotlin
-Klaviyo.setEmail("kermit@example.com")
+Klaviyo.setExternalId("USER_IDENTIFIER")
+    .setEmail("kermit@example.com")
     .setPhoneNumber("+12223334444")
-    .setExternalId("USER_IDENTIFIER")
     .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
     .setProfileAttribute(ProfileKey.CUSTOM("instrument"), "banjo")
 ```
