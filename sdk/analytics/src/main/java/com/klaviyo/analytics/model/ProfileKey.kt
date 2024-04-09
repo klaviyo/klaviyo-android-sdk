@@ -7,8 +7,19 @@ package com.klaviyo.analytics.model
 sealed class ProfileKey(name: String) : Keyword(name) {
 
     // Identifiers
+    @Deprecated(
+        "The key for external_id will be made private in an upcoming release, use explicit setter instead."
+    )
     object EXTERNAL_ID : ProfileKey("external_id")
+
+    @Deprecated(
+        "The key for email will be made private in an upcoming release, use explicit setter instead."
+    )
     object EMAIL : ProfileKey("email")
+
+    @Deprecated(
+        "The key for phone_number will be made private in an upcoming release, use explicit setter instead."
+    )
     object PHONE_NUMBER : ProfileKey("phone_number")
     internal object ANONYMOUS_ID : ProfileKey("anonymous_id")
     internal object PUSH_TOKEN : ProfileKey("push_token")
