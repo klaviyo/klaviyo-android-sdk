@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.core.networking.NetworkMonitor
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.slot
@@ -12,29 +13,36 @@ import java.net.HttpURLConnection
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 import org.json.JSONObject
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
-internal class KlaviyoApiRequestTest : BaseRequestTest() {
-    private val stubUrlPath = "test"
-    private val stubFullUrl = "${configMock.baseUrl}/$stubUrlPath"
+internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
-    private val stubErrorResponse = "error"
-    private val stubSuccessResponse = "success"
+    override val expectedUrl = "test"
+
+    override val expectedMethod: RequestMethod = RequestMethod.GET
+
+    override val expectedQuery: Map<String, String> = emptyMap()
+
+    private val expectedFullUrl = "${configMock.baseUrl}/$expectedUrl"
+
     private val bodySlot = slot<String>()
 
     private fun withConnectionMock(expectedUrl: URL): HttpURLConnection {
         val connectionSpy = spyk(expectedUrl.openConnection()) as HttpURLConnection
-        val inputStream = ByteArrayInputStream(stubSuccessResponse.toByteArray())
-        val errorStream = ByteArrayInputStream(stubErrorResponse.toByteArray())
+        val inputStream = ByteArrayInputStream("success".toByteArray())
+        val errorStream = ByteArrayInputStream("error".toByteArray())
 
         mockkObject(HttpUtil)
         every { HttpUtil.openConnection(expectedUrl) } returns connectionSpy
         every { HttpUtil.writeToConnection(capture(bodySlot), connectionSpy) } returns Unit
         every { connectionSpy.connect() } returns Unit
+        every { connectionSpy.responseCode } returns 202
+        every { connectionSpy.headerFields } returns emptyMap()
         every { connectionSpy.inputStream } returns inputStream
         every { connectionSpy.errorStream } returns errorStream
 
@@ -44,17 +52,25 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
     @Before
     override fun setup() {
         super.setup()
-
         every { networkMonitorMock.isNetworkConnected() } returns true
         every { configMock.networkTimeout } returns 1
         every { configMock.networkFlushIntervals } returns longArrayOf(10_000L, 30_000L, 60_000L)
     }
 
+    @After
+    override fun cleanup() {
+        super.cleanup()
+        unmockkObject(HttpUtil)
+    }
+
+    override fun makeTestRequest(): KlaviyoApiRequest =
+        KlaviyoApiRequest(expectedUrl, RequestMethod.GET)
+
     @Test
     fun `Treats same UUID as equal requests for deduplication`() {
-        val request1 = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET, uuid = "uuid1")
-        val request2 = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET, uuid = "uuid2")
-        val request3 = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET, uuid = "uuid2")
+        val request1 = KlaviyoApiRequest(expectedUrl, RequestMethod.GET, uuid = "uuid1")
+        val request2 = KlaviyoApiRequest(expectedUrl, RequestMethod.GET, uuid = "uuid2")
+        val request3 = KlaviyoApiRequest(expectedUrl, RequestMethod.GET, uuid = "uuid2")
 
         assertNotEquals(request1, null)
         assertNotEquals(request1, request2)
@@ -67,9 +83,9 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
 
     @Test
     fun `Builds url with empty query data`() {
-        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
+        val request = makeTestRequest()
 
-        val expectedUrl = URL(stubFullUrl)
+        val expectedUrl = URL(expectedFullUrl)
         val actualUrl = request.url
 
         assertEquals(expectedUrl, actualUrl)
@@ -77,9 +93,9 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
 
     @Test
     fun `Builds url with headers`() {
-        val connectionMock = withConnectionMock(URL(stubFullUrl))
-        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET).apply {
-            headers = mapOf("header" to "value")
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        val request = makeTestRequest().apply {
+            headers.replaceAllWith(mapOf("header" to "value"))
         }
         request.send()
 
@@ -88,8 +104,8 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
 
     @Test
     fun `Invokes pre-send callback when inflight`() {
-        withConnectionMock(URL(stubFullUrl))
-        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
+        withConnectionMock(URL(expectedFullUrl))
+        val request = makeTestRequest()
 
         var called = false
         request.send {
@@ -101,22 +117,84 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
     }
 
     @Test
-    fun `Sets send time on send`() {
-        withConnectionMock(URL(stubFullUrl))
-        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
+    fun `Sets send times on send`() {
+        withConnectionMock(URL(expectedFullUrl))
+        val request = makeTestRequest()
 
         assertNull(request.startTime)
+        assertNull(request.endTime)
         request.send()
         assertEquals(TIME, request.startTime)
+        assertEquals(TIME, request.endTime)
+    }
+
+    @Test
+    fun `Increments attempt counter on send`() {
+        withConnectionMock(URL(expectedFullUrl))
+        val request = makeTestRequest()
+
+        assertEquals(0, request.attempts)
+        request.send()
+        assertEquals(1, request.attempts)
+        assertEquals(request.headers["X-Klaviyo-Attempt-Count"], "1/50")
+    }
+
+    @Test
+    fun `Sets response headers after send`() {
+        val expectedHeaders = mapOf("Response-Header" to listOf("1", "2", "3"))
+        withConnectionMock(URL(expectedFullUrl)).also {
+            every { it.headerFields } returns expectedHeaders
+        }
+
+        val request = makeTestRequest()
+        request.send()
+        assertEquals(expectedHeaders, request.responseHeaders)
+    }
+
+    @Test
+    fun `Parses Retry-After header if present and adds jitter`() {
+        val expectedHeaders = mapOf("Retry-After" to listOf("25"))
+        every { configMock.networkJitterRange } returns 1..1
+        withConnectionMock(URL(expectedFullUrl)).also {
+            every { it.headerFields } returns expectedHeaders
+        }
+
+        val request = makeTestRequest()
+        request.send()
+        assertEquals(26_000L, request.computeRetryInterval())
+    }
+
+    @Test
+    fun `Falls back on network interval without jitter when Retry-After header is missing or invalid`() {
+        // Wifi interval is 10s, force jitter to be 1s
+        every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
+        every { configMock.networkJitterRange } returns 1..1
+
+        val request = makeTestRequest()
+        assertEquals(10_000L, request.computeRetryInterval())
+
+        withConnectionMock(URL(expectedFullUrl)).also {
+            every { it.headerFields } returns mapOf("Retry-After" to listOf("invalid time"))
+            request.send()
+            assertEquals(10_000L, request.computeRetryInterval())
+        }
+
+        withConnectionMock(URL(expectedFullUrl)).also {
+            every { it.headerFields } returns emptyMap()
+            request.send()
+            assertEquals(10_000L, request.computeRetryInterval())
+        }
+
+        assertEquals(2, request.attempts)
     }
 
     @Test
     fun `Builds url with multiple query parameters`() {
-        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET).apply {
+        val request = makeTestRequest().apply {
             query = mapOf("first" to "second", "query" to "1", "flag" to "false")
         }
 
-        val expectedUrl = URL("$stubFullUrl?first=second&query=1&flag=false")
+        val expectedUrl = URL("$expectedFullUrl?first=second&query=1&flag=false")
         val actualUrl = request.url
 
         assertEquals(expectedUrl, actualUrl)
@@ -124,7 +202,7 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
 
     @Test
     fun `Opening HTTP connection tests for SSL protocol`() {
-        val url = URL(stubFullUrl)
+        val url = URL(expectedFullUrl)
         assert(HttpUtil.openConnection(url) is HttpsURLConnection)
     }
 
@@ -142,17 +220,17 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
     fun `Send returns unsent status when internet is unavailable`() {
         every { networkMonitorMock.isNetworkConnected() } returns false
 
-        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
+        val request = makeTestRequest()
 
         assertEquals(KlaviyoApiRequest.Status.Unsent, request.send())
     }
 
     @Test
     fun `Successful GET request returns success status`() {
-        val connectionMock = withConnectionMock(URL(stubFullUrl))
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
         every { connectionMock.responseCode } returns 200
 
-        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
+        val request = makeTestRequest()
         val actualResponse = request.send()
 
         verify { connectionMock.connect() }
@@ -162,40 +240,42 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
 
     @Test
     fun `Failed GET request returns failure status`() {
-        val connectionMock = withConnectionMock(URL(stubFullUrl))
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
         every { connectionMock.responseCode } returns 500
 
-        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
+        val request = makeTestRequest()
 
         assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
     }
 
     @Test
     fun `Rate limited request returns retryable status and fails after max attempts`() {
-        val connectionMock = withConnectionMock(URL(stubFullUrl))
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
         every { connectionMock.responseCode } returns 429
 
-        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.GET)
+        val request = makeTestRequest()
 
         repeat(configMock.networkMaxAttempts - 1) {
             // Should be retryable until max attempts hit
             assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+            assertEquals(request.headers["X-Klaviyo-Attempt-Count"], "${it + 1}/50")
         }
 
-        // Final attempt should return fail
+        // Final attempt hitting a 429 should result in Failed status
         assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
-        assertEquals(configMock.networkMaxAttempts, request.attempts)
+        assertEquals(50, request.attempts)
+        assertEquals(request.headers["X-Klaviyo-Attempt-Count"], "50/50")
     }
 
     @Test
     fun `Successful POST with body`() {
-        val connectionMock = withConnectionMock(URL(stubFullUrl))
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
         val stubBody = "{\"test\":1}"
         val expectedBody = JSONObject(stubBody)
 
         every { connectionMock.responseCode } returns 200
 
-        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.POST).apply {
+        val request = KlaviyoApiRequest(expectedUrl, RequestMethod.POST).apply {
             body = expectedBody
         }
         val actualResponse = request.send()
@@ -209,11 +289,11 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
 
     @Test
     fun `Successful POST without body`() {
-        val connectionMock = withConnectionMock(URL(stubFullUrl))
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
 
         every { connectionMock.responseCode } returns 200
 
-        val request = KlaviyoApiRequest(stubUrlPath, RequestMethod.POST)
+        val request = KlaviyoApiRequest(expectedUrl, RequestMethod.POST)
         val actualResponse = request.send()
 
         assert(!bodySlot.isCaptured)
@@ -264,7 +344,7 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
             RequestMethod.POST,
             uuid = "uuid"
         ).apply {
-            headers = mapOf("headerKey" to "headerValue")
+            headers.replaceAllWith(mapOf("headerKey" to "headerValue"))
             query = mapOf("queryKey" to "queryValue")
             body = JSONObject(mapOf("bodyKey" to "bodyValue"))
         }
@@ -279,7 +359,7 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
             RequestMethod.GET,
             uuid = "uuid"
         ).apply {
-            headers = mapOf("headerKey" to "headerValue")
+            headers.replaceAllWith(mapOf("headerKey" to "headerValue"))
             query = mapOf("queryKey" to "queryValue")
         }
 
@@ -300,6 +380,7 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
         assertEquals("queryValue", post.query["queryKey"])
         assert(post.body != null)
         assertEquals("{\"bodyKey\":\"bodyValue\"}", post.body.toString())
+        assertEquals(0, post.attempts)
     }
 
     @Test
@@ -315,10 +396,6 @@ internal class KlaviyoApiRequestTest : BaseRequestTest() {
         assert(get.query.count() == 1)
         assertEquals("queryValue", get.query["queryKey"])
         assertEquals(null, get.body)
-    }
-
-    override fun clear() {
-        super.clear()
-        unmockkObject(HttpUtil)
+        assertEquals(0, get.attempts)
     }
 }

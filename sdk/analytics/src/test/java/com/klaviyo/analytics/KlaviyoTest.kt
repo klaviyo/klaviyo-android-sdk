@@ -23,6 +23,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Test
 
 internal class KlaviyoTest : BaseTest() {
@@ -80,6 +81,7 @@ internal class KlaviyoTest : BaseTest() {
     private val debounceTime = 5
     private val apiClientMock: ApiClient = mockk()
 
+    @Before
     override fun setup() {
         super.setup()
         Registry.register<ApiClient> { apiClientMock }
@@ -89,13 +91,14 @@ internal class KlaviyoTest : BaseTest() {
         every { apiClientMock.enqueueEvent(any(), any()) } returns Unit
         every { apiClientMock.enqueuePushToken(any(), any()) } returns Unit
         every { configMock.debounceInterval } returns debounceTime
-        UserInfo.reset()
         DevicePropertiesTest.mockDeviceProperties()
+        UserInfo.reset()
     }
 
     @After
-    fun cleanup() {
+    override fun cleanup() {
         UserInfo.reset()
+        super.cleanup()
         DevicePropertiesTest.unmockDeviceProperties()
     }
 

@@ -13,12 +13,14 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.verify
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 
 internal class KlaviyoConfigTest : BaseTest() {
 
     private val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
     private val mockVersionCode = 123
+    private val mockApplicationLabel = "Mock Application Label"
 
     @Suppress("DEPRECATION")
     private val mockPackageInfo = mockk<PackageInfo>().apply {
@@ -31,11 +33,8 @@ internal class KlaviyoConfigTest : BaseTest() {
         every { longVersionCode } returns mockVersionCode.toLong()
         versionCode = mockVersionCode
     }
-    private val mockApplicationLabel = "Mock Application Label"
 
-    @Test
-    fun `Is registered service`() = assert(Registry.configBuilder is KlaviyoConfig.Builder)
-
+    @Before
     override fun setup() {
         super.setup()
         mockkStatic(PackageManager.PackageInfoFlags::class)
@@ -51,6 +50,9 @@ internal class KlaviyoConfigTest : BaseTest() {
         every { mockPackageManager.getApplicationLabel(mockApplicationInfo) } returns mockApplicationLabel
         every { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) } returns mockPackageInfo
     }
+
+    @Test
+    fun `Is registered service`() = assert(Registry.configBuilder is KlaviyoConfig.Builder)
 
     @Test
     fun `KlaviyoConfig Builder sets variables successfully`() {
