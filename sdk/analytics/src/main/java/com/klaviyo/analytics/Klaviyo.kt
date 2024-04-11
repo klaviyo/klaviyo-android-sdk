@@ -105,7 +105,7 @@ object Klaviyo {
         }
 
         // Enqueue any remaining profile attributes
-        if (mutableProfile.count() > 0) {
+        if (mutableProfile.propertyCount() > 0) {
             profileOperationQueue.debounceProfileUpdate(mutableProfile)
         }
     }
