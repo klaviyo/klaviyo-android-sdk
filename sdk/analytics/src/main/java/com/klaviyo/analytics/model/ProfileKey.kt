@@ -58,3 +58,10 @@ sealed class ProfileKey(name: String) : Keyword(name) {
         else -> name
     }
 }
+
+internal val PROFILE_IDENTIFIERS = arrayOf(
+    ProfileKey.EXTERNAL_ID,
+    ProfileKey.EMAIL,
+    ProfileKey.PHONE_NUMBER,
+    ProfileKey.ANONYMOUS_ID
+)

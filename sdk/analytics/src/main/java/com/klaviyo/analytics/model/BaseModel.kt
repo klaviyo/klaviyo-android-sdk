@@ -29,6 +29,8 @@ abstract class BaseModel<Key, Self>(properties: Map<Key, Serializable>?)
         this.setProperty(key, value)
     }
 
+    fun count(): Int = propertyMap.count()
+
     /**
      * Convert this data model into a simple map
      */
