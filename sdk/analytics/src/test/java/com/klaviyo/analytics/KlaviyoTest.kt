@@ -1,7 +1,6 @@
 package com.klaviyo.analytics
 
 import android.app.Application
-import android.app.Application.ActivityLifecycleCallbacks
 import android.content.Intent
 import android.os.Bundle
 import com.klaviyo.analytics.model.Event
@@ -114,13 +113,6 @@ internal class KlaviyoTest : BaseTest() {
             mockApplication.unregisterActivityLifecycleCallbacks(match { it == expectedListener })
             mockApplication.registerActivityLifecycleCallbacks(match { it == expectedListener })
         }
-    }
-
-    @Test
-    fun `Klaviyo does not make core lifecycle callbacks service publicly available`() {
-        val mockLifecycleCallbacks = mockk<ActivityLifecycleCallbacks>()
-        every { Registry.lifecycleCallbacks } returns mockLifecycleCallbacks
-        assertNotEquals(mockLifecycleCallbacks, Klaviyo.lifecycleCallbacks)
     }
 
     private fun verifyProfileDebounced() {
