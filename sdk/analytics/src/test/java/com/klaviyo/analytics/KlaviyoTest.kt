@@ -184,6 +184,87 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `Whitespace is trimmed off of profile identifiers for fluent setters`() {
+        Klaviyo.setExternalId("\t$EXTERNAL_ID \n")
+            .setEmail("$EMAIL \t\n")
+            .setPhoneNumber(" $PHONE \t\n")
+
+        verifyProfileDebounced()
+        val profile = capturedProfile.captured
+        assertEquals(EXTERNAL_ID, profile.externalId)
+        assertEquals(EMAIL, profile.email)
+        assertEquals(PHONE, profile.phoneNumber)
+    }
+
+    @Test
+    fun `Whitespace is trimmed off of profile identifiers for setProfile`() {
+        Klaviyo.setProfile(
+            Profile(
+                externalId = "\t$EXTERNAL_ID \n",
+                email = "$EMAIL \t\n",
+                phoneNumber = " $PHONE \t\n"
+            )
+        )
+
+        verifyProfileDebounced()
+        val profile = capturedProfile.captured
+        assertEquals(EXTERNAL_ID, profile.externalId)
+        assertEquals(EMAIL, profile.email)
+        assertEquals(PHONE, profile.phoneNumber)
+    }
+
+    @Test
+    fun `Empty identifiers are ignored with warning`() {
+        Klaviyo.setProfile(
+            Profile(
+                externalId = EXTERNAL_ID,
+                email = EMAIL,
+                phoneNumber = PHONE
+            )
+        )
+
+        verifyProfileDebounced()
+        val profile = capturedProfile.captured
+        assertEquals(EXTERNAL_ID, profile.externalId)
+        assertEquals(EMAIL, profile.email)
+        assertEquals(PHONE, profile.phoneNumber)
+
+        Klaviyo.setExternalId("")
+        Klaviyo.setEmail("")
+        Klaviyo.setPhoneNumber("")
+
+        verifyProfileDebounced() // Should not have enqueued a new request
+        verify(exactly = 3) { logSpy.warning(any(), null) }
+        assertEquals(EXTERNAL_ID, UserInfo.externalId)
+        assertEquals(EMAIL, UserInfo.email)
+        assertEquals(PHONE, UserInfo.phoneNumber)
+    }
+
+    @Test
+    fun `Unchanged profile identifiers do not enqueue new API requests`() {
+        Klaviyo.setProfile(
+            Profile(
+                externalId = EXTERNAL_ID,
+                email = EMAIL,
+                phoneNumber = PHONE
+            )
+        )
+
+        verifyProfileDebounced()
+        val profile = capturedProfile.captured
+        assertEquals(EXTERNAL_ID, profile.externalId)
+        assertEquals(EMAIL, profile.email)
+        assertEquals(PHONE, profile.phoneNumber)
+
+        Klaviyo.setExternalId(EXTERNAL_ID)
+        Klaviyo.setEmail(EMAIL)
+        Klaviyo.setPhoneNumber(PHONE)
+
+        // We should not have enqueued a new request, so still should only have been called once
+        verifyProfileDebounced()
+    }
+
+    @Test
     fun `setProfile is debounced`() {
         Klaviyo.setProfile(Profile().setEmail(EMAIL))
 
