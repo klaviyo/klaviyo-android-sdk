@@ -11,7 +11,15 @@ import com.klaviyo.sdktestapp.TestApp
 import com.klaviyo.sdktestapp.services.Clipboard
 import com.klaviyo.sdktestapp.services.PushService
 
-class AccountInfoViewModel(private val context: Context) {
+interface IAccountInfoViewModel {
+    val viewState: AccountInfoViewModel.ViewState
+    fun setApiKey()
+    fun create()
+    fun reset()
+    fun copyAnonymousId()
+}
+
+class AccountInfoViewModel(private val context: Context) : IAccountInfoViewModel {
 
     private companion object {
         const val ANON_KEY = "anonymous_id"
@@ -25,7 +33,7 @@ class AccountInfoViewModel(private val context: Context) {
         var anonymousId: MutableState<String>
     )
 
-    val viewState = ViewState(
+    override val viewState = ViewState(
         accountId = mutableStateOf(Registry.config.apiKey),
         externalId = mutableStateOf(Klaviyo.getExternalId() ?: ""),
         email = mutableStateOf(Klaviyo.getEmail() ?: ""),
@@ -45,13 +53,13 @@ class AccountInfoViewModel(private val context: Context) {
         }
     }
 
-    fun setApiKey() {
+    override fun setApiKey() {
         val app = (context as Activity).application
         val configService = (app as TestApp).configService
         configService.setCompanyId(viewState.accountId.value)
     }
 
-    fun create() {
+    override fun create() {
         setApiKey() // For safety, make sure that the input API key has been set to SDK
 
         if (viewState.phoneNumber.value.firstOrNull()?.isDigit() == true) {
@@ -72,12 +80,12 @@ class AccountInfoViewModel(private val context: Context) {
         PushService.setSdkPushToken()
     }
 
-    fun reset() {
+    override fun reset() {
         Registry.log.info("Clear profile identifiers from state")
         Klaviyo.resetProfile()
     }
 
-    fun copyAnonymousId() {
+    override fun copyAnonymousId() {
         Clipboard(context).logAndCopy("Anonymous ID", viewState.anonymousId.value)
     }
 }

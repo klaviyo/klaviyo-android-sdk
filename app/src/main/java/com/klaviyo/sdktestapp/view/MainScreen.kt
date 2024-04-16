@@ -68,13 +68,7 @@ fun MainScreen(
                     .padding(padding)
             ) {
                 when (navigationViewModel.navState.tab) {
-                    TabIndex.Profile -> AccountInfo(
-                        viewState = accountInfoViewModel.viewState,
-                        setApiKey = accountInfoViewModel::setApiKey,
-                        onCreate = accountInfoViewModel::create,
-                        onClear = accountInfoViewModel::reset,
-                        onCopyAnonymousId = accountInfoViewModel::copyAnonymousId
-                    )
+                    TabIndex.Profile -> AccountInfo(accountInfoViewModel)
 
                     TabIndex.Events -> EventsPage(
                         events = eventsViewModel.viewState.events,
