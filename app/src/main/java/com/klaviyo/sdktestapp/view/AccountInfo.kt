@@ -148,7 +148,7 @@ fun AccountInfo(viewModel: IAccountInfoViewModel) {
             Button(
                 elevation = ButtonDefaults.elevation(0.dp),
                 shape = CircleShape,
-                onClick = { viewModel.create() },
+                onClick = viewModel::create,
                 enabled = viewState.accountId.value.length == 6,
                 colors = ButtonDefaults.buttonColors(),
                 modifier = Modifier.weight(1f)
@@ -159,7 +159,7 @@ fun AccountInfo(viewModel: IAccountInfoViewModel) {
             Button(
                 elevation = ButtonDefaults.elevation(0.dp),
                 shape = CircleShape,
-                onClick = { viewModel.reset() },
+                onClick = viewModel::reset,
                 enabled = viewState.externalId.value.isNotEmpty() ||
                     viewState.email.value.isNotEmpty() ||
                     viewState.phoneNumber.value.isNotEmpty() ||
