@@ -53,8 +53,10 @@ fun EventDetail(
         }
         event.responseCode?.let {
             RequestComponent("Response") {
-                val duration = (event.endTime!!.time - event.startTime!!.time)
-                val seconds = duration.toDouble() / 1000
+                val seconds = event.endTime?.let {
+                    val duration = it.time - event.startTime!!.time
+                    duration.toDouble() / 1000
+                } ?: ""
 
                 EventDetailItem(title = "Status code", body = event.responseCode.toString())
                 EventDetailItem(title = "Headers", body = event.responseHeaders ?: "<none>")
