@@ -14,9 +14,6 @@ import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import java.util.concurrent.ConcurrentLinkedDeque
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -307,7 +304,7 @@ internal object KlaviyoApiClient : ApiClient {
                         // Encountered a retryable error
                         // Put this back on top of the queue, and we'll try again with backoff
                         apiQueue.offerFirst(request)
-                        flushInterval = computeRetryInterval(request.attempts)
+                        flushInterval = request.computeRetryInterval()
                         broadcastApiRequest(request)
                         break
                     }
@@ -336,17 +333,6 @@ internal object KlaviyoApiClient : ApiClient {
             force = false
             enqueuedTime = Registry.clock.currentTimeMillis()
             handler?.postDelayed(this, flushInterval)
-        }
-
-        private fun computeRetryInterval(attempts: Int): Long {
-            val minRetryInterval = Registry.config.networkFlushIntervals[networkType]
-            val jitterSeconds = Registry.config.networkJitterRange.random()
-            val exponentialBackoff = (2.0.pow(attempts).toLong() + jitterSeconds).times(1_000)
-            val maxRetryInterval = Registry.config.networkMaxRetryInterval
-            return min(
-                max(minRetryInterval, exponentialBackoff),
-                maxRetryInterval
-            )
         }
     }
 

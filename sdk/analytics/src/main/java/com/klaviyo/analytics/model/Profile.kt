@@ -8,7 +8,16 @@ import java.io.Serializable
 class Profile(properties: Map<ProfileKey, Serializable>?) :
     BaseModel<ProfileKey, Profile>(properties) {
 
-    constructor() : this(null)
+    constructor(
+        externalId: String? = null,
+        email: String? = null,
+        phoneNumber: String? = null,
+        properties: Map<ProfileKey, Serializable>? = null
+    ) : this(properties) {
+        this.externalId = externalId
+        this.email = email
+        this.phoneNumber = phoneNumber
+    }
 
     fun setExternalId(identifier: String?) = apply { this.externalId = identifier }
     var externalId: String?

@@ -97,6 +97,11 @@ abstract class BaseTest {
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
     }
 
+    @After
+    open fun cleanup() {
+        unmockkObject(Registry)
+    }
+
     /**
      * Gross way to modify a final static field through reflection
      *
@@ -129,10 +134,5 @@ abstract class BaseTest {
             e.addSuppressed(ex)
             throw e
         }
-    }
-
-    @After
-    open fun clear() {
-        unmockkObject(Registry)
     }
 }

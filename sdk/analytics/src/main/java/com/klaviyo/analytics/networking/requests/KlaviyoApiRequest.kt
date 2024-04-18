@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.core.Registry
 import java.io.BufferedReader
 import java.io.IOException
@@ -8,6 +9,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.pow
 import org.json.JSONObject
 
 /**
@@ -47,6 +51,9 @@ internal open class KlaviyoApiRequest(
         const val HEADER_USER_AGENT = "User-Agent"
         const val HEADER_ACCEPT = "Accept"
         const val HEADER_REVISION = "Revision"
+        const val HEADER_KLAVIYO_MOBILE = "X-Klaviyo-Mobile"
+        const val HEADER_KLAVIYO_ATTEMPT = "X-Klaviyo-Attempt-Count"
+        const val HEADER_RETRY_AFTER = "Retry-After"
         const val TYPE_JSON = "application/json"
         const val V3_REVISION = "2023-07-15"
 
@@ -127,6 +134,15 @@ internal open class KlaviyoApiRequest(
         }
 
     /**
+     * Tracks number of attempts to limit retries
+     */
+    final override var attempts = 0
+        private set(value) {
+            field = value
+            headers[HEADER_KLAVIYO_ATTEMPT] = "$value/${Registry.config.networkMaxAttempts}"
+        }
+
+    /**
      * Compiles the base url, path and query data into a [URL] object
      */
     override val url: URL
@@ -150,7 +166,14 @@ internal open class KlaviyoApiRequest(
     /**
      * HTTP request headers
      */
-    override var headers: Map<String, String> = emptyMap()
+    override val headers: MutableMap<String, String> = mutableMapOf(
+        HEADER_CONTENT to TYPE_JSON,
+        HEADER_ACCEPT to TYPE_JSON,
+        HEADER_REVISION to V3_REVISION,
+        HEADER_USER_AGENT to DeviceProperties.userAgent,
+        HEADER_KLAVIYO_MOBILE to "1",
+        HEADER_KLAVIYO_ATTEMPT to "$attempts/${Registry.config.networkMaxAttempts}"
+    )
 
     /**
      * HTTP request query params
@@ -166,12 +189,6 @@ internal open class KlaviyoApiRequest(
      * Convert request body to string
      */
     override val requestBody: String? get() = body?.toString()
-
-    /**
-     * Tracks number of attempts to limit retries
-     */
-    final override var attempts = 0
-        private set
 
     /**
      * Timestamp request was first enqueued
@@ -204,6 +221,12 @@ internal open class KlaviyoApiRequest(
         protected set
 
     /**
+     * Response headers from Klaviyo
+     */
+    override var responseHeaders: Map<String, List<String>> = emptyMap()
+        protected set
+
+    /**
      * Body of response content from last send attempt
      */
     override var responseBody: String? = null
@@ -220,7 +243,7 @@ internal open class KlaviyoApiRequest(
         .accumulate(METHOD_JSON_KEY, method.name)
         .accumulate(TIME_JSON_KEY, queuedTime)
         .accumulate(UUID_JSON_KEY, uuid)
-        .accumulate(HEADERS_JSON_KEY, JSONObject(headers))
+        .accumulate(HEADERS_JSON_KEY, JSONObject(headers as Map<String, String>))
         .accumulate(QUERY_JSON_KEY, JSONObject(query))
         .accumulate(BODY_JSON_KEY, body)
 
@@ -315,6 +338,7 @@ internal open class KlaviyoApiRequest(
     protected open fun parseResponse(connection: HttpURLConnection): Status {
         // https://developers.klaviyo.com/en/docs/rate_limits_and_error_handling
         responseCode = connection.responseCode
+        responseHeaders = connection.headerFields
 
         status = when (responseCode) {
             in successCodes -> Status.Complete
@@ -338,5 +362,45 @@ internal open class KlaviyoApiRequest(
         responseBody = BufferedReader(InputStreamReader(stream)).use { it.readText() }
 
         return status
+    }
+
+    /**
+     * Compute a retry interval based on state of the request
+     *
+     * If present, obey the Retry-After response header, plus some jitter.
+     * Absent the header, use an exponential backoff algorithm, with a
+     * floor set by current network connection, and ceiling set by the config.
+     */
+    fun computeRetryInterval(): Long {
+        val jitterSeconds = Registry.config.networkJitterRange.random()
+
+        try {
+            val retryAfter = this.responseHeaders[HEADER_RETRY_AFTER]?.getOrNull(0)
+
+            if (retryAfter?.isNotEmpty() == true) {
+                return (retryAfter.toInt() + jitterSeconds).times(1_000L)
+            }
+        } catch (e: NumberFormatException) {
+            Registry.log.warning("Invalid Retry-After header value", e)
+        }
+
+        val networkType = Registry.networkMonitor.getNetworkType().position
+        val minRetryInterval = Registry.config.networkFlushIntervals[networkType]
+        val exponentialBackoff = (2.0.pow(attempts).toLong() + jitterSeconds).times(1_000L)
+        val maxRetryInterval = Registry.config.networkMaxRetryInterval
+
+        return min(
+            max(minRetryInterval, exponentialBackoff),
+            maxRetryInterval
+        )
+    }
+
+    /**
+     * Clear a mutable map and add new key value pairs
+     * Utility to replace all headers
+     */
+    fun <K, V> MutableMap<K, V>.replaceAllWith(newValues: Map<K, V>) = apply {
+        clear()
+        this += newValues
     }
 }
