@@ -2,6 +2,40 @@
 This document provides guidance on how to migrate from the old version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
+## 2.3.0 Deprecations
+#### Deprecated `ProfileKey` objects pertaining to identifiers
+The following `ProfileKey` objects have been deprecated in favor of using the explicit 
+setter/getter functions designated for identifiers. 
+- `ProfileKey.EXTERNAL_ID`
+- `ProfileKey.EMAIL`
+- `ProfileKey.PHONE_NUMBER`
+
+For convenience, we added optional arguments to the `Profile` constructor for each. The following code:
+
+```kotlin
+val profile = Profile(mapOf(
+    ProfileKey.EXTERNAL_ID to "abc123",
+    ProfileKey.EMAIL to "example@company.com",
+    ProfileKey.PHONE_NUMBER to "+12223334444",
+    ProfileKey.FIRST_NAME to "first_name",
+    ProfileKey.LAST_NAME to "last_name",
+))
+```
+
+can be converted to:
+
+```kotlin
+val profile = Profile(
+    externalId = "abc123",
+    email = "example@company.com",
+    phoneNumber = "+12223334444", 
+    properties = mapOf(
+        ProfileKey.FIRST_NAME to "first_name",
+        ProfileKey.LAST_NAME to "last_name",
+    )
+)
+```
+
 ## 2.1.0 Deprecations
 #### Deprecated `Klaviyo.lifecycleCallbacks`
 In an effort to reduce setup code required to integrate the Klaviyo Android SDK, we have deprecated the public property 
