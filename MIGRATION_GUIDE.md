@@ -2,7 +2,7 @@
 This document provides guidance on how to migrate from the old version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
-## 2.1.0 Deprecations
+## 2.3.0 Deprecations
 #### Deprecated `ProfileKey` objects pertaining to identifiers
 The following `ProfileKey` objects have been deprecated in favor of using the explicit 
 setter/getter functions designated for identifiers. 
