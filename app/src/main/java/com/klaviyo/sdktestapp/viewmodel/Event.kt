@@ -23,6 +23,7 @@ data class Event(
     val query: Map<String, String> = emptyMap(),
     val requestBody: String? = null,
     val responseCode: Int? = null,
+    val responseHeaders: String? = null,
     val response: String? = null
 ) {
 
@@ -69,6 +70,7 @@ data class Event(
         query = apiRequest.query,
         requestBody = apiRequest.requestBody,
         responseCode = apiRequest.responseCode,
+        responseHeaders = apiRequest.responseHeaders.toString(),
         response = apiRequest.responseBody
     )
 

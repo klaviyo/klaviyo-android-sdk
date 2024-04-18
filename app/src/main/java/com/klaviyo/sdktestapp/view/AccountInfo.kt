@@ -32,15 +32,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.klaviyo.sdktestapp.viewmodel.AccountInfoViewModel
+import com.klaviyo.sdktestapp.viewmodel.IAccountInfoViewModel
 
 @Composable
-fun AccountInfo(
-    viewState: AccountInfoViewModel.ViewState,
-    setApiKey: () -> Unit = { },
-    onCreate: () -> Unit = { },
-    onClear: () -> Unit = {},
-    onCopyAnonymousId: () -> Unit = {}
-) {
+fun AccountInfo(viewModel: IAccountInfoViewModel) {
+    val viewState = viewModel.viewState
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -54,14 +51,12 @@ fun AccountInfo(
             },
             onSend = {
                 // Submit the form with "send" action
-                onCreate()
+                viewModel.create()
                 focusManager.clearFocus()
             }
         )
 
         FormRow {
-            val interactionSource = remember { MutableInteractionSource() }
-
             OutlinedTextField(
                 label = { Text("Account ID") },
                 value = viewState.accountId.value,
@@ -85,24 +80,13 @@ fun AccountInfo(
                     }
                 },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { setApiKey() }),
+                keyboardActions = KeyboardActions(onSend = { viewModel.setApiKey() }),
                 modifier = Modifier.weight(1f, fill = true),
                 trailingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Send,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .clickable(
-                                onClick = {
-                                    setApiKey()
-                                    focusManager.moveFocus(FocusDirection.Down)
-                                },
-                                enabled = true,
-                                interactionSource = interactionSource,
-                                indication = rememberRipple(bounded = true)
-                            )
-                            .padding(16.dp)
-                    )
+                    EntrySubmitIcon {
+                        viewModel.setApiKey()
+                        focusManager.moveFocus(FocusDirection.Down)
+                    }
                 }
             )
         }
@@ -157,14 +141,14 @@ fun AccountInfo(
                 value = viewState.anonymousId.value,
                 defaultValue = "No Anonymous ID",
                 label = "Anonymous ID",
-                onTextCopied = onCopyAnonymousId
+                onTextCopied = viewModel::copyAnonymousId
             )
         }
         FormRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 elevation = ButtonDefaults.elevation(0.dp),
                 shape = CircleShape,
-                onClick = { onCreate() },
+                onClick = viewModel::create,
                 enabled = viewState.accountId.value.length == 6,
                 colors = ButtonDefaults.buttonColors(),
                 modifier = Modifier.weight(1f)
@@ -175,7 +159,7 @@ fun AccountInfo(
             Button(
                 elevation = ButtonDefaults.elevation(0.dp),
                 shape = CircleShape,
-                onClick = { onClear() },
+                onClick = viewModel::reset,
                 enabled = viewState.externalId.value.isNotEmpty() ||
                     viewState.email.value.isNotEmpty() ||
                     viewState.phoneNumber.value.isNotEmpty() ||
@@ -188,33 +172,57 @@ fun AccountInfo(
     }
 }
 
-private fun makePreviewState(
+@Composable
+private fun EntrySubmitIcon(
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Icon(
+        imageVector = Icons.Default.Send,
+        contentDescription = null,
+        modifier = Modifier
+            .clickable(
+                onClick = onClick,
+                enabled = true,
+                interactionSource = interactionSource,
+                indication = rememberRipple(bounded = true)
+            )
+            .padding(16.dp)
+    )
+}
+
+class PreviewState(
     accountId: String = "XXXXXX",
     externalId: String = "123456,7890",
     email: String = "test@test.com",
     phoneNumber: String = "+155512345678",
     anonymousId: String = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"
-): AccountInfoViewModel.ViewState {
-    return AccountInfoViewModel.ViewState(
+) : IAccountInfoViewModel {
+    override val viewState: AccountInfoViewModel.ViewState = AccountInfoViewModel.ViewState(
         accountId = mutableStateOf(accountId),
         externalId = mutableStateOf(externalId),
         email = mutableStateOf(email),
-        phoneNumber = mutableStateOf(phoneNumber),
-        anonymousId = mutableStateOf(anonymousId)
+        anonymousId = mutableStateOf(anonymousId),
+        phoneNumber = mutableStateOf(phoneNumber)
     )
+    override fun setApiKey() {}
+    override fun create() {}
+    override fun reset() {}
+    override fun copyAnonymousId() {}
 }
 
 @Preview(group = "AccountInfo", showSystemUi = true)
 @Composable
 private fun FilledAccountInfo() {
-    val viewModelState = remember { makePreviewState() }
+    val viewModelState = remember { PreviewState() }
     AccountInfo(viewModelState)
 }
 
 @Preview(group = "AccountInfo", showSystemUi = true)
 @Composable
 private fun AccountInfoNoAccountId() {
-    val viewModelState = remember { makePreviewState(accountId = "") }
+    val viewModelState = remember { PreviewState(accountId = "") }
     AccountInfo(viewModelState)
 }
 
@@ -222,7 +230,7 @@ private fun AccountInfoNoAccountId() {
 @Composable
 private fun AccountInfoDisabledClearButton() {
     val viewModelState = remember {
-        makePreviewState(
+        PreviewState(
             externalId = "",
             email = "",
             phoneNumber = ""
@@ -234,6 +242,6 @@ private fun AccountInfoDisabledClearButton() {
 @Preview(group = "AccountInfo", showSystemUi = true)
 @Composable
 private fun AccountInfoInvalidAccountId() {
-    val viewModelState = remember { makePreviewState(accountId = "XXXXXXY") }
+    val viewModelState = remember { PreviewState(accountId = "XXXXXXY") }
     AccountInfo(viewModelState)
 }
