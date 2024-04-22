@@ -289,7 +289,7 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.setProfile(newProfile)
 
         assertEquals(EXTERNAL_ID, Registry.get<UserState>().externalId)
-        assertEquals("", Registry.get<UserState>().email)
+        assertNull(Registry.get<UserState>().email)
         assertNotEquals(anonId, Registry.get<UserState>().anonymousId)
     }
 
@@ -344,9 +344,9 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.resetProfile()
 
         assertNotEquals(anonId, Registry.get<UserState>().anonymousId)
-        assertEquals("", Registry.get<UserState>().email)
-        assertEquals("", Registry.get<UserState>().phoneNumber)
-        assertEquals("", Registry.get<UserState>().externalId)
+        assertNull(Registry.get<UserState>().email)
+        assertNull(Registry.get<UserState>().phoneNumber)
+        assertNull(Registry.get<UserState>().externalId)
 
         // Resetting profile flushes the queue immediately
         verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
@@ -359,8 +359,8 @@ internal class KlaviyoTest : BaseTest() {
 
         Klaviyo.resetProfile()
 
-        assertEquals("", Registry.get<UserState>().email)
-        assertEquals(null, dataStoreSpy.fetch("push_token"))
+        assertNull(null, Registry.get<UserState>().email)
+        assertNull(null, dataStoreSpy.fetch("push_token"))
     }
 
     @Test

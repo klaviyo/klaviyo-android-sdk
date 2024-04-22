@@ -2,6 +2,7 @@ package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.analytics.model.Keyword
+import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.ApiRequest
@@ -11,7 +12,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 
 internal class SideEffectCoordinator(
-    apiClient: ApiClient = Registry.get<ApiClient>(),
+    private val apiClient: ApiClient = Registry.get<ApiClient>(),
     private val userState: UserState = Registry.get<UserState>()
 ) {
     /**
@@ -29,14 +30,18 @@ internal class SideEffectCoordinator(
         userState.onStateChange { key: Keyword? ->
             when (key) {
                 ProfileKey.PUSH_STATE -> onPushStateChange()
+                ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */ }
+                PROFILE_ATTRIBUTES -> if (userState.get(true).attributes.propertyCount() > 0) {
+                    onUserStateChange()
+                }
                 else -> onUserStateChange()
             }
         }
     }
 
     private fun onPushStateChange() {
-        if (userState.pushState.isNotEmpty()) {
-            Registry.get<ApiClient>().enqueuePushToken(userState.pushToken, userState.get())
+        if (!userState.pushState.isNullOrEmpty()) {
+            userState.pushToken?.let { apiClient.enqueuePushToken(it, userState.get()) }
         }
     }
 
@@ -50,8 +55,7 @@ internal class SideEffectCoordinator(
 
         Registry.log.verbose("${pendingProfile?.let { "Merging" } ?: "Starting"} profile update")
 
-        // Merge new changes into pending transaction and
-        // add current identifiers from state to the pending transaction
+        // Merge changes into pending transaction, or start a new one
         pendingProfile = pendingProfile?.copy()?.merge(profile) ?: profile
 
         // Reset timer
@@ -67,7 +71,8 @@ internal class SideEffectCoordinator(
     private fun flushProfile() = pendingProfile?.let {
         timer?.cancel()
         Registry.log.verbose("Flushing profile update")
-        Registry.get<ApiClient>().enqueueProfile(it.copy())
+        apiClient.enqueueProfile(it.copy())
+        userState.resetAttributes() // Once captured in a request, we don't keep profile attributes in state/on disk
         pendingProfile = null
     }
 

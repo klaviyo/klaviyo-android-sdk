@@ -7,12 +7,12 @@ import com.klaviyo.analytics.model.ProfileKey
 typealias StateObserver = (key: Keyword?) -> Unit
 
 interface UserState {
-    var externalId: String
-    var email: String
-    var phoneNumber: String
-    val anonymousId: String
-    var pushToken: String
-    var pushState: String
+    var externalId: String?
+    var email: String?
+    var phoneNumber: String?
+    val anonymousId: String?
+    var pushToken: String?
+    var pushState: String?
 
     /**
      * Register an observer to be notified when state changes
@@ -47,4 +47,9 @@ interface UserState {
      * Remove all user identifiers and attributes from internal state
      */
     fun reset()
+
+    /**
+     * Clear user's attributes from internal state, leaving profile identifiers intact
+     */
+    fun resetAttributes()
 }

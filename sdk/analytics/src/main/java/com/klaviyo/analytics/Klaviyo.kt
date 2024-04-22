@@ -104,7 +104,7 @@ object Klaviyo {
     /**
      * @return The email of the currently tracked profile, if set
      */
-    fun getEmail(): String? = safeCall { Registry.get<UserState>().email.ifEmpty { null } }
+    fun getEmail(): String? = safeCall { Registry.get<UserState>().email }
 
     /**
      * Assigns a phone number to the currently tracked Klaviyo profile
@@ -131,7 +131,7 @@ object Klaviyo {
     /**
      * @return The phone number of the currently tracked profile, if set
      */
-    fun getPhoneNumber(): String? = safeCall { Registry.get<UserState>().phoneNumber.ifEmpty { null } }
+    fun getPhoneNumber(): String? = safeCall { Registry.get<UserState>().phoneNumber }
 
     /**
      * Assigns a unique identifier to associate the currently tracked Klaviyo profile
@@ -159,7 +159,7 @@ object Klaviyo {
     /**
      * @return The external ID of the currently tracked profile, if set
      */
-    fun getExternalId(): String? = safeCall { Registry.get<UserState>().externalId.ifEmpty { null } }
+    fun getExternalId(): String? = safeCall { Registry.get<UserState>().externalId }
 
     /**
      * Saves a push token and registers to the current profile
@@ -176,7 +176,7 @@ object Klaviyo {
     /**
      * @return The device push token, if one has been assigned to currently tracked profile
      */
-    fun getPushToken(): String? = safeCall { Registry.get<UserState>().pushToken.ifEmpty { null } }
+    fun getPushToken(): String? = safeCall { Registry.get<UserState>().pushToken }
 
     /**
      * Assign an attribute to the currently tracked profile by key/value pair

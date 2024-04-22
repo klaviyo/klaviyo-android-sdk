@@ -38,18 +38,17 @@ internal class UserInfo : UserState {
     private val _attributes = PersistentObservableProfile(PROFILE_ATTRIBUTES, ::broadcastChange)
     private var attributes: ImmutableProfile? by _attributes
 
-    private val _pushState = PersistentObservableString(PUSH_STATE, onChanged = ::broadcastChange)
+    private val _pushState = PersistentObservableString(PUSH_STATE, ::broadcastChange)
     override var pushState by _pushState
 
-    private val _pushToken = PersistentObservableString(PUSH_TOKEN)
-    override var pushToken: String
+    private val _pushToken = PersistentObservableString(PUSH_TOKEN, ::broadcastChange)
+    override var pushToken: String?
         set(value) {
             // Set token should also update entire push state value
-            // We only broadcast change for entire push state, since that would include token
             _pushToken.setValue(this, ::pushToken, value)
 
             // TODO use a better representation of push state to decouple from PushTokenApiRequest
-            pushState = PushTokenApiRequest(value, get()).requestBody ?: ""
+            pushState = value?.let { PushTokenApiRequest(it, get()).requestBody } ?: ""
         }
         get() = _pushToken.getValue(this, ::pushToken)
 
@@ -80,9 +79,9 @@ internal class UserInfo : UserState {
      * Get all user data in state as a [Profile] model object
      */
     override fun get(withAttributes: Boolean): Profile = Profile(
-        externalId = externalId.takeIf { it.isNotEmpty() },
-        email = email.takeIf { it.isNotEmpty() },
-        phoneNumber = phoneNumber.takeIf { it.isNotEmpty() }
+        externalId = externalId,
+        email = email,
+        phoneNumber = phoneNumber
     ).also { profile ->
         profile.setAnonymousId(anonymousId)
         profile.takeIf { withAttributes }?.merge(attributes)
@@ -92,16 +91,16 @@ internal class UserInfo : UserState {
      * Update user state from a new [Profile] model object
      */
     override fun set(profile: Profile) {
-        if (externalId.isNotEmpty() || email.isNotEmpty() || phoneNumber.isNotEmpty()) {
+        if (!externalId.isNullOrEmpty() || !email.isNullOrEmpty() || !phoneNumber.isNullOrEmpty()) {
             // If a profile with external identifiers is already in state, we must reset.
             // This conditional is important to preserve merging with an anonymous profile.
             reset()
         }
 
         // Move any identifiers and attributes to their specified state variables
-        this.externalId = profile.externalId ?: ""
-        this.email = profile.email ?: ""
-        this.phoneNumber = profile.phoneNumber ?: ""
+        this.externalId = profile.externalId
+        this.email = profile.email
+        this.phoneNumber = profile.phoneNumber
         this.attributes = profile.attributes
     }
 
@@ -130,6 +129,13 @@ internal class UserInfo : UserState {
 
         broadcastChange()
         Registry.log.verbose("Reset internal user state")
+    }
+
+    /**
+     * Clear user's attributes from internal state, leaving profile identifiers intact
+     */
+    override fun resetAttributes() = _attributes.reset().also {
+        broadcastChange(PROFILE_ATTRIBUTES)
     }
 
     private fun <T> broadcastChange(property: PersistentObservableProperty<T>?) =

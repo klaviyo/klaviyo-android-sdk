@@ -6,16 +6,16 @@ import kotlin.reflect.KProperty
 
 internal class PersistentObservableString(
     key: ProfileKey,
-    onChanged: (property: PersistentObservableProperty<String>) -> Unit = { },
-    fallback: () -> String = { "" }
-) : PersistentObservableProperty<String>(
-    default = "",
+    onChanged: (property: PersistentObservableProperty<String?>) -> Unit = { },
+    fallback: () -> String? = { null }
+) : PersistentObservableProperty<String?>(
+    default = null,
     key = key,
     fallback = fallback,
     onChanged = onChanged
 ) {
-    override fun setValue(thisRef: Any?, property: KProperty<*>, value: String) {
-        val trimmedValue = value.trim()
+    override fun setValue(thisRef: Any?, property: KProperty<*>, value: String?) {
+        val trimmedValue = value?.trim()
 
         if (trimmedValue != value) {
             Registry.log.verbose("Trimmed whitespace from ${property.name}.")
@@ -24,8 +24,8 @@ internal class PersistentObservableString(
         super.setValue(thisRef, property, trimmedValue)
     }
 
-    override fun validateChange(oldValue: String, newValue: String): Boolean {
-        if (newValue.isEmpty()) {
+    override fun validateChange(oldValue: String?, newValue: String?): Boolean {
+        if (newValue.isNullOrEmpty()) {
             Registry.log.warning("Empty string value for $key will be ignored.")
             return false
         }
@@ -33,7 +33,5 @@ internal class PersistentObservableString(
         return super.validateChange(oldValue, newValue)
     }
 
-    override fun isEmpty(value: String): Boolean = value.isEmpty()
-
-    override fun deserialize(storedValue: String): String = storedValue
+    override fun deserialize(storedValue: String?): String? = storedValue
 }
