@@ -51,26 +51,10 @@ internal class KlaviyoTest : BaseTest() {
             // Mocking an intent to return the stub push payload...
             val intent = mockk<Intent>()
             val bundle = mockk<Bundle>()
-            var gettingKey = ""
             every { intent.extras } returns bundle
             every { bundle.keySet() } returns payload.keys
-            every {
-                intent.getStringExtra(
-                    match { s ->
-                        gettingKey = s // there must be a better way to do this...
-                        true
-                    }
-                )
-            } answers { payload[gettingKey] }
-            every {
-                bundle.getString(
-                    match { s ->
-                        gettingKey = s // there must be a better way to do this...
-                        true
-                    },
-                    String()
-                )
-            } answers { payload[gettingKey] }
+            every { intent.getStringExtra(any()) } answers { call -> payload[call.invocation.args[0]] }
+            every { bundle.getString(any(), String()) } answers { call -> payload[call.invocation.args[0]] }
 
             return intent
         }
