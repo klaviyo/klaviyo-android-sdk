@@ -81,6 +81,7 @@ abstract class BaseTest {
     protected val networkMonitorMock = mockk<NetworkMonitor>()
     protected val dataStoreSpy = spyk(InMemoryDataStore())
     protected val logSpy = spyk(LogFixture())
+    protected val staticClock = StaticClock(TIME, ISO_TIME)
 
     @Before
     open fun setup() {
@@ -90,7 +91,7 @@ abstract class BaseTest {
         every { Registry.lifecycleMonitor } returns lifecycleMonitorMock
         every { Registry.networkMonitor } returns networkMonitorMock
         every { Registry.dataStore } returns dataStoreSpy
-        every { Registry.clock } returns StaticClock(TIME, ISO_TIME)
+        every { Registry.clock } returns staticClock
         every { Registry.log } returns logSpy
 
         // Mock using latest SDK

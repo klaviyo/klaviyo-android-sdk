@@ -2,6 +2,7 @@ package com.klaviyo.analytics
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.state.UserInfo
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.verify
 import org.junit.Assert.assertEquals
@@ -12,55 +13,57 @@ import org.junit.Test
 
 internal class UserInfoTest : BaseTest() {
 
+    private lateinit var userInfo: UserInfo
+
     @Before
     override fun setup() {
         super.setup()
-        UserInfo.reset()
+        userInfo = UserInfo().apply { reset() }
     }
 
     @Test
     fun `UserInfo is convertible to Profile`() {
-        UserInfo.externalId = EXTERNAL_ID
-        UserInfo.email = EMAIL
-        UserInfo.phoneNumber = PHONE
-        assertProfileIdentifiers(UserInfo.getAsProfile())
+        userInfo.externalId = EXTERNAL_ID
+        userInfo.email = EMAIL
+        userInfo.phoneNumber = PHONE
+        assertProfileIdentifiers(userInfo.get())
         assertUserInfoIdentifiers()
     }
 
     @Test
-    fun `create and store a new UUID if one does not exists in data store`() {
-        val anonId = UserInfo.anonymousId
+    fun `Create and store a new UUID if one does not exists in data store`() {
+        val anonId = userInfo.anonymousId
         val fetched = dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name)
         assertEquals(anonId, fetched)
     }
 
     @Test
-    fun `do not create new UUID if one exists in data store`() {
+    fun `Do not create new UUID if one exists in data store`() {
         dataStoreSpy.store(ProfileKey.ANONYMOUS_ID.name, ANON_ID)
-        assertEquals(ANON_ID, UserInfo.anonymousId)
+        assertEquals(ANON_ID, userInfo.anonymousId)
     }
 
     @Test
-    fun `only read properties from data store once`() {
+    fun `Only read properties from data store once`() {
         dataStoreSpy.store(ProfileKey.ANONYMOUS_ID.name, ANON_ID)
         dataStoreSpy.store(ProfileKey.EMAIL.name, EMAIL)
         dataStoreSpy.store(ProfileKey.EXTERNAL_ID.name, EXTERNAL_ID)
         dataStoreSpy.store(ProfileKey.PHONE_NUMBER.name, PHONE)
 
-        UserInfo.anonymousId
-        assertEquals(UserInfo.anonymousId, ANON_ID)
+        userInfo.anonymousId
+        assertEquals(ANON_ID, userInfo.anonymousId)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name) }
 
-        UserInfo.email
-        assertEquals(UserInfo.email, EMAIL)
+        userInfo.email
+        assertEquals(EMAIL, userInfo.email)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EMAIL.name) }
 
-        UserInfo.externalId
-        assertEquals(UserInfo.externalId, EXTERNAL_ID)
+        userInfo.externalId
+        assertEquals(EXTERNAL_ID, userInfo.externalId)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EXTERNAL_ID.name) }
 
-        UserInfo.phoneNumber
-        assertEquals(UserInfo.phoneNumber, PHONE)
+        userInfo.phoneNumber
+        assertEquals(PHONE, userInfo.phoneNumber)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.PHONE_NUMBER.name) }
     }
 
@@ -71,15 +74,15 @@ internal class UserInfoTest : BaseTest() {
         assertNull(initialAnonId)
 
         // Start tracking a new anon ID and it should be persisted
-        val firstAnonId = UserInfo.anonymousId
+        val firstAnonId = userInfo.anonymousId
         assertEquals(firstAnonId, dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name))
 
         // Reset again should nullify in data store
-        UserInfo.reset()
+        userInfo.reset()
         assertNull(dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name))
 
         // Start tracking again should generate another new anon ID
-        val newAnonId = UserInfo.anonymousId
+        val newAnonId = userInfo.anonymousId
         assertNotEquals(firstAnonId, newAnonId)
         assertEquals(newAnonId, dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name))
     }
@@ -88,13 +91,13 @@ internal class UserInfoTest : BaseTest() {
         assert(profile.externalId == EXTERNAL_ID)
         assert(profile.email == EMAIL)
         assert(profile.phoneNumber == PHONE)
-        assert(profile.anonymousId == UserInfo.anonymousId)
+        assert(profile.anonymousId == userInfo.anonymousId)
         assert(profile.toMap().count() == 4) // shouldn't contain any extras
     }
 
     private fun assertUserInfoIdentifiers() {
-        assert(UserInfo.externalId == EXTERNAL_ID)
-        assert(UserInfo.email == EMAIL)
-        assert(UserInfo.phoneNumber == PHONE)
+        assertEquals(EXTERNAL_ID, userInfo.externalId)
+        assertEquals(EMAIL, userInfo.email)
+        assertEquals(PHONE, userInfo.phoneNumber)
     }
 }

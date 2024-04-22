@@ -1,6 +1,7 @@
 package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.DeviceProperties
+import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.core.Registry
 import java.io.BufferedReader
 import java.io.IOException
@@ -39,7 +40,7 @@ internal open class KlaviyoApiRequest(
         // Common keywords
         const val DATA = "data"
         const val TYPE = "type"
-        const val ATTRIBUTES = "attributes"
+        val ATTRIBUTES = PROFILE_ATTRIBUTES.name
         const val PROPERTIES = "properties"
         const val COMPANY_ID = "company_id"
         const val PROFILE = "profile"

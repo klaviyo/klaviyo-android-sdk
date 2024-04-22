@@ -1,0 +1,50 @@
+package com.klaviyo.analytics.state
+
+import com.klaviyo.analytics.model.Keyword
+import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.ProfileKey
+
+typealias StateObserver = (key: Keyword?) -> Unit
+
+interface UserState {
+    var externalId: String
+    var email: String
+    var phoneNumber: String
+    val anonymousId: String
+    var pushToken: String
+    var pushState: String
+
+    /**
+     * Register an observer to be notified when state changes
+     *
+     * @param observer
+     */
+    fun onStateChange(observer: StateObserver)
+
+    /**
+     * De-register an observer from [onStateChange]
+     *
+     * @param observer
+     */
+    fun offStateChange(observer: StateObserver)
+
+    /**
+     * Get all user data in state as a [Profile] model object
+     */
+    fun get(withAttributes: Boolean = false): Profile
+
+    /**
+     * Update user state from a new [Profile] model object
+     */
+    fun set(profile: Profile)
+
+    /**
+     * Set an individual attribute
+     */
+    fun set(key: ProfileKey, value: String)
+
+    /**
+     * Remove all user identifiers and attributes from internal state
+     */
+    fun reset()
+}

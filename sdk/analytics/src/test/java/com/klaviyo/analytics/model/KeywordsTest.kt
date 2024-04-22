@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.model
 
+import com.klaviyo.fixtures.BaseTest.Companion.EMAIL
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -40,6 +41,14 @@ class KeywordsTest {
         assertEquals("custom", ProfileKey.CUSTOM("custom").specialKey())
 
         assertEquals(ProfileKey.EMAIL, ProfileKey.CUSTOM("email"))
+    }
+
+    @Test
+    fun `A custom key is interchangeable with named key if name string matches`() {
+        assertEquals(
+            EMAIL,
+            Profile(mapOf(ProfileKey.CUSTOM("email") to EMAIL)).email
+        )
     }
 
     @Test
