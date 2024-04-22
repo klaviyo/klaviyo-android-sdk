@@ -1,0 +1,193 @@
+package com.klaviyo.analytics.state
+
+import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
+import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.ApiObserver
+import com.klaviyo.analytics.networking.requests.EventApiRequest
+import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
+import com.klaviyo.analytics.networking.requests.ProfileApiRequest
+import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
+import com.klaviyo.core.Registry
+import com.klaviyo.fixtures.BaseTest
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Test
+
+class SideEffectTests : BaseTest() {
+
+    private val profile = Profile(email = EMAIL)
+    private val capturedProfile = slot<Profile>()
+    private val capturedApiObserver = slot<ApiObserver>()
+    private val capturedStateObserver = slot<StateObserver>()
+    private val capturedPushState = slot<String>()
+    private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
+        Registry.register<ApiClient>(this)
+        every { onApiRequest(any(), capture(capturedApiObserver)) } returns Unit
+        every { enqueueProfile(capture(capturedProfile)) } returns Unit
+        every { enqueueEvent(any(), any()) } returns Unit
+        every { enqueuePushToken(any(), any()) } returns Unit
+    }
+
+    private val userStateMock = mockk<UserState>().apply {
+        every { onStateChange(capture(capturedStateObserver)) } returns Unit
+        every { pushState = capture(capturedPushState) } returns Unit
+        every { get(withAttributes = any()) } returns profile
+        every { resetAttributes() } returns Unit
+    }
+
+    @Test
+    fun `Subscribes on init`() {
+        UserSideEffects(apiClientMock, userStateMock)
+        verify { userStateMock.onStateChange(any()) }
+        verify { apiClientMock.onApiRequest(any(), any()) }
+    }
+
+    @Test
+    fun `Profile changes enqueue a single profile API request`() {
+        UserSideEffects(apiClientMock, userStateMock)
+
+        capturedStateObserver.captured(ProfileKey.EMAIL)
+        capturedStateObserver.captured(PROFILE_ATTRIBUTES)
+        capturedStateObserver.captured(null)
+
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 1) {
+            apiClientMock.enqueueProfile(
+                match {
+                    it.email == profile.email && it.propertyCount() == profile.propertyCount()
+                }
+            )
+        }
+    }
+
+    @Test
+    fun `Empty attributes do not enqueue a profile API request`() {
+        UserSideEffects(
+            apiClientMock,
+            userStateMock.apply {
+                every { get(withAttributes = any()) } returns Profile(
+                    properties = mapOf(ProfileKey.FIRST_NAME to "Kermit")
+                )
+            }
+        )
+
+        capturedStateObserver.captured(PROFILE_ATTRIBUTES)
+
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `Resetting profile enqueues API call immediately`() {
+        UserSideEffects(
+            apiClientMock,
+            userStateMock.apply {
+                every { get(withAttributes = any()) } returns Profile(
+                    properties = mapOf(
+                        ProfileKey.ANONYMOUS_ID to ANON_ID,
+                        ProfileKey.FIRST_NAME to "Kermit"
+                    )
+                )
+            }
+        )
+
+        capturedStateObserver.captured(PROFILE_ATTRIBUTES)
+
+        every { userStateMock.get(withAttributes = any()) } returns Profile(
+            properties = mapOf(
+                ProfileKey.ANONYMOUS_ID to "new_anon_id"
+            )
+        )
+
+        capturedStateObserver.captured(null)
+
+        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 2) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `Attributes do enqueue a profile API request`() {
+        UserSideEffects(apiClientMock, userStateMock)
+
+        capturedStateObserver.captured(PROFILE_ATTRIBUTES)
+
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `Push state change enqueues an API request`() {
+        every { userStateMock.pushState } returns "stateful"
+        every { userStateMock.pushToken } returns "token"
+
+        UserSideEffects(apiClientMock, userStateMock)
+
+        capturedStateObserver.captured(ProfileKey.PUSH_STATE)
+        verify(exactly = 1) { apiClientMock.enqueuePushToken("token", profile) }
+    }
+
+    @Test
+    fun `Empty push state is ignored`() {
+        every { userStateMock.pushState } returns ""
+
+        UserSideEffects(apiClientMock, userStateMock)
+
+        capturedStateObserver.captured(ProfileKey.PUSH_STATE)
+        verify(exactly = 0) { apiClientMock.enqueuePushToken(any(), any()) }
+    }
+
+    @Test
+    fun `Push token change alone does not trigger an API request`() {
+        every { userStateMock.pushState } returns "stateful"
+        every { userStateMock.pushToken } returns "token"
+
+        UserSideEffects(apiClientMock, userStateMock)
+
+        capturedStateObserver.captured(ProfileKey.PUSH_TOKEN)
+        verify(exactly = 0) { apiClientMock.enqueuePushToken(any(), any()) }
+    }
+
+    @Test
+    fun `Reset push state on push API failure`() {
+        UserSideEffects(apiClientMock, userStateMock)
+
+        capturedApiObserver.captured(
+            mockk<PushTokenApiRequest>().apply {
+                every { status } returns KlaviyoApiRequest.Status.Failed
+            }
+        )
+
+        assertEquals("", capturedPushState.captured)
+    }
+
+    @Test
+    fun `Other API failures do not affect push state`() {
+        UserSideEffects(apiClientMock, userStateMock)
+
+        capturedApiObserver.captured(
+            mockk<ProfileApiRequest>().apply {
+                every { status } returns KlaviyoApiRequest.Status.Failed
+            }
+        )
+
+        capturedApiObserver.captured(
+            mockk<EventApiRequest>().apply {
+                every { status } returns KlaviyoApiRequest.Status.Failed
+            }
+        )
+
+        assertFalse(capturedPushState.isCaptured)
+    }
+}

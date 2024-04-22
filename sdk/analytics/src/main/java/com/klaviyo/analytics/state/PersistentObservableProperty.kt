@@ -7,15 +7,14 @@ import kotlin.reflect.KProperty
 
 internal abstract class PersistentObservableProperty<T>(
     val key: Keyword,
-    private val default: T? = null,
-    private val fallback: () -> T? = { default },
+    private val fallback: () -> T? = { null },
     private val onChanged: (property: PersistentObservableProperty<T>) -> Unit
 ) : ReadWriteProperty<Any?, T?> {
 
     /**
      * Value of this property, backed by persistent store
      */
-    private var value: T? = default
+    private var value: T? = null
         get() = field ?: fetch()?.also { field = it }
         set(newValue) {
             field = newValue
@@ -43,7 +42,7 @@ internal abstract class PersistentObservableProperty<T>(
      * Reset the value to default in memory and on disk,
      * bypassing validation and callbacks
      */
-    fun reset() { value = default }
+    fun reset() { value = null }
 
     /**
      * Triggered by [setValue] to validate a change.
@@ -77,9 +76,6 @@ internal abstract class PersistentObservableProperty<T>(
      *
      * @return
      */
-    private fun fetch(): T? = Registry.dataStore.fetch(key.name)
-        .let { it.orEmpty() }
-        .ifEmpty { fallback().let(::persist) }
-        .takeIf { it.isNotEmpty() }
-        .let { deserialize(it) }
+    private fun fetch(): T? = Registry.dataStore.fetch(key.name)?.let(::deserialize)
+        ?: fallback()?.also(::persist)
 }

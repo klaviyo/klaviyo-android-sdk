@@ -9,7 +9,6 @@ internal class PersistentObservableString(
     onChanged: (property: PersistentObservableProperty<String?>) -> Unit = { },
     fallback: () -> String? = { null }
 ) : PersistentObservableProperty<String?>(
-    default = null,
     key = key,
     fallback = fallback,
     onChanged = onChanged

@@ -68,9 +68,11 @@ abstract class BaseTest {
         every { packageManager } returns mockPackageManager
     }
 
+    protected val debounceTime = 5
     protected val configMock = mockk<Config>().apply {
         every { apiKey } returns API_KEY
         every { applicationContext } returns contextMock
+        every { debounceInterval } returns debounceTime
         every { networkMaxAttempts } returns 50
         every { networkMaxRetryInterval } returns 180_000L
         every { networkFlushIntervals } returns longArrayOf(10_000, 30_000, 60_000)

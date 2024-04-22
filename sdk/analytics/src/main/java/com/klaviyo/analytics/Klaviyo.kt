@@ -11,8 +11,8 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
-import com.klaviyo.analytics.state.SideEffectCoordinator
-import com.klaviyo.analytics.state.UserInfo
+import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.UserSideEffects
 import com.klaviyo.analytics.state.UserState
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
@@ -63,8 +63,8 @@ object Klaviyo {
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
         } ?: throw LifecycleException()
 
-        Registry.register<UserState>(UserInfo())
-        Registry.register<SideEffectCoordinator>(SideEffectCoordinator())
+        Registry.register<State>(UserState())
+        Registry.register<UserSideEffects>(UserSideEffects())
     }
 
     /**
@@ -80,7 +80,7 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setProfile(profile: Profile): Klaviyo = safeApply {
-        Registry.get<UserState>().set(profile)
+        Registry.get<State>().set(profile)
     }
 
     /**
@@ -104,7 +104,7 @@ object Klaviyo {
     /**
      * @return The email of the currently tracked profile, if set
      */
-    fun getEmail(): String? = safeCall { Registry.get<UserState>().email }
+    fun getEmail(): String? = safeCall { Registry.get<State>().email }
 
     /**
      * Assigns a phone number to the currently tracked Klaviyo profile
@@ -131,7 +131,7 @@ object Klaviyo {
     /**
      * @return The phone number of the currently tracked profile, if set
      */
-    fun getPhoneNumber(): String? = safeCall { Registry.get<UserState>().phoneNumber }
+    fun getPhoneNumber(): String? = safeCall { Registry.get<State>().phoneNumber }
 
     /**
      * Assigns a unique identifier to associate the currently tracked Klaviyo profile
@@ -159,7 +159,7 @@ object Klaviyo {
     /**
      * @return The external ID of the currently tracked profile, if set
      */
-    fun getExternalId(): String? = safeCall { Registry.get<UserState>().externalId }
+    fun getExternalId(): String? = safeCall { Registry.get<State>().externalId }
 
     /**
      * Saves a push token and registers to the current profile
@@ -171,12 +171,12 @@ object Klaviyo {
      *
      * @param pushToken The push token provided by the device push service
      */
-    fun setPushToken(pushToken: String) = safeApply { Registry.get<UserState>().pushToken = pushToken }
+    fun setPushToken(pushToken: String) = safeApply { Registry.get<State>().pushToken = pushToken }
 
     /**
      * @return The device push token, if one has been assigned to currently tracked profile
      */
-    fun getPushToken(): String? = safeCall { Registry.get<UserState>().pushToken }
+    fun getPushToken(): String? = safeCall { Registry.get<State>().pushToken }
 
     /**
      * Assign an attribute to the currently tracked profile by key/value pair
@@ -192,7 +192,7 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo = safeApply {
-        Registry.get<UserState>().set(propertyKey, value)
+        Registry.get<State>().set(propertyKey, value)
     }
 
     /**
@@ -204,7 +204,7 @@ object Klaviyo {
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
      */
-    fun resetProfile() = safeApply { Registry.get<UserState>().reset() }
+    fun resetProfile() = safeApply { Registry.get<State>().reset() }
 
     /**
      * Creates an [Event] associated with the currently tracked profile
@@ -213,7 +213,7 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun createEvent(event: Event): Klaviyo = safeApply {
-        Registry.get<ApiClient>().enqueueEvent(event, Registry.get<UserState>().get())
+        Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().get())
     }
 
     /**

@@ -11,9 +11,9 @@ import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 
-internal class SideEffectCoordinator(
+internal class UserSideEffects(
     private val apiClient: ApiClient = Registry.get<ApiClient>(),
-    private val userState: UserState = Registry.get<UserState>()
+    private val state: State = Registry.get<State>()
 ) {
     /**
      * Debounce timer for enqueuing profile API calls
@@ -27,11 +27,11 @@ internal class SideEffectCoordinator(
 
     init {
         apiClient.onApiRequest(false, ::afterApiRequest)
-        userState.onStateChange { key: Keyword? ->
+        state.onStateChange { key: Keyword? ->
             when (key) {
                 ProfileKey.PUSH_STATE -> onPushStateChange()
                 ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */ }
-                PROFILE_ATTRIBUTES -> if (userState.get(true).attributes.propertyCount() > 0) {
+                PROFILE_ATTRIBUTES -> if (state.get(true).attributes.propertyCount() > 0) {
                     onUserStateChange()
                 }
                 else -> onUserStateChange()
@@ -40,13 +40,13 @@ internal class SideEffectCoordinator(
     }
 
     private fun onPushStateChange() {
-        if (!userState.pushState.isNullOrEmpty()) {
-            userState.pushToken?.let { apiClient.enqueuePushToken(it, userState.get()) }
+        if (!state.pushState.isNullOrEmpty()) {
+            state.pushToken?.let { apiClient.enqueuePushToken(it, state.get()) }
         }
     }
 
     private fun onUserStateChange() {
-        val profile = userState.get(true)
+        val profile = state.get(true)
 
         // Anonymous ID indicates a profile reset, we should flush any pending profile changes immediately
         pendingProfile?.takeIf { it.anonymousId != profile.anonymousId }?.also {
@@ -72,13 +72,13 @@ internal class SideEffectCoordinator(
         timer?.cancel()
         Registry.log.verbose("Flushing profile update")
         apiClient.enqueueProfile(it.copy())
-        userState.resetAttributes() // Once captured in a request, we don't keep profile attributes in state/on disk
+        state.resetAttributes() // Once captured in a request, we don't keep profile attributes in state/on disk
         pendingProfile = null
     }
 
     private fun afterApiRequest(request: ApiRequest) = when {
         request is PushTokenApiRequest && request.status == KlaviyoApiRequest.Status.Failed -> {
-            userState.pushState = ""
+            state.pushState = ""
         }
         else -> Unit
     }

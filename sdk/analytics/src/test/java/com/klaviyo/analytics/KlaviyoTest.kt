@@ -10,7 +10,7 @@ import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
-import com.klaviyo.analytics.state.UserState
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
@@ -61,7 +61,6 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     private val capturedProfile = slot<Profile>()
-    private val debounceTime = 5
     private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
         Registry.register<ApiClient>(this)
         every { onApiRequest(any(), any()) } returns Unit
@@ -86,7 +85,6 @@ internal class KlaviyoTest : BaseTest() {
     override fun setup() {
         super.setup()
         every { Registry.configBuilder } returns builderMock
-        every { configMock.debounceInterval } returns debounceTime
         DevicePropertiesTest.mockDeviceProperties()
         Klaviyo.initialize(
             apiKey = API_KEY,
@@ -96,7 +94,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @After
     override fun cleanup() {
-        Registry.get<UserState>().reset()
+        Registry.get<State>().reset()
         super.cleanup()
         DevicePropertiesTest.unmockDeviceProperties()
     }
@@ -217,9 +215,9 @@ internal class KlaviyoTest : BaseTest() {
 
         verifyProfileDebounced() // Should not have enqueued a new request
         verify(exactly = 3) { logSpy.warning(any(), null) }
-        assertEquals(EXTERNAL_ID, Registry.get<UserState>().externalId)
-        assertEquals(EMAIL, Registry.get<UserState>().email)
-        assertEquals(PHONE, Registry.get<UserState>().phoneNumber)
+        assertEquals(EXTERNAL_ID, Registry.get<State>().externalId)
+        assertEquals(EMAIL, Registry.get<State>().email)
+        assertEquals(PHONE, Registry.get<State>().phoneNumber)
     }
 
     @Test
@@ -256,32 +254,32 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `setProfile merges into an anonymous profile`() {
-        val anonId = Registry.get<UserState>().anonymousId
+        val anonId = Registry.get<State>().anonymousId
 
         Klaviyo.setProfile(Profile().setEmail(EMAIL))
 
-        assertEquals(EMAIL, Registry.get<UserState>().email)
-        assertEquals(anonId, Registry.get<UserState>().anonymousId)
+        assertEquals(EMAIL, Registry.get<State>().email)
+        assertEquals(anonId, Registry.get<State>().anonymousId)
     }
 
     @Test
     fun `setProfile resets current profile and passes new identifiers to UserInfo`() {
-        Registry.get<UserState>().email = "other"
-        val anonId = Registry.get<UserState>().anonymousId
+        Registry.get<State>().email = "other"
+        val anonId = Registry.get<State>().anonymousId
         val newProfile = Profile().setExternalId(EXTERNAL_ID)
 
         Klaviyo.setProfile(newProfile)
 
-        assertEquals(EXTERNAL_ID, Registry.get<UserState>().externalId)
-        assertNull(Registry.get<UserState>().email)
-        assertNotEquals(anonId, Registry.get<UserState>().anonymousId)
+        assertEquals(EXTERNAL_ID, Registry.get<State>().externalId)
+        assertNull(Registry.get<State>().email)
+        assertNotEquals(anonId, Registry.get<State>().anonymousId)
     }
 
     @Test
     fun `Sets user external ID into info`() {
         Klaviyo.setExternalId(EXTERNAL_ID)
 
-        assertEquals(EXTERNAL_ID, Registry.get<UserState>().externalId)
+        assertEquals(EXTERNAL_ID, Registry.get<State>().externalId)
         verifyProfileDebounced()
     }
 
@@ -289,7 +287,7 @@ internal class KlaviyoTest : BaseTest() {
     fun `Sets user email into info`() {
         Klaviyo.setEmail(EMAIL)
 
-        assertEquals(EMAIL, Registry.get<UserState>().email)
+        assertEquals(EMAIL, Registry.get<State>().email)
         verifyProfileDebounced()
     }
 
@@ -297,7 +295,7 @@ internal class KlaviyoTest : BaseTest() {
     fun `Sets user phone into info`() {
         Klaviyo.setPhoneNumber(PHONE)
 
-        assertEquals(PHONE, Registry.get<UserState>().phoneNumber)
+        assertEquals(PHONE, Registry.get<State>().phoneNumber)
         verifyProfileDebounced()
     }
 
@@ -305,7 +303,7 @@ internal class KlaviyoTest : BaseTest() {
     fun `Sets an arbitrary user property`() {
         val stubName = "Gonzo"
         Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, stubName)
-        assertEquals(stubName, Registry.get<UserState>().get(true)[ProfileKey.FIRST_NAME])
+        assertEquals(stubName, Registry.get<State>().get(true)[ProfileKey.FIRST_NAME])
     }
 
     @Test
@@ -320,17 +318,17 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Resets user info`() {
-        val anonId = Registry.get<UserState>().anonymousId
-        Registry.get<UserState>().email = EMAIL
-        Registry.get<UserState>().phoneNumber = PHONE
-        Registry.get<UserState>().externalId = EXTERNAL_ID
+        val anonId = Registry.get<State>().anonymousId
+        Registry.get<State>().email = EMAIL
+        Registry.get<State>().phoneNumber = PHONE
+        Registry.get<State>().externalId = EXTERNAL_ID
 
         Klaviyo.resetProfile()
 
-        assertNotEquals(anonId, Registry.get<UserState>().anonymousId)
-        assertNull(Registry.get<UserState>().email)
-        assertNull(Registry.get<UserState>().phoneNumber)
-        assertNull(Registry.get<UserState>().externalId)
+        assertNotEquals(anonId, Registry.get<State>().anonymousId)
+        assertNull(Registry.get<State>().email)
+        assertNull(Registry.get<State>().phoneNumber)
+        assertNull(Registry.get<State>().externalId)
 
         // Resetting profile flushes the queue immediately
         verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
@@ -338,12 +336,12 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Reset removes push token from store`() {
-        Registry.get<UserState>().email = EMAIL
+        Registry.get<State>().email = EMAIL
         dataStoreSpy.store("push_token", PUSH_TOKEN)
 
         Klaviyo.resetProfile()
 
-        assertNull(null, Registry.get<UserState>().email)
+        assertNull(null, Registry.get<State>().email)
         assertNull(null, dataStoreSpy.fetch("push_token"))
     }
 
@@ -353,9 +351,9 @@ internal class KlaviyoTest : BaseTest() {
         assertNull(Klaviyo.getPhoneNumber())
         assertNull(Klaviyo.getExternalId())
 
-        Registry.get<UserState>().email = EMAIL
-        Registry.get<UserState>().phoneNumber = PHONE
-        Registry.get<UserState>().externalId = EXTERNAL_ID
+        Registry.get<State>().email = EMAIL
+        Registry.get<State>().phoneNumber = PHONE
+        Registry.get<State>().externalId = EXTERNAL_ID
 
         assertEquals(EMAIL, Klaviyo.getEmail())
         assertEquals(PHONE, Klaviyo.getPhoneNumber())

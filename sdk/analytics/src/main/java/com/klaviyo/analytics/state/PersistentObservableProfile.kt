@@ -10,10 +10,9 @@ import org.json.JSONObject
 
 internal class PersistentObservableProfile(
     key: Keyword,
-    onChanged: (PersistentObservableProperty<ImmutableProfile?>) -> Unit
+    onChanged: (PersistentObservableProperty<ImmutableProfile?>) -> Unit = { }
 ) : PersistentObservableProperty<ImmutableProfile?>(
     key = key,
-    default = null,
     onChanged = onChanged
 ) {
     override fun deserialize(storedValue: String?): ImmutableProfile? = storedValue
