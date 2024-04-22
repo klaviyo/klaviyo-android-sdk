@@ -13,9 +13,11 @@ interface Config {
     val debounceInterval: Int
 
     val networkTimeout: Int
-    val networkFlushIntervals: IntArray
+    val networkFlushIntervals: LongArray
     val networkFlushDepth: Int
-    val networkMaxRetries: Int
+    val networkMaxAttempts: Int
+    val networkMaxRetryInterval: Long
+    val networkJitterRange: IntRange
 
     fun getManifestInt(key: String, defaultValue: Int): Int
 
@@ -25,9 +27,10 @@ interface Config {
         fun baseUrl(baseUrl: String): Builder
         fun debounceInterval(debounceInterval: Int): Builder
         fun networkTimeout(networkTimeout: Int): Builder
-        fun networkFlushInterval(networkFlushInterval: Int, type: NetworkMonitor.NetworkType): Builder
+        fun networkFlushInterval(networkFlushInterval: Long, type: NetworkMonitor.NetworkType): Builder
         fun networkFlushDepth(networkFlushDepth: Int): Builder
-        fun networkMaxRetries(networkMaxRetries: Int): Builder
+        fun networkMaxAttempts(networkMaxAttempts: Int): Builder
+        fun networkMaxRetryInterval(networkMaxRetryInterval: Long): Builder
         fun build(): Config
     }
 }

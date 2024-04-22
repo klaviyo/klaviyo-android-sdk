@@ -13,12 +13,14 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.verify
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 
 internal class KlaviyoConfigTest : BaseTest() {
 
     private val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
     private val mockVersionCode = 123
+    private val mockApplicationLabel = "Mock Application Label"
 
     @Suppress("DEPRECATION")
     private val mockPackageInfo = mockk<PackageInfo>().apply {
@@ -31,11 +33,8 @@ internal class KlaviyoConfigTest : BaseTest() {
         every { longVersionCode } returns mockVersionCode.toLong()
         versionCode = mockVersionCode
     }
-    private val mockApplicationLabel = "Mock Application Label"
 
-    @Test
-    fun `Is registered service`() = assert(Registry.configBuilder is KlaviyoConfig.Builder)
-
+    @Before
     override fun setup() {
         super.setup()
         mockkStatic(PackageManager.PackageInfoFlags::class)
@@ -53,6 +52,9 @@ internal class KlaviyoConfigTest : BaseTest() {
     }
 
     @Test
+    fun `Is registered service`() = assert(Registry.configBuilder is KlaviyoConfig.Builder)
+
+    @Test
     fun `KlaviyoConfig Builder sets variables successfully`() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
@@ -64,7 +66,8 @@ internal class KlaviyoConfigTest : BaseTest() {
             .networkFlushInterval(3, NetworkMonitor.NetworkType.Cell)
             .networkFlushInterval(6, NetworkMonitor.NetworkType.Offline)
             .networkFlushDepth(4)
-            .networkMaxRetries(5)
+            .networkMaxAttempts(5)
+            .networkMaxRetryInterval(7)
             .build()
 
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
@@ -85,7 +88,8 @@ internal class KlaviyoConfigTest : BaseTest() {
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Offline.position]
         )
         assertEquals(4, KlaviyoConfig.networkFlushDepth)
-        assertEquals(5, KlaviyoConfig.networkMaxRetries)
+        assertEquals(5, KlaviyoConfig.networkMaxAttempts)
+        assertEquals(7, KlaviyoConfig.networkMaxRetryInterval)
     }
 
     @Test
@@ -99,19 +103,20 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(100, KlaviyoConfig.debounceInterval)
         assertEquals(10_000, KlaviyoConfig.networkTimeout)
         assertEquals(
-            10_000,
+            10_000L,
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
         )
         assertEquals(
-            30_000,
+            30_000L,
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Cell.position]
         )
         assertEquals(
-            60_000,
+            60_000L,
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Offline.position]
         )
         assertEquals(25, KlaviyoConfig.networkFlushDepth)
-        assertEquals(4, KlaviyoConfig.networkMaxRetries)
+        assertEquals(50, KlaviyoConfig.networkMaxAttempts)
+        assertEquals(180_000L, KlaviyoConfig.networkMaxRetryInterval)
     }
 
     @Test
@@ -125,17 +130,18 @@ internal class KlaviyoConfigTest : BaseTest() {
             .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Cell)
             .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Offline)
             .networkFlushDepth(-10)
-            .networkMaxRetries(-10)
+            .networkMaxAttempts(-10)
+            .networkMaxRetryInterval(-1)
             .build()
 
         assertEquals(100, KlaviyoConfig.debounceInterval)
         assertEquals(10_000, KlaviyoConfig.networkTimeout)
         assertEquals(
-            10_000,
+            10_000L,
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
         )
         assertEquals(
-            30_000,
+            30_000L,
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Cell.position]
         )
         assertEquals(
@@ -143,10 +149,11 @@ internal class KlaviyoConfigTest : BaseTest() {
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Offline.position]
         )
         assertEquals(25, KlaviyoConfig.networkFlushDepth)
-        assertEquals(4, KlaviyoConfig.networkMaxRetries)
+        assertEquals(50, KlaviyoConfig.networkMaxAttempts)
+        assertEquals(180_000, KlaviyoConfig.networkMaxRetryInterval)
 
         // Each bad call should have generated an error log
-        verify(exactly = 7) { logSpy.error(any(), null) }
+        verify(exactly = 8) { logSpy.error(any(), null) }
     }
 
     @Test(expected = MissingAPIKey::class)

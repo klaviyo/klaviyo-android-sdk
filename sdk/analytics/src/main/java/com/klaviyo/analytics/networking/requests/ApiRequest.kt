@@ -28,6 +28,11 @@ interface ApiRequest {
     val queuedTime: Long
 
     /**
+     * Number of send attempts
+     */
+    val attempts: Int
+
+    /**
      * Time the request was made
      */
     val startTime: Long?
@@ -48,7 +53,7 @@ interface ApiRequest {
     val httpMethod: String
 
     /**
-     * HTTP Headers
+     * HTTP request headers
      */
     val headers: Map<String, String>
 
@@ -70,6 +75,11 @@ interface ApiRequest {
      * @return
      */
     val responseCode: Int?
+
+    /**
+     * HTTP Response Headers
+     */
+    val responseHeaders: Map<String, List<String>>
 
     /**
      * Render the response as a string, if the request has been sent

@@ -7,6 +7,7 @@ import android.content.Intent
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.analytics.model.PROFILE_IDENTIFIERS
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
@@ -61,11 +62,15 @@ object Klaviyo {
             unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
         } ?: throw LifecycleException()
+
+        UserInfo.startObservers()
     }
 
     /**
      * Assign new identifiers and attributes to the currently tracked profile.
-     * If a profile has already been identified it will be overwritten by calling [resetProfile].
+     * If a profile has already been identified, it will be overwritten by calling [resetProfile].
+     *
+     * Whitespace will be trimmed from all identifier values.
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
@@ -80,14 +85,37 @@ object Klaviyo {
             resetProfile()
         }
 
-        UserInfo.externalId = profile.externalId ?: ""
-        UserInfo.email = profile.email ?: ""
-        UserInfo.phoneNumber = profile.phoneNumber ?: ""
-        profileOperationQueue.debounceProfileUpdate(profile)
+        // Copy the profile object, so we aren't mutating the argument
+        val mutableProfile = Profile().merge(profile)
+
+        // Route identifiers to the explicit setter functions to re-use that validator logic
+        mutableProfile.externalId?.let {
+            setExternalId(it)
+            mutableProfile.externalId = null
+        }
+
+        mutableProfile.email?.let {
+            setEmail(it)
+            mutableProfile.email = null
+        }
+
+        mutableProfile.phoneNumber?.let {
+            setPhoneNumber(it)
+            mutableProfile.phoneNumber = null
+        }
+
+        // Enqueue any remaining profile attributes
+        if (mutableProfile.propertyCount() > 0) {
+            profileOperationQueue.debounceProfileUpdate(mutableProfile)
+        }
     }
 
     /**
      * Assigns an email address to the currently tracked Klaviyo profile
+     *
+     * Whitespace will be trimmed from the value.
+     * Calling this method with an empty string or the same value as currently set
+     * will be ignored. To clear identifiers, use [resetProfile].
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
@@ -110,6 +138,10 @@ object Klaviyo {
      *
      * NOTE: Phone number format is not validated, but should conform to Klaviyo formatting
      * see (documentation)[https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo]
+     *
+     * Whitespace will be trimmed from the value.
+     * Calling this method with an empty string or the same value as currently set
+     * will be ignored. To clear identifiers, use [resetProfile].
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
@@ -136,6 +168,10 @@ object Klaviyo {
      *
      * NOTE: Please consult (documentation)[https://help.klaviyo.com/hc/en-us/articles/12902308138011-Understanding-identity-resolution-in-Klaviyo-]
      * to familiarize yourself with identity resolution before using this identifier.
+     *
+     * Whitespace will be trimmed from the value.
+     * Calling this method with an empty string or the same value as currently set
+     * will be ignored. To clear identifiers, use [resetProfile].
      *
      * The SDK keeps track of current profile details to
      * build analytics requests with profile identifiers
@@ -167,15 +203,16 @@ object Klaviyo {
      * @param pushToken The push token provided by the device push service
      */
     fun setPushToken(pushToken: String) = safeApply {
-        Registry.dataStore.store(EventKey.PUSH_TOKEN.name, pushToken)
-        Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
+        UserInfo.setPushToken(pushToken) {
+            Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
+        }
     }
 
     /**
      * @return The device push token, if one has been assigned to currently tracked profile
      */
     fun getPushToken(): String? = safeCall {
-        Registry.dataStore.fetch(EventKey.PUSH_TOKEN.name)?.ifEmpty { null }
+        UserInfo.pushToken.ifEmpty { null }
     }
 
     /**
@@ -192,22 +229,31 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo = safeApply {
-        when (propertyKey) {
-            ProfileKey.EMAIL -> {
-                UserInfo.email = value
-                profileOperationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
+        if (PROFILE_IDENTIFIERS.contains(propertyKey)) {
+            value.trim().ifEmpty {
+                Registry.log.warning(
+                    "Empty string for $propertyKey will be ignored. To clear identifiers use resetProfile."
+                )
+                null
+            }?.also { validatedIdentifier ->
+                var property by when (propertyKey) {
+                    ProfileKey.EXTERNAL_ID -> UserInfo::externalId
+                    ProfileKey.EMAIL -> UserInfo::email
+                    ProfileKey.PHONE_NUMBER -> UserInfo::phoneNumber
+                    else -> return@safeApply
+                }
+
+                if (property != validatedIdentifier) {
+                    property = validatedIdentifier
+                    profileOperationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
+                } else {
+                    Registry.log.info(
+                        "$propertyKey value was unchanged, the update will be ignored."
+                    )
+                }
             }
-            ProfileKey.EXTERNAL_ID -> {
-                UserInfo.externalId = value
-                profileOperationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
-            }
-            ProfileKey.PHONE_NUMBER -> {
-                UserInfo.phoneNumber = value
-                profileOperationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
-            }
-            else -> {
-                profileOperationQueue.debounceProfileUpdate(Profile(mapOf(propertyKey to value)))
-            }
+        } else {
+            profileOperationQueue.debounceProfileUpdate(Profile(mapOf(propertyKey to value)))
         }
     }
 
@@ -226,9 +272,6 @@ object Klaviyo {
 
         // Clear profile identifiers from state
         UserInfo.reset()
-
-        // If we had a push token, erase the local copy
-        Registry.dataStore.clear(EventKey.PUSH_TOKEN.name)
     }
 
     /**

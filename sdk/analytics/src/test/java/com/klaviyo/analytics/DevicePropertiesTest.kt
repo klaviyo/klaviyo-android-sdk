@@ -6,13 +6,39 @@ import android.os.Build
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 internal class DevicePropertiesTest : BaseTest() {
 
-    private val mockVersionCode = 123
+    companion object {
+        private val mockVersionCode = 123
+
+        fun mockDeviceProperties() {
+            mockkObject(DeviceProperties)
+            every { DeviceProperties.userAgent } returns "Mock User Agent"
+            every { DeviceProperties.model } returns "Mock Model"
+            every { DeviceProperties.applicationLabel } returns "Mock Application Label"
+            every { DeviceProperties.appVersion } returns "Mock App Version"
+            every { DeviceProperties.appVersionCode } returns "Mock Version Code"
+            every { DeviceProperties.sdkName } returns "Mock SDK"
+            every { DeviceProperties.sdkVersion } returns "Mock SDK Version"
+            every { DeviceProperties.backgroundData } returns true
+            every { DeviceProperties.notificationPermission } returns true
+            every { DeviceProperties.applicationId } returns "Mock App ID"
+            every { DeviceProperties.platform } returns "Android"
+            every { DeviceProperties.deviceId } returns "Mock Device ID"
+            every { DeviceProperties.manufacturer } returns "Mock Manufacturer"
+            every { DeviceProperties.osVersion } returns "Mock OS Version"
+        }
+
+        fun unmockDeviceProperties() {
+            unmockkObject(DeviceProperties)
+        }
+    }
 
     @Suppress("DEPRECATION")
     private val mockPackageInfo = mockk<PackageInfo>().apply {
