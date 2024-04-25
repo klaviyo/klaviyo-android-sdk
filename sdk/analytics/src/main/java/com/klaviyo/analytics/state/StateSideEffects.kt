@@ -11,9 +11,9 @@ import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 
-internal class UserSideEffects(
-    private val apiClient: ApiClient = Registry.get<ApiClient>(),
-    private val state: State = Registry.get<State>()
+internal class StateSideEffects(
+    private val state: State = Registry.get<State>(),
+    private val apiClient: ApiClient = Registry.get<ApiClient>()
 ) {
     /**
      * Debounce timer for enqueuing profile API calls
@@ -78,7 +78,7 @@ internal class UserSideEffects(
 
     private fun afterApiRequest(request: ApiRequest) = when {
         request is PushTokenApiRequest && request.status == KlaviyoApiRequest.Status.Failed -> {
-            state.pushState = ""
+            state.pushState = null
         }
         else -> Unit
     }

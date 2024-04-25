@@ -6,7 +6,7 @@ import kotlin.reflect.KProperty
 
 internal class PersistentObservableString(
     key: ProfileKey,
-    onChanged: (property: PersistentObservableProperty<String?>) -> Unit = { },
+    onChanged: PropertyObserver<String?> = { },
     fallback: () -> String? = { null }
 ) : PersistentObservableProperty<String?>(
     key = key,

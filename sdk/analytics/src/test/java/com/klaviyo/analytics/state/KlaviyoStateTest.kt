@@ -10,28 +10,28 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
-internal class UserStateTest : BaseTest() {
+internal class KlaviyoStateTest : BaseTest() {
 
-    private lateinit var userState: UserState
+    private lateinit var state: KlaviyoState
 
     @Before
     override fun setup() {
         super.setup()
-        userState = UserState().apply { reset() }
+        state = KlaviyoState().apply { reset() }
     }
 
     @Test
     fun `UserInfo is convertible to Profile`() {
-        userState.externalId = EXTERNAL_ID
-        userState.email = EMAIL
-        userState.phoneNumber = PHONE
-        assertProfileIdentifiers(userState.get())
+        state.externalId = EXTERNAL_ID
+        state.email = EMAIL
+        state.phoneNumber = PHONE
+        assertProfileIdentifiers(state.get())
         assertUserInfoIdentifiers()
     }
 
     @Test
     fun `Create and store a new UUID if one does not exists in data store`() {
-        val anonId = userState.anonymousId
+        val anonId = state.anonymousId
         val fetched = dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name)
         assertEquals(anonId, fetched)
     }
@@ -39,7 +39,7 @@ internal class UserStateTest : BaseTest() {
     @Test
     fun `Do not create new UUID if one exists in data store`() {
         dataStoreSpy.store(ProfileKey.ANONYMOUS_ID.name, ANON_ID)
-        assertEquals(ANON_ID, userState.anonymousId)
+        assertEquals(ANON_ID, state.anonymousId)
     }
 
     @Test
@@ -49,20 +49,20 @@ internal class UserStateTest : BaseTest() {
         dataStoreSpy.store(ProfileKey.EXTERNAL_ID.name, EXTERNAL_ID)
         dataStoreSpy.store(ProfileKey.PHONE_NUMBER.name, PHONE)
 
-        userState.anonymousId
-        assertEquals(ANON_ID, userState.anonymousId)
+        state.anonymousId
+        assertEquals(ANON_ID, state.anonymousId)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name) }
 
-        userState.email
-        assertEquals(EMAIL, userState.email)
+        state.email
+        assertEquals(EMAIL, state.email)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EMAIL.name) }
 
-        userState.externalId
-        assertEquals(EXTERNAL_ID, userState.externalId)
+        state.externalId
+        assertEquals(EXTERNAL_ID, state.externalId)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EXTERNAL_ID.name) }
 
-        userState.phoneNumber
-        assertEquals(PHONE, userState.phoneNumber)
+        state.phoneNumber
+        assertEquals(PHONE, state.phoneNumber)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.PHONE_NUMBER.name) }
     }
 
@@ -73,15 +73,15 @@ internal class UserStateTest : BaseTest() {
         assertNull(initialAnonId)
 
         // Start tracking a new anon ID and it should be persisted
-        val firstAnonId = userState.anonymousId
+        val firstAnonId = state.anonymousId
         assertEquals(firstAnonId, dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name))
 
         // Reset again should nullify in data store
-        userState.reset()
+        state.reset()
         assertNull(dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name))
 
         // Start tracking again should generate another new anon ID
-        val newAnonId = userState.anonymousId
+        val newAnonId = state.anonymousId
         assertNotEquals(firstAnonId, newAnonId)
         assertEquals(newAnonId, dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name))
     }
@@ -90,13 +90,13 @@ internal class UserStateTest : BaseTest() {
         assert(profile.externalId == EXTERNAL_ID)
         assert(profile.email == EMAIL)
         assert(profile.phoneNumber == PHONE)
-        assert(profile.anonymousId == userState.anonymousId)
+        assert(profile.anonymousId == state.anonymousId)
         assert(profile.toMap().count() == 4) // shouldn't contain any extras
     }
 
     private fun assertUserInfoIdentifiers() {
-        assertEquals(EXTERNAL_ID, userState.externalId)
-        assertEquals(EMAIL, userState.email)
-        assertEquals(PHONE, userState.phoneNumber)
+        assertEquals(EXTERNAL_ID, state.externalId)
+        assertEquals(EMAIL, state.email)
+        assertEquals(PHONE, state.phoneNumber)
     }
 }

@@ -5,10 +5,30 @@ import com.klaviyo.core.Registry
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
+internal typealias PropertyObserver<T> = (property: PersistentObservableProperty<T>) -> Unit
+
+/**
+ * Property delegate that is backed by the persistent store.
+ *
+ * When set, the value will be persisted to [key], and
+ * on first get, [key] will be read from the store into memory.
+ *
+ * If no persistent value exists, the value provided by [fallback] will be
+ * read into memory and saved to disk.
+ *
+ * [T] Should implement [toString] for serializing to persistent store,
+ * and subclasses must implement [deserialize] for reading back.
+ *
+ * When the property's value changes, as detected by [validateChange],
+ * then [onChanged] is triggered.
+ *
+ * @see [kotlin.properties.ObservableProperty] Inspiration for this class,
+ * but it was simpler to re-implement, so we can access the private [value].
+ */
 internal abstract class PersistentObservableProperty<T>(
     val key: Keyword,
     private val fallback: () -> T? = { null },
-    private val onChanged: (property: PersistentObservableProperty<T>) -> Unit
+    private val onChanged: PropertyObserver<T>
 ) : ReadWriteProperty<Any?, T?> {
 
     /**
@@ -30,9 +50,7 @@ internal abstract class PersistentObservableProperty<T>(
      * Set the value of this property if it passes validation rules from [validateChange]
      */
     override fun setValue(thisRef: Any?, property: KProperty<*>, value: T?) {
-        val oldValue = this.value
-
-        if (validateChange(oldValue, value)) {
+        if (validateChange(this.value, value)) {
             this.value = value
             onChanged(this)
         }
@@ -62,17 +80,15 @@ internal abstract class PersistentObservableProperty<T>(
     abstract fun deserialize(storedValue: String?): T?
 
     /**
-     * Save or clear property in the persistent store and return the persisted string value
-     *
-     * @param value
-     * @return
+     * Save or clear property in the persistent store
      */
-    private fun persist(value: T?): String = value?.toString()?.also { serializedValue ->
+    private fun persist(value: T?) = value?.toString()?.also { serializedValue ->
         Registry.dataStore.store(key.name, serializedValue)
     } ?: Registry.dataStore.clear(key.name).let { "" }
 
     /**
      * Get value from persistent store or return a fallback if it isn't present
+     * If fallback is invoked, save its return value to persistent store
      *
      * @return
      */

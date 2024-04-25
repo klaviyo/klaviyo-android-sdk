@@ -110,7 +110,7 @@ class PersistentObservableProfileTest : BaseTest() {
             """invalid_json""".trimIndent()
         )
 
-        val profile = UserState().get(true)
+        val profile = KlaviyoState().get(true)
         assertEquals(0, profile.attributes.propertyCount())
         verify { logSpy.warning(any(), any()) }
     }
@@ -122,7 +122,7 @@ class PersistentObservableProfileTest : BaseTest() {
             """{]""".trimIndent()
         )
 
-        val profile = UserState().get(true)
+        val profile = KlaviyoState().get(true)
         assertEquals(0, profile.attributes.propertyCount())
         verify { logSpy.warning(any(), any()) }
     }

@@ -41,18 +41,18 @@ abstract class BaseModel<Key, Self>(properties: Map<Key, Serializable>?)
      * Adds a custom property to the map.
      * Custom attributes can define any key name that isn't already reserved by Klaviyo
      */
-    abstract fun setProperty(key: Key, value: Serializable?): BaseModel<Key, Self>
+    abstract fun setProperty(key: Key, value: Serializable?): Self
 
     /**
      * Add a custom property to the map.
      * Custom attributes can define any key name that isn't already reserved by Klaviyo
      */
-    abstract fun setProperty(key: String, value: Serializable?): BaseModel<Key, Self>
+    abstract fun setProperty(key: String, value: Serializable?): Self
 
     /**
      * Create a copy of this model object
      */
-    abstract fun copy(): BaseModel<Key, Self>
+    abstract fun copy(): Self
 
     /**
      * Merges attributes from another object into this one

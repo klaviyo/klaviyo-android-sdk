@@ -11,9 +11,9 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
+import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
-import com.klaviyo.analytics.state.UserSideEffects
-import com.klaviyo.analytics.state.UserState
+import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
@@ -38,7 +38,7 @@ object Klaviyo {
     val lifecycleCallbacks: ActivityLifecycleCallbacks get() = NoOpLifecycleCallbacks
 
     init {
-        // Since analytics platform owns ApiClient, we must register the service on initialize
+        // Since analytics module owns ApiClient, we must register the service on initialize
         if (!Registry.isRegistered<ApiClient>()) Registry.register<ApiClient> { KlaviyoApiClient }
     }
 
@@ -63,8 +63,8 @@ object Klaviyo {
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
         } ?: throw LifecycleException()
 
-        Registry.register<State>(UserState())
-        Registry.register<UserSideEffects>(UserSideEffects())
+        Registry.register<State>(KlaviyoState())
+        Registry.register<StateSideEffects>(StateSideEffects())
     }
 
     /**

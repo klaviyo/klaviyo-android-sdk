@@ -1,9 +1,9 @@
 package com.klaviyo.analytics.model
 
 /**
- * Immutable implementation of [Profile] model to support observability
+ * Immutable implementation of [Profile] model to support observability and prevent untracked mutations
  */
-interface ImmutableProfile {
+internal interface ImmutableProfile {
     val externalId: String?
     val email: String?
     val phoneNumber: String?

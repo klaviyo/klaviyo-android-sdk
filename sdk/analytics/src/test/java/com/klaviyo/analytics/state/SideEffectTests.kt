@@ -34,7 +34,7 @@ class SideEffectTests : BaseTest() {
         every { enqueuePushToken(any(), any()) } returns Unit
     }
 
-    private val userStateMock = mockk<UserState>().apply {
+    private val stateMock = mockk<State>().apply {
         every { onStateChange(capture(capturedStateObserver)) } returns Unit
         every { pushState = capture(capturedPushState) } returns Unit
         every { get(withAttributes = any()) } returns profile
@@ -43,14 +43,14 @@ class SideEffectTests : BaseTest() {
 
     @Test
     fun `Subscribes on init`() {
-        UserSideEffects(apiClientMock, userStateMock)
-        verify { userStateMock.onStateChange(any()) }
+        StateSideEffects(stateMock, apiClientMock)
+        verify { stateMock.onStateChange(any()) }
         verify { apiClientMock.onApiRequest(any(), any()) }
     }
 
     @Test
     fun `Profile changes enqueue a single profile API request`() {
-        UserSideEffects(apiClientMock, userStateMock)
+        StateSideEffects(stateMock, apiClientMock)
 
         capturedStateObserver.captured(ProfileKey.EMAIL)
         capturedStateObserver.captured(PROFILE_ATTRIBUTES)
@@ -69,13 +69,13 @@ class SideEffectTests : BaseTest() {
 
     @Test
     fun `Empty attributes do not enqueue a profile API request`() {
-        UserSideEffects(
-            apiClientMock,
-            userStateMock.apply {
+        StateSideEffects(
+            stateMock.apply {
                 every { get(withAttributes = any()) } returns Profile(
                     properties = mapOf(ProfileKey.FIRST_NAME to "Kermit")
                 )
-            }
+            },
+            apiClientMock
         )
 
         capturedStateObserver.captured(PROFILE_ATTRIBUTES)
@@ -87,21 +87,21 @@ class SideEffectTests : BaseTest() {
 
     @Test
     fun `Resetting profile enqueues API call immediately`() {
-        UserSideEffects(
-            apiClientMock,
-            userStateMock.apply {
+        StateSideEffects(
+            stateMock.apply {
                 every { get(withAttributes = any()) } returns Profile(
                     properties = mapOf(
                         ProfileKey.ANONYMOUS_ID to ANON_ID,
                         ProfileKey.FIRST_NAME to "Kermit"
                     )
                 )
-            }
+            },
+            apiClientMock
         )
 
         capturedStateObserver.captured(PROFILE_ATTRIBUTES)
 
-        every { userStateMock.get(withAttributes = any()) } returns Profile(
+        every { stateMock.get(withAttributes = any()) } returns Profile(
             properties = mapOf(
                 ProfileKey.ANONYMOUS_ID to "new_anon_id"
             )
@@ -118,7 +118,7 @@ class SideEffectTests : BaseTest() {
 
     @Test
     fun `Attributes do enqueue a profile API request`() {
-        UserSideEffects(apiClientMock, userStateMock)
+        StateSideEffects(stateMock, apiClientMock)
 
         capturedStateObserver.captured(PROFILE_ATTRIBUTES)
 
@@ -129,10 +129,10 @@ class SideEffectTests : BaseTest() {
 
     @Test
     fun `Push state change enqueues an API request`() {
-        every { userStateMock.pushState } returns "stateful"
-        every { userStateMock.pushToken } returns "token"
+        every { stateMock.pushState } returns "stateful"
+        every { stateMock.pushToken } returns "token"
 
-        UserSideEffects(apiClientMock, userStateMock)
+        StateSideEffects(stateMock, apiClientMock)
 
         capturedStateObserver.captured(ProfileKey.PUSH_STATE)
         verify(exactly = 1) { apiClientMock.enqueuePushToken("token", profile) }
@@ -140,9 +140,9 @@ class SideEffectTests : BaseTest() {
 
     @Test
     fun `Empty push state is ignored`() {
-        every { userStateMock.pushState } returns ""
+        every { stateMock.pushState } returns ""
 
-        UserSideEffects(apiClientMock, userStateMock)
+        StateSideEffects(stateMock, apiClientMock)
 
         capturedStateObserver.captured(ProfileKey.PUSH_STATE)
         verify(exactly = 0) { apiClientMock.enqueuePushToken(any(), any()) }
@@ -150,10 +150,10 @@ class SideEffectTests : BaseTest() {
 
     @Test
     fun `Push token change alone does not trigger an API request`() {
-        every { userStateMock.pushState } returns "stateful"
-        every { userStateMock.pushToken } returns "token"
+        every { stateMock.pushState } returns "stateful"
+        every { stateMock.pushToken } returns "token"
 
-        UserSideEffects(apiClientMock, userStateMock)
+        StateSideEffects(stateMock, apiClientMock)
 
         capturedStateObserver.captured(ProfileKey.PUSH_TOKEN)
         verify(exactly = 0) { apiClientMock.enqueuePushToken(any(), any()) }
@@ -161,7 +161,7 @@ class SideEffectTests : BaseTest() {
 
     @Test
     fun `Reset push state on push API failure`() {
-        UserSideEffects(apiClientMock, userStateMock)
+        StateSideEffects(stateMock, apiClientMock)
 
         capturedApiObserver.captured(
             mockk<PushTokenApiRequest>().apply {
@@ -174,7 +174,7 @@ class SideEffectTests : BaseTest() {
 
     @Test
     fun `Other API failures do not affect push state`() {
-        UserSideEffects(apiClientMock, userStateMock)
+        StateSideEffects(stateMock, apiClientMock)
 
         capturedApiObserver.captured(
             mockk<ProfileApiRequest>().apply {

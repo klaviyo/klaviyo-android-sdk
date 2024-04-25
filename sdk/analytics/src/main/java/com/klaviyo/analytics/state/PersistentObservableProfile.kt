@@ -10,11 +10,15 @@ import org.json.JSONObject
 
 internal class PersistentObservableProfile(
     key: Keyword,
-    onChanged: (PersistentObservableProperty<ImmutableProfile?>) -> Unit = { }
+    onChanged: PropertyObserver<ImmutableProfile?> = { }
 ) : PersistentObservableProperty<ImmutableProfile?>(
     key = key,
     onChanged = onChanged
 ) {
+
+    /**
+     * Decode a JSON string to [Profile]
+     */
     override fun deserialize(storedValue: String?): ImmutableProfile? = storedValue
         ?.takeIf { it.isNotEmpty() }
         ?.let {
@@ -31,6 +35,10 @@ internal class PersistentObservableProfile(
             }
         }
 
+    /**
+     * Recursively decode JSON into [Serializable] for type-safety
+     * when re-populating a [Profile]
+     */
     private fun deserializeValue(v: Any): Serializable = when (v) {
         is JSONArray -> Array(v.length()) { deserializeValue(v[it]) }
         is JSONObject -> HashMap<String, Serializable>(v.length()).also { map ->

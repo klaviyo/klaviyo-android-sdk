@@ -1,6 +1,5 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
@@ -18,7 +17,7 @@ import java.util.UUID
 /**
  * Stores information on the currently active user
  */
-internal class UserState : State {
+internal class KlaviyoState : State {
 
     private val _externalId = PersistentObservableString(EXTERNAL_ID, ::broadcastChange)
     override var externalId by _externalId
@@ -32,11 +31,10 @@ internal class UserState : State {
     private val _anonymousId = PersistentObservableString(ANONYMOUS_ID, ::broadcastChange) {
         UUID.randomUUID().toString()
     }
-    override var anonymousId by _anonymousId
-        private set
+    override val anonymousId by _anonymousId
 
     private val _attributes = PersistentObservableProfile(PROFILE_ATTRIBUTES, ::broadcastChange)
-    private var attributes: ImmutableProfile? by _attributes
+    private var attributes by _attributes
 
     private val _pushState = PersistentObservableString(PUSH_STATE, ::broadcastChange)
     override var pushState by _pushState
