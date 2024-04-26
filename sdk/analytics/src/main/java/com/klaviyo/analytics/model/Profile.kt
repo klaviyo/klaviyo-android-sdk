@@ -50,7 +50,7 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
     /**
      * Return a profile object containing only non-identifier attributes
      */
-    override val attributes: Profile get() = copy().apply {
+    val attributes: Profile get() = copy().apply {
         externalId = null
         email = null
         phoneNumber = null
