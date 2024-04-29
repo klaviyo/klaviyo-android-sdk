@@ -31,17 +31,17 @@ interface State {
     /**
      * Get all user data in state as a [Profile] model object
      */
-    fun get(withAttributes: Boolean = false): Profile
+    fun getAsProfile(withAttributes: Boolean = false): Profile
 
     /**
      * Update user state from a new [Profile] model object
      */
-    fun set(profile: Profile)
+    fun setProfile(profile: Profile)
 
     /**
      * Set an individual attribute
      */
-    fun set(key: ProfileKey, value: String)
+    fun setAttribute(key: ProfileKey, value: String)
 
     /**
      * Remove all user identifiers and attributes from internal state

@@ -46,7 +46,7 @@ internal class KlaviyoState : State {
             _pushToken.setValue(this, ::pushToken, value)
 
             // TODO use a better representation of push state to decouple from PushTokenApiRequest
-            pushState = value?.let { PushTokenApiRequest(it, get()).requestBody } ?: ""
+            pushState = value?.let { PushTokenApiRequest(it, getAsProfile()).requestBody } ?: ""
         }
         get() = _pushToken.getValue(this, ::pushToken)
 
@@ -76,7 +76,7 @@ internal class KlaviyoState : State {
     /**
      * Get all user data in state as a [Profile] model object
      */
-    override fun get(withAttributes: Boolean): Profile = Profile(
+    override fun getAsProfile(withAttributes: Boolean): Profile = Profile(
         externalId = externalId,
         email = email,
         phoneNumber = phoneNumber
@@ -88,7 +88,7 @@ internal class KlaviyoState : State {
     /**
      * Update user state from a new [Profile] model object
      */
-    override fun set(profile: Profile) {
+    override fun setProfile(profile: Profile) {
         if (!externalId.isNullOrEmpty() || !email.isNullOrEmpty() || !phoneNumber.isNullOrEmpty()) {
             // If a profile with external identifiers is already in state, we must reset.
             // This conditional is important to preserve merging with an anonymous profile.
@@ -105,7 +105,7 @@ internal class KlaviyoState : State {
     /**
      * Set an individual property or attribute
      */
-    override fun set(key: ProfileKey, value: String) = when (key) {
+    override fun setAttribute(key: ProfileKey, value: String) = when (key) {
         EMAIL -> email = value
         EXTERNAL_ID -> externalId = value
         PHONE_NUMBER -> phoneNumber = value

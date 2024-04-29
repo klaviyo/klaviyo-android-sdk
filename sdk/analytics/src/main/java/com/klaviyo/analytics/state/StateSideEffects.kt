@@ -31,7 +31,7 @@ internal class StateSideEffects(
             when (key) {
                 ProfileKey.PUSH_STATE -> onPushStateChange()
                 ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */ }
-                PROFILE_ATTRIBUTES -> if (state.get(true).attributes.propertyCount() > 0) {
+                PROFILE_ATTRIBUTES -> if (state.getAsProfile(true).attributes.propertyCount() > 0) {
                     onUserStateChange()
                 }
                 else -> onUserStateChange()
@@ -41,12 +41,12 @@ internal class StateSideEffects(
 
     private fun onPushStateChange() {
         if (!state.pushState.isNullOrEmpty()) {
-            state.pushToken?.let { apiClient.enqueuePushToken(it, state.get()) }
+            state.pushToken?.let { apiClient.enqueuePushToken(it, state.getAsProfile()) }
         }
     }
 
     private fun onUserStateChange() {
-        val profile = state.get(true)
+        val profile = state.getAsProfile(withAttributes = true)
 
         // Anonymous ID indicates a profile reset, we should flush any pending profile changes immediately
         pendingProfile?.takeIf { it.anonymousId != profile.anonymousId }?.also {

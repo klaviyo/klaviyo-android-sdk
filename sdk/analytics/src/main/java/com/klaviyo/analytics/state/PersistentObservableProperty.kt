@@ -82,9 +82,10 @@ internal abstract class PersistentObservableProperty<T>(
     /**
      * Save or clear property in the persistent store
      */
-    private fun persist(value: T?) = value?.toString()?.also { serializedValue ->
-        Registry.dataStore.store(key.name, serializedValue)
-    } ?: Registry.dataStore.clear(key.name).let { "" }
+    private fun persist(value: T?) = when (val serializedValue = value?.toString()) {
+        null -> Registry.dataStore.clear(key.name)
+        else -> Registry.dataStore.store(key.name, serializedValue)
+    }
 
     /**
      * Get value from persistent store or return a fallback if it isn't present

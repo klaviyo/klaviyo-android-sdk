@@ -303,7 +303,10 @@ internal class KlaviyoTest : BaseTest() {
     fun `Sets an arbitrary user property`() {
         val stubName = "Gonzo"
         Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, stubName)
-        assertEquals(stubName, Registry.get<State>().get(true)[ProfileKey.FIRST_NAME])
+        assertEquals(
+            stubName,
+            Registry.get<State>().getAsProfile(withAttributes = true)[ProfileKey.FIRST_NAME]
+        )
     }
 
     @Test

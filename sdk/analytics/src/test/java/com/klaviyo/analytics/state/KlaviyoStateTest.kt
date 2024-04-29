@@ -25,7 +25,7 @@ internal class KlaviyoStateTest : BaseTest() {
         state.externalId = EXTERNAL_ID
         state.email = EMAIL
         state.phoneNumber = PHONE
-        assertProfileIdentifiers(state.get())
+        assertProfileIdentifiers(state.getAsProfile())
         assertUserInfoIdentifiers()
     }
 

@@ -37,7 +37,7 @@ class SideEffectTests : BaseTest() {
     private val stateMock = mockk<State>().apply {
         every { onStateChange(capture(capturedStateObserver)) } returns Unit
         every { pushState = captureNullable(capturedPushState) } returns Unit
-        every { get(withAttributes = any()) } returns profile
+        every { getAsProfile(withAttributes = any()) } returns profile
         every { resetAttributes() } returns Unit
     }
 
@@ -71,7 +71,7 @@ class SideEffectTests : BaseTest() {
     fun `Empty attributes do not enqueue a profile API request`() {
         StateSideEffects(
             stateMock.apply {
-                every { get(withAttributes = any()) } returns Profile(
+                every { getAsProfile(withAttributes = any()) } returns Profile(
                     properties = mapOf(ProfileKey.FIRST_NAME to "Kermit")
                 )
             },
@@ -89,7 +89,7 @@ class SideEffectTests : BaseTest() {
     fun `Resetting profile enqueues API call immediately`() {
         StateSideEffects(
             stateMock.apply {
-                every { get(withAttributes = any()) } returns Profile(
+                every { getAsProfile(withAttributes = any()) } returns Profile(
                     properties = mapOf(
                         ProfileKey.ANONYMOUS_ID to ANON_ID,
                         ProfileKey.FIRST_NAME to "Kermit"
@@ -101,7 +101,7 @@ class SideEffectTests : BaseTest() {
 
         capturedStateObserver.captured(PROFILE_ATTRIBUTES)
 
-        every { stateMock.get(withAttributes = any()) } returns Profile(
+        every { stateMock.getAsProfile(withAttributes = any()) } returns Profile(
             properties = mapOf(
                 ProfileKey.ANONYMOUS_ID to "new_anon_id"
             )

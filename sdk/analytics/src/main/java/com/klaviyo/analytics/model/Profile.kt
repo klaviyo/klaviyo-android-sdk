@@ -69,5 +69,5 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
 
     override fun merge(other: Profile?) = apply { super.merge(other) }
 
-    internal fun merge(other: ImmutableProfile?) = apply { super.merge(other?.copy()) }
+    fun merge(other: ImmutableProfile?) = apply { super.merge(other?.copy()) }
 }

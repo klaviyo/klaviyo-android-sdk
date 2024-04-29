@@ -80,7 +80,7 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setProfile(profile: Profile): Klaviyo = safeApply {
-        Registry.get<State>().set(profile)
+        Registry.get<State>().setProfile(profile)
     }
 
     /**
@@ -192,7 +192,7 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo = safeApply {
-        Registry.get<State>().set(propertyKey, value)
+        Registry.get<State>().setAttribute(propertyKey, value)
     }
 
     /**
@@ -213,7 +213,7 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun createEvent(event: Event): Klaviyo = safeApply {
-        Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().get())
+        Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
     }
 
     /**
