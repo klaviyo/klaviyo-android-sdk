@@ -31,7 +31,7 @@ internal class StateSideEffects(
             when (key) {
                 ProfileKey.PUSH_STATE -> onPushStateChange()
                 ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */ }
-                PROFILE_ATTRIBUTES -> if (state.getAsProfile(true).attributes.propertyCount() > 0) {
+                PROFILE_ATTRIBUTES -> if (state.getAsProfile(withAttributes = true).attributes.propertyCount() > 0) {
                     onUserStateChange()
                 }
                 else -> onUserStateChange()
