@@ -6,7 +6,7 @@ import org.junit.Test
 
 internal class UnregisterPushTokenApiRequestTest : BaseApiRequestTest<UnregisterPushTokenApiRequest>() {
 
-    override val expectedUrl = "client/push-tokens-unregister"
+    override val expectedUrl = "client/push-token-unregister"
 
     override fun makeTestRequest(): UnregisterPushTokenApiRequest =
         UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
