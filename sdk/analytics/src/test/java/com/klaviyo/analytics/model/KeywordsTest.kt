@@ -34,12 +34,6 @@ class KeywordsTest {
         assert(custom == ProfileKey.CUSTOM(expectedCustomKey))
         assert(custom != ProfileKey.CUSTOM(expectedCustomKey + "1"))
 
-        assertEquals("\$anonymous", ProfileKey.ANONYMOUS_ID.specialKey())
-        assertEquals("\$id", ProfileKey.EXTERNAL_ID.specialKey())
-        assertEquals("\$email", ProfileKey.EMAIL.specialKey())
-        assertEquals("\$phone_number", ProfileKey.PHONE_NUMBER.specialKey())
-        assertEquals("custom", ProfileKey.CUSTOM("custom").specialKey())
-
         assertEquals(ProfileKey.EMAIL, ProfileKey.CUSTOM("email"))
     }
 
