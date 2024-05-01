@@ -59,9 +59,4 @@ sealed class ProfileKey(name: String) : Keyword(name) {
     }
 }
 
-internal val PROFILE_IDENTIFIERS = arrayOf(
-    ProfileKey.EXTERNAL_ID,
-    ProfileKey.EMAIL,
-    ProfileKey.PHONE_NUMBER,
-    ProfileKey.ANONYMOUS_ID
-)
+internal object PROFILE_ATTRIBUTES : Keyword("attributes")
