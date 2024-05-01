@@ -1,7 +1,6 @@
 package com.klaviyo.analytics
 
 import android.app.Application
-import android.app.Application.ActivityLifecycleCallbacks
 import android.content.Context
 import android.content.Intent
 import com.klaviyo.analytics.model.Event
@@ -17,7 +16,6 @@ import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
-import com.klaviyo.core.lifecycle.NoOpLifecycleCallbacks
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
 
@@ -27,15 +25,6 @@ import com.klaviyo.core.safeCall
  * to be processed and sent to the Klaviyo backend
  */
 object Klaviyo {
-
-    @Deprecated(
-        """
-        Lifecycle callbacks are now handled internally by Klaviyo.initialize.
-        This property will be removed in the next major version.
-        """,
-        ReplaceWith("", "")
-    )
-    val lifecycleCallbacks: ActivityLifecycleCallbacks get() = NoOpLifecycleCallbacks
 
     init {
         // Since analytics module owns ApiClient, we must register the service on initialize
