@@ -42,6 +42,14 @@ interface ApiClient {
     fun enqueuePushToken(token: String, profile: Profile)
 
     /**
+     * Queue an API request to remove a push token from a [Profile]
+     *
+     * @param token
+     * @param profile
+     */
+    fun enqueueUnregisterPushToken(token: String, profile: Profile)
+
+    /**
      * Queue an API request to track an [Event] to Klaviyo for a [Profile]
      *
      * @param event

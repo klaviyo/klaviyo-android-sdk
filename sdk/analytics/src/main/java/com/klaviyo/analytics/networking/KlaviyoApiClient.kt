@@ -11,6 +11,7 @@ import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
+import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -88,6 +89,10 @@ internal object KlaviyoApiClient : ApiClient {
 
     override fun enqueuePushToken(token: String, profile: Profile) {
         enqueueRequest(PushTokenApiRequest(token, profile))
+    }
+
+    override fun enqueueUnregisterPushToken(token: String, profile: Profile) {
+        enqueueRequest(UnregisterPushTokenApiRequest(token, profile))
     }
 
     override fun enqueueEvent(event: Event, profile: Profile) {
