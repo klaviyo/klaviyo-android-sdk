@@ -14,67 +14,81 @@ import com.klaviyo.sdktestapp.BuildConfig
  */
 class ConfigService(private val context: Context) {
     companion object {
+        private const val KLAVIYO_PREFS_NAME = "KlaviyoSDKPreferences"
         const val COMPANY_ID_KEY = "company_id"
         const val BASE_URL_KEY = "base_url_override"
     }
 
-    val companyId get() = Registry.dataStore.fetch(COMPANY_ID_KEY)
+    /**
+     * The app needs its own persistent store to solve a chicken/egg problem:
+     * To use the SDK's persistent store, we'd have to initialize. But to initialize we'd need the company ID.
+     * Previously we were using a dummy company ID to initialize, fetch the stored company ID, and re-initialize.
+     * That solution was too circuitous and will cause issues when the SDK starts detecting company ID changes.
+     */
+    private val sharedPreferences = context.getSharedPreferences(
+        KLAVIYO_PREFS_NAME,
+        Context.MODE_PRIVATE
+    )
 
-    val baseUrl get() = Registry.dataStore.fetch(BASE_URL_KEY)
+    var companyId = sharedPreferences.getString(COMPANY_ID_KEY, BuildConfig.KLAVIYO_COMPANY_ID)!!
+        set(value) {
+            if (value.isEmpty()) {
+                Registry.log.error("Cannot use an empty company ID")
+                return
+            } else if (value == field) {
+                return
+            }
+
+            field = value
+
+            sharedPreferences.edit().putString(COMPANY_ID_KEY, value).apply()
+
+            Firebase.analytics.logEvent(
+                "set_company",
+                Bundle().apply {
+                    putString(COMPANY_ID_KEY, value)
+                }
+            )
+
+            Registry.log.info("Set company ID: $value")
+
+            initialize()
+        }
+
+    var baseUrl = sharedPreferences.getString(BASE_URL_KEY, null)
+        set(value) {
+            field = value
+
+            sharedPreferences.edit().putString(BASE_URL_KEY, value).apply()
+
+            Firebase.analytics.logEvent(
+                "set_url",
+                Bundle().apply {
+                    putString(BASE_URL_KEY, baseUrl)
+                }
+            )
+
+            Registry.log.info("Set base url: $baseUrl")
+
+            initialize()
+        }
 
     init {
-        // Initialize SDK with a default company ID to give it applicationContext
-        Klaviyo.initialize(BuildConfig.KLAVIYO_COMPANY_ID, context)
-
-        // Now we can check if we had previously saved a different company ID
-        companyId?.let { companyId ->
-            // And if so, re-initialize with that ID
-            setCompanyId(companyId)
-        }
-    }
-
-    fun setCompanyId(companyId: String) {
-        Firebase.analytics.logEvent(
-            "set_company",
-            Bundle().apply {
-                putString(COMPANY_ID_KEY, companyId)
-            }
-        )
-
-        Registry.log.info("Set company ID: $companyId")
-        Registry.dataStore.store(COMPANY_ID_KEY, companyId)
-
-        initialize()
-    }
-
-    fun setBaseUrl(baseUrl: String) {
-        Firebase.analytics.logEvent(
-            "set_url",
-            Bundle().apply {
-                putString(BASE_URL_KEY, baseUrl)
-            }
-        )
-
-        Registry.log.info("Set base url: $baseUrl")
-        Registry.dataStore.store(BASE_URL_KEY, baseUrl)
-
+        // Initialize with prior company ID or default from build config
         initialize()
     }
 
     private fun initialize() {
-        val companyId = this.companyId
+        Klaviyo.initialize(companyId, context)
 
-        if (companyId.isNullOrEmpty()) {
-            Registry.log.error("Cannot init with empty company ID")
-            return
+        baseUrl?.let {
+            val config = Registry.configBuilder
+                .apiKey(companyId)
+                .applicationContext(context)
+                .baseUrl(it)
+                .build()
+
+            Registry.register<Config>(config)
         }
-
-        val builder = Registry.configBuilder
-            .apiKey(companyId)
-            .applicationContext(context)
-
-        baseUrl?.let { builder.baseUrl(it) }
-
-        Registry.register<Config>(builder.build())
     }
 }

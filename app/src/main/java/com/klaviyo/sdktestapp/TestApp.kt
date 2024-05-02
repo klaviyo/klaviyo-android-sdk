@@ -7,22 +7,17 @@ import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.core.Registry
 import com.klaviyo.sdktestapp.services.ConfigService
 
 class TestApp : Application() {
-
-    /**
-     * Public reference to companyService this, so it can be accessed from Activities
-     * Storing Context in a static var is a memory leak, so this is the better option
-     */
-    lateinit var configService: ConfigService
-        private set
 
     override fun onCreate() {
         super.onCreate()
 
         // Company service initializes Klaviyo SDK, manages persistent company ID across sessions
-        configService = ConfigService(applicationContext)
+        val configService = ConfigService(applicationContext)
+        Registry.register<ConfigService>(configService)
 
         Klaviyo.createEvent(EventMetric.OPENED_APP)
 

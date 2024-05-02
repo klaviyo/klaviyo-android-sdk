@@ -20,8 +20,8 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
-import com.klaviyo.sdktestapp.TestApp
 import com.klaviyo.sdktestapp.services.Clipboard
+import com.klaviyo.sdktestapp.services.ConfigService
 import com.klaviyo.sdktestapp.services.PushService
 
 @SuppressLint("InlinedApi") // Safe to use the keyword. ActivityCompat handles API level differences
@@ -92,9 +92,7 @@ class SettingsViewModel(
     fun sendLocalNotification() = PushService.createLocalNotification(context)
 
     fun setBaseUrl() {
-        val app = (context as Activity).application
-        val configService = (app as TestApp).configService
-        configService.setBaseUrl(viewState.baseUrl.value)
+        Registry.get<ConfigService>().baseUrl = viewState.baseUrl.value
     }
 
     fun imGonnaWreckIt() {

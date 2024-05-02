@@ -1,14 +1,13 @@
 package com.klaviyo.sdktestapp.viewmodel
 
-import android.app.Activity
 import android.content.Context
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.core.Registry
-import com.klaviyo.sdktestapp.TestApp
 import com.klaviyo.sdktestapp.services.Clipboard
+import com.klaviyo.sdktestapp.services.ConfigService
 import com.klaviyo.sdktestapp.services.PushService
 
 interface IAccountInfoViewModel {
@@ -54,9 +53,7 @@ class AccountInfoViewModel(private val context: Context) : IAccountInfoViewModel
     }
 
     override fun setApiKey() {
-        val app = (context as Activity).application
-        val configService = (app as TestApp).configService
-        configService.setCompanyId(viewState.accountId.value)
+        Registry.get<ConfigService>().companyId = viewState.accountId.value
     }
 
     override fun create() {
