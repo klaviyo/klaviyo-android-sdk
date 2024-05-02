@@ -84,10 +84,12 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     override fun enqueueProfile(profile: Profile) {
+        Registry.log.verbose("Enqueuing Profile request")
         enqueueRequest(ProfileApiRequest(profile))
     }
 
     override fun enqueuePushToken(token: String, profile: Profile) {
+        Registry.log.verbose("Enqueuing Push Token request")
         enqueueRequest(PushTokenApiRequest(token, profile))
     }
 
@@ -96,6 +98,7 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     override fun enqueueEvent(event: Event, profile: Profile) {
+        Registry.log.verbose("Enqueuing ${event.metric.name} event")
         enqueueRequest(EventApiRequest(event, profile))
     }
 

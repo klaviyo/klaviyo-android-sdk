@@ -37,4 +37,8 @@ class Event(val metric: EventMetric, properties: Map<EventKey, Serializable>?) :
 
     override fun setProperty(key: String, value: Serializable?) =
         setProperty(EventKey.CUSTOM(key), value)
+
+    override fun copy(): Event = Event(metric).merge(this)
+
+    override fun merge(other: Event?) = apply { super.merge(other) }
 }

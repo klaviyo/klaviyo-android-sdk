@@ -18,7 +18,6 @@ import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.fixtures.BaseTest
-import com.klaviyo.fixtures.StaticClock
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -43,7 +42,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private val flushIntervalOffline = 30_000L
     private val queueDepth = 10
     private var postedJob: KlaviyoApiClient.NetworkRunnable? = null
-    private val staticClock = StaticClock(TIME, ISO_TIME)
 
     private companion object {
         private val slotOnActivityEvent = slot<ActivityObserver>()
@@ -61,7 +59,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         postedJob = null
 
-        every { Registry.clock } returns staticClock
         every { configMock.networkFlushIntervals } returns longArrayOf(
             flushIntervalWifi,
             flushIntervalCell,
