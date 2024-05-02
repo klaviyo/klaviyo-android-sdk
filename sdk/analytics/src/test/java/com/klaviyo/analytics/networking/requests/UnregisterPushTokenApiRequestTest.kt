@@ -42,8 +42,6 @@ internal class UnregisterPushTokenApiRequestTest : BaseApiRequestTest<Unregister
                   "token": "$PUSH_TOKEN",
                   "platform": "Android",
                   "vendor": "FCM",
-                  "enablement_status": "AUTHORIZED",
-                  "background": "AVAILABLE",
                   "profile": {
                     "data": {
                       "type": "profile",
@@ -54,20 +52,6 @@ internal class UnregisterPushTokenApiRequestTest : BaseApiRequestTest<Unregister
                         "anonymous_id": "$ANON_ID"
                       }
                     }
-                  },
-                  "device_metadata": {
-                    "device_id": "Mock Device ID",
-                    "manufacturer": "Mock Manufacturer",
-                    "device_model": "Mock Model",
-                    "os_name": "Android",
-                    "os_version": "Mock OS Version",
-                    "klaviyo_sdk": "Mock SDK",
-                    "sdk_version": "Mock SDK Version",
-                    "app_id": "Mock App ID",
-                    "app_name": "Mock Application Label",
-                    "app_version": "Mock App Version",
-                    "app_build": "Mock Version Code",
-                    "environment": "release"
                   }
                 }
               }
