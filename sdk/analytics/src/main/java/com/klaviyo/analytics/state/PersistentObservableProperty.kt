@@ -5,7 +5,7 @@ import com.klaviyo.core.Registry
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
-internal typealias PropertyObserver<T> = (property: PersistentObservableProperty<T>) -> Unit
+internal typealias PropertyObserver<T> = (property: PersistentObservableProperty<T>, oldValue: T?) -> Unit
 
 /**
  * Property delegate that is backed by the persistent store.
@@ -51,8 +51,9 @@ internal abstract class PersistentObservableProperty<T>(
      */
     override fun setValue(thisRef: Any?, property: KProperty<*>, value: T?) {
         if (validateChange(this.value, value)) {
+            val oldValue = this.value
             this.value = value
-            onChanged(this)
+            onChanged(this, oldValue)
         }
     }
 
