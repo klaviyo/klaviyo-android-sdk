@@ -1,11 +1,11 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.API_KEY
 import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.model.ProfileKey.ANONYMOUS_ID
-import com.klaviyo.analytics.model.ProfileKey.API_KEY
 import com.klaviyo.analytics.model.ProfileKey.EMAIL
 import com.klaviyo.analytics.model.ProfileKey.EXTERNAL_ID
 import com.klaviyo.analytics.model.ProfileKey.PHONE_NUMBER
