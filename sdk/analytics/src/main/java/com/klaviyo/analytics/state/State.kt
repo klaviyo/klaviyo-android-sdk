@@ -4,7 +4,7 @@ import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 
-typealias StateObserver = (key: Keyword?) -> Unit
+typealias StateObserver = (key: Keyword?, oldValue: Any?) -> Unit
 
 interface State {
     var apiKey: String?

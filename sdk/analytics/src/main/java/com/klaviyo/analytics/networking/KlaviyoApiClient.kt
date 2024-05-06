@@ -93,8 +93,8 @@ internal object KlaviyoApiClient : ApiClient {
         enqueueRequest(PushTokenApiRequest(token, profile))
     }
 
-    override fun enqueueUnregisterPushToken(token: String, profile: Profile) {
-        enqueueRequest(UnregisterPushTokenApiRequest(token, profile))
+    override fun enqueueUnregisterPushToken(apiKey: String, token: String, profile: Profile) {
+        enqueueRequest(UnregisterPushTokenApiRequest(apiKey, token, profile))
     }
 
     override fun enqueueEvent(event: Event, profile: Profile) {

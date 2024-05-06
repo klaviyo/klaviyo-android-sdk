@@ -52,9 +52,9 @@ class SideEffectTests : BaseTest() {
     fun `Profile changes enqueue a single profile API request`() {
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(ProfileKey.EMAIL)
-        capturedStateObserver.captured(PROFILE_ATTRIBUTES)
-        capturedStateObserver.captured(null)
+        capturedStateObserver.captured(ProfileKey.EMAIL, null)
+        capturedStateObserver.captured(PROFILE_ATTRIBUTES, null)
+        capturedStateObserver.captured(null, null)
 
         staticClock.execute(debounceTime.toLong())
 
@@ -78,7 +78,7 @@ class SideEffectTests : BaseTest() {
             apiClientMock
         )
 
-        capturedStateObserver.captured(PROFILE_ATTRIBUTES)
+        capturedStateObserver.captured(PROFILE_ATTRIBUTES, null)
 
         staticClock.execute(debounceTime.toLong())
 
@@ -99,7 +99,7 @@ class SideEffectTests : BaseTest() {
             apiClientMock
         )
 
-        capturedStateObserver.captured(PROFILE_ATTRIBUTES)
+        capturedStateObserver.captured(PROFILE_ATTRIBUTES, null)
 
         every { stateMock.getAsProfile(withAttributes = any()) } returns Profile(
             properties = mapOf(
@@ -107,7 +107,7 @@ class SideEffectTests : BaseTest() {
             )
         )
 
-        capturedStateObserver.captured(null)
+        capturedStateObserver.captured(null, null)
 
         verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
 
@@ -120,7 +120,7 @@ class SideEffectTests : BaseTest() {
     fun `Attributes do enqueue a profile API request`() {
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(PROFILE_ATTRIBUTES)
+        capturedStateObserver.captured(PROFILE_ATTRIBUTES, null)
 
         staticClock.execute(debounceTime.toLong())
 
@@ -134,7 +134,7 @@ class SideEffectTests : BaseTest() {
 
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(ProfileKey.PUSH_STATE)
+        capturedStateObserver.captured(ProfileKey.PUSH_STATE, null)
         verify(exactly = 1) { apiClientMock.enqueuePushToken("token", profile) }
     }
 
@@ -144,7 +144,7 @@ class SideEffectTests : BaseTest() {
 
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(ProfileKey.PUSH_STATE)
+        capturedStateObserver.captured(ProfileKey.PUSH_STATE, null)
         verify(exactly = 0) { apiClientMock.enqueuePushToken(any(), any()) }
     }
 
@@ -155,7 +155,7 @@ class SideEffectTests : BaseTest() {
 
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(ProfileKey.PUSH_TOKEN)
+        capturedStateObserver.captured(ProfileKey.PUSH_TOKEN, null)
         verify(exactly = 0) { apiClientMock.enqueuePushToken(any(), any()) }
     }
 

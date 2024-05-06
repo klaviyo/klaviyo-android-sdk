@@ -10,7 +10,7 @@ import org.json.JSONObject
 
 internal class PersistentObservableProfile(
     key: Keyword,
-    onChanged: PropertyObserver<ImmutableProfile?> = { }
+    onChanged: PropertyObserver<ImmutableProfile?> = { _, _ -> }
 ) : PersistentObservableProperty<ImmutableProfile?>(
     key = key,
     onChanged = onChanged

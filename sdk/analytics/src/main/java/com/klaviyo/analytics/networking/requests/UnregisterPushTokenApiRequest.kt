@@ -9,10 +9,31 @@ import com.klaviyo.core.Registry
  *
  * @constructor
  */
-internal class UnregisterPushTokenApiRequest(
-    queuedTime: Long? = null,
-    uuid: String? = null
-) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
+internal class UnregisterPushTokenApiRequest : KlaviyoApiRequest {
+
+    constructor(queuedTime: Long? = null, uuid: String? = null) : super(
+        PATH,
+        RequestMethod.POST,
+        queuedTime,
+        uuid
+    )
+
+    constructor(apiKey: String, token: String, profile: Profile) : this() {
+        body = jsonMapOf(
+            DATA to mapOf(
+                TYPE to UNREGISTER_PUSH_TOKEN,
+                ATTRIBUTES to filteredMapOf(
+                    PROFILE to mapOf(*ProfileApiRequest.formatBody(profile)),
+                    TOKEN to token,
+                    PLATFORM to DeviceProperties.platform,
+                    VENDOR to VENDOR_FCM
+                )
+            )
+        )
+        query = mapOf(
+            COMPANY_ID to apiKey
+        )
+    }
 
     private companion object {
         const val PATH = "client/push-token-unregister"
@@ -33,20 +54,6 @@ internal class UnregisterPushTokenApiRequest(
     )
 
     override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
-
-    constructor(token: String, profile: Profile) : this() {
-        body = jsonMapOf(
-            DATA to mapOf(
-                TYPE to UNREGISTER_PUSH_TOKEN,
-                ATTRIBUTES to filteredMapOf(
-                    PROFILE to mapOf(*ProfileApiRequest.formatBody(profile)),
-                    TOKEN to token,
-                    PLATFORM to DeviceProperties.platform,
-                    VENDOR to VENDOR_FCM
-                )
-            )
-        )
-    }
 
     override fun equals(other: Any?): Boolean {
         return when (other) {

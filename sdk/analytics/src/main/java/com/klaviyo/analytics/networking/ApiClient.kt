@@ -47,7 +47,7 @@ interface ApiClient {
      * @param token
      * @param profile
      */
-    fun enqueueUnregisterPushToken(token: String, profile: Profile)
+    fun enqueueUnregisterPushToken(apiKey: String, token: String, profile: Profile)
 
     /**
      * Queue an API request to track an [Event] to Klaviyo for a [Profile]

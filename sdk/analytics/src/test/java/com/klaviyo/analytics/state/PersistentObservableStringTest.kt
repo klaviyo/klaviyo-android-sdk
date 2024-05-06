@@ -53,7 +53,7 @@ internal class PersistentObservableStringTest : BaseTest() {
         var invoked = false
         var delegatedProperty by PersistentObservableString(
             ProfileKey.CUSTOM(KEY),
-            onChanged = { invoked = true }
+            onChanged = { _, _ -> invoked = true }
         )
 
         assertNull(delegatedProperty)
@@ -71,7 +71,7 @@ internal class PersistentObservableStringTest : BaseTest() {
         var invoked = false
         var delegatedProperty by PersistentObservableString(
             ProfileKey.CUSTOM(KEY),
-            onChanged = { invoked = true }
+            onChanged = { _, _ -> invoked = true }
         )
 
         delegatedProperty = "value"
@@ -86,7 +86,7 @@ internal class PersistentObservableStringTest : BaseTest() {
         var invoked = false
         var delegatedProperty by PersistentObservableString(
             ProfileKey.CUSTOM(KEY),
-            onChanged = { invoked = true }
+            onChanged = { _, _ -> invoked = true }
         )
 
         delegatedProperty = " value "
@@ -101,7 +101,7 @@ internal class PersistentObservableStringTest : BaseTest() {
         var invoked = false
         var delegatedProperty by PersistentObservableString(
             ProfileKey.CUSTOM(KEY),
-            onChanged = { invoked = true }
+            onChanged = { _, _ -> invoked = true }
         )
 
         delegatedProperty = ""
@@ -117,7 +117,7 @@ internal class PersistentObservableStringTest : BaseTest() {
         var invoked = false
         val property = PersistentObservableString(
             ProfileKey.CUSTOM(KEY),
-            onChanged = { invoked = true }
+            onChanged = { _, _ -> invoked = true }
         )
         val delegatedProperty by property
         property.reset()

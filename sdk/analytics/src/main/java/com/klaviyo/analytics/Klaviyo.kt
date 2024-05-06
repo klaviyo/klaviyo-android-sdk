@@ -39,14 +39,6 @@ object Klaviyo {
      * @param applicationContext
      */
     fun initialize(apiKey: String, applicationContext: Context) = safeCall {
-        if (Registry.isRegistered<Config>() && Registry.get<Config>().apiKey != apiKey) {
-            Registry.get<State>().let { state ->
-                state.pushToken?.let { token ->
-                    Registry.get<ApiClient>()
-                        .enqueueUnregisterPushToken(token = token, profile = state.getAsProfile())
-                }
-            }
-        }
         Registry.register<Config>(
             Registry.configBuilder
                 .apiKey(apiKey)

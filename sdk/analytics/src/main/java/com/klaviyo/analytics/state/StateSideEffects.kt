@@ -27,10 +27,13 @@ internal class StateSideEffects(
 
     init {
         apiClient.onApiRequest(false, ::afterApiRequest)
-        state.onStateChange { key: Keyword? ->
+        state.onStateChange { key: Keyword?, oldValue: Any? ->
             when (key) {
-                ProfileKey.API_KEY, ProfileKey.PUSH_STATE -> onPushStateChange()
-                ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */ }
+                ProfileKey.API_KEY -> onApiKeyChange(oldApiKey = oldValue?.toString())
+                ProfileKey.PUSH_STATE -> onPushStateChange()
+                ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */
+                }
+
                 PROFILE_ATTRIBUTES -> if (state.getAsProfile(withAttributes = true).attributes.propertyCount() > 0) {
                     onUserStateChange()
                 }
@@ -42,6 +45,18 @@ internal class StateSideEffects(
     private fun onPushStateChange() {
         if (!state.pushState.isNullOrEmpty()) {
             state.pushToken?.let { apiClient.enqueuePushToken(it, state.getAsProfile()) }
+        }
+    }
+
+    private fun onApiKeyChange(oldApiKey: String?) {
+        // If the API key changes, we need to unregister the push token on the previous API key then register the push token with the new API key
+        if (!state.pushState.isNullOrEmpty()) {
+            state.pushToken?.let {
+                oldApiKey?.let { oldApiKey ->
+                    apiClient.enqueueUnregisterPushToken(oldApiKey, it, state.getAsProfile())
+                }
+                apiClient.enqueuePushToken(it, state.getAsProfile())
+            }
         }
     }
 
