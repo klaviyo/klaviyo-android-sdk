@@ -1,7 +1,9 @@
 package com.klaviyo.analytics.networking.requests
 
+import io.mockk.every
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 internal class UnregisterPushTokenApiRequestTest : BaseApiRequestTest<UnregisterPushTokenApiRequest>() {
@@ -30,6 +32,21 @@ internal class UnregisterPushTokenApiRequestTest : BaseApiRequestTest<Unregister
         val aRequest = UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
         val bRequest = UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
         assertEquals(aRequest, bRequest)
+    }
+
+    @Test
+    fun `Requests are not equal if api key is different`() {
+        val aRequest = UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        every { configMock.apiKey } returns "NEW_API_KEY"
+        val bRequest = UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        assertNotEquals(aRequest, bRequest)
+    }
+
+    @Test
+    fun `Requests are not equal if token is different`() {
+        val aRequest = UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        val bRequest = UnregisterPushTokenApiRequest(PUSH_TOKEN.repeat(2), stubProfile)
+        assertNotEquals(aRequest, bRequest)
     }
 
     @Test

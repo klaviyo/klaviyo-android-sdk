@@ -2,7 +2,6 @@ package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Profile
-import com.klaviyo.core.Registry
 
 /**
  * Defines the content of an API request to remove a push token from a [Profile]
@@ -27,10 +26,10 @@ internal class UnregisterPushTokenApiRequest(
 
     /**
      * HTTP request query params
-     */
-    override var query: Map<String, String> = mapOf(
-        COMPANY_ID to Registry.config.apiKey
-    )
+//     */
+//    override var query: Map<String, String> = mapOf(
+//        COMPANY_ID to Registry.config.apiKey
+//    )
 
     override val successCodes: IntRange get() = HTTP_ACCEPTED..HTTP_ACCEPTED
 
