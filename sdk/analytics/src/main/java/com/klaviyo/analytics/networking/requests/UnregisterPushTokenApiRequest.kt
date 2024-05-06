@@ -27,7 +27,7 @@ internal class UnregisterPushTokenApiRequest(
 
     /**
      * HTTP request query params
-//     */
+     */
     override var query: Map<String, String> = mapOf(
         COMPANY_ID to Registry.config.apiKey
     )
