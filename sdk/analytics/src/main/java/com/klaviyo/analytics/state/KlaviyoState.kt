@@ -136,9 +136,9 @@ internal class KlaviyoState : State {
         broadcastChange(PROFILE_ATTRIBUTES)
     }
 
-    private fun <T> broadcastChange(property: PersistentObservableProperty<T>?) =
-        broadcastChange(property?.key)
+    private fun <T> broadcastChange(property: PersistentObservableProperty<T>?, oldValue: T?) =
+        broadcastChange(property?.key, oldValue)
 
-    private fun broadcastChange(key: Keyword? = null) =
-        stateObservers.forEach { it(key) }
+    private fun broadcastChange(key: Keyword? = null, oldValue: Any? = null) =
+        stateObservers.forEach { it(key, oldValue) }
 }

@@ -27,7 +27,7 @@ internal class StateSideEffects(
 
     init {
         apiClient.onApiRequest(false, ::afterApiRequest)
-        state.onStateChange { key: Keyword? ->
+        state.onStateChange { key: Keyword?, oldValue: Any? ->
             when (key) {
                 ProfileKey.PUSH_STATE -> onPushStateChange()
                 ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */ }
