@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.API_KEY
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
@@ -29,7 +30,7 @@ internal class StateSideEffects(
         apiClient.onApiRequest(false, ::afterApiRequest)
         state.onStateChange { key: Keyword?, oldValue: Any? ->
             when (key) {
-                ProfileKey.API_KEY -> onApiKeyChange(oldApiKey = oldValue?.toString())
+                API_KEY -> onApiKeyChange(oldApiKey = oldValue?.toString())
                 ProfileKey.PUSH_STATE -> onPushStateChange()
                 ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */
                 }
