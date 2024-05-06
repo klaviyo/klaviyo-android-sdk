@@ -50,7 +50,7 @@ internal class UnregisterPushTokenApiRequest(
 
     override fun equals(other: Any?): Boolean {
         return when (other) {
-            is UnregisterPushTokenApiRequest -> body.toString() == other.body.toString()
+            is UnregisterPushTokenApiRequest -> body.toString() == other.body.toString() && query.toString() == other.query.toString()
             else -> super.equals(other)
         }
     }

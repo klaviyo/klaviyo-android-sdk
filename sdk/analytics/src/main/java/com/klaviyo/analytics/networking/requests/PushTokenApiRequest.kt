@@ -78,7 +78,7 @@ internal class PushTokenApiRequest(
 
     override fun equals(other: Any?): Boolean {
         return when (other) {
-            is PushTokenApiRequest -> body.toString() == other.body.toString()
+            is PushTokenApiRequest -> body.toString() == other.body.toString() && query.toString() == other.query.toString()
             else -> super.equals(other)
         }
     }
