@@ -117,6 +117,8 @@ internal class KlaviyoState : State {
      * A new anonymous ID will be generated next time it is accessed.
      */
     override fun reset() {
+        val oldProfile = getAsProfile(true)
+
         _externalId.reset()
         _email.reset()
         _phoneNumber.reset()
@@ -125,15 +127,17 @@ internal class KlaviyoState : State {
         _pushToken.reset()
         _pushState.reset()
 
-        broadcastChange()
+        broadcastChange(null, oldProfile)
         Registry.log.verbose("Reset internal user state")
     }
 
     /**
      * Clear user's attributes from internal state, leaving profile identifiers intact
      */
-    override fun resetAttributes() = _attributes.reset().also {
-        broadcastChange(PROFILE_ATTRIBUTES)
+    override fun resetAttributes() {
+        val oldAttributes = attributes?.copy()
+        _attributes.reset()
+        broadcastChange(PROFILE_ATTRIBUTES, oldAttributes)
     }
 
     private fun <T> broadcastChange(property: PersistentObservableProperty<T>?, oldValue: T?) =

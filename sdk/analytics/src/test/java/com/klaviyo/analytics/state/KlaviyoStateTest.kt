@@ -1,6 +1,8 @@
 package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.Keyword
+import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
+import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.verify
@@ -121,5 +123,66 @@ internal class KlaviyoStateTest : BaseTest() {
         state.phoneNumber = "new_phone"
         assertEquals(ProfileKey.PHONE_NUMBER, broadcastKey)
         assertEquals(PHONE, broadcastValue)
+    }
+
+    @Test
+    fun `Broadcasts on set attributes`() {
+        var broadcastKey: Keyword? = null
+        var broadcastValue: Any? = null
+
+        state.onStateChange { k, v ->
+            broadcastKey = k
+            broadcastValue = v
+        }
+
+        state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
+        state.setAttribute(ProfileKey.LAST_NAME, "Frog")
+
+        assertEquals(PROFILE_ATTRIBUTES, broadcastKey)
+        assertEquals("Kermit", (broadcastValue as? Profile)?.get(ProfileKey.FIRST_NAME))
+    }
+
+    @Test
+    fun `Broadcasts on reset attributes`() {
+        var broadcastKey: Keyword? = null
+        var broadcastValue: Any? = null
+
+        state.onStateChange { k, v ->
+            broadcastKey = k
+            broadcastValue = v
+        }
+
+        state.resetAttributes()
+
+        assertEquals(PROFILE_ATTRIBUTES, broadcastKey)
+        assertNull(broadcastValue)
+    }
+
+    @Test
+    fun `Broadcasts on reset profile`() {
+        state.externalId = EXTERNAL_ID
+        state.email = EMAIL
+        state.phoneNumber = PHONE
+        state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
+        state.setAttribute(ProfileKey.LAST_NAME, "Frog")
+
+        var broadcastKey: Keyword? = null
+        var broadcastValue: Any? = null
+
+        state.onStateChange { k, v ->
+            broadcastKey = k
+            broadcastValue = v
+        }
+
+        state.reset()
+
+        val broadcastProfile = broadcastValue as Profile
+
+        assertEquals(null, broadcastKey)
+        assertEquals(EXTERNAL_ID, broadcastProfile.externalId)
+        assertEquals(EMAIL, broadcastProfile.email)
+        assertEquals(PHONE, broadcastProfile.phoneNumber)
+        assertEquals("Kermit", broadcastProfile[ProfileKey.FIRST_NAME])
+        assertEquals("Frog", broadcastProfile[ProfileKey.FIRST_NAME])
     }
 }
