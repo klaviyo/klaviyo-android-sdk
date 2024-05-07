@@ -6,7 +6,6 @@ import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -50,19 +49,50 @@ internal class PersistentObservableStringTest : BaseTest() {
 
     @Test
     fun `Invokes callback when value changes`() {
-        var invoked = false
-        var delegatedProperty by PersistentObservableString(
+        var invokedWithProperty: PersistentObservableProperty<String?>? = null
+        var invokedWithOldValue: String? = null
+        val backingProp = PersistentObservableString(
             ProfileKey.CUSTOM(KEY),
-            onChanged = { _, _ -> invoked = true }
+            onChanged = { property, oldValue ->
+                invokedWithProperty = property
+                invokedWithOldValue = oldValue
+            }
         )
 
+        var delegatedProperty by backingProp
+
         assertNull(delegatedProperty)
-        assertFalse(invoked)
+        assertNull(invokedWithProperty)
+        assertNull(invokedWithOldValue)
+
+        delegatedProperty = "1"
+
+        assertEquals("1", delegatedProperty)
+        assertEquals(backingProp, invokedWithProperty)
+        assertNull(invokedWithOldValue)
 
         delegatedProperty = "2"
 
         assertEquals("2", delegatedProperty)
-        assertTrue(invoked)
+        assertEquals(backingProp, invokedWithProperty)
+        assertEquals("1", invokedWithOldValue)
+    }
+
+    @Test
+    fun `Invokes callback with persisted value on first change`() {
+        dataStoreSpy.store(KEY, "abc123")
+        var invokedWithOldValue: String? = null
+        var delegatedProperty by PersistentObservableString(
+            ProfileKey.CUSTOM(KEY),
+            onChanged = { _, oldValue ->
+                invokedWithOldValue = oldValue
+            }
+        )
+
+        delegatedProperty = "xyz789"
+
+        assertEquals("xyz789", delegatedProperty)
+        assertEquals("abc123", invokedWithOldValue)
     }
 
     @Test
