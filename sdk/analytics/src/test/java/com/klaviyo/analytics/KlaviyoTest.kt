@@ -401,7 +401,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Push token request is repeated if state has changed`() {
-        every { DeviceProperties.backgroundData } returns true
+        every { DeviceProperties.backgroundDataEnabled } returns true
         Klaviyo.setPushToken(PUSH_TOKEN)
         assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
 
@@ -409,7 +409,7 @@ internal class KlaviyoTest : BaseTest() {
             apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
         }
 
-        every { DeviceProperties.backgroundData } returns false
+        every { DeviceProperties.backgroundDataEnabled } returns false
         Klaviyo.setPushToken(PUSH_TOKEN)
 
         verify(exactly = 2) {

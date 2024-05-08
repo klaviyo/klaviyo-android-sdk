@@ -55,11 +55,11 @@ internal object DeviceProperties {
         "android"
     }
 
-    val backgroundData: Boolean by lazy {
-        activityManager.isBackgroundRestrictedCompat()
+    val backgroundDataEnabled: Boolean by lazy {
+        !activityManager.isBackgroundRestrictedCompat()
     }
 
-    val notificationPermission: Boolean
+    val notificationPermissionGranted: Boolean
         get() = NotificationManagerCompat.from(Registry.config.applicationContext).areNotificationsEnabled()
 
     val applicationId: String by lazy {
