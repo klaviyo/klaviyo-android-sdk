@@ -6,6 +6,7 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -19,7 +20,13 @@ internal class KlaviyoStateTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
-        state = KlaviyoState().apply { reset() }
+        state = KlaviyoState()
+    }
+
+    @After
+    override fun cleanup() {
+        state.reset()
+        super.cleanup()
     }
 
     @Test
@@ -183,6 +190,6 @@ internal class KlaviyoStateTest : BaseTest() {
         assertEquals(EMAIL, broadcastProfile.email)
         assertEquals(PHONE, broadcastProfile.phoneNumber)
         assertEquals("Kermit", broadcastProfile[ProfileKey.FIRST_NAME])
-        assertEquals("Frog", broadcastProfile[ProfileKey.FIRST_NAME])
+        assertEquals("Frog", broadcastProfile[ProfileKey.LAST_NAME])
     }
 }
