@@ -54,6 +54,7 @@ object Klaviyo {
 
         Registry.register<State>(KlaviyoState())
         Registry.register<StateSideEffects>(StateSideEffects())
+        Registry.get<State>().apiKey = apiKey
     }
 
     /**

@@ -2,6 +2,7 @@ package com.klaviyo.analytics.networking.requests
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 internal class UnregisterPushTokenApiRequestTest : BaseApiRequestTest<UnregisterPushTokenApiRequest>() {
@@ -9,12 +10,12 @@ internal class UnregisterPushTokenApiRequestTest : BaseApiRequestTest<Unregister
     override val expectedUrl = "client/push-token-unregister"
 
     override fun makeTestRequest(): UnregisterPushTokenApiRequest =
-        UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        UnregisterPushTokenApiRequest(API_KEY, PUSH_TOKEN, stubProfile)
 
     @Test
     fun `Equality operator`() {
-        val aRequest = UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
-        val bRequest = UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        val aRequest = UnregisterPushTokenApiRequest(API_KEY, PUSH_TOKEN, stubProfile)
+        val bRequest = UnregisterPushTokenApiRequest(API_KEY, PUSH_TOKEN, stubProfile)
         assertEquals(aRequest, bRequest)
 
         val bRequestDecoded = KlaviyoApiRequestDecoder.fromJson(bRequest.toJson())
@@ -27,9 +28,23 @@ internal class UnregisterPushTokenApiRequestTest : BaseApiRequestTest<Unregister
 
     @Test
     fun `Requests are equal if the token and profile are equal`() {
-        val aRequest = UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
-        val bRequest = UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        val aRequest = UnregisterPushTokenApiRequest(API_KEY, PUSH_TOKEN, stubProfile)
+        val bRequest = UnregisterPushTokenApiRequest(API_KEY, PUSH_TOKEN, stubProfile)
         assertEquals(aRequest, bRequest)
+    }
+
+    @Test
+    fun `Requests are not equal if api key is different`() {
+        val aRequest = UnregisterPushTokenApiRequest(API_KEY, PUSH_TOKEN, stubProfile)
+        val bRequest = UnregisterPushTokenApiRequest(API_KEY.repeat(2), PUSH_TOKEN, stubProfile)
+        assertNotEquals(aRequest, bRequest)
+    }
+
+    @Test
+    fun `Requests are not equal if token is different`() {
+        val aRequest = UnregisterPushTokenApiRequest(API_KEY, PUSH_TOKEN, stubProfile)
+        val bRequest = UnregisterPushTokenApiRequest(API_KEY, PUSH_TOKEN.repeat(2), stubProfile)
+        assertNotEquals(aRequest, bRequest)
     }
 
     @Test
@@ -58,7 +73,7 @@ internal class UnregisterPushTokenApiRequestTest : BaseApiRequestTest<Unregister
             }
         """
 
-        val request = UnregisterPushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        val request = UnregisterPushTokenApiRequest(API_KEY, PUSH_TOKEN, stubProfile)
         compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
     }
 }

@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.API_KEY
 import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
@@ -18,6 +19,9 @@ import java.util.UUID
  * Stores information on the currently active user
  */
 internal class KlaviyoState : State {
+
+    private val _apiKey = PersistentObservableString(API_KEY, ::broadcastChange)
+    override var apiKey by _apiKey
 
     private val _externalId = PersistentObservableString(EXTERNAL_ID, ::broadcastChange)
     override var externalId by _externalId

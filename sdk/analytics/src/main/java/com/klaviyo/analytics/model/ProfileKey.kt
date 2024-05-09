@@ -37,3 +37,5 @@ sealed class ProfileKey(name: String) : Keyword(name) {
 }
 
 internal object PROFILE_ATTRIBUTES : Keyword("attributes")
+
+internal object API_KEY : Keyword("api_key")

@@ -7,6 +7,7 @@ import com.klaviyo.analytics.model.ProfileKey
 typealias StateObserver = (key: Keyword?, oldValue: Any?) -> Unit
 
 interface State {
+    var apiKey: String?
     var externalId: String?
     var email: String?
     var phoneNumber: String?
