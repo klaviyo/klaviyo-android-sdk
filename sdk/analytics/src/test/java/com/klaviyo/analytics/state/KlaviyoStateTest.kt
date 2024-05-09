@@ -1,9 +1,12 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.Keyword
+import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -17,7 +20,13 @@ internal class KlaviyoStateTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
-        state = KlaviyoState().apply { reset() }
+        state = KlaviyoState()
+    }
+
+    @After
+    override fun cleanup() {
+        state.reset()
+        super.cleanup()
     }
 
     @Test
@@ -25,8 +34,18 @@ internal class KlaviyoStateTest : BaseTest() {
         state.externalId = EXTERNAL_ID
         state.email = EMAIL
         state.phoneNumber = PHONE
-        assertProfileIdentifiers(state.getAsProfile())
-        assertUserInfoIdentifiers()
+
+        val profile = state.getAsProfile()
+
+        assert(profile.externalId == EXTERNAL_ID)
+        assert(profile.email == EMAIL)
+        assert(profile.phoneNumber == PHONE)
+        assert(profile.anonymousId == state.anonymousId)
+        assert(profile.toMap().count() == 4) // shouldn't contain any extras
+
+        assertEquals(EXTERNAL_ID, state.externalId)
+        assertEquals(EMAIL, state.email)
+        assertEquals(PHONE, state.phoneNumber)
     }
 
     @Test
@@ -45,21 +64,21 @@ internal class KlaviyoStateTest : BaseTest() {
     @Test
     fun `Only read properties from data store once`() {
         dataStoreSpy.store(ProfileKey.ANONYMOUS_ID.name, ANON_ID)
-        dataStoreSpy.store(ProfileKey.EMAIL.name, EMAIL)
         dataStoreSpy.store(ProfileKey.EXTERNAL_ID.name, EXTERNAL_ID)
+        dataStoreSpy.store(ProfileKey.EMAIL.name, EMAIL)
         dataStoreSpy.store(ProfileKey.PHONE_NUMBER.name, PHONE)
 
         state.anonymousId
         assertEquals(ANON_ID, state.anonymousId)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name) }
 
-        state.email
-        assertEquals(EMAIL, state.email)
-        verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EMAIL.name) }
-
         state.externalId
         assertEquals(EXTERNAL_ID, state.externalId)
         verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EXTERNAL_ID.name) }
+
+        state.email
+        assertEquals(EMAIL, state.email)
+        verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EMAIL.name) }
 
         state.phoneNumber
         assertEquals(PHONE, state.phoneNumber)
@@ -86,17 +105,91 @@ internal class KlaviyoStateTest : BaseTest() {
         assertEquals(newAnonId, dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name))
     }
 
-    private fun assertProfileIdentifiers(profile: Profile) {
-        assert(profile.externalId == EXTERNAL_ID)
-        assert(profile.email == EMAIL)
-        assert(profile.phoneNumber == PHONE)
-        assert(profile.anonymousId == state.anonymousId)
-        assert(profile.toMap().count() == 4) // shouldn't contain any extras
+    @Test
+    fun `Broadcasts change of property with key and old value`() {
+        dataStoreSpy.store(ProfileKey.EXTERNAL_ID.name, EXTERNAL_ID)
+        dataStoreSpy.store(ProfileKey.EMAIL.name, EMAIL)
+        dataStoreSpy.store(ProfileKey.PHONE_NUMBER.name, PHONE)
+
+        var broadcastKey: Keyword? = null
+        var broadcastValue: String? = null
+
+        state.onStateChange { k, v ->
+            broadcastKey = k
+            broadcastValue = v.toString()
+        }
+
+        state.externalId = "new_external_id"
+        assertEquals(ProfileKey.EXTERNAL_ID, broadcastKey)
+        assertEquals(EXTERNAL_ID, broadcastValue)
+
+        state.email = "new@email.com"
+        assertEquals(ProfileKey.EMAIL, broadcastKey)
+        assertEquals(EMAIL, broadcastValue)
+
+        state.phoneNumber = "new_phone"
+        assertEquals(ProfileKey.PHONE_NUMBER, broadcastKey)
+        assertEquals(PHONE, broadcastValue)
     }
 
-    private fun assertUserInfoIdentifiers() {
-        assertEquals(EXTERNAL_ID, state.externalId)
-        assertEquals(EMAIL, state.email)
-        assertEquals(PHONE, state.phoneNumber)
+    @Test
+    fun `Broadcasts on set attributes`() {
+        var broadcastKey: Keyword? = null
+        var broadcastValue: Any? = null
+
+        state.onStateChange { k, v ->
+            broadcastKey = k
+            broadcastValue = v
+        }
+
+        state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
+        state.setAttribute(ProfileKey.LAST_NAME, "Frog")
+
+        assertEquals(PROFILE_ATTRIBUTES, broadcastKey)
+        assertEquals("Kermit", (broadcastValue as? Profile)?.get(ProfileKey.FIRST_NAME))
+    }
+
+    @Test
+    fun `Broadcasts on reset attributes`() {
+        var broadcastKey: Keyword? = null
+        var broadcastValue: Any? = null
+
+        state.onStateChange { k, v ->
+            broadcastKey = k
+            broadcastValue = v
+        }
+
+        state.resetAttributes()
+
+        assertEquals(PROFILE_ATTRIBUTES, broadcastKey)
+        assertNull(broadcastValue)
+    }
+
+    @Test
+    fun `Broadcasts on reset profile`() {
+        state.externalId = EXTERNAL_ID
+        state.email = EMAIL
+        state.phoneNumber = PHONE
+        state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
+        state.setAttribute(ProfileKey.LAST_NAME, "Frog")
+
+        var broadcastKey: Keyword? = null
+        var broadcastValue: Any? = null
+
+        state.onStateChange { k, v ->
+            broadcastKey = k
+            broadcastValue = v
+        }
+
+        state.reset()
+
+        val broadcastProfile = broadcastValue as Profile
+
+        assertEquals(null, broadcastKey)
+        assertEquals(EXTERNAL_ID, broadcastProfile.externalId)
+        assertEquals(EMAIL, broadcastProfile.email)
+        assertEquals(PHONE, broadcastProfile.phoneNumber)
+        assertEquals("Kermit", broadcastProfile[ProfileKey.FIRST_NAME])
+        assertEquals("Frog", broadcastProfile[ProfileKey.LAST_NAME])
     }
 }
