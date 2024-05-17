@@ -16,21 +16,9 @@ import com.google.firebase.ktx.Firebase
 class NavigationViewModel {
 
     val tabRowItems = listOf(
-        TabRowItem(
-            tab = TabIndex.Profile,
-            title = "Account Info",
-            imageVector = { Icons.Outlined.AccountCircle }
-        ),
-        TabRowItem(
-            tab = TabIndex.Events,
-            title = "Events",
-            imageVector = { Icons.Outlined.Notifications }
-        ),
-        TabRowItem(
-            tab = TabIndex.Settings,
-            title = "Settings",
-            imageVector = { Icons.Outlined.Settings }
-        )
+        TabRowItem(tab = TabIndex.Profile),
+        TabRowItem(tab = TabIndex.Events),
+        TabRowItem(tab = TabIndex.Settings)
     )
 
     var navState: NavigationState by mutableStateOf(tabRowItems.first().getNavState())
@@ -51,6 +39,20 @@ enum class TabIndex(val index: Int) {
     Events(1),
     Settings(2);
 
+    val title: String
+        get() = when (this) {
+            Profile -> "Account Info"
+            Events -> "Events"
+            Settings -> "Settings"
+        }
+
+    val icon: ImageVector
+        get() = when (this) {
+            Profile -> Icons.Outlined.AccountCircle
+            Events -> Icons.Outlined.Notifications
+            Settings -> Icons.Outlined.Settings
+        }
+
     companion object {
         fun fromIndex(index: Int): TabIndex {
             return when (index) {
@@ -62,11 +64,11 @@ enum class TabIndex(val index: Int) {
     }
 }
 
-data class TabRowItem(
-    val tab: TabIndex,
-    val title: String,
-    val imageVector: () -> ImageVector
-) {
+data class TabRowItem(val tab: TabIndex) {
+    val title: String = tab.title
+    val imageVector: ImageVector
+        get() = tab.icon
+
     fun getNavState(): NavigationState = NavigationState(
         tab = tab,
         title = title

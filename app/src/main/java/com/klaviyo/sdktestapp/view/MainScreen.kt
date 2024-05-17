@@ -68,7 +68,10 @@ fun MainScreen(
                     .padding(padding)
             ) {
                 when (navigationViewModel.navState.tab) {
-                    TabIndex.Profile -> AccountInfo(accountInfoViewModel)
+                    TabIndex.Profile -> AccountInfo(
+                        viewModel = accountInfoViewModel,
+                        onNavigate = navigationViewModel::onNavigate
+                    )
 
                     TabIndex.Events -> EventsPage(
                         events = eventsViewModel.viewState.events,
@@ -103,7 +106,7 @@ private fun BottomBar(tabRowItems: List<TabRowItem>, currentPage: Int, onTabClic
             BottomNavigationItem(
                 icon = {
                     Icon(
-                        imageVector = tabRow.imageVector(),
+                        imageVector = tabRow.imageVector,
                         contentDescription = tabRow.title
                     )
                 },
