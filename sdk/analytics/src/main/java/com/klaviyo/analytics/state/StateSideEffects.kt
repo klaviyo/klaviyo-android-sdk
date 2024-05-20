@@ -4,6 +4,7 @@ import com.klaviyo.analytics.model.API_KEY
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
+import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.ApiRequest
@@ -87,11 +88,25 @@ internal class StateSideEffects(
     private fun flushProfile() = pendingProfile?.let {
         timer?.cancel()
         Registry.log.verbose("Flushing profile update")
-        state.pushToken?.let {
-            apiClient.enqueuePushToken(it, state.getAsProfile())
-        } ?: apiClient.enqueueProfile(it.copy())
+        enqueueTokenOrProfile(it.copy())
         state.resetAttributes() // Once captured in a request, we don't keep profile attributes in state/on disk
         pendingProfile = null
+    }
+
+    /**
+     * Enqueue pending profile changes as an API call to either push token endpoint or profile endpoint.
+     *
+     * Why? - Profile changes are sent to push token API when there is a push token present in state.
+     * This is done to avoid resetting the push token in state, making a profile request and then another
+     * request to the push token endpoint to set the push token.
+     *
+     * By just using the push token API we can avoid the extra request and also ensure that the push token
+     * is set on the new profile in Klaviyo.
+     */
+    private fun enqueueTokenOrProfile(profile: Profile) {
+        state.pushToken?.let {
+            apiClient.enqueuePushToken(it, profile)
+        } ?: apiClient.enqueueProfile(profile)
     }
 
     private fun afterApiRequest(request: ApiRequest) = when {
