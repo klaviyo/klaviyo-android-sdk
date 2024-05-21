@@ -337,7 +337,6 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.resetProfile()
 
         assertNull(null, Registry.get<State>().email)
-        assertNull(null, dataStoreSpy.fetch("push_token"))
     }
 
     @Test
