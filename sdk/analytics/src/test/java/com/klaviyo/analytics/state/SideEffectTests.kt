@@ -39,6 +39,7 @@ class SideEffectTests : BaseTest() {
         every { pushState = captureNullable(capturedPushState) } returns Unit
         every { getAsProfile(withAttributes = any()) } returns profile
         every { resetAttributes() } returns Unit
+        every { pushToken } returns null
     }
 
     @Test
