@@ -86,7 +86,7 @@ class SideEffectTests : BaseTest() {
     }
 
     @Test
-    fun `Resetting profile enqueues API call immediately`() {
+    fun `Resetting profile enqueues Profiles API call immediately`() {
         StateSideEffects(
             stateMock.apply {
                 every { getAsProfile(withAttributes = any()) } returns Profile(
@@ -114,6 +114,35 @@ class SideEffectTests : BaseTest() {
         staticClock.execute(debounceTime.toLong())
 
         verify(exactly = 2) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `Resetting profile enqueues Push Token API call immediately when push token is in state`() {
+        every { stateMock.pushToken } returns PUSH_TOKEN
+
+        StateSideEffects(
+            stateMock.apply {
+                every { getAsProfile(withAttributes = any()) } returns Profile(
+                    properties = mapOf(
+                        ProfileKey.ANONYMOUS_ID to ANON_ID,
+                        ProfileKey.FIRST_NAME to "Kermit"
+                    )
+                )
+            },
+            apiClientMock
+        )
+
+        capturedStateObserver.captured(PROFILE_ATTRIBUTES, null)
+
+        every { stateMock.getAsProfile(withAttributes = any()) } returns Profile(
+            properties = mapOf(
+                ProfileKey.ANONYMOUS_ID to "new_anon_id"
+            )
+        )
+
+        capturedStateObserver.captured(null, null)
+
+        verify(exactly = 1) { apiClientMock.enqueuePushToken(PUSH_TOKEN, any()) }
     }
 
     @Test
