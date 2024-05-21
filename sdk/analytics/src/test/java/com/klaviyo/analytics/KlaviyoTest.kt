@@ -399,6 +399,54 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `Push token request is made if profile identifiers change and token is set`() {
+        Klaviyo.setPushToken(PUSH_TOKEN)
+        assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
+
+        verify(exactly = 1) {
+            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+        }
+
+        Klaviyo.setEmail(EMAIL)
+            .setPhoneNumber(PHONE)
+            .setExternalId(EXTERNAL_ID)
+
+        staticClock.execute(debounceTime.toLong())
+        verify(exactly = 2) { apiClientMock.enqueuePushToken(PUSH_TOKEN, any()) }
+    }
+
+    @Test
+    fun `Push token request is made if profile changes and token is set`() {
+        Klaviyo.setPushToken(PUSH_TOKEN)
+        assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
+
+        verify(exactly = 1) {
+            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+        }
+
+        Klaviyo.setProfile(Profile().setEmail(EMAIL))
+
+        staticClock.execute(debounceTime.toLong())
+        verify(exactly = 2) { apiClientMock.enqueuePushToken(PUSH_TOKEN, any()) }
+    }
+
+    @Test
+    fun `Push token request is made for profile attributes when token is set`() {
+        Klaviyo.setPushToken(PUSH_TOKEN)
+        assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
+
+        verify(exactly = 1) {
+            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+        }
+
+        Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, "Larry")
+        Klaviyo.setProfileAttribute(ProfileKey.LAST_NAME, "David")
+
+        staticClock.execute(debounceTime.toLong())
+        verify(exactly = 2) { apiClientMock.enqueuePushToken(PUSH_TOKEN, any()) }
+    }
+
+    @Test
     fun `Retrieve saved push token from data store`() {
         assertNull(Klaviyo.getPushToken())
         Klaviyo.setPushToken(PUSH_TOKEN)
