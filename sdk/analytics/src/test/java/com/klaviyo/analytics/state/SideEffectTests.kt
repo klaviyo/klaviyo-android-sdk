@@ -15,8 +15,10 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Test
 
 class SideEffectTests : BaseTest() {
@@ -27,7 +29,6 @@ class SideEffectTests : BaseTest() {
     private val capturedStateObserver = slot<StateObserver>()
     private val capturedPushState = slot<String?>()
     private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
-        Registry.register<ApiClient>(this)
         every { onApiRequest(any(), capture(capturedApiObserver)) } returns Unit
         every { enqueueProfile(capture(capturedProfile)) } returns Unit
         every { enqueueEvent(any(), any()) } returns Unit
@@ -39,6 +40,19 @@ class SideEffectTests : BaseTest() {
         every { pushState = captureNullable(capturedPushState) } returns Unit
         every { getAsProfile(withAttributes = any()) } returns profile
         every { resetAttributes() } returns Unit
+        every { pushToken } returns null
+    }
+
+    @Before
+    override fun setup() {
+        super.setup()
+        Registry.register<ApiClient>(apiClientMock)
+    }
+
+    @After
+    override fun cleanup() {
+        Registry.unregister<ApiClient>()
+        super.cleanup()
     }
 
     @Test
@@ -86,7 +100,7 @@ class SideEffectTests : BaseTest() {
     }
 
     @Test
-    fun `Resetting profile enqueues API call immediately`() {
+    fun `Resetting profile enqueues Profiles API call immediately`() {
         StateSideEffects(
             stateMock.apply {
                 every { getAsProfile(withAttributes = any()) } returns Profile(
@@ -114,6 +128,35 @@ class SideEffectTests : BaseTest() {
         staticClock.execute(debounceTime.toLong())
 
         verify(exactly = 2) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `Resetting profile enqueues Push Token API call immediately when push token is in state`() {
+        every { stateMock.pushToken } returns PUSH_TOKEN
+
+        StateSideEffects(
+            stateMock.apply {
+                every { getAsProfile(withAttributes = any()) } returns Profile(
+                    properties = mapOf(
+                        ProfileKey.ANONYMOUS_ID to ANON_ID,
+                        ProfileKey.FIRST_NAME to "Kermit"
+                    )
+                )
+            },
+            apiClientMock
+        )
+
+        capturedStateObserver.captured(PROFILE_ATTRIBUTES, null)
+
+        every { stateMock.getAsProfile(withAttributes = any()) } returns Profile(
+            properties = mapOf(
+                ProfileKey.ANONYMOUS_ID to "new_anon_id"
+            )
+        )
+
+        capturedStateObserver.captured(null, null)
+
+        verify(exactly = 1) { apiClientMock.enqueuePushToken(PUSH_TOKEN, any()) }
     }
 
     @Test
