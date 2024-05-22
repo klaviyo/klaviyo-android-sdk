@@ -15,8 +15,10 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Test
 
 class SideEffectTests : BaseTest() {
@@ -27,7 +29,6 @@ class SideEffectTests : BaseTest() {
     private val capturedStateObserver = slot<StateObserver>()
     private val capturedPushState = slot<String?>()
     private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
-        Registry.register<ApiClient>(this)
         every { onApiRequest(any(), capture(capturedApiObserver)) } returns Unit
         every { enqueueProfile(capture(capturedProfile)) } returns Unit
         every { enqueueEvent(any(), any()) } returns Unit
@@ -40,6 +41,18 @@ class SideEffectTests : BaseTest() {
         every { getAsProfile(withAttributes = any()) } returns profile
         every { resetAttributes() } returns Unit
         every { pushToken } returns null
+    }
+
+    @Before
+    override fun setup() {
+        super.setup()
+        Registry.register<ApiClient>(apiClientMock)
+    }
+
+    @After
+    override fun cleanup() {
+        Registry.unregister<ApiClient>()
+        super.cleanup()
     }
 
     @Test

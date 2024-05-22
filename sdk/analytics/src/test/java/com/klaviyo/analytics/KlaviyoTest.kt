@@ -10,6 +10,7 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
@@ -61,7 +62,6 @@ internal class KlaviyoTest : BaseTest() {
 
     private val capturedProfile = slot<Profile>()
     private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
-        Registry.register<ApiClient>(this)
         every { onApiRequest(any(), any()) } returns Unit
         every { enqueueProfile(capture(capturedProfile)) } returns Unit
         every { enqueueEvent(any(), any()) } returns Unit
@@ -84,6 +84,7 @@ internal class KlaviyoTest : BaseTest() {
     override fun setup() {
         super.setup()
         every { Registry.configBuilder } returns builderMock
+        Registry.register<ApiClient>(apiClientMock)
         DevicePropertiesTest.mockDeviceProperties()
         Klaviyo.initialize(
             apiKey = API_KEY,
@@ -94,6 +95,10 @@ internal class KlaviyoTest : BaseTest() {
     @After
     override fun cleanup() {
         Registry.get<State>().reset()
+        Registry.unregister<Config>()
+        Registry.unregister<State>()
+        Registry.unregister<StateSideEffects>()
+        Registry.unregister<ApiClient>()
         super.cleanup()
         DevicePropertiesTest.unmockDeviceProperties()
     }
