@@ -257,9 +257,9 @@ if you are only using the SDK for push notifications and not analytics.
  provide code examples for requesting permission and handling the user's response.
 
 #### Push tokens and multiple profiles
-Klaviyo SDK will disassociate the device push token from the current profile whenever it is reset by calling 
-`setProfile` or `resetProfile`. You should call `setPushToken` again after resetting the currently tracked profile
-to explicitly associate the device token to the new profile.
+If a new profile was set using `setProfile` or if `resetProfile` was called and a new anonymous 
+profile was created, the push token will be automatically associated with the new profile without 
+any additional action (like setting token again) required. This functionality was added in release `3.0.0`. 
 
 ### Receiving Push Notifications
 `KlaviyoPushService` will handle displaying all notifications via the `onMessageReceived` method regardless of

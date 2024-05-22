@@ -128,8 +128,6 @@ internal class KlaviyoState : State {
         _phoneNumber.reset()
         _anonymousId.reset()
         _attributes.reset()
-        _pushToken.reset()
-        _pushState.reset()
 
         broadcastChange(null, oldProfile)
         Registry.log.verbose("Reset internal user state")

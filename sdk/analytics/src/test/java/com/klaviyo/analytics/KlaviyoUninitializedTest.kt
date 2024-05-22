@@ -6,7 +6,6 @@ import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.Log
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.LogFixture
@@ -14,28 +13,34 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
 internal class KlaviyoUninitializedTest {
-    companion object {
-        private val logger = spyk(LogFixture()).apply {
-            every { error(any(), any<Throwable>()) } answers {
-                println(firstArg<String>())
-                secondArg<Throwable>().printStackTrace()
-            }
-        }
 
-        private val mockApiClient = mockk<ApiClient>()
+    private val logger = spyk(LogFixture()).apply {
+        every { error(any(), any<Throwable>()) } answers {
+            println(firstArg<String>())
+            secondArg<Throwable>().printStackTrace()
+        }
+    }
+
+    private val mockApiClient = mockk<ApiClient>().apply {
+        every { onApiRequest(any(), any()) } returns Unit
     }
 
     @Before
     fun setup() {
-        Registry.unregister<Config>()
         Registry.register<Log>(logger)
         Registry.register<ApiClient>(mockApiClient)
-        every { mockApiClient.onApiRequest(any(), any()) } returns Unit
+    }
+
+    @After
+    fun cleanup() {
+        Registry.unregister<Log>()
+        Registry.unregister<ApiClient>()
     }
 
     private inline fun <reified T> assertCaught() where T : Throwable {
@@ -92,7 +97,7 @@ internal class KlaviyoUninitializedTest {
 
     @Test
     fun `Push token getter is protected`() {
-        assertNull(Klaviyo.getPushToken())
+        Klaviyo.getPushToken()
         assertCaught<MissingConfig>()
     }
 
