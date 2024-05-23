@@ -1,13 +1,15 @@
 package com.klaviyo.core.config
 
+import android.annotation.SuppressLint
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.TimeZone
 import java.util.Timer
 import kotlin.concurrent.schedule
 
-internal object SystemClock : Clock {
+internal class SystemClock() : Clock {
 
+    @SuppressLint("SimpleDateFormat")
     private val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }

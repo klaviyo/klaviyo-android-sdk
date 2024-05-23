@@ -41,7 +41,7 @@ object Registry {
 
     val config: Config get() = get()
 
-    val clock: Clock = SystemClock
+    val clock: Clock by lazy { SystemClock() }
 
     val lifecycleMonitor: LifecycleMonitor get() = KlaviyoLifecycleMonitor
 
