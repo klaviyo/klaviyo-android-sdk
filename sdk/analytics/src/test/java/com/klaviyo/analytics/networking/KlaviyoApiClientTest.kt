@@ -89,6 +89,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
             every { looper } returns mockk()
             every { state } returns Thread.State.NEW
         }
+
+        KlaviyoApiClient.startService()
     }
 
     @After
