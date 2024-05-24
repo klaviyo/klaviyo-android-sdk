@@ -41,7 +41,7 @@ object Registry {
 
     val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
 
-    val clock: Clock by lazy { SystemClock() }
+    val clock: Clock get() = SystemClock
 
     val log: Log by lazy { KLog() }
 

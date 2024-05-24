@@ -7,7 +7,7 @@ import java.util.TimeZone
 import java.util.Timer
 import kotlin.concurrent.schedule
 
-internal class SystemClock() : Clock {
+internal object SystemClock : Clock {
 
     @SuppressLint("SimpleDateFormat")
     private val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").apply {
