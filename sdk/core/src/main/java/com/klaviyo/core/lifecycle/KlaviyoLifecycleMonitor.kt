@@ -14,10 +14,6 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
 
     private var activityObservers = mutableListOf<ActivityObserver>()
 
-    init {
-        onActivityEvent { Registry.log.verbose(it.type) }
-    }
-
     override fun onActivityEvent(observer: ActivityObserver) {
         activityObservers += observer
     }
@@ -26,7 +22,10 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
         activityObservers -= observer
     }
 
-    private fun broadcastEvent(event: ActivityEvent) = activityObservers.forEach { it(event) }
+    private fun broadcastEvent(event: ActivityEvent) {
+        Registry.log.verbose(event.type)
+        activityObservers.forEach { it(event) }
+    }
 
     //region ActivityLifecycleCallbacks
 
