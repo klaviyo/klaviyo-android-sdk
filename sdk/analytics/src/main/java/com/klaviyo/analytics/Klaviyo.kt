@@ -26,6 +26,16 @@ import com.klaviyo.core.safeCall
  */
 object Klaviyo {
 
+    init {
+        /**
+         * Since analytics module owns ApiClient, we must register it.
+         *
+         * This registration is a lambda invoked when the API service is required.
+         * KlaviyoApiClient service is not being initialized here.
+         */
+        if (!Registry.isRegistered<ApiClient>()) Registry.register<ApiClient> { KlaviyoApiClient }
+    }
+
     /**
      * Configure Klaviyo SDK with your account's public API Key and application context.
      * This must be called to before using any other SDK functionality
@@ -41,17 +51,17 @@ object Klaviyo {
                 .build()
         )
 
-        // Unsafe to register KlaviyoApiClient until host app initializes the SDK
-        Registry.register<ApiClient> { KlaviyoApiClient }
-
         val application = applicationContext.applicationContext as? Application
         application?.apply {
             unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
         } ?: throw LifecycleException()
 
+        Registry.get<ApiClient>().startService()
+
         Registry.register<State>(KlaviyoState())
         Registry.register<StateSideEffects>(StateSideEffects())
+
         Registry.get<State>().apiKey = apiKey
     }
 

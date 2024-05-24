@@ -34,53 +34,20 @@ internal object KlaviyoApiClient : ApiClient {
      */
     private var apiObservers = mutableListOf<ApiObserver>()
 
-    init {
-        onApiRequest { r ->
-            when (r.state) {
-                Status.Unsent.name -> Registry.log.verbose("${r.type} Request enqueued")
-                Status.Inflight.name -> Registry.log.verbose("${r.type} Request inflight")
-                Status.PendingRetry.name -> {
-                    val attemptsRemaining = Registry.config.networkMaxAttempts - r.attempts
-                    Registry.log.warning(
-                        "${r.type} Request failed with code ${r.responseCode}, and will be retried up to $attemptsRemaining more times."
-                    )
-                }
-                Status.Complete.name -> Registry.log.verbose(
-                    "${r.type} Request succeeded with code ${r.responseCode}"
-                )
-                else -> Registry.log.error(
-                    "${r.type} Request failed with code ${r.responseCode}, and will be dropped"
-                )
-            }
+    /**
+     * Initialize logic including lifecycle observers and reviving the queue from persistent store
+     */
+    override fun startService() {
+        Registry.lifecycleMonitor.offActivityEvent(::onLifecycleActivity)
+        Registry.lifecycleMonitor.onActivityEvent(::onLifecycleActivity)
 
-            r.responseBody?.let { response ->
-                val body = r.requestBody?.let { JSONObject(it).toString(2) }
-                Registry.log.verbose("${r.httpMethod}: ${r.url}")
-                Registry.log.verbose("Headers: ${r.headers}")
-                Registry.log.verbose("Query: ${r.query}")
-                Registry.log.verbose("Body: $body")
-                Registry.log.verbose("${r.responseCode} $response")
-            }
+        Registry.networkMonitor.offNetworkChange(::onNetworkChange)
+        Registry.networkMonitor.onNetworkChange(::onNetworkChange)
+
+        if (getQueueSize() == 0) {
+            // We only need to restore queue from persistent store once
+            restoreQueue()
         }
-
-        // Stop our handler thread when all activities stop
-        Registry.lifecycleMonitor.onActivityEvent {
-            when (it) {
-                is ActivityEvent.AllStopped -> startBatch(true)
-                else -> Unit
-            }
-        }
-
-        // Stop the background batching job while offline
-        Registry.networkMonitor.onNetworkChange { isOnline ->
-            if (isOnline) {
-                startBatch(true)
-            } else {
-                stopBatch()
-            }
-        }
-
-        restoreQueue()
     }
 
     override fun enqueueProfile(profile: Profile) {
@@ -102,22 +69,6 @@ internal object KlaviyoApiClient : ApiClient {
         enqueueRequest(EventApiRequest(event, profile))
     }
 
-    override fun onApiRequest(withHistory: Boolean, observer: ApiObserver) {
-        if (withHistory) {
-            apiQueue.forEach(observer)
-        }
-
-        apiObservers += observer
-    }
-
-    override fun offApiRequest(observer: ApiObserver) {
-        apiObservers -= observer
-    }
-
-    private fun broadcastApiRequest(request: KlaviyoApiRequest) {
-        apiObservers.forEach { it(request) }
-    }
-
     /**
      * Enqueues an [KlaviyoApiRequest] to run in the background
      * These requests are sent to the Klaviyo asynchronous APIs
@@ -133,8 +84,8 @@ internal object KlaviyoApiClient : ApiClient {
         var addedRequest = false
         requests.forEach { request ->
             if (!apiQueue.contains(request)) {
-                apiQueue.offer(request)
                 Registry.dataStore.store(request.uuid, request.toString())
+                apiQueue.offer(request)
                 broadcastApiRequest(request)
                 addedRequest = true
             }
@@ -142,6 +93,65 @@ internal object KlaviyoApiClient : ApiClient {
         if (addedRequest) {
             persistQueue()
         }
+    }
+
+    override fun onApiRequest(withHistory: Boolean, observer: ApiObserver) {
+        if (withHistory) {
+            apiQueue.forEach(observer)
+        }
+
+        apiObservers += observer
+    }
+
+    override fun offApiRequest(observer: ApiObserver) {
+        apiObservers -= observer
+    }
+
+    private fun broadcastApiRequest(request: KlaviyoApiRequest) {
+        when (request.status) {
+            Status.Unsent -> Registry.log.verbose("${request.type} Request enqueued")
+            Status.Inflight -> Registry.log.verbose("${request.type} Request inflight")
+            Status.PendingRetry -> {
+                val attemptsRemaining = Registry.config.networkMaxAttempts - request.attempts
+                Registry.log.warning(
+                    "${request.type} Request failed with code ${request.responseCode}, and will be retried up to $attemptsRemaining more times."
+                )
+            }
+            Status.Complete -> Registry.log.verbose(
+                "${request.type} Request succeeded with code ${request.responseCode}"
+            )
+            else -> Registry.log.error(
+                "${request.type} Request failed with code ${request.responseCode}, and will be dropped"
+            )
+        }
+
+        request.responseBody?.let { response ->
+            val body = request.requestBody?.let { JSONObject(it).toString(2) }
+            Registry.log.verbose("${request.httpMethod}: ${request.url}")
+            Registry.log.verbose("Headers: ${request.headers}")
+            Registry.log.verbose("Query: ${request.query}")
+            Registry.log.verbose("Body: $body")
+            Registry.log.verbose("${request.responseCode} $response")
+        }
+
+        apiObservers.forEach { it(request) }
+    }
+
+    /**
+     * Stop our handler thread when all activities stop
+     */
+    private fun onLifecycleActivity(activity: ActivityEvent) = when (activity) {
+        is ActivityEvent.AllStopped -> startBatch(true)
+        else -> Unit
+    }
+
+    /**
+     * Stop the background batching job while offline
+     */
+    private fun onNetworkChange(isConnected: Boolean) = if (isConnected) {
+        startBatch(true)
+    } else {
+        stopBatch()
     }
 
     /**
