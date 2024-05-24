@@ -37,13 +37,21 @@ typealias Registration = () -> Any
  */
 object Registry {
 
+    /**
+     * Shortcut to the registered [Config]
+     *
+     * @throws [MissingConfig] if uninitialized
+     */
     val config: Config get() = get()
 
+    /**
+     * Access to [Config.Builder] for registering new or updated SDK configuration
+     */
     val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
 
     val clock: Clock get() = SystemClock
 
-    val log: Log by lazy { KLog() }
+    val log: Log get() = KLog
 
     val lifecycleMonitor: LifecycleMonitor get() = KlaviyoLifecycleMonitor
 
