@@ -37,11 +37,13 @@ typealias Registration = () -> Any
  */
 object Registry {
 
-    val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
-
     val config: Config get() = get()
 
+    val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
+
     val clock: Clock by lazy { SystemClock() }
+
+    val log: Log by lazy { KLog() }
 
     val lifecycleMonitor: LifecycleMonitor get() = KlaviyoLifecycleMonitor
 
@@ -50,8 +52,6 @@ object Registry {
     val networkMonitor: NetworkMonitor get() = KlaviyoNetworkMonitor
 
     val dataStore: DataStore get() = SharedPreferencesDataStore
-
-    val log: Log get() = get()
 
     /**
      * Internal registry of registered service instances
@@ -64,10 +64,6 @@ object Registry {
      */
     @PublishedApi
     internal val registry = mutableMapOf<KType, Registration>()
-
-    init {
-        register<Log> { KLog() }
-    }
 
     /**
      * Remove registered service by type, specified by generic parameter

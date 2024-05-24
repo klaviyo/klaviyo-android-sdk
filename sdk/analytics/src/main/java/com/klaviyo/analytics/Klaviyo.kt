@@ -237,9 +237,14 @@ object Klaviyo {
             }
         }
 
-        getPushToken()?.let { event[EventKey.PUSH_TOKEN] = it }
+        /**
+         * It is tempting to reuse [getPushToken] or [createEvent]
+         * but it is risky to nest usages of [safeApply] or [safeCall]
+         * and continue execution after we've already encountered an exception
+         */
+        Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
 
-        createEvent(event)
+        Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
     }
 
     /**
