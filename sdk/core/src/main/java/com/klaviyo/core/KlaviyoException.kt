@@ -15,6 +15,8 @@ abstract class KlaviyoException(final override val message: String) : Exception(
 
 /**
  * Safely invoke a function and log KlaviyoExceptions rather than crash
+ * Take care not to nest [safeCall] invocations, because the inner exception
+ * will not halt execution of the outer method.
  */
 inline fun <T> safeCall(block: () -> T): T? {
     return try {

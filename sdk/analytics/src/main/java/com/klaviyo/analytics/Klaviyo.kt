@@ -229,7 +229,7 @@ object Klaviyo {
      *
      * @param intent the [Intent] from opening a notification
      */
-    fun handlePush(intent: Intent?) = safeApply {
+    fun handlePush(intent: Intent?) = apply {
         if (intent?.isKlaviyoIntent != true) {
             Registry.log.verbose("Non-Klaviyo intent ignored")
             return this
@@ -245,14 +245,9 @@ object Klaviyo {
             }
         }
 
-        /**
-         * It is tempting to reuse [getPushToken] or [createEvent]
-         * but it is risky to nest usages of [safeApply] or [safeCall]
-         * and continue execution after we've already encountered an exception
-         */
-        Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
+        getPushToken()?.let { event[EventKey.PUSH_TOKEN] = it }
 
-        Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
+        createEvent(event)
     }
 
     /**
