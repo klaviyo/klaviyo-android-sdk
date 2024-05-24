@@ -13,11 +13,13 @@ import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import java.util.*
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -25,6 +27,11 @@ import com.klaviyo.core.safeCall
  * to be processed and sent to the Klaviyo backend
  */
 object Klaviyo {
+
+    /**
+     * Queue of failed operations attempted prior to [initialize]
+     */
+    private val preInitQueue: Queue<Operation<Unit>> = LinkedList()
 
     init {
         /**
@@ -63,6 +70,10 @@ object Klaviyo {
         Registry.register<StateSideEffects>(StateSideEffects())
 
         Registry.get<State>().apiKey = apiKey
+
+        while (preInitQueue.isNotEmpty()) {
+            preInitQueue.poll()?.let { it() }
+        }
     }
 
     /**
@@ -207,7 +218,7 @@ object Klaviyo {
      * @param event A map-like object representing the event attributes
      * @return Returns [Klaviyo] for call chaining
      */
-    fun createEvent(event: Event): Klaviyo = safeApply {
+    fun createEvent(event: Event): Klaviyo = safeApply(preInitQueue) {
         Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
     }
 
@@ -229,10 +240,10 @@ object Klaviyo {
      *
      * @param intent the [Intent] from opening a notification
      */
-    fun handlePush(intent: Intent?) = apply {
+    fun handlePush(intent: Intent?) = safeApply(preInitQueue) {
         if (intent?.isKlaviyoIntent != true) {
             Registry.log.verbose("Non-Klaviyo intent ignored")
-            return this
+            return@safeApply
         }
 
         val event = Event(EventMetric.OPENED_PUSH)
@@ -245,9 +256,9 @@ object Klaviyo {
             }
         }
 
-        getPushToken()?.let { event[EventKey.PUSH_TOKEN] = it }
+        Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
 
-        createEvent(event)
+        Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
     }
 
     /**

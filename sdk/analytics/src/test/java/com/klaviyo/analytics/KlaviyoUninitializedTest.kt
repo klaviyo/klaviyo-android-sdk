@@ -118,4 +118,10 @@ internal class KlaviyoUninitializedTest {
         Klaviyo.handlePush(KlaviyoTest.mockIntent(KlaviyoTest.stubIntentExtras))
         assertCaught<MissingConfig>()
     }
+
+    @Test
+    fun `HandlePushToken gets reinvoked once initialized`() {
+        Klaviyo.handlePush(KlaviyoTest.mockIntent(KlaviyoTest.stubIntentExtras))
+        assertCaught<MissingConfig>()
+    }
 }

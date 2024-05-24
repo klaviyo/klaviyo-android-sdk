@@ -1,5 +1,9 @@
 package com.klaviyo.core
 
+import java.util.Queue
+
+typealias Operation<T> = () -> T
+
 /**
  * Exceptions that automatically hook into our logger
  *
@@ -18,16 +22,20 @@ abstract class KlaviyoException(final override val message: String) : Exception(
  * Take care not to nest [safeCall] invocations, because the inner exception
  * will not halt execution of the outer method.
  */
-inline fun <T> safeCall(block: () -> T): T? {
-    return try {
-        block()
-    } catch (e: KlaviyoException) {
-        // KlaviyoException is self-logging
-        null
-    }
+fun <ReturnType> safeCall(
+    errorQueue: Queue<Operation<ReturnType>>? = null,
+    block: Operation<ReturnType>
+): ReturnType? = try {
+    block()
+} catch (e: KlaviyoException) {
+    // KlaviyoException is self-logging
+    errorQueue?.add(block).let { null }
 }
 
 /**
- * Safe apply function that logs KlaviyoExceptions rather than crash
+ * Safe apply function that logs [KlaviyoException] rather than crash
  */
-inline fun <T> T.safeApply(block: () -> Unit) = apply { safeCall { block() } }
+fun <Caller> Caller.safeApply(
+    errorQueue: Queue<Operation<Unit>>? = null,
+    block: Operation<Unit>
+) = apply { safeCall(errorQueue, block) }
