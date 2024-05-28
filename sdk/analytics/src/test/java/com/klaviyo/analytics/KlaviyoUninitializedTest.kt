@@ -19,7 +19,7 @@ import org.junit.Test
 
 internal class KlaviyoUninitializedTest {
 
-    private val logger = spyk(LogFixture()).apply {
+    private val spyLog = spyk(LogFixture()).apply {
         every { error(any(), any<Throwable>()) } answers {
             println(firstArg<String>())
             secondArg<Throwable>().printStackTrace()
@@ -29,7 +29,7 @@ internal class KlaviyoUninitializedTest {
     @Before
     fun setup() {
         mockkObject(Registry)
-        every { Registry.log } returns logger
+        every { Registry.log } returns spyLog
     }
 
     @After
@@ -38,7 +38,7 @@ internal class KlaviyoUninitializedTest {
     }
 
     private inline fun <reified T> assertCaught() where T : Throwable {
-        verify { logger.error(any(), any<T>()) }
+        verify { spyLog.error(any(), any<T>()) }
     }
 
     @Test
