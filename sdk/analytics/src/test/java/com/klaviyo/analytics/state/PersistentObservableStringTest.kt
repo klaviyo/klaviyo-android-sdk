@@ -30,21 +30,21 @@ internal class PersistentObservableStringTest : BaseTest() {
 
     @Test
     fun `Reads from and writes to persistent store`() {
-        dataStoreSpy.store(KEY, "value")
+        spyDataStore.store(KEY, "value")
         var delegatedProperty by PersistentObservableString(ProfileKey.CUSTOM(KEY))
         assertEquals("value", delegatedProperty)
         delegatedProperty = "new_value"
-        verify(exactly = 1) { dataStoreSpy.fetch(KEY) }
-        verify(exactly = 1) { dataStoreSpy.store(KEY, "new_value") }
-        assertEquals("new_value", dataStoreSpy.fetch(KEY))
+        verify(exactly = 1) { spyDataStore.fetch(KEY) }
+        verify(exactly = 1) { spyDataStore.store(KEY, "new_value") }
+        assertEquals("new_value", spyDataStore.fetch(KEY))
     }
 
     @Test
     fun `Uses fallback if persistent store is empty`() {
         val delegatedProperty by PersistentObservableString(ProfileKey.CUSTOM(KEY)) { "fallback" }
         assertEquals("fallback", delegatedProperty)
-        assertEquals("fallback", dataStoreSpy.fetch(KEY))
-        verify(exactly = 1) { dataStoreSpy.store(KEY, "fallback") }
+        assertEquals("fallback", spyDataStore.fetch(KEY))
+        verify(exactly = 1) { spyDataStore.store(KEY, "fallback") }
     }
 
     @Test
@@ -80,7 +80,7 @@ internal class PersistentObservableStringTest : BaseTest() {
 
     @Test
     fun `Invokes callback with persisted value on first change`() {
-        dataStoreSpy.store(KEY, "abc123")
+        spyDataStore.store(KEY, "abc123")
         var invokedWithOldValue: String? = null
         var delegatedProperty by PersistentObservableString(
             ProfileKey.CUSTOM(KEY),
@@ -97,7 +97,7 @@ internal class PersistentObservableStringTest : BaseTest() {
 
     @Test
     fun `Does not store or invoke callback when value is unchanged`() {
-        dataStoreSpy.store(KEY, "value")
+        spyDataStore.store(KEY, "value")
         var invoked = false
         var delegatedProperty by PersistentObservableString(
             ProfileKey.CUSTOM(KEY),
@@ -107,12 +107,12 @@ internal class PersistentObservableStringTest : BaseTest() {
         delegatedProperty = "value"
 
         assertFalse(invoked)
-        verify(exactly = 1) { dataStoreSpy.store(KEY, "value") }
+        verify(exactly = 1) { spyDataStore.store(KEY, "value") }
     }
 
     @Test
     fun `Whitespace is trimmed prior to validation`() {
-        dataStoreSpy.store(KEY, "value")
+        spyDataStore.store(KEY, "value")
         var invoked = false
         var delegatedProperty by PersistentObservableString(
             ProfileKey.CUSTOM(KEY),
@@ -122,12 +122,12 @@ internal class PersistentObservableStringTest : BaseTest() {
         delegatedProperty = " value "
 
         assertFalse(invoked)
-        verify(exactly = 1) { dataStoreSpy.store(KEY, "value") }
+        verify(exactly = 1) { spyDataStore.store(KEY, "value") }
     }
 
     @Test
     fun `Empty string or null is ignored by primary setter method`() {
-        dataStoreSpy.store(KEY, "value")
+        spyDataStore.store(KEY, "value")
         var invoked = false
         var delegatedProperty by PersistentObservableString(
             ProfileKey.CUSTOM(KEY),
@@ -138,12 +138,12 @@ internal class PersistentObservableStringTest : BaseTest() {
         delegatedProperty = null
 
         assertFalse(invoked)
-        verify(exactly = 1) { dataStoreSpy.store(KEY, "value") }
+        verify(exactly = 1) { spyDataStore.store(KEY, "value") }
     }
 
     @Test
     fun `Resets value without invoking callback`() {
-        dataStoreSpy.store(KEY, "value")
+        spyDataStore.store(KEY, "value")
         var invoked = false
         val property = PersistentObservableString(
             ProfileKey.CUSTOM(KEY),
@@ -153,6 +153,6 @@ internal class PersistentObservableStringTest : BaseTest() {
         property.reset()
         assertFalse(invoked)
         assertNull(delegatedProperty)
-        assertNull(dataStoreSpy.fetch(KEY))
+        assertNull(spyDataStore.fetch(KEY))
     }
 }

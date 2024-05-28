@@ -28,7 +28,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
     override val expectedQuery: Map<String, String> = emptyMap()
 
-    private val expectedFullUrl = "${configMock.baseUrl}/$expectedUrl"
+    private val expectedFullUrl = "${mockConfig.baseUrl}/$expectedUrl"
 
     private val bodySlot = slot<String>()
 
@@ -52,9 +52,9 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     @Before
     override fun setup() {
         super.setup()
-        every { networkMonitorMock.isNetworkConnected() } returns true
-        every { configMock.networkTimeout } returns 1
-        every { configMock.networkFlushIntervals } returns longArrayOf(10_000L, 30_000L, 60_000L)
+        every { mockNetworkMonitor.isNetworkConnected() } returns true
+        every { mockConfig.networkTimeout } returns 1
+        every { mockConfig.networkFlushIntervals } returns longArrayOf(10_000L, 30_000L, 60_000L)
     }
 
     @After
@@ -154,7 +154,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     @Test
     fun `Parses Retry-After header if present and adds jitter`() {
         val expectedHeaders = mapOf("Retry-After" to listOf("25"))
-        every { configMock.networkJitterRange } returns 1..1
+        every { mockConfig.networkJitterRange } returns 1..1
         withConnectionMock(URL(expectedFullUrl)).also {
             every { it.headerFields } returns expectedHeaders
         }
@@ -167,8 +167,8 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     @Test
     fun `Falls back on network interval without jitter when Retry-After header is missing or invalid`() {
         // Wifi interval is 10s, force jitter to be 1s
-        every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
-        every { configMock.networkJitterRange } returns 1..1
+        every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
+        every { mockConfig.networkJitterRange } returns 1..1
 
         val request = makeTestRequest()
         assertEquals(10_000L, request.computeRetryInterval())
@@ -218,7 +218,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
     @Test
     fun `Send returns unsent status when internet is unavailable`() {
-        every { networkMonitorMock.isNetworkConnected() } returns false
+        every { mockNetworkMonitor.isNetworkConnected() } returns false
 
         val request = makeTestRequest()
 
@@ -255,7 +255,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
         val request = makeTestRequest()
 
-        repeat(configMock.networkMaxAttempts - 1) {
+        repeat(mockConfig.networkMaxAttempts - 1) {
             // Should be retryable until max attempts hit
             assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
             assertEquals(request.headers["X-Klaviyo-Attempt-Count"], "${it + 1}/50")
