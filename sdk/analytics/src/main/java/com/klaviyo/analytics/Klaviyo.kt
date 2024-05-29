@@ -72,8 +72,15 @@ object Klaviyo {
 
         Registry.get<State>().apiKey = apiKey
 
+        preInitQueue.count().takeIf { it > 0 }?.let {
+            val operation = if (it == 1) "operation" else "operations"
+            Registry.log.info(
+                "Replaying $it $operation that were invoked prior to Klaviyo initialization."
+            )
+        }
+
         while (preInitQueue.isNotEmpty()) {
-            preInitQueue.poll()?.let { it() }
+            preInitQueue.poll()?.let { safeCall(null, it) }
         }
     }
 
@@ -216,6 +223,10 @@ object Klaviyo {
     /**
      * Creates an [Event] associated with the currently tracked profile
      *
+     * While it is preferable to [initialize] before interacting with the Klaviyo SDK,
+     * due to timing issues on some platforms, events are stored in an in-memory buffer prior to initialization,
+     * and will be replayed once you initialize with your public API key.
+     *
      * @param event A map-like object representing the event attributes
      * @return Returns [Klaviyo] for call chaining
      */
@@ -238,6 +249,10 @@ object Klaviyo {
     /**
      * From an opened push Intent, creates an [EventMetric.OPENED_PUSH] [Event]
      * containing appropriate tracking parameters
+     *
+     * While it is preferable to [initialize] before interacting with the Klaviyo SDK,
+     * due to timing issues on some platforms, events are stored in an in-memory buffer prior to initialization,
+     * and will be replayed once you initialize with your public API key.
      *
      * @param intent the [Intent] from opening a notification
      */

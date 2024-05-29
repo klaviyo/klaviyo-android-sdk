@@ -58,7 +58,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
     }
 
     @Test
-    fun `HandlePushToken and createEvent are protected and re-invoked upon initializing`() {
+    fun `Events APIs are replayed upon initializing`() {
         Klaviyo.createEvent(EventMetric.OPENED_APP)
         Klaviyo.handlePush(KlaviyoTest.mockIntent(KlaviyoTest.stubIntentExtras))
         assertCaught<MissingConfig>()
