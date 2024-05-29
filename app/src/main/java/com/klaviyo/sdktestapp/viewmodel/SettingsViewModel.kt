@@ -1,12 +1,10 @@
 package com.klaviyo.sdktestapp.viewmodel
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -16,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
@@ -24,7 +23,6 @@ import com.klaviyo.sdktestapp.services.Clipboard
 import com.klaviyo.sdktestapp.services.ConfigService
 import com.klaviyo.sdktestapp.services.PushService
 
-@SuppressLint("InlinedApi") // Safe to use the keyword. ActivityCompat handles API level differences
 class SettingsViewModel(
     private val context: Context,
     private val pushNotificationContract: ActivityResultLauncher<String>
@@ -57,24 +55,13 @@ class SettingsViewModel(
         }
     }
 
-    /**
-     * Check if we have user's permission to post notifications
-     * NOTE: Not the same as whether we have a push token
-     *
-     * @return
-     */
-    private fun isNotificationPermissionGranted(): Boolean = ActivityCompat.checkSelfPermission(
-        context,
-        Manifest.permission.POST_NOTIFICATIONS
-    ) == PackageManager.PERMISSION_GRANTED
-
     private fun getPushToken(): String {
         return Klaviyo.getPushToken() ?: ""
     }
 
     fun refreshViewModel() {
         viewState = ViewState(
-            isNotificationPermitted = isNotificationPermissionGranted(),
+            isNotificationPermitted = context.notificationManager.areNotificationsEnabled(),
             pushToken = getPushToken(),
             baseUrl = mutableStateOf(Registry.config.baseUrl)
         )
@@ -100,57 +87,59 @@ class SettingsViewModel(
         throw RuntimeException("Test Crash")
     }
 
+    /**
+     * Note: this method shouldn't be called from the UI if push is already enabled,
+     * but we'll still use the best practice here for our when statement for completeness
+     */
     fun requestPushNotifications() {
         // https://klaviyo.atlassian.net/wiki/spaces/EN/pages/3675848705/Android+Notification+Permission
         when {
-            isNotificationPermissionGranted() -> {
-                // GRANTED - We have notification permission
-                // Safeguard: this method shouldn't be called from the UI if push is already enabled
+            context.notificationManager.areNotificationsEnabled() -> {
+                // GRANTED - We have already notification permission
                 return
             }
             ActivityCompat.shouldShowRequestPermissionRationale(
                 context as Activity,
                 Manifest.permission.POST_NOTIFICATIONS
             ) -> {
-                // Only reachable on API level 33+
-                // when permission was denied before, but we are still allowed
-                // to display an educational dialog and request permission again.
-                // Request the permission, which invokes a callback method
-                AlertDialog.Builder(context)
-                    .setTitle("Notifications Permission")
-                    .setMessage(
-                        "Permission must be granted in order to receive push notifications in the system tray."
-                    )
-                    .setCancelable(true)
-                    .setPositiveButton("Grant") { _, _ ->
-                        // You can directly ask for the permission.
-                        // The registered ActivityResultCallback gets the result of this request.
-                        pushNotificationContract.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                    .setNegativeButton("Cancel") { _, _ -> }
-                    .show()
+                // Reachable on API level >= 33
+                // If a permission prompt was previously denied, display an educational UI and request permission again
+                requestPermissionWithRationale()
             }
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
-                // Request the permission, which invokes a callback method
+                // Reachable on API Level >= 33
+                // We can request the permission
                 pushNotificationContract.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
             else -> {
-                // Only reachable below API Level 33
+                // Reachable on API Level < 33
                 // DENIED - Notifications were turned off by the user in system settings
                 alertPermissionDenied()
             }
         }
     }
 
-    fun alertPermissionDenied() {
-        AlertDialog.Builder(context)
-            .setTitle("Notifications Disabled")
-            .setMessage("Permission is denied and can only be changed from notification settings.")
-            .setCancelable(true)
-            .setPositiveButton("Settings...") { _, _ -> openSettings() }
-            .setNegativeButton("Cancel") { _, _ -> }
-            .show()
-    }
+    private fun requestPermissionWithRationale() = AlertDialog.Builder(context)
+        .setTitle("Notifications Permission")
+        .setMessage(
+            "Permission must be granted in order to receive push notifications in the system tray."
+        )
+        .setCancelable(true)
+        .setPositiveButton("Grant") { _, _ ->
+            // You can directly ask for the permission.
+            // The registered ActivityResultCallback gets the result of this request.
+            pushNotificationContract.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        .setNegativeButton("Cancel") { _, _ -> }
+        .show()
+
+    fun alertPermissionDenied(): AlertDialog = AlertDialog.Builder(context)
+        .setTitle("Notifications Disabled")
+        .setMessage("Permission is denied and can only be changed from notification settings.")
+        .setCancelable(true)
+        .setPositiveButton("Settings...") { _, _ -> openSettings() }
+        .setNegativeButton("Cancel") { _, _ -> }
+        .show()
 
     fun openSettings() {
         val intent = Intent(
@@ -165,4 +154,7 @@ class SettingsViewModel(
     fun copyPushToken() {
         Clipboard(context).logAndCopy("Push Token", viewState.pushToken)
     }
+
+    private val Context.notificationManager: NotificationManagerCompat get() =
+        NotificationManagerCompat.from(this)
 }
