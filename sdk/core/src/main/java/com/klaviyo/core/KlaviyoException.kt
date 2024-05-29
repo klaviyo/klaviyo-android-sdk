@@ -5,17 +5,11 @@ import java.util.Queue
 typealias Operation<T> = () -> T
 
 /**
- * Exceptions that automatically hook into our logger
+ * Base class for exceptions thrown within the Klaviyo SDK
  *
  * @property message
  */
-abstract class KlaviyoException(final override val message: String) : Exception(message) {
-    init {
-        log()
-    }
-
-    private fun log() = Registry.log.error(message, this)
-}
+abstract class KlaviyoException(final override val message: String) : Exception(message)
 
 /**
  * Safely invoke a function and log KlaviyoExceptions rather than crash
@@ -28,8 +22,9 @@ fun <ReturnType> safeCall(
 ): ReturnType? = try {
     block()
 } catch (e: KlaviyoException) {
-    // KlaviyoException is self-logging
-    errorQueue?.add(block).let { null }
+    Registry.log.error(e.message, e)
+    errorQueue?.add(block)
+    null
 }
 
 /**
