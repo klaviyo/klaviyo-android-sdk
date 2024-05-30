@@ -100,6 +100,7 @@ internal class KlaviyoTest : BaseTest() {
     override fun cleanup() {
         UserInfo.reset()
         super.cleanup()
+        Registry.unregister<Config>()
         DevicePropertiesTest.unmockDeviceProperties()
     }
 

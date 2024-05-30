@@ -9,6 +9,7 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.After
 import org.junit.Before
@@ -17,12 +18,28 @@ import org.junit.Test
 internal class KlaviyoPreInitializeTest : BaseTest() {
 
     private val mockBuilder = mockk<Config.Builder>().apply {
+        var configBuilt = false
+
         every { apiKey(any()) } returns this
         every { applicationContext(any()) } returns this
-        every { build() } returns configMock
+        every { build() } answers {
+            configBuilt = true
+            configMock
+        }
+
+        // Mock real world behavior where accessing data store prior to initializing throws MissingConfig
+        // While also allowing dataStoreSpy to work post-initialization
+        every { dataStoreSpy.fetch(any()) } answers {
+            if (!configBuilt) {
+                throw MissingConfig()
+            } else {
+                "value"
+            }
+        }
     }
 
     private val mockApiClient: ApiClient = mockk<ApiClient>().apply {
+        every { startService() } returns Unit
         every { onApiRequest(any(), any()) } returns Unit
         every { enqueueProfile(any()) } returns Unit
         every { enqueueEvent(any(), any()) } returns Unit
@@ -42,6 +59,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        unmockkObject(UserInfo)
         Registry.unregister<Config>()
         Registry.unregister<ApiClient>()
         super.cleanup()
