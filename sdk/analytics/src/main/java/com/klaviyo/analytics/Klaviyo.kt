@@ -12,12 +12,15 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
+import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.lifecycle.NoOpLifecycleCallbacks
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import java.util.LinkedList
+import java.util.Queue
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -25,6 +28,11 @@ import com.klaviyo.core.safeCall
  * to be processed and sent to the Klaviyo backend
  */
 object Klaviyo {
+
+    /**
+     * Queue of failed operations attempted prior to [initialize]
+     */
+    private val preInitQueue: Queue<Operation<Unit>> = LinkedList()
 
     @Deprecated(
         """
@@ -38,7 +46,12 @@ object Klaviyo {
     private val profileOperationQueue = ProfileOperationQueue()
 
     init {
-        // Since analytics platform owns ApiClient, we must register the service on initialize
+        /**
+         * Since analytics module owns ApiClient, we must register it.
+         *
+         * This registration is a lambda invoked when the API service is required.
+         * KlaviyoApiClient service is not being initialized here.
+         */
         if (!Registry.isRegistered<ApiClient>()) Registry.register<ApiClient> { KlaviyoApiClient }
     }
 
@@ -64,6 +77,21 @@ object Klaviyo {
         } ?: throw LifecycleException()
 
         UserInfo.startObservers()
+
+        Registry.get<ApiClient>().startService()
+
+        if (preInitQueue.isNotEmpty()) {
+            val operationCount = preInitQueue.count()
+            val operation = if (operationCount == 1) "operation" else "operations"
+
+            Registry.log.info(
+                "Replaying $operationCount $operation that were invoked prior to Klaviyo initialization."
+            )
+
+            while (preInitQueue.isNotEmpty()) {
+                preInitQueue.poll()?.let { safeCall(null, it) }
+            }
+        }
     }
 
     /**
@@ -303,10 +331,10 @@ object Klaviyo {
      *
      * @param intent the [Intent] from opening a notification
      */
-    fun handlePush(intent: Intent?) = safeApply {
+    fun handlePush(intent: Intent?) = safeApply(preInitQueue) {
         if (intent?.isKlaviyoIntent != true) {
             Registry.log.verbose("Non-Klaviyo intent ignored")
-            return this
+            return@safeApply
         }
 
         val event = Event(EventMetric.OPENED_PUSH)
@@ -319,9 +347,10 @@ object Klaviyo {
             }
         }
 
-        getPushToken()?.let { event[EventKey.PUSH_TOKEN] = it }
+        UserInfo.pushToken.let { event[EventKey.PUSH_TOKEN] = it }
 
-        createEvent(event)
+        Registry.log.verbose("Enqueuing ${event.metric.name} event")
+        Registry.get<ApiClient>().enqueueEvent(event, UserInfo.getAsProfile())
     }
 
     /**
