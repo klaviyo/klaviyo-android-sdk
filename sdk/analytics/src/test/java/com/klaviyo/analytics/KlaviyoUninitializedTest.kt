@@ -10,18 +10,19 @@ import com.klaviyo.fixtures.LogFixture
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.spyk
+import io.mockk.unmockkObject
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
 internal class KlaviyoUninitializedTest {
-    companion object {
-        private val logger = spyk(LogFixture()).apply {
-            every { error(any(), any<Throwable>()) } answers {
-                println(firstArg<String>())
-                secondArg<Throwable>().printStackTrace()
-            }
+
+    private val logger = spyk(LogFixture()).apply {
+        every { error(any(), any<Throwable>()) } answers {
+            println(firstArg<String>())
+            secondArg<Throwable>().printStackTrace()
         }
     }
 
@@ -29,6 +30,11 @@ internal class KlaviyoUninitializedTest {
     fun setup() {
         mockkObject(Registry)
         every { Registry.log } returns logger
+    }
+
+    @After
+    fun cleanup() {
+        unmockkObject(Registry)
     }
 
     private inline fun <reified T> assertCaught() where T : Throwable {
