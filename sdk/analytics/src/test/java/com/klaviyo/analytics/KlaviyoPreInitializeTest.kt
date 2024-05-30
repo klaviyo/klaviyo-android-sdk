@@ -58,24 +58,26 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
     }
 
     @Test
-    fun `Events APIs are replayed upon initializing`() {
-        Klaviyo.createEvent(EventMetric.OPENED_APP)
+    fun `Opened Push events are replayed upon initializing`() {
         Klaviyo.handlePush(KlaviyoTest.mockIntent(KlaviyoTest.stubIntentExtras))
         assertCaught<MissingConfig>()
 
-        verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
+        Klaviyo.createEvent(EventMetric.OPENED_APP)
+        assertCaught<MissingConfig>()
 
-        Klaviyo.initialize(
-            apiKey = "different-$API_KEY",
-            applicationContext = mockContext
-        )
+        verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
 
         Klaviyo.initialize(
             apiKey = API_KEY,
             applicationContext = mockContext
         )
 
-        verify(exactly = 1) {
+        Klaviyo.initialize(
+            apiKey = "different-$API_KEY",
+            applicationContext = mockContext
+        )
+
+        verify(inverse = true) {
             mockApiClient.enqueueEvent(
                 match {
                     it.metric == EventMetric.OPENED_APP

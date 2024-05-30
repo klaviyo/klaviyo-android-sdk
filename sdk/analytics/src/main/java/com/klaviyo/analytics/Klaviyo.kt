@@ -230,7 +230,7 @@ object Klaviyo {
      * @param event A map-like object representing the event attributes
      * @return Returns [Klaviyo] for call chaining
      */
-    fun createEvent(event: Event): Klaviyo = safeApply(preInitQueue) {
+    fun createEvent(event: Event): Klaviyo = safeApply {
         Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
     }
 
