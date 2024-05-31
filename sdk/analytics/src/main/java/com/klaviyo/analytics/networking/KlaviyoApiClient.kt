@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
@@ -92,6 +93,10 @@ internal object KlaviyoApiClient : ApiClient {
 
     override fun enqueueEvent(event: Event, profile: Profile) {
         enqueueRequest(EventApiRequest(event, profile))
+
+        if (event.metric == EventMetric.OPENED_PUSH) {
+            flushQueue()
+        }
     }
 
     override fun onApiRequest(withHistory: Boolean, observer: ApiObserver) {
