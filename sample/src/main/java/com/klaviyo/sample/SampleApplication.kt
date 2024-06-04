@@ -2,6 +2,7 @@ package com.klaviyo.sample
 
 import android.app.Application
 import com.google.firebase.messaging.FirebaseMessaging
+import com.klaviyo.analytics.BuildConfig
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
@@ -14,7 +15,7 @@ class SampleApplication : Application() {
         super.onCreate()
 
         // Initialize Klaviyo SDK: Add your public API key here
-        Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+        Klaviyo.initialize("LuYLmF", applicationContext)
 
         // Example analytics event to track "Opened App" event on launch
         Klaviyo.createEvent(EventMetric.OPENED_APP)

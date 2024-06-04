@@ -15,6 +15,7 @@ object InAppMessaging {
             .open("IAMTest.html")
             .bufferedReader()
             .use(BufferedReader::readText)
+            .replace("KLAVIYO_PUBLIC_KEY_PLACEHOLDER", Registry.config.apiKey)
 
         webView.loadHtml(html)
         webView.addTo(rootView)

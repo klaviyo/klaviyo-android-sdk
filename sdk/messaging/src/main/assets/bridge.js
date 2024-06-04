@@ -41,22 +41,10 @@
             initialize: function () {
                 WebViewBridge.postMessageToNative("documentReady", {});
 
-                var images = document.querySelectorAll("img");
-                var loadedCount = 0;
-                var onImgLoad = function() {
-                    loadedCount++;
-
-                    if (loadedCount === images.length) {
-                        WebViewBridge.postMessageToNative("imagesLoaded", {});
-                    }
-                };
-
-                images.forEach(function (img) {
-                    if (img.complete) {
-                        onImgLoad();
-                    } else {
-                        img.onload = onImgLoad;
-                    }
+                onElementAvailable("button.klaviyo-close-form", () => {
+                    onElementRemoved("button.klaviyo-close-form", () => {
+                        WebViewBridge.postMessageToNative("close", {});
+                    });
                 });
             },
 

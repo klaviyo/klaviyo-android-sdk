@@ -4,59 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mobile App Banner</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 0;
-      }
-      .banner {
-        width: 100%;
-        max-width: 400px;
-        margin: 0 auto;
-        text-align: center;
-        background-color: #f0f0f0;
-        padding: 20px;
-        box-sizing: border-box;
-      }
-      .banner img {
-        width: 100%;
-        max-width: 200px;
-        height: auto;
-        display: block;
-        margin: 0 auto 20px;
-      }
-      .banner h2 {
-        font-size: 1.5rem;
-        margin-bottom: 10px;
-      }
-      .banner p {
-        font-size: 1rem;
-        margin-bottom: 20px;
-      }
-      .banner button {
-        background-color: #007bff;
-        color: #fff;
-        border: none;
-        padding: 10px 20px;
-        font-size: 1rem;
-        cursor: pointer;
-        border-radius: 5px;
-      }
-    </style>
-</head>
-<body>
-<div class="banner">
-    <img src="https://picsum.photos/200/300.jpg" alt="Banner Image">
-    <h2>IAM Test</h2>
-    <p>Test of an in-app message</p>
-    <button onclick="closeMessage()">Close</button>
+    <script>
+        function onElementAvailable(selector, callback) {
+            const observer = new MutationObserver(mutations => {
+                if (document.querySelector(selector)) {
+                    observer.disconnect();
+                    callback();
+                }
+            });
 
-<script>
-function closeMessage() {
-  window.WebViewBridge.postMessageToNative("close", {})
-}
-</script>
-</div>
-</body>
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        }
+
+        function onElementRemoved(selector, callback) {
+            const observer = new MutationObserver(mutations => {
+                if (!document.querySelector(selector)) {
+                    observer.disconnect();
+                    callback();
+                }
+            });
+
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        }
+    </script>
+    <script type="text/javascript"
+            src="https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=KLAVIYO_PUBLIC_KEY_PLACEHOLDER"></script>
+</head>
+<body></body>
 </html>
