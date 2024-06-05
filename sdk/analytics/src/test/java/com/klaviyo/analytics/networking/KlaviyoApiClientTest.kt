@@ -9,6 +9,7 @@ import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil as HandlerUtil
 import com.klaviyo.analytics.networking.requests.ApiRequest
+import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.RequestMethod
@@ -21,9 +22,11 @@ import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.StaticClock
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkConstructor
 import io.mockk.mockkObject
 import io.mockk.slot
 import io.mockk.spyk
+import io.mockk.unmockkConstructor
 import io.mockk.unmockkObject
 import io.mockk.verify
 import java.net.URL
@@ -182,6 +185,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(false, postedJob?.force)
     }
 
     @Test
@@ -194,6 +198,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         )
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(false, postedJob?.force)
     }
 
     @Test
@@ -213,6 +218,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Enqueues an event API call`() {
+        mockkConstructor(EventApiRequest::class)
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
         KlaviyoApiClient.enqueueEvent(
@@ -220,7 +226,24 @@ internal class KlaviyoApiClientTest : BaseTest() {
             Profile().setAnonymousId(ANON_ID)
         )
 
+        verify(inverse = true) { anyConstructed<EventApiRequest>().send(any()) }
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        unmockkConstructor(EventApiRequest::class)
+    }
+
+    @Test
+    fun `Enqueueing an Opened Push event flushes the queue immediately`() {
+        mockkConstructor(EventApiRequest::class)
+        every { anyConstructed<EventApiRequest>().send(any()) } returns KlaviyoApiRequest.Status.Complete
+
+        KlaviyoApiClient.enqueueEvent(
+            Event(EventMetric.OPENED_PUSH),
+            Profile().setAnonymousId(ANON_ID)
+        )
+
+        verify { anyConstructed<EventApiRequest>().send(any()) }
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        unmockkConstructor(EventApiRequest::class)
     }
 
     @Test
