@@ -81,11 +81,8 @@ object Klaviyo {
         Registry.get<ApiClient>().startService()
 
         if (preInitQueue.isNotEmpty()) {
-            val operationCount = preInitQueue.count()
-            val operation = if (operationCount == 1) "operation" else "operations"
-
             Registry.log.info(
-                "Replaying $operationCount $operation that were invoked prior to Klaviyo initialization."
+                "Replaying ${preInitQueue.count()} operation(s) invoked prior to Klaviyo initialization."
             )
 
             while (preInitQueue.isNotEmpty()) {

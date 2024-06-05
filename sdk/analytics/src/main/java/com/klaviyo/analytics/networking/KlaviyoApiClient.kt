@@ -27,6 +27,7 @@ internal object KlaviyoApiClient : ApiClient {
     private var handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
     private var handler: Handler? = null
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
+    private var queueInitialized = false
 
     /**
      * List of registered API observers
@@ -43,9 +44,10 @@ internal object KlaviyoApiClient : ApiClient {
         Registry.networkMonitor.offNetworkChange(::onNetworkChange)
         Registry.networkMonitor.onNetworkChange(::onNetworkChange)
 
-        if (getQueueSize() == 0) {
+        if (!queueInitialized) {
             // We only need to restore queue from persistent store once
             restoreQueue()
+            queueInitialized = true
         }
     }
 
