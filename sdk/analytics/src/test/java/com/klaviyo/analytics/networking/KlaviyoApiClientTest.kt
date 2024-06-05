@@ -74,7 +74,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
         every { networkMonitorMock.isNetworkConnected() } returns false
         every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
         every { lifecycleMonitorMock.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
+        every { lifecycleMonitorMock.offActivityEvent(capture(slotOnActivityEvent)) } returns Unit
         every { networkMonitorMock.onNetworkChange(capture(slotOnNetworkChange)) } returns Unit
+        every { networkMonitorMock.offNetworkChange(capture(slotOnNetworkChange)) } returns Unit
 
         mockkObject(HandlerUtil)
         every { HandlerUtil.getHandler(any()) } returns mockHandler.apply {
@@ -93,6 +95,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
             every { looper } returns mockk()
             every { state } returns Thread.State.NEW
         }
+
+        KlaviyoApiClient.startService()
     }
 
     @After
@@ -111,6 +115,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         status: KlaviyoApiRequest.Status = KlaviyoApiRequest.Status.Complete
     ): KlaviyoApiRequest =
         spyk(KlaviyoApiRequest("https://mock.com", RequestMethod.GET)).also {
+            every { it.status } returns status
             every { it.state } returns status.name
             val getState = {
                 when (it.state) {
@@ -244,6 +249,25 @@ internal class KlaviyoApiClientTest : BaseTest() {
         verify { anyConstructed<EventApiRequest>().send(any()) }
         assertEquals(0, KlaviyoApiClient.getQueueSize())
         unmockkConstructor(EventApiRequest::class)
+    }
+
+    @Test
+    fun `Supports idempotent re-starting`() {
+        KlaviyoApiClient.startService()
+        val priorOnActivityEvent = slotOnActivityEvent.captured
+        val priorOnNetworkChange = slotOnNetworkChange.captured
+
+        KlaviyoApiClient.enqueueRequest(mockRequest("abc123"))
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        KlaviyoApiClient.startService()
+
+        // Queue should be left as it was
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        // Listeners should have been removed
+        verify { lifecycleMonitorMock.offActivityEvent(priorOnActivityEvent) }
+        verify { networkMonitorMock.offNetworkChange(priorOnNetworkChange) }
     }
 
     @Test

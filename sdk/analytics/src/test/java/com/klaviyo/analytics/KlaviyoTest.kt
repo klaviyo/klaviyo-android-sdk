@@ -86,6 +86,7 @@ internal class KlaviyoTest : BaseTest() {
         super.setup()
         Registry.register<ApiClient> { apiClientMock }
         every { Registry.clock } returns staticClock
+        every { apiClientMock.startService() } returns Unit
         every { apiClientMock.onApiRequest(any(), any()) } returns Unit
         every { apiClientMock.enqueueProfile(capture(capturedProfile)) } returns Unit
         every { apiClientMock.enqueueEvent(any(), any()) } returns Unit
@@ -99,6 +100,7 @@ internal class KlaviyoTest : BaseTest() {
     override fun cleanup() {
         UserInfo.reset()
         super.cleanup()
+        Registry.unregister<Config>()
         DevicePropertiesTest.unmockDeviceProperties()
     }
 

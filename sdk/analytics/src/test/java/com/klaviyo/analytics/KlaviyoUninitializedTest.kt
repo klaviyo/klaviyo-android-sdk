@@ -3,39 +3,33 @@ package com.klaviyo.analytics
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
-import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.Config
-import com.klaviyo.core.config.Log
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.LogFixture
 import io.mockk.every
-import io.mockk.mockk
+import io.mockk.mockkObject
 import io.mockk.spyk
+import io.mockk.unmockkObject
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
 internal class KlaviyoUninitializedTest {
-    companion object {
-        private val logger = spyk(LogFixture()).apply {
-            every { error(any(), any<Throwable>()) } answers {
-                println(firstArg<String>())
-                secondArg<Throwable>().printStackTrace()
-            }
-        }
 
-        private val mockApiClient = mockk<ApiClient>()
-    }
+    private val logger = spyk(LogFixture())
 
     @Before
     fun setup() {
-        Registry.unregister<Config>()
-        Registry.register<Log>(logger)
-        Registry.register<ApiClient>(mockApiClient)
-        every { mockApiClient.onApiRequest(any(), any()) } returns Unit
+        mockkObject(Registry)
+        every { Registry.log } returns logger
+    }
+
+    @After
+    fun cleanup() {
+        unmockkObject(Registry)
     }
 
     private inline fun <reified T> assertCaught() where T : Throwable {
