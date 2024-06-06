@@ -282,12 +282,12 @@ internal open class KlaviyoApiRequest(
         }
 
         status = Status.Inflight
+        attempts++
 
         return try {
             val connection = buildUrlConnection()
 
             try {
-                attempts++
                 beforeSend.invoke()
                 connection.connect()
                 parseResponse(connection)

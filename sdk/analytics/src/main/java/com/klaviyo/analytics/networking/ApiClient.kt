@@ -12,6 +12,12 @@ typealias ApiObserver = (request: ApiRequest) -> Unit
 interface ApiClient {
 
     /**
+     * Launch the API client service
+     * Should be idempotent in case of re-initialization
+     */
+    fun startService()
+
+    /**
      * Tell the client to write its queue to the persistent store
      */
     fun persistQueue()
