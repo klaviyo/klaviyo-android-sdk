@@ -3,13 +3,14 @@ package com.klaviyo.analytics
 import android.app.Application
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.After
 import org.junit.Before
@@ -44,6 +45,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
         every { enqueueProfile(any()) } returns Unit
         every { enqueueEvent(any(), any()) } returns Unit
         every { enqueuePushToken(any(), any()) } returns Unit
+        every { enqueueUnregisterPushToken(any(), any(), any()) } returns Unit
     }
 
     @Before
@@ -59,8 +61,10 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
 
     @After
     override fun cleanup() {
-        unmockkObject(UserInfo)
         Registry.unregister<Config>()
+        Registry.get<State>().reset()
+        Registry.unregister<State>()
+        Registry.unregister<StateSideEffects>()
         Registry.unregister<ApiClient>()
         super.cleanup()
     }

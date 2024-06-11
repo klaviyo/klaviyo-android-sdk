@@ -68,9 +68,11 @@ abstract class BaseTest {
         every { packageManager } returns mockPackageManager
     }
 
+    protected val debounceTime = 5
     protected val configMock = mockk<Config>().apply {
         every { apiKey } returns API_KEY
         every { applicationContext } returns contextMock
+        every { debounceInterval } returns debounceTime
         every { networkMaxAttempts } returns 50
         every { networkMaxRetryInterval } returns 180_000L
         every { networkFlushIntervals } returns longArrayOf(10_000, 30_000, 60_000)
@@ -81,6 +83,7 @@ abstract class BaseTest {
     protected val networkMonitorMock = mockk<NetworkMonitor>()
     protected val dataStoreSpy = spyk(InMemoryDataStore())
     protected val logSpy = spyk(LogFixture())
+    protected val staticClock = StaticClock(TIME, ISO_TIME)
 
     @Before
     open fun setup() {
@@ -90,7 +93,7 @@ abstract class BaseTest {
         every { Registry.lifecycleMonitor } returns lifecycleMonitorMock
         every { Registry.networkMonitor } returns networkMonitorMock
         every { Registry.dataStore } returns dataStoreSpy
-        every { Registry.clock } returns StaticClock(TIME, ISO_TIME)
+        every { Registry.clock } returns staticClock
         every { Registry.log } returns logSpy
 
         // Mock using latest SDK

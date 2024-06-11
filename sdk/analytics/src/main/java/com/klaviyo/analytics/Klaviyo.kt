@@ -1,22 +1,22 @@
 package com.klaviyo.analytics
 
 import android.app.Application
-import android.app.Application.ActivityLifecycleCallbacks
 import android.content.Context
 import android.content.Intent
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
-import com.klaviyo.analytics.model.PROFILE_IDENTIFIERS
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
+import com.klaviyo.analytics.state.KlaviyoState
+import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
-import com.klaviyo.core.lifecycle.NoOpLifecycleCallbacks
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
 import java.util.LinkedList
@@ -33,17 +33,6 @@ object Klaviyo {
      * Queue of failed operations attempted prior to [initialize]
      */
     private val preInitQueue: Queue<Operation<Unit>> = LinkedList()
-
-    @Deprecated(
-        """
-        Lifecycle callbacks are now handled internally by Klaviyo.initialize.
-        This property will be removed in the next major version.
-        """,
-        ReplaceWith("", "")
-    )
-    val lifecycleCallbacks: ActivityLifecycleCallbacks get() = NoOpLifecycleCallbacks
-
-    private val profileOperationQueue = ProfileOperationQueue()
 
     init {
         /**
@@ -76,7 +65,9 @@ object Klaviyo {
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
         } ?: throw LifecycleException()
 
-        UserInfo.startObservers()
+        Registry.register<State>(KlaviyoState())
+        Registry.register<StateSideEffects>(StateSideEffects())
+        Registry.get<State>().apiKey = apiKey
 
         Registry.get<ApiClient>().startService()
 
@@ -104,35 +95,7 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setProfile(profile: Profile): Klaviyo = safeApply {
-        if (UserInfo.isIdentified) {
-            // If a profile with external identifiers is already in state, we must reset.
-            // This conditional is important to preserve merging with an anonymous profile.
-            resetProfile()
-        }
-
-        // Copy the profile object, so we aren't mutating the argument
-        val mutableProfile = Profile().merge(profile)
-
-        // Route identifiers to the explicit setter functions to re-use that validator logic
-        mutableProfile.externalId?.let {
-            setExternalId(it)
-            mutableProfile.externalId = null
-        }
-
-        mutableProfile.email?.let {
-            setEmail(it)
-            mutableProfile.email = null
-        }
-
-        mutableProfile.phoneNumber?.let {
-            setPhoneNumber(it)
-            mutableProfile.phoneNumber = null
-        }
-
-        // Enqueue any remaining profile attributes
-        if (mutableProfile.propertyCount() > 0) {
-            profileOperationQueue.debounceProfileUpdate(mutableProfile)
-        }
+        Registry.get<State>().setProfile(profile)
     }
 
     /**
@@ -156,7 +119,7 @@ object Klaviyo {
     /**
      * @return The email of the currently tracked profile, if set
      */
-    fun getEmail(): String? = safeCall { UserInfo.email.ifEmpty { null } }
+    fun getEmail(): String? = safeCall { Registry.get<State>().email }
 
     /**
      * Assigns a phone number to the currently tracked Klaviyo profile
@@ -183,9 +146,7 @@ object Klaviyo {
     /**
      * @return The phone number of the currently tracked profile, if set
      */
-    fun getPhoneNumber(): String? = safeCall {
-        UserInfo.phoneNumber.ifEmpty { null }
-    }
+    fun getPhoneNumber(): String? = safeCall { Registry.get<State>().phoneNumber }
 
     /**
      * Assigns a unique identifier to associate the currently tracked Klaviyo profile
@@ -213,9 +174,7 @@ object Klaviyo {
     /**
      * @return The external ID of the currently tracked profile, if set
      */
-    fun getExternalId(): String? = safeCall {
-        UserInfo.externalId.ifEmpty { null }
-    }
+    fun getExternalId(): String? = safeCall { Registry.get<State>().externalId }
 
     /**
      * Saves a push token and registers to the current profile
@@ -227,18 +186,12 @@ object Klaviyo {
      *
      * @param pushToken The push token provided by the device push service
      */
-    fun setPushToken(pushToken: String) = safeApply {
-        UserInfo.setPushToken(pushToken) {
-            Registry.get<ApiClient>().enqueuePushToken(pushToken, UserInfo.getAsProfile())
-        }
-    }
+    fun setPushToken(pushToken: String) = safeApply { Registry.get<State>().pushToken = pushToken }
 
     /**
      * @return The device push token, if one has been assigned to currently tracked profile
      */
-    fun getPushToken(): String? = safeCall {
-        UserInfo.pushToken.ifEmpty { null }
-    }
+    fun getPushToken(): String? = safeCall { Registry.get<State>().pushToken }
 
     /**
      * Assign an attribute to the currently tracked profile by key/value pair
@@ -254,50 +207,16 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo = safeApply {
-        if (PROFILE_IDENTIFIERS.contains(propertyKey)) {
-            value.trim().ifEmpty {
-                Registry.log.warning(
-                    "Empty string for $propertyKey will be ignored. To clear identifiers use resetProfile."
-                )
-                null
-            }?.also { validatedIdentifier ->
-                var property by when (propertyKey) {
-                    ProfileKey.EXTERNAL_ID -> UserInfo::externalId
-                    ProfileKey.EMAIL -> UserInfo::email
-                    ProfileKey.PHONE_NUMBER -> UserInfo::phoneNumber
-                    else -> return@safeApply
-                }
-
-                if (property != validatedIdentifier) {
-                    property = validatedIdentifier
-                    profileOperationQueue.debounceProfileUpdate(UserInfo.getAsProfile())
-                } else {
-                    Registry.log.info(
-                        "$propertyKey value was unchanged, the update will be ignored."
-                    )
-                }
-            }
-        } else {
-            profileOperationQueue.debounceProfileUpdate(Profile(mapOf(propertyKey to value)))
-        }
+        Registry.get<State>().setAttribute(propertyKey, value)
     }
 
     /**
      * Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile
      *
-     * NOTE: if a push token was registered to the current profile, you will need to
-     * call `setPushToken` again to associate this device to a new profile
-     *
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
      */
-    fun resetProfile() = safeApply {
-        // Flush any pending profile changes immediately
-        profileOperationQueue.flushProfile()
-
-        // Clear profile identifiers from state
-        UserInfo.reset()
-    }
+    fun resetProfile() = safeApply { Registry.get<State>().reset() }
 
     /**
      * Creates an [Event] associated with the currently tracked profile
@@ -306,8 +225,7 @@ object Klaviyo {
      * @return Returns [Klaviyo] for call chaining
      */
     fun createEvent(event: Event): Klaviyo = safeApply {
-        Registry.log.verbose("Enqueuing ${event.metric.name} event")
-        Registry.get<ApiClient>().enqueueEvent(event, UserInfo.getAsProfile())
+        Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
     }
 
     /**
@@ -344,15 +262,16 @@ object Klaviyo {
             }
         }
 
-        UserInfo.pushToken.let { event[EventKey.PUSH_TOKEN] = it }
+        Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
 
         Registry.log.verbose("Enqueuing ${event.metric.name} event")
-        Registry.get<ApiClient>().enqueueEvent(event, UserInfo.getAsProfile())
+        Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
     }
 
     /**
      * Checks whether a notification intent originated from Klaviyo
      */
+    @Suppress("MemberVisibilityCanBePrivate")
     val Intent.isKlaviyoIntent: Boolean
         get() = this.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
 }

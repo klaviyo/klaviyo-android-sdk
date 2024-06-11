@@ -51,8 +51,8 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:2.4.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.4.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.0.0-alpha.1")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.0.0-alpha.1")
       }
       ```
    </details>
@@ -63,8 +63,8 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:2.4.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.4.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.0.0-alpha.1"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.0.0-alpha.1"
        }
       ```
    </details>
@@ -257,9 +257,9 @@ if you are only using the SDK for push notifications and not analytics.
  provide code examples for requesting permission and handling the user's response.
 
 #### Push tokens and multiple profiles
-Klaviyo SDK will disassociate the device push token from the current profile whenever it is reset by calling 
-`setProfile` or `resetProfile`. You should call `setPushToken` again after resetting the currently tracked profile
-to explicitly associate the device token to the new profile.
+If a new profile was set using `setProfile` or if `resetProfile` was called and a new anonymous 
+profile was created, the push token will be automatically associated with the new profile without 
+any additional action (like setting token again) required. This functionality was added in release `3.0.0`. 
 
 ### Receiving Push Notifications
 `KlaviyoPushService` will handle displaying all notifications via the `onMessageReceived` method regardless of
@@ -280,8 +280,6 @@ This method will check if the app was opened from a notification originating fro
 `Opened Push` event with required message tracking parameters. For example:
 
 ```kotlin
-// Main Activity
-
 override fun onCreate(savedInstanceState: Bundle?) {
     /* ... */
 
@@ -296,9 +294,8 @@ override fun onNewIntent(intent: Intent?) {
 }
 ```
 
-**Note:** Intent handling may differ depending on your app's architecture. By default, the Klaviyo SDK will use your
-app's launch intent for a tapped notification. Adjust this example to your use-case, ensuring that 
-`Klaviyo.handlePush(intent)` is called whenever your app is opened from a notification.
+**Note:** Intent handling may differ depending on your app's architecture. Adjust this example to your use-case, 
+ensuring that `Klaviyo.handlePush(intent)` is called when your app is opened from a notification.
 
 #### Deep Linking 
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular

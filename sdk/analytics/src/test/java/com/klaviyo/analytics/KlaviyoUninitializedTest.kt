@@ -86,7 +86,7 @@ internal class KlaviyoUninitializedTest {
 
     @Test
     fun `Push token getter is protected`() {
-        assertNull(Klaviyo.getPushToken())
+        Klaviyo.getPushToken()
         assertCaught<MissingConfig>()
     }
 
