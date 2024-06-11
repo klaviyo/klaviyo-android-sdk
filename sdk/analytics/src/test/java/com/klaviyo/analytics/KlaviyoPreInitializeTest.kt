@@ -19,9 +19,24 @@ import org.junit.Test
 internal class KlaviyoPreInitializeTest : BaseTest() {
 
     private val mockBuilder = mockk<Config.Builder>().apply {
+        var configBuilt = false
+
         every { apiKey(any()) } returns this
         every { applicationContext(any()) } returns this
-        every { build() } returns mockConfig
+        every { build() } answers {
+            configBuilt = true
+            mockConfig
+        }
+
+        // Mock real world behavior where accessing data store prior to initializing throws MissingConfig
+        // While also allowing dataStoreSpy to work post-initialization
+        every { spyDataStore.fetch(any()) } answers {
+            if (!configBuilt) {
+                throw MissingConfig()
+            } else {
+                "value"
+            }
+        }
     }
 
     private val mockApiClient: ApiClient = mockk<ApiClient>().apply {
@@ -30,6 +45,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
         every { enqueueProfile(any()) } returns Unit
         every { enqueueEvent(any(), any()) } returns Unit
         every { enqueuePushToken(any(), any()) } returns Unit
+        every { enqueueUnregisterPushToken(any(), any(), any()) } returns Unit
     }
 
     @Before
@@ -45,8 +61,8 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
 
     @After
     override fun cleanup() {
-        Registry.get<State>().reset()
         Registry.unregister<Config>()
+        Registry.get<State>().reset()
         Registry.unregister<State>()
         Registry.unregister<StateSideEffects>()
         Registry.unregister<ApiClient>()

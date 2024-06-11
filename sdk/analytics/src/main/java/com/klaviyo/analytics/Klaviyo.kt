@@ -72,15 +72,14 @@ object Klaviyo {
 
         Registry.get<State>().apiKey = apiKey
 
-        preInitQueue.count().takeIf { it > 0 }?.let {
-            val operation = if (it == 1) "operation" else "operations"
+        if (preInitQueue.isNotEmpty()) {
             Registry.log.info(
-                "Replaying $it $operation that were invoked prior to Klaviyo initialization."
+                "Replaying ${preInitQueue.count()} operation(s) invoked prior to Klaviyo initialization."
             )
-        }
 
-        while (preInitQueue.isNotEmpty()) {
-            preInitQueue.poll()?.let { safeCall(null, it) }
+            while (preInitQueue.isNotEmpty()) {
+                preInitQueue.poll()?.let { safeCall(null, it) }
+            }
         }
     }
 
@@ -274,6 +273,7 @@ object Klaviyo {
 
         Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
 
+        Registry.log.verbose("Enqueuing ${event.metric.name} event")
         Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
     }
 

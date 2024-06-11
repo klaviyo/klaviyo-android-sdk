@@ -101,6 +101,7 @@ internal class KlaviyoTest : BaseTest() {
         Registry.unregister<StateSideEffects>()
         Registry.unregister<ApiClient>()
         super.cleanup()
+        Registry.unregister<Config>()
         DevicePropertiesTest.unmockDeviceProperties()
     }
 
