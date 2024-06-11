@@ -19,12 +19,7 @@ import org.junit.Test
 
 internal class KlaviyoUninitializedTest {
 
-    private val spyLog = spyk(LogFixture()).apply {
-        every { error(any(), any<Throwable>()) } answers {
-            println(firstArg<String>())
-            secondArg<Throwable>().printStackTrace()
-        }
-    }
+    private val spyLog = spyk(LogFixture())
 
     @Before
     fun setup() {
