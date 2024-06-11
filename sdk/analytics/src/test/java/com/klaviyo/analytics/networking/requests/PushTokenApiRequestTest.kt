@@ -37,7 +37,7 @@ internal class PushTokenApiRequestTest : BaseApiRequestTest<PushTokenApiRequest>
     @Test
     fun `Requests are not equal if api key is different`() {
         val aRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
-        every { configMock.apiKey } returns "NEW_API_KEY"
+        every { mockConfig.apiKey } returns "NEW_API_KEY"
         val bRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
         assertNotEquals(aRequest, bRequest)
     }

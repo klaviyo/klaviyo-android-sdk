@@ -13,7 +13,7 @@ class PersistentObservableProfileTest : BaseTest() {
 
     @Test
     fun `Deserializes profile attributes from disk`() {
-        dataStoreSpy.store(
+        spyDataStore.store(
             "attributes",
             """
             {
@@ -105,25 +105,25 @@ class PersistentObservableProfileTest : BaseTest() {
 
     @Test
     fun `Catches bad profile attributes persisted to disk`() {
-        dataStoreSpy.store(
+        spyDataStore.store(
             "attributes",
             """invalid_json""".trimIndent()
         )
 
         val profile = KlaviyoState().getAsProfile(withAttributes = true)
         assertEquals(0, profile.attributes.propertyCount())
-        verify { logSpy.warning(any(), any()) }
+        verify { spyLog.warning(any(), any()) }
     }
 
     @Test
     fun `Catches bad json persisted to disk`() {
-        dataStoreSpy.store(
+        spyDataStore.store(
             "attributes",
             """{]""".trimIndent()
         )
 
         val profile = KlaviyoState().getAsProfile(withAttributes = true)
         assertEquals(0, profile.attributes.propertyCount())
-        verify { logSpy.warning(any(), any()) }
+        verify { spyLog.warning(any(), any()) }
     }
 }

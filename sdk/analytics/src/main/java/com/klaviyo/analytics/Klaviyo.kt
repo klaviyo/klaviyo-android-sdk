@@ -65,11 +65,12 @@ object Klaviyo {
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
         } ?: throw LifecycleException()
 
+        Registry.get<ApiClient>().startService()
+
         Registry.register<State>(KlaviyoState())
         Registry.register<StateSideEffects>(StateSideEffects())
-        Registry.get<State>().apiKey = apiKey
 
-        Registry.get<ApiClient>().startService()
+        Registry.get<State>().apiKey = apiKey
 
         if (preInitQueue.isNotEmpty()) {
             Registry.log.info(
@@ -221,6 +222,10 @@ object Klaviyo {
     /**
      * Creates an [Event] associated with the currently tracked profile
      *
+     * While it is preferable to [initialize] before interacting with the Klaviyo SDK,
+     * due to timing issues on some platforms, events are stored in an in-memory buffer prior to initialization,
+     * and will be replayed once you initialize with your public API key.
+     *
      * @param event A map-like object representing the event attributes
      * @return Returns [Klaviyo] for call chaining
      */
@@ -243,6 +248,10 @@ object Klaviyo {
     /**
      * From an opened push Intent, creates an [EventMetric.OPENED_PUSH] [Event]
      * containing appropriate tracking parameters
+     *
+     * While it is preferable to [initialize] before interacting with the Klaviyo SDK,
+     * due to timing issues on some platforms, events are stored in an in-memory buffer prior to initialization,
+     * and will be replayed once you initialize with your public API key.
      *
      * @param intent the [Intent] from opening a notification
      */
