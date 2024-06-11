@@ -62,6 +62,7 @@ internal class KlaviyoTest : BaseTest() {
 
     private val capturedProfile = slot<Profile>()
     private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
+        every { startService() } returns Unit
         every { onApiRequest(any(), any()) } returns Unit
         every { enqueueProfile(capture(capturedProfile)) } returns Unit
         every { enqueueEvent(any(), any()) } returns Unit
@@ -100,6 +101,7 @@ internal class KlaviyoTest : BaseTest() {
         Registry.unregister<StateSideEffects>()
         Registry.unregister<ApiClient>()
         super.cleanup()
+        Registry.unregister<Config>()
         DevicePropertiesTest.unmockDeviceProperties()
     }
 

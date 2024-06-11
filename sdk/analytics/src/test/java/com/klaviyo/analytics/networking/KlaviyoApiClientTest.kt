@@ -9,6 +9,7 @@ import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil as HandlerUtil
 import com.klaviyo.analytics.networking.requests.ApiRequest
+import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.RequestMethod
@@ -20,9 +21,11 @@ import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkConstructor
 import io.mockk.mockkObject
 import io.mockk.slot
 import io.mockk.spyk
+import io.mockk.unmockkConstructor
 import io.mockk.unmockkObject
 import io.mockk.verify
 import java.net.URL
@@ -68,7 +71,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
         every { networkMonitorMock.isNetworkConnected() } returns false
         every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
         every { lifecycleMonitorMock.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
+        every { lifecycleMonitorMock.offActivityEvent(capture(slotOnActivityEvent)) } returns Unit
         every { networkMonitorMock.onNetworkChange(capture(slotOnNetworkChange)) } returns Unit
+        every { networkMonitorMock.offNetworkChange(capture(slotOnNetworkChange)) } returns Unit
 
         mockkObject(HandlerUtil)
         every { HandlerUtil.getHandler(any()) } returns mockHandler.apply {
@@ -87,6 +92,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
             every { looper } returns mockk()
             every { state } returns Thread.State.NEW
         }
+
+        KlaviyoApiClient.startService()
     }
 
     @After
@@ -105,6 +112,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         status: KlaviyoApiRequest.Status = KlaviyoApiRequest.Status.Complete
     ): KlaviyoApiRequest =
         spyk(KlaviyoApiRequest("https://mock.com", RequestMethod.GET)).also {
+            every { it.status } returns status
             every { it.state } returns status.name
             val getState = {
                 when (it.state) {
@@ -179,6 +187,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueProfile(Profile().setAnonymousId(ANON_ID))
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(false, postedJob?.force)
     }
 
     @Test
@@ -191,6 +200,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         )
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(false, postedJob?.force)
     }
 
     @Test
@@ -210,6 +220,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Enqueues an event API call`() {
+        mockkConstructor(EventApiRequest::class)
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
         KlaviyoApiClient.enqueueEvent(
@@ -217,7 +228,43 @@ internal class KlaviyoApiClientTest : BaseTest() {
             Profile().setAnonymousId(ANON_ID)
         )
 
+        verify(inverse = true) { anyConstructed<EventApiRequest>().send(any()) }
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        unmockkConstructor(EventApiRequest::class)
+    }
+
+    @Test
+    fun `Enqueueing an Opened Push event flushes the queue immediately`() {
+        mockkConstructor(EventApiRequest::class)
+        every { anyConstructed<EventApiRequest>().send(any()) } returns KlaviyoApiRequest.Status.Complete
+
+        KlaviyoApiClient.enqueueEvent(
+            Event(EventMetric.OPENED_PUSH),
+            Profile().setAnonymousId(ANON_ID)
+        )
+
+        verify { anyConstructed<EventApiRequest>().send(any()) }
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        unmockkConstructor(EventApiRequest::class)
+    }
+
+    @Test
+    fun `Supports idempotent re-starting`() {
+        KlaviyoApiClient.startService()
+        val priorOnActivityEvent = slotOnActivityEvent.captured
+        val priorOnNetworkChange = slotOnNetworkChange.captured
+
+        KlaviyoApiClient.enqueueRequest(mockRequest("abc123"))
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        KlaviyoApiClient.startService()
+
+        // Queue should be left as it was
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        // Listeners should have been removed
+        verify { lifecycleMonitorMock.offActivityEvent(priorOnActivityEvent) }
+        verify { networkMonitorMock.offNetworkChange(priorOnNetworkChange) }
     }
 
     @Test

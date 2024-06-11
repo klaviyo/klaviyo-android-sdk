@@ -136,6 +136,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         assertEquals(0, request.attempts)
         request.send()
         assertEquals(1, request.attempts)
+        assertEquals(request.headers["X-Klaviyo-Attempt-Count"], "1/50")
         verify { connectionMock.setRequestProperty("X-Klaviyo-Attempt-Count", "1/50") }
     }
 
