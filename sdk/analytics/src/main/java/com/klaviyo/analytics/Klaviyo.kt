@@ -19,6 +19,7 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
 
