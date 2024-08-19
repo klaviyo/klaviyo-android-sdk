@@ -136,6 +136,7 @@ internal class KlaviyoStateTest : BaseTest() {
     fun `Broadcasts on set attributes`() {
         var broadcastKey: Keyword? = null
         var broadcastValue: Any? = null
+        val customKey = ProfileKey.CUSTOM("color")
 
         state.onStateChange { k, v ->
             broadcastKey = k
@@ -143,10 +144,12 @@ internal class KlaviyoStateTest : BaseTest() {
         }
 
         state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
+        state.setAttribute(customKey, "Green")
         state.setAttribute(ProfileKey.LAST_NAME, "Frog")
 
         assertEquals(PROFILE_ATTRIBUTES, broadcastKey)
         assertEquals("Kermit", (broadcastValue as? Profile)?.get(ProfileKey.FIRST_NAME))
+        assertEquals("Green", (broadcastValue as? Profile)?.get(customKey))
     }
 
     @Test

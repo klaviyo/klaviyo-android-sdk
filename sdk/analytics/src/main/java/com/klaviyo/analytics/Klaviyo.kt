@@ -207,7 +207,7 @@ object Klaviyo {
      * @param value
      * @return Returns [Klaviyo] for call chaining
      */
-    fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo = safeApply {
+    fun setProfileAttribute(propertyKey: ProfileKey, value: Serializable): Klaviyo = safeApply {
         Registry.get<State>().setAttribute(propertyKey, value)
     }
 

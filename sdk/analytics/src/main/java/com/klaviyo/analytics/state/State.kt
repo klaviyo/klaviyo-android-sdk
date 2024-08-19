@@ -3,6 +3,7 @@ package com.klaviyo.analytics.state
 import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import java.io.Serializable
 
 typealias StateObserver = (key: Keyword?, oldValue: Any?) -> Unit
 
@@ -42,7 +43,7 @@ interface State {
     /**
      * Set an individual attribute
      */
-    fun setAttribute(key: ProfileKey, value: String)
+    fun setAttribute(key: ProfileKey, value: Serializable)
 
     /**
      * Remove all user identifiers and attributes from internal state

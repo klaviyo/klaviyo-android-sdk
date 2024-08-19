@@ -13,6 +13,7 @@ import com.klaviyo.analytics.model.ProfileKey.PUSH_STATE
 import com.klaviyo.analytics.model.ProfileKey.PUSH_TOKEN
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
+import java.io.Serializable
 import java.util.UUID
 
 /**
@@ -109,10 +110,10 @@ internal class KlaviyoState : State {
     /**
      * Set an individual property or attribute
      */
-    override fun setAttribute(key: ProfileKey, value: String) = when (key) {
-        EMAIL -> email = value
-        EXTERNAL_ID -> externalId = value
-        PHONE_NUMBER -> phoneNumber = value
+    override fun setAttribute(key: ProfileKey, value: Serializable) = when (key) {
+        EMAIL -> email = (value as? String)
+        EXTERNAL_ID -> externalId = (value as? String)
+        PHONE_NUMBER -> phoneNumber = (value as? String)
         else -> this.attributes = (this.attributes?.copy() ?: Profile()).setProperty(key, value)
     }
 
