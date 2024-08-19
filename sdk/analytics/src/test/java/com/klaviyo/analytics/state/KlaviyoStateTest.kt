@@ -153,6 +153,24 @@ internal class KlaviyoStateTest : BaseTest() {
     }
 
     @Test
+    fun `Set attributes does not set on non-string profile info`() {
+        var broadcastKey: Keyword? = null
+        var broadcastValue: Any? = null
+
+        state.onStateChange { k, v ->
+            broadcastKey = k
+            broadcastValue = v
+        }
+
+        // expecting an string but sending an int, should not be set
+        state.setAttribute(ProfileKey.EMAIL, 29864)
+        state.setAttribute(ProfileKey.LAST_NAME, "Frog")
+
+        assertEquals(PROFILE_ATTRIBUTES, broadcastKey)
+        assertEquals(null, (broadcastValue as? Profile)?.get(ProfileKey.EMAIL))
+    }
+
+    @Test
     fun `Broadcasts on reset attributes`() {
         var broadcastKey: Keyword? = null
         var broadcastValue: Any? = null

@@ -111,10 +111,26 @@ internal class KlaviyoState : State {
      * Set an individual property or attribute
      */
     override fun setAttribute(key: ProfileKey, value: Serializable) = when (key) {
-        EMAIL -> email = (value as? String)
-        EXTERNAL_ID -> externalId = (value as? String)
-        PHONE_NUMBER -> phoneNumber = (value as? String)
+        EMAIL -> (value as? String)?.let { email = it } ?: run { logCastError(EMAIL, value) }
+        EXTERNAL_ID -> (value as? String)?.let { externalId = it } ?: run {
+            logCastError(
+                EXTERNAL_ID,
+                value
+            )
+        }
+        PHONE_NUMBER -> (value as? String)?.let { phoneNumber = it } ?: run {
+            logCastError(
+                PHONE_NUMBER,
+                value
+            )
+        }
         else -> this.attributes = (this.attributes?.copy() ?: Profile()).setProperty(key, value)
+    }
+
+    private fun logCastError(key: ProfileKey, value: Serializable) {
+        Registry.log.error(
+            "Unable to cast value $value of type ${value::class.java} to String attribute ${key.name}"
+        )
     }
 
     /**
