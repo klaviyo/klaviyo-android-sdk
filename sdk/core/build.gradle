@@ -2,6 +2,8 @@ import static de.fayard.refreshVersions.core.Versions.versionFor
 
 dependencies {
     testImplementation project(":sdk:fixtures")
+    // coroutine testing
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0"
 }
 description = "Core featureset of the Klaviyo SDK including SDK configuration, session tracking and analytics"
 evaluationDependsOn(":sdk")
