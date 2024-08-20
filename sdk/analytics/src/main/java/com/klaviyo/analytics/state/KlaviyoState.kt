@@ -13,6 +13,7 @@ import com.klaviyo.analytics.model.ProfileKey.PUSH_STATE
 import com.klaviyo.analytics.model.ProfileKey.PUSH_TOKEN
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
+import java.io.Serializable
 import java.util.UUID
 
 /**
@@ -109,11 +110,27 @@ internal class KlaviyoState : State {
     /**
      * Set an individual property or attribute
      */
-    override fun setAttribute(key: ProfileKey, value: String) = when (key) {
-        EMAIL -> email = value
-        EXTERNAL_ID -> externalId = value
-        PHONE_NUMBER -> phoneNumber = value
+    override fun setAttribute(key: ProfileKey, value: Serializable) = when (key) {
+        EMAIL -> (value as? String)?.let { email = it } ?: run { logCastError(EMAIL, value) }
+        EXTERNAL_ID -> (value as? String)?.let { externalId = it } ?: run {
+            logCastError(
+                EXTERNAL_ID,
+                value
+            )
+        }
+        PHONE_NUMBER -> (value as? String)?.let { phoneNumber = it } ?: run {
+            logCastError(
+                PHONE_NUMBER,
+                value
+            )
+        }
         else -> this.attributes = (this.attributes?.copy() ?: Profile()).setProperty(key, value)
+    }
+
+    private fun logCastError(key: ProfileKey, value: Serializable) {
+        Registry.log.error(
+            "Unable to cast value $value of type ${value::class.java} to String attribute ${key.name}"
+        )
     }
 
     /**
