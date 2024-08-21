@@ -24,7 +24,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     /**
      * List of registered network change observers
      */
-    private val networkChangeObserversConcurrent = Collections.synchronizedList(
+    private val networkChangeObservers = Collections.synchronizedList(
         mutableListOf<NetworkObserver>()
     )
 
@@ -63,7 +63,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      */
     override fun onNetworkChange(observer: NetworkObserver) {
         initializeNetworkListener()
-        networkChangeObserversConcurrent += observer
+        networkChangeObservers += observer
     }
 
     /**
@@ -72,7 +72,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      * @param observer
      */
     override fun offNetworkChange(observer: NetworkObserver) {
-        networkChangeObserversConcurrent -= observer
+        networkChangeObservers -= observer
     }
 
     /**
@@ -80,8 +80,8 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      */
     private fun broadcastNetworkChange() {
         val isConnected = isNetworkConnected()
-        synchronized(networkChangeObserversConcurrent) {
-            networkChangeObserversConcurrent.forEach { it(isConnected) }
+        synchronized(networkChangeObservers) {
+            networkChangeObservers.forEach { it(isConnected) }
         }
     }
 
