@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.os.Bundle
 import com.klaviyo.core.Registry
+import java.util.Collections
 
 /**
  * Service for monitoring the application lifecycle and network connectivity
@@ -12,7 +13,9 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
 
     private var activeActivities = 0
 
-    private var activityObservers = mutableListOf<ActivityObserver>()
+    private val activityObservers = Collections.synchronizedList(
+        mutableListOf<ActivityObserver>()
+    )
 
     init {
         onActivityEvent { Registry.log.verbose(it.type) }
@@ -26,7 +29,11 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
         activityObservers -= observer
     }
 
-    private fun broadcastEvent(event: ActivityEvent) = activityObservers.forEach { it(event) }
+    private fun broadcastEvent(event: ActivityEvent) {
+        synchronized(activityObservers) {
+            activityObservers.forEach { it(event) }
+        }
+    }
 
     //region ActivityLifecycleCallbacks
 

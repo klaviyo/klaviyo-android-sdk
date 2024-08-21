@@ -29,6 +29,10 @@ import io.mockk.unmockkConstructor
 import io.mockk.unmockkObject
 import io.mockk.verify
 import java.net.URL
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -304,6 +308,26 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueRequest(request)
         assertEquals(request, cbRequest)
         verify { logSpy.verbose(match { it.contains("queue") }) }
+    }
+
+    @Test
+    fun `Concurrent modification exception does not get thrown on observers`() = runTest {
+        val apiObserver: ApiObserver = { Thread.sleep(6) }
+        val request = mockRequest()
+
+        KlaviyoApiClient.onApiRequest(true, apiObserver)
+
+        val job = launch(Dispatchers.IO) {
+            KlaviyoApiClient.enqueueRequest(request)
+        }
+        val job2 = launch(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
+                Thread.sleep(8)
+            }
+            KlaviyoApiClient.offApiRequest(apiObserver)
+        }
+        job.start()
+        job2.start()
     }
 
     @Test

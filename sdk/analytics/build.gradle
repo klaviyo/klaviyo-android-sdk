@@ -19,6 +19,7 @@ android {
 dependencies {
     implementation project(":sdk:core")
     testImplementation project(":sdk:fixtures")
+    testImplementation KotlinX.coroutines.test
 }
 
 afterEvaluate {

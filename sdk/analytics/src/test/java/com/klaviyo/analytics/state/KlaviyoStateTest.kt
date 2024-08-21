@@ -6,6 +6,10 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.verify
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -27,6 +31,27 @@ internal class KlaviyoStateTest : BaseTest() {
     override fun cleanup() {
         state.reset()
         super.cleanup()
+    }
+
+    @Test
+    fun `State observers concurrency test`() = runTest {
+        val observer: StateObserver = { _, _ -> Thread.sleep(6) }
+
+        state.onStateChange(observer)
+
+        val job = launch(Dispatchers.IO) {
+            state.reset()
+        }
+
+        val job2 = launch(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
+                Thread.sleep(8)
+            }
+            state.offStateChange(observer)
+        }
+
+        job.start()
+        job2.start()
     }
 
     @Test
