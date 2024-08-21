@@ -107,11 +107,11 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
     fun `Network change observer is invoked with current network status when network changes`() {
         var expectedNetworkConnection = true
         var callCount = 0
-
-        KlaviyoNetworkMonitor.onNetworkChange {
+        val observer: NetworkObserver = {
             assert(it == expectedNetworkConnection)
             callCount++
         }
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
 
         assert(netCallbackSlot.isCaptured) // attaching a listener should have initialized the network callback
 
@@ -134,7 +134,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         netCallbackSlot.captured.onLost(mockk())
 
         assertEquals(6, callCount)
-        expectedNetworkConnection = true
+        KlaviyoNetworkMonitor.offNetworkChange(observer)
     }
 
     @Test

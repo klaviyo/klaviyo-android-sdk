@@ -14,6 +14,7 @@ import com.klaviyo.analytics.model.ProfileKey.PUSH_TOKEN
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import java.io.Serializable
+import java.util.Collections
 import java.util.UUID
 
 /**
@@ -58,7 +59,9 @@ internal class KlaviyoState : State {
     /**
      * List of registered state change observers
      */
-    private var stateObservers = mutableListOf<StateObserver>()
+    private val stateObservers = Collections.synchronizedList(
+        mutableListOf<StateObserver>()
+    )
 
     /**
      * Register an observer to be notified when state changes
@@ -162,6 +165,9 @@ internal class KlaviyoState : State {
     private fun <T> broadcastChange(property: PersistentObservableProperty<T>?, oldValue: T?) =
         broadcastChange(property?.key, oldValue)
 
-    private fun broadcastChange(key: Keyword? = null, oldValue: Any? = null) =
-        stateObservers.forEach { it(key, oldValue) }
+    private fun broadcastChange(key: Keyword? = null, oldValue: Any? = null) {
+        synchronized(stateObservers) {
+            stateObservers.forEach { it(key, oldValue) }
+        }
+    }
 }
