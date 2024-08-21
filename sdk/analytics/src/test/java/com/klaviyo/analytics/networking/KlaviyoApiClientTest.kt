@@ -332,6 +332,26 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `Concurrent modification exception does not get thrown on observers`() = runTest {
+        val apiObserver: ApiObserver = { Thread.sleep(6) }
+        val request = mockRequest()
+
+        KlaviyoApiClient.onApiRequest(true, apiObserver)
+
+        val job = launch(Dispatchers.IO) {
+            KlaviyoApiClient.enqueueRequest(request)
+        }
+        val job2 = launch(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
+                Thread.sleep(8)
+            }
+            KlaviyoApiClient.offApiRequest(apiObserver)
+        }
+        job.start()
+        job2.start()
+    }
+
+    @Test
     fun `Invokes callback and logs when request sent`() {
         every { mockConfig.networkFlushDepth } returns 1
         val request = mockRequest()

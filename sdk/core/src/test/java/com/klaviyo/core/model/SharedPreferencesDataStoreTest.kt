@@ -99,6 +99,29 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
     }
 
     @Test
+    fun `Store observers concurrency modification test`() = runTest {
+        withPreferenceMock()
+        withWriteStringMock(stubKey, stubValue)
+        val observer: StoreObserver = { _, _ -> Thread.sleep(6) }
+
+        SharedPreferencesDataStore.onStoreChange(observer)
+
+        val job = launch(Dispatchers.IO) {
+            SharedPreferencesDataStore.clear(stubKey)
+        }
+
+        val job2 = launch(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
+                Thread.sleep(8)
+            }
+            SharedPreferencesDataStore.offStoreChange(observer)
+        }
+
+        job.start()
+        job2.start()
+    }
+
+    @Test
     fun `Removing key uses Klaviyo preferences`() {
         withPreferenceMock()
         withWriteStringMock(stubKey, stubValue)
