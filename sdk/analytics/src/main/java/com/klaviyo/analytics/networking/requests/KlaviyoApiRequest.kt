@@ -62,6 +62,7 @@ internal open class KlaviyoApiRequest(
         const val HTTP_ACCEPTED = HttpURLConnection.HTTP_ACCEPTED
         const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
         const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
+        const val HTTP_UNAVAILABLE = HttpURLConnection.HTTP_UNAVAILABLE
 
         // JSON keys for persistence
         const val TYPE_JSON_KEY = "request_type"
@@ -343,7 +344,7 @@ internal open class KlaviyoApiRequest(
 
         status = when (responseCode) {
             in successCodes -> Status.Complete
-            HTTP_RETRY -> {
+            HTTP_RETRY, HTTP_UNAVAILABLE -> {
                 if (attempts < Registry.config.networkMaxAttempts) {
                     Status.PendingRetry
                 } else {
@@ -351,7 +352,7 @@ internal open class KlaviyoApiRequest(
                 }
             }
             // TODO - Special handling of unauthorized i.e. 401 and 403?
-            // TODO - Special handling of server errors 500 and 503?
+            // TODO - Special handling of server error 500?
             else -> Status.Failed
         }
 
