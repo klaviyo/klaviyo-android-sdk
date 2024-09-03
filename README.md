@@ -14,13 +14,12 @@ The queue is persisted to local storage so that data is not lost if the device i
 Once integrated, your marketing team will be able to better understand your app users' needs and
 send them timely push notifications via [FCM (Firebase Cloud Messaging)](https://firebase.google.com/docs/cloud-messaging).
 
-> ⚠️ **We support Android API level 23 and above** ⚠️
-
-## Installation
-
-### Requirements
+## Requirements
 
 - Kotlin **1.9.0** or later
+- Android API level **23** or later
+
+## Installation
 
 1. Include the [JitPack](https://jitpack.io/#klaviyo/klaviyo-android-sdk) repository in your project's build file
    <details>
