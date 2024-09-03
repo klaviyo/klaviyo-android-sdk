@@ -17,6 +17,11 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
 > ⚠️ **We support Android API level 23 and above** ⚠️
 
 ## Installation
+
+### Requirements
+
+- Kotlin **1.9.0** or later
+
 1. Include the [JitPack](https://jitpack.io/#klaviyo/klaviyo-android-sdk) repository in your project's build file
    <details>
       <summary>Kotlin DSL</summary>
