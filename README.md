@@ -16,7 +16,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
 
 ## Requirements
 
-- Kotlin **1.9.0** or later
+- Kotlin **1.8.0** or later
 - Android API level **23** or later
 
 ## Installation
