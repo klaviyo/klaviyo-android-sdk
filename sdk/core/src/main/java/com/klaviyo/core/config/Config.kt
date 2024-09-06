@@ -6,6 +6,8 @@ import com.klaviyo.core.networking.NetworkMonitor
 interface Config {
     val isDebugBuild: Boolean
     val baseUrl: String
+    val sdkName: String
+    val sdkVersion: String
 
     val apiKey: String
     val applicationContext: Context
@@ -25,6 +27,8 @@ interface Config {
         fun apiKey(apiKey: String): Builder
         fun applicationContext(context: Context): Builder
         fun baseUrl(baseUrl: String): Builder
+        fun sdkName(name: String): Builder
+        fun sdkVersion(version: String): Builder
         fun debounceInterval(debounceInterval: Int): Builder
         fun networkTimeout(networkTimeout: Int): Builder
         fun networkFlushInterval(networkFlushInterval: Long, type: NetworkMonitor.NetworkType): Builder

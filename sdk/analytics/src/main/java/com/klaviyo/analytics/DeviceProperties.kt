@@ -5,8 +5,8 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.os.Build
 import androidx.core.app.NotificationManagerCompat
-import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.KlaviyoConfig
 import com.klaviyo.core.config.getPackageInfoCompat
 import com.klaviyo.core.model.fetchOrCreate
 import java.util.UUID
@@ -48,11 +48,11 @@ internal object DeviceProperties {
     }
 
     val sdkVersion: String by lazy {
-        BuildConfig.VERSION
+        KlaviyoConfig.sdkVersion
     }
 
     val sdkName: String by lazy {
-        "android"
+        KlaviyoConfig.sdkName
     }
 
     val backgroundDataEnabled: Boolean by lazy {
