@@ -68,8 +68,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
         /**
          * Get an integer ID to associate with a notification or its pending intent
-         * The notification system service will de-dupe on this ID alone,
-         * and I don't think we want our notifications to be de-duped
+         * The notification system service will de-dupe on this if we get a null
+         * notification tag from the payload
          *
          * NOTE: The FCM SDK also uses a timestamp to construct its integer IDs
          */
@@ -106,7 +106,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
         NotificationManagerCompat
             .from(context)
-            .notify(message.notificationTag, generateId(), notification.build())
+            .notify(message.notificationTag ?: generateId().toString(), 0, notification.build())
 
         return true
     }
