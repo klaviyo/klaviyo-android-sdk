@@ -25,6 +25,7 @@ subprojects {
             testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
             versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
             versionName versionFor(project, "version.klaviyo.versionName") as String
+            consumerProguardFiles("consumer-rules.pro")
         }
 
         buildFeatures {

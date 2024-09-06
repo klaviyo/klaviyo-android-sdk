@@ -480,6 +480,17 @@ the following metadata tag to your manifest file.
 </manifest>
 ```
 
+#### Proguard / R8 Issues
+
+If you notice issues in the release build of your apps, you can try to manually add a couple rules
+to your `proguard-rules.pro` to prevent obfuscation:
+```
+-keep class com.klaviyo.analytics.** { *; }
+-keep class com.klaviyo.core.** { *; }
+-keep class com.klaviyo.push-fcm.** { *; }
+```
+
+
 ## Contributing
 See the [contributing guide](.github/CONTRIBUTING.md) to learn how to contribute to the Klaviyo Android SDK.
 We welcome your feedback in the [issues](https://github.com/klaviyo/klaviyo-android-sdk/issues) section of our public GitHub repository.
