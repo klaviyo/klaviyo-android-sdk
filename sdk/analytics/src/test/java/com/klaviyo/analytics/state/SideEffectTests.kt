@@ -43,6 +43,12 @@ class SideEffectTests : BaseTest() {
         every { pushToken } returns null
     }
 
+    private val klaviyoStateMock = mockk<KlaviyoState>().apply {
+        every { onStateChange(capture(capturedStateObserver)) } returns Unit
+        every { resetPhoneNumber() } returns Unit
+        every { resetEmail() } returns Unit
+    }
+
     @Before
     override fun setup() {
         super.setup()
@@ -209,10 +215,85 @@ class SideEffectTests : BaseTest() {
         capturedApiObserver.captured(
             mockk<PushTokenApiRequest>().apply {
                 every { status } returns KlaviyoApiRequest.Status.Failed
+                every { responseCode } returns 412
             }
         )
 
         assertNull(capturedPushState.captured)
+    }
+
+    @Test
+    fun `Invalid input on phone number resets field`() {
+        Registry.register<State>(klaviyoStateMock)
+        StateSideEffects(
+            state = klaviyoStateMock,
+            apiClient = apiClientMock
+        )
+
+        capturedApiObserver.captured(
+            mockk<ProfileApiRequest>().apply {
+                every { status } returns KlaviyoApiRequest.Status.Failed
+                every { responseCode } returns 400
+                every { responseBody } returns """
+                    {
+                      "errors": [
+                        {
+                          "id": "67ed6dbf-1653-499b-a11d-30310aa01ff7",
+                          "status": 400,
+                          "code": "invalid",
+                          "title": "Invalid input.",
+                          "detail": "Invalid phone number format (Example of a valid format: +12345678901)",
+                          "source": {
+                            "pointer": "/data/attributes/phone_number"
+                          },
+                          "links": {},
+                          "meta": {}
+                        }
+                      ]
+                    }
+                """.trimIndent()
+            }
+        )
+
+        verify { klaviyoStateMock.resetPhoneNumber() }
+        Registry.unregister<State>()
+    }
+
+    @Test
+    fun `Invalid input on email resets field`() {
+        Registry.register<State>(klaviyoStateMock)
+        StateSideEffects(
+            state = klaviyoStateMock,
+            apiClient = apiClientMock
+        )
+
+        capturedApiObserver.captured(
+            mockk<ProfileApiRequest>().apply {
+                every { status } returns KlaviyoApiRequest.Status.Failed
+                every { responseCode } returns 400
+                every { responseBody } returns """
+                    {
+                      "errors": [
+                        {
+                          "id": "4f739784-390b-4df3-acd8-6eb07d60e6b4",
+                          "status": 400,
+                          "code": "invalid",
+                          "title": "Invalid input.",
+                          "detail": "Invalid email address",
+                          "source": {
+                            "pointer": "/data/attributes/email"
+                          },
+                          "links": {},
+                          "meta": {}
+                        }
+                      ]
+                    }
+                """.trimIndent()
+            }
+        )
+
+        verify { klaviyoStateMock.resetEmail() }
+        Registry.unregister<State>()
     }
 
     @Test
@@ -222,12 +303,14 @@ class SideEffectTests : BaseTest() {
         capturedApiObserver.captured(
             mockk<ProfileApiRequest>().apply {
                 every { status } returns KlaviyoApiRequest.Status.Failed
+                every { responseCode } returns 412
             }
         )
 
         capturedApiObserver.captured(
             mockk<EventApiRequest>().apply {
                 every { status } returns KlaviyoApiRequest.Status.Failed
+                every { responseCode } returns 412
             }
         )
 

@@ -63,6 +63,7 @@ internal open class KlaviyoApiRequest(
         const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
         const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
         const val HTTP_UNAVAILABLE = HttpURLConnection.HTTP_UNAVAILABLE
+        const val HTTP_BAD_REQUEST = HttpURLConnection.HTTP_BAD_REQUEST
 
         // JSON keys for persistence
         const val TYPE_JSON_KEY = "request_type"

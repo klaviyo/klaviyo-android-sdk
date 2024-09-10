@@ -170,4 +170,18 @@ internal class KlaviyoState : State {
             stateObservers.forEach { it(key, oldValue) }
         }
     }
+
+    /**
+     * For resetting user email field after an invalid input response
+     */
+    internal fun resetEmail() {
+        _email.reset()
+    }
+
+    /**
+     * For resetting user email field after an invalid input response
+     */
+    internal fun resetPhoneNumber() {
+        _phoneNumber.reset()
+    }
 }
