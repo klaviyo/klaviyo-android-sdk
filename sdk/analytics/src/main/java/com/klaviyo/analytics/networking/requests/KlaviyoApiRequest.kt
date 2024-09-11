@@ -12,6 +12,7 @@ import javax.net.ssl.HttpsURLConnection
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+import org.json.JSONException
 import org.json.JSONObject
 
 /**
@@ -234,6 +235,22 @@ internal open class KlaviyoApiRequest(
      */
     override var responseBody: String? = null
         protected set
+
+    /**
+     * Parsing the error response or creating an empty one if there is none
+     */
+    override val errorBody: KlaviyoErrorResponse
+        by lazy {
+            responseBody?.let { body ->
+                val responseJson = try {
+                    JSONObject(body)
+                } catch (e: JSONException) {
+                    Registry.log.wtf("Malformed error response body from backend", e)
+                    JSONObject()
+                }
+                KlaviyoErrorResponseDecoder.fromJson(responseJson)
+            } ?: KlaviyoErrorResponse(listOf())
+        }
 
     /**
      * Creates a representation of this [KlaviyoApiRequest] in JSON

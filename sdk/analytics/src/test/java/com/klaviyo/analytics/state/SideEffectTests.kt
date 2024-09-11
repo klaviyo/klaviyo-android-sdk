@@ -7,6 +7,9 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.ApiObserver
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
+import com.klaviyo.analytics.networking.requests.KlaviyoError
+import com.klaviyo.analytics.networking.requests.KlaviyoErrorResponse
+import com.klaviyo.analytics.networking.requests.KlaviyoErrorSource
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
@@ -234,24 +237,19 @@ class SideEffectTests : BaseTest() {
             mockk<ProfileApiRequest>().apply {
                 every { status } returns KlaviyoApiRequest.Status.Failed
                 every { responseCode } returns 400
-                every { responseBody } returns """
-                    {
-                      "errors": [
-                        {
-                          "id": "67ed6dbf-1653-499b-a11d-30310aa01ff7",
-                          "status": 400,
-                          "code": "invalid",
-                          "title": "Invalid input.",
-                          "detail": "Invalid phone number format (Example of a valid format: +12345678901)",
-                          "source": {
-                            "pointer": "/data/attributes/phone_number"
-                          },
-                          "links": {},
-                          "meta": {}
-                        }
-                      ]
-                    }
-                """.trimIndent()
+                every { errorBody } returns KlaviyoErrorResponse(
+                    listOf(
+                        KlaviyoError(
+                            id = "67ed6dbf-1653-499b-a11d-30310aa01ff7",
+                            status = 400,
+                            title = "Invalid input.",
+                            detail = "Invalid phone number format (Example of a valid format: +12345678901)",
+                            source = KlaviyoErrorSource(
+                                pointer = "/data/attributes/phone_number"
+                            )
+                        )
+                    )
+                )
             }
         )
 
@@ -271,28 +269,46 @@ class SideEffectTests : BaseTest() {
             mockk<ProfileApiRequest>().apply {
                 every { status } returns KlaviyoApiRequest.Status.Failed
                 every { responseCode } returns 400
-                every { responseBody } returns """
-                    {
-                      "errors": [
-                        {
-                          "id": "4f739784-390b-4df3-acd8-6eb07d60e6b4",
-                          "status": 400,
-                          "code": "invalid",
-                          "title": "Invalid input.",
-                          "detail": "Invalid email address",
-                          "source": {
-                            "pointer": "/data/attributes/email"
-                          },
-                          "links": {},
-                          "meta": {}
-                        }
-                      ]
-                    }
-                """.trimIndent()
+                every { errorBody } returns KlaviyoErrorResponse(
+                    listOf(
+                        KlaviyoError(
+                            id = "4f739784-390b-4df3-acd8-6eb07d60e6b4",
+                            status = 400,
+                            title = "Invalid input.",
+                            detail = "Invalid email address",
+                            source = KlaviyoErrorSource(
+                                pointer = "/data/attributes/email"
+                            )
+                        )
+                    )
+                )
             }
         )
 
         verify { klaviyoStateMock.resetEmail() }
+        Registry.unregister<State>()
+    }
+
+    @Test
+    fun `Empty error body does not reset fields`() {
+        Registry.register<State>(klaviyoStateMock)
+        StateSideEffects(
+            state = klaviyoStateMock,
+            apiClient = apiClientMock
+        )
+
+        capturedApiObserver.captured(
+            mockk<ProfileApiRequest>().apply {
+                every { status } returns KlaviyoApiRequest.Status.Failed
+                every { responseCode } returns 400
+                every { errorBody } returns KlaviyoErrorResponse(
+                    listOf()
+                )
+            }
+        )
+
+        verify(exactly = 0) { klaviyoStateMock.resetEmail() }
+        verify(exactly = 0) { klaviyoStateMock.resetEmail() }
         Registry.unregister<State>()
     }
 

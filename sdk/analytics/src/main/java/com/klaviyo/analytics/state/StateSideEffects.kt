@@ -8,15 +8,13 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.ApiRequest
-import com.klaviyo.analytics.networking.requests.ErrorResponse
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Companion.HTTP_BAD_REQUEST
-import com.klaviyo.analytics.networking.requests.KlaviyoErrorResponseDecoder
+import com.klaviyo.analytics.networking.requests.KlaviyoErrorResponse
 import com.klaviyo.analytics.networking.requests.KlaviyoErrorSource
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
-import org.json.JSONObject
 
 internal class StateSideEffects(
     private val state: State = Registry.get<State>(),
@@ -117,30 +115,32 @@ internal class StateSideEffects(
 
     private fun afterApiRequest(request: ApiRequest) = when {
         request.responseCode == HTTP_BAD_REQUEST -> {
-            request.responseBody?.let { responseBody ->
-                val error = KlaviyoErrorResponseDecoder.fromJson(JSONObject(responseBody))
-                error.errors.find { it.title == ErrorResponse.INVALID_INPUT_TITLE }?.let { inputError ->
+            request.errorBody.errors.find { it.title == KlaviyoErrorResponse.INVALID_INPUT_TITLE }
+                ?.let { inputError ->
                     when (inputError.source?.pointer) {
                         KlaviyoErrorSource.EMAIL_PATH -> {
                             (Registry.get<State>() as? KlaviyoState)?.resetEmail()
                             Registry.log.warning("Invalid email - resetting email state to null")
                         }
+
                         KlaviyoErrorSource.PHONE_NUMBER_PATH -> {
                             (Registry.get<State>() as? KlaviyoState)?.resetPhoneNumber()
                             Registry.log.warning(
                                 "Invalid phone number - resetting phone number state to null"
                             )
                         }
+
                         else -> {
                             Registry.log.warning("Input error: ${inputError.detail}")
                         }
                     }
                 }
-            }
         }
+
         request is PushTokenApiRequest && request.status == KlaviyoApiRequest.Status.Failed && request.responseCode != HTTP_BAD_REQUEST -> {
             state.pushState = null
         }
+
         else -> Unit
     }
 }

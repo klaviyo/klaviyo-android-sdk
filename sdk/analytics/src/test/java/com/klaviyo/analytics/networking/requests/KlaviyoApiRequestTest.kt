@@ -49,6 +49,23 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         return connectionSpy
     }
 
+    private fun withErrorConnectionMock(expectedUrl: URL, errorBodyString: String): HttpURLConnection {
+        val connectionSpy = spyk(expectedUrl.openConnection()) as HttpURLConnection
+        val inputStream = ByteArrayInputStream("success".toByteArray())
+        val errorStream = ByteArrayInputStream(errorBodyString.toByteArray())
+
+        mockkObject(HttpUtil)
+        every { HttpUtil.openConnection(expectedUrl) } returns connectionSpy
+        every { HttpUtil.writeToConnection(capture(bodySlot), connectionSpy) } returns Unit
+        every { connectionSpy.connect() } returns Unit
+        every { connectionSpy.responseCode } returns 400
+        every { connectionSpy.headerFields } returns emptyMap()
+        every { connectionSpy.inputStream } returns inputStream
+        every { connectionSpy.errorStream } returns errorStream
+
+        return connectionSpy
+    }
+
     @Before
     override fun setup() {
         super.setup()
@@ -398,5 +415,124 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         assertEquals("queryValue", get.query["queryKey"])
         assertEquals(null, get.body)
         assertEquals(0, get.attempts)
+    }
+
+    @Test
+    fun `Malformed error response body`() {
+        withErrorConnectionMock(
+            URL(expectedFullUrl),
+            errorBodyString = """
+                    {
+                    ckajns dlckjabsdlckjbsdcsc
+                    kjdfns vkajn df
+                    8723986243
+                    all crabs are crustaceans
+            """.trimIndent()
+        )
+        val expectedErrorBody = KlaviyoErrorResponse(listOf())
+        val request = makeTestRequest()
+        request.send()
+
+        assertEquals(request.errorBody, expectedErrorBody)
+    }
+
+    @Test
+    fun `Empty error response body`() {
+        withErrorConnectionMock(
+            URL(expectedFullUrl),
+            errorBodyString = """
+                    {
+                    }
+            """.trimIndent()
+        )
+        val expectedErrorBody = KlaviyoErrorResponse(listOf())
+        val request = makeTestRequest()
+        request.send()
+
+        assertEquals(request.errorBody, expectedErrorBody)
+    }
+
+    @Test
+    fun `Phone number format error body created`() {
+        withErrorConnectionMock(
+            URL(expectedFullUrl),
+            errorBodyString = """
+                    {
+                      "errors": [
+                        {
+                          "id": "67ed6dbf-1653-499b-a11d-30310aa01ff7",
+                          "status": 400,
+                          "code": "invalid",
+                          "title": "Invalid input.",
+                          "detail": "Invalid phone number format (Example of a valid format: +12345678901)",
+                          "source": {
+                            "pointer": "/data/attributes/phone_number"
+                          },
+                          "links": {},
+                          "meta": {}
+                        }
+                      ]
+                    }
+            """.trimIndent()
+        )
+        val expectedErrorBody = KlaviyoErrorResponse(
+            listOf(
+                KlaviyoError(
+                    id = "67ed6dbf-1653-499b-a11d-30310aa01ff7",
+                    status = 400,
+                    title = "Invalid input.",
+                    detail = "Invalid phone number format (Example of a valid format: +12345678901)",
+                    source = KlaviyoErrorSource(
+                        pointer = "/data/attributes/phone_number"
+                    )
+                )
+            )
+        )
+        val request = makeTestRequest()
+        request.send()
+
+        assertEquals(request.errorBody, expectedErrorBody)
+    }
+
+    @Test
+    fun `Email format error body created`() {
+        withErrorConnectionMock(
+            URL(expectedFullUrl),
+            errorBodyString = """
+                    {
+                      "errors": [
+                        {
+                          "id": "4f739784-390b-4df3-acd8-6eb07d60e6b4",
+                          "status": 400,
+                          "code": "invalid",
+                          "title": "Invalid input.",
+                          "detail": "Invalid email address",
+                          "source": {
+                            "pointer": "/data/attributes/email"
+                          },
+                          "links": {},
+                          "meta": {}
+                        }
+                      ]
+                    }
+            """.trimIndent()
+        )
+        val expectedErrorBody = KlaviyoErrorResponse(
+            listOf(
+                KlaviyoError(
+                    id = "4f739784-390b-4df3-acd8-6eb07d60e6b4",
+                    status = 400,
+                    title = "Invalid input.",
+                    detail = "Invalid email address",
+                    source = KlaviyoErrorSource(
+                        pointer = "/data/attributes/email"
+                    )
+                )
+            )
+        )
+        val request = makeTestRequest()
+        request.send()
+
+        assertEquals(request.errorBody, expectedErrorBody)
     }
 }

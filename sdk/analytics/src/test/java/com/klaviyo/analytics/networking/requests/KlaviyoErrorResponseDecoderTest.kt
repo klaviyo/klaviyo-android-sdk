@@ -9,7 +9,7 @@ class KlaviyoErrorResponseDecoderTest : BaseTest() {
 
     @Test
     fun `Builds error response`() {
-        val errorResponse = ErrorResponse(
+        val errorResponse = KlaviyoErrorResponse(
             errors = listOf(
                 KlaviyoError(
                     id = "67ed6dbf-1653-499b-a11d-30310aa01ff7",
@@ -45,7 +45,7 @@ class KlaviyoErrorResponseDecoderTest : BaseTest() {
 
     @Test
     fun `Builds error response with some spooky nulls`() {
-        val errorResponse = ErrorResponse(
+        val errorResponse = KlaviyoErrorResponse(
             errors = listOf(
                 KlaviyoError(
                     id = "67ed6dbf-1653-499b-a11d-30310aa01ff7",
@@ -78,7 +78,7 @@ class KlaviyoErrorResponseDecoderTest : BaseTest() {
 
     @Test
     fun `Build error response with an empty list of errors`() {
-        val errorResponse = ErrorResponse(
+        val errorResponse = KlaviyoErrorResponse(
             errors = listOf()
         )
         val errorJson = """
@@ -91,7 +91,7 @@ class KlaviyoErrorResponseDecoderTest : BaseTest() {
 
     @Test
     fun `Build error response with an multiple errors`() {
-        val errorResponse = ErrorResponse(
+        val errorResponse = KlaviyoErrorResponse(
             errors = listOf(
                 KlaviyoError(
                     id = "67ed6dbf-1653-499b-a11d-30310aa01ff7",
@@ -127,6 +127,39 @@ class KlaviyoErrorResponseDecoderTest : BaseTest() {
                   "status": 800,
                   "code": null,
                   "title": "Invalid input.",
+                  "detail": null,
+                  "source": {
+                    "pointer": null
+                  },
+                  "links": {},
+                  "meta": {}
+                }
+              ]
+            }
+        """.trimIndent()
+        assertEquals(errorResponse, KlaviyoErrorResponseDecoder.fromJson(JSONObject(errorJson)))
+    }
+
+    @Test
+    fun `Error json except it was written by somebody who does not know what json is`() {
+        val errorResponse = KlaviyoErrorResponse(
+            errors = listOf(
+                KlaviyoError(
+                    id = "",
+                    status = -1,
+                    title = "",
+                    source = KlaviyoErrorSource(null)
+                )
+            )
+        )
+        val errorJson = """
+            {
+              "errors": [
+              {
+                  "id": "",
+                  "status": -1,
+                  "code": null,
+                  "title": "",
                   "detail": null,
                   "source": {
                     "pointer": null
