@@ -238,4 +238,16 @@ internal class KlaviyoStateTest : BaseTest() {
         assertEquals("Kermit", broadcastProfile[ProfileKey.FIRST_NAME])
         assertEquals("Frog", broadcastProfile[ProfileKey.LAST_NAME])
     }
+
+    @Test
+    fun `Resetting profile email and phone number values`() {
+        state.email = EMAIL
+        state.phoneNumber = PHONE
+
+        state.resetEmail()
+        state.resetPhoneNumber()
+
+        assertEquals(state.email, null)
+        assertEquals(state.phoneNumber, null)
+    }
 }

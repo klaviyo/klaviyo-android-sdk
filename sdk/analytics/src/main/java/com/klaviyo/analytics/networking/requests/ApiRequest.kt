@@ -88,4 +88,9 @@ interface ApiRequest {
      * @return
      */
     val responseBody: String?
+
+    /**
+     * Error messaging associated with the response
+     */
+    val errorBody: KlaviyoErrorResponse
 }

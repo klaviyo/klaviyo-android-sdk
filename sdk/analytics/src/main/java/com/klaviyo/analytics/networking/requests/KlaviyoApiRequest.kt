@@ -12,6 +12,7 @@ import javax.net.ssl.HttpsURLConnection
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+import org.json.JSONException
 import org.json.JSONObject
 
 /**
@@ -63,6 +64,7 @@ internal open class KlaviyoApiRequest(
         const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
         const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
         const val HTTP_UNAVAILABLE = HttpURLConnection.HTTP_UNAVAILABLE
+        const val HTTP_BAD_REQUEST = HttpURLConnection.HTTP_BAD_REQUEST
 
         // JSON keys for persistence
         const val TYPE_JSON_KEY = "request_type"
@@ -233,6 +235,22 @@ internal open class KlaviyoApiRequest(
      */
     override var responseBody: String? = null
         protected set
+
+    /**
+     * Parsing the error response or creating an empty one if there is none
+     */
+    override val errorBody: KlaviyoErrorResponse
+        by lazy {
+            responseBody?.let { body ->
+                val responseJson = try {
+                    JSONObject(body)
+                } catch (e: JSONException) {
+                    Registry.log.wtf("Malformed error response body from backend", e)
+                    JSONObject()
+                }
+                KlaviyoErrorResponseDecoder.fromJson(responseJson)
+            } ?: KlaviyoErrorResponse(listOf())
+        }
 
     /**
      * Creates a representation of this [KlaviyoApiRequest] in JSON
