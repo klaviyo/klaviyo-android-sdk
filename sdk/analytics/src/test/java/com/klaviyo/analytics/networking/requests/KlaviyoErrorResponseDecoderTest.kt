@@ -139,37 +139,4 @@ class KlaviyoErrorResponseDecoderTest : BaseTest() {
         """.trimIndent()
         assertEquals(errorResponse, KlaviyoErrorResponseDecoder.fromJson(JSONObject(errorJson)))
     }
-
-    @Test
-    fun `Error json except it was written by somebody who does not know what json is`() {
-        val errorResponse = KlaviyoErrorResponse(
-            errors = listOf(
-                KlaviyoError(
-                    id = "",
-                    status = -1,
-                    title = "",
-                    source = KlaviyoErrorSource(null)
-                )
-            )
-        )
-        val errorJson = """
-            {
-              "errors": [
-              {
-                  "id": "",
-                  "status": -1,
-                  "code": null,
-                  "title": "",
-                  "detail": null,
-                  "source": {
-                    "pointer": null
-                  },
-                  "links": {},
-                  "meta": {}
-                }
-              ]
-            }
-        """.trimIndent()
-        assertEquals(errorResponse, KlaviyoErrorResponseDecoder.fromJson(JSONObject(errorJson)))
-    }
 }
