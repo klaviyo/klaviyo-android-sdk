@@ -48,7 +48,8 @@ internal object DeviceProperties {
     }
 
     val sdkVersion: String by lazy {
-        KlaviyoConfig.sdkVersion
+val sdkVersion: String
+        get() = KlaviyoConfig.sdkVersion
     }
 
     val sdkName: String by lazy {
