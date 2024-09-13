@@ -47,10 +47,8 @@ internal object DeviceProperties {
         packageInfo.getVersionCodeCompat().toString()
     }
 
-    val sdkVersion: String by lazy {
-val sdkVersion: String
+    val sdkVersion: String
         get() = KlaviyoConfig.sdkVersion
-    }
 
     val sdkName: String by lazy {
         KlaviyoConfig.sdkName
