@@ -50,9 +50,8 @@ internal object DeviceProperties {
     val sdkVersion: String
         get() = KlaviyoConfig.sdkVersion
 
-    val sdkName: String by lazy {
-        KlaviyoConfig.sdkName
-    }
+    val sdkName: String
+        get() = KlaviyoConfig.sdkName
 
     val backgroundDataEnabled: Boolean by lazy {
         !activityManager.isBackgroundRestrictedCompat()
