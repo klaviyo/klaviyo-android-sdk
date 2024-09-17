@@ -47,11 +47,13 @@ subprojects {
                 proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
                 buildConfigField "String", "VERSION", "\"${versionFor(project, "version.klaviyo.versionName")}\""
+                buildConfigField "String", "NAME", "\"${klaviyoAndroidSDKName}\""
             }
             debug {
                 debuggable = true
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
                 buildConfigField "String", "VERSION", "\"${versionFor(project, "version.klaviyo.versionName")}\""
+                buildConfigField "String", "NAME", "\"${klaviyoAndroidSDKName}\""
             }
         }
 
