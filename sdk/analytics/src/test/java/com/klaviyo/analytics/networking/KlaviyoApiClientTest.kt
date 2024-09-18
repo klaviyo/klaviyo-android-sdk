@@ -556,7 +556,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // Upon final failure, request 1 should have been dropped from the queue
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        assertNull(dataStoreSpy.fetch(request1.uuid))
+        assertNull(spyDataStore.fetch(request1.uuid))
 
         // Second request should have been attempted after the final failure of request 1
         verify(exactly = 1) { request2.send(any()) }

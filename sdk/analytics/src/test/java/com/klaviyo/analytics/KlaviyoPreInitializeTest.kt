@@ -29,7 +29,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
         }
 
         // Mock real world behavior where accessing data store prior to initializing throws MissingConfig
-        // While also allowing dataStoreSpy to work post-initialization
+        // While also allowing spyDataStore to work post-initialization
         every { spyDataStore.fetch(any()) } answers {
             if (!configBuilt) {
                 throw MissingConfig()
