@@ -320,6 +320,27 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `Sets a serializable user property`() {
+        val bestNumber = 4
+        Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, bestNumber)
+
+        verifyProfileDebounced()
+        assert(capturedProfile.isCaptured)
+        assertEquals(bestNumber, capturedProfile.captured[ProfileKey.FIRST_NAME])
+    }
+
+    @Test
+    fun `Serialiazable not in identifiers still gets debounced`() {
+        val bestString = ""
+        val key = ProfileKey.CUSTOM("danKey")
+        Klaviyo.setProfileAttribute(key, bestString)
+
+        verifyProfileDebounced()
+        assert(capturedProfile.isCaptured)
+        assertEquals(bestString, capturedProfile.captured[key])
+    }
+
+    @Test
     fun `Resets user info`() {
         val anonId = Registry.get<State>().anonymousId
         Registry.get<State>().email = EMAIL

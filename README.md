@@ -14,9 +14,13 @@ The queue is persisted to local storage so that data is not lost if the device i
 Once integrated, your marketing team will be able to better understand your app users' needs and
 send them timely push notifications via [FCM (Firebase Cloud Messaging)](https://firebase.google.com/docs/cloud-messaging).
 
-> ⚠️ **We support Android API level 23 and above** ⚠️
+## Requirements
+
+- Kotlin **1.8.0** or later
+- Android API level **23** or later
 
 ## Installation
+
 1. Include the [JitPack](https://jitpack.io/#klaviyo/klaviyo-android-sdk) repository in your project's build file
    <details>
       <summary>Kotlin DSL</summary>
@@ -482,6 +486,17 @@ the following metadata tag to your manifest file.
     </application>
 </manifest>
 ```
+
+#### Proguard / R8 Issues
+
+If you notice issues in the release build of your apps, you can try to manually add a couple rules
+to your `proguard-rules.pro` to prevent obfuscation:
+```
+-keep class com.klaviyo.analytics.** { *; }
+-keep class com.klaviyo.core.** { *; }
+-keep class com.klaviyo.push-fcm.** { *; }
+```
+
 
 ## Contributing
 See the [contributing guide](.github/CONTRIBUTING.md) to learn how to contribute to the Klaviyo Android SDK.

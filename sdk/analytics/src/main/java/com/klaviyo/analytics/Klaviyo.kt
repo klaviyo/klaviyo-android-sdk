@@ -19,6 +19,7 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
 
@@ -207,7 +208,7 @@ object Klaviyo {
      * @param value
      * @return Returns [Klaviyo] for call chaining
      */
-    fun setProfileAttribute(propertyKey: ProfileKey, value: String): Klaviyo = safeApply {
+    fun setProfileAttribute(propertyKey: ProfileKey, value: Serializable): Klaviyo = safeApply {
         Registry.get<State>().setAttribute(propertyKey, value)
     }
 

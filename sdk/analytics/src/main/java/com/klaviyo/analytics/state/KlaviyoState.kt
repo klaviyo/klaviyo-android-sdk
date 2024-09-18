@@ -13,6 +13,8 @@ import com.klaviyo.analytics.model.ProfileKey.PUSH_STATE
 import com.klaviyo.analytics.model.ProfileKey.PUSH_TOKEN
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
+import java.io.Serializable
+import java.util.Collections
 import java.util.UUID
 
 /**
@@ -57,7 +59,9 @@ internal class KlaviyoState : State {
     /**
      * List of registered state change observers
      */
-    private var stateObservers = mutableListOf<StateObserver>()
+    private val stateObservers = Collections.synchronizedList(
+        mutableListOf<StateObserver>()
+    )
 
     /**
      * Register an observer to be notified when state changes
@@ -109,11 +113,27 @@ internal class KlaviyoState : State {
     /**
      * Set an individual property or attribute
      */
-    override fun setAttribute(key: ProfileKey, value: String) = when (key) {
-        EMAIL -> email = value
-        EXTERNAL_ID -> externalId = value
-        PHONE_NUMBER -> phoneNumber = value
+    override fun setAttribute(key: ProfileKey, value: Serializable) = when (key) {
+        EMAIL -> (value as? String)?.let { email = it } ?: run { logCastError(EMAIL, value) }
+        EXTERNAL_ID -> (value as? String)?.let { externalId = it } ?: run {
+            logCastError(
+                EXTERNAL_ID,
+                value
+            )
+        }
+        PHONE_NUMBER -> (value as? String)?.let { phoneNumber = it } ?: run {
+            logCastError(
+                PHONE_NUMBER,
+                value
+            )
+        }
         else -> this.attributes = (this.attributes?.copy() ?: Profile()).setProperty(key, value)
+    }
+
+    private fun logCastError(key: ProfileKey, value: Serializable) {
+        Registry.log.error(
+            "Unable to cast value $value of type ${value::class.java} to String attribute ${key.name}"
+        )
     }
 
     /**
@@ -145,6 +165,23 @@ internal class KlaviyoState : State {
     private fun <T> broadcastChange(property: PersistentObservableProperty<T>?, oldValue: T?) =
         broadcastChange(property?.key, oldValue)
 
-    private fun broadcastChange(key: Keyword? = null, oldValue: Any? = null) =
-        stateObservers.forEach { it(key, oldValue) }
+    private fun broadcastChange(key: Keyword? = null, oldValue: Any? = null) {
+        synchronized(stateObservers) {
+            stateObservers.forEach { it(key, oldValue) }
+        }
+    }
+
+    /**
+     * For resetting user email field after an invalid input response
+     */
+    internal fun resetEmail() {
+        _email.reset()
+    }
+
+    /**
+     * For resetting user email field after an invalid input response
+     */
+    internal fun resetPhoneNumber() {
+        _phoneNumber.reset()
+    }
 }

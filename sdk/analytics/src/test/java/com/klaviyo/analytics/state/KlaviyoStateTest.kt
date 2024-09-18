@@ -6,6 +6,10 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.verify
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -27,6 +31,27 @@ internal class KlaviyoStateTest : BaseTest() {
     override fun cleanup() {
         state.reset()
         super.cleanup()
+    }
+
+    @Test
+    fun `State observers concurrency test`() = runTest {
+        val observer: StateObserver = { _, _ -> Thread.sleep(6) }
+
+        state.onStateChange(observer)
+
+        val job = launch(Dispatchers.IO) {
+            state.reset()
+        }
+
+        val job2 = launch(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
+                Thread.sleep(8)
+            }
+            state.offStateChange(observer)
+        }
+
+        job.start()
+        job2.start()
     }
 
     @Test
@@ -136,6 +161,7 @@ internal class KlaviyoStateTest : BaseTest() {
     fun `Broadcasts on set attributes`() {
         var broadcastKey: Keyword? = null
         var broadcastValue: Any? = null
+        val customKey = ProfileKey.CUSTOM("color")
 
         state.onStateChange { k, v ->
             broadcastKey = k
@@ -143,10 +169,30 @@ internal class KlaviyoStateTest : BaseTest() {
         }
 
         state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
+        state.setAttribute(customKey, "Green")
         state.setAttribute(ProfileKey.LAST_NAME, "Frog")
 
         assertEquals(PROFILE_ATTRIBUTES, broadcastKey)
         assertEquals("Kermit", (broadcastValue as? Profile)?.get(ProfileKey.FIRST_NAME))
+        assertEquals("Green", (broadcastValue as? Profile)?.get(customKey))
+    }
+
+    @Test
+    fun `Set attributes does not set on non-string profile info`() {
+        var broadcastKey: Keyword? = null
+        var broadcastValue: Any? = null
+
+        state.onStateChange { k, v ->
+            broadcastKey = k
+            broadcastValue = v
+        }
+
+        // expecting an string but sending an int, should not be set
+        state.setAttribute(ProfileKey.EMAIL, 29864)
+        state.setAttribute(ProfileKey.LAST_NAME, "Frog")
+
+        assertEquals(PROFILE_ATTRIBUTES, broadcastKey)
+        assertEquals(null, (broadcastValue as? Profile)?.get(ProfileKey.EMAIL))
     }
 
     @Test
@@ -191,5 +237,17 @@ internal class KlaviyoStateTest : BaseTest() {
         assertEquals(PHONE, broadcastProfile.phoneNumber)
         assertEquals("Kermit", broadcastProfile[ProfileKey.FIRST_NAME])
         assertEquals("Frog", broadcastProfile[ProfileKey.LAST_NAME])
+    }
+
+    @Test
+    fun `Resetting profile email and phone number values`() {
+        state.email = EMAIL
+        state.phoneNumber = PHONE
+
+        state.resetEmail()
+        state.resetPhoneNumber()
+
+        assertEquals(state.email, null)
+        assertEquals(state.phoneNumber, null)
     }
 }
