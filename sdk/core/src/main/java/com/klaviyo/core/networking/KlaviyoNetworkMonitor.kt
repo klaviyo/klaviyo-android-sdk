@@ -50,12 +50,6 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
         ) = broadcastNetworkChange()
     }
 
-    init {
-        onNetworkChange {
-            Registry.log.verbose("Network ${if (it) "available" else "unavailable"}")
-        }
-    }
-
     /**
      * Register an observer to be notified when network connectivity has changed
      *
@@ -80,6 +74,9 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      */
     private fun broadcastNetworkChange() {
         val isConnected = isNetworkConnected()
+
+        Registry.log.verbose("Network ${if (isConnected) "available" else "unavailable"}")
+
         synchronized(networkChangeObservers) {
             networkChangeObservers.forEach { it(isConnected) }
         }

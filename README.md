@@ -284,6 +284,8 @@ This method will check if the app was opened from a notification originating fro
 `Opened Push` event with required message tracking parameters. For example:
 
 ```kotlin
+// Main Activity
+
 override fun onCreate(savedInstanceState: Bundle?) {
     /* ... */
 
@@ -298,8 +300,9 @@ override fun onNewIntent(intent: Intent?) {
 }
 ```
 
-**Note:** Intent handling may differ depending on your app's architecture. Adjust this example to your use-case, 
-ensuring that `Klaviyo.handlePush(intent)` is called when your app is opened from a notification.
+**Note:** Intent handling may differ depending on your app's architecture. By default, the Klaviyo SDK will use your
+app's launch intent for a tapped notification. Adjust this example to your use-case, ensuring that 
+`Klaviyo.handlePush(intent)` is called whenever your app is opened from a notification.
 
 #### Deep Linking 
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular

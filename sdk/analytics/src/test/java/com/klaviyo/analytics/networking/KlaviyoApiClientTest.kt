@@ -66,18 +66,18 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         postedJob = null
 
-        every { configMock.networkFlushIntervals } returns longArrayOf(
+        every { mockConfig.networkFlushIntervals } returns longArrayOf(
             flushIntervalWifi,
             flushIntervalCell,
             flushIntervalOffline
         )
-        every { configMock.networkFlushDepth } returns queueDepth
-        every { networkMonitorMock.isNetworkConnected() } returns false
-        every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
-        every { lifecycleMonitorMock.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
-        every { lifecycleMonitorMock.offActivityEvent(capture(slotOnActivityEvent)) } returns Unit
-        every { networkMonitorMock.onNetworkChange(capture(slotOnNetworkChange)) } returns Unit
-        every { networkMonitorMock.offNetworkChange(capture(slotOnNetworkChange)) } returns Unit
+        every { mockConfig.networkFlushDepth } returns queueDepth
+        every { mockNetworkMonitor.isNetworkConnected() } returns false
+        every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
+        every { mockLifecycleMonitor.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
+        every { mockLifecycleMonitor.offActivityEvent(capture(slotOnActivityEvent)) } returns Unit
+        every { mockNetworkMonitor.onNetworkChange(capture(slotOnNetworkChange)) } returns Unit
+        every { mockNetworkMonitor.offNetworkChange(capture(slotOnNetworkChange)) } returns Unit
 
         mockkObject(HandlerUtil)
         every { HandlerUtil.getHandler(any()) } returns mockHandler.apply {
@@ -102,7 +102,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @After
     override fun cleanup() {
-        dataStoreSpy.clear(KlaviyoApiClient.QUEUE_KEY)
+        spyDataStore.clear(KlaviyoApiClient.QUEUE_KEY)
         KlaviyoApiClient.restoreQueue()
         assertEquals(0, KlaviyoApiClient.getQueueSize())
         super.cleanup()
@@ -220,7 +220,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        verify(exactly = 1) { logSpy.verbose("Persisting queue") }
+        verify(exactly = 1) { spyLog.verbose("Persisting queue") }
     }
 
     @Test
@@ -268,8 +268,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(1, KlaviyoApiClient.getQueueSize())
 
         // Listeners should have been removed
-        verify { lifecycleMonitorMock.offActivityEvent(priorOnActivityEvent) }
-        verify { networkMonitorMock.offNetworkChange(priorOnNetworkChange) }
+        verify { mockLifecycleMonitor.offActivityEvent(priorOnActivityEvent) }
+        verify { mockNetworkMonitor.offNetworkChange(priorOnNetworkChange) }
     }
 
     @Test
@@ -297,7 +297,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.onApiRequest(true) { cbRequest = it }
 
         assertEquals(request, cbRequest)
-        verify { logSpy.verbose(match { it.contains("queue") }) }
+        verify { spyLog.verbose(match { it.contains("queue") }) }
     }
 
     @Test
@@ -308,7 +308,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val request = mockRequest(status = KlaviyoApiRequest.Status.Unsent)
         KlaviyoApiClient.enqueueRequest(request)
         assertEquals(request, cbRequest)
-        verify { logSpy.verbose(match { it.contains("queue") }) }
+        verify { spyLog.verbose(match { it.contains("queue") }) }
     }
 
     @Test
@@ -333,7 +333,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Invokes callback and logs when request sent`() {
-        every { configMock.networkFlushDepth } returns 1
+        every { mockConfig.networkFlushDepth } returns 1
         val request = mockRequest()
         KlaviyoApiClient.enqueueRequest(request)
 
@@ -342,7 +342,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         postedJob!!.run()
         assertEquals(request, cbRequest)
-        verify { logSpy.verbose(match { it.contains("succeed") }) }
+        verify { spyLog.verbose(match { it.contains("succeed") }) }
     }
 
     @Test
@@ -439,7 +439,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.flushQueue()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
-        assertNull(dataStoreSpy.fetch(fail))
+        assertNull(spyDataStore.fetch(fail))
     }
 
     @Test
@@ -451,7 +451,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.flushQueue()
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        assertNotNull(dataStoreSpy.fetch(uuid))
+        assertNotNull(spyDataStore.fetch(uuid))
     }
 
     @Test
@@ -502,7 +502,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // Upon final failure, request 1 should have been dropped from the queue
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        assertNull(dataStoreSpy.fetch(request1.uuid))
+        assertNull(spyDataStore.fetch(request1.uuid))
 
         // Second request should have been attempted after the final failure of request 1
         verify(exactly = 1) { request2.send(any()) }
@@ -556,7 +556,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // Upon final failure, request 1 should have been dropped from the queue
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        assertNull(dataStoreSpy.fetch(request1.uuid))
+        assertNull(spyDataStore.fetch(request1.uuid))
 
         // Second request should have been attempted after the final failure of request 1
         verify(exactly = 1) { request2.send(any()) }
@@ -621,7 +621,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // Upon final failure, request 1 should have been dropped from the queue
         assertEquals(1, KlaviyoApiClient.getQueueSize())
-        assertNull(dataStoreSpy.fetch(request1.uuid))
+        assertNull(spyDataStore.fetch(request1.uuid))
 
         // Second request should have been attempted after the final failure of request 1
         verify(exactly = 1) { request2.send(any()) }
@@ -629,36 +629,36 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Network requests are persisted to disk`() {
-        dataStoreSpy.clear("mock_uuid1")
-        dataStoreSpy.clear("mock_uuid2")
+        spyDataStore.clear("mock_uuid1")
+        spyDataStore.clear("mock_uuid2")
 
         KlaviyoApiClient.enqueueRequest(
             mockRequest("mock_uuid1"),
             mockRequest("mock_uuid2")
         )
 
-        assertNotEquals(null, dataStoreSpy.fetch("mock_uuid1"))
-        assertNotEquals(null, dataStoreSpy.fetch("mock_uuid2"))
+        assertNotEquals(null, spyDataStore.fetch("mock_uuid1"))
+        assertNotEquals(null, spyDataStore.fetch("mock_uuid2"))
         assertEquals(
             "[\"mock_uuid1\",\"mock_uuid2\"]",
-            dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY)
+            spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
         )
     }
 
     @Test
     fun `Flushing queue empties persistent store`() {
-        dataStoreSpy.store("something_else", "test")
-        dataStoreSpy.clear(KlaviyoApiClient.QUEUE_KEY)
+        spyDataStore.store("something_else", "test")
+        spyDataStore.clear(KlaviyoApiClient.QUEUE_KEY)
         KlaviyoApiClient.enqueueRequest(mockRequest("mock_uuid"))
 
-        assertNotEquals(null, dataStoreSpy.fetch("mock_uuid"))
-        assertEquals("[\"mock_uuid\"]", dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY))
+        assertNotEquals(null, spyDataStore.fetch("mock_uuid"))
+        assertEquals("[\"mock_uuid\"]", spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY))
 
         KlaviyoApiClient.flushQueue()
 
-        assertEquals(null, dataStoreSpy.fetch("mock_uuid"))
-        assertEquals("[]", dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY))
-        assertEquals("test", dataStoreSpy.fetch("something_else"))
+        assertEquals(null, spyDataStore.fetch("mock_uuid"))
+        assertEquals("[]", spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY))
+        assertEquals("test", spyDataStore.fetch("something_else"))
     }
 
     @Test
@@ -670,12 +670,12 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
 
         val expectedQueue = "[\"mock_uuid1\",\"mock_uuid2\"]"
-        dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, expectedQueue)
-        dataStoreSpy.store("mock_uuid1", mockRequest("mock_uuid1").toString())
-        dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toString())
+        spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, expectedQueue)
+        spyDataStore.store("mock_uuid1", mockRequest("mock_uuid1").toString())
+        spyDataStore.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
         KlaviyoApiClient.restoreQueue()
-        val actualQueue = dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY)
+        val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(2, KlaviyoApiClient.getQueueSize())
         assertEquals(expectedQueue, actualQueue) // Expect same order in the queue
@@ -683,10 +683,10 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Handles bad JSON queue gracefully`() {
-        dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, "{}") // Bad JSON, isn't an array as expected
+        spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, "{}") // Bad JSON, isn't an array as expected
 
         KlaviyoApiClient.restoreQueue()
-        val actualQueue = dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY)
+        val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
         assertEquals("[]", actualQueue) // Expect the persisted queue to be emptied
@@ -701,15 +701,15 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
 
         val jsonArray = "[\"mock_uuid1\",\"mock_uuid2\",\"mock_uuid3\"]"
-        dataStoreSpy.store(KlaviyoApiClient.QUEUE_KEY, jsonArray)
-        dataStoreSpy.store("mock_uuid1", "{/}") // bad JSON!
-        dataStoreSpy.store("mock_uuid2", mockRequest("mock_uuid2").toString())
+        spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, jsonArray)
+        spyDataStore.store("mock_uuid1", "{/}") // bad JSON!
+        spyDataStore.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
         KlaviyoApiClient.restoreQueue()
-        val actualQueue = dataStoreSpy.fetch(KlaviyoApiClient.QUEUE_KEY)
+        val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         assertEquals("[\"mock_uuid2\"]", actualQueue) // Expect queue to reflect the dropped item
-        assertNull(dataStoreSpy.fetch("mock_uuid1")) // Expect the item to be cleared from store
+        assertNull(spyDataStore.fetch("mock_uuid1")) // Expect the item to be cleared from store
     }
 }

@@ -39,8 +39,8 @@ internal class KlaviyoConfigTest : BaseTest() {
         super.setup()
         mockkStatic(PackageManager.PackageInfoFlags::class)
         every { PackageManager.PackageInfoFlags.of(any()) } returns mockPackageManagerFlags
-        every { contextMock.packageManager } returns mockPackageManager
-        every { contextMock.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
+        every { mockContext.packageManager } returns mockPackageManager
+        every { mockContext.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
         every {
             mockPackageManager.getPackageInfo(
                 BuildConfig.LIBRARY_PACKAGE_NAME,
@@ -58,7 +58,7 @@ internal class KlaviyoConfigTest : BaseTest() {
     fun `KlaviyoConfig Builder sets variables successfully`() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
-            .applicationContext(contextMock)
+            .applicationContext(mockContext)
             .baseUrl("fakeurl")
             .debounceInterval(1)
             .networkTimeout(2)
@@ -71,7 +71,7 @@ internal class KlaviyoConfigTest : BaseTest() {
             .build()
 
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
-        assertEquals(contextMock, KlaviyoConfig.applicationContext)
+        assertEquals(mockContext, KlaviyoConfig.applicationContext)
         assertEquals("fakeurl", KlaviyoConfig.baseUrl)
         assertEquals(1, KlaviyoConfig.debounceInterval)
         assertEquals(2, KlaviyoConfig.networkTimeout)
@@ -96,7 +96,7 @@ internal class KlaviyoConfigTest : BaseTest() {
     fun `KlaviyoConfig Builder missing variables uses default values successfully`() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
-            .applicationContext(contextMock)
+            .applicationContext(mockContext)
             .build()
 
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
@@ -123,7 +123,7 @@ internal class KlaviyoConfigTest : BaseTest() {
     fun `KlaviyoConfig Builder rejects bad values and uses default values`() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
-            .applicationContext(contextMock)
+            .applicationContext(mockContext)
             .debounceInterval(-5000)
             .networkTimeout(-5000)
             .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Wifi)
@@ -153,13 +153,13 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(180_000, KlaviyoConfig.networkMaxRetryInterval)
 
         // Each bad call should have generated an error log
-        verify(exactly = 8) { logSpy.error(any(), null) }
+        verify(exactly = 8) { spyLog.error(any(), null) }
     }
 
     @Test(expected = MissingAPIKey::class)
     fun `KlaviyoConfig Builder missing API key throws expected exception`() {
         KlaviyoConfig.Builder()
-            .applicationContext(contextMock)
+            .applicationContext(mockContext)
             .build()
     }
 
@@ -175,7 +175,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         mockPackageInfo.requestedPermissions = arrayOf()
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)
-            .applicationContext(contextMock)
+            .applicationContext(mockContext)
             .build()
     }
 
@@ -183,7 +183,7 @@ internal class KlaviyoConfigTest : BaseTest() {
     fun `getPackageInfoCompat detects platform properly`() {
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
         mockPackageManager.getPackageInfoCompat(
-            contextMock.packageName,
+            mockContext.packageName,
             PackageManager.GET_PERMISSIONS
         )
         verify {
@@ -195,7 +195,7 @@ internal class KlaviyoConfigTest : BaseTest() {
 
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
         mockPackageManager.getPackageInfoCompat(
-            contextMock.packageName,
+            mockContext.packageName,
             PackageManager.GET_PERMISSIONS
         )
         verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) }

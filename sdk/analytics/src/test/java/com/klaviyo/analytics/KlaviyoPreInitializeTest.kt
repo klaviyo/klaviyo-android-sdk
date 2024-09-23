@@ -25,12 +25,12 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
         every { applicationContext(any()) } returns this
         every { build() } answers {
             configBuilt = true
-            configMock
+            mockConfig
         }
 
         // Mock real world behavior where accessing data store prior to initializing throws MissingConfig
-        // While also allowing dataStoreSpy to work post-initialization
-        every { dataStoreSpy.fetch(any()) } answers {
+        // While also allowing spyDataStore to work post-initialization
+        every { spyDataStore.fetch(any()) } answers {
             if (!configBuilt) {
                 throw MissingConfig()
             } else {
@@ -52,7 +52,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
     override fun setup() {
         super.setup()
         every { Registry.configBuilder } returns mockBuilder
-        every { contextMock.applicationContext } returns mockk<Application>().apply {
+        every { mockContext.applicationContext } returns mockk<Application>().apply {
             every { unregisterActivityLifecycleCallbacks(any()) } returns Unit
             every { registerActivityLifecycleCallbacks(any()) } returns Unit
         }
@@ -70,7 +70,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
     }
 
     private inline fun <reified T> assertCaught() where T : Throwable {
-        verify { logSpy.error(any(), any<T>()) }
+        verify { spyLog.error(any(), any<T>()) }
     }
 
     @Test
@@ -85,12 +85,12 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
 
         Klaviyo.initialize(
             apiKey = API_KEY,
-            applicationContext = contextMock
+            applicationContext = mockContext
         )
 
         Klaviyo.initialize(
             apiKey = "different-$API_KEY",
-            applicationContext = contextMock
+            applicationContext = mockContext
         )
 
         verify(inverse = true) {

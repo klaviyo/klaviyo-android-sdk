@@ -61,7 +61,7 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     private val capturedProfile = slot<Profile>()
-    private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
+    private val mockApiClient: ApiClient = mockk<ApiClient>().apply {
         every { startService() } returns Unit
         every { onApiRequest(any(), any()) } returns Unit
         every { enqueueProfile(capture(capturedProfile)) } returns Unit
@@ -69,14 +69,14 @@ internal class KlaviyoTest : BaseTest() {
         every { enqueuePushToken(any(), any()) } returns Unit
     }
 
-    private val builderMock = mockk<Config.Builder>().apply {
+    private val mockBuilder = mockk<Config.Builder>().apply {
         every { apiKey(any()) } returns this
         every { applicationContext(any()) } returns this
-        every { build() } returns configMock
+        every { build() } returns mockConfig
     }
 
     private val mockApplication = mockk<Application>().apply {
-        every { contextMock.applicationContext } returns this
+        every { mockContext.applicationContext } returns this
         every { unregisterActivityLifecycleCallbacks(any()) } returns Unit
         every { registerActivityLifecycleCallbacks(any()) } returns Unit
     }
@@ -84,12 +84,12 @@ internal class KlaviyoTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
-        every { Registry.configBuilder } returns builderMock
-        Registry.register<ApiClient>(apiClientMock)
+        every { Registry.configBuilder } returns mockBuilder
+        Registry.register<ApiClient>(mockApiClient)
         DevicePropertiesTest.mockDeviceProperties()
         Klaviyo.initialize(
             apiKey = API_KEY,
-            applicationContext = contextMock
+            applicationContext = mockContext
         )
     }
 
@@ -107,16 +107,17 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Registered mock api`() {
-        assertEquals(apiClientMock, Registry.get<ApiClient>())
+        assertEquals(mockApiClient, Registry.get<ApiClient>())
+        verify { mockApiClient.startService() }
     }
 
     @Test
     fun `Initialize properly creates new config service and attaches lifecycle listeners`() {
         val expectedListener = Registry.lifecycleCallbacks
         verifyAll {
-            builderMock.apiKey(API_KEY)
-            builderMock.applicationContext(contextMock)
-            builderMock.build()
+            mockBuilder.apiKey(API_KEY)
+            mockBuilder.applicationContext(mockContext)
+            mockBuilder.build()
             mockApplication.unregisterActivityLifecycleCallbacks(match { it == expectedListener })
             mockApplication.registerActivityLifecycleCallbacks(match { it == expectedListener })
         }
@@ -124,7 +125,7 @@ internal class KlaviyoTest : BaseTest() {
 
     private fun verifyProfileDebounced() {
         staticClock.execute(debounceTime.toLong())
-        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+        verify(exactly = 1) { mockApiClient.enqueueProfile(any()) }
     }
 
     @Test
@@ -133,7 +134,7 @@ internal class KlaviyoTest : BaseTest() {
             .setEmail(EMAIL)
             .setPhoneNumber(PHONE)
 
-        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+        verify(exactly = 0) { mockApiClient.enqueueProfile(any()) }
         verifyProfileDebounced()
     }
 
@@ -150,7 +151,7 @@ internal class KlaviyoTest : BaseTest() {
             .setProfileAttribute(ProfileKey.LAST_NAME, stubLastName)
             .setProfileAttribute(stubMiddleNameKey, stubMiddleName)
 
-        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+        verify(exactly = 0) { mockApiClient.enqueueProfile(any()) }
         verifyProfileDebounced()
         assert(capturedProfile.isCaptured)
         val profile = capturedProfile.captured
@@ -213,7 +214,7 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.setPhoneNumber("")
 
         verifyProfileDebounced() // Should not have enqueued a new request
-        verify(exactly = 3) { logSpy.warning(any(), null) }
+        verify(exactly = 3) { spyLog.warning(any(), null) }
         assertEquals(EXTERNAL_ID, Registry.get<State>().externalId)
         assertEquals(EMAIL, Registry.get<State>().email)
         assertEquals(PHONE, Registry.get<State>().phoneNumber)
@@ -247,7 +248,7 @@ internal class KlaviyoTest : BaseTest() {
     fun `setProfile is debounced`() {
         Klaviyo.setProfile(Profile().setEmail(EMAIL))
 
-        verify(exactly = 0) { apiClientMock.enqueueProfile(any()) }
+        verify(exactly = 0) { mockApiClient.enqueueProfile(any()) }
         verifyProfileDebounced()
     }
 
@@ -354,13 +355,13 @@ internal class KlaviyoTest : BaseTest() {
         assertNull(Registry.get<State>().externalId)
 
         // Resetting profile flushes the queue immediately
-        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+        verify(exactly = 1) { mockApiClient.enqueueProfile(any()) }
     }
 
     @Test
     fun `Reset removes push token from store`() {
         Registry.get<State>().email = EMAIL
-        dataStoreSpy.store("push_token", PUSH_TOKEN)
+        spyDataStore.store("push_token", PUSH_TOKEN)
 
         Klaviyo.resetProfile()
 
@@ -385,26 +386,26 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `Stores push token and Enqueues a push token API call`() {
         Klaviyo.setPushToken(PUSH_TOKEN)
-        assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
+        assertEquals(PUSH_TOKEN, spyDataStore.fetch("push_token"))
 
         verify(exactly = 1) {
-            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+            mockApiClient.enqueuePushToken(PUSH_TOKEN, any())
         }
     }
 
     @Test
     fun `Push token request is ignored if state has not changed`() {
         Klaviyo.setPushToken(PUSH_TOKEN)
-        assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
+        assertEquals(PUSH_TOKEN, spyDataStore.fetch("push_token"))
 
         verify(exactly = 1) {
-            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+            mockApiClient.enqueuePushToken(PUSH_TOKEN, any())
         }
 
         Klaviyo.setPushToken(PUSH_TOKEN)
 
         verify(exactly = 1) {
-            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+            mockApiClient.enqueuePushToken(PUSH_TOKEN, any())
         }
     }
 
@@ -412,27 +413,27 @@ internal class KlaviyoTest : BaseTest() {
     fun `Push token request is repeated if state has changed`() {
         every { DeviceProperties.backgroundDataEnabled } returns true
         Klaviyo.setPushToken(PUSH_TOKEN)
-        assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
+        assertEquals(PUSH_TOKEN, spyDataStore.fetch("push_token"))
 
         verify(exactly = 1) {
-            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+            mockApiClient.enqueuePushToken(PUSH_TOKEN, any())
         }
 
         every { DeviceProperties.backgroundDataEnabled } returns false
         Klaviyo.setPushToken(PUSH_TOKEN)
 
         verify(exactly = 2) {
-            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+            mockApiClient.enqueuePushToken(PUSH_TOKEN, any())
         }
     }
 
     @Test
     fun `Push token request is made if profile identifiers change and token is set`() {
         Klaviyo.setPushToken(PUSH_TOKEN)
-        assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
+        assertEquals(PUSH_TOKEN, spyDataStore.fetch("push_token"))
 
         verify(exactly = 1) {
-            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+            mockApiClient.enqueuePushToken(PUSH_TOKEN, any())
         }
 
         Klaviyo.setEmail(EMAIL)
@@ -440,38 +441,38 @@ internal class KlaviyoTest : BaseTest() {
             .setExternalId(EXTERNAL_ID)
 
         staticClock.execute(debounceTime.toLong())
-        verify(exactly = 2) { apiClientMock.enqueuePushToken(PUSH_TOKEN, any()) }
+        verify(exactly = 2) { mockApiClient.enqueuePushToken(PUSH_TOKEN, any()) }
     }
 
     @Test
     fun `Push token request is made if profile changes and token is set`() {
         Klaviyo.setPushToken(PUSH_TOKEN)
-        assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
+        assertEquals(PUSH_TOKEN, spyDataStore.fetch("push_token"))
 
         verify(exactly = 1) {
-            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+            mockApiClient.enqueuePushToken(PUSH_TOKEN, any())
         }
 
         Klaviyo.setProfile(Profile().setEmail(EMAIL))
 
         staticClock.execute(debounceTime.toLong())
-        verify(exactly = 2) { apiClientMock.enqueuePushToken(PUSH_TOKEN, any()) }
+        verify(exactly = 2) { mockApiClient.enqueuePushToken(PUSH_TOKEN, any()) }
     }
 
     @Test
     fun `Push token request is made for profile attributes when token is set`() {
         Klaviyo.setPushToken(PUSH_TOKEN)
-        assertEquals(PUSH_TOKEN, dataStoreSpy.fetch("push_token"))
+        assertEquals(PUSH_TOKEN, spyDataStore.fetch("push_token"))
 
         verify(exactly = 1) {
-            apiClientMock.enqueuePushToken(PUSH_TOKEN, any())
+            mockApiClient.enqueuePushToken(PUSH_TOKEN, any())
         }
 
         Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, "Larry")
         Klaviyo.setProfileAttribute(ProfileKey.LAST_NAME, "David")
 
         staticClock.execute(debounceTime.toLong())
-        verify(exactly = 2) { apiClientMock.enqueuePushToken(PUSH_TOKEN, any()) }
+        verify(exactly = 2) { mockApiClient.enqueuePushToken(PUSH_TOKEN, any()) }
     }
 
     @Test
@@ -483,7 +484,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Fetches push token from persistent store`() {
-        dataStoreSpy.store("push_token", PUSH_TOKEN)
+        spyDataStore.store("push_token", PUSH_TOKEN)
         assertEquals(Klaviyo.getPushToken(), PUSH_TOKEN)
     }
 
@@ -492,7 +493,7 @@ internal class KlaviyoTest : BaseTest() {
         // Handle push intent
         Klaviyo.handlePush(mockIntent(stubIntentExtras))
 
-        verify { apiClientMock.enqueueEvent(any(), any()) }
+        verify { mockApiClient.enqueueEvent(any(), any()) }
     }
 
     @Test
@@ -501,7 +502,7 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.handlePush(mockIntent(mapOf("com.other.package.message" to "3rd party push")))
         Klaviyo.handlePush(null)
 
-        verify(inverse = true) { apiClientMock.enqueueEvent(any(), any()) }
+        verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
     }
 
     @Test
@@ -510,7 +511,7 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.createEvent(stubEvent)
 
         verify(exactly = 1) {
-            apiClientMock.enqueueEvent(stubEvent, any())
+            mockApiClient.enqueueEvent(stubEvent, any())
         }
     }
 
@@ -519,7 +520,7 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.createEvent(EventMetric.VIEWED_PRODUCT)
 
         verify(exactly = 1) {
-            apiClientMock.enqueueEvent(match { it.metric == EventMetric.VIEWED_PRODUCT }, any())
+            mockApiClient.enqueueEvent(match { it.metric == EventMetric.VIEWED_PRODUCT }, any())
         }
     }
 }

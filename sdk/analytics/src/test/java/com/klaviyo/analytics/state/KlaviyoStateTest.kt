@@ -76,65 +76,65 @@ internal class KlaviyoStateTest : BaseTest() {
     @Test
     fun `Create and store a new UUID if one does not exists in data store`() {
         val anonId = state.anonymousId
-        val fetched = dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name)
+        val fetched = spyDataStore.fetch(ProfileKey.ANONYMOUS_ID.name)
         assertEquals(anonId, fetched)
     }
 
     @Test
     fun `Do not create new UUID if one exists in data store`() {
-        dataStoreSpy.store(ProfileKey.ANONYMOUS_ID.name, ANON_ID)
+        spyDataStore.store(ProfileKey.ANONYMOUS_ID.name, ANON_ID)
         assertEquals(ANON_ID, state.anonymousId)
     }
 
     @Test
     fun `Only read properties from data store once`() {
-        dataStoreSpy.store(ProfileKey.ANONYMOUS_ID.name, ANON_ID)
-        dataStoreSpy.store(ProfileKey.EXTERNAL_ID.name, EXTERNAL_ID)
-        dataStoreSpy.store(ProfileKey.EMAIL.name, EMAIL)
-        dataStoreSpy.store(ProfileKey.PHONE_NUMBER.name, PHONE)
+        spyDataStore.store(ProfileKey.ANONYMOUS_ID.name, ANON_ID)
+        spyDataStore.store(ProfileKey.EXTERNAL_ID.name, EXTERNAL_ID)
+        spyDataStore.store(ProfileKey.EMAIL.name, EMAIL)
+        spyDataStore.store(ProfileKey.PHONE_NUMBER.name, PHONE)
 
         state.anonymousId
         assertEquals(ANON_ID, state.anonymousId)
-        verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name) }
+        verify(exactly = 1) { spyDataStore.fetch(ProfileKey.ANONYMOUS_ID.name) }
 
         state.externalId
         assertEquals(EXTERNAL_ID, state.externalId)
-        verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EXTERNAL_ID.name) }
+        verify(exactly = 1) { spyDataStore.fetch(ProfileKey.EXTERNAL_ID.name) }
 
         state.email
         assertEquals(EMAIL, state.email)
-        verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.EMAIL.name) }
+        verify(exactly = 1) { spyDataStore.fetch(ProfileKey.EMAIL.name) }
 
         state.phoneNumber
         assertEquals(PHONE, state.phoneNumber)
-        verify(exactly = 1) { dataStoreSpy.fetch(ProfileKey.PHONE_NUMBER.name) }
+        verify(exactly = 1) { spyDataStore.fetch(ProfileKey.PHONE_NUMBER.name) }
     }
 
     @Test
     fun `Anonymous ID lifecycle`() {
         // Should be null after a reset...
-        val initialAnonId = dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name)
+        val initialAnonId = spyDataStore.fetch(ProfileKey.ANONYMOUS_ID.name)
         assertNull(initialAnonId)
 
         // Start tracking a new anon ID and it should be persisted
         val firstAnonId = state.anonymousId
-        assertEquals(firstAnonId, dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name))
+        assertEquals(firstAnonId, spyDataStore.fetch(ProfileKey.ANONYMOUS_ID.name))
 
         // Reset again should nullify in data store
         state.reset()
-        assertNull(dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name))
+        assertNull(spyDataStore.fetch(ProfileKey.ANONYMOUS_ID.name))
 
         // Start tracking again should generate another new anon ID
         val newAnonId = state.anonymousId
         assertNotEquals(firstAnonId, newAnonId)
-        assertEquals(newAnonId, dataStoreSpy.fetch(ProfileKey.ANONYMOUS_ID.name))
+        assertEquals(newAnonId, spyDataStore.fetch(ProfileKey.ANONYMOUS_ID.name))
     }
 
     @Test
     fun `Broadcasts change of property with key and old value`() {
-        dataStoreSpy.store(ProfileKey.EXTERNAL_ID.name, EXTERNAL_ID)
-        dataStoreSpy.store(ProfileKey.EMAIL.name, EMAIL)
-        dataStoreSpy.store(ProfileKey.PHONE_NUMBER.name, PHONE)
+        spyDataStore.store(ProfileKey.EXTERNAL_ID.name, EXTERNAL_ID)
+        spyDataStore.store(ProfileKey.EMAIL.name, EMAIL)
+        spyDataStore.store(ProfileKey.PHONE_NUMBER.name, PHONE)
 
         var broadcastKey: Keyword? = null
         var broadcastValue: String? = null
