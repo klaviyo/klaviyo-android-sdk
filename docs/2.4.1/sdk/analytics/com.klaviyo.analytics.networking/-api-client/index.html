@@ -1,0 +1,220 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>ApiClient</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            klaviyo-android-sdk
+                    </a>            </div>
+            <div class="library-version">
+<dokka-template-command data="{&quot;@class&quot;:&quot;org.jetbrains.dokka.base.templating.ReplaceVersionsCommand&quot;,&quot;location&quot;:&quot;com.klaviyo.analytics.networking/-api-client/index.html&quot;}">2.4.1</dokka-template-command>            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":sdk:analytics:dokkaHtmlPartial/release">androidJvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="analytics::com.klaviyo.analytics.networking/ApiClient///PointingToDeclaration//-874788449">
+  <div class="breadcrumbs"><a href="../../index.html">analytics</a><span class="delimiter">/</span><a href="../index.html">com.klaviyo.analytics.networking</a><span class="delimiter">/</span><span class="current">ApiClient</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Api</span><wbr><span><span>Client</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">interface </span><a href="index.html">ApiClient</a></div><p class="paragraph">Defines public API of the network coordinator service</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="1109761952%2FFunctions%2F-874788449" anchor-label="enqueueEvent" id="1109761952%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="enqueue-event.html"><span>enqueue</span><wbr><span><span>Event</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1109761952%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="enqueue-event.html"><span class="token function">enqueueEvent</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">event<span class="token operator">: </span><a href="../../com.klaviyo.analytics.model/-event/index.html">Event</a><span class="token punctuation">, </span></span><span class="parameter ">profile<span class="token operator">: </span><a href="../../com.klaviyo.analytics.model/-profile/index.html">Profile</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Queue an API request to track an <a href="../../com.klaviyo.analytics.model/-event/index.html">Event</a> to Klaviyo for a <a href="../../com.klaviyo.analytics.model/-profile/index.html">Profile</a></p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-565207673%2FFunctions%2F-874788449" anchor-label="enqueueProfile" id="-565207673%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="enqueue-profile.html"><span>enqueue</span><wbr><span><span>Profile</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-565207673%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="enqueue-profile.html"><span class="token function">enqueueProfile</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">profile<span class="token operator">: </span><a href="../../com.klaviyo.analytics.model/-profile/index.html">Profile</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Queue an API request to save <a href="../../com.klaviyo.analytics.model/-profile/index.html">Profile</a> data to Klaviyo</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1851846786%2FFunctions%2F-874788449" anchor-label="enqueuePushToken" id="1851846786%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="enqueue-push-token.html"><span>enqueue</span><wbr><span>Push</span><wbr><span><span>Token</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1851846786%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="enqueue-push-token.html"><span class="token function">enqueuePushToken</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">token<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">profile<span class="token operator">: </span><a href="../../com.klaviyo.analytics.model/-profile/index.html">Profile</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Queue an API request to save a push token to Klaviyo for a <a href="../../com.klaviyo.analytics.model/-profile/index.html">Profile</a></p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1697169083%2FFunctions%2F-874788449" anchor-label="flushQueue" id="-1697169083%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="flush-queue.html"><span>flush</span><wbr><span><span>Queue</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1697169083%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="flush-queue.html"><span class="token function">flushQueue</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Tell the client to attempt to flush network request queue now</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1248496198%2FFunctions%2F-874788449" anchor-label="offApiRequest" id="-1248496198%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="off-api-request.html"><span>off</span><wbr><span>Api</span><wbr><span><span>Request</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1248496198%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="off-api-request.html"><span class="token function">offApiRequest</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">observer<span class="token operator">: </span><a href="../-api-observer/index.html">ApiObserver</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">De-register an observer from <a href="on-api-request.html">onApiRequest</a></p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="64094962%2FFunctions%2F-874788449" anchor-label="onApiRequest" id="64094962%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-api-request.html"><span>on</span><wbr><span>Api</span><wbr><span><span>Request</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="64094962%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="on-api-request.html"><span class="token function">onApiRequest</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">withHistory<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter ">observer<span class="token operator">: </span><a href="../-api-observer/index.html">ApiObserver</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Register an observer to be notified when an API request is enqueued or changes state</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="441709269%2FFunctions%2F-874788449" anchor-label="persistQueue" id="441709269%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="persist-queue.html"><span>persist</span><wbr><span><span>Queue</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="441709269%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="persist-queue.html"><span class="token function">persistQueue</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Tell the client to write its queue to the persistent store</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="383158799%2FFunctions%2F-874788449" anchor-label="restoreQueue" id="383158799%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="restore-queue.html"><span>restore</span><wbr><span><span>Queue</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="383158799%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="restore-queue.html"><span class="token function">restoreQueue</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Tell the client to restore its queue from the persistent store engine</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="926387007%2FFunctions%2F-874788449" anchor-label="startService" id="926387007%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="start-service.html"><span>start</span><wbr><span><span>Service</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="926387007%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="start-service.html"><span class="token function">startService</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Launch the API client service Should be idempotent in case of re-initialization</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2024 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
