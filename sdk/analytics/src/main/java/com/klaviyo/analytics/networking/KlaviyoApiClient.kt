@@ -14,6 +14,7 @@ import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
+import java.util.Collections
 import java.util.concurrent.ConcurrentLinkedDeque
 import org.json.JSONArray
 import org.json.JSONException
@@ -33,7 +34,9 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * List of registered API observers
      */
-    private var apiObservers = mutableListOf<ApiObserver>()
+    private val apiObservers = Collections.synchronizedList(
+        mutableListOf<ApiObserver>()
+    )
 
     /**
      * Initialize logic including lifecycle observers and reviving the queue from persistent store
@@ -136,7 +139,9 @@ internal object KlaviyoApiClient : ApiClient {
             Registry.log.verbose("${request.responseCode} $response")
         }
 
-        apiObservers.forEach { it(request) }
+        synchronized(apiObservers) {
+            apiObservers.forEach { it(request) }
+        }
     }
 
     /**
