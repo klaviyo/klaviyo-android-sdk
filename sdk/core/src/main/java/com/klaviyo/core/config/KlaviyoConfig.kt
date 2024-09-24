@@ -245,7 +245,7 @@ object KlaviyoConfig : Config {
 
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
             sdkName?.let { KlaviyoConfig.sdkName = it }
-            Registry.log.error("DANO SDK name reads: $sdkName")
+            Registry.log.error("DANO SDK name reads: ${BuildConfig.NAME}")
             sdkVersion?.let { KlaviyoConfig.sdkVersion = it }
             KlaviyoConfig.apiKey = apiKey
             KlaviyoConfig.applicationContext = context

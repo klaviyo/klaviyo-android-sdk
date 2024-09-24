@@ -2,7 +2,7 @@ import static de.fayard.refreshVersions.core.Versions.versionFor
 
 subprojects {
     def javaVersion = JavaVersion.VERSION_11
-    def sdkName =  project.hasProperty("KlaviyoReactNativeSdkName") ? project.property("KlaviyoReactNativeSdkName") : klaviyoAndroidSDKName
+    def sdkName =  project.rootProject.hasProperty("KlaviyoReactNativeSdkName") ? project.property("KlaviyoReactNativeSdkName") : klaviyoAndroidSDKName
 
     apply plugin: "com.android.library"
     apply plugin: "kotlin-android"
