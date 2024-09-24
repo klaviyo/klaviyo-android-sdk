@@ -6,6 +6,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.klaviyo.core.Registry
+import java.util.Collections
 
 /**
  * Service for monitoring the application lifecycle and network connectivity
@@ -23,7 +24,9 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     /**
      * List of registered network change observers
      */
-    private var networkChangeObservers = mutableListOf<NetworkObserver>()
+    private val networkChangeObservers = Collections.synchronizedList(
+        mutableListOf<NetworkObserver>()
+    )
 
     /**
      * Callback object to register with system
@@ -77,7 +80,9 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      */
     private fun broadcastNetworkChange() {
         val isConnected = isNetworkConnected()
-        networkChangeObservers.forEach { it(isConnected) }
+        synchronized(networkChangeObservers) {
+            networkChangeObservers.forEach { it(isConnected) }
+        }
     }
 
     /**

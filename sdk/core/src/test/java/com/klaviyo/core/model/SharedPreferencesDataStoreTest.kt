@@ -9,6 +9,10 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkObject
 import io.mockk.verify
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -69,6 +73,29 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
 
         // And verify log output for writing
         verify { logSpy.verbose("$stubKey=$stubValue") }
+    }
+
+    @Test
+    fun `Store observers concurrency modification test`() = runTest {
+        withPreferenceMock()
+        withWriteStringMock(stubKey, stubValue)
+        val observer: StoreObserver = { _, _ -> Thread.sleep(6) }
+
+        SharedPreferencesDataStore.onStoreChange(observer)
+
+        val job = launch(Dispatchers.IO) {
+            SharedPreferencesDataStore.clear(stubKey)
+        }
+
+        val job2 = launch(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
+                Thread.sleep(8)
+            }
+            SharedPreferencesDataStore.offStoreChange(observer)
+        }
+
+        job.start()
+        job2.start()
     }
 
     @Test
