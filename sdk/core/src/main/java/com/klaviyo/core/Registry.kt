@@ -120,6 +120,19 @@ object Registry {
     }
 
     /**
+     * Get a registered service by type, else null
+     *
+     * @param T - Type of service, usually an interface
+     * @return The instance of the service
+     */
+    inline fun <reified T : Any> getOrNull(): T? {
+        val type = typeOf<T>()
+        val service: Any? = services[type]
+
+        return if (service is T) service else null
+    }
+
+    /**
      * Get a registered service by type
      *
      * @param T - Type of service, usually an interface

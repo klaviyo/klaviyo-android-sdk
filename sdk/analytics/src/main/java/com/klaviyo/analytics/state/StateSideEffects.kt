@@ -32,20 +32,15 @@ internal class StateSideEffects(
 
     init {
         apiClient.onApiRequest(false, ::afterApiRequest)
-        state.onStateChange { key: Keyword?, oldValue: Any? ->
-            when (key) {
-                API_KEY -> onApiKeyChange(oldApiKey = oldValue?.toString())
-                ProfileKey.PUSH_STATE -> onPushStateChange()
-                ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */
-                }
+        state.onStateChange(::onStateChange)
+    }
 
-                PROFILE_ATTRIBUTES -> if (state.getAsProfile(withAttributes = true).attributes.propertyCount() > 0) {
-                    onUserStateChange()
-                }
-
-                else -> onUserStateChange()
-            }
-        }
+    /**
+     * Detach side effects observers
+     */
+    fun detach() {
+        apiClient.offApiRequest(::afterApiRequest)
+        state.offStateChange(::onStateChange)
     }
 
     private fun onPushStateChange() {
@@ -142,5 +137,16 @@ internal class StateSideEffects(
         }
 
         else -> Unit
+    }
+
+    private fun onStateChange(key: Keyword?, oldValue: Any?) = when (key) {
+        API_KEY -> onApiKeyChange(oldApiKey = oldValue?.toString())
+        ProfileKey.PUSH_STATE -> onPushStateChange()
+        ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */
+        }
+        PROFILE_ATTRIBUTES -> if (state.getAsProfile(withAttributes = true).attributes.propertyCount() > 0) {
+            onUserStateChange()
+        } else { Unit }
+        else -> onUserStateChange()
     }
 }

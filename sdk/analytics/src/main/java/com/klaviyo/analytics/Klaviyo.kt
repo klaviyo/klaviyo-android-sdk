@@ -69,6 +69,7 @@ object Klaviyo {
         Registry.get<ApiClient>().startService()
 
         Registry.register<State>(KlaviyoState())
+        Registry.getOrNull<StateSideEffects>()?.detach()
         Registry.register<StateSideEffects>(StateSideEffects())
 
         Registry.get<State>().apiKey = apiKey
