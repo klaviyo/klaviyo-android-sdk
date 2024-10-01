@@ -42,6 +42,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
     private val mockApiClient: ApiClient = mockk<ApiClient>().apply {
         every { startService() } returns Unit
         every { onApiRequest(any(), any()) } returns Unit
+        every { offApiRequest(any()) } returns Unit
         every { enqueueProfile(any()) } returns Unit
         every { enqueueEvent(any(), any()) } returns Unit
         every { enqueuePushToken(any(), any()) } returns Unit
