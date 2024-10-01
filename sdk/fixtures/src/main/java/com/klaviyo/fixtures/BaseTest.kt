@@ -79,7 +79,10 @@ abstract class BaseTest {
         every { networkJitterRange } returns 0..0
         every { baseUrl } returns "https://test.fake-klaviyo.com"
     }
-    protected val mockLifecycleMonitor = mockk<LifecycleMonitor>()
+    protected val mockLifecycleMonitor = mockk<LifecycleMonitor>().apply {
+        every { onActivityEvent(any()) } returns Unit
+        every { offActivityEvent(any()) } returns Unit
+    }
     protected val mockNetworkMonitor = mockk<NetworkMonitor>()
     protected val spyDataStore = spyk(InMemoryDataStore())
     protected val spyLog = spyk(LogFixture())

@@ -15,10 +15,13 @@ import com.klaviyo.analytics.networking.requests.KlaviyoErrorSource
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.lifecycle.LifecycleMonitor
 
 internal class StateSideEffects(
     private val state: State = Registry.get<State>(),
-    private val apiClient: ApiClient = Registry.get<ApiClient>()
+    private val apiClient: ApiClient = Registry.get<ApiClient>(),
+    private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
 ) {
     /**
      * Debounce timer for enqueuing profile API calls
@@ -33,6 +36,7 @@ internal class StateSideEffects(
     init {
         apiClient.onApiRequest(false, ::afterApiRequest)
         state.onStateChange(::onStateChange)
+        lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
     }
 
     /**
@@ -41,6 +45,7 @@ internal class StateSideEffects(
     fun detach() {
         apiClient.offApiRequest(::afterApiRequest)
         state.offStateChange(::onStateChange)
+        lifecycleMonitor.offActivityEvent(::onLifecycleEvent)
     }
 
     private fun onPushStateChange() {
@@ -148,5 +153,13 @@ internal class StateSideEffects(
             onUserStateChange()
         } else { Unit }
         else -> onUserStateChange()
+    }
+
+    private fun onLifecycleEvent(activity: ActivityEvent): Unit = when {
+        activity is ActivityEvent.Resumed -> Registry.get<State>().pushToken?.let {
+            // This should trigger the token in state to refresh overall push state
+            Registry.get<State>().pushToken = it
+        } ?: Unit
+        else -> Unit
     }
 }

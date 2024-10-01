@@ -71,10 +71,12 @@ class SideEffectTests : BaseTest() {
         val sideEffects = StateSideEffects(stateMock, apiClientMock)
         verify { stateMock.onStateChange(any()) }
         verify { apiClientMock.onApiRequest(any(), any()) }
+        verify { mockLifecycleMonitor.onActivityEvent(any()) }
 
         sideEffects.detach()
         verify { stateMock.offStateChange(any()) }
         verify { apiClientMock.offApiRequest(any()) }
+        verify { mockLifecycleMonitor.offActivityEvent(any()) }
     }
 
     @Test
