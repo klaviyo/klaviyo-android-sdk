@@ -235,7 +235,7 @@ In order to send push notifications to your users, you must collect their push t
 This is done via the `Klaviyo.setPushToken` method, which registers push token and current authorization state
 via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
 Once registered in your manifest, `KlaviyoPushService` will receive *new* push tokens via the `onNewToken` method.
-We also recommend retrieving the current token on app startup and registering it with Klaviyo SDK.
+We also recommend retrieving the latest token value on app startup and registering it with Klaviyo SDK.
 Add the following to your `Application.onCreate` method. 
 
 ```kotlin
@@ -248,6 +248,9 @@ override fun onCreate(savedInstanceState: Bundle?) {
     }
 }
 ```
+
+*As of version 3.0.0*: After setting a push token, the Klaviyo SDK will automatically track changes to
+the user's notification permission whenever the application is opened or resumed from the background.
 
 **Reminder**: `Klaviyo.initialize` is required before using any other Klaviyo SDK functionality, even 
 if you are only using the SDK for push notifications and not analytics.
