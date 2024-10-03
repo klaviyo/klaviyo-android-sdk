@@ -24,7 +24,7 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
-class SideEffectTests : BaseTest() {
+class StateSideEffectsTest : BaseTest() {
 
     private val profile = Profile(email = EMAIL)
     private val capturedProfile = slot<Profile>()
