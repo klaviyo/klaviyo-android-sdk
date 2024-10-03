@@ -9,6 +9,7 @@ import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Registry
@@ -16,13 +17,17 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkConstructor
 import io.mockk.slot
+import io.mockk.unmockkConstructor
 import io.mockk.verify
 import io.mockk.verifyAll
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -64,6 +69,7 @@ internal class KlaviyoTest : BaseTest() {
     private val mockApiClient: ApiClient = mockk<ApiClient>().apply {
         every { startService() } returns Unit
         every { onApiRequest(any(), any()) } returns Unit
+        every { offApiRequest(any()) } returns Unit
         every { enqueueProfile(capture(capturedProfile)) } returns Unit
         every { enqueueEvent(any(), any()) } returns Unit
         every { enqueuePushToken(any(), any()) } returns Unit
@@ -87,6 +93,8 @@ internal class KlaviyoTest : BaseTest() {
         every { Registry.configBuilder } returns mockBuilder
         Registry.register<ApiClient>(mockApiClient)
         DevicePropertiesTest.mockDeviceProperties()
+        mockkConstructor(StateSideEffects::class)
+        every { anyConstructed<StateSideEffects>().detach() } returns Unit
         Klaviyo.initialize(
             apiKey = API_KEY,
             applicationContext = mockContext
@@ -95,6 +103,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        unmockkConstructor(StateSideEffects::class)
         Registry.get<State>().reset()
         Registry.unregister<Config>()
         Registry.unregister<State>()
@@ -109,6 +118,12 @@ internal class KlaviyoTest : BaseTest() {
     fun `Registered mock api`() {
         assertEquals(mockApiClient, Registry.get<ApiClient>())
         verify { mockApiClient.startService() }
+    }
+
+    @Test
+    fun `Registered state and side effects`() {
+        assertTrue(Registry.get<State>() is KlaviyoState)
+        assertNotNull(Registry.getOrNull<StateSideEffects>())
     }
 
     @Test
@@ -522,5 +537,20 @@ internal class KlaviyoTest : BaseTest() {
         verify(exactly = 1) {
             mockApiClient.enqueueEvent(match { it.metric == EventMetric.VIEWED_PRODUCT }, any())
         }
+    }
+
+    @Test
+    fun `State side effect attachments are idempotent`() {
+        verify(exactly = 0) { anyConstructed<StateSideEffects>().detach() }
+        Klaviyo.initialize(
+            apiKey = API_KEY,
+            applicationContext = mockContext
+        )
+        verify(exactly = 1) { anyConstructed<StateSideEffects>().detach() }
+        Klaviyo.initialize(
+            apiKey = API_KEY,
+            applicationContext = mockContext
+        )
+        verify(exactly = 2) { anyConstructed<StateSideEffects>().detach() }
     }
 }

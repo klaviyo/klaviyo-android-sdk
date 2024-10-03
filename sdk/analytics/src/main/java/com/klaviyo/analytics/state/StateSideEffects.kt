@@ -15,10 +15,13 @@ import com.klaviyo.analytics.networking.requests.KlaviyoErrorSource
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.lifecycle.LifecycleMonitor
 
 internal class StateSideEffects(
     private val state: State = Registry.get<State>(),
-    private val apiClient: ApiClient = Registry.get<ApiClient>()
+    private val apiClient: ApiClient = Registry.get<ApiClient>(),
+    private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
 ) {
     /**
      * Debounce timer for enqueuing profile API calls
@@ -32,20 +35,17 @@ internal class StateSideEffects(
 
     init {
         apiClient.onApiRequest(false, ::afterApiRequest)
-        state.onStateChange { key: Keyword?, oldValue: Any? ->
-            when (key) {
-                API_KEY -> onApiKeyChange(oldApiKey = oldValue?.toString())
-                ProfileKey.PUSH_STATE -> onPushStateChange()
-                ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */
-                }
+        state.onStateChange(::onStateChange)
+        lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
+    }
 
-                PROFILE_ATTRIBUTES -> if (state.getAsProfile(withAttributes = true).attributes.propertyCount() > 0) {
-                    onUserStateChange()
-                }
-
-                else -> onUserStateChange()
-            }
-        }
+    /**
+     * Detach side effects observers
+     */
+    fun detach() {
+        apiClient.offApiRequest(::afterApiRequest)
+        state.offStateChange(::onStateChange)
+        lifecycleMonitor.offActivityEvent(::onLifecycleEvent)
     }
 
     private fun onPushStateChange() {
@@ -119,15 +119,19 @@ internal class StateSideEffects(
                 ?.let { inputError ->
                     when (inputError.source?.pointer) {
                         KlaviyoErrorSource.EMAIL_PATH -> {
-                            (Registry.get<State>() as? KlaviyoState)?.resetEmail()
-                            Registry.log.warning("Invalid email - resetting email state to null")
+                            (Registry.get<State>() as? KlaviyoState)?.resetEmail().also {
+                                Registry.log.warning(
+                                    "Invalid email - resetting email state to null"
+                                )
+                            }
                         }
 
                         KlaviyoErrorSource.PHONE_NUMBER_PATH -> {
-                            (Registry.get<State>() as? KlaviyoState)?.resetPhoneNumber()
-                            Registry.log.warning(
-                                "Invalid phone number - resetting phone number state to null"
-                            )
+                            (Registry.get<State>() as? KlaviyoState)?.resetPhoneNumber().also {
+                                Registry.log.warning(
+                                    "Invalid phone number - resetting phone number state to null"
+                                )
+                            }
                         }
 
                         else -> {
@@ -141,6 +145,25 @@ internal class StateSideEffects(
             state.pushState = null
         }
 
+        else -> Unit
+    }
+
+    private fun onStateChange(key: Keyword?, oldValue: Any?) = when (key) {
+        API_KEY -> onApiKeyChange(oldApiKey = oldValue?.toString())
+        ProfileKey.PUSH_STATE -> onPushStateChange()
+        ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */
+        }
+        PROFILE_ATTRIBUTES -> if (state.getAsProfile(withAttributes = true).attributes.propertyCount() > 0) {
+            onUserStateChange()
+        } else { Unit }
+        else -> onUserStateChange()
+    }
+
+    private fun onLifecycleEvent(activity: ActivityEvent): Unit = when {
+        activity is ActivityEvent.Resumed -> Registry.get<State>().pushToken?.let {
+            // This should trigger the token in state to refresh overall push state
+            Registry.get<State>().pushToken = it
+        } ?: Unit
         else -> Unit
     }
 }

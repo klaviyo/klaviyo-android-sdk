@@ -24,7 +24,7 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
-class SideEffectTests : BaseTest() {
+class StateSideEffectsTest : BaseTest() {
 
     private val profile = Profile(email = EMAIL)
     private val capturedProfile = slot<Profile>()
@@ -33,6 +33,7 @@ class SideEffectTests : BaseTest() {
     private val capturedPushState = slot<String?>()
     private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
         every { onApiRequest(any(), capture(capturedApiObserver)) } returns Unit
+        every { offApiRequest(any()) } returns Unit
         every { enqueueProfile(capture(capturedProfile)) } returns Unit
         every { enqueueEvent(any(), any()) } returns Unit
         every { enqueuePushToken(any(), any()) } returns Unit
@@ -40,6 +41,7 @@ class SideEffectTests : BaseTest() {
 
     private val stateMock = mockk<State>().apply {
         every { onStateChange(capture(capturedStateObserver)) } returns Unit
+        every { offStateChange(any()) } returns Unit
         every { pushState = captureNullable(capturedPushState) } returns Unit
         every { getAsProfile(withAttributes = any()) } returns profile
         every { resetAttributes() } returns Unit
@@ -65,10 +67,16 @@ class SideEffectTests : BaseTest() {
     }
 
     @Test
-    fun `Subscribes on init`() {
-        StateSideEffects(stateMock, apiClientMock)
+    fun `Subscribes on init and unsubscribes`() {
+        val sideEffects = StateSideEffects(stateMock, apiClientMock)
         verify { stateMock.onStateChange(any()) }
         verify { apiClientMock.onApiRequest(any(), any()) }
+        verify { mockLifecycleMonitor.onActivityEvent(any()) }
+
+        sideEffects.detach()
+        verify { stateMock.offStateChange(any()) }
+        verify { apiClientMock.offApiRequest(any()) }
+        verify { mockLifecycleMonitor.offActivityEvent(any()) }
     }
 
     @Test

@@ -49,12 +49,10 @@ internal class KlaviyoState : State {
     override var pushToken: String?
         set(value) {
             // Set token should also update entire push state value
-            _pushToken.setValue(this, ::pushToken, value)
-
-            // TODO use a better representation of push state to decouple from PushTokenApiRequest
+            _pushToken.setValue(this, ::_pushToken, value)
             pushState = value?.let { PushTokenApiRequest(it, getAsProfile()).requestBody } ?: ""
         }
-        get() = _pushToken.getValue(this, ::pushToken)
+        get() = _pushToken.getValue(this, ::_pushToken)
 
     /**
      * List of registered state change observers
