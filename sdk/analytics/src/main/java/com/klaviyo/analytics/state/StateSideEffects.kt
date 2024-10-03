@@ -119,15 +119,19 @@ internal class StateSideEffects(
                 ?.let { inputError ->
                     when (inputError.source?.pointer) {
                         KlaviyoErrorSource.EMAIL_PATH -> {
-                            (Registry.get<State>() as? KlaviyoState)?.resetEmail()
-                            Registry.log.warning("Invalid email - resetting email state to null")
+                            (Registry.get<State>() as? KlaviyoState)?.resetEmail().also {
+                                Registry.log.warning(
+                                    "Invalid email - resetting email state to null"
+                                )
+                            }
                         }
 
                         KlaviyoErrorSource.PHONE_NUMBER_PATH -> {
-                            (Registry.get<State>() as? KlaviyoState)?.resetPhoneNumber()
-                            Registry.log.warning(
-                                "Invalid phone number - resetting phone number state to null"
-                            )
+                            (Registry.get<State>() as? KlaviyoState)?.resetPhoneNumber().also {
+                                Registry.log.warning(
+                                    "Invalid phone number - resetting phone number state to null"
+                                )
+                            }
                         }
 
                         else -> {
