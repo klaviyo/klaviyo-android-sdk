@@ -122,6 +122,12 @@ object KlaviyoConfig : Config {
         applicationContext.getManifestInt(key, defaultValue)
     }
 
+    override fun getManifestString(key: String): String? = if (!this::applicationContext.isInitialized) {
+        null
+    } else {
+        applicationContext.getManifestString(key)
+    }
+
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
      */
@@ -245,9 +251,11 @@ object KlaviyoConfig : Config {
 
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
             sdkName?.let { KlaviyoConfig.sdkName = it }
+            val sdkName = getManifestString("com.klaviyo.core.sdk_name")
+            val sdkVersion = getManifestString("com.klaviyo.core.sdk_version")
             Registry.log.error("DANO SDK name reads: ${BuildConfig.NAME}")
             Registry.log.error(
-                "DANO SDK property attempt from parent: ${BuildConfig.KlaviyoReactNativeSdkName}"
+                "DANO SDK property attempt from parent: sdkName = $sdkName sdkVersion = $sdkVersion"
             )
             sdkVersion?.let { KlaviyoConfig.sdkVersion = it }
             KlaviyoConfig.apiKey = apiKey
@@ -313,4 +321,15 @@ fun Context.getManifestInt(key: String, defaultValue: Int): Int {
     val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
     val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
     return manifestMetadata.getInt(key, defaultValue)
+}
+
+/**
+ * Extension method to get an integer value from the manifest metadata
+ */
+fun Context.getManifestString(key: String): String? {
+    val pkgName = packageName
+    val pkgManager = packageManager
+    val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
+    val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
+    return manifestMetadata.getString(key)
 }

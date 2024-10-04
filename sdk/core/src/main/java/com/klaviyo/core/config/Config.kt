@@ -22,6 +22,7 @@ interface Config {
     val networkJitterRange: IntRange
 
     fun getManifestInt(key: String, defaultValue: Int): Int
+    fun getManifestString(key: String): String?
 
     interface Builder {
         fun apiKey(apiKey: String): Builder
