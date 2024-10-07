@@ -334,8 +334,37 @@ fun Context.getManifestString(key: String): String? {
     val pkgManager = packageManager
     val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
     val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
+    try {
+        val rawRes = applicationContext.resources.getIdentifier("test.txt", "raw", pkgName)
+        val openedResource = applicationContext.resources.openRawResource(rawRes)
+        openedResource.bufferedReader().forEachLine {
+            Registry.log.error("DANO new line from raw res: $it")
+        }
+    } catch (e: Exception) {
+        Registry.log.error("DANO failed to read the file ${e.message}")
+    }
+
+    // a different attempt to read raw res as well
+    try {
+        val printed = manifestMetadata.keySet().fold("") { acc: String, s: String? -> acc + s }
+        Registry.log.error("DANO printed manifest meta data key set is $printed")
+    } catch (e: Exception) {
+        Registry.log.error("DANO failed to read manifest meta data")
+    }
+
     Registry.log.error(
-        "DANO get manifest string info: packaggeName = $pkgName pkgManager = $pkgManager appInfo = $appInfo manifestMetaData keys  = ${manifestMetadata.keySet()}"
+        "DANO get manifest string info: packaggeName = $pkgName pkgManager = $pkgManager appInfo = ${appInfo?.metaData?.keySet()?.fold(
+            ""
+        ) { acc: String, s: String? ->
+            "$acc and $s"
+        }
+        } manifestMetaData keys  = ${manifestMetadata.keySet().fold("") { acc: String, s: String? ->
+            "$acc and $s"
+        }
+        }"
     )
+
+    // also going to attempt to read from the file in this case
+
     return manifestMetadata.getString(key)
 }
