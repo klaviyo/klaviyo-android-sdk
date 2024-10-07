@@ -253,12 +253,6 @@ object KlaviyoConfig : Config {
 
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
             sdkName?.let { KlaviyoConfig.sdkName = it }
-            val sdkName = getManifestString("com.klaviyo.core.sdk_name")
-            val sdkVersion = getManifestString("com.klaviyo.core.sdk_version")
-            Registry.log.error("DANO SDK name reads: ${BuildConfig.NAME}")
-            Registry.log.error(
-                "DANO SDK property attempt from parent: sdkName = $sdkName sdkVersion = $sdkVersion"
-            )
             sdkVersion?.let { KlaviyoConfig.sdkVersion = it }
             KlaviyoConfig.apiKey = apiKey
             KlaviyoConfig.applicationContext = context
@@ -268,6 +262,13 @@ object KlaviyoConfig : Config {
             KlaviyoConfig.networkFlushDepth = networkFlushDepth
             KlaviyoConfig.networkMaxAttempts = networkMaxAttempts
             KlaviyoConfig.networkMaxRetryInterval = networkMaxRetryInterval
+
+            val sdkName = getManifestString("com.klaviyo.core.sdk_name")
+            val sdkVersion = getManifestString("com.klaviyo.core.sdk_version")
+            Registry.log.error("DANO SDK name reads: ${BuildConfig.NAME}")
+            Registry.log.error(
+                "DANO SDK property attempt from parent: sdkName = $sdkName sdkVersion = $sdkVersion"
+            )
 
             return KlaviyoConfig
         }
