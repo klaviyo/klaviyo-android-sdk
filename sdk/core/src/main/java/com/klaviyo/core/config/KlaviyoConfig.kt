@@ -123,7 +123,9 @@ object KlaviyoConfig : Config {
     }
 
     override fun getManifestString(key: String): String? = if (!this::applicationContext.isInitialized) {
-        null
+        null.also {
+            Registry.log.error("DANO manifest string failed because application context not init")
+        }
     } else {
         applicationContext.getManifestString(key)
     }
@@ -331,5 +333,8 @@ fun Context.getManifestString(key: String): String? {
     val pkgManager = packageManager
     val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
     val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
+    Registry.log.error(
+        "DANO get manifest string info: packaggeName = $pkgName pkgManager = $pkgManager appInfo = $appInfo manifestMetaData keys  = ${manifestMetadata.keySet()}"
+    )
     return manifestMetadata.getString(key)
 }
