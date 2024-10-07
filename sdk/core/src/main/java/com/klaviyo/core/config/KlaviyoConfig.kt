@@ -352,19 +352,5 @@ fun Context.getManifestString(key: String): String? {
         Registry.log.error("DANO failed to read manifest meta data")
     }
 
-    Registry.log.error(
-        "DANO get manifest string info: packaggeName = $pkgName pkgManager = $pkgManager appInfo = ${appInfo?.metaData?.keySet()?.fold(
-            ""
-        ) { acc: String, s: String? ->
-            "$acc and $s"
-        }
-        } manifestMetaData keys  = ${manifestMetadata.keySet().fold("") { acc: String, s: String? ->
-            "$acc and $s"
-        }
-        }"
-    )
-
-    // also going to attempt to read from the file in this case
-
     return manifestMetadata.getString(key)
 }
