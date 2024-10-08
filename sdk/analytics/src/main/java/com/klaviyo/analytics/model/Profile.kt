@@ -6,7 +6,7 @@ import java.io.Serializable
  * Controls the data that can be input into a map of profile attributes recognised by Klaviyo
  */
 class Profile(properties: Map<ProfileKey, Serializable>?) :
-    BaseModel<ProfileKey, Profile>(properties) {
+    BaseModel<ProfileKey, Profile>(properties), ImmutableProfile {
 
     constructor(
         externalId: String? = null,
@@ -20,32 +20,42 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
     }
 
     fun setExternalId(identifier: String?) = apply { this.externalId = identifier }
-    var externalId: String?
+    override var externalId: String?
         get() = (this[ProfileKey.EXTERNAL_ID])?.toString()
         set(value) {
             this[ProfileKey.EXTERNAL_ID] = value
         }
 
     fun setEmail(email: String?) = apply { this.email = email }
-    var email: String?
+    override var email: String?
         get() = (this[ProfileKey.EMAIL])?.toString()
         set(value) {
             this[ProfileKey.EMAIL] = value
         }
 
     fun setPhoneNumber(phoneNumber: String?) = apply { this.phoneNumber = phoneNumber }
-    var phoneNumber: String?
+    override var phoneNumber: String?
         get() = (this[ProfileKey.PHONE_NUMBER])?.toString()
         set(value) {
             this[ProfileKey.PHONE_NUMBER] = value
         }
 
     internal fun setAnonymousId(anonymousId: String?) = apply { this.anonymousId = anonymousId }
-    internal var anonymousId: String?
+    override var anonymousId: String?
         get() = (this[ProfileKey.ANONYMOUS_ID])?.toString()
         set(value) {
             this[ProfileKey.ANONYMOUS_ID] = value
         }
+
+    /**
+     * Return a profile object containing only non-identifier attributes
+     */
+    val attributes: Profile get() = copy().apply {
+        externalId = null
+        email = null
+        phoneNumber = null
+        anonymousId = null
+    }
 
     override fun setProperty(key: ProfileKey, value: Serializable?) = apply {
         this[key] = value
@@ -55,5 +65,9 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
         this[ProfileKey.CUSTOM(key)] = value
     }
 
-    override fun merge(other: Profile) = apply { super.merge(other) }
+    override fun copy(): Profile = Profile().merge(this)
+
+    override fun merge(other: Profile?) = apply { super.merge(other) }
+
+    fun merge(other: ImmutableProfile?) = apply { super.merge(other?.copy()) }
 }

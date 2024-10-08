@@ -3,6 +3,7 @@ package com.klaviyo.core.model
 import android.content.Context
 import android.content.SharedPreferences
 import com.klaviyo.core.Registry
+import java.util.Collections
 
 /**
  * Simple DataStore implementation using SharedPreferences for persistence
@@ -18,11 +19,9 @@ internal object SharedPreferencesDataStore : DataStore {
     /**
      * List of registered observers
      */
-    private var storeObservers = mutableListOf<StoreObserver>()
-
-    init {
-        onStoreChange { key, value -> Registry.log.verbose("$key=$value") }
-    }
+    private val storeObservers = Collections.synchronizedList(
+        mutableListOf<StoreObserver>()
+    )
 
     override fun onStoreChange(observer: StoreObserver) {
         storeObservers += observer
@@ -33,7 +32,10 @@ internal object SharedPreferencesDataStore : DataStore {
     }
 
     private fun broadcastStoreChange(key: String, value: String?) {
-        storeObservers.forEach { it(key, value) }
+        Registry.log.verbose("$key=$value")
+        synchronized(storeObservers) {
+            storeObservers.forEach { it(key, value) }
+        }
     }
 
     /**

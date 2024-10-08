@@ -75,6 +75,11 @@ object KlaviyoRemoteMessage {
             ?: NotificationCompat.PRIORITY_DEFAULT
 
     /**
+     * Parse out notification tag, used as a de-duping mechanism
+     */
+    val RemoteMessage.notificationTag: String? get() = this.data[KlaviyoNotification.NOTIFICATION_TAG]
+
+    /**
      * Determine if the message originated from Klaviyo from the tracking params
      */
     val RemoteMessage.isKlaviyoMessage: Boolean get() = this.data.containsKey("_k")

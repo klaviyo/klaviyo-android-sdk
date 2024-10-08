@@ -12,6 +12,12 @@ typealias ApiObserver = (request: ApiRequest) -> Unit
 interface ApiClient {
 
     /**
+     * Launch the API client service
+     * Should be idempotent in case of re-initialization
+     */
+    fun startService()
+
+    /**
      * Tell the client to write its queue to the persistent store
      */
     fun persistQueue()
@@ -40,6 +46,14 @@ interface ApiClient {
      * @param profile
      */
     fun enqueuePushToken(token: String, profile: Profile)
+
+    /**
+     * Queue an API request to remove a push token from a [Profile]
+     *
+     * @param token
+     * @param profile
+     */
+    fun enqueueUnregisterPushToken(apiKey: String, token: String, profile: Profile)
 
     /**
      * Queue an API request to track an [Event] to Klaviyo for a [Profile]

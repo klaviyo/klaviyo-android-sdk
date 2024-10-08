@@ -13,6 +13,10 @@ import io.mockk.mockkConstructor
 import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -34,8 +38,8 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         super.setup()
 
         // Mock connectivityManager for spot check and for callbacks
-        every { contextMock.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
-        every { contextMock.getSystemService(ConnectivityManager::class.java) } returns connectivityManagerMock
+        every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
+        every { mockContext.getSystemService(ConnectivityManager::class.java) } returns connectivityManagerMock
         every { connectivityManagerMock.activeNetwork } returns networkMock
         every { connectivityManagerMock.getNetworkCapabilities(null) } returns null
         every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock
@@ -103,11 +107,11 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
     fun `Network change observer is invoked with current network status when network changes`() {
         var expectedNetworkConnection = true
         var callCount = 0
-
-        KlaviyoNetworkMonitor.onNetworkChange {
+        val observer: NetworkObserver = {
             assert(it == expectedNetworkConnection)
             callCount++
         }
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
 
         assert(netCallbackSlot.isCaptured) // attaching a listener should have initialized the network callback
 
@@ -130,6 +134,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         netCallbackSlot.captured.onLost(mockk())
 
         assertEquals(6, callCount)
+        KlaviyoNetworkMonitor.offNetworkChange(observer)
     }
 
     @Test
@@ -139,11 +144,11 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
 
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
         netCallbackSlot.captured.onAvailable(mockk())
-        verify { logSpy.verbose("Network available") }
+        verify { spyLog.verbose("Network available") }
 
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
         netCallbackSlot.captured.onUnavailable()
-        verify { logSpy.verbose("Network unavailable") }
+        verify { spyLog.verbose("Network unavailable") }
     }
 
     @Test
@@ -166,5 +171,26 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         KlaviyoNetworkMonitor.onNetworkChange(observer) // it can be re-added
         netCallbackSlot.captured.onAvailable(mockk())
         assertEquals(5, callCount)
+    }
+
+    @Test()
+    fun `Concurrent modification exception doesn't get thrown on concurrent observer access`() = runTest {
+        val observer: NetworkObserver = { Thread.sleep(6) }
+
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
+
+        val job = launch(Dispatchers.IO) {
+            netCallbackSlot.captured.onAvailable(mockk())
+        }
+
+        val job2 = launch(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
+                Thread.sleep(5)
+            }
+            KlaviyoNetworkMonitor.offNetworkChange(observer)
+        }
+
+        job.start()
+        job2.start()
     }
 }

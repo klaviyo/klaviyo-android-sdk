@@ -1,0 +1,2 @@
+-keep class com.klaviyo.core.** { *; }
+-keep class com.klaviyo.analytics.** { *; }

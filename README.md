@@ -14,14 +14,16 @@ The queue is persisted to local storage so that data is not lost if the device i
 Once integrated, your marketing team will be able to better understand your app users' needs and
 send them timely push notifications via [FCM (Firebase Cloud Messaging)](https://firebase.google.com/docs/cloud-messaging).
 
-
 ## Requirements
-> ⚠️ **We support Android API level 23 and above** ⚠️
+
+- Kotlin **1.8.0** or later
+- Android API level **23** or later
 
 - `minSdkVersion 23` 
 - `compileSdk 34` 
 
 ## Installation
+
 1. Include the [JitPack](https://jitpack.io/#klaviyo/klaviyo-android-sdk) repository in your project's build file
    <details>
       <summary>Kotlin DSL</summary>
@@ -56,8 +58,8 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:2.3.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.3.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.0.0-alpha.1")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.0.0-alpha.1")
       }
       ```
    </details>
@@ -68,8 +70,8 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:2.3.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.3.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.0.0-alpha.1"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.0.0-alpha.1"
        }
       ```
    </details>
@@ -236,7 +238,7 @@ In order to send push notifications to your users, you must collect their push t
 This is done via the `Klaviyo.setPushToken` method, which registers push token and current authorization state
 via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
 Once registered in your manifest, `KlaviyoPushService` will receive *new* push tokens via the `onNewToken` method.
-We also recommend retrieving the current token on app startup and registering it with Klaviyo SDK.
+We also recommend retrieving the latest token value on app startup and registering it with Klaviyo SDK.
 Add the following to your `Application.onCreate` method. 
 
 ```kotlin
@@ -250,6 +252,9 @@ override fun onCreate(savedInstanceState: Bundle?) {
 }
 ```
 
+*As of version 3.0.0*: After setting a push token, the Klaviyo SDK will automatically track changes to
+the user's notification permission whenever the application is opened or resumed from the background.
+
 **Reminder**: `Klaviyo.initialize` is required before using any other Klaviyo SDK functionality, even 
 if you are only using the SDK for push notifications and not analytics.
 
@@ -262,9 +267,9 @@ if you are only using the SDK for push notifications and not analytics.
  provide code examples for requesting permission and handling the user's response.
 
 #### Push tokens and multiple profiles
-Klaviyo SDK will disassociate the device push token from the current profile whenever it is reset by calling 
-`setProfile` or `resetProfile`. You should call `setPushToken` again after resetting the currently tracked profile
-to explicitly associate the device token to the new profile.
+If a new profile was set using `setProfile` or if `resetProfile` was called and a new anonymous 
+profile was created, the push token will be automatically associated with the new profile without 
+any additional action (like setting token again) required. This functionality was added in release `3.0.0`. 
 
 ### Receiving Push Notifications
 `KlaviyoPushService` will handle displaying all notifications via the `onMessageReceived` method regardless of
@@ -285,6 +290,8 @@ This method will check if the app was opened from a notification originating fro
 `Opened Push` event with required message tracking parameters. For example:
 
 ```kotlin
+// Main Activity
+
 override fun onCreate(savedInstanceState: Bundle?) {
     /* ... */
 
@@ -299,8 +306,9 @@ override fun onNewIntent(intent: Intent?) {
 }
 ```
 
-**Note:** Intent handling may differ depending on your app's architecture. Adjust this example to your use-case, 
-ensuring that `Klaviyo.handlePush(intent)` is called when your app is opened from a notification.
+**Note:** Intent handling may differ depending on your app's architecture. By default, the Klaviyo SDK will use your
+app's launch intent for a tapped notification. Adjust this example to your use-case, ensuring that 
+`Klaviyo.handlePush(intent)` is called whenever your app is opened from a notification.
 
 #### Deep Linking 
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular
@@ -484,6 +492,17 @@ the following metadata tag to your manifest file.
     </application>
 </manifest>
 ```
+
+#### Proguard / R8 Issues
+
+If you notice issues in the release build of your apps, you can try to manually add a couple rules
+to your `proguard-rules.pro` to prevent obfuscation:
+```
+-keep class com.klaviyo.analytics.** { *; }
+-keep class com.klaviyo.core.** { *; }
+-keep class com.klaviyo.push-fcm.** { *; }
+```
+
 
 ## Contributing
 See the [contributing guide](.github/CONTRIBUTING.md) to learn how to contribute to the Klaviyo Android SDK.

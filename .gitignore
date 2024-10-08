@@ -19,6 +19,7 @@ local.properties
 IntelliJ files
 .idea/
 *.iml
+google-services.json
 
 # Mac OS files
 .DS_Store
