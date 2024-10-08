@@ -71,6 +71,19 @@ subprojects {
                 )
             }
         }
+
+        /*tasks.register("getConfigValue") {
+            doLast {
+                // Accessing the BuildConfig file using reflection
+                def buildConfig = project(':klaviyo-react-native-sdk').buildDir.toString() + "/generated/source/buildConfig/" + "debug" + "/com/klaviyoreactnativesdk/BuildConfig.class"
+                def classLoader = new URLClassLoader([buildConfig.toURI().toURL()] as URL[])
+                def clazz = classLoader.loadClass("com.klaviyoreactnativesdk.BuildConfig")
+                def sdk_version = clazz.getDeclaredField("SDK_VERSION").get(null)
+                def sdk_name = clazz.getDeclaredField("SDK_NAME").get(null)
+
+                println("DANO SDK version: " + sdk_version " and name " + sdk_name)
+            }
+        }*/
     }
 
     dependencies {

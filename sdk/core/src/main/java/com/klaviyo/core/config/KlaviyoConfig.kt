@@ -130,6 +130,52 @@ object KlaviyoConfig : Config {
         applicationContext.getManifestString(key)
     }
 
+    fun getResourceValue(key: String): String? {
+        if (!this::applicationContext.isInitialized) {
+            Registry.log.error("DANO res value fetch failed because app context not init")
+            return null
+        } else {
+            try {
+                val pkgName = applicationContext.packageName
+                val rawRes = applicationContext.resources.getIdentifier(key, "string", pkgName).also {
+                    Registry.log.error("DANO get resource with $pkgName key $key yields res id $it")
+                }
+                val rawRes2 = applicationContext.resources.getIdentifier(
+                    key,
+                    "string",
+                    "com.klaviyoreactnativesdk"
+                ).also {
+                    Registry.log.error(
+                        "DANO get resource with my own dam package name key $key yields res id $it"
+                    )
+                }
+                val rawRes3 = applicationContext.resources.getIdentifier(
+                    key,
+                    null,
+                    "com.klaviyoreactnativesdk"
+                ).also {
+                    Registry.log.error(
+                        "DANO get resource with null type and key $key yields res id $it"
+                    )
+                }
+                val openedResource = applicationContext.resources.openRawResource(rawRes)
+                openedResource.bufferedReader().forEachLine {
+                    Registry.log.error("DANO new line from raw res: $it")
+                }
+                Registry.log.error(
+                    "DANO raw res 2 yields ${applicationContext.resources.getString(rawRes2)}"
+                )
+                Registry.log.error(
+                    "DANO raw res 3 yields ${applicationContext.resources.getString(rawRes3)}"
+                )
+                return null
+            } catch (e: Exception) {
+                Registry.log.error("DANO failed to read the file ${e.message}")
+                return null
+            }
+        }
+    }
+
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
      */
@@ -265,10 +311,14 @@ object KlaviyoConfig : Config {
 
             val sdkName = getManifestString("com.klaviyo.core.sdk_name")
             val sdkVersion = getManifestString("com.klaviyo.core.sdk_version")
+            val sdkNameRes = getResourceValue("sdk_version")
+            val sdkVersionRes = getResourceValue("sdk_name")
             Registry.log.error("DANO SDK name reads: ${BuildConfig.NAME}")
             Registry.log.error(
                 "DANO SDK property attempt from parent: sdkName = $sdkName sdkVersion = $sdkVersion"
             )
+            Registry.log.error("DANO sdk res read $sdkNameRes")
+            Registry.log.error("DANO sdk version res read $sdkVersionRes")
 
             return KlaviyoConfig
         }
