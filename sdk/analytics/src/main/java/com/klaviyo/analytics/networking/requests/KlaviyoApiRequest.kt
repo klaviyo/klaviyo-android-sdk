@@ -57,7 +57,6 @@ internal open class KlaviyoApiRequest(
         const val HEADER_KLAVIYO_ATTEMPT = "X-Klaviyo-Attempt-Count"
         const val HEADER_RETRY_AFTER = "Retry-After"
         const val TYPE_JSON = "application/json"
-        const val V3_REVISION = "2023-07-15"
 
         const val HTTP_OK = HttpURLConnection.HTTP_OK
         const val HTTP_ACCEPTED = HttpURLConnection.HTTP_ACCEPTED
@@ -173,7 +172,7 @@ internal open class KlaviyoApiRequest(
     override val headers: MutableMap<String, String> = mutableMapOf(
         HEADER_CONTENT to TYPE_JSON,
         HEADER_ACCEPT to TYPE_JSON,
-        HEADER_REVISION to V3_REVISION,
+        HEADER_REVISION to Registry.config.apiRevision,
         HEADER_USER_AGENT to DeviceProperties.userAgent,
         HEADER_KLAVIYO_MOBILE to "1",
         HEADER_KLAVIYO_ATTEMPT to "$attempts/${Registry.config.networkMaxAttempts}"

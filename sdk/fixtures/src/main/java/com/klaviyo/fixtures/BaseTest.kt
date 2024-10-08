@@ -78,6 +78,7 @@ abstract class BaseTest {
         every { networkFlushIntervals } returns longArrayOf(10_000, 30_000, 60_000)
         every { networkJitterRange } returns 0..0
         every { baseUrl } returns "https://test.fake-klaviyo.com"
+        every { apiRevision } returns "1234-56-78"
     }
     protected val mockLifecycleMonitor = mockk<LifecycleMonitor>().apply {
         every { onActivityEvent(any()) } returns Unit
