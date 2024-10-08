@@ -120,11 +120,12 @@ object KlaviyoConfig : Config {
         private set
     override val networkJitterRange = 0..10
 
-    override fun getManifestInt(key: String, defaultValue: Int): Int = if (!this::applicationContext.isInitialized) {
-        defaultValue
-    } else {
-        applicationContext.getManifestInt(key, defaultValue)
-    }
+    override fun getManifestInt(key: String, defaultValue: Int): Int =
+        if (!this::applicationContext.isInitialized) {
+            defaultValue
+        } else {
+            applicationContext.getManifestInt(key, defaultValue)
+        }
 
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
@@ -245,7 +246,37 @@ object KlaviyoConfig : Config {
             }
 
             val context = applicationContext ?: throw MissingContext()
-
+            // attempt to grab resources from the manifest
+            val sdkNameResId =
+                context.resources.getIdentifier(
+                    "sdk_version",
+                    "string",
+                    context.packageName
+                )
+            Registry.log.error(
+                "DANO res id $sdkNameResId from sdk_version" +
+                    " in string in package ${context.packageName}"
+            )
+            val sdkNameResId2 =
+                context.resources.getIdentifier(
+                    "sdK_version",
+                    null,
+                    "com.klaviyoreactnativesdk"
+                )
+            Registry.log.error(
+                "DANO res id $sdkNameResId2 from " +
+                    "sdk_version in string in package com.klaviyoreactnativesdk"
+            )
+            if (sdkNameResId != 0) {
+                Registry.log.error("DANO res id not zero, getting string")
+                val str = context.resources.getString(sdkNameResId)
+                Registry.log.error("DANO $str")
+            }
+            if (sdkNameResId2 != 0) {
+                Registry.log.error("DANO res id 2 not zero, getting string")
+                val str = context.resources.getString(sdkNameResId2)
+                Registry.log.error("DANO $str")
+            }
             val packageInfo = context.packageManager.getPackageInfoCompat(
                 context.packageName,
                 PackageManager.GET_PERMISSIONS
