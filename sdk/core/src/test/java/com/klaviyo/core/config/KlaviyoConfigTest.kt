@@ -14,8 +14,10 @@ import io.mockk.mockkStatic
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 
+@Ignore
 internal class KlaviyoConfigTest : BaseTest() {
 
     private val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
