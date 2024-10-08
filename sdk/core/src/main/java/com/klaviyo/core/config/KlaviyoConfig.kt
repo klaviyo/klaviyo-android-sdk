@@ -139,7 +139,7 @@ object KlaviyoConfig : Config {
                 )
             if (sdkNameResId != 0) {
                 applicationContext.resources.getString(sdkNameResId).also {
-                    Registry.log.debug("Using react-native SDK $key : $it")
+                    Registry.log.error("Using react-native SDK $key : $it")
                 }
             } else {
                 null
