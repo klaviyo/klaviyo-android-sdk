@@ -3,7 +3,7 @@ import static de.fayard.refreshVersions.core.Versions.versionFor
 
 buildscript {
     ext {
-        publishBuildVariant = "release"
+        publishBuildVariant = "debug"
     }
 
     repositories {

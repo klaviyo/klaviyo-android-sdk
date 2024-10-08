@@ -158,10 +158,10 @@ object KlaviyoConfig : Config {
                         "DANO get resource with null type and key $key yields res id $it"
                     )
                 }
-                val openedResource = applicationContext.resources.openRawResource(rawRes)
+                /*val openedResource = applicationContext.resources.openRawResource(rawRes)
                 openedResource.bufferedReader().forEachLine {
                     Registry.log.error("DANO new line from raw res: $it")
-                }
+                }*/
                 Registry.log.error(
                     "DANO raw res 2 yields ${applicationContext.resources.getString(rawRes2)}"
                 )
@@ -384,16 +384,6 @@ fun Context.getManifestString(key: String): String? {
     val pkgManager = packageManager
     val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
     val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
-    /*try {
-        val rawRes = applicationContext.resources.getIdentifier("test.txt", "raw", pkgName)
-        val openedResource = applicationContext.resources.openRawResource(rawRes)
-        openedResource.bufferedReader().forEachLine {
-            Registry.log.error("DANO new line from raw res: $it")
-        }
-    } catch (e: Exception) {
-        Registry.log.error("DANO failed to read the file ${e.message}")
-    }*/
-
     // a different attempt to read raw res as well
     try {
         val printed = manifestMetadata.keySet().fold("") { acc: String, s: String? -> acc + s }

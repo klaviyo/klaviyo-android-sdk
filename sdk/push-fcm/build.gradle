@@ -28,7 +28,7 @@ afterEvaluate {
     publishing {
         publications {
             // Creates a Maven publication called "release".
-            release(MavenPublication) {
+            debug(MavenPublication) {
                 from components[ext.publishBuildVariant]
                 groupId = klaviyoGroupId
                 artifactId = "push-fcm"
