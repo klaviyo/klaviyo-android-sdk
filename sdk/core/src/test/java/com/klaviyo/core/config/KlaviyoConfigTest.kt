@@ -14,10 +14,8 @@ import io.mockk.mockkStatic
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Test
 
-@Ignore
 internal class KlaviyoConfigTest : BaseTest() {
 
     private val mockPackageManagerFlags = mockk<PackageManager.PackageInfoFlags>()
@@ -155,7 +153,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(180_000, KlaviyoConfig.networkMaxRetryInterval)
 
         // Each bad call should have generated an error log
-        verify(exactly = 8) { spyLog.error(any(), null) }
+        verify(exactly = 10) { spyLog.error(any(), null) }
     }
 
     @Test(expected = MissingAPIKey::class)
