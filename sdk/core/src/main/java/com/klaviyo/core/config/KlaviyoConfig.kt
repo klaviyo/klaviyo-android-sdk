@@ -94,8 +94,8 @@ object KlaviyoConfig : Config {
 
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
         private set
-    override var sdkName: String = BuildConfig.NAME
-    override var sdkVersion: String = BuildConfig.VERSION
+    override var sdkName: String = getReactNativeSdkProperty("sdk_name") ?: BuildConfig.NAME
+    override var sdkVersion: String = getReactNativeSdkProperty("sdk_version") ?: BuildConfig.VERSION
     override lateinit var apiKey: String private set
     override lateinit var applicationContext: Context private set
     override var debounceInterval = DEBOUNCE_INTERVAL
@@ -121,6 +121,25 @@ object KlaviyoConfig : Config {
             defaultValue
         } else {
             applicationContext.getManifestInt(key, defaultValue)
+        }
+    private fun getReactNativeSdkProperty(key: String): String? =
+        if (!this::applicationContext.isInitialized) {
+            null
+        } else {
+            // check to see if react-native string is in app resources
+            val sdkNameResId =
+                applicationContext.resources.getIdentifier(
+                    key,
+                    "string",
+                    applicationContext.packageName
+                )
+            if (sdkNameResId != 0) {
+                applicationContext.resources.getString(sdkNameResId).also {
+                    Registry.log.debug("Using react-native SDK $key : $it")
+                }
+            } else {
+                null
+            }
         }
 
     /**
@@ -237,37 +256,6 @@ object KlaviyoConfig : Config {
             }
 
             val context = applicationContext ?: throw MissingContext()
-            // attempt to grab resources from the manifest
-            val sdkNameResId =
-                context.resources.getIdentifier(
-                    "sdk_version",
-                    "string",
-                    context.packageName
-                )
-            Registry.log.error(
-                "DANO res id $sdkNameResId from sdk_version" +
-                    " in string in package ${context.packageName}"
-            )
-            val sdkNameResId2 =
-                context.resources.getIdentifier(
-                    "sdK_version",
-                    null,
-                    "com.klaviyoreactnativesdk"
-                )
-            Registry.log.error(
-                "DANO res id $sdkNameResId2 from " +
-                    "sdk_version in string in package com.klaviyoreactnativesdk"
-            )
-            if (sdkNameResId != 0) {
-                Registry.log.error("DANO res id not zero, getting string")
-                val str = context.resources.getString(sdkNameResId)
-                Registry.log.error("DANO $str")
-            }
-            if (sdkNameResId2 != 0) {
-                Registry.log.error("DANO res id 2 not zero, getting string")
-                val str = context.resources.getString(sdkNameResId2)
-                Registry.log.error("DANO $str")
-            }
             val packageInfo = context.packageManager.getPackageInfoCompat(
                 context.packageName,
                 PackageManager.GET_PERMISSIONS
