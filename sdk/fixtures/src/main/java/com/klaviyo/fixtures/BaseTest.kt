@@ -63,35 +63,42 @@ abstract class BaseTest {
     protected val mockApplicationInfo = mockk<ApplicationInfo>()
     protected val mockPackageManager = mockk<PackageManager>()
 
-    protected val contextMock = mockk<Context>().apply {
+    protected val mockContext = mockk<Context>().apply {
         every { applicationInfo } returns mockApplicationInfo
         every { packageManager } returns mockPackageManager
     }
 
-    protected val configMock = mockk<Config>().apply {
+    protected val debounceTime = 5
+    protected val mockConfig = mockk<Config>().apply {
         every { apiKey } returns API_KEY
-        every { applicationContext } returns contextMock
+        every { applicationContext } returns mockContext
+        every { debounceInterval } returns debounceTime
         every { networkMaxAttempts } returns 50
         every { networkMaxRetryInterval } returns 180_000L
         every { networkFlushIntervals } returns longArrayOf(10_000, 30_000, 60_000)
         every { networkJitterRange } returns 0..0
         every { baseUrl } returns "https://test.fake-klaviyo.com"
+        every { apiRevision } returns "1234-56-78"
     }
-    protected val lifecycleMonitorMock = mockk<LifecycleMonitor>()
-    protected val networkMonitorMock = mockk<NetworkMonitor>()
-    protected val dataStoreSpy = spyk(InMemoryDataStore())
-    protected val logSpy = spyk(LogFixture())
+    protected val mockLifecycleMonitor = mockk<LifecycleMonitor>().apply {
+        every { onActivityEvent(any()) } returns Unit
+        every { offActivityEvent(any()) } returns Unit
+    }
+    protected val mockNetworkMonitor = mockk<NetworkMonitor>()
+    protected val spyDataStore = spyk(InMemoryDataStore())
+    protected val spyLog = spyk(LogFixture())
+    protected val staticClock = StaticClock(TIME, ISO_TIME)
 
     @Before
     open fun setup() {
         // Mock Registry by default to encourage unit tests to be decoupled from other services
         mockkObject(Registry)
-        every { Registry.config } returns configMock
-        every { Registry.lifecycleMonitor } returns lifecycleMonitorMock
-        every { Registry.networkMonitor } returns networkMonitorMock
-        every { Registry.dataStore } returns dataStoreSpy
-        every { Registry.clock } returns StaticClock(TIME, ISO_TIME)
-        every { Registry.log } returns logSpy
+        every { Registry.config } returns mockConfig
+        every { Registry.lifecycleMonitor } returns mockLifecycleMonitor
+        every { Registry.networkMonitor } returns mockNetworkMonitor
+        every { Registry.dataStore } returns spyDataStore
+        every { Registry.clock } returns staticClock
+        every { Registry.log } returns spyLog
 
         // Mock using latest SDK
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)

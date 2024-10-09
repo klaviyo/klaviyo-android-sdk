@@ -24,7 +24,7 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
 
     private fun withPreferenceMock() {
         every {
-            contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE)
+            mockContext.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE)
         } returns preferenceMock
     }
 
@@ -48,13 +48,13 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
 
         SharedPreferencesDataStore.store(stubKey, stubValue)
 
-        verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
+        verify { mockContext.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
         verify { preferenceMock.edit() }
         verify { editorMock.putString(stubKey, stubValue) }
         verify { editorMock.apply() }
 
         // And verify log output
-        verify { logSpy.verbose("$stubKey=$stubValue") }
+        verify { spyLog.verbose("$stubKey=$stubValue") }
     }
 
     @Test
@@ -65,14 +65,14 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
 
         SharedPreferencesDataStore.fetchOrCreate(stubKey) { stubValue }
 
-        verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
+        verify { mockContext.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
         verify { preferenceMock.getString(stubKey, null) }
         verify { preferenceMock.edit() }
         verify { editorMock.putString(stubKey, stubValue) }
         verify { editorMock.apply() }
 
         // And verify log output for writing
-        verify { logSpy.verbose("$stubKey=$stubValue") }
+        verify { spyLog.verbose("$stubKey=$stubValue") }
     }
 
     @Test
@@ -105,13 +105,13 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
 
         SharedPreferencesDataStore.clear(stubKey)
 
-        verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
+        verify { mockContext.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
         verify { preferenceMock.edit() }
         verify { editorMock.remove(stubKey) }
         verify { editorMock.apply() }
 
         // And verify log output
-        verify { logSpy.verbose("$stubKey=null") }
+        verify { spyLog.verbose("$stubKey=null") }
     }
 
     @Test
@@ -124,7 +124,7 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
         val actualString = SharedPreferencesDataStore.fetch(key = stubKey)
 
         assertEquals(expectedString, actualString)
-        verify { contextMock.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
+        verify { mockContext.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE) }
         verify { preferenceMock.getString(stubKey, null) }
         verify(inverse = true) { editorMock.apply() }
     }

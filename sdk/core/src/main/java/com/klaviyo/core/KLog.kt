@@ -6,7 +6,26 @@ import com.klaviyo.core.config.Log
 import com.klaviyo.core.config.Log.Level
 import java.util.regex.Pattern
 
-open class KLog : Log {
+object KLog : Log {
+
+    /**
+     * Log level key for manifest, specifying the minimum log level to output, see [Log.logLevel]
+     */
+    private const val LOG_LEVEL = "com.klaviyo.core.log_level"
+
+    private const val MAX_TAG_LENGTH = 23
+
+    private val ANONYMOUS_CLASS = Pattern.compile("(\\$\\d+)+$")
+
+    private val ignoreList = listOf(
+        KLog::class.java.name
+    )
+
+    private val defaultLogLevel = if (BuildConfig.DEBUG) {
+        Level.Warning
+    } else {
+        Level.Error
+    }
 
     private var _logLevel: Level? = null
     override var logLevel: Level
@@ -48,62 +67,39 @@ open class KLog : Log {
         }
     }
 
-    private companion object {
-        /**
-         * Log level key for manifest, specifying the minimum log level to output, see [Log.logLevel]
-         */
-        private const val LOG_LEVEL = "com.klaviyo.core.log_level"
+    /**
+     * Inspired from reading through Timber source code
+     * We really don't need the full dependency though
+     *
+     * Extract the tag which should be used for the message from the `element`. By default,
+     * this will use the class name without any anonymous class suffixes (e.g., `Foo$1`
+     * becomes `Foo`).
+     *
+     * NOTE: This will not be called if a manual tag is specified
+     */
+    private fun makeTag(): String = Throwable().stackTrace
+        .first { it.className !in ignoreList && !it.className.contains(Log::class.java.name) }
+        .let { element ->
+            var tag = element.className.substringAfterLast('.')
+            tag = if (element.methodName == "invoke") "$tag:${element.lineNumber}" else tag
 
-        private val defaultLogLevel = if (BuildConfig.DEBUG) {
-            Level.Warning
-        } else {
-            Level.Error
-        }
-
-        /**
-         * Inspired from reading through Timber source code
-         * We really don't need the full dependency though
-         */
-
-        private const val MAX_TAG_LENGTH = 23
-        private val ANONYMOUS_CLASS = Pattern.compile("(\\$\\d+)+$")
-
-        private val ignoreList = listOf(
-            KLog::class.java.name,
-            Companion::class.java.name
-        )
-
-        /**
-         * Extract the tag which should be used for the message from the `element`. By default
-         * this will use the class name without any anonymous class suffixes (e.g., `Foo$1`
-         * becomes `Foo`).
-         *
-         * NOTE: This will not be called if a manual tag is specified
-         */
-        private fun makeTag(): String = Throwable().stackTrace
-            .first { it.className !in ignoreList && !it.className.contains(Log::class.java.name) }
-            .let { element ->
-                var tag = element.className.substringAfterLast('.')
-                tag = if (element.methodName == "invoke") "$tag:${element.lineNumber}" else tag
-
-                val m = ANONYMOUS_CLASS.matcher(tag)
-                if (m.find()) {
-                    tag = m.replaceAll("")
-                }
-
-                // Make sure tag contains our name
-                if (!tag.lowercase().contains("klaviyo")) {
-                    tag = "Klaviyo.$tag"
-                }
-
-                // Tag length limit was removed in API 26.
-                tag = if (tag.length <= MAX_TAG_LENGTH || Build.VERSION.SDK_INT >= 26) {
-                    tag
-                } else {
-                    tag.substring(0, MAX_TAG_LENGTH)
-                }
-
-                return tag
+            val m = ANONYMOUS_CLASS.matcher(tag)
+            if (m.find()) {
+                tag = m.replaceAll("")
             }
-    }
+
+            // Make sure tag contains our name
+            if (!tag.lowercase().contains("klaviyo")) {
+                tag = "Klaviyo.$tag"
+            }
+
+            // Tag length limit was removed in API 26.
+            tag = if (tag.length <= MAX_TAG_LENGTH || Build.VERSION.SDK_INT >= 26) {
+                tag
+            } else {
+                tag.substring(0, MAX_TAG_LENGTH)
+            }
+
+            return tag
+        }
 }

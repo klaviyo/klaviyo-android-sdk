@@ -28,7 +28,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
     override val expectedQuery: Map<String, String> = emptyMap()
 
-    private val expectedFullUrl = "${configMock.baseUrl}/$expectedUrl"
+    private val expectedFullUrl = "${mockConfig.baseUrl}/$expectedUrl"
 
     private val bodySlot = slot<String>()
 
@@ -49,12 +49,29 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         return connectionSpy
     }
 
+    private fun withErrorConnectionMock(expectedUrl: URL, errorBodyString: String): HttpURLConnection {
+        val connectionSpy = spyk(expectedUrl.openConnection()) as HttpURLConnection
+        val inputStream = ByteArrayInputStream("success".toByteArray())
+        val errorStream = ByteArrayInputStream(errorBodyString.toByteArray())
+
+        mockkObject(HttpUtil)
+        every { HttpUtil.openConnection(expectedUrl) } returns connectionSpy
+        every { HttpUtil.writeToConnection(capture(bodySlot), connectionSpy) } returns Unit
+        every { connectionSpy.connect() } returns Unit
+        every { connectionSpy.responseCode } returns 400
+        every { connectionSpy.headerFields } returns emptyMap()
+        every { connectionSpy.inputStream } returns inputStream
+        every { connectionSpy.errorStream } returns errorStream
+
+        return connectionSpy
+    }
+
     @Before
     override fun setup() {
         super.setup()
-        every { networkMonitorMock.isNetworkConnected() } returns true
-        every { configMock.networkTimeout } returns 1
-        every { configMock.networkFlushIntervals } returns longArrayOf(10_000L, 30_000L, 60_000L)
+        every { mockNetworkMonitor.isNetworkConnected() } returns true
+        every { mockConfig.networkTimeout } returns 1
+        every { mockConfig.networkFlushIntervals } returns longArrayOf(10_000L, 30_000L, 60_000L)
     }
 
     @After
@@ -136,7 +153,6 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         assertEquals(0, request.attempts)
         request.send()
         assertEquals(1, request.attempts)
-        assertEquals(request.headers["X-Klaviyo-Attempt-Count"], "1/50")
         verify { connectionMock.setRequestProperty("X-Klaviyo-Attempt-Count", "1/50") }
     }
 
@@ -155,7 +171,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     @Test
     fun `Parses Retry-After header if present and adds jitter`() {
         val expectedHeaders = mapOf("Retry-After" to listOf("25"))
-        every { configMock.networkJitterRange } returns 1..1
+        every { mockConfig.networkJitterRange } returns 1..1
         withConnectionMock(URL(expectedFullUrl)).also {
             every { it.headerFields } returns expectedHeaders
         }
@@ -168,8 +184,8 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     @Test
     fun `Falls back on network interval without jitter when Retry-After header is missing or invalid`() {
         // Wifi interval is 10s, force jitter to be 1s
-        every { networkMonitorMock.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
-        every { configMock.networkJitterRange } returns 1..1
+        every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
+        every { mockConfig.networkJitterRange } returns 1..1
 
         val request = makeTestRequest()
         assertEquals(10_000L, request.computeRetryInterval())
@@ -219,7 +235,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
     @Test
     fun `Send returns unsent status when internet is unavailable`() {
-        every { networkMonitorMock.isNetworkConnected() } returns false
+        every { mockNetworkMonitor.isNetworkConnected() } returns false
 
         val request = makeTestRequest()
 
@@ -256,7 +272,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
         val request = makeTestRequest()
 
-        repeat(configMock.networkMaxAttempts - 1) {
+        repeat(mockConfig.networkMaxAttempts - 1) {
             // Should be retryable until max attempts hit
             assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
             assertEquals(request.headers["X-Klaviyo-Attempt-Count"], "${it + 1}/50")
@@ -398,5 +414,124 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         assertEquals("queryValue", get.query["queryKey"])
         assertEquals(null, get.body)
         assertEquals(0, get.attempts)
+    }
+
+    @Test
+    fun `Malformed error response body`() {
+        withErrorConnectionMock(
+            URL(expectedFullUrl),
+            errorBodyString = """
+                    {
+                    ckajns dlckjabsdlckjbsdcsc
+                    kjdfns vkajn df
+                    8723986243
+                    all crabs are crustaceans
+            """.trimIndent()
+        )
+        val expectedErrorBody = KlaviyoErrorResponse(listOf())
+        val request = makeTestRequest()
+        request.send()
+
+        assertEquals(request.errorBody, expectedErrorBody)
+    }
+
+    @Test
+    fun `Empty error response body`() {
+        withErrorConnectionMock(
+            URL(expectedFullUrl),
+            errorBodyString = """
+                    {
+                    }
+            """.trimIndent()
+        )
+        val expectedErrorBody = KlaviyoErrorResponse(listOf())
+        val request = makeTestRequest()
+        request.send()
+
+        assertEquals(request.errorBody, expectedErrorBody)
+    }
+
+    @Test
+    fun `Phone number format error body created`() {
+        withErrorConnectionMock(
+            URL(expectedFullUrl),
+            errorBodyString = """
+                    {
+                      "errors": [
+                        {
+                          "id": "67ed6dbf-1653-499b-a11d-30310aa01ff7",
+                          "status": 400,
+                          "code": "invalid",
+                          "title": "Invalid input.",
+                          "detail": "Invalid phone number format (Example of a valid format: +12345678901)",
+                          "source": {
+                            "pointer": "/data/attributes/phone_number"
+                          },
+                          "links": {},
+                          "meta": {}
+                        }
+                      ]
+                    }
+            """.trimIndent()
+        )
+        val expectedErrorBody = KlaviyoErrorResponse(
+            listOf(
+                KlaviyoError(
+                    id = "67ed6dbf-1653-499b-a11d-30310aa01ff7",
+                    status = 400,
+                    title = "Invalid input.",
+                    detail = "Invalid phone number format (Example of a valid format: +12345678901)",
+                    source = KlaviyoErrorSource(
+                        pointer = "/data/attributes/phone_number"
+                    )
+                )
+            )
+        )
+        val request = makeTestRequest()
+        request.send()
+
+        assertEquals(request.errorBody, expectedErrorBody)
+    }
+
+    @Test
+    fun `Email format error body created`() {
+        withErrorConnectionMock(
+            URL(expectedFullUrl),
+            errorBodyString = """
+                    {
+                      "errors": [
+                        {
+                          "id": "4f739784-390b-4df3-acd8-6eb07d60e6b4",
+                          "status": 400,
+                          "code": "invalid",
+                          "title": "Invalid input.",
+                          "detail": "Invalid email address",
+                          "source": {
+                            "pointer": "/data/attributes/email"
+                          },
+                          "links": {},
+                          "meta": {}
+                        }
+                      ]
+                    }
+            """.trimIndent()
+        )
+        val expectedErrorBody = KlaviyoErrorResponse(
+            listOf(
+                KlaviyoError(
+                    id = "4f739784-390b-4df3-acd8-6eb07d60e6b4",
+                    status = 400,
+                    title = "Invalid input.",
+                    detail = "Invalid email address",
+                    source = KlaviyoErrorSource(
+                        pointer = "/data/attributes/email"
+                    )
+                )
+            )
+        )
+        val request = makeTestRequest()
+        request.send()
+
+        assertEquals(request.errorBody, expectedErrorBody)
     }
 }

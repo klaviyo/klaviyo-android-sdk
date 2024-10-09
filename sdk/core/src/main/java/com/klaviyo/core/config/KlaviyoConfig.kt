@@ -94,6 +94,12 @@ object KlaviyoConfig : Config {
 
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
         private set
+    override var apiRevision: String = BuildConfig.KLAVIYO_API_REVISION
+        private set
+    override var sdkName: String = BuildConfig.NAME
+        private set
+    override var sdkVersion: String = BuildConfig.VERSION
+        private set
     override lateinit var apiKey: String private set
     override lateinit var applicationContext: Context private set
     override var debounceInterval = DEBOUNCE_INTERVAL
@@ -127,6 +133,9 @@ object KlaviyoConfig : Config {
         private var apiKey: String = ""
         private var applicationContext: Context? = null
         private var baseUrl: String? = null
+        private var apiRevision: String? = null
+        private var sdkName: String? = null
+        private var sdkVersion: String? = null
         private var debounceInterval: Int = DEBOUNCE_INTERVAL
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
         private var networkFlushIntervals = longArrayOf(
@@ -153,6 +162,18 @@ object KlaviyoConfig : Config {
 
         override fun baseUrl(baseUrl: String): Config.Builder = apply {
             this.baseUrl = baseUrl
+        }
+
+        override fun apiRevision(apiRevision: String): Config.Builder = apply {
+            this.apiRevision = apiRevision
+        }
+
+        override fun sdkName(name: String): Config.Builder = apply {
+            this.sdkName = name
+        }
+
+        override fun sdkVersion(version: String): Config.Builder = apply {
+            this.sdkVersion = version
         }
 
         override fun debounceInterval(debounceInterval: Int) = apply {
@@ -232,6 +253,9 @@ object KlaviyoConfig : Config {
             packageInfo.assertRequiredPermissions(requiredPermissions)
 
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
+            apiRevision?.let { KlaviyoConfig.apiRevision = it }
+            sdkName?.let { KlaviyoConfig.sdkName = it }
+            sdkVersion?.let { KlaviyoConfig.sdkVersion = it }
             KlaviyoConfig.apiKey = apiKey
             KlaviyoConfig.applicationContext = context
             KlaviyoConfig.debounceInterval = debounceInterval

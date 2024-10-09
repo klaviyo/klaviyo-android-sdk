@@ -19,12 +19,12 @@ import org.junit.Test
 
 internal class KlaviyoUninitializedTest {
 
-    private val logger = spyk(LogFixture())
+    private val spyLog = spyk(LogFixture())
 
     @Before
     fun setup() {
         mockkObject(Registry)
-        every { Registry.log } returns logger
+        every { Registry.log } returns spyLog
     }
 
     @After
@@ -33,7 +33,7 @@ internal class KlaviyoUninitializedTest {
     }
 
     private inline fun <reified T> assertCaught() where T : Throwable {
-        verify { logger.error(any(), any<T>()) }
+        verify { spyLog.error(any(), any<T>()) }
     }
 
     @Test
@@ -86,7 +86,7 @@ internal class KlaviyoUninitializedTest {
 
     @Test
     fun `Push token getter is protected`() {
-        assertNull(Klaviyo.getPushToken())
+        Klaviyo.getPushToken()
         assertCaught<MissingConfig>()
     }
 

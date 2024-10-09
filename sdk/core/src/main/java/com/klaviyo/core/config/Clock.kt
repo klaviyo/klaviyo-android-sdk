@@ -4,7 +4,7 @@ interface Clock {
 
     fun currentTimeMillis(): Long
 
-    fun isoTime(milliseconds: Long = SystemClock.currentTimeMillis()): String
+    fun isoTime(milliseconds: Long = currentTimeMillis()): String
 
     fun schedule(delay: Long, task: () -> Unit): Cancellable
 

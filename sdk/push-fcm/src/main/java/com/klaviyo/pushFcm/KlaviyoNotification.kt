@@ -29,6 +29,7 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.imageUrl
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationCount
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationPriority
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationTag
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.sound
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 import java.net.URL
@@ -62,12 +63,13 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val COLOR_KEY = "color"
         internal const val NOTIFICATION_COUNT_KEY = "notification_count"
         internal const val NOTIFICATION_PRIORITY = "notification_priority"
+        internal const val NOTIFICATION_TAG = "notification_tag"
         private const val DOWNLOAD_TIMEOUT_MS = 5_000
 
         /**
          * Get an integer ID to associate with a notification or its pending intent
-         * The notification system service will de-dupe on this ID alone,
-         * and I don't think we want our notifications to be de-duped
+         * The notification system service will de-dupe on this if we get a null
+         * notification tag from the payload
          *
          * NOTE: The FCM SDK also uses a timestamp to construct its integer IDs
          */
@@ -104,7 +106,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
         NotificationManagerCompat
             .from(context)
-            .notify(generateId(), notification.build())
+            .notify(message.notificationTag ?: generateId().toString(), 0, notification.build())
 
         return true
     }

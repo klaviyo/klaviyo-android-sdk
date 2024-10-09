@@ -3,13 +3,14 @@ package com.klaviyo.analytics
 import android.app.Application
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.After
 import org.junit.Before
@@ -24,12 +25,12 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
         every { applicationContext(any()) } returns this
         every { build() } answers {
             configBuilt = true
-            configMock
+            mockConfig
         }
 
         // Mock real world behavior where accessing data store prior to initializing throws MissingConfig
-        // While also allowing dataStoreSpy to work post-initialization
-        every { dataStoreSpy.fetch(any()) } answers {
+        // While also allowing spyDataStore to work post-initialization
+        every { spyDataStore.fetch(any()) } answers {
             if (!configBuilt) {
                 throw MissingConfig()
             } else {
@@ -41,16 +42,18 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
     private val mockApiClient: ApiClient = mockk<ApiClient>().apply {
         every { startService() } returns Unit
         every { onApiRequest(any(), any()) } returns Unit
+        every { offApiRequest(any()) } returns Unit
         every { enqueueProfile(any()) } returns Unit
         every { enqueueEvent(any(), any()) } returns Unit
         every { enqueuePushToken(any(), any()) } returns Unit
+        every { enqueueUnregisterPushToken(any(), any(), any()) } returns Unit
     }
 
     @Before
     override fun setup() {
         super.setup()
         every { Registry.configBuilder } returns mockBuilder
-        every { contextMock.applicationContext } returns mockk<Application>().apply {
+        every { mockContext.applicationContext } returns mockk<Application>().apply {
             every { unregisterActivityLifecycleCallbacks(any()) } returns Unit
             every { registerActivityLifecycleCallbacks(any()) } returns Unit
         }
@@ -59,14 +62,16 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
 
     @After
     override fun cleanup() {
-        unmockkObject(UserInfo)
         Registry.unregister<Config>()
+        Registry.get<State>().reset()
+        Registry.unregister<State>()
+        Registry.unregister<StateSideEffects>()
         Registry.unregister<ApiClient>()
         super.cleanup()
     }
 
     private inline fun <reified T> assertCaught() where T : Throwable {
-        verify { logSpy.error(any(), any<T>()) }
+        verify { spyLog.error(any(), any<T>()) }
     }
 
     @Test
@@ -81,12 +86,12 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
 
         Klaviyo.initialize(
             apiKey = API_KEY,
-            applicationContext = contextMock
+            applicationContext = mockContext
         )
 
         Klaviyo.initialize(
             apiKey = "different-$API_KEY",
-            applicationContext = contextMock
+            applicationContext = mockContext
         )
 
         verify(inverse = true) {

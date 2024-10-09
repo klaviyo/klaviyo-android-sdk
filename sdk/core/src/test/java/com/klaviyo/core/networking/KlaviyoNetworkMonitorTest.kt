@@ -38,8 +38,8 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         super.setup()
 
         // Mock connectivityManager for spot check and for callbacks
-        every { contextMock.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
-        every { contextMock.getSystemService(ConnectivityManager::class.java) } returns connectivityManagerMock
+        every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManagerMock
+        every { mockContext.getSystemService(ConnectivityManager::class.java) } returns connectivityManagerMock
         every { connectivityManagerMock.activeNetwork } returns networkMock
         every { connectivityManagerMock.getNetworkCapabilities(null) } returns null
         every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock
@@ -144,11 +144,11 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
 
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
         netCallbackSlot.captured.onAvailable(mockk())
-        verify { logSpy.verbose("Network available") }
+        verify { spyLog.verbose("Network available") }
 
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
         netCallbackSlot.captured.onUnavailable()
-        verify { logSpy.verbose("Network unavailable") }
+        verify { spyLog.verbose("Network unavailable") }
     }
 
     @Test
