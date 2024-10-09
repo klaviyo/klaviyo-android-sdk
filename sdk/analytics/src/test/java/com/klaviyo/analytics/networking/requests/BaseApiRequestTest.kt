@@ -16,7 +16,7 @@ internal abstract class BaseApiRequestTest<T> : BaseTest() where T : KlaviyoApiR
     open val expectedHeaders = mapOf(
         "Content-Type" to "application/json",
         "Accept" to "application/json",
-        "Revision" to "2023-07-15",
+        "Revision" to "1234-56-78",
         "User-Agent" to "Mock User Agent",
         "X-Klaviyo-Mobile" to "1",
         "X-Klaviyo-Attempt-Count" to "0/50" // Note: 0/50 is just the default, it increments to 1/50 before a real send!

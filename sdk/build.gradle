@@ -18,6 +18,7 @@ subprojects {
             localProperties.load(new FileInputStream(rootProject.file("local.properties")))
         }
         def serverTarget = localProperties["localKlaviyoServerUrl"] ?: klaviyoServerUrl
+        def apiRevision = localProperties["localKlaviyoApiRevision"] ?: klaviyoApiRevision
 
         defaultConfig {
             minSdkVersion versionFor(project, "version.android.minSdk") as Integer
@@ -46,12 +47,14 @@ subprojects {
                 minifyEnabled false
                 proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
+                buildConfigField "String", "KLAVIYO_API_REVISION", "\"${apiRevision}\""
                 buildConfigField "String", "VERSION", "\"${versionFor(project, "version.klaviyo.versionName")}\""
                 buildConfigField "String", "NAME", "\"${klaviyoAndroidSDKName}\""
             }
             debug {
                 debuggable = true
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
+                buildConfigField "String", "KLAVIYO_API_REVISION", "\"${apiRevision}\""
                 buildConfigField "String", "VERSION", "\"${versionFor(project, "version.klaviyo.versionName")}\""
                 buildConfigField "String", "NAME", "\"${klaviyoAndroidSDKName}\""
             }
