@@ -97,8 +97,8 @@ object KlaviyoConfig : Config {
      * These help us access these fields in the application context and determine if the android SDK
      * is being used natively or within our react-native SDK
      */
-    private const val KLAVIYO_REACT_NATIVE_SDK_VERSION_KEY = "klaviyo_react_native_sdk_version"
-    private const val KLAVIYO_REACT_NATIVE_SDK_NAME_KEY = "klaviyo_react_native_sdk_name"
+    private const val KLAVIYO_SDK_VERSION_OVERRIDE = "klaviyo_sdk_version_override"
+    private const val KLAVIYO_SDK_NAME_OVERRIDE = "klaviyo_sdk_name_override"
     private const val KLAVIYO_MANIFEST_RESOURCE_TYPE = "string"
 
     override val isDebugBuild = BuildConfig.DEBUG
@@ -142,7 +142,7 @@ object KlaviyoConfig : Config {
      * Helper to grab string resource from application using SDK - uses reflection
      */
     @SuppressLint("DiscouragedApi")
-    private fun getReactNativeSdkProperty(key: String): String? =
+    private fun getDependentSdkProperty(key: String): String? =
         if (!this::applicationContext.isInitialized) {
             null
         } else {
@@ -156,13 +156,13 @@ object KlaviyoConfig : Config {
                     )
                 if (sdkNameResId != 0) {
                     applicationContext.resources.getString(sdkNameResId).also {
-                        Registry.log.debug("Using Klaviyo react-native SDK $key : $it")
+                        Registry.log.debug("Found dependent SDK property {$key : $it}")
                     }
                 } else {
                     null
                 }
             } catch (e: Exception) {
-                Registry.log.error("Failed to check for react-native SDK resource property")
+                Registry.log.error("Failed to check dependent SDK resource property $key")
                 null
             }
         }
@@ -207,14 +207,6 @@ object KlaviyoConfig : Config {
 
         override fun apiRevision(apiRevision: String): Config.Builder = apply {
             this.apiRevision = apiRevision
-        }
-
-        override fun sdkName(name: String): Config.Builder = apply {
-            this.sdkName = name
-        }
-
-        override fun sdkVersion(version: String): Config.Builder = apply {
-            this.sdkVersion = version
         }
 
         override fun debounceInterval(debounceInterval: Int) = apply {
@@ -293,9 +285,9 @@ object KlaviyoConfig : Config {
             packageInfo.assertRequiredPermissions(requiredPermissions)
 
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
+            getDependentSdkProperty(KLAVIYO_SDK_NAME_OVERRIDE)?.let { sdkName = it }
+            getDependentSdkProperty(KLAVIYO_SDK_VERSION_OVERRIDE)?.let { sdkVersion = it }
             apiRevision?.let { KlaviyoConfig.apiRevision = it }
-            getReactNativeSdkProperty(KLAVIYO_REACT_NATIVE_SDK_NAME_KEY)?.let { sdkName = it }
-            getReactNativeSdkProperty(KLAVIYO_REACT_NATIVE_SDK_VERSION_KEY)?.let { sdkVersion = it }
             KlaviyoConfig.apiKey = apiKey
             KlaviyoConfig.applicationContext = context
             KlaviyoConfig.debounceInterval = debounceInterval
