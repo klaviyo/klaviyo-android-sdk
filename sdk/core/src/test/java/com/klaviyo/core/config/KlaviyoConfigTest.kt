@@ -153,7 +153,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(180_000, KlaviyoConfig.networkMaxRetryInterval)
 
         // Each bad call should have generated an error log
-        verify(exactly = 8) { spyLog.error(any(), null) }
+        verify(exactly = 10) { spyLog.error(any(), null) }
     }
 
     @Test(expected = MissingAPIKey::class)

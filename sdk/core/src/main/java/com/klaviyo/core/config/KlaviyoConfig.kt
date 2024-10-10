@@ -1,6 +1,7 @@
 package com.klaviyo.core.config
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
@@ -90,6 +91,16 @@ object KlaviyoConfig : Config {
      */
     private const val NETWORK_MAX_RETRY_INTERVAL_DEFAULT: Long = 180_000
 
+    /**
+     * We need to check if there is a resource for the react native sdk version and name
+     *
+     * These help us access these fields in the application context and determine if the android SDK
+     * is being used natively or within our react-native SDK
+     */
+    private const val KLAVIYO_SDK_VERSION_OVERRIDE = "klaviyo_sdk_version_override"
+    private const val KLAVIYO_SDK_NAME_OVERRIDE = "klaviyo_sdk_name_override"
+    private const val KLAVIYO_MANIFEST_RESOURCE_TYPE = "string"
+
     override val isDebugBuild = BuildConfig.DEBUG
 
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
@@ -120,11 +131,41 @@ object KlaviyoConfig : Config {
         private set
     override val networkJitterRange = 0..10
 
-    override fun getManifestInt(key: String, defaultValue: Int): Int = if (!this::applicationContext.isInitialized) {
-        defaultValue
-    } else {
-        applicationContext.getManifestInt(key, defaultValue)
-    }
+    override fun getManifestInt(key: String, defaultValue: Int): Int =
+        if (!this::applicationContext.isInitialized) {
+            defaultValue
+        } else {
+            applicationContext.getManifestInt(key, defaultValue)
+        }
+
+    /**
+     * Helper to grab string resource from application using SDK - uses reflection
+     */
+    @SuppressLint("DiscouragedApi")
+    private fun getDependentSdkProperty(key: String): String? =
+        if (!this::applicationContext.isInitialized) {
+            null
+        } else {
+            try {
+                // check to see if react-native string is in app resources
+                val sdkNameResId =
+                    applicationContext.resources.getIdentifier(
+                        key,
+                        KLAVIYO_MANIFEST_RESOURCE_TYPE,
+                        applicationContext.packageName
+                    )
+                if (sdkNameResId != 0) {
+                    applicationContext.resources.getString(sdkNameResId).also {
+                        Registry.log.debug("Found dependent SDK property {$key : $it}")
+                    }
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                Registry.log.error("Failed to check dependent SDK resource property $key")
+                null
+            }
+        }
 
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
@@ -166,14 +207,6 @@ object KlaviyoConfig : Config {
 
         override fun apiRevision(apiRevision: String): Config.Builder = apply {
             this.apiRevision = apiRevision
-        }
-
-        override fun sdkName(name: String): Config.Builder = apply {
-            this.sdkName = name
-        }
-
-        override fun sdkVersion(version: String): Config.Builder = apply {
-            this.sdkVersion = version
         }
 
         override fun debounceInterval(debounceInterval: Int) = apply {
@@ -245,7 +278,6 @@ object KlaviyoConfig : Config {
             }
 
             val context = applicationContext ?: throw MissingContext()
-
             val packageInfo = context.packageManager.getPackageInfoCompat(
                 context.packageName,
                 PackageManager.GET_PERMISSIONS
@@ -253,9 +285,9 @@ object KlaviyoConfig : Config {
             packageInfo.assertRequiredPermissions(requiredPermissions)
 
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
+            getDependentSdkProperty(KLAVIYO_SDK_NAME_OVERRIDE)?.let { sdkName = it }
+            getDependentSdkProperty(KLAVIYO_SDK_VERSION_OVERRIDE)?.let { sdkVersion = it }
             apiRevision?.let { KlaviyoConfig.apiRevision = it }
-            sdkName?.let { KlaviyoConfig.sdkName = it }
-            sdkVersion?.let { KlaviyoConfig.sdkVersion = it }
             KlaviyoConfig.apiKey = apiKey
             KlaviyoConfig.applicationContext = context
             KlaviyoConfig.debounceInterval = debounceInterval
