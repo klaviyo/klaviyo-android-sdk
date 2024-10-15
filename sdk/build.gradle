@@ -25,7 +25,7 @@ subprojects {
             targetSdkVersion versionFor(project, "version.android.targetSdk") as Integer
             testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
             versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
-            versionName getVersionName()
+            versionName readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_version_override', project(':sdk:core'))
             consumerProguardFiles("consumer-rules.pro")
         }
 
