@@ -48,15 +48,11 @@ subprojects {
                 proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
                 buildConfigField "String", "KLAVIYO_API_REVISION", "\"${apiRevision}\""
-                buildConfigField "String", "VERSION", "\"${readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_version_override', project(':sdk:core'))}\""
-                buildConfigField "String", "NAME", "\"${readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_name_override', project(':sdk:core'))}\""
             }
             debug {
                 debuggable = true
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
                 buildConfigField "String", "KLAVIYO_API_REVISION", "\"${apiRevision}\""
-                buildConfigField "String", "VERSION", "\"${readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_version_override', project(':sdk:core'))}\""
-                buildConfigField "String", "NAME", "\"${readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_name_override', project(':sdk:core'))}\""
             }
         }
 
