@@ -38,16 +38,36 @@ tasks.register("clean", Delete) {
     delete rootProject.layout.buildDirectory
 }
 
-static def readXmlValue(String filePath, String tagName) {
-    def xmlFile = new File(filePath)
-    def xmlContent = new XmlSlurper().parse(xmlFile)
+static def readXmlValue(String filePath, String tagName, Project project) {
+    println "Current directory: ${project.projectDir}"
+    println "Files in sdk/core/src/main/res/values/:"
+    def xmlFile = new File(project.projectDir, filePath)
+    println("looking for file in ${project} directory ${project.projectDir} with the path: $filePath")
+    // Check if the file exists
+    if (!xmlFile.exists()) {
+        throw new FileNotFoundException("The XML file does not exist: ${xmlFile.absolutePath}")
+    }
+
+    // Parse the XML file
+    def xmlContent
+    try {
+        xmlContent = new XmlSlurper().parse(xmlFile)
+    } catch (Exception e) {
+        throw new RuntimeException("Failed to parse XML file: ${xmlFile.absolutePath}. Error: ${e.message}", e)
+    }
+
     // Look for the string with the specific name attribute
     def result = xmlContent.'string'.find { it.@name == tagName }
-    return result?.text() ?: ""
+
+    if (result == null) {
+        throw new IllegalArgumentException("No string found with the name '${tagName}' in the file: ${xmlFile.absolutePath}")
+    }
+
+    return result.text()
 }
 
 dokkaHtmlMultiModule {
-    def versionName = readXmlValue('sdk/core/src/main/res/values/strings.xml','klaviyo_sdk_version_override')
+    def versionName = readXmlValue('sdk/core/src/main/res/values/strings.xml','klaviyo_sdk_version_override', project)
     def oldVersionsDir = layout.buildDirectory.dir("../docs/")
     outputDirectory = layout.buildDirectory.dir("../docs/${versionName}")
     includes.from("README.md")
@@ -91,7 +111,7 @@ public class BumpVersion extends DefaultTask {
 
     @TaskAction
     public void bumpVersion() {
-        def currentVersion = readXmlValue('sdk/core/src/main/res/values/strings.xml','klaviyo_sdk_version_override')
+        def currentVersion = readXmlValue('sdk/core/src/main/res/values/strings.xml','klaviyo_sdk_version_override',project)
         println(currentVersion)
         def nextVersion = this.getNextVersion()
         def currentBuild = versionFor(project, "version.klaviyo.versionCode") as Integer
