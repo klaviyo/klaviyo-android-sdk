@@ -1,7 +1,6 @@
 package com.klaviyo.core.config
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
@@ -11,6 +10,7 @@ import android.os.Bundle
 import androidx.core.content.PackageManagerCompat
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.KlaviyoException
+import com.klaviyo.core.R
 import com.klaviyo.core.Registry
 import com.klaviyo.core.networking.NetworkMonitor
 
@@ -91,26 +91,14 @@ object KlaviyoConfig : Config {
      */
     private const val NETWORK_MAX_RETRY_INTERVAL_DEFAULT: Long = 180_000
 
-    /**
-     * We need to check if there is a resource for the react native sdk version and name
-     *
-     * These help us access these fields in the application context and determine if the android SDK
-     * is being used natively or within our react-native SDK
-     */
-    private const val KLAVIYO_SDK_VERSION_OVERRIDE = "klaviyo_sdk_version_override"
-    private const val KLAVIYO_SDK_NAME_OVERRIDE = "klaviyo_sdk_name_override"
-    private const val KLAVIYO_MANIFEST_RESOURCE_TYPE = "string"
-
     override val isDebugBuild = BuildConfig.DEBUG
 
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
         private set
     override var apiRevision: String = BuildConfig.KLAVIYO_API_REVISION
         private set
-    override var sdkName: String = BuildConfig.NAME
-        private set
-    override var sdkVersion: String = BuildConfig.VERSION
-        private set
+    override lateinit var sdkName: String private set
+    override lateinit var sdkVersion: String private set
     override lateinit var apiKey: String private set
     override lateinit var applicationContext: Context private set
     override var debounceInterval = DEBOUNCE_INTERVAL
@@ -136,35 +124,6 @@ object KlaviyoConfig : Config {
             defaultValue
         } else {
             applicationContext.getManifestInt(key, defaultValue)
-        }
-
-    /**
-     * Helper to grab string resource from application using SDK - uses reflection
-     */
-    @SuppressLint("DiscouragedApi")
-    private fun getDependentSdkProperty(key: String): String? =
-        if (!this::applicationContext.isInitialized) {
-            null
-        } else {
-            try {
-                // check to see if react-native string is in app resources
-                val sdkNameResId =
-                    applicationContext.resources.getIdentifier(
-                        key,
-                        KLAVIYO_MANIFEST_RESOURCE_TYPE,
-                        applicationContext.packageName
-                    )
-                if (sdkNameResId != 0) {
-                    applicationContext.resources.getString(sdkNameResId).also {
-                        Registry.log.debug("Found dependent SDK property {$key : $it}")
-                    }
-                } else {
-                    null
-                }
-            } catch (e: Exception) {
-                Registry.log.error("Failed to check dependent SDK resource property $key")
-                null
-            }
         }
 
     /**
@@ -285,8 +244,10 @@ object KlaviyoConfig : Config {
             packageInfo.assertRequiredPermissions(requiredPermissions)
 
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
-            getDependentSdkProperty(KLAVIYO_SDK_NAME_OVERRIDE)?.let { sdkName = it }
-            getDependentSdkProperty(KLAVIYO_SDK_VERSION_OVERRIDE)?.let { sdkVersion = it }
+            KlaviyoConfig.sdkVersion = context.resources.getString(
+                R.string.klaviyo_sdk_version_override
+            )
+            KlaviyoConfig.sdkName = context.resources.getString(R.string.klaviyo_sdk_name_override)
             apiRevision?.let { KlaviyoConfig.apiRevision = it }
             KlaviyoConfig.apiKey = apiKey
             KlaviyoConfig.applicationContext = context
