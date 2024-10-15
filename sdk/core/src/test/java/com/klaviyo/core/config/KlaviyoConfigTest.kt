@@ -5,6 +5,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import com.klaviyo.core.BuildConfig
+import com.klaviyo.core.R
 import com.klaviyo.core.Registry
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.fixtures.BaseTest
@@ -41,6 +42,10 @@ internal class KlaviyoConfigTest : BaseTest() {
         every { PackageManager.PackageInfoFlags.of(any()) } returns mockPackageManagerFlags
         every { mockContext.packageManager } returns mockPackageManager
         every { mockContext.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
+        every { mockContext.resources } returns mockk {
+            every { getString(R.string.klaviyo_sdk_name_override) } returns "android"
+            every { getString(R.string.klaviyo_sdk_version_override) } returns "9.9.9"
+        }
         every {
             mockPackageManager.getPackageInfo(
                 BuildConfig.LIBRARY_PACKAGE_NAME,
@@ -90,6 +95,8 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(4, KlaviyoConfig.networkFlushDepth)
         assertEquals(5, KlaviyoConfig.networkMaxAttempts)
         assertEquals(7, KlaviyoConfig.networkMaxRetryInterval)
+        assertEquals("android", KlaviyoConfig.sdkName)
+        assertEquals("9.9.9", KlaviyoConfig.sdkVersion)
     }
 
     @Test
@@ -117,6 +124,8 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(25, KlaviyoConfig.networkFlushDepth)
         assertEquals(50, KlaviyoConfig.networkMaxAttempts)
         assertEquals(180_000L, KlaviyoConfig.networkMaxRetryInterval)
+        assertEquals("android", KlaviyoConfig.sdkName)
+        assertEquals("9.9.9", KlaviyoConfig.sdkVersion)
     }
 
     @Test
@@ -151,9 +160,10 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(25, KlaviyoConfig.networkFlushDepth)
         assertEquals(50, KlaviyoConfig.networkMaxAttempts)
         assertEquals(180_000, KlaviyoConfig.networkMaxRetryInterval)
-
+        assertEquals("android", KlaviyoConfig.sdkName)
+        assertEquals("9.9.9", KlaviyoConfig.sdkVersion)
         // Each bad call should have generated an error log
-        verify(exactly = 10) { spyLog.error(any(), null) }
+        verify(exactly = 8) { spyLog.error(any(), null) }
     }
 
     @Test(expected = MissingAPIKey::class)
