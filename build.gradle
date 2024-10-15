@@ -39,10 +39,7 @@ tasks.register("clean", Delete) {
 }
 
 static def readXmlValue(String filePath, String tagName, Project project) {
-    println "Current directory: ${project.projectDir}"
-    println "Files in sdk/core/src/main/res/values/:"
     def xmlFile = new File(project.projectDir, filePath)
-    println("looking for file in ${project} directory ${project.projectDir} with the path: $filePath")
     // Check if the file exists
     if (!xmlFile.exists()) {
         throw new FileNotFoundException("The XML file does not exist: ${xmlFile.absolutePath}")
@@ -111,7 +108,7 @@ public class BumpVersion extends DefaultTask {
 
     @TaskAction
     public void bumpVersion() {
-        def currentVersion = readXmlValue('sdk/core/src/main/res/values/strings.xml','klaviyo_sdk_version_override',project)
+        def currentVersion = readXmlValue('sdk/core/src/main/res/values/strings.xml','klaviyo_sdk_version_override')
         println(currentVersion)
         def nextVersion = this.getNextVersion()
         def currentBuild = versionFor(project, "version.klaviyo.versionCode") as Integer
