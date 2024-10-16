@@ -17,7 +17,7 @@ include ":app"
 // This is useful for testing changes to the SDK locally
 // see https://docs.gradle.org/current/userguide/composite_builds.html
 // Note: turn off composite build before using refreshVersions
-gradle.ext.allowComposite = true
+gradle.ext.allowComposite = false
 def useInternal = false
 
 if (gradle.ext.allowComposite) {
