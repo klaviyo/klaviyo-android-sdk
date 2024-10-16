@@ -25,7 +25,7 @@ subprojects {
             targetSdkVersion versionFor(project, "version.android.targetSdk") as Integer
             testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
             versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
-            versionName versionFor(project, "version.klaviyo.versionName") as String
+            versionName readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_version_override', project(':sdk:core'))
             consumerProguardFiles("consumer-rules.pro")
         }
 
@@ -48,15 +48,11 @@ subprojects {
                 proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
                 buildConfigField "String", "KLAVIYO_API_REVISION", "\"${apiRevision}\""
-                buildConfigField "String", "VERSION", "\"${versionFor(project, "version.klaviyo.versionName")}\""
-                buildConfigField "String", "NAME", "\"${klaviyoAndroidSDKName}\""
             }
             debug {
                 debuggable = true
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
                 buildConfigField "String", "KLAVIYO_API_REVISION", "\"${apiRevision}\""
-                buildConfigField "String", "VERSION", "\"${versionFor(project, "version.klaviyo.versionName")}\""
-                buildConfigField "String", "NAME", "\"${klaviyoAndroidSDKName}\""
             }
         }
 
