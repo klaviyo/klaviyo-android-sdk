@@ -12,6 +12,7 @@ import javax.net.ssl.HttpsURLConnection
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+import org.json.JSONException
 import org.json.JSONObject
 
 /**
@@ -45,6 +46,7 @@ internal open class KlaviyoApiRequest(
         const val PROFILE = "profile"
         const val EVENT = "event"
         const val PUSH_TOKEN = "push-token"
+        const val UNREGISTER_PUSH_TOKEN = "push-token-unregister"
 
         // Headers
         const val HEADER_CONTENT = "Content-Type"
@@ -55,12 +57,13 @@ internal open class KlaviyoApiRequest(
         const val HEADER_KLAVIYO_ATTEMPT = "X-Klaviyo-Attempt-Count"
         const val HEADER_RETRY_AFTER = "Retry-After"
         const val TYPE_JSON = "application/json"
-        const val V3_REVISION = "2023-07-15"
 
         const val HTTP_OK = HttpURLConnection.HTTP_OK
         const val HTTP_ACCEPTED = HttpURLConnection.HTTP_ACCEPTED
         const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
         const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
+        const val HTTP_UNAVAILABLE = HttpURLConnection.HTTP_UNAVAILABLE
+        const val HTTP_BAD_REQUEST = HttpURLConnection.HTTP_BAD_REQUEST
 
         // JSON keys for persistence
         const val TYPE_JSON_KEY = "request_type"
@@ -169,7 +172,7 @@ internal open class KlaviyoApiRequest(
     override val headers: MutableMap<String, String> = mutableMapOf(
         HEADER_CONTENT to TYPE_JSON,
         HEADER_ACCEPT to TYPE_JSON,
-        HEADER_REVISION to V3_REVISION,
+        HEADER_REVISION to Registry.config.apiRevision,
         HEADER_USER_AGENT to DeviceProperties.userAgent,
         HEADER_KLAVIYO_MOBILE to "1",
         HEADER_KLAVIYO_ATTEMPT to "$attempts/${Registry.config.networkMaxAttempts}"
@@ -231,6 +234,22 @@ internal open class KlaviyoApiRequest(
      */
     override var responseBody: String? = null
         protected set
+
+    /**
+     * Parsing the error response or creating an empty one if there is none
+     */
+    override val errorBody: KlaviyoErrorResponse
+        by lazy {
+            responseBody?.let { body ->
+                val responseJson = try {
+                    JSONObject(body)
+                } catch (e: JSONException) {
+                    Registry.log.wtf("Malformed error response body from backend", e)
+                    JSONObject()
+                }
+                KlaviyoErrorResponseDecoder.fromJson(responseJson)
+            } ?: KlaviyoErrorResponse(listOf())
+        }
 
     /**
      * Creates a representation of this [KlaviyoApiRequest] in JSON
@@ -342,7 +361,7 @@ internal open class KlaviyoApiRequest(
 
         status = when (responseCode) {
             in successCodes -> Status.Complete
-            HTTP_RETRY -> {
+            HTTP_RETRY, HTTP_UNAVAILABLE -> {
                 if (attempts < Registry.config.networkMaxAttempts) {
                     Status.PendingRetry
                 } else {
@@ -350,7 +369,7 @@ internal open class KlaviyoApiRequest(
                 }
             }
             // TODO - Special handling of unauthorized i.e. 401 and 403?
-            // TODO - Special handling of server errors 500 and 503?
+            // TODO - Special handling of server error 500?
             else -> Status.Failed
         }
 

@@ -24,6 +24,10 @@ internal object KlaviyoApiRequestDecoder {
             ProfileApiRequest::class.simpleName -> ProfileApiRequest(time, uuid)
             EventApiRequest::class.simpleName -> EventApiRequest(time, uuid)
             PushTokenApiRequest::class.simpleName -> PushTokenApiRequest(time, uuid)
+            UnregisterPushTokenApiRequest::class.simpleName -> UnregisterPushTokenApiRequest(
+                time,
+                uuid
+            )
             else -> KlaviyoApiRequest(urlPath, method, time, uuid)
         }.apply {
             headers.replaceAllWith(

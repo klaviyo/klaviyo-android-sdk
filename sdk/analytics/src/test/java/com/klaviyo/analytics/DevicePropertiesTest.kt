@@ -26,8 +26,8 @@ internal class DevicePropertiesTest : BaseTest() {
             every { DeviceProperties.appVersionCode } returns "Mock Version Code"
             every { DeviceProperties.sdkName } returns "Mock SDK"
             every { DeviceProperties.sdkVersion } returns "Mock SDK Version"
-            every { DeviceProperties.backgroundData } returns true
-            every { DeviceProperties.notificationPermission } returns true
+            every { DeviceProperties.backgroundDataEnabled } returns true
+            every { DeviceProperties.notificationPermissionGranted } returns true
             every { DeviceProperties.applicationId } returns "Mock App ID"
             every { DeviceProperties.platform } returns "Android"
             every { DeviceProperties.deviceId } returns "Mock Device ID"

@@ -2,6 +2,19 @@
 This document provides guidance on how to migrate from the old version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
+# 3.0.0
+
+### Improvements
+- The Klaviyo Android SDK now automatically tracks changes to the
+  user's notification permission whenever the app is opened or resumed.
+- Additionally, the SDK will now hold the push token internally after you `resetProfile`
+  and automatically attach the token to the next profile. This is a change from past behavior where the token
+  would need to be explicitly set again after resetting.   
+
+### Removals
+- The `ProfileKey` options deprecated in `2.3.0` have been removed
+- `Klaviyo.lifecycleCallbacks`, deprecated in `2.1.0` has been removed
+
 ## 2.3.0 Deprecations
 #### Deprecated `ProfileKey` objects pertaining to identifiers
 The following `ProfileKey` objects have been deprecated in favor of using the explicit 
