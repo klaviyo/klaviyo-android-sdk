@@ -41,7 +41,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.klaviyo.core.BuildConfig as SdkBuildConfig
+import com.klaviyo.core.Registry
 import com.klaviyo.sdktestapp.BuildConfig as AppBuildConfig
 import com.klaviyo.sdktestapp.viewmodel.SettingsViewModel
 
@@ -247,7 +247,7 @@ fun Settings(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "SDK Version: ${SdkBuildConfig.VERSION}",
+                    text = "SDK Version: ${Registry.config.sdkVersion}",
                     textAlign = TextAlign.End,
                     modifier = Modifier.fillMaxWidth()
                 )

@@ -17,14 +17,14 @@ include ":app"
 // This is useful for testing changes to the SDK locally
 // see https://docs.gradle.org/current/userguide/composite_builds.html
 // Note: turn off composite build before using refreshVersions
-def allowComposite = false
+gradle.ext.allowComposite = false
 def useInternal = false
 
-if (allowComposite) {
-    def sdkDirectory = useInternal ? new File("../klaviyo-android-sdk-internal/") : new File("../klaviyo-android-sdk/")
+if (gradle.ext.allowComposite) {
+    gradle.ext.sdkDirectory = useInternal ? new File("../klaviyo-android-sdk-internal/") : new File("../klaviyo-android-sdk/")
 
-    if (sdkDirectory.exists()) {
-        includeBuild(sdkDirectory) {
+    if (gradle.ext.sdkDirectory.exists()) {
+        includeBuild(gradle.ext.sdkDirectory) {
             dependencySubstitution {
                 // substitute remote dependency with local module
                 substitute module("com.github.klaviyo.klaviyo-android-sdk:core") using project(":sdk:core")
@@ -35,6 +35,7 @@ if (allowComposite) {
             }
         }
     }
+
 }
 
 refreshVersions {

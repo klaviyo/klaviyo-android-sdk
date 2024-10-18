@@ -12,6 +12,14 @@ apply plugin: "kotlin-android"
 
 apply plugin: "org.jlleitschuh.gradle.ktlint"
 
+def versionNameProp = ""
+
+if (gradle.ext.allowComposite) {
+    versionNameProp = "CompositeBuild"
+} else {
+    versionNameProp = versionFor(project, "version.klaviyo.versionName") as String
+}
+
 def localProperties = new Properties()
 if (rootProject.file("local.properties").canRead()) {
     localProperties.load(new FileInputStream(rootProject.file("local.properties")))
@@ -21,7 +29,7 @@ android {
     def javaVersion = JavaVersion.VERSION_11
 
     namespace "${klaviyoGroupId}.sdktestapp"
-    compileSdkVersion versionFor(project, "version.android.compileSdk") as Integer
+    compileSdkVersion=versionFor(project, "version.android.compileSdk") as Integer
     buildToolsVersion=versionFor(project, "version.android.buildTools") as String
 
     defaultConfig {
@@ -31,7 +39,7 @@ android {
         targetSdkVersion versionFor(project, "version.android.targetSdk") as Integer
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
-        versionName versionFor(project, "version.klaviyo.versionName") as String
+        versionName versionNameProp
     }
 
     def defaultCompany = localProperties["companyId"] ?: "\"LuYLmF\""
