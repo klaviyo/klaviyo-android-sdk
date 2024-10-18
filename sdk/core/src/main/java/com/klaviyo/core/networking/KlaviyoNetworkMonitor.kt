@@ -39,11 +39,6 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
 
         override fun onUnavailable() = broadcastNetworkChange()
 
-        override fun onCapabilitiesChanged(
-            network: Network,
-            networkCapabilities: NetworkCapabilities
-        ) = broadcastNetworkChange()
-
         override fun onLinkPropertiesChanged(
             network: Network,
             linkProperties: LinkProperties

@@ -126,14 +126,13 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
 
         expectedNetworkConnection = true
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
-        netCallbackSlot.captured.onCapabilitiesChanged(mockk(), mockk())
         netCallbackSlot.captured.onLinkPropertiesChanged(mockk(), mockk())
 
         expectedNetworkConnection = false
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
         netCallbackSlot.captured.onLost(mockk())
 
-        assertEquals(6, callCount)
+        assertEquals(5, callCount)
         KlaviyoNetworkMonitor.offNetworkChange(observer)
     }
 
