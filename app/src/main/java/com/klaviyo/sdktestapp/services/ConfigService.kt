@@ -22,6 +22,9 @@ class ConfigService(private val context: Context) {
 
         // Test app's own store key for the API base url
         const val BASE_URL_KEY = "base_url_override"
+
+        // Test app's own store key for the API revision
+        const val REVISION_KEY = "api_revision_override"
     }
 
     /**
@@ -85,6 +88,20 @@ class ConfigService(private val context: Context) {
             initialize()
         }
 
+    /**
+     * The SDK allows for API revision to be altered via [com.klaviyo.core.config.Config.Builder]
+     */
+    var apiRevision = sharedPreferences.getString(REVISION_KEY, null)
+        set(value) {
+            field = value
+
+            sharedPreferences.edit().putString(REVISION_KEY, value).apply()
+
+            Registry.log.info("Set revisions: $apiRevision")
+
+            initialize()
+        }
+
     init {
         initialize()
     }
@@ -96,14 +113,20 @@ class ConfigService(private val context: Context) {
     private fun initialize() {
         Klaviyo.initialize(companyId, context)
 
-        baseUrl?.let {
-            val config = Registry.configBuilder
+        if (baseUrl is String || apiRevision is String) {
+            val configBuilder = Registry.configBuilder
                 .apiKey(companyId)
                 .applicationContext(context)
-                .baseUrl(it)
-                .build()
 
-            Registry.register<Config>(config)
+            baseUrl?.let {
+                configBuilder.baseUrl(it)
+            }
+
+            apiRevision?.let {
+                configBuilder.apiRevision(it)
+            }
+
+            Registry.register<Config>(configBuilder.build())
         }
     }
 }

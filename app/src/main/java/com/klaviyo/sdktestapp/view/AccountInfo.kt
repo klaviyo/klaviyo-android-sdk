@@ -47,16 +47,22 @@ import androidx.compose.ui.unit.dp
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.sdktestapp.viewmodel.AccountInfoViewModel
-import com.klaviyo.sdktestapp.viewmodel.IAccountInfoViewModel
 import com.klaviyo.sdktestapp.viewmodel.NavigationState
 import com.klaviyo.sdktestapp.viewmodel.TabIndex
 
 @Composable
 fun AccountInfo(
-    viewModel: IAccountInfoViewModel,
+    viewState: AccountInfoViewModel.ViewState,
+    setProfile: () -> Unit = {},
+    setApiKey: () -> Unit = {},
+    setExternalId: () -> Unit = {},
+    setEmail: () -> Unit = {},
+    setPhoneNumber: () -> Unit = {},
+    resetProfile: () -> Unit = {},
+    copyAnonymousId: () -> Unit = {},
+    setAttribute: (ProfileKey) -> Unit = {},
     onNavigate: (NavigationState) -> Unit = {}
 ) {
-    val viewState = viewModel.viewState
     var openAlertDialog by remember { mutableStateOf(false) }
 
     onNavigate(
@@ -114,7 +120,7 @@ fun AccountInfo(
             },
             onSend = {
                 // Submit the form with "send" action
-                viewModel.setProfile()
+                setProfile()
                 focusManager.clearFocus()
             }
         )
@@ -143,11 +149,11 @@ fun AccountInfo(
                     }
                 },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { viewModel.setApiKey() }),
+                keyboardActions = KeyboardActions(onSend = { setApiKey() }),
                 modifier = Modifier.weight(1f, fill = true),
                 trailingIcon = {
                     EntryTrailingButton(text = "Start") {
-                        viewModel.setApiKey()
+                        setApiKey()
                         focusManager.moveFocus(FocusDirection.Down)
                     }
                 }
@@ -168,7 +174,7 @@ fun AccountInfo(
                 keyboardActions = keyboardActions,
                 modifier = Modifier.weight(1f, fill = true),
                 trailingIcon = {
-                    EntryTrailingButton(onClick = viewModel::setExternalId)
+                    EntryTrailingButton { setExternalId() }
                 }
             )
         }
@@ -186,7 +192,7 @@ fun AccountInfo(
                 keyboardActions = keyboardActions,
                 modifier = Modifier.weight(1f, fill = true),
                 trailingIcon = {
-                    EntryTrailingButton(onClick = viewModel::setEmail)
+                    EntryTrailingButton(onClick = setEmail)
                 }
             )
         }
@@ -204,14 +210,15 @@ fun AccountInfo(
                 keyboardActions = keyboardActions,
                 modifier = Modifier.weight(1f, fill = true),
                 trailingIcon = {
-                    EntryTrailingButton(onClick = viewModel::setPhoneNumber)
+                    EntryTrailingButton(onClick = setPhoneNumber)
                 }
             )
         }
 
         CollapsibleSection(
             "Profile Attributes",
-            viewModel,
+            viewState,
+            setAttribute = { setAttribute(it) },
             keyboardActions,
             arrayOf(
                 ProfileKey.FIRST_NAME,
@@ -224,7 +231,8 @@ fun AccountInfo(
 
         CollapsibleSection(
             "Location Attributes",
-            viewModel,
+            viewState,
+            setAttribute = { setAttribute(it) },
             keyboardActions,
             arrayOf(
                 ProfileKey.ADDRESS1,
@@ -244,14 +252,14 @@ fun AccountInfo(
                 value = viewState.anonymousId.value,
                 defaultValue = "No Anonymous ID",
                 label = "Anonymous ID",
-                onTextCopied = viewModel::copyAnonymousId
+                onTextCopied = copyAnonymousId
             )
         }
         FormRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 elevation = ButtonDefaults.elevation(0.dp),
                 shape = CircleShape,
-                onClick = viewModel::setProfile,
+                onClick = { setProfile() },
                 enabled = viewState.accountId.value.length == 6,
                 colors = ButtonDefaults.buttonColors(),
                 modifier = Modifier.weight(1f)
@@ -262,7 +270,7 @@ fun AccountInfo(
             Button(
                 elevation = ButtonDefaults.elevation(0.dp),
                 shape = CircleShape,
-                onClick = viewModel::resetProfile,
+                onClick = { resetProfile() },
                 modifier = Modifier.weight(1f)
             ) {
                 Text(text = "Reset Profile")
@@ -274,11 +282,11 @@ fun AccountInfo(
 @Composable
 private fun CollapsibleSection(
     name: String,
-    viewModel: IAccountInfoViewModel,
+    viewState: AccountInfoViewModel.ViewState,
+    setAttribute: (ProfileKey) -> Unit,
     keyboardActions: KeyboardActions,
     attributes: Array<ProfileKey>
 ) {
-    val viewState = viewModel.viewState
     val interactionSource = remember { MutableInteractionSource() }
     var isOpen by remember { mutableStateOf(false) }
 
@@ -323,7 +331,7 @@ private fun CollapsibleSection(
                 keyboardActions = keyboardActions,
                 modifier = Modifier.weight(1f, fill = true),
                 trailingIcon = {
-                    EntryTrailingButton { viewModel.setAttribute(it) }
+                    EntryTrailingButton { setAttribute(it) }
                 }
             )
         }
@@ -346,50 +354,33 @@ private fun EntryTrailingButton(
     }
 }
 
-class PreviewState(
-    accountId: String = "XXXXXX",
-    externalId: String = "1234567890",
-    email: String = "test@test.com",
-    phoneNumber: String = "+155512345678",
-    anonymousId: String = "f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"
-) : IAccountInfoViewModel {
-    override val viewState: AccountInfoViewModel.ViewState = AccountInfoViewModel.ViewState(
-        accountId = mutableStateOf(accountId),
-        externalId = mutableStateOf(externalId),
-        email = mutableStateOf(email),
-        anonymousId = mutableStateOf(anonymousId),
-        phoneNumber = mutableStateOf(phoneNumber),
-        attributes = mutableStateOf(
-            Profile(
-                mapOf(
-                    ProfileKey.FIRST_NAME to "Kermit",
-                    ProfileKey.LAST_NAME to "The Frog"
-                )
+val accountPreviewState = AccountInfoViewModel.ViewState(
+    accountId = mutableStateOf("XXXXXX"),
+    externalId = mutableStateOf("1234567890"),
+    email = mutableStateOf("test@test.com"),
+    phoneNumber = mutableStateOf("+155512345678"),
+    anonymousId = mutableStateOf("f3c03998-4dbb-49cf-91f2-2a5ffb5d817c"),
+    attributes = mutableStateOf(
+        Profile(
+            mapOf(
+                ProfileKey.FIRST_NAME to "Kermit",
+                ProfileKey.LAST_NAME to "The Frog"
             )
         )
     )
-
-    override fun setApiKey() = this
-    override fun setProfile() = this
-    override fun resetProfile() = this
-    override fun setExternalId() = this
-    override fun setEmail() = this
-    override fun setPhoneNumber() = this
-    override fun setAttribute(key: ProfileKey) = this
-    override fun copyAnonymousId() {}
-}
+)
 
 @Preview(group = "AccountInfo", showSystemUi = true)
 @Composable
 private fun FilledAccountInfo() {
-    val viewModelState = remember { PreviewState() }
+    val viewModelState = remember { accountPreviewState }
     AccountInfo(viewModelState)
 }
 
 @Preview(group = "AccountInfo", showSystemUi = true)
 @Composable
 private fun AccountInfoNoAccountId() {
-    val viewModelState = remember { PreviewState(accountId = "") }
+    val viewModelState = remember { accountPreviewState.copy(accountId = mutableStateOf("")) }
     AccountInfo(viewModelState)
 }
 
@@ -397,10 +388,10 @@ private fun AccountInfoNoAccountId() {
 @Composable
 private fun AccountInfoDisabledClearButton() {
     val viewModelState = remember {
-        PreviewState(
-            externalId = "",
-            email = "",
-            phoneNumber = ""
+        accountPreviewState.copy(
+            accountId = mutableStateOf(""),
+            email = mutableStateOf(""),
+            phoneNumber = mutableStateOf("")
         )
     }
     AccountInfo(viewModelState)
@@ -409,11 +400,14 @@ private fun AccountInfoDisabledClearButton() {
 @Preview(group = "AccountInfo", showSystemUi = true)
 @Composable
 private fun AccountInfoInvalidAccountId() {
-    val viewModelState = remember { PreviewState(accountId = "XXXXXXY") }
+    val viewModelState =
+        remember { accountPreviewState.copy(accountId = mutableStateOf("XXXXXXY")) }
     AccountInfo(viewModelState)
 }
 
-private val ProfileKey.displayName: String get() {
-    val pattern = "_[a-z]".toRegex()
-    return name.replace(pattern) { " ${it.value.last().uppercase()}" }.replaceFirstChar { it.uppercase() }
-}
+private val ProfileKey.displayName: String
+    get() {
+        val pattern = "_[a-z]".toRegex()
+        return name.replace(pattern) { " ${it.value.last().uppercase()}" }
+            .replaceFirstChar { it.uppercase() }
+    }

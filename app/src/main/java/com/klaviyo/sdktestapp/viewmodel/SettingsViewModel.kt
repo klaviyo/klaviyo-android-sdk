@@ -23,22 +23,38 @@ import com.klaviyo.sdktestapp.services.Clipboard
 import com.klaviyo.sdktestapp.services.ConfigService
 import com.klaviyo.sdktestapp.services.PushService
 
+interface ISettingsViewModel {
+    val viewState: SettingsViewModel.ViewState
+    fun setSdkPushToken()
+    fun expirePushToken()
+    fun sendLocalNotification()
+    fun setBaseUrl()
+    fun setApiRevision()
+    fun imGonnaWreckIt()
+    fun requestPushNotifications()
+    fun alertPermissionDenied(): AlertDialog
+    fun openSettings()
+    fun copyPushToken()
+}
+
 class SettingsViewModel(
     private val context: Context,
     private val pushNotificationContract: ActivityResultLauncher<String>
-) {
-
+) : ISettingsViewModel {
     data class ViewState(
         val isNotificationPermitted: Boolean,
         val pushToken: String,
-        val baseUrl: MutableState<String>
+        val baseUrl: MutableState<String>,
+        val apiRevision: MutableState<String>
     )
 
-    var viewState by mutableStateOf(
+    override var viewState by mutableStateOf(
         ViewState(
+            // warning: we cannot access notification manager until after app launch is complete
             isNotificationPermitted = false,
             pushToken = "",
-            baseUrl = mutableStateOf(Registry.config.baseUrl)
+            baseUrl = mutableStateOf(Registry.config.baseUrl),
+            apiRevision = mutableStateOf(Registry.config.apiRevision)
         )
     )
         private set
@@ -63,26 +79,31 @@ class SettingsViewModel(
         viewState = ViewState(
             isNotificationPermitted = context.notificationManager.areNotificationsEnabled(),
             pushToken = getPushToken(),
-            baseUrl = mutableStateOf(Registry.config.baseUrl)
+            baseUrl = mutableStateOf(Registry.config.baseUrl),
+            apiRevision = mutableStateOf(Registry.config.apiRevision)
         )
     }
 
-    fun setSdkPushToken() = PushService.setSdkPushToken()
+    override fun setSdkPushToken() = PushService.setSdkPushToken()
 
-    fun expirePushToken() {
+    override fun expirePushToken() {
         FirebaseMessaging.getInstance().deleteToken()
             .addOnSuccessListener {
                 setSdkPushToken()
             }
     }
 
-    fun sendLocalNotification() = PushService.createLocalNotification(context)
+    override fun sendLocalNotification() = PushService.createLocalNotification(context)
 
-    fun setBaseUrl() {
+    override fun setBaseUrl() {
         Registry.get<ConfigService>().baseUrl = viewState.baseUrl.value
     }
 
-    fun imGonnaWreckIt() {
+    override fun setApiRevision() {
+        Registry.get<ConfigService>().apiRevision = viewState.apiRevision.value
+    }
+
+    override fun imGonnaWreckIt() {
         // Force a crash for crashlytics
         throw RuntimeException("Test Crash")
     }
@@ -91,7 +112,7 @@ class SettingsViewModel(
      * Note: this method shouldn't be called from the UI if push is already enabled,
      * but we'll still use the best practice here for our when statement for completeness
      */
-    fun requestPushNotifications() {
+    override fun requestPushNotifications() {
         // https://klaviyo.atlassian.net/wiki/spaces/EN/pages/3675848705/Android+Notification+Permission
         when {
             context.notificationManager.areNotificationsEnabled() -> {
@@ -133,7 +154,7 @@ class SettingsViewModel(
         .setNegativeButton("Cancel") { _, _ -> }
         .show()
 
-    fun alertPermissionDenied(): AlertDialog = AlertDialog.Builder(context)
+    override fun alertPermissionDenied(): AlertDialog = AlertDialog.Builder(context)
         .setTitle("Notifications Disabled")
         .setMessage("Permission is denied and can only be changed from notification settings.")
         .setCancelable(true)
@@ -141,7 +162,7 @@ class SettingsViewModel(
         .setNegativeButton("Cancel") { _, _ -> }
         .show()
 
-    fun openSettings() {
+    override fun openSettings() {
         val intent = Intent(
             Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
             Uri.fromParts("package", context.packageName, null)
@@ -151,7 +172,7 @@ class SettingsViewModel(
         context.startActivity(intent)
     }
 
-    fun copyPushToken() {
+    override fun copyPushToken() {
         Clipboard(context).logAndCopy("Push Token", viewState.pushToken)
     }
 

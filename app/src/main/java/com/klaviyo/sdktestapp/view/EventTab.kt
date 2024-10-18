@@ -1,5 +1,6 @@
 package com.klaviyo.sdktestapp.view
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
@@ -36,6 +37,10 @@ fun EventsPage(
     onEventClick: (Event?) -> Unit,
     onNavigate: (NavigationState) -> Unit
 ) {
+    BackHandler(selectedEvent is Event) {
+        onEventClick(null)
+    }
+
     if (selectedEvent is Event) {
         // Set tab bar content for detail view
         onNavigate(

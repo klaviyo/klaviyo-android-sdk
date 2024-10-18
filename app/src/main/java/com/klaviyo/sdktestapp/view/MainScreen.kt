@@ -69,7 +69,14 @@ fun MainScreen(
             ) {
                 when (navigationViewModel.navState.tab) {
                     TabIndex.Profile -> AccountInfo(
-                        viewModel = accountInfoViewModel,
+                        viewState = accountInfoViewModel.viewState,
+                        setProfile = accountInfoViewModel::setProfile,
+                        setAttribute = accountInfoViewModel::setAttribute,
+                        setEmail = accountInfoViewModel::setEmail,
+                        setPhoneNumber = accountInfoViewModel::setPhoneNumber,
+                        setApiKey = accountInfoViewModel::setApiKey,
+                        setExternalId = accountInfoViewModel::setExternalId,
+                        resetProfile = accountInfoViewModel::resetProfile,
                         onNavigate = navigationViewModel::onNavigate
                     )
 
@@ -84,14 +91,7 @@ fun MainScreen(
                     )
 
                     TabIndex.Settings -> Settings(
-                        viewState = settingsViewModel.viewState,
-                        onCopyPushToken = settingsViewModel::copyPushToken,
-                        onOpenNotificationSettings = settingsViewModel::openSettings,
-                        onRequestedPushNotification = settingsViewModel::requestPushNotifications,
-                        onRequestPushToken = settingsViewModel::setSdkPushToken,
-                        onExpirePushToken = settingsViewModel::expirePushToken,
-                        onSendLocalNotification = settingsViewModel::sendLocalNotification,
-                        setBaseUrl = settingsViewModel::setBaseUrl
+                        viewModel = settingsViewModel
                     )
                 }
             }

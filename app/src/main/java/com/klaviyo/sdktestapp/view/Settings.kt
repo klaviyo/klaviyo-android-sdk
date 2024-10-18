@@ -3,6 +3,7 @@
 package com.klaviyo.sdktestapp.view
 
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -43,23 +44,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.klaviyo.core.Registry
 import com.klaviyo.sdktestapp.BuildConfig as AppBuildConfig
+import com.klaviyo.sdktestapp.viewmodel.ISettingsViewModel
 import com.klaviyo.sdktestapp.viewmodel.SettingsViewModel
 
 @Composable
-fun Settings(
-    viewState: SettingsViewModel.ViewState,
-    onRequestedPushNotification: () -> Unit = {},
-    onOpenNotificationSettings: () -> Unit = {},
-    onCopyPushToken: () -> Unit = {},
-    onRequestPushToken: () -> Unit = {},
-    onExpirePushToken: () -> Unit = {},
-    onSendLocalNotification: () -> Unit = {},
-    setBaseUrl: () -> Unit = {}
-) {
+fun Settings(viewModel: ISettingsViewModel) {
+    val viewState = viewModel.viewState
     val isPushEnabled = viewState.isNotificationPermitted
     val pushToken = viewState.pushToken
     val settingsLinkInteractionSource = remember { MutableInteractionSource() }
-    val serverSetInteractionSource = remember { MutableInteractionSource() }
+    val serverInteractionSource = remember { MutableInteractionSource() }
+    val revisionInteractionSource = remember { MutableInteractionSource() }
     val focusManager = LocalFocusManager.current
     val focusRequester = FocusRequester()
 
@@ -71,7 +66,7 @@ fun Settings(
             Box(modifier = Modifier.weight(1f, fill = true))
             Button(
                 enabled = !isPushEnabled,
-                onClick = onRequestedPushNotification,
+                onClick = viewModel::requestPushNotifications,
                 elevation = ButtonDefaults.elevation(0.dp),
                 shape = CircleShape
             ) {
@@ -83,7 +78,7 @@ fun Settings(
         Divider()
         FormRow(
             modifier = Modifier.clickable(
-                onClick = onOpenNotificationSettings,
+                onClick = viewModel::openSettings,
                 enabled = true,
                 interactionSource = settingsLinkInteractionSource,
                 indication = rememberRipple(bounded = true)
@@ -104,7 +99,7 @@ fun Settings(
             value = pushToken,
             defaultValue = "No Push Token on Profile",
             label = "Push Token",
-            onTextCopied = onCopyPushToken
+            onTextCopied = viewModel::copyPushToken
         )
         Spacer(modifier = Modifier.height(12.dp))
         FormRow(
@@ -113,7 +108,7 @@ fun Settings(
         ) {
             Button(
                 enabled = true,
-                onClick = onRequestPushToken,
+                onClick = viewModel::setSdkPushToken,
                 elevation = ButtonDefaults.elevation(0.dp),
                 shape = CircleShape,
                 modifier = Modifier.weight(1f)
@@ -126,7 +121,7 @@ fun Settings(
             }
             Button(
                 enabled = true,
-                onClick = onExpirePushToken,
+                onClick = viewModel::expirePushToken,
                 elevation = ButtonDefaults.elevation(0.dp),
                 shape = CircleShape,
                 modifier = Modifier
@@ -140,7 +135,7 @@ fun Settings(
             }
             Button(
                 enabled = isPushEnabled,
-                onClick = onSendLocalNotification,
+                onClick = viewModel::sendLocalNotification,
                 elevation = ButtonDefaults.elevation(0.dp),
                 shape = CircleShape,
                 modifier = Modifier
@@ -167,7 +162,10 @@ fun Settings(
                             imeAction = ImeAction.Send,
                             keyboardType = KeyboardType.Uri
                         ),
-                        keyboardActions = KeyboardActions(onSend = { setBaseUrl() }),
+                        keyboardActions = KeyboardActions(onSend = {
+                            focusManager.clearFocus()
+                            viewModel.setBaseUrl()
+                        }),
                         trailingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Send,
@@ -176,10 +174,10 @@ fun Settings(
                                     .clickable(
                                         onClick = {
                                             focusManager.clearFocus()
-                                            setBaseUrl()
+                                            viewModel.setBaseUrl()
                                         },
                                         enabled = true,
-                                        interactionSource = serverSetInteractionSource,
+                                        interactionSource = serverInteractionSource,
                                         indication = rememberRipple(bounded = true)
                                     )
                                     .padding(16.dp)
@@ -196,7 +194,7 @@ fun Settings(
                         onClick = {
                             viewState.baseUrl.value = "http://a.local-klaviyo.com:8080"
                             focusManager.clearFocus()
-                            setBaseUrl()
+                            viewModel.setBaseUrl()
                         },
                         elevation = ButtonDefaults.elevation(0.dp),
                         shape = CircleShape,
@@ -221,7 +219,7 @@ fun Settings(
                         onClick = {
                             viewState.baseUrl.value = "https://a.klaviyo.com"
                             focusManager.clearFocus()
-                            setBaseUrl()
+                            viewModel.setBaseUrl()
                         },
                         elevation = ButtonDefaults.elevation(0.dp),
                         shape = CircleShape,
@@ -229,6 +227,47 @@ fun Settings(
                     ) {
                         Text(text = "Prod")
                     }
+                }
+            }
+        }
+        FormRow {
+            Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                Row(modifier = Modifier.padding(0.dp)) {
+                    OutlinedTextField(
+                        label = { Text("API Revision") },
+                        value = viewState.apiRevision.value,
+                        onValueChange = { input: String ->
+                            viewState.apiRevision.value = input
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Send,
+                            keyboardType = KeyboardType.Ascii
+                        ),
+                        keyboardActions = KeyboardActions(onSend = {
+                            focusManager.clearFocus()
+                            viewModel.setApiRevision()
+                        }),
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Send,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .clickable(
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            viewModel.setApiRevision()
+                                        },
+                                        enabled = true,
+                                        interactionSource = revisionInteractionSource,
+                                        indication = rememberRipple(bounded = true)
+                                    )
+                                    .padding(16.dp)
+                            )
+                        },
+                        modifier = Modifier
+                            .weight(1f, fill = true)
+                            .focusRequester(focusRequester)
+                    )
                 }
             }
         }
@@ -256,15 +295,36 @@ fun Settings(
     }
 }
 
+class SettingsPreviewState(
+    override val viewState: SettingsViewModel.ViewState
+) : ISettingsViewModel {
+    override fun setSdkPushToken() {}
+    override fun expirePushToken() {}
+    override fun sendLocalNotification() {}
+    override fun setBaseUrl() {}
+    override fun setApiRevision() {}
+    override fun imGonnaWreckIt() {}
+    override fun requestPushNotifications() {}
+    override fun alertPermissionDenied(): AlertDialog {
+        throw NotImplementedError()
+    }
+
+    override fun openSettings() {}
+    override fun copyPushToken() {}
+}
+
 @SuppressLint("UnrememberedMutableState")
 @Preview(group = "Settings", showSystemUi = true)
 @Composable
 private fun DisabledPushSettings() {
     Settings(
-        SettingsViewModel.ViewState(
-            isNotificationPermitted = false,
-            pushToken = "alkj4h2to9s87rglknaucy490w37tnv0w3857cscwo87n5syos857nycoyoli3yhsj",
-            baseUrl = mutableStateOf("https://a.klaviyo.com")
+        SettingsPreviewState(
+            SettingsViewModel.ViewState(
+                isNotificationPermitted = false,
+                pushToken = "alkj4h2to9s87rglknaucy490w37tnv0w3857cscwo87n5syos857nycoyoli3yhsj",
+                baseUrl = mutableStateOf("https://a.klaviyo.com"),
+                apiRevision = mutableStateOf("1234-56-78")
+            )
         )
     )
 }
@@ -274,10 +334,13 @@ private fun DisabledPushSettings() {
 @Composable
 private fun EnabledPushSettings() {
     Settings(
-        SettingsViewModel.ViewState(
-            isNotificationPermitted = true,
-            pushToken = "alkj4h2to9s87rglknaucy490w37tnv0w3857cscwo87n5syos857nycoyoli3yhsj",
-            baseUrl = mutableStateOf("https://a.klaviyo.com")
+        SettingsPreviewState(
+            SettingsViewModel.ViewState(
+                isNotificationPermitted = true,
+                pushToken = "alkj4h2to9s87rglknaucy490w37tnv0w3857cscwo87n5syos857nycoyoli3yhsj",
+                baseUrl = mutableStateOf("https://a.klaviyo.com"),
+                apiRevision = mutableStateOf("1234-56-78")
+            )
         )
     )
 }
