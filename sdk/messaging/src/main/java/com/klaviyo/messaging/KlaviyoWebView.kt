@@ -19,6 +19,7 @@ import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.analytics.DeviceProperties
+import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import java.io.BufferedReader
 import org.json.JSONException
@@ -120,7 +121,7 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
     }
 
     fun addTo(view: ViewGroup) {
-        webView.visibility = View.VISIBLE
+        webView.visibility = View.INVISIBLE
         view.addView(webView)
     }
 

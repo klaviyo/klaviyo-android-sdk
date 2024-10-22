@@ -32,7 +32,7 @@ afterEvaluate {
                 from components[ext.publishBuildVariant]
                 groupId = klaviyoGroupId
                 artifactId = 'messaging'
-                version = ext.versionName
+                version = readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_version_override', project(":sdk:core"))
             }
         }
     }

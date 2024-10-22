@@ -1,4 +1,0 @@
-<resources>
-    <string name="app_name">Sample App</string>
-    <string name="deep_link_handler">SampleAppDeepLinking</string>
-</resources>

@@ -1,7 +1,0 @@
-
-<resources>
-
-    <style name="Theme.Klaviyoandroidsdk" parent="android:Theme.Material.Light.DarkActionBar">
-        <item name="android:statusBarColor">@color/black</item>
-    </style>
-</resources>
