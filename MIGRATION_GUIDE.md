@@ -11,7 +11,7 @@ It will be updated as new versions are released including deprecations or breaki
   and automatically attach the token to the next profile. This is a change from past behavior where the token
   would need to be explicitly set again after resetting.   
 
-### Removals
+### Breaking Changes
 - The `ProfileKey` options deprecated in `2.3.0` have been removed
 - `Klaviyo.lifecycleCallbacks`, deprecated in `2.1.0` has been removed
 
