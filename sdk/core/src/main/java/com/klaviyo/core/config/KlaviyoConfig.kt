@@ -10,6 +10,7 @@ import android.os.Bundle
 import androidx.core.content.PackageManagerCompat
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.KlaviyoException
+import com.klaviyo.core.R
 import com.klaviyo.core.Registry
 import com.klaviyo.core.networking.NetworkMonitor
 
@@ -94,6 +95,10 @@ object KlaviyoConfig : Config {
 
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
         private set
+    override var apiRevision: String = BuildConfig.KLAVIYO_API_REVISION
+        private set
+    override lateinit var sdkName: String private set
+    override lateinit var sdkVersion: String private set
     override lateinit var apiKey: String private set
     override lateinit var applicationContext: Context private set
     override var debounceInterval = DEBOUNCE_INTERVAL
@@ -114,11 +119,12 @@ object KlaviyoConfig : Config {
         private set
     override val networkJitterRange = 0..10
 
-    override fun getManifestInt(key: String, defaultValue: Int): Int = if (!this::applicationContext.isInitialized) {
-        defaultValue
-    } else {
-        applicationContext.getManifestInt(key, defaultValue)
-    }
+    override fun getManifestInt(key: String, defaultValue: Int): Int =
+        if (!this::applicationContext.isInitialized) {
+            defaultValue
+        } else {
+            applicationContext.getManifestInt(key, defaultValue)
+        }
 
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
@@ -127,6 +133,9 @@ object KlaviyoConfig : Config {
         private var apiKey: String = ""
         private var applicationContext: Context? = null
         private var baseUrl: String? = null
+        private var apiRevision: String? = null
+        private var sdkName: String? = null
+        private var sdkVersion: String? = null
         private var debounceInterval: Int = DEBOUNCE_INTERVAL
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
         private var networkFlushIntervals = longArrayOf(
@@ -153,6 +162,10 @@ object KlaviyoConfig : Config {
 
         override fun baseUrl(baseUrl: String): Config.Builder = apply {
             this.baseUrl = baseUrl
+        }
+
+        override fun apiRevision(apiRevision: String): Config.Builder = apply {
+            this.apiRevision = apiRevision
         }
 
         override fun debounceInterval(debounceInterval: Int) = apply {
@@ -224,7 +237,6 @@ object KlaviyoConfig : Config {
             }
 
             val context = applicationContext ?: throw MissingContext()
-
             val packageInfo = context.packageManager.getPackageInfoCompat(
                 context.packageName,
                 PackageManager.GET_PERMISSIONS
@@ -232,6 +244,11 @@ object KlaviyoConfig : Config {
             packageInfo.assertRequiredPermissions(requiredPermissions)
 
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
+            KlaviyoConfig.sdkVersion = context.resources.getString(
+                R.string.klaviyo_sdk_version_override
+            )
+            KlaviyoConfig.sdkName = context.resources.getString(R.string.klaviyo_sdk_name_override)
+            apiRevision?.let { KlaviyoConfig.apiRevision = it }
             KlaviyoConfig.apiKey = apiKey
             KlaviyoConfig.applicationContext = context
             KlaviyoConfig.debounceInterval = debounceInterval

@@ -23,10 +23,6 @@ internal object SharedPreferencesDataStore : DataStore {
         mutableListOf<StoreObserver>()
     )
 
-    init {
-        onStoreChange { key, value -> Registry.log.verbose("$key=$value") }
-    }
-
     override fun onStoreChange(observer: StoreObserver) {
         storeObservers += observer
     }
@@ -36,6 +32,7 @@ internal object SharedPreferencesDataStore : DataStore {
     }
 
     private fun broadcastStoreChange(key: String, value: String?) {
+        Registry.log.verbose("$key=$value")
         synchronized(storeObservers) {
             storeObservers.forEach { it(key, value) }
         }

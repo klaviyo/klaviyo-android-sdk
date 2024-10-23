@@ -38,8 +38,33 @@ tasks.register("clean", Delete) {
     delete rootProject.layout.buildDirectory
 }
 
+static def readXmlValue(String filePath, String tagName, Project project) {
+    def xmlFile = new File(project.projectDir, filePath)
+    // Check if the file exists
+    if (!xmlFile.exists()) {
+        throw new FileNotFoundException("The XML file does not exist: ${xmlFile.absolutePath}")
+    }
+
+    // Parse the XML file
+    def xmlContent
+    try {
+        xmlContent = new XmlSlurper().parse(xmlFile)
+    } catch (Exception e) {
+        throw new RuntimeException("Failed to parse XML file: ${xmlFile.absolutePath}. Error: ${e.message}", e)
+    }
+
+    // Look for the string with the specific name attribute
+    def result = xmlContent.'string'.find { it.@name == tagName }
+
+    if (result == null) {
+        throw new IllegalArgumentException("No string found with the name '${tagName}' in the file: ${xmlFile.absolutePath}")
+    }
+
+    return result.text()
+}
+
 dokkaHtmlMultiModule {
-    def versionName = versionFor(project, "version.klaviyo.versionName") as String
+    def versionName = readXmlValue('sdk/core/src/main/res/values/strings.xml','klaviyo_sdk_version_override', project)
     def oldVersionsDir = layout.buildDirectory.dir("../docs/")
     outputDirectory = layout.buildDirectory.dir("../docs/${versionName}")
     includes.from("README.md")
@@ -73,9 +98,18 @@ public class BumpVersion extends DefaultTask {
         return nextVersion;
     }
 
+    static String readXmlValue(String filePath, String tagName) {
+        def xmlFile = new File(filePath)
+        def xmlContent = new XmlSlurper().parse(xmlFile)
+        // Look for the string with the specific name attribute
+        def result = xmlContent.'string'.find { it.@name == tagName }
+        return result?.text() ?: ""
+    }
+
     @TaskAction
     public void bumpVersion() {
-        def currentVersion = versionFor(project, "version.klaviyo.versionName") as String
+        def currentVersion = readXmlValue('sdk/core/src/main/res/values/strings.xml','klaviyo_sdk_version_override')
+        println(currentVersion)
         def nextVersion = this.getNextVersion()
         def currentBuild = versionFor(project, "version.klaviyo.versionCode") as Integer
         def nextBuild = currentBuild + 1
@@ -83,7 +117,9 @@ public class BumpVersion extends DefaultTask {
         print("Auto-incrementing version code from $currentBuild to $nextBuild\n")
 
         ant.replace(file:"versions.properties", token:"versionCode=$currentBuild", value:"versionCode=$nextBuild")
-        ant.replace(file:"versions.properties", token:"versionName=$currentVersion", value:"versionName=$nextVersion")
+        def file = new File('sdk/core/src/main/res/values/strings.xml')
+        def newName = file.text.replace(currentVersion,nextVersion)
+        file.text = newName
         ant.replace(file:"README.md", token:"analytics:$currentVersion", value:"analytics:$nextVersion")
         ant.replace(file:"README.md", token:"push-fcm:$currentVersion", value:"push-fcm:$nextVersion")
         ant.replace(file:"docs/index.html", token:"$currentVersion", value:"$nextVersion")
