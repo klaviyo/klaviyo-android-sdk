@@ -37,11 +37,21 @@ typealias Registration = () -> Any
  */
 object Registry {
 
-    val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
-
+    /**
+     * Shortcut to the registered [Config]
+     *
+     * @throws [MissingConfig] if uninitialized
+     */
     val config: Config get() = get()
 
-    val clock: Clock = SystemClock
+    /**
+     * Access to [Config.Builder] for registering new or updated SDK configuration
+     */
+    val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
+
+    val clock: Clock get() = SystemClock
+
+    val log: Log get() = KLog
 
     val lifecycleMonitor: LifecycleMonitor get() = KlaviyoLifecycleMonitor
 
@@ -50,8 +60,6 @@ object Registry {
     val networkMonitor: NetworkMonitor get() = KlaviyoNetworkMonitor
 
     val dataStore: DataStore get() = SharedPreferencesDataStore
-
-    val log: Log get() = get()
 
     /**
      * Internal registry of registered service instances
@@ -64,10 +72,6 @@ object Registry {
      */
     @PublishedApi
     internal val registry = mutableMapOf<KType, Registration>()
-
-    init {
-        register<Log> { KLog() }
-    }
 
     /**
      * Remove registered service by type, specified by generic parameter
@@ -113,6 +117,19 @@ object Registry {
      */
     inline fun <reified T : Any> isRegistered(): Boolean = typeOf<T>().let { type ->
         registry.containsKey(type) || services.containsKey(type)
+    }
+
+    /**
+     * Get a registered service by type, else null
+     *
+     * @param T - Type of service, usually an interface
+     * @return The instance of the service
+     */
+    inline fun <reified T : Any> getOrNull(): T? {
+        val type = typeOf<T>()
+        val service: Any? = services[type]
+
+        return if (service is T) service else null
     }
 
     /**

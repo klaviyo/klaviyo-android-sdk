@@ -32,35 +32,34 @@ class KLogTest {
         for (level in Level.entries) {
             setup()
 
-            val log = KLog()
-            log.logLevel = level
+            KLog.logLevel = level
 
-            log.verbose("verbose")
+            KLog.verbose("verbose")
             verify(inverse = level == Level.None || level.ordinal > Level.Verbose.ordinal) {
                 Level.Verbose.log(any(), any(), any())
             }
 
-            log.debug("debug")
+            KLog.debug("debug")
             verify(inverse = level == Level.None || level.ordinal > Level.Debug.ordinal) {
                 Level.Debug.log(any(), any(), any())
             }
 
-            log.info("info")
+            KLog.info("info")
             verify(inverse = level == Level.None || level.ordinal > Level.Info.ordinal) {
                 Level.Info.log(any(), any(), any())
             }
 
-            log.warning("warning")
+            KLog.warning("warning")
             verify(inverse = level == Level.None || level.ordinal > Level.Warning.ordinal) {
                 Level.Warning.log(any(), any(), any())
             }
 
-            log.error("error")
+            KLog.error("error")
             verify(inverse = level == Level.None || level.ordinal > Level.Error.ordinal) {
                 Level.Error.log(any(), any(), any())
             }
 
-            log.wtf("wtf")
+            KLog.wtf("wtf")
             verify(inverse = level == Level.None || level.ordinal > Level.Assert.ordinal) {
                 Level.Assert.log(any(), any(), any())
             }
@@ -69,9 +68,8 @@ class KLogTest {
 
     @Test
     fun `Log tag contains Klaviyo`() {
-        val log = KLog()
-        log.logLevel = Level.Verbose
-        log.verbose("msg")
+        KLog.logLevel = Level.Verbose
+        KLog.verbose("msg")
         verify { Level.Verbose.log(match { it.contains("Klaviyo") }, any(), any()) }
     }
 }

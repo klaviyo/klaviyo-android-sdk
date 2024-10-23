@@ -66,11 +66,11 @@ internal class PushTokenApiRequest(
             optJSONObject(DATA)?.optJSONObject(ATTRIBUTES)?.apply {
                 put(
                     ENABLEMENT_STATUS,
-                    if (DeviceProperties.notificationPermission) NOTIFICATIONS_ENABLED else NOTIFICATIONS_DISABLED
+                    if (DeviceProperties.notificationPermissionGranted) NOTIFICATIONS_ENABLED else NOTIFICATIONS_DISABLED
                 )
                 put(
                     BACKGROUND,
-                    if (DeviceProperties.backgroundData) BG_AVAILABLE else BG_UNAVAILABLE
+                    if (DeviceProperties.backgroundDataEnabled) BG_AVAILABLE else BG_UNAVAILABLE
                 )
                 put(METADATA, JSONObject(DeviceProperties.buildMetaData()))
             }
@@ -78,7 +78,7 @@ internal class PushTokenApiRequest(
 
     override fun equals(other: Any?): Boolean {
         return when (other) {
-            is PushTokenApiRequest -> body.toString() == other.body.toString()
+            is PushTokenApiRequest -> body.toString() == other.body.toString() && query.toString() == other.query.toString()
             else -> super.equals(other)
         }
     }

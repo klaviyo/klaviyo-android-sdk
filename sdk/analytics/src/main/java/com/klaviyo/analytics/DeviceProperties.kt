@@ -5,8 +5,8 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.os.Build
 import androidx.core.app.NotificationManagerCompat
-import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.KlaviyoConfig
 import com.klaviyo.core.config.getPackageInfoCompat
 import com.klaviyo.core.model.fetchOrCreate
 import java.util.UUID
@@ -47,19 +47,17 @@ internal object DeviceProperties {
         packageInfo.getVersionCodeCompat().toString()
     }
 
-    val sdkVersion: String by lazy {
-        BuildConfig.VERSION
+    val sdkVersion: String
+        get() = KlaviyoConfig.sdkVersion
+
+    val sdkName: String
+        get() = KlaviyoConfig.sdkName
+
+    val backgroundDataEnabled: Boolean by lazy {
+        !activityManager.isBackgroundRestrictedCompat()
     }
 
-    val sdkName: String by lazy {
-        "android"
-    }
-
-    val backgroundData: Boolean by lazy {
-        activityManager.isBackgroundRestrictedCompat()
-    }
-
-    val notificationPermission: Boolean
+    val notificationPermissionGranted: Boolean
         get() = NotificationManagerCompat.from(Registry.config.applicationContext).areNotificationsEnabled()
 
     val applicationId: String by lazy {

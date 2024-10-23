@@ -39,21 +39,10 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
 
         override fun onUnavailable() = broadcastNetworkChange()
 
-        override fun onCapabilitiesChanged(
-            network: Network,
-            networkCapabilities: NetworkCapabilities
-        ) = broadcastNetworkChange()
-
         override fun onLinkPropertiesChanged(
             network: Network,
             linkProperties: LinkProperties
         ) = broadcastNetworkChange()
-    }
-
-    init {
-        onNetworkChange {
-            Registry.log.verbose("Network ${if (it) "available" else "unavailable"}")
-        }
     }
 
     /**
@@ -80,6 +69,9 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      */
     private fun broadcastNetworkChange() {
         val isConnected = isNetworkConnected()
+
+        Registry.log.verbose("Network ${if (isConnected) "available" else "unavailable"}")
+
         synchronized(networkChangeObservers) {
             networkChangeObservers.forEach { it(isConnected) }
         }
