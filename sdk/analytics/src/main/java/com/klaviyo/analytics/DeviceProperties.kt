@@ -11,7 +11,7 @@ import com.klaviyo.core.config.getPackageInfoCompat
 import com.klaviyo.core.model.fetchOrCreate
 import java.util.UUID
 
-object DeviceProperties {
+internal object DeviceProperties {
 
     private const val DEVICE_ID_KEY = "device_id"
 
