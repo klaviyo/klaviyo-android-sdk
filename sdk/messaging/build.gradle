@@ -4,7 +4,7 @@ evaluationDependsOn(':sdk')
 def ext = rootProject.ext
 
 android {
-    namespace 'com.klaviyo.messaging'
+    namespace "${klaviyoGroupId}.messaging"
 
     publishing {
         singleVariant(ext.publishBuildVariant) {
