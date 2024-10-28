@@ -18,6 +18,7 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
+import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import java.io.BufferedReader
@@ -52,6 +53,7 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
     private val webView = WebView(Registry.config.applicationContext).also {
         it.setBackgroundColor(Color.TRANSPARENT)
         it.webViewClient = this
+        it.settings.userAgentString = DeviceProperties.userAgent
         it.settings.javaScriptEnabled = true
 
         if (USE_NEW_FEATURES && isFeatureSupported(WEB_MESSAGE_LISTENER)) {
