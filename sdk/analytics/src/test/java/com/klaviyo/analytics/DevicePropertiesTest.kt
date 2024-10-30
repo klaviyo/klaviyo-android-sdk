@@ -9,6 +9,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -52,6 +53,12 @@ internal class DevicePropertiesTest : BaseTest() {
         versionCode = mockVersionCode
     }
 
+    @After
+    override fun cleanup() {
+        unmockDeviceProperties()
+        super.cleanup()
+    }
+
     @Test
     fun `getVersionCodeCompat detects platform properly`() {
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
@@ -65,5 +72,25 @@ internal class DevicePropertiesTest : BaseTest() {
         verify {
             mockPackageInfo.longVersionCode
         }
+    }
+
+    @Test
+    fun `User agent reflects SDK name override`() {
+        mockDeviceProperties()
+        // Use some more realistic values for this, so the expected user agent string actually matches our regexes
+        every { DeviceProperties.applicationLabel } returns "MockApp"
+        every { DeviceProperties.appVersion } returns "1.0.0"
+        every { DeviceProperties.appVersionCode } returns "2"
+        every { DeviceProperties.sdkVersion } returns "3.0.0"
+        every { DeviceProperties.applicationId } returns "com.mock.app"
+        every { DeviceProperties.platform } returns "Android"
+        every { DeviceProperties.osVersion } returns "4"
+        every { DeviceProperties.sdkName } returns "cross_platform"
+        every { DeviceProperties.userAgent } answers { callOriginal() }
+
+        assertEquals(
+            "MockApp/1.0.0 (com.mock.app; build:2; Android 4) klaviyo-cross-platform/3.0.0",
+            DeviceProperties.userAgent
+        )
     }
 }

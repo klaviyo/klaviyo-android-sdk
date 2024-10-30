@@ -71,7 +71,8 @@ internal object DeviceProperties {
     }
 
     val userAgent: String by lazy {
-        "$applicationLabel/$appVersion ($applicationId; build:$appVersionCode; $platform $osVersion) klaviyo-android/$sdkVersion"
+        val sdkAgent = "klaviyo-${sdkName.replace("_","-")}"
+        "$applicationLabel/$appVersion ($applicationId; build:$appVersionCode; $platform $osVersion) $sdkAgent/$sdkVersion"
     }
 
     private val packageInfo: PackageInfo by lazy {
