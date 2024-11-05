@@ -40,12 +40,11 @@
 
             initialize: function () {
                 WebViewBridge.postMessageToNative("documentReady", {});
-
-                onElementAvailable("button.klaviyo-close-form", () => {
-                    onElementRemoved("button.klaviyo-close-form", () => {
+                window.addEventListener("klaviyoForms", function(e) {
+                        if (e.detail.type == 'close') {
                         WebViewBridge.postMessageToNative("close", {});
+                        }
                     });
-                });
             },
 
             /**
