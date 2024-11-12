@@ -119,6 +119,7 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     override fun getActiveForms() {
+        Registry.log.verbose("Enqueuing Full Forms request")
         enqueueRequest(FormApiRequest())
     }
 
