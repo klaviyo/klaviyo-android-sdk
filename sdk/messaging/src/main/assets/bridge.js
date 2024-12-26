@@ -46,6 +46,27 @@
                         WebViewBridge.postMessageToNative("close", {});
                     });
                 });
+
+                // add a listener to the message bridge init function, so we only listen to the bus if it's ready
+                window.addEventListener('inAppFormsInitMessage', function(event) {
+                    const supportedEventTypes = event.detail.eventTypes;
+                    console.log('Supporting message types:', supportedEventTypes);
+
+                    const messageBus = window['inAppFormsMessageBus']?.messageBus;
+                    if (!messageBus) {
+                        console.error('Message bus not found');
+                        return;
+                    } else {
+                        console.log('Found the message bus!');
+                    }
+
+                    supportedEventTypes.forEach(eventType => {
+                        console.log('Registering listener for eventType: ', eventType);
+                        messageBus.addEventListener(eventType.toString(), function(subEvent) {
+                            WebViewBridge.postMessageToNative(subEvent.type, subEvent.detail);
+                        });
+                    });
+                }, false);
             },
 
             /**
