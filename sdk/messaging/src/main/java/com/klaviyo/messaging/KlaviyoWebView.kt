@@ -31,20 +31,22 @@ import org.json.JSONObject
 class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
     companion object {
         private const val MIME_TYPE = "text/html"
-        private const val JS_BRIDGE_NAME = "Klaviyo"
+        private const val JS_BRIDGE_NAME = "KlaviyoMessageHandler"
         private const val USE_NEW_FEATURES = true
 
         fun getBridgeJs(): String = Registry.config.applicationContext
             .assets
-            .open("bridge.js")
+            .open("klaviyo-in-app-js-bridge/bridge.js")
             .bufferedReader()
             .use(BufferedReader::readText)
             .apply {
                 val opts = JSONObject()
-                    .put("bridgeName", JS_BRIDGE_NAME)
+                    .put("messageHandlerName", JS_BRIDGE_NAME)
+                    .put("klaviyoJsUrl", "http://local-klaviyo.com:8080/onsite/js/klaviyo.js")
+                    .put("companyId", Registry.config.apiKey)
                     .toString()
 
-                return "$this('$opts');"
+                return "($this)('$opts');"
             }
     }
 

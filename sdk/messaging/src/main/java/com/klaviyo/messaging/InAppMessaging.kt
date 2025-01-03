@@ -12,10 +12,9 @@ object InAppMessaging {
         val webView = KlaviyoWebView()
         val html = Registry.config.applicationContext
             .assets
-            .open("IAMTest.html")
+            .open("klaviyo-in-app-js-bridge/form.html")
             .bufferedReader()
             .use(BufferedReader::readText)
-            .replace("KLAVIYO_PUBLIC_KEY_PLACEHOLDER", Registry.config.apiKey)
 
         webView.loadHtml(html)
         webView.addTo(rootView)
