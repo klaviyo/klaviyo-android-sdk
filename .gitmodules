@@ -1,0 +1,3 @@
+[submodule "sdk/messaging/src/main/assets/klaviyo-in-app-js-bridge"]
+	path = sdk/messaging/src/main/assets/klaviyo-in-app-js-bridge
+	url = git@github.com:klaviyo/klaviyo-in-app-js-bridge.git
