@@ -44,6 +44,7 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
             WebViewCompat.addWebMessageListener(
                 it,
                 JS_BRIDGE_NAME,
+                //TODO - sort out how to toggle between local and production. 
                 setOf("http://a.local-klaviyo.com:8080"),
                 this
             )
@@ -89,6 +90,7 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
     }
 
     fun loadHtml(html: String) = webView.loadDataWithBaseURL(
+        //TODO - sort out how to toggle between local and production. 
         "http://a.local-klaviyo.com:8080",
         html,
         MIME_TYPE,
