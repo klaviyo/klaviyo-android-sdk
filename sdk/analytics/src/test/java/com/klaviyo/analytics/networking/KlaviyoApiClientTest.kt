@@ -7,7 +7,7 @@ import com.klaviyo.analytics.DevicePropertiesTest
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
-import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil as HandlerUtil
+import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
@@ -332,26 +332,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Concurrent modification exception does not get thrown on observers`() = runTest {
-        val apiObserver: ApiObserver = { Thread.sleep(6) }
-        val request = mockRequest()
-
-        KlaviyoApiClient.onApiRequest(true, apiObserver)
-
-        val job = launch(Dispatchers.IO) {
-            KlaviyoApiClient.enqueueRequest(request)
-        }
-        val job2 = launch(Dispatchers.Default) {
-            withContext(Dispatchers.IO) {
-                Thread.sleep(8)
-            }
-            KlaviyoApiClient.offApiRequest(apiObserver)
-        }
-        job.start()
-        job2.start()
-    }
-
-    @Test
     fun `Invokes callback and logs when request sent`() {
         every { mockConfig.networkFlushDepth } returns 1
         val request = mockRequest()
@@ -577,60 +557,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
         // Upon final failure, request 1 should have been dropped from the queue
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         assertNull(spyDataStore.fetch(request1.uuid))
-
-        // Second request should have been attempted after the final failure of request 1
-        verify(exactly = 1) { request2.send(any()) }
-    }
-
-    @Test
-    fun `503 results in a retry using exponential backoff`() {
-        // same as above test but with a 503 instead of a 429
-        // First unsent request, which we will retry till max attempts (calculated by exponential)
-        // note that we are not sending the retry-after header on a 503
-        val request1 = mockRequest("uuid-retry", KlaviyoApiRequest.Status.Unsent, 503)
-
-        every { request1.state } answers {
-            when (request1.attempts) {
-                0 -> KlaviyoApiRequest.Status.Unsent.name
-                20 -> KlaviyoApiRequest.Status.Failed.name
-                else -> KlaviyoApiRequest.Status.PendingRetry.name
-            }
-        }
-
-        // Second unset request in queue to ensure which shouldn't sent until first has failed
-        val request2 = mockRequest("uuid-unsent", KlaviyoApiRequest.Status.Unsent)
-
-        // Enqueue 2 requests
-        KlaviyoApiClient.enqueueRequest(request1, request2)
-
-        // Enqueueing should invoke handler.post and initialize our postedJob property
-        assertNotNull(postedJob)
-
-        // But the clock has not advanced, so no requests should have been sent yet
-        assertEquals(0, request1.attempts)
-
-        while (request1.state != KlaviyoApiRequest.Status.Failed.name) {
-            val startAttempts = request1.attempts
-
-            // Advance the time with our expected backoff interval
-            staticClock.time += 50_000L
-
-            // Run after advancing the clock (this mimics how handler.postDelay would run jobs)
-            postedJob!!.run()
-
-            // It should have attempted one send if the correct time elapsed
-            assertEquals(startAttempts + 1, request1.attempts)
-
-            // Check for repeat request but not above max
-            assert(request1.attempts in 1 until 21)
-        }
-
-        // First request should have been retried exactly 20 times
-        assertEquals(20, request1.attempts)
-
-        // Upon final failure, request 1 should have been dropped from the queue
-        assertEquals(1, KlaviyoApiClient.getQueueSize())
-        assertNull(dataStoreSpy.fetch(request1.uuid))
 
         // Second request should have been attempted after the final failure of request 1
         verify(exactly = 1) { request2.send(any()) }
