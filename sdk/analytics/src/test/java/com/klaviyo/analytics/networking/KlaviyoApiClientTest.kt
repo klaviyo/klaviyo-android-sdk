@@ -7,7 +7,7 @@ import com.klaviyo.analytics.DevicePropertiesTest
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
-import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil as HandlerUtil
+import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
