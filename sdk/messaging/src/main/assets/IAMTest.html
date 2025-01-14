@@ -1,40 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head data-klaviyo-message-handler-name="Klaviyo"
+      data-support-event-types='test1,test2'
+      data-sdk-name="SDK_NAME"
+      data-sdk-version="SDK_VERSION"
+>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile App Banner</title>
-    <script>
-        function onElementAvailable(selector, callback) {
-            const observer = new MutationObserver(mutations => {
-                if (document.querySelector(selector)) {
-                    observer.disconnect();
-                    callback();
-                }
-            });
-
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-        }
-
-        function onElementRemoved(selector, callback) {
-            const observer = new MutationObserver(mutations => {
-                if (!document.querySelector(selector)) {
-                    observer.disconnect();
-                    callback();
-                }
-            });
-
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-        }
-    </script>
-    <script type="text/javascript"
-            src="https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=KLAVIYO_PUBLIC_KEY_PLACEHOLDER"></script>
+    <title>Klaviyo In-App Form Test</title>
+    <script type="text/javascript" src="http://local-klaviyo.com:8080/onsite/js/klaviyo.js?company_id=KLAVIYO_PUBLIC_KEY_PLACEHOLDER&env=in-app"></script>
 </head>
 <body></body>
 </html>
