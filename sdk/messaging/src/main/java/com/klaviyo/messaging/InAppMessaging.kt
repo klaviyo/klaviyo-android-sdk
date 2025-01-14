@@ -19,8 +19,6 @@ object InAppMessaging {
 
         webView.loadHtml(html)
         webView.addTo(rootView)
-        // for testing the full forms endpoint
-        webView.loadFullFormsResponse()
     }
 
     private fun Activity.getRootViewGroup(): ViewGroup =
