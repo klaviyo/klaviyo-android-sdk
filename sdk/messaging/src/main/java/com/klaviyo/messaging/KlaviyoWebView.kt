@@ -2,7 +2,6 @@ package com.klaviyo.messaging
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.view.View
@@ -15,13 +14,11 @@ import androidx.core.content.ContextCompat.startActivity
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
-import java.io.BufferedReader
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -29,20 +26,6 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
     companion object {
         private const val MIME_TYPE = "text/html"
         private const val JS_BRIDGE_NAME = "Klaviyo"
-        private const val USE_NEW_FEATURES = true
-
-        fun getBridgeJs(): String = Registry.config.applicationContext
-            .assets
-            .open("bridge.js")
-            .bufferedReader()
-            .use(BufferedReader::readText)
-            .apply {
-                val opts = JSONObject()
-                    .put("bridgeName", JS_BRIDGE_NAME)
-                    .toString()
-
-                return "$this('$opts');"
-            }
     }
 
     init {
@@ -56,37 +39,18 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
         it.settings.userAgentString = DeviceProperties.userAgent
         it.settings.javaScriptEnabled = true
 
-        if (USE_NEW_FEATURES && isFeatureSupported(WEB_MESSAGE_LISTENER)) {
+        if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Supported")
             WebViewCompat.addWebMessageListener(
                 it,
                 JS_BRIDGE_NAME,
-                setOf(Registry.config.baseUrl),
+                // TODO - sort out how to toggle between local and production.
+                setOf("http://a.local-klaviyo.com:8080"),
                 this
             )
         } else {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Unsupported")
             it.addJavascriptInterface(this, JS_BRIDGE_NAME)
-        }
-
-        if (USE_NEW_FEATURES && isFeatureSupported(DOCUMENT_START_SCRIPT)) {
-            Registry.log.verbose("$DOCUMENT_START_SCRIPT Supported")
-            WebViewCompat.addDocumentStartJavaScript(
-                it,
-                getBridgeJs(),
-                setOf(Registry.config.baseUrl)
-            )
-        } else {
-            Registry.log.verbose("$DOCUMENT_START_SCRIPT Unsupported")
-        }
-    }
-
-    override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-        super.onPageStarted(view, url, favicon)
-
-        if (!USE_NEW_FEATURES || isFeatureSupported(DOCUMENT_START_SCRIPT)) {
-            // When addDocumentStartJavaScript is not supported, we have to inject our JS onPageStarted
-            webView.evaluateJavascript(getBridgeJs(), null)
         }
     }
 
@@ -126,7 +90,8 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
     }
 
     fun loadHtml(html: String) = webView.loadDataWithBaseURL(
-        Registry.config.baseUrl,
+        // TODO - sort out how to toggle between local and production.
+        "http://a.local-klaviyo.com:8080",
         html,
         MIME_TYPE,
         null,
@@ -161,8 +126,7 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
             val jsonData = jsonMessage.optJSONObject("data") ?: JSONObject()
 
             when (jsonMessage.optString("type")) {
-                "documentReady" -> show()
-                "imagesLoaded" -> show()
+                "show" -> show()
                 "close" -> close()
                 "console" -> console(jsonData)
                 else -> console(jsonData)
