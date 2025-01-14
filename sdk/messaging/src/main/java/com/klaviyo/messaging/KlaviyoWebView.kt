@@ -19,9 +19,6 @@ import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.analytics.DeviceProperties
-import com.klaviyo.analytics.networking.ApiClient
-import com.klaviyo.analytics.networking.requests.ApiRequest
-import com.klaviyo.analytics.networking.requests.FullFormsApiResponseDecoder
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import java.io.BufferedReader
@@ -135,27 +132,6 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
         null,
         null
     )
-
-    fun loadFullFormsResponse() {
-        val apiClient: ApiClient = Registry.get<ApiClient>()
-        apiClient.getActiveForms()
-        apiClient.onApiRequest { request: ApiRequest ->
-            if (request.type == "Full Forms") {
-                request.responseBody?.let {
-                    val responseJson = try {
-                        JSONObject(it)
-                    } catch (e: JSONException) {
-                        Registry.log.wtf("Malformed error response body from backend", e)
-                        JSONObject()
-                    }
-                    val onlyFirstForm = FullFormsApiResponseDecoder.onlyFirstForm(responseJson)
-                    Registry.log.debug("Forms serialized response was successful")
-                } ?: run {
-                    Registry.log.debug("Forms received null response body")
-                }
-            }
-        }
-    }
 
     fun show() = webView.post { webView.visibility = View.VISIBLE }
 

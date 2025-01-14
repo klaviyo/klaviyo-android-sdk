@@ -76,9 +76,4 @@ interface ApiClient {
      * @param observer
      */
     fun offApiRequest(observer: ApiObserver)
-
-    /**
-     * Grab the forms from the onsite endpoint
-     */
-    fun getActiveForms()
 }

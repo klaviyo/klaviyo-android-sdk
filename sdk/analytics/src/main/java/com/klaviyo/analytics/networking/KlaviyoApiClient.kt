@@ -7,7 +7,6 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.EventApiRequest
-import com.klaviyo.analytics.networking.requests.FormApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
@@ -116,11 +115,6 @@ internal object KlaviyoApiClient : ApiClient {
 
     override fun offApiRequest(observer: ApiObserver) {
         apiObservers -= observer
-    }
-
-    override fun getActiveForms() {
-        Registry.log.verbose("Enqueuing Full Forms request")
-        enqueueRequest(FormApiRequest())
     }
 
     private fun broadcastApiRequest(request: KlaviyoApiRequest) {
