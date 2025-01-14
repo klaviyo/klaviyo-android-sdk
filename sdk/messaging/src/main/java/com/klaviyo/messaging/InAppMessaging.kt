@@ -16,6 +16,8 @@ object InAppMessaging {
             .bufferedReader()
             .use(BufferedReader::readText)
             .replace("KLAVIYO_PUBLIC_KEY_PLACEHOLDER", Registry.config.apiKey)
+            .replace("SDK_NAME", Registry.config.sdkName)
+            .replace("SDK_VERSION", Registry.config.sdkVersion)
 
         webView.loadHtml(html)
         webView.addTo(rootView)
