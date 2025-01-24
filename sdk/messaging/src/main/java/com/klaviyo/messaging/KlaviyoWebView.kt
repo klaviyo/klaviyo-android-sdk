@@ -128,7 +128,7 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
                 KlaviyoWebFormMessageType.Show -> show()
             }
         } catch (e: Exception) {
-            Registry.log.error("Failed to decode webview message type")
+            Registry.log.error("Failed to decode webview message type", e)
         }
     }
 
