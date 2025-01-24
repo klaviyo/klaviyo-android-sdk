@@ -17,10 +17,9 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.analytics.DeviceProperties
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
-import org.json.JSONException
-import org.json.JSONObject
 
 class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
     companion object {
@@ -98,9 +97,9 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
         null
     )
 
-    fun show() = webView.post { webView.visibility = View.VISIBLE }
+    private fun show() = webView.post { webView.visibility = View.VISIBLE }
 
-    fun close() = webView.post {
+    private fun close() = webView.post {
         webView.visibility = View.GONE
         webView.parent?.let {
             (it as ViewGroup).removeView(webView)
@@ -122,27 +121,23 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
     fun postMessage(message: String) {
         Registry.log.debug("JS interface postMessage $message")
         try {
-            val jsonMessage = JSONObject(message)
-            val jsonData = jsonMessage.optJSONObject("data") ?: JSONObject()
-
-            when (jsonMessage.optString("type")) {
-                "show" -> show()
-                "close" -> close()
-                "console" -> console(jsonData)
-                else -> console(jsonData)
+            when (val messageType = decodeWebviewMessage(message)) {
+                KlaviyoWebFormMessageType.Close -> close()
+                is KlaviyoWebFormMessageType.Console -> console(messageType)
+                is KlaviyoWebFormMessageType.ProfileEvent -> Klaviyo.createEvent(messageType.event)
+                KlaviyoWebFormMessageType.Show -> show()
             }
-        } catch (exception: JSONException) {
-            Registry.log.warning("JS interface error", exception)
+        } catch (e: Exception) {
+            Registry.log.error("Failed to decode webview message type")
         }
     }
 
-    private fun console(jsonData: JSONObject) {
-        val message = jsonData.optJSONObject("message") ?: ""
-
-        when (jsonData.optString("level")) {
-            "log" -> Registry.log.info(message.toString())
-            "warning" -> Registry.log.warning(message.toString())
-            "error" -> Registry.log.error(message.toString())
+    private fun console(message: KlaviyoWebFormMessageType.Console) {
+        when (message.level) {
+            "log" -> Registry.log.info(message.consoleLog)
+            "warning" -> Registry.log.warning(message.consoleLog)
+            "error" -> Registry.log.error(message.consoleLog)
+            else -> Registry.log.debug(message.consoleLog)
         }
     }
 }
