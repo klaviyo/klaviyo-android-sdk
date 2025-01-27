@@ -39,6 +39,11 @@ internal fun decodeWebviewMessage(webMessage: String): KlaviyoWebFormMessageType
                 payload = jsonData
             )
         }
+        IAF_MESSAGE_TYPE_AGGREGATE_EVENT -> {
+            KlaviyoWebFormMessageType.AggregateEventTracked(
+                payload = jsonData
+            )
+        }
         else -> throw IllegalStateException("Unrecognized message type $type")
     }
 }
