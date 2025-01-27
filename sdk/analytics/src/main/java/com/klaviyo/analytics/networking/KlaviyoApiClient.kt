@@ -6,6 +6,8 @@ import android.os.Looper
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
+import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
@@ -64,6 +66,11 @@ internal object KlaviyoApiClient : ApiClient {
     override fun enqueuePushToken(token: String, profile: Profile) {
         Registry.log.verbose("Enqueuing Push Token request")
         enqueueRequest(PushTokenApiRequest(token, profile))
+    }
+
+    override fun enqueueAggregateEvent(payload: AggregateEventPayload) {
+        Registry.log.verbose("Enqueuing Aggregate Event request")
+        enqueueRequest(AggregateEventApiRequest(payload))
     }
 
     override fun enqueueUnregisterPushToken(apiKey: String, token: String, profile: Profile) {
