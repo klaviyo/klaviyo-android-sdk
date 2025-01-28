@@ -8,6 +8,7 @@ import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
 import io.mockk.verify
+import org.json.JSONException
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Before
@@ -172,5 +173,42 @@ class FormsUtilityTest : BaseTest() {
 
         // Assert
         assertEquals(expectedAggBody.toString(), result.payload.toString())
+    }
+
+    @Test
+    fun `test deeplinks decoding`() {
+        // setup
+        val deeplinkMessage = """
+            {
+              "type": "deepLinkShouldOpen",
+              "data": {
+                "ios": "klaviyotest://settings",
+                "android": "klaviyotest://settings"
+              }
+            }
+        """.trimIndent()
+
+        val result = decodeWebviewMessage(deeplinkMessage) as KlaviyoWebFormMessageType.DeepLink
+
+        assertEquals("klaviyotest://settings", result.route)
+    }
+
+    @Test
+    fun `deeplink does not have android field, throws error`(){
+        val deeplinkMessage = """
+            {
+              "type": "deepLinkShouldOpen",
+              "data": {
+                "ios": "klaviyotest://settings"
+              }
+            }
+        """.trimIndent()
+
+        every { Registry.log.error(any(), any<Throwable>()) } just Runs
+
+        // Act & Assert
+        assertThrows(JSONException::class.java) {
+            decodeWebviewMessage(deeplinkMessage)
+        }
     }
 }

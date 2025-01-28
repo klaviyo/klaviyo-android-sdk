@@ -9,15 +9,15 @@ object InAppMessaging {
 
     fun triggerInAppMessage(activity: Activity) {
         val rootView = activity.getRootViewGroup()
-        val webView = KlaviyoWebView()
-        val html = Registry.config.applicationContext
+        val webView = KlaviyoWebView(activity)
+        val html = activity
             .assets
             .open("IAMTest.html")
             .bufferedReader()
             .use(BufferedReader::readText)
-            .replace("KLAVIYO_PUBLIC_KEY_PLACEHOLDER", Registry.config.apiKey)
-            .replace("SDK_NAME", Registry.config.sdkName)
-            .replace("SDK_VERSION", Registry.config.sdkVersion)
+            .replace(IAF_PUBLIC_KEY_PLACEHOLDER, Registry.config.apiKey)
+            .replace(IAF_SDK_NAME_PLACEHOLDER, Registry.config.sdkName)
+            .replace(IAF_SDK_VERSION_PLACEHOLDER, Registry.config.sdkVersion)
 
         webView.loadHtml(html)
         webView.addTo(rootView)
