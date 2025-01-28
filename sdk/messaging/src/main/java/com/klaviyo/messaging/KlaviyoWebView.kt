@@ -1,6 +1,7 @@
 package com.klaviyo.messaging
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
@@ -21,19 +22,24 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
+import java.lang.ref.WeakReference
 
-class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
+class KlaviyoWebView(
+    activity: Activity
+) : WebViewClient(), WebViewCompat.WebMessageListener {
     companion object {
         private const val MIME_TYPE = "text/html"
         private const val JS_BRIDGE_NAME = "Klaviyo"
     }
+
+    private val activityRef = WeakReference(activity)
 
     init {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private val webView = WebView(Registry.config.applicationContext).also {
+    private val webView = WebView(activity).also {
         it.setBackgroundColor(Color.TRANSPARENT)
         it.webViewClient = this
         it.settings.userAgentString = DeviceProperties.userAgent
@@ -78,7 +84,7 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
                 data = request.url
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            startActivity(webView.context, intent, null)
+            activityRef.get()?.let { startActivity(it, intent, null) }
             return true
         }
         return super.shouldOverrideUrlLoading(view, request)
@@ -128,9 +134,26 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
                 KlaviyoWebFormMessageType.Show -> show()
                 is KlaviyoWebFormMessageType.AggregateEventTracked -> Registry.get<ApiClient>()
                     .enqueueAggregateEvent(messageType.payload)
+                is KlaviyoWebFormMessageType.DeepLink -> {
+                    val uri = Uri.parse(messageType.route)
+                    activityRef.get()?.let { activity ->
+                        activity.startActivity(
+                            Intent().apply {
+                                data = uri
+                                action = Intent.ACTION_VIEW
+                                setPackage(activity.packageName)
+                                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                            }
+                        )
+                    } ?: run {
+                        Registry.log.error(
+                            "Failed to launch deeplink ${messageType.route}, activity reference null"
+                        )
+                    }
+                }
             }
         } catch (e: Exception) {
-            Registry.log.error("Failed to decode webview message type", e)
+            Registry.log.error("Failed to relay webview message: $message", e)
         }
     }
 }

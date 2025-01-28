@@ -18,4 +18,8 @@ sealed class KlaviyoWebFormMessageType {
     data class AggregateEventTracked(
         val payload: AggregateEventPayload
     ) : KlaviyoWebFormMessageType()
+
+    data class DeepLink(
+        val route: String
+    ) : KlaviyoWebFormMessageType()
 }
