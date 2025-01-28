@@ -29,15 +29,26 @@ internal fun decodeWebviewMessage(webMessage: String): KlaviyoWebFormMessageType
         IAF_MESSAGE_TYPE_CLOSE -> KlaviyoWebFormMessageType.Close
         IAF_MESSAGE_TYPE_PROFILE_EVENT -> {
             KlaviyoWebFormMessageType.ProfileEvent(
-                event = jsonData.optString(IAF_METRIC_KEY)?.let {
-                    Event(it, properties = jsonData.getProperties())
-                } ?: throw IllegalStateException("Missing profile metric key")
+                event = Event(
+                    jsonData.getString(IAF_METRIC_KEY),
+                    properties = jsonData.getProperties()
+                )
             )
         }
         IAF_MESSAGE_TYPE_AGGREGATE_EVENT -> {
             KlaviyoWebFormMessageType.AggregateEventTracked(
                 payload = jsonData
             )
+        }
+        IAF_MESSAGE_TYPE_DEEPLINK -> {
+            val routeString = jsonData.getString(IAF_DEEPLINK_ANDROID)
+            if (routeString.isNullOrEmpty()) {
+                throw IllegalStateException("No android deeplink found in js payload")
+            } else {
+                KlaviyoWebFormMessageType.DeepLink(
+                    route = routeString
+                )
+            }
         }
         else -> throw IllegalStateException("Unrecognized message type $type")
     }
