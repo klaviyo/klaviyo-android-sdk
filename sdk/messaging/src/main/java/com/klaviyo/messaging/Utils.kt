@@ -29,9 +29,14 @@ internal fun decodeWebviewMessage(webMessage: String): KlaviyoWebFormMessageType
         IAF_MESSAGE_TYPE_CLOSE -> KlaviyoWebFormMessageType.Close
         IAF_MESSAGE_TYPE_PROFILE_EVENT -> {
             KlaviyoWebFormMessageType.ProfileEvent(
-                event = jsonData.optString(IAF_EVENT_NAME_KEY)?.let {
+                event = jsonData.optString(IAF_METRIC_KEY)?.let {
                     Event(it, properties = jsonData.getProperties())
-                } ?: throw IllegalStateException("Missing profile eventName key")
+                } ?: throw IllegalStateException("Missing profile metric key")
+            )
+        }
+        IAF_MESSAGE_TYPE_AGGREGATE_EVENT -> {
+            KlaviyoWebFormMessageType.AggregateEventTracked(
+                payload = jsonData
             )
         }
         else -> throw IllegalStateException("Unrecognized message type $type")
