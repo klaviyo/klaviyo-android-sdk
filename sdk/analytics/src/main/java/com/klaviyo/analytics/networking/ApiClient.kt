@@ -2,6 +2,7 @@ package com.klaviyo.analytics.networking
 
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 
 typealias ApiObserver = (request: ApiRequest) -> Unit
@@ -76,4 +77,9 @@ interface ApiClient {
      * @param observer
      */
     fun offApiRequest(observer: ApiObserver)
+
+    /**
+     * For sending aggregate analytics for IAF - not to be called directly
+     */
+    fun enqueueAggregateEvent(payload: AggregateEventPayload)
 }
