@@ -74,6 +74,7 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     override fun enqueueUnregisterPushToken(apiKey: String, token: String, profile: Profile) {
+        Registry.log.verbose("Enqueuing unregister token request")
         enqueueRequest(UnregisterPushTokenApiRequest(apiKey, token, profile))
     }
 

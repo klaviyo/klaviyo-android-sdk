@@ -126,9 +126,8 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
                 KlaviyoWebFormMessageType.Close -> close()
                 is KlaviyoWebFormMessageType.ProfileEvent -> Klaviyo.createEvent(messageType.event)
                 KlaviyoWebFormMessageType.Show -> show()
-                is KlaviyoWebFormMessageType.AggregateEventTracked -> {
-                    Registry.get<ApiClient>().enqueueAggregateEvent(messageType.payload)
-                }
+                is KlaviyoWebFormMessageType.AggregateEventTracked -> Registry.get<ApiClient>()
+                    .enqueueAggregateEvent(messageType.payload)
             }
         } catch (e: Exception) {
             Registry.log.error("Failed to decode webview message type", e)
