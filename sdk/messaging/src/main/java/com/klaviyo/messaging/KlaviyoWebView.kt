@@ -134,26 +134,28 @@ class KlaviyoWebView(
                 KlaviyoWebFormMessageType.Show -> show()
                 is KlaviyoWebFormMessageType.AggregateEventTracked -> Registry.get<ApiClient>()
                     .enqueueAggregateEvent(messageType.payload)
-                is KlaviyoWebFormMessageType.DeepLink -> {
-                    val uri = Uri.parse(messageType.route)
-                    activityRef.get()?.let { activity ->
-                        activity.startActivity(
-                            Intent().apply {
-                                data = uri
-                                action = Intent.ACTION_VIEW
-                                setPackage(activity.packageName)
-                                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                            }
-                        )
-                    } ?: run {
-                        Registry.log.error(
-                            "Failed to launch deeplink ${messageType.route}, activity reference null"
-                        )
-                    }
-                }
+                is KlaviyoWebFormMessageType.DeepLink -> deepLink(messageType)
             }
         } catch (e: Exception) {
             Registry.log.error("Failed to relay webview message: $message", e)
+        }
+    }
+
+    private fun deepLink(messageType: KlaviyoWebFormMessageType.DeepLink) {
+        val uri = Uri.parse(messageType.route)
+        activityRef.get()?.let { activity ->
+            activity.startActivity(
+                Intent().apply {
+                    data = uri
+                    action = Intent.ACTION_VIEW
+                    setPackage(activity.packageName)
+                    addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }
+            )
+        } ?: run {
+            Registry.log.error(
+                "Failed to launch deeplink ${messageType.route}, activity reference null"
+            )
         }
     }
 }
