@@ -3,7 +3,10 @@ package com.klaviyo.messaging
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
-import io.mockk.*
+import io.mockk.Runs
+import io.mockk.every
+import io.mockk.just
+import io.mockk.verify
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Before
@@ -68,7 +71,7 @@ class FormsUtilityTest : BaseTest() {
     @Test
     fun `test decodeWebviewMessage properly decodes show type`() {
         // Setup
-        val showMessage = "{\"type\": \"show\", \"data\": {}}"
+        val showMessage = "{\"type\": \"formDidAppear\", \"data\": {}}"
 
         // Act
         val result = decodeWebviewMessage(showMessage)
@@ -80,34 +83,13 @@ class FormsUtilityTest : BaseTest() {
     @Test
     fun `test decodeWebviewMessage properly decodes close type`() {
         // Setup
-        val closeMessage = "{\"type\": \"close\", \"data\": {}}"
+        val closeMessage = "{\"type\": \"formDidClose\", \"data\": {}}"
 
         // Act
         val result = decodeWebviewMessage(closeMessage)
 
         // Assert
         assertEquals(KlaviyoWebFormMessageType.Close, result)
-    }
-
-    @Test
-    fun `test decodeWebviewMessage properly decodes console type`() {
-        // Setup
-        val consoleMessage = """
-            {
-              "type": "console",
-              "data": {
-                "message": {"text": "Test message"},
-                "level": "info"
-              }
-            }
-        """.trimIndent()
-
-        // Act
-        val result = decodeWebviewMessage(consoleMessage) as KlaviyoWebFormMessageType.Console
-
-        // Assert
-        assertEquals("{\"text\":\"Test message\"}", result.consoleLog)
-        assertEquals("info", result.level)
     }
 
     @Test

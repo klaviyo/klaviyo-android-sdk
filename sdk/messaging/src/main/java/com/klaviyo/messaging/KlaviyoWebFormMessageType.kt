@@ -8,10 +8,6 @@ import com.klaviyo.analytics.model.Event
 sealed class KlaviyoWebFormMessageType {
     data object Show : KlaviyoWebFormMessageType()
     data object Close : KlaviyoWebFormMessageType()
-    data class Console(
-        val consoleLog: String,
-        val level: String? = null
-    ) : KlaviyoWebFormMessageType()
     data class ProfileEvent(
         val event: Event
     ) : KlaviyoWebFormMessageType()

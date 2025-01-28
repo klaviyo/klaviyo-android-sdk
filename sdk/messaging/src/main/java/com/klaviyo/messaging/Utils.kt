@@ -22,23 +22,14 @@ internal fun JSONObject.getProperties(): Map<EventKey, Serializable> {
 
 internal fun decodeWebviewMessage(webMessage: String): KlaviyoWebFormMessageType {
     val jsonMessage = JSONObject(webMessage)
-    val jsonData = jsonMessage.optJSONObject(IAF_MESSAGE_TYPE_DATA) ?: JSONObject()
+    val jsonData = jsonMessage.optJSONObject(IAF_MESSAGE_DATA_KEY) ?: JSONObject()
 
     return when (val type = jsonMessage.optString(IAF_MESSAGE_TYPE_KEY)) {
         IAF_MESSAGE_TYPE_SHOW -> KlaviyoWebFormMessageType.Show
         IAF_MESSAGE_TYPE_CLOSE -> KlaviyoWebFormMessageType.Close
-        IAF_MESSAGE_TYPE_CONSOLE -> {
-            val message = jsonData.optJSONObject("message")?.toString() ?: ""
-            val level = jsonData.optString("level")
-            KlaviyoWebFormMessageType.Console(
-                message,
-                level
-            )
-        }
-
         IAF_MESSAGE_TYPE_PROFILE_EVENT -> {
             KlaviyoWebFormMessageType.ProfileEvent(
-                event = jsonData.optString(IAM_EVENT_NAME_KEY)?.let {
+                event = jsonData.optString(IAF_EVENT_NAME_KEY)?.let {
                     Event(it, properties = jsonData.getProperties())
                 } ?: throw IllegalStateException("Missing profile eventName key")
             )

@@ -123,21 +123,11 @@ class KlaviyoWebView : WebViewClient(), WebViewCompat.WebMessageListener {
         try {
             when (val messageType = decodeWebviewMessage(message)) {
                 KlaviyoWebFormMessageType.Close -> close()
-                is KlaviyoWebFormMessageType.Console -> console(messageType)
                 is KlaviyoWebFormMessageType.ProfileEvent -> Klaviyo.createEvent(messageType.event)
                 KlaviyoWebFormMessageType.Show -> show()
             }
         } catch (e: Exception) {
             Registry.log.error("Failed to decode webview message type", e)
-        }
-    }
-
-    private fun console(message: KlaviyoWebFormMessageType.Console) {
-        when (message.level) {
-            "log" -> Registry.log.info(message.consoleLog)
-            "warning" -> Registry.log.warning(message.consoleLog)
-            "error" -> Registry.log.error(message.consoleLog)
-            else -> Registry.log.debug(message.consoleLog)
         }
     }
 }
