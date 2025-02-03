@@ -73,7 +73,7 @@ class FormsUtilityTest : BaseTest() {
     @Test
     fun `test decodeWebviewMessage properly decodes show type`() {
         // Setup
-        val showMessage = "{\"type\": \"formDidAppear\", \"data\": {}}"
+        val showMessage = "{\"type\": \"formAppeared\", \"data\": {}}"
 
         // Act
         val result = decodeWebviewMessage(showMessage)
@@ -85,7 +85,7 @@ class FormsUtilityTest : BaseTest() {
     @Test
     fun `test decodeWebviewMessage properly decodes close type`() {
         // Setup
-        val closeMessage = "{\"type\": \"formDidClose\", \"data\": {}}"
+        val closeMessage = "{\"type\": \"formDisappeared\", \"data\": {}}"
 
         // Act
         val result = decodeWebviewMessage(closeMessage)
@@ -109,7 +109,7 @@ class FormsUtilityTest : BaseTest() {
     @Test
     fun `test decodeWebviewMessage success profile event`() {
         // Setup
-        val eventMessage = "{\"type\": \"profileEventTracked\", \"data\": {\"metric\": \"Form completed by profile\", \"properties\": {}}}"
+        val eventMessage = "{\"type\": \"trackProfileEvent\", \"data\": {\"metric\": \"Form completed by profile\", \"properties\": {}}}"
         every { Registry.log.error(any(), any<Throwable>()) } just Runs
 
         val decoded = decodeWebviewMessage(eventMessage) as KlaviyoWebFormMessageType.ProfileEvent
@@ -122,7 +122,7 @@ class FormsUtilityTest : BaseTest() {
         // Setup
         val aggregateMessage = """
             {
-              "type": "aggregateEventTracked",
+              "type": "trackAggregateEvent",
               "data": {
                 "metric_group": "signup-forms",
                 "events": [
@@ -180,7 +180,7 @@ class FormsUtilityTest : BaseTest() {
         // setup
         val deeplinkMessage = """
             {
-              "type": "deepLinkShouldOpen",
+              "type": "openDeepLink",
               "data": {
                 "ios": "klaviyotest://settings",
                 "android": "klaviyotest://settings"
@@ -197,7 +197,7 @@ class FormsUtilityTest : BaseTest() {
     fun `deeplink does not have android field, throws error`(){
         val deeplinkMessage = """
             {
-              "type": "deepLinkShouldOpen",
+              "type": "openDeepLink",
               "data": {
                 "ios": "klaviyotest://settings"
               }
