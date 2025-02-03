@@ -12,11 +12,11 @@ internal const val IAF_PUBLIC_KEY_PLACEHOLDER = "KLAVIYO_PUBLIC_KEY_PLACEHOLDER"
  */
 internal const val IAF_MESSAGE_DATA_KEY = "data"
 internal const val IAF_MESSAGE_TYPE_KEY = "type"
-internal const val IAF_MESSAGE_TYPE_SHOW = "formDidAppear"
-internal const val IAF_MESSAGE_TYPE_CLOSE = "formDidClose"
-internal const val IAF_MESSAGE_TYPE_PROFILE_EVENT = "profileEventTracked"
-internal const val IAF_MESSAGE_TYPE_AGGREGATE_EVENT = "aggregateEventTracked"
-internal const val IAF_MESSAGE_TYPE_DEEPLINK = "deepLinkShouldOpen"
+internal const val IAF_MESSAGE_TYPE_SHOW = "formAppeared"
+internal const val IAF_MESSAGE_TYPE_CLOSE = "formDisappeared"
+internal const val IAF_MESSAGE_TYPE_PROFILE_EVENT = "trackProfileEvent"
+internal const val IAF_MESSAGE_TYPE_AGGREGATE_EVENT = "trackAggregateEvent"
+internal const val IAF_MESSAGE_TYPE_DEEPLINK = "openDeepLink"
 
 /**
  * Profile event constants
