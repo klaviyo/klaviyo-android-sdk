@@ -378,7 +378,9 @@ internal open class KlaviyoApiRequest(
             else -> connection.errorStream
         }
 
-        responseBody = BufferedReader(InputStreamReader(stream)).use { it.readText() }
+        if (stream != null) {
+            responseBody = BufferedReader(InputStreamReader(stream)).use { it.readText() }
+        }
 
         return status
     }
