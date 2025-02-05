@@ -728,13 +728,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // Mock network connection and config
         every { Registry.networkMonitor.isNetworkConnected() } returns true
-        every { Registry.config.networkTimeout } returns 1000
-        every { Registry.config.baseUrl } returns "http://localhost"
-        every { Registry.config.networkMaxAttempts } returns 3
-        every { Registry.config.networkMaxRetryInterval } returns 30000
-        every { Registry.config.networkFlushIntervals } returns longArrayOf(10000, 20000, 30000)
-        every { Registry.config.networkJitterRange } returns 1..5
-
         // Mock URL and URLConnection
         val urlMock = mockk<URL>()
         val connectionMock = mockk<HttpURLConnection>()

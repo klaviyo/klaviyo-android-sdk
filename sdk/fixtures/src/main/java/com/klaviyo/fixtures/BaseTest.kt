@@ -74,6 +74,7 @@ abstract class BaseTest {
         every { applicationContext } returns mockContext
         every { debounceInterval } returns debounceTime
         every { networkMaxAttempts } returns 50
+        every { networkTimeout } returns 1000
         every { networkMaxRetryInterval } returns 180_000L
         every { networkFlushIntervals } returns longArrayOf(10_000, 30_000, 60_000)
         every { networkJitterRange } returns 0..0
