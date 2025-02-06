@@ -5,12 +5,12 @@ import org.json.JSONArray
 /**
  * Fields to replace in the HTML template
  */
-internal const val IAF_BRIDGE_NAME_PLACEHOLDER = "BRIDGE_NAME"
 internal const val IAF_BRIDGE_NAME = "KlaviyoNativeBridge"
+internal const val IAF_BRIDGE_NAME_PLACEHOLDER = "BRIDGE_NAME"
 internal const val IAF_SDK_NAME_PLACEHOLDER = "SDK_NAME"
 internal const val IAF_SDK_VERSION_PLACEHOLDER = "SDK_VERSION"
-internal const val IAF_HANDSHAKE_PLACEHOLDER = "IAF_HANDSHAKE"
-internal const val IAF_PUBLIC_KEY_PLACEHOLDER = "KLAVIYO_PUBLIC_KEY_PLACEHOLDER"
+internal const val IAF_HANDSHAKE_PLACEHOLDER = "BRIDGE_HANDSHAKE"
+internal const val IAF_KLAVIYO_JS_PLACEHOLDER = "KLAVIYO_JS_URL"
 
 /**
  * Decoding top-level message types
@@ -56,6 +56,11 @@ internal val IAF_HANDSHAKE by lazy {
         )
     ).toString()
 }
+
+/**
+ * Abort fields
+ */
+internal const val IAF_ABORT_REASON = "reason"
 
 /**
  * Profile event constants
