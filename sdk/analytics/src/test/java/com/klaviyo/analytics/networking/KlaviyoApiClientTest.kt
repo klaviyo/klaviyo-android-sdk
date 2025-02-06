@@ -20,14 +20,17 @@ import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkObject
+import io.mockk.runs
 import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.unmockkConstructor
 import io.mockk.unmockkObject
 import io.mockk.verify
+import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,6 +42,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 
@@ -564,7 +568,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Rate limited requests are retried with backoff until max attempts in absence of Retry-After header`() {
-        val defaultInterval = Registry.config.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
+        val defaultInterval =
+            Registry.config.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
 
         // First unsent request, which we will retry till max attempts
         val request1 = mockRequest("uuid-retry", KlaviyoApiRequest.Status.Unsent).also {
@@ -711,5 +716,44 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         assertEquals("[\"mock_uuid2\"]", actualQueue) // Expect queue to reflect the dropped item
         assertNull(spyDataStore.fetch("mock_uuid1")) // Expect the item to be cleared from store
+    }
+
+    @Test
+    fun `response body handles null stream correctly`() {
+        // Create a KlaviyoApiRequest with required arguments
+        val request = KlaviyoApiRequest("mockPath", RequestMethod.GET)
+
+        // Spy on that specific instance
+        val spiedRequest = spyk(request)
+
+        // Mock network connection and config
+        every { Registry.networkMonitor.isNetworkConnected() } returns true
+        // Mock URL and URLConnection
+        val urlMock = mockk<URL>()
+        val connectionMock = mockk<HttpURLConnection>()
+
+        // Set up mocks for URL and connection
+        every { urlMock.openConnection() } returns connectionMock
+        every { urlMock.protocol } returns "http"
+        every { connectionMock.inputStream } returns null
+        every { connectionMock.errorStream } returns null
+        every { connectionMock.responseCode } returns HttpURLConnection.HTTP_INTERNAL_ERROR
+        every { connectionMock.headerFields } returns emptyMap()
+        every { connectionMock.setRequestProperty(any(), any()) } returns Unit
+        every { connectionMock.requestMethod = any() } returns Unit
+        every { connectionMock.readTimeout = any() } returns Unit
+        every { connectionMock.connectTimeout = any() } returns Unit
+        every { connectionMock.disconnect() } just runs
+        every { connectionMock.connect() } just runs
+
+        // Mock the URL used by the request to our mocked URL
+        every { spiedRequest.url } returns urlMock
+
+        try {
+            // Attempt to send without an exception occurring
+            spiedRequest.send()
+        } catch (e: NullPointerException) {
+            fail("NullPointerException was thrown: ${e.message}")
+        }
     }
 }
