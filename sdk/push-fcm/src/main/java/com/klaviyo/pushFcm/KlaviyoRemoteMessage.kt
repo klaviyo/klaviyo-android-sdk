@@ -19,6 +19,7 @@ import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
+import org.json.JSONObject
 import java.net.URL
 
 /**
@@ -134,6 +135,32 @@ object KlaviyoRemoteMessage {
      */
     val RemoteMessage.notificationCount: Int
         get() = this.data[KlaviyoNotification.NOTIFICATION_COUNT_KEY]?.toInt() ?: 1
+
+    /**
+     * Determine if the message is bearing key-value pairs
+     */
+    val RemoteMessage.hasKlaviyoKeyValuePairs: Boolean
+        get() = this.isKlaviyoMessage && (this.data[KlaviyoNotification.KEY_VALUE_PAIRS_KEY]?.let { true } ?: false)
+
+    /**
+     * Parse out the key-value pairs into a string:string map
+     */
+    val RemoteMessage.keyValuePairs: Map<String,String>?
+        get() = this.data[KlaviyoNotification.KEY_VALUE_PAIRS_KEY]?.let { jsonString ->
+            try {
+                val jsonObject = JSONObject(jsonString)
+                val map = mutableMapOf<String, String>()
+                jsonObject.keys().forEach { key ->
+                    map[key] = jsonObject.getString(key)
+                }
+                map
+            } catch (e: Exception) {
+                Registry.log.warning(
+                    "Klaviyo SDK failed to parse key-value pairs JSON: $jsonString", e
+                )
+                null
+            }
+        }
 
     @Deprecated("Use getSmallIcon(context: Context) instead")
     val RemoteMessage.smallIcon: Int
