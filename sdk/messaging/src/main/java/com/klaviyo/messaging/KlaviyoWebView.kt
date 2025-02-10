@@ -29,7 +29,6 @@ class KlaviyoWebView(
 ) : WebViewClient(), WebViewCompat.WebMessageListener {
     companion object {
         private const val MIME_TYPE = "text/html"
-        private const val JS_BRIDGE_NAME = "Klaviyo"
     }
 
     private val activityRef = WeakReference(activity)
@@ -49,14 +48,14 @@ class KlaviyoWebView(
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Supported")
             WebViewCompat.addWebMessageListener(
                 it,
-                JS_BRIDGE_NAME,
+                IAF_BRIDGE_NAME,
                 // TODO - sort out how to toggle between local and production.
                 setOf("http://a.local-klaviyo.com:8080"),
                 this
             )
         } else {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Unsupported")
-            it.addJavascriptInterface(this, JS_BRIDGE_NAME)
+            it.addJavascriptInterface(this, IAF_BRIDGE_NAME)
         }
     }
 
