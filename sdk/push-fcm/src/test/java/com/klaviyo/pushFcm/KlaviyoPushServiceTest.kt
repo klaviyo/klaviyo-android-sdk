@@ -7,13 +7,14 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkObject
+import io.mockk.spyk
 import io.mockk.verify
 import org.junit.Before
 import org.junit.Test
 
 class KlaviyoPushServiceTest : BaseTest() {
     private val stubPushToken = "stub_token"
-    private val pushService = KlaviyoPushService()
+    private val pushService = spyk(KlaviyoPushService())
     private val stubMessage = mutableMapOf(
         "_k" to "",
         "title" to "",
@@ -71,6 +72,18 @@ class KlaviyoPushServiceTest : BaseTest() {
         pushService.onMessageReceived(msg)
 
         verify(inverse = true) { anyConstructed<KlaviyoNotification>().displayNotification(any()) }
+    }
+
+    @Test
+    fun `Silent push handler is called`() {
+        val msg = mockk<RemoteMessage>()
+        stubMessage.remove("title")
+        stubMessage.remove("body")
+        every { msg.data } returns stubMessage
+
+        pushService.onMessageReceived(msg)
+
+        verify { pushService.onSilentPushMessageReceived(msg) }
     }
 
     @Test
