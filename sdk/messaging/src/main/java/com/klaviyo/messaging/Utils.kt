@@ -50,6 +50,11 @@ internal fun decodeWebviewMessage(webMessage: String): KlaviyoWebFormMessageType
                 )
             }
         }
+        IAF_MESSAGE_TYPE_ABORT -> {
+            val reason = jsonData.getString(IAF_ABORT_REASON)
+            Registry.log.debug("IAF WebView Aborted: $reason")
+            KlaviyoWebFormMessageType.Close
+        }
         else -> throw IllegalStateException("Unrecognized message type $type")
     }
 }
