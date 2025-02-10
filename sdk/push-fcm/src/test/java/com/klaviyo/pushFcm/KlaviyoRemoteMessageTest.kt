@@ -11,8 +11,8 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.keyValuePairs
 import io.mockk.every
 import io.mockk.mockk
-import org.junit.Test
 import org.json.JSONObject
+import org.junit.Test
 
 class KlaviyoRemoteMessageTest : BaseTest() {
     private val stubKeyValuePairs = mapOf(

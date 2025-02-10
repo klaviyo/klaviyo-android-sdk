@@ -19,8 +19,8 @@ import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
-import org.json.JSONObject
 import java.net.URL
+import org.json.JSONObject
 
 /**
  * Extension functions for RemoteMessage
@@ -145,7 +145,7 @@ object KlaviyoRemoteMessage {
     /**
      * Parse out the key-value pairs into a string:string map
      */
-    val RemoteMessage.keyValuePairs: Map<String,String>?
+    val RemoteMessage.keyValuePairs: Map<String, String>?
         get() = this.data[KlaviyoNotification.KEY_VALUE_PAIRS_KEY]?.let { jsonString ->
             try {
                 val jsonObject = JSONObject(jsonString)
@@ -156,7 +156,8 @@ object KlaviyoRemoteMessage {
                 map
             } catch (e: Exception) {
                 Registry.log.warning(
-                    "Klaviyo SDK failed to parse key-value pairs JSON: $jsonString", e
+                    "Klaviyo SDK failed to parse key-value pairs JSON: $jsonString",
+                    e
                 )
                 null
             }

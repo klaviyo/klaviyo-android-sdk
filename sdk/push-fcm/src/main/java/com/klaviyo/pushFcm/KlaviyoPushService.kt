@@ -44,7 +44,7 @@ open class KlaviyoPushService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
 
-        if (message.isKlaviyoMessage){
+        if (message.isKlaviyoMessage) {
             if (message.isKlaviyoNotification) {
                 KlaviyoNotification(message).displayNotification(this)
             } else {
