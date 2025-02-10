@@ -18,6 +18,7 @@ subprojects {
             localProperties.load(new FileInputStream(rootProject.file("local.properties")))
         }
         def serverTarget = localProperties["localKlaviyoServerUrl"] ?: klaviyoServerUrl
+        def cdnUrl = localProperties["localKlaviyoCdnUrl"] ?: klaviyoCdnUrl
         def apiRevision = localProperties["localKlaviyoApiRevision"] ?: klaviyoApiRevision
 
         defaultConfig {
@@ -47,11 +48,13 @@ subprojects {
                 minifyEnabled false
                 proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
+                buildConfigField "String", "KLAVIYO_CDN_URL", "\"${cdnUrl}\""
                 buildConfigField "String", "KLAVIYO_API_REVISION", "\"${apiRevision}\""
             }
             debug {
                 debuggable = true
                 buildConfigField "String", "KLAVIYO_SERVER_URL", "\"${serverTarget}\""
+                buildConfigField "String", "KLAVIYO_CDN_URL", "\"${cdnUrl}\""
                 buildConfigField "String", "KLAVIYO_API_REVISION", "\"${apiRevision}\""
             }
         }

@@ -6,6 +6,7 @@ import com.klaviyo.core.networking.NetworkMonitor
 interface Config {
     val isDebugBuild: Boolean
     val baseUrl: String
+    val baseCdnUrl: String
     val apiRevision: String
     val sdkName: String
     val sdkVersion: String
