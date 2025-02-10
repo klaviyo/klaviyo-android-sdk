@@ -95,6 +95,9 @@ object KlaviyoConfig : Config {
 
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
         private set
+
+    override var baseCdnUrl: String = BuildConfig.KLAVIYO_CDN_URL
+        private set
     override var apiRevision: String = BuildConfig.KLAVIYO_API_REVISION
         private set
     override lateinit var sdkName: String private set
