@@ -4,6 +4,7 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 
 /**
@@ -43,10 +44,33 @@ open class KlaviyoPushService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
 
-        if (message.isKlaviyoNotification) {
-            KlaviyoNotification(message).displayNotification(this)
+        if (message.isKlaviyoMessage){
+            if (message.isKlaviyoNotification) {
+                KlaviyoNotification(message).displayNotification(this)
+            } else {
+                // Handle silent push notifications
+                onSilentPushMessageReceived(message)
+            }
         } else {
             Registry.log.info("Ignoring non-Klaviyo RemoteMessage")
         }
+    }
+
+    /**
+     * Called when a silent push notification is received.
+     *
+     * This method is designed to be overridden by subclasses to provide custom handling for silent
+     * push notifications. By default, it simply logs the received [RemoteMessage]. Subclasses can
+     * override this method to extract key-value pairs, perform background processing, or implement
+     * any other custom behavior without requiring a user-visible notification.
+     *
+     * The default implementation is invoked from the default [onMessageReceived] logic. If you
+     * require different behavior for silent pushes, simply override this method in your subclass of
+     * [KlaviyoPushService] and implement your own handling logic.
+     *
+     * @param message The [RemoteMessage] object representing the silent push notification.
+     */
+    open fun onSilentPushMessageReceived(message: RemoteMessage) {
+        Registry.log.info("Received silent push notification RemoteMessage: $message")
     }
 }

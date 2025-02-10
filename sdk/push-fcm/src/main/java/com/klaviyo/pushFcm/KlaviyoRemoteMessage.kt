@@ -140,7 +140,7 @@ object KlaviyoRemoteMessage {
      * Determine if the message is bearing key-value pairs
      */
     val RemoteMessage.hasKlaviyoKeyValuePairs: Boolean
-        get() = this.isKlaviyoMessage && (this.data[KlaviyoNotification.KEY_VALUE_PAIRS_KEY]?.let { true } ?: false)
+        get() = this.data.containsKey(KlaviyoNotification.KEY_VALUE_PAIRS_KEY)
 
     /**
      * Parse out the key-value pairs into a string:string map
