@@ -11,10 +11,10 @@ import io.mockk.verify
 import org.json.JSONException
 import org.json.JSONObject
 import org.junit.After
-import org.junit.Before
-import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Before
+import org.junit.Test
 
 class FormsUtilityTest : BaseTest() {
 
@@ -166,7 +166,9 @@ class FormsUtilityTest : BaseTest() {
         """.trimIndent()
 
         val expectedAggBody =
-            JSONObject("{\"metric_group\":\"signup-forms\",\"events\":[{\"log_to_metrics_service\":true,\"metric\":\"stepSubmit\",\"log_to_statsd\":true,\"event_details\":{\"page_url\":\"http://localhost:4001/onsite/js/\",\"first_referrer\":\"http://localhost:4001/onsite/js/\",\"action_type\":\"Submit Step\",\"form_version_id\":3,\"form_id\":\"64CjgW\",\"device_type\":\"DESKTOP\",\"form_type\":\"POPUP\",\"referrer\":\"http://localhost:4001/onsite/js/\",\"submitted_fields\":{\"sms_consent\":true,\"consent_method\":\"Klaviyo Form\",\"consent_form_version\":3,\"step_name\":\"Email Opt-In\",\"consent_form_id\":\"64CjgW\",\"source\":\"Local Form\",\"email\":\"local@local.com\",\"sent_identifiers\":{}},\"hostname\":\"localhost\",\"step_number\":1,\"form_version_c_id\":\"1\",\"step_name\":\"Email Opt-In\",\"is_client\":true,\"href\":\"http://localhost:4001/onsite/js/\",\"cid\":\"ODZjYjJmMjUtNjliMC00ZGVlLTllM2YtNDY5YTlmNjcwYmUz\"},\"metric_service_event_name\":\"submitted_form_step\",\"log_to_s3\":true}]}")
+            JSONObject(
+                "{\"metric_group\":\"signup-forms\",\"events\":[{\"log_to_metrics_service\":true,\"metric\":\"stepSubmit\",\"log_to_statsd\":true,\"event_details\":{\"page_url\":\"http://localhost:4001/onsite/js/\",\"first_referrer\":\"http://localhost:4001/onsite/js/\",\"action_type\":\"Submit Step\",\"form_version_id\":3,\"form_id\":\"64CjgW\",\"device_type\":\"DESKTOP\",\"form_type\":\"POPUP\",\"referrer\":\"http://localhost:4001/onsite/js/\",\"submitted_fields\":{\"sms_consent\":true,\"consent_method\":\"Klaviyo Form\",\"consent_form_version\":3,\"step_name\":\"Email Opt-In\",\"consent_form_id\":\"64CjgW\",\"source\":\"Local Form\",\"email\":\"local@local.com\",\"sent_identifiers\":{}},\"hostname\":\"localhost\",\"step_number\":1,\"form_version_c_id\":\"1\",\"step_name\":\"Email Opt-In\",\"is_client\":true,\"href\":\"http://localhost:4001/onsite/js/\",\"cid\":\"ODZjYjJmMjUtNjliMC00ZGVlLTllM2YtNDY5YTlmNjcwYmUz\"},\"metric_service_event_name\":\"submitted_form_step\",\"log_to_s3\":true}]}"
+            )
         // Act
         val result =
             decodeWebviewMessage(aggregateMessage) as KlaviyoWebFormMessageType.AggregateEventTracked
@@ -194,7 +196,7 @@ class FormsUtilityTest : BaseTest() {
     }
 
     @Test
-    fun `deeplink does not have android field, throws error`(){
+    fun `deeplink does not have android field, throws error`() {
         val deeplinkMessage = """
             {
               "type": "openDeepLink",
