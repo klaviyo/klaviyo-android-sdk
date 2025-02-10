@@ -44,6 +44,17 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
+    fun `Test message is silent push`() {
+        val msg = mockk<RemoteMessage>()
+
+        stubMessage.remove("title")
+        stubMessage.remove("body")
+        every { msg.data } returns stubMessage
+
+        assert(!msg.isKlaviyoNotification)
+    }
+
+    @Test
     fun `Test Key-Value Pairs Deserialization`() {
         val msg = mockk<RemoteMessage>()
         every { msg.data } returns stubMessage
