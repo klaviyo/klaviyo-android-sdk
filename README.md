@@ -475,7 +475,7 @@ handled via `onMessageReceived` regardless of the app being in the background or
 If you are working with multiple remote sources, you can check whether a message originated
 from Klaviyo with the extension method `RemoteMessage.isKlaviyoMessage`.
 
-### Custom Notification Handling
+#### Custom Notification Handling
 In addition to the standard notification processing, the Klaviyo Android SDK provides two overridable methods for advanced push handling:
 - `onKlaviyoNotificationMessageReceived(RemoteMessage message)`: Invoked when a standard Klaviyo push notification is received. Override this method to customize how notifications are displayed or processed.
 - `onKlaviyoCustomDataMessageReceived(Map<String, String> customData, RemoteMessage message)`: Invoked when a Klaviyo message contains custom key-value pairs. Override this method to handle additional custom data (e.g., triggering background tasks or logging analytics) that may accompany your push notifications.
