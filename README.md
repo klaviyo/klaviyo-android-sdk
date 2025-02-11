@@ -372,13 +372,13 @@ deep links in your app.
 
     To perform integration testing, you can send a
     [preview push notification](https://help.klaviyo.com/hc/en-us/articles/18011985278875) 
-    containing a deep link from the Klaviyo push editor. 
+    containing a deep link from the Klaviyo push editor.
+
+For additional resources on deep linking, refer to
+[Android developer documentation](https://developer.android.com/training/app-links/deep-linking).
 
 #### Custom Data
-Klaviyo messages can also include custom key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the extension property `RemoteMessage.keyValuePairs` and check for their presence with the boolean extension property `RemoteMessage.hasKlaviyoKeyValuePairs`. This enables you to extract additional information from the push payload and handle it appropriately - for instance, but triggering background processing, logging analytical events, or dynamically updating app content.
-
-For additional resources on deep linking, refer to 
-[Android developer documentation](https://developer.android.com/training/app-links/deep-linking).
+Klaviyo messages can also include custom key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the extension property `RemoteMessage.keyValuePairs` and check for their presence with the boolean extension property `RemoteMessage.hasKlaviyoKeyValuePairs`. This enables you to extract additional information from the push payload and handle it appropriately.
 
 ### Advanced Setup
 If you'd prefer to have your own implementation of `FirebaseMessagingService`,
