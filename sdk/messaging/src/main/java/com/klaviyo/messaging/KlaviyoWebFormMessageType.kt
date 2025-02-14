@@ -11,6 +11,8 @@ sealed class KlaviyoWebFormMessageType {
 
     data object Close : KlaviyoWebFormMessageType()
 
+    data object HandShook : KlaviyoWebFormMessageType()
+
     data class ProfileEvent(
         val event: Event
     ) : KlaviyoWebFormMessageType()

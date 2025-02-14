@@ -22,6 +22,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Clock
 import java.lang.ref.WeakReference
 
 class KlaviyoWebView(
@@ -32,6 +33,9 @@ class KlaviyoWebView(
     }
 
     private val activityRef = WeakReference(activity)
+
+    // for timeout on js communications
+    private var timer: Clock.Cancellable? = null
 
     init {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
@@ -101,9 +105,22 @@ class KlaviyoWebView(
         MIME_TYPE,
         null,
         null
-    )
+    ).also {
+        timer?.cancel()
+        timer = Registry.clock.schedule(Registry.config.networkTimeout.toLong()) {
+            Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
+            close()
+        }
+    }
 
-    private fun show() = webView.post { webView.visibility = View.VISIBLE }
+    private fun handShook() {
+        Registry.log.info("Received message from JS bridge")
+        timer?.cancel()
+    }
+
+    private fun show() {
+        webView.post { webView.visibility = View.VISIBLE }
+    }
 
     private fun close() = webView.post {
         webView.visibility = View.GONE
@@ -134,6 +151,7 @@ class KlaviyoWebView(
                 is KlaviyoWebFormMessageType.AggregateEventTracked -> Registry.get<ApiClient>()
                     .enqueueAggregateEvent(messageType.payload)
                 is KlaviyoWebFormMessageType.DeepLink -> deepLink(messageType)
+                KlaviyoWebFormMessageType.HandShook -> handShook()
             }
         } catch (e: Exception) {
             Registry.log.error("Failed to relay webview message: $message", e)
