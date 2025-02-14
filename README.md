@@ -378,7 +378,11 @@ For additional resources on deep linking, refer to
 [Android developer documentation](https://developer.android.com/training/app-links/deep-linking).
 
 #### Custom Data
-Klaviyo messages can also include custom key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the extension property `RemoteMessage.keyValuePairs` and check for their presence with the boolean extension property `RemoteMessage.hasKlaviyoKeyValuePairs`. This enables you to extract additional information from the push payload and handle it appropriately.
+Klaviyo messages can also include custom key-value pairs (custom data) for both standard and silent push notifications. 
+You can access these key-value pairs using the extension property `RemoteMessage.keyValuePairs` and check for their 
+presence with the boolean extension property `RemoteMessage.hasKlaviyoKeyValuePairs`. This enables you to extract 
+additional information from the push payload and handle it appropriately - for instance, by triggering background 
+processing, logging analytics events, or dynamically updating app content.
 
 ### Advanced Setup
 If you'd prefer to have your own implementation of `FirebaseMessagingService`,
@@ -435,39 +439,39 @@ You may either subclass `KlaviyoPushService` or invoke the necessary Klaviyo SDK
     }
     ```
 
-   2. Subclass `FirebaseMessagingService` and invoke Klaviyo SDK methods directly
-       ```kotlin
-       import com.google.firebase.messaging.FirebaseMessagingService
-       import com.google.firebase.messaging.RemoteMessage
-       import com.klaviyo.analytics.Klaviyo
-       import com.klaviyo.pushFcm.KlaviyoNotification
-       import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
+2. Subclass `FirebaseMessagingService` and invoke Klaviyo SDK methods directly
+    ```kotlin
+    import com.google.firebase.messaging.FirebaseMessagingService
+    import com.google.firebase.messaging.RemoteMessage
+    import com.klaviyo.analytics.Klaviyo
+    import com.klaviyo.pushFcm.KlaviyoNotification
+    import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 
-       class YourPushService : FirebaseMessagingService() {
+    class YourPushService : FirebaseMessagingService() {
 
-           override fun onNewToken(newToken: String) {
-               super.onNewToken(newToken)
-               Klaviyo.setPushToken(newToken)
-           }
+        override fun onNewToken(newToken: String) {
+            super.onNewToken(newToken)
+            Klaviyo.setPushToken(newToken)
+        }
 
-           override fun onMessageReceived(message: RemoteMessage) {
-               super.onMessageReceived(message)
+        override fun onMessageReceived(message: RemoteMessage) {
+            super.onMessageReceived(message)
 
-               // This extension method allows you to distinguish Klaviyo from other sources
-               if (message.isKlaviyoMessage) {
-                    if (message.isKlaviyoNotification) {
-                       // Handle displaying a notification from Klaviyo
-                       KlaviyoNotification(message).displayNotification(this)
-                    }
-                    if (message.hasKlaviyoKeyValuePairs) {
-                       TODO("Handle custom data in Klaviyo messages")
-                    }
-               } else {
-                    TODO("Handle non-Klaviyo messages")
-               }
-           }
-       }
-       ```
+            // This extension method allows you to distinguish Klaviyo from other sources
+            if (message.isKlaviyoMessage) {
+                 if (message.isKlaviyoNotification) {
+                    // Handle displaying a notification from Klaviyo
+                    KlaviyoNotification(message).displayNotification(this)
+                 }
+                 if (message.hasKlaviyoKeyValuePairs) {
+                    TODO("Handle custom data in Klaviyo messages")
+                 }
+            } else {
+                 TODO("Handle non-Klaviyo messages")
+            }
+        }
+    }
+    ```
 
 **Note:** Klaviyo uses [data messages](https://firebase.google.com/docs/cloud-messaging/android/receive)
 to provide consistent notification formatting. As a result, all Klaviyo notifications are
@@ -476,9 +480,13 @@ If you are working with multiple remote sources, you can check whether a message
 from Klaviyo with the extension method `RemoteMessage.isKlaviyoMessage`.
 
 #### Custom Notification Handling
-In addition to the standard notification processing, the Klaviyo Android SDK provides two overridable methods for advanced push handling:
-- `onKlaviyoNotificationMessageReceived(RemoteMessage message)`: Invoked when a standard Klaviyo push notification is received. Override this method to customize how notifications are displayed or processed.
-- `onKlaviyoCustomDataMessageReceived(Map<String, String> customData, RemoteMessage message)`: Invoked when a Klaviyo message contains custom key-value pairs. Override this method to handle additional custom data (e.g., triggering background tasks or logging analytics) that may accompany your push notifications.
+In addition to the standard notification processing, the Klaviyo Android SDK provides two overridable methods for 
+advanced push handling:
+- `onKlaviyoNotificationMessageReceived(RemoteMessage message)`: Invoked when a standard Klaviyo push notification is 
+received. Override this method to customize how notifications are displayed or processed.
+- `onKlaviyoCustomDataMessageReceived(Map<String, String> customData, RemoteMessage message)`: Invoked when a Klaviyo 
+message contains custom key-value pairs. Override this method to handle additional custom data (e.g., triggering 
+background tasks or logging analytics) that may accompany your push notifications.
 
 #### Custom Notification Display
 If you wish to fully customize the display of notifications, we provide a set of `RemoteMessage` 
