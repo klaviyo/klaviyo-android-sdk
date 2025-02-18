@@ -10,7 +10,7 @@ class InAppFormsHtmlTests {
             """
                 [
                   {
-                    "type": "formAppeared",
+                    "type": "formWillAppear",
                     "version": 1
                   },
                   {
