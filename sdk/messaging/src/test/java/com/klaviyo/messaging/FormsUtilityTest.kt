@@ -73,7 +73,7 @@ class FormsUtilityTest : BaseTest() {
     @Test
     fun `test decodeWebviewMessage properly decodes show type`() {
         // Setup
-        val showMessage = "{\"type\": \"formAppeared\", \"data\": {}}"
+        val showMessage = "{\"type\": \"formWillAppear\", \"data\": {}}"
 
         // Act
         val result = decodeWebviewMessage(showMessage)
@@ -212,5 +212,17 @@ class FormsUtilityTest : BaseTest() {
         assertThrows(JSONException::class.java) {
             decodeWebviewMessage(deeplinkMessage)
         }
+    }
+
+    @Test
+    fun `handshake field sends proper type`() {
+        val deeplinkMessage = """            
+            {
+              "type": "handShook",
+              "data": {
+              }
+            }
+        """.trimIndent()
+        assertEquals(KlaviyoWebFormMessageType.HandShook, decodeWebviewMessage(deeplinkMessage))
     }
 }
