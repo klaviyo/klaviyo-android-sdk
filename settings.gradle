@@ -11,7 +11,7 @@ dependencyResolutionManagement {
 
 // sdk modules
 include ":sdk"
-include ":sdk:core", ":sdk:analytics", ":sdk:push-fcm", ":sdk:fixtures", ":sdk:messaging"
+include ":sdk:core", ":sdk:analytics", ":sdk:push-fcm", ":sdk:fixtures", ":sdk:forms"
 
 refreshVersions {
     rejectVersionIf {

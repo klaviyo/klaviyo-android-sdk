@@ -1,10 +1,10 @@
-project.description = 'In-app messaging functionality for the Klaviyo SDK suite'
+project.description = 'In-app forms functionality for the Klaviyo SDK suite'
 evaluationDependsOn(':sdk')
 
 def ext = rootProject.ext
 
 android {
-    namespace "${klaviyoGroupId}.messaging"
+    namespace "${klaviyoGroupId}.forms"
 
     publishing {
         singleVariant(ext.publishBuildVariant) {
@@ -30,7 +30,7 @@ afterEvaluate {
             release(MavenPublication) {
                 from components[ext.publishBuildVariant]
                 groupId = klaviyoGroupId
-                artifactId = 'messaging'
+                artifactId = 'forms'
                 version = readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_version_override', project(":sdk:core"))
             }
         }
