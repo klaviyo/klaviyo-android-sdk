@@ -19,12 +19,13 @@ internal const val IAF_MESSAGE_DATA_KEY = "data"
 internal const val IAF_MESSAGE_TYPE_KEY = "type"
 internal const val IAF_TYPE_VERSION_KEY = "version"
 
-internal const val IAF_MESSAGE_TYPE_SHOW = "formAppeared"
+internal const val IAF_MESSAGE_TYPE_SHOW = "formWillAppear"
 internal const val IAF_MESSAGE_TYPE_CLOSE = "formDisappeared"
 internal const val IAF_MESSAGE_TYPE_PROFILE_EVENT = "trackProfileEvent"
 internal const val IAF_MESSAGE_TYPE_AGGREGATE_EVENT = "trackAggregateEvent"
 internal const val IAF_MESSAGE_TYPE_DEEPLINK = "openDeepLink"
 internal const val IAF_MESSAGE_TYPE_ABORT = "abort"
+internal const val IAF_MESSAGE_HAND_SHOOK = "handShook"
 
 internal val IAF_HANDSHAKE by lazy {
     JSONArray(
