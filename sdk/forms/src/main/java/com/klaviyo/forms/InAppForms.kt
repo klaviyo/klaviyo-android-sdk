@@ -8,7 +8,7 @@ import java.io.BufferedReader
 
 fun Klaviyo.registerForInAppForms(activity: Activity) {
     val rootView = activity.window.decorView.findViewById<ViewGroup>(android.R.id.content)
-    val webView = KlaviyoWebView(activity)
+    val webView = KlaviyoWebViewDelegate(activity)
     val klaviyoJsUrl =
         "${Registry.config.baseCdnUrl}/onsite/js/klaviyo.js?env=in-app&company_id=${Registry.config.apiKey}"
     val html = activity

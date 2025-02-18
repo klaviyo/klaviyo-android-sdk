@@ -25,7 +25,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import java.lang.ref.WeakReference
 
-class KlaviyoWebView(
+internal class KlaviyoWebViewDelegate(
     activity: Activity
 ) : WebViewClient(), WebViewCompat.WebMessageListener {
     companion object {
@@ -53,8 +53,7 @@ class KlaviyoWebView(
             WebViewCompat.addWebMessageListener(
                 it,
                 IAF_BRIDGE_NAME,
-                // TODO - sort out how to toggle between local and production.
-                setOf("http://a.local-klaviyo.com:8080"),
+                setOf(Registry.config.baseCdnUrl),
                 this
             )
         } else {
@@ -99,8 +98,7 @@ class KlaviyoWebView(
     }
 
     fun loadHtml(html: String) = webView.loadDataWithBaseURL(
-        // TODO - sort out how to toggle between local and production.
-        "http://a.local-klaviyo.com:8080",
+        Registry.config.baseCdnUrl,
         html,
         MIME_TYPE,
         null,
