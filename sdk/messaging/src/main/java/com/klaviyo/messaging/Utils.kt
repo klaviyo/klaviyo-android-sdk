@@ -55,6 +55,9 @@ internal fun decodeWebviewMessage(webMessage: String): KlaviyoWebFormMessageType
             Registry.log.debug("IAF WebView Aborted: $reason")
             KlaviyoWebFormMessageType.Close
         }
+        IAF_MESSAGE_HAND_SHOOK -> {
+            KlaviyoWebFormMessageType.HandShook
+        }
         else -> throw IllegalStateException("Unrecognized message type $type")
     }
 }
