@@ -1,4 +1,4 @@
-package com.klaviyo.messaging
+package com.klaviyo.forms
 
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric

@@ -1,4 +1,4 @@
-package com.klaviyo.messaging
+package com.klaviyo.forms
 
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload

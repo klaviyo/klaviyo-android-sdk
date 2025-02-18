@@ -1,4 +1,4 @@
-package com.klaviyo.messaging
+package com.klaviyo.forms
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
