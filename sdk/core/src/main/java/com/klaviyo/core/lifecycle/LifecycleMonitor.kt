@@ -29,6 +29,8 @@ sealed class ActivityEvent(val activity: Activity? = null, val bundle: Bundle? =
  */
 interface LifecycleMonitor {
 
+    val currentActivity: Activity?
+
     /**
      * Register an observer to be notified when all application activities stopped
      *
