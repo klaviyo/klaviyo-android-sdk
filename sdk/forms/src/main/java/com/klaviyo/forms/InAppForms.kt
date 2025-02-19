@@ -8,7 +8,8 @@ import java.io.BufferedReader
 fun Klaviyo.registerForInAppForms(): Klaviyo = safeApply {
     val webView = KlaviyoWebViewDelegate()
     val klaviyoJsUrl =
-        "${Registry.config.baseCdnUrl}/onsite/js/klaviyo.js?env=in-app&company_id=${Registry.config.apiKey}"
+        // todo remove the asset source from url
+        "${Registry.config.baseCdnUrl}/onsite/js/klaviyo.js?env=in-app&company_id=${Registry.config.apiKey}&assetSource=pr-38360"
     val html = Registry.config.applicationContext
         .assets
         .open("InAppFormsTemplate.html")
