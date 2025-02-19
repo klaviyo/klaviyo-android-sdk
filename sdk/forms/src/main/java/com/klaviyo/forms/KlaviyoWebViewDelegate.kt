@@ -23,16 +23,14 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
-import java.lang.ref.WeakReference
 
-internal class KlaviyoWebViewDelegate(
-    activity: Activity
-) : WebViewClient(), WebViewCompat.WebMessageListener {
+internal class KlaviyoWebViewDelegate() : WebViewClient(), WebViewCompat.WebMessageListener {
     companion object {
         private const val MIME_TYPE = "text/html"
     }
 
-    private val activityRef = WeakReference(activity)
+    private val activity: Activity?
+        get() = Registry.lifecycleMonitor.currentActivity
 
     // for timeout on js communications
     private var timer: Clock.Cancellable? = null
@@ -42,7 +40,7 @@ internal class KlaviyoWebViewDelegate(
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private val webView = WebView(activity).also {
+    private val webView = WebView(Registry.config.applicationContext).also {
         it.setBackgroundColor(Color.TRANSPARENT)
         it.webViewClient = this
         it.settings.userAgentString = DeviceProperties.userAgent
@@ -86,15 +84,14 @@ internal class KlaviyoWebViewDelegate(
                 data = request.url
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            activityRef.get()?.let { startActivity(it, intent, null) }
+            activity?.let {
+                startActivity(it, intent, null)
+            } ?: run {
+                Registry.log.error("Unable to launch external browser, null activity reference")
+            }
             return true
         }
         return super.shouldOverrideUrlLoading(view, request)
-    }
-
-    fun addTo(view: ViewGroup) {
-        webView.visibility = View.INVISIBLE
-        view.addView(webView)
     }
 
     fun loadHtml(html: String) = webView.loadDataWithBaseURL(
@@ -117,7 +114,14 @@ internal class KlaviyoWebViewDelegate(
     }
 
     private fun show() {
-        webView.post { webView.visibility = View.VISIBLE }
+        activity?.let {
+            it.window.decorView
+                .findViewById<ViewGroup>(android.R.id.content)
+                .addView(webView)
+            webView.post { webView.visibility = View.VISIBLE }
+        } ?: run {
+            Registry.log.error("Unable to show IAF - null activity context reference")
+        }
     }
 
     private fun close() = webView.post {
@@ -158,7 +162,7 @@ internal class KlaviyoWebViewDelegate(
 
     private fun deepLink(messageType: KlaviyoWebFormMessageType.DeepLink) {
         val uri = Uri.parse(messageType.route)
-        activityRef.get()?.let { activity ->
+        activity?.let { activity ->
             activity.startActivity(
                 Intent().apply {
                     data = uri
