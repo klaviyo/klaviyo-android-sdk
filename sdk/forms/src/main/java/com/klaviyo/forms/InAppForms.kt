@@ -1,17 +1,15 @@
 package com.klaviyo.forms
 
-import android.app.Activity
-import android.view.ViewGroup
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
+import com.klaviyo.core.safeApply
 import java.io.BufferedReader
 
-fun Klaviyo.registerForInAppForms(activity: Activity) {
-    val rootView = activity.window.decorView.findViewById<ViewGroup>(android.R.id.content)
-    val webView = KlaviyoWebViewDelegate(activity)
+fun Klaviyo.registerForInAppForms(): Klaviyo = safeApply {
+    val webView = KlaviyoWebViewDelegate()
     val klaviyoJsUrl =
         "${Registry.config.baseCdnUrl}/onsite/js/klaviyo.js?env=in-app&company_id=${Registry.config.apiKey}"
-    val html = activity
+    val html = Registry.config.applicationContext
         .assets
         .open("InAppFormsTemplate.html")
         .bufferedReader()
@@ -23,5 +21,4 @@ fun Klaviyo.registerForInAppForms(activity: Activity) {
         .replace(IAF_KLAVIYO_JS_PLACEHOLDER, klaviyoJsUrl)
 
     webView.loadHtml(html)
-    webView.addTo(rootView)
 }
