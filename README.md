@@ -55,8 +55,8 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.0.3")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.0.3")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.1.0-alpha.1+silentpush")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.1.0-alpha.1+silentpush")
       }
       ```
    </details>
@@ -67,8 +67,8 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.0.3"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.0.3"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.1.0-alpha.1+silentpush"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.1.0-alpha.1+silentpush"
        }
       ```
    </details>
