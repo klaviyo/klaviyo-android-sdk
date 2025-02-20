@@ -2,5 +2,5 @@
 <resources>
     <!-- Please do not modify these values, it will stop SDK functionality-->
     <string name="klaviyo_sdk_name_override">android</string>
-    <string name="klaviyo_sdk_version_override">3.0.3</string>
+    <string name="klaviyo_sdk_version_override">3.2.0-alpha-iaf.1</string>
 </resources>
