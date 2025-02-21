@@ -45,6 +45,7 @@ internal class KlaviyoWebViewDelegate() : WebViewClient(), WebViewCompat.WebMess
         it.webViewClient = this
         it.settings.userAgentString = DeviceProperties.userAgent
         it.settings.javaScriptEnabled = true
+        it.settings.domStorageEnabled = true
 
         if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Supported")
