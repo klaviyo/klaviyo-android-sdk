@@ -23,6 +23,7 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
+import java.lang.ref.WeakReference
 
 internal class KlaviyoWebViewDelegate() : WebViewClient(), WebViewCompat.WebMessageListener {
     companion object {
@@ -39,11 +40,11 @@ internal class KlaviyoWebViewDelegate() : WebViewClient(), WebViewCompat.WebMess
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
     }
 
-    private var internalWebview: WebView? = null
+    private var internalWebview: WeakReference<WebView> = WeakReference(null)
 
     @get:SuppressLint("SetJavaScriptEnabled")
     private val webView: WebView
-        get() = internalWebview ?: WebView(Registry.config.applicationContext).also {
+        get() = internalWebview.get() ?: WebView(Registry.config.applicationContext).also {
             it.setBackgroundColor(Color.TRANSPARENT)
             it.webViewClient = this
             it.settings.userAgentString = DeviceProperties.userAgent
@@ -98,10 +99,10 @@ internal class KlaviyoWebViewDelegate() : WebViewClient(), WebViewCompat.WebMess
     }
 
     fun loadHtml(html: String) {
-        internalWebview?.let {
+        internalWebview.get()?.let {
             Registry.log.debug("Not loading into $webView since its active")
         } ?: run {
-            internalWebview = webView
+            internalWebview = WeakReference(webView)
             Registry.log.wtf("Loading html into $webView")
             webView.loadDataWithBaseURL(
                 Registry.config.baseCdnUrl,
@@ -141,7 +142,8 @@ internal class KlaviyoWebViewDelegate() : WebViewClient(), WebViewCompat.WebMess
                 (it as ViewGroup).removeView(webView)
                 webView.destroy()
             }
-            internalWebview = null
+            internalWebview.clear()
+            Registry.log.debug("IAF WebView: clearing internal webview reference")
         }
     }
 

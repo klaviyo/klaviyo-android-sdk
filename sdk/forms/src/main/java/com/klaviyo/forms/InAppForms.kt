@@ -4,15 +4,10 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.core.safeApply
 import java.io.BufferedReader
-import java.lang.ref.WeakReference
-
-private var weakDelegateReference: WeakReference<KlaviyoWebViewDelegate>? = null
 
 fun Klaviyo.registerForInAppForms(): Klaviyo = safeApply {
-    var webViewDelegate = weakDelegateReference?.get()
-    if (webViewDelegate == null) {
-        webViewDelegate = KlaviyoWebViewDelegate()
-        weakDelegateReference = WeakReference(webViewDelegate)
+    if (!Registry.isRegistered<KlaviyoWebViewDelegate>()) {
+        Registry.register<KlaviyoWebViewDelegate>(KlaviyoWebViewDelegate())
     }
     val klaviyoJsUrl =
         // todo remove the asset source from url
@@ -27,5 +22,5 @@ fun Klaviyo.registerForInAppForms(): Klaviyo = safeApply {
         .replace(IAF_SDK_VERSION_PLACEHOLDER, Registry.config.sdkVersion)
         .replace(IAF_HANDSHAKE_PLACEHOLDER, IAF_HANDSHAKE)
         .replace(IAF_KLAVIYO_JS_PLACEHOLDER, klaviyoJsUrl)
-    webViewDelegate.loadHtml(html)
+    Registry.get<KlaviyoWebViewDelegate>().loadHtml(html)
 }
