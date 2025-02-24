@@ -23,9 +23,9 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
-import java.lang.ref.WeakReference
+import com.klaviyo.core.utils.WeakReferenceDelegate
 
-internal class KlaviyoWebViewDelegate() : WebViewClient(), WebViewCompat.WebMessageListener {
+internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessageListener {
     companion object {
         private const val MIME_TYPE = "text/html"
     }
@@ -40,11 +40,11 @@ internal class KlaviyoWebViewDelegate() : WebViewClient(), WebViewCompat.WebMess
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
     }
 
-    private var internalWebview: WeakReference<WebView> = WeakReference(null)
+    private var internalWebview: WebView? by WeakReferenceDelegate()
 
     @get:SuppressLint("SetJavaScriptEnabled")
     private val webView: WebView
-        get() = internalWebview.get() ?: WebView(Registry.config.applicationContext).also {
+        get() = internalWebview ?: WebView(Registry.config.applicationContext).also {
             it.setBackgroundColor(Color.TRANSPARENT)
             it.webViewClient = this
             it.settings.userAgentString = DeviceProperties.userAgent
@@ -99,10 +99,10 @@ internal class KlaviyoWebViewDelegate() : WebViewClient(), WebViewCompat.WebMess
     }
 
     fun loadHtml(html: String) {
-        internalWebview.get()?.let {
+        internalWebview?.let {
             Registry.log.debug("Not loading into $webView since its active")
         } ?: run {
-            internalWebview = WeakReference(webView)
+            internalWebview = webView
             Registry.log.wtf("Loading html into $webView")
             webView.loadDataWithBaseURL(
                 Registry.config.baseCdnUrl,
@@ -142,7 +142,7 @@ internal class KlaviyoWebViewDelegate() : WebViewClient(), WebViewCompat.WebMess
                 (it as ViewGroup).removeView(webView)
                 webView.destroy()
             }
-            internalWebview.clear()
+            internalWebview = null
             Registry.log.debug("IAF WebView: clearing internal webview reference")
         }
     }
