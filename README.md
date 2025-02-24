@@ -57,6 +57,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       dependencies {
           implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.2.0-alpha.2")
           implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.2.0-alpha.2")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:3.2.0-alpha.2")
       }
       ```
    </details>
@@ -69,6 +70,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
        dependencies {
            implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.2.0-alpha.2"
            implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.2.0-alpha.2"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:3.2.0-alpha.2"
        }
       ```
    </details>
@@ -464,6 +466,37 @@ If you wish to fully customize the display of notifications, we provide a set of
 extensions such as `import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body` to access all the properties sent from Klaviyo.
 We also provide an `Intent.appendKlaviyoExtras(RemoteMessage)` extension method, which attaches the data to your
 notification intent that the Klaviyo SDK requires in order to track opens when you call `Klaviyo.handlePush(intent)`.
+
+## In App Forms
+
+### Prerequisites
+- A published "in-app" form in the Klaviyo forms portal
+- Using version 3.2.0 or higher
+
+### Setup
+The Klaviyo Push SDK for Android works as an extension of the Klaviyo object, and can be chained with your initialization code to allow for form display.
+```kotlin
+Klaviyo
+    .initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+    .registerForInAppForms()
+```
+You can also call it publicly anywhere you can access the Klaviyo forms module:
+```kotlin
+Klaviyo.registerForInAppForms() // make sure you only call this after initializing
+```
+
+
+Once you call the `registerForInAppForms` function, the web view will persist in the background until a form is ready to be shown, or a timeout occurs.
+Consider how often you want to check form forms when you call this, for example:
+* `Activity.onCreate()` -> If you only want forms to appear over a specific activity, checks every time this activity is created.
+* `Application.onResume()` -> Anytime the app is foregrounded, check for forms and show if available.
+* `Activity.onDestroy()` -> If you need the forms to display only once an activity is removed from the view (ex. splash screen).
+
+### Behavior
+
+The web view will listen for forms to display with the same timeout as other requests (10 seconds).
+If no form is available to show, the web view will be removed from memory and there will need to be another call to `registerForInAppForms`
+to fetch available forms. Forms will show automatically, and are dismissed by pressing the close button or tapping outside the content of the dialog.
 
 ## Troubleshooting
 The SDK contains logging at different levels from `verbose` to `assert`. By default, the SDK logs at the `error` level
