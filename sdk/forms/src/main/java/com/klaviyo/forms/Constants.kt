@@ -6,11 +6,6 @@ import org.json.JSONArray
  * Fields to replace in the HTML template
  */
 internal const val IAF_BRIDGE_NAME = "KlaviyoNativeBridge"
-internal const val IAF_BRIDGE_NAME_PLACEHOLDER = "BRIDGE_NAME"
-internal const val IAF_SDK_NAME_PLACEHOLDER = "SDK_NAME"
-internal const val IAF_SDK_VERSION_PLACEHOLDER = "SDK_VERSION"
-internal const val IAF_HANDSHAKE_PLACEHOLDER = "BRIDGE_HANDSHAKE"
-internal const val IAF_KLAVIYO_JS_PLACEHOLDER = "KLAVIYO_JS_URL"
 
 /**
  * Decoding top-level message types
