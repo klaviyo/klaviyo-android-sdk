@@ -135,9 +135,9 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     }
 
     private fun close() = webView?.let { webView ->
-        Registry.log.debug("IAF WebView: clearing internal webview reference")
         activity?.window?.decorView?.let { decorView ->
             decorView.post {
+                Registry.log.debug("IAF WebView: clearing internal webview reference")
                 this.webView = null
                 webView.visibility = View.GONE
                 webView.parent?.let {
