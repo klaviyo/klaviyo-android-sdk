@@ -122,26 +122,34 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     }
 
     private fun show() = webView?.let { webView ->
-        activity?.let {
-            it.window.decorView
-                .findViewById<ViewGroup>(android.R.id.content)
-                .addView(webView)
-            webView.post { webView.visibility = View.VISIBLE }
+        activity?.window?.decorView?.let { decorView ->
+            decorView.post {
+                decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
+                webView.visibility = View.VISIBLE
+            }
         } ?: run {
             Registry.log.error("Unable to show IAF - null activity context reference")
         }
+    } ?: run {
+        Registry.log.error("Unable to show IAF - null WebView reference")
     }
 
     private fun close() = webView?.let { webView ->
-        webView.post {
-            webView.visibility = View.GONE
-            webView.parent?.let {
-                (it as ViewGroup).removeView(webView)
-                webView.destroy()
+        Registry.log.debug("IAF WebView: clearing internal webview reference")
+        activity?.window?.decorView?.let { decorView ->
+            decorView.post {
+                this.webView = null
+                webView.visibility = View.GONE
+                webView.parent?.let {
+                    (it as ViewGroup).removeView(webView)
+                    webView.destroy()
+                }
             }
-            this.webView = null
-            Registry.log.debug("IAF WebView: clearing internal webview reference")
+        } ?: run {
+            Registry.log.error("Unable to close IAF - null activity context reference")
         }
+    } ?: run {
+        Registry.log.error("Unable to close IAF - null WebView reference")
     }
 
     override fun onPostMessage(
