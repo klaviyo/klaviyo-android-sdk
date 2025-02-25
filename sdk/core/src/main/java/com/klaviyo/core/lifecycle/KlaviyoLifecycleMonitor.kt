@@ -4,7 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.os.Bundle
 import com.klaviyo.core.Registry
-import java.lang.ref.WeakReference
+import com.klaviyo.core.utils.WeakReferenceDelegate
 import java.util.Collections
 
 /**
@@ -18,10 +18,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
         mutableListOf<ActivityObserver>()
     )
 
-    private lateinit var weakActivityReference: WeakReference<Activity>
-
-    override val currentActivity: Activity?
-        get() = weakActivityReference.get()
+    override var currentActivity: Activity? by WeakReferenceDelegate()
 
     override fun onActivityEvent(observer: ActivityObserver) {
         activityObservers += observer
@@ -50,7 +47,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     override fun onActivityResumed(activity: Activity) {
-        weakActivityReference = WeakReference(activity)
+        currentActivity = activity
         broadcastEvent(ActivityEvent.Resumed(activity))
     }
 
@@ -64,8 +61,8 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     private fun checkActivityClear(activity: Activity) {
-        if (activity == weakActivityReference.get()) {
-            weakActivityReference.clear()
+        if (activity == currentActivity) {
+            currentActivity = null
         }
     }
 
