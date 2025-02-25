@@ -8,7 +8,6 @@ import org.json.JSONObject
 
 internal fun JSONObject.getProperties(): Map<EventKey, Serializable> {
     val map = mutableMapOf<EventKey, Serializable>()
-    // todo this might change depending on the message bus contract
     val propertyMap = this.getJSONObject(IAF_PROPERTIES_KEY)
     propertyMap.keys().forEach {
         try {
