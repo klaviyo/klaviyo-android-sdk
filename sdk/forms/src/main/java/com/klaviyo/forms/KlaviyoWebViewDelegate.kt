@@ -36,33 +36,32 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     // for timeout on js communications
     private var timer: Clock.Cancellable? = null
 
+    private var webView: WebView? by WeakReferenceDelegate()
+
     init {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
     }
 
-    private var internalWebview: WebView? by WeakReferenceDelegate()
-
-    @get:SuppressLint("SetJavaScriptEnabled")
-    private val webView: WebView
-        get() = internalWebview ?: WebView(Registry.config.applicationContext).also {
-            it.setBackgroundColor(Color.TRANSPARENT)
-            it.webViewClient = this
-            it.settings.userAgentString = DeviceProperties.userAgent
-            it.settings.javaScriptEnabled = true
-            it.settings.domStorageEnabled = true
-            if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
-                Registry.log.verbose("$WEB_MESSAGE_LISTENER Supported")
-                WebViewCompat.addWebMessageListener(
-                    it,
-                    IAF_BRIDGE_NAME,
-                    setOf(Registry.config.baseCdnUrl),
-                    this
-                )
-            } else {
-                Registry.log.verbose("$WEB_MESSAGE_LISTENER Unsupported")
-                it.addJavascriptInterface(this, IAF_BRIDGE_NAME)
-            }
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun buildWebView(): WebView = WebView(Registry.config.applicationContext).also {
+        it.setBackgroundColor(Color.TRANSPARENT)
+        it.webViewClient = this
+        it.settings.userAgentString = DeviceProperties.userAgent
+        it.settings.javaScriptEnabled = true
+        it.settings.domStorageEnabled = true
+        if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
+            Registry.log.verbose("$WEB_MESSAGE_LISTENER Supported")
+            WebViewCompat.addWebMessageListener(
+                it,
+                IAF_BRIDGE_NAME,
+                setOf(Registry.config.baseCdnUrl),
+                this
+            )
+        } else {
+            Registry.log.verbose("$WEB_MESSAGE_LISTENER Unsupported")
+            it.addJavascriptInterface(this, IAF_BRIDGE_NAME)
         }
+    }
 
     override fun onReceivedHttpError(
         view: WebView?,
@@ -98,24 +97,22 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
         return super.shouldOverrideUrlLoading(view, request)
     }
 
-    fun loadHtml(html: String) {
-        internalWebview?.let {
-            Registry.log.debug("Not loading into $webView since its active")
-        } ?: run {
-            internalWebview = webView
-            Registry.log.wtf("Loading html into $webView")
-            webView.loadDataWithBaseURL(
-                Registry.config.baseCdnUrl,
-                html,
-                MIME_TYPE,
-                null,
-                null
-            )
-            timer?.cancel()
-            timer = Registry.clock.schedule(Registry.config.networkTimeout.toLong()) {
-                Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
-                close()
-            }
+    fun loadHtml(html: String) = webView?.let {
+        Registry.log.debug("Not loading into $it since its active")
+    } ?: run {
+        webView = buildWebView()
+        Registry.log.wtf("Loading html into $webView")
+        webView?.loadDataWithBaseURL(
+            Registry.config.baseCdnUrl,
+            html,
+            MIME_TYPE,
+            null,
+            null
+        )
+        timer?.cancel()
+        timer = Registry.clock.schedule(Registry.config.networkTimeout.toLong()) {
+            Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
+            close()
         }
     }
 
@@ -124,7 +121,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
         timer?.cancel()
     }
 
-    private fun show() {
+    private fun show() = webView?.let { webView ->
         activity?.let {
             it.window.decorView
                 .findViewById<ViewGroup>(android.R.id.content)
@@ -135,14 +132,14 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
         }
     }
 
-    private fun close() {
+    private fun close() = webView?.let { webView ->
         webView.post {
             webView.visibility = View.GONE
             webView.parent?.let {
                 (it as ViewGroup).removeView(webView)
                 webView.destroy()
             }
-            internalWebview = null
+            this.webView = null
             Registry.log.debug("IAF WebView: clearing internal webview reference")
         }
     }
