@@ -12,6 +12,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.content.ContextCompat.startActivity
+import androidx.core.view.isVisible
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
@@ -23,6 +24,7 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.utils.WeakReferenceDelegate
 
 internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessageListener {
@@ -38,8 +40,28 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
 
     private var webView: WebView? by WeakReferenceDelegate()
 
+    private var orientation: Int? = null
+
     init {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+        /**
+         * This closes the form on rotation, which we can detect with the local field
+         * We wait for a change, see if it's different than the current, and close an open webview
+         */
+        Registry.lifecycleMonitor.onActivityEvent {
+            if (it is ActivityEvent.ConfigurationChanged) {
+                val newOrientation = it.newConfig.orientation
+                orientation?.let { oldOrientation ->
+                    if (oldOrientation != newOrientation && webView?.isVisible == true) {
+                        Registry.log.debug("New screen rotation, closing form")
+                        close()
+                        orientation = newOrientation
+                    }
+                } ?: run {
+                    orientation = newOrientation
+                }
+            }
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
