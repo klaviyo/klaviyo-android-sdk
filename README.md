@@ -470,11 +470,11 @@ notification intent that the Klaviyo SDK requires in order to track opens when y
 ## In App Forms
 
 ### Prerequisites
-- A published "in-app" form in the Klaviyo forms portal
 - Using version 3.2.0 or higher
+- You need to have Klaviyo `analytics` imported and the company ID must be set
 
 ### Setup
-The Klaviyo Push SDK for Android works as an extension of the Klaviyo object, and can be chained with your initialization code to allow for form display.
+`registerForInAppForms` can be chained with your initialization code to allow for form display.
 ```kotlin
 Klaviyo
     .initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
@@ -482,22 +482,21 @@ Klaviyo
 ```
 You can also call it publicly anywhere you can access the Klaviyo forms module:
 ```kotlin
-Klaviyo.registerForInAppForms() // make sure you only call this after initializing
+Klaviyo.registerForInAppForms() // make sure you only call this after initializing Klaviyo company ID
 ```
-
-
-Once you call the `registerForInAppForms` function, the web view will persist in the background until a form is ready to be shown, or a timeout occurs.
-Consider how often you want to check form forms when you call this, for example:
-* `Activity.onCreate()` -> If you only want forms to appear over a specific activity, checks every time this activity is created.
-* `Application.onResume()` -> Anytime the app is foregrounded, check for forms and show if available.
-* `Activity.onDestroy()` -> If you need the forms to display only once an activity is removed from the view (ex. splash screen).
 
 ### Behavior
 
+Once you call the `registerForInAppForms` function, the web view will persist unattached to UI until a form is ready to be shown.
+This allows you to choose *when* forms will start to overlay on your App UI. It also means that wherever you decide to call this will impact the behavior.
+Consider how often you want to register for forms when you call this, for example:
+* `Activity.onCreate()` -> If you only want forms to appear over a specific activity, checks every time this activity is created.
+* `Application.onResume()` -> Anytime the app is foregrounded, check for forms and show if available.
+
 The web view will listen for forms to display with the same timeout as other requests (10 seconds).
 If no form is available to show, the web view will be removed from memory and there will need to be another call to `registerForInAppForms`
-to fetch available forms. Forms will show automatically, and are dismissed by pressing the close button or tapping outside the content of the dialog.
-
+to fetch available form. This is why we recommend registering on a lifecycle function. Forms will show automatically, and are dismissed by pressing the close button or tapping outside the content of the dialog.
+If an orientation configuration change is detected, we close the web view and remove it from memory.
 ## Troubleshooting
 The SDK contains logging at different levels from `verbose` to `assert`. By default, the SDK logs at the `error` level
 in a production environment and at the `warning` level in a debug environment. You can change the log level by adding 
