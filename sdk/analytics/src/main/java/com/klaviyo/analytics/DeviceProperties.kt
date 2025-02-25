@@ -11,7 +11,7 @@ import com.klaviyo.core.config.getPackageInfoCompat
 import com.klaviyo.core.model.fetchOrCreate
 import java.util.UUID
 
-internal object DeviceProperties {
+object DeviceProperties {
 
     private const val DEVICE_ID_KEY = "device_id"
 
@@ -19,52 +19,52 @@ internal object DeviceProperties {
      * UUID for this Device + SDK installation
      * should only be generated one time, stored for the life of the app installation
      */
-    val deviceId: String by lazy {
+    internal val deviceId: String by lazy {
         Registry.dataStore.fetchOrCreate(DEVICE_ID_KEY) { UUID.randomUUID().toString() }
     }
 
-    val manufacturer: String by lazy {
+    internal val manufacturer: String by lazy {
         Build.BRAND
     }
 
-    val model: String by lazy {
+    internal val model: String by lazy {
         Build.MODEL
     }
 
-    val platform: String by lazy {
+    internal val platform: String by lazy {
         "Android"
     }
 
-    val osVersion: String by lazy {
+    internal val osVersion: String by lazy {
         Build.VERSION.SDK_INT.toString()
     }
 
-    val appVersion: String by lazy {
+    internal val appVersion: String by lazy {
         packageInfo.versionName
     }
 
-    val appVersionCode: String by lazy {
+    internal val appVersionCode: String by lazy {
         packageInfo.getVersionCodeCompat().toString()
     }
 
-    val sdkVersion: String
+    internal val sdkVersion: String
         get() = KlaviyoConfig.sdkVersion
 
-    val sdkName: String
+    internal val sdkName: String
         get() = KlaviyoConfig.sdkName
 
-    val backgroundDataEnabled: Boolean by lazy {
+    internal val backgroundDataEnabled: Boolean by lazy {
         !activityManager.isBackgroundRestrictedCompat()
     }
 
-    val notificationPermissionGranted: Boolean
+    internal val notificationPermissionGranted: Boolean
         get() = NotificationManagerCompat.from(Registry.config.applicationContext).areNotificationsEnabled()
 
-    val applicationId: String by lazy {
+    internal val applicationId: String by lazy {
         Registry.config.applicationContext.packageName
     }
 
-    val applicationLabel: String by lazy {
+    internal val applicationLabel: String by lazy {
         Registry.config.applicationContext.packageManager.getApplicationLabel(
             Registry.config.applicationContext.applicationInfo
         ).toString()
@@ -83,7 +83,7 @@ internal object DeviceProperties {
         Registry.config.applicationContext.getSystemService(ActivityManager::class.java)
     }
 
-    fun buildEventMetaData(): Map<String, String?> = mapOf(
+    internal fun buildEventMetaData(): Map<String, String?> = mapOf(
         "Device ID" to deviceId,
         "Device Manufacturer" to manufacturer,
         "Device Model" to model,
@@ -98,7 +98,7 @@ internal object DeviceProperties {
         "Push Token" to Klaviyo.getPushToken()
     )
 
-    fun buildMetaData(): Map<String, String?> = mapOf(
+    internal fun buildMetaData(): Map<String, String?> = mapOf(
         "device_id" to deviceId,
         "manufacturer" to manufacturer,
         "device_model" to model,

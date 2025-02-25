@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.os.Bundle
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.WeakReferenceDelegate
 import java.util.Collections
 
 /**
@@ -16,6 +17,8 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     private val activityObservers = Collections.synchronizedList(
         mutableListOf<ActivityObserver>()
     )
+
+    override var currentActivity: Activity? by WeakReferenceDelegate()
 
     override fun onActivityEvent(observer: ActivityObserver) {
         activityObservers += observer
@@ -44,6 +47,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     override fun onActivityResumed(activity: Activity) {
+        currentActivity = activity
         broadcastEvent(ActivityEvent.Resumed(activity))
     }
 
@@ -52,10 +56,18 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     override fun onActivityPaused(activity: Activity) {
+        checkActivityClear(activity)
         broadcastEvent(ActivityEvent.Paused(activity))
     }
 
+    private fun checkActivityClear(activity: Activity) {
+        if (activity == currentActivity) {
+            currentActivity = null
+        }
+    }
+
     override fun onActivityStopped(activity: Activity) {
+        checkActivityClear(activity)
         if (activeActivities == 0) return
 
         activeActivities--
