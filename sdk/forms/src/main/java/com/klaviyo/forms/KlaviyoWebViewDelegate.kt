@@ -173,61 +173,6 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
         return super.shouldOverrideUrlLoading(view, request)
     }
 
-    fun loadHtml(html: String) = webView?.let {
-        Registry.log.debug("Not loading into $it since its active")
-    } ?: run {
-        webView = buildWebView()
-        Registry.log.wtf("Loading html into $webView")
-        webView?.loadDataWithBaseURL(
-            Registry.config.baseCdnUrl,
-            html,
-            MIME_TYPE,
-            null,
-            null
-        )
-        timer?.cancel()
-        timer = Registry.clock.schedule(Registry.config.networkTimeout.toLong()) {
-            Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
-            close()
-        }
-    }
-
-    private fun handShook() {
-        Registry.log.info("Received message from JS bridge")
-        timer?.cancel()
-    }
-
-    private fun show() = webView?.let { webView ->
-        activity?.window?.decorView?.let { decorView ->
-            decorView.post {
-                decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
-                webView.visibility = View.VISIBLE
-            }
-        } ?: run {
-            Registry.log.error("Unable to show IAF - null activity context reference")
-        }
-    } ?: run {
-        Registry.log.error("Unable to show IAF - null WebView reference")
-    }
-
-    private fun close() = webView?.let { webView ->
-        activity?.window?.decorView?.let { decorView ->
-            decorView.post {
-                Registry.log.debug("IAF WebView: clearing internal webview reference")
-                this.webView = null
-                webView.visibility = View.GONE
-                webView.parent?.let {
-                    (it as ViewGroup).removeView(webView)
-                    webView.destroy()
-                }
-            }
-        } ?: run {
-            Registry.log.error("Unable to close IAF - null activity context reference")
-        }
-    } ?: run {
-        Registry.log.error("Unable to close IAF - null WebView reference")
-    }
-
     /**
      * When [WEB_MESSAGE_LISTENER] is supported, messages sent over the Native Bridge from JS are received here
      */
@@ -264,18 +209,16 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     private fun handShook() = timer?.cancel()
 
     private fun show() = webView?.let { webView ->
-        activity?.let {
-            it.window.decorView.post {
-                it.window.decorView
-                    .findViewById<ViewGroup>(android.R.id.content)
-                    .addView(webView)
-                    .also { webView.visibility = View.VISIBLE }
+        activity?.window?.decorView?.let { decorView ->
+            decorView.post {
+                decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
+                webView.visibility = View.VISIBLE
             }
         } ?: run {
-            Registry.log.error("Unable to show IAF - null activity reference")
+            Registry.log.error("Unable to show IAF - null activity context reference")
         }
     } ?: run {
-        Registry.log.error("Unable to show IAF - WebView garbage collected")
+        Registry.log.error("Unable to show IAF - null WebView reference")
     }
 
     private fun createAggregateEvent(message: KlaviyoWebFormMessageType.AggregateEventTracked) =
@@ -300,13 +243,20 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     }
 
     private fun close() = webView?.let { webView ->
-        webView.post {
-            webView.visibility = View.GONE
-            webView.parent?.let {
-                (it as ViewGroup).removeView(webView)
-                webView.destroy()
+        activity?.window?.decorView?.let { decorView ->
+            decorView.post {
+                Registry.log.debug("IAF WebView: clearing internal webview reference")
+                this.webView = null
+                webView.visibility = View.GONE
+                webView.parent?.let {
+                    (it as ViewGroup).removeView(webView)
+                    webView.destroy()
+                }
             }
-            this.webView = null
+        } ?: run {
+            Registry.log.error("Unable to close IAF - null activity context reference")
         }
+    } ?: run {
+        Registry.log.error("Unable to close IAF - null WebView reference")
     }
 }
