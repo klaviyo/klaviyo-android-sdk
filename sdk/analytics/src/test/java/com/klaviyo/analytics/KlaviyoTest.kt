@@ -84,7 +84,9 @@ internal class KlaviyoTest : BaseTest() {
     private val mockApplication = mockk<Application>().apply {
         every { mockContext.applicationContext } returns this
         every { unregisterActivityLifecycleCallbacks(any()) } returns Unit
+        every { unregisterComponentCallbacks(any()) } returns Unit
         every { registerActivityLifecycleCallbacks(any()) } returns Unit
+        every { registerComponentCallbacks(any()) } returns Unit
     }
 
     @Before
@@ -129,12 +131,15 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `Initialize properly creates new config service and attaches lifecycle listeners`() {
         val expectedListener = Registry.lifecycleCallbacks
+        val expectedConfigListener = Registry.componentCallbacks
         verifyAll {
             mockBuilder.apiKey(API_KEY)
             mockBuilder.applicationContext(mockContext)
             mockBuilder.build()
             mockApplication.unregisterActivityLifecycleCallbacks(match { it == expectedListener })
             mockApplication.registerActivityLifecycleCallbacks(match { it == expectedListener })
+            mockApplication.unregisterComponentCallbacks(match { it == expectedConfigListener })
+            mockApplication.registerComponentCallbacks(match { it == expectedConfigListener })
         }
     }
 

@@ -63,7 +63,9 @@ object Klaviyo {
         val application = applicationContext.applicationContext as? Application
         application?.apply {
             unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+            unregisterComponentCallbacks(Registry.componentCallbacks)
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+            registerComponentCallbacks(Registry.componentCallbacks)
         } ?: throw LifecycleException()
 
         Registry.get<ApiClient>().startService()

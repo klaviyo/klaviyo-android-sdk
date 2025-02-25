@@ -2,6 +2,8 @@ package com.klaviyo.core.lifecycle
 
 import android.app.Activity
 import android.app.Application
+import android.content.ComponentCallbacks
+import android.content.res.Configuration
 import android.os.Bundle
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.WeakReferenceDelegate
@@ -10,7 +12,7 @@ import java.util.Collections
 /**
  * Service for monitoring the application lifecycle and network connectivity
  */
-internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.ActivityLifecycleCallbacks {
+internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.ActivityLifecycleCallbacks, ComponentCallbacks {
 
     private var activeActivities = 0
 
@@ -80,6 +82,14 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
 
     override fun onActivityDestroyed(activity: Activity) {
         // Warning: onActivityDestroyed is unreliable, I'm not even going to try to broadcast it
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        broadcastEvent(ActivityEvent.ConfigurationChanged(newConfig))
+    }
+
+    override fun onLowMemory() {
+        // currently not needed
     }
 
     //endregion
