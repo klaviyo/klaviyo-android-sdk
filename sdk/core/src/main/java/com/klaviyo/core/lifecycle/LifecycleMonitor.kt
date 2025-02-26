@@ -1,6 +1,7 @@
 package com.klaviyo.core.lifecycle
 
 import android.app.Activity
+import android.content.res.Configuration
 import android.os.Bundle
 
 typealias ActivityObserver = (activity: ActivityEvent) -> Unit
@@ -22,6 +23,8 @@ sealed class ActivityEvent(val activity: Activity? = null, val bundle: Bundle? =
     class Stopped(activity: Activity) : ActivityEvent(activity)
 
     class AllStopped : ActivityEvent()
+
+    class ConfigurationChanged(val newConfig: Configuration) : ActivityEvent()
 }
 
 /**
