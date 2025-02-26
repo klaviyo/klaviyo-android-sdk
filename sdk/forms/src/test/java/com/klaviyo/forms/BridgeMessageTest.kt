@@ -4,6 +4,7 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.forms.BridgeMessage.Companion.getEventProperties
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -16,7 +17,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 
-class FormsUtilityTest : BaseTest() {
+class BridgeMessageTest : BaseTest() {
 
     @Before
     override fun setup() {
@@ -38,7 +39,7 @@ class FormsUtilityTest : BaseTest() {
         json.put("properties", properties)
 
         // Act
-        val result = json.getProperties()
+        val result = json.getEventProperties()
 
         // Assert
         assertEquals(2, result.size)
@@ -53,7 +54,7 @@ class FormsUtilityTest : BaseTest() {
         every { Registry.log.error(any(), any<Throwable>()) } just Runs
 
         // Act
-        json.getProperties()
+        json.getEventProperties()
 
         // Assert
         verify { Registry.log.error(any(), any<Exception>()) }
@@ -66,7 +67,7 @@ class FormsUtilityTest : BaseTest() {
 
         // Act & Assert
         assertThrows(IllegalStateException::class.java) {
-            decodeWebviewMessage(unrecognizedMessage)
+            BridgeMessage.decodeWebviewMessage(unrecognizedMessage)
         }
     }
 
@@ -76,10 +77,10 @@ class FormsUtilityTest : BaseTest() {
         val showMessage = "{\"type\": \"formWillAppear\", \"data\": {}}"
 
         // Act
-        val result = decodeWebviewMessage(showMessage)
+        val result = BridgeMessage.decodeWebviewMessage(showMessage)
 
         // Assert
-        assertEquals(KlaviyoWebFormMessageType.Show, result)
+        assertEquals(BridgeMessage.Show, result)
     }
 
     @Test
@@ -88,10 +89,10 @@ class FormsUtilityTest : BaseTest() {
         val closeMessage = "{\"type\": \"formDisappeared\", \"data\": {}}"
 
         // Act
-        val result = decodeWebviewMessage(closeMessage)
+        val result = BridgeMessage.decodeWebviewMessage(closeMessage)
 
         // Assert
-        assertEquals(KlaviyoWebFormMessageType.Close, result)
+        assertEquals(BridgeMessage.Close, result)
     }
 
     @Test
@@ -102,7 +103,7 @@ class FormsUtilityTest : BaseTest() {
 
         // Act & Assert
         assertThrows(IllegalStateException::class.java) {
-            decodeWebviewMessage(eventMessage)
+            BridgeMessage.decodeWebviewMessage(eventMessage)
         }
     }
 
@@ -112,7 +113,7 @@ class FormsUtilityTest : BaseTest() {
         val eventMessage = "{\"type\": \"trackProfileEvent\", \"data\": {\"metric\": \"Form completed by profile\", \"properties\": {}}}"
         every { Registry.log.error(any(), any<Throwable>()) } just Runs
 
-        val decoded = decodeWebviewMessage(eventMessage) as KlaviyoWebFormMessageType.ProfileEvent
+        val decoded = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.ProfileEvent
         val expectedMetric = EventMetric.CUSTOM("Form completed by profile")
         assertEquals(expectedMetric, decoded.event.metric)
     }
@@ -171,7 +172,7 @@ class FormsUtilityTest : BaseTest() {
             )
         // Act
         val result =
-            decodeWebviewMessage(aggregateMessage) as KlaviyoWebFormMessageType.AggregateEventTracked
+            BridgeMessage.decodeWebviewMessage(aggregateMessage) as BridgeMessage.AggregateEventTracked
 
         // Assert
         assertEquals(expectedAggBody.toString(), result.payload.toString())
@@ -190,7 +191,7 @@ class FormsUtilityTest : BaseTest() {
             }
         """.trimIndent()
 
-        val result = decodeWebviewMessage(deeplinkMessage) as KlaviyoWebFormMessageType.DeepLink
+        val result = BridgeMessage.decodeWebviewMessage(deeplinkMessage) as BridgeMessage.DeepLink
 
         assertEquals("klaviyotest://settings", result.route)
     }
@@ -210,8 +211,35 @@ class FormsUtilityTest : BaseTest() {
 
         // Act & Assert
         assertThrows(JSONException::class.java) {
-            decodeWebviewMessage(deeplinkMessage)
+            BridgeMessage.decodeWebviewMessage(deeplinkMessage)
         }
+    }
+
+    @Test
+    fun `abort message parses a reason, or falls back on unknown`() {
+        val deeplinkMessage = """
+            {
+              "type": "abort",
+              "data": {
+                "reason": "test"
+              }
+            }
+        """.trimIndent()
+
+        var result = BridgeMessage.decodeWebviewMessage(deeplinkMessage) as BridgeMessage.Abort
+
+        assertEquals("test", result.reason)
+
+        val deeplinkMessageWithoutReason = """
+            {
+              "type": "abort",
+              "data": {}
+            }
+        """.trimIndent()
+
+        result = BridgeMessage.decodeWebviewMessage(deeplinkMessageWithoutReason) as BridgeMessage.Abort
+
+        assertEquals("Unknown", result.reason)
     }
 
     @Test
@@ -223,6 +251,41 @@ class FormsUtilityTest : BaseTest() {
               }
             }
         """.trimIndent()
-        assertEquals(KlaviyoWebFormMessageType.HandShook, decodeWebviewMessage(deeplinkMessage))
+        assertEquals(BridgeMessage.HandShook, BridgeMessage.decodeWebviewMessage(deeplinkMessage))
+    }
+
+    @Test
+    fun `Verify IAF handshake`() {
+        assertEquals(
+            """
+                [
+                  {
+                    "type": "formWillAppear",
+                    "version": 1
+                  },
+                  {
+                    "type": "formDisappeared",
+                    "version": 1
+                  },
+                  {
+                    "type": "trackProfileEvent",
+                    "version": 1
+                  },
+                  {
+                    "type": "trackAggregateEvent",
+                    "version": 1
+                  },
+                  {
+                    "type": "openDeepLink",
+                    "version": 1
+                  },
+                  {
+                    "type": "abort",
+                    "version": 1
+                  }
+                ]
+            """.replace("\\s".toRegex(), ""),
+            BridgeMessage.handShakeData
+        )
     }
 }
