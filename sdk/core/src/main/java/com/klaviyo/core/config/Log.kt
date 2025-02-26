@@ -3,7 +3,7 @@ package com.klaviyo.core.config
 interface Log {
 
     /**
-     * Log
+     * Log levels enum
      */
     enum class Level {
         None,
@@ -77,14 +77,4 @@ interface Log {
      * @param ex
      */
     fun wtf(message: String, ex: Throwable? = null)
-}
-
-enum class Level {
-    None,
-    Verbose,
-    Debug,
-    Info,
-    Warning,
-    Error,
-    Assert
 }
