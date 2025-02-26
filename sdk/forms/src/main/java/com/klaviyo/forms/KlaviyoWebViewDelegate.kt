@@ -26,9 +26,14 @@ import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
+import java.io.BufferedReader
 
 internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessageListener {
     companion object {
+        private const val MIME_TYPE = "text/html"
+
+        private val loadFromFile = false
+
         private val wildcard = setOf("*")
 
         private val templateHtml = Uri.parse("file:///android_asset/InAppFormsTemplate.html")
@@ -106,18 +111,31 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Initialize a webview instance, with protection against duplication
      * and initialize  klaviyo.js for in-app forms with handshake data injected in the document head
      */
-    fun initializeWebView() = webView?.let {
-        Registry.log.debug("")
-    } ?: buildWebView().also { webView ->
+    fun initializeWebView() = webView ?: buildWebView().also { webView ->
         this.webView = webView
 
-        if (isFeatureSupported(DOCUMENT_START_SCRIPT)) {
+        if (loadFromFile && isFeatureSupported(DOCUMENT_START_SCRIPT)) {
             // This feature automatically adds your script right before document starts to load
             Registry.log.verbose("$DOCUMENT_START_SCRIPT Supported")
             WebViewCompat.addDocumentStartJavaScript(webView, loadScript, wildcard)
         }
 
-        webView.loadUrl(templateHtml.toString())
+        if (loadFromFile) {
+            webView.loadUrl(templateHtml.toString())
+        } else {
+            val html = Registry.config.applicationContext
+                .assets
+                .open("InAppFormsTemplate.html")
+                .bufferedReader()
+                .use(BufferedReader::readText)
+                .replace("SDK_NAME", Registry.config.sdkName)
+                .replace("SDK_VERSION", Registry.config.sdkVersion)
+                .replace("BRIDGE_NAME", IAF_BRIDGE_NAME)
+                .replace("BRIDGE_HANDSHAKE", IAF_HANDSHAKE)
+                .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
+
+            webView.loadDataWithBaseURL(Registry.config.baseUrl, html, MIME_TYPE, null, null)
+        }
 
         timer?.cancel()
         timer = Registry.clock.schedule(Registry.config.networkTimeout.toLong()) {
@@ -130,27 +148,22 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * When [DOCUMENT_START_SCRIPT] is unsupported, we must inject our script [onPageStarted] instead
      */
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) = view
-        ?.takeUnless { isFeatureSupported(DOCUMENT_START_SCRIPT) }
+        ?.takeUnless { !loadFromFile || isFeatureSupported(DOCUMENT_START_SCRIPT) }
         ?.let { webView ->
             Registry.log.verbose("$DOCUMENT_START_SCRIPT Unsupported")
             webView.evaluateJavascript(loadScript) { }
         } ?: Unit
 
+    /**
+     * Called when loading a resource encounters http status code >= 400
+     */
     override fun onReceivedHttpError(
         view: WebView?,
         request: WebResourceRequest?,
         errorResponse: WebResourceResponse?
     ) {
-        Registry.log.error("HTTP Error: ${errorResponse?.statusCode} - ${request?.url}")
+        Registry.log.warning("HTTP Error: ${errorResponse?.statusCode} - ${request?.url}")
         super.onReceivedHttpError(view, request, errorResponse)
-    }
-
-    override fun shouldInterceptRequest(
-        view: WebView?,
-        request: WebResourceRequest?
-    ): WebResourceResponse? {
-        Registry.log.debug("Request: ${request?.url}")
-        return super.shouldInterceptRequest(view, request)
     }
 
     /**
@@ -158,7 +171,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      */
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         if (request?.isForMainFrame == true) {
-            Registry.log.debug("Overriding external URL to browser: ${request.url}")
+            Registry.log.info("Redirect URL to external browser: ${request.url}")
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 data = request.url
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -166,7 +179,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
             activity?.let {
                 startActivity(it, intent, null)
             } ?: run {
-                Registry.log.error("Unable to launch external browser - null activity reference")
+                Registry.log.warning("Unable to launch external browser - null activity reference")
             }
             return true
         }
@@ -202,7 +215,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
                 KlaviyoWebFormMessageType.Close -> close()
             }
         } catch (e: Exception) {
-            Registry.log.error("Failed to relay webview message: $message", e)
+            Registry.log.warning("Failed to relay webview message: $message", e)
         }
     }
 
@@ -215,10 +228,10 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
                 webView.visibility = View.VISIBLE
             }
         } ?: run {
-            Registry.log.error("Unable to show IAF - null activity context reference")
+            Registry.log.warning("Unable to show IAF - null activity reference")
         }
     } ?: run {
-        Registry.log.error("Unable to show IAF - null WebView reference")
+        Registry.log.warning("Unable to show IAF - null WebView reference")
     }
 
     private fun createAggregateEvent(message: KlaviyoWebFormMessageType.AggregateEventTracked) =
@@ -237,7 +250,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
             }
         )
     } ?: run {
-        Registry.log.error(
+        Registry.log.warning(
             "Failed to launch deeplink ${messageType.route} - null activity reference"
         )
     }
@@ -245,7 +258,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     private fun close() = webView?.let { webView ->
         activity?.window?.decorView?.let { decorView ->
             decorView.post {
-                Registry.log.debug("IAF WebView: clearing internal webview reference")
+                Registry.log.verbose("Clear IAF WebView reference")
                 this.webView = null
                 webView.visibility = View.GONE
                 webView.parent?.let {
@@ -254,9 +267,9 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
                 }
             }
         } ?: run {
-            Registry.log.error("Unable to close IAF - null activity context reference")
+            Registry.log.warning("Unable to close IAF - null activity reference")
         }
     } ?: run {
-        Registry.log.error("Unable to close IAF - null WebView reference")
+        Registry.log.warning("Unable to close IAF - null WebView reference")
     }
 }

@@ -78,13 +78,3 @@ interface Log {
      */
     fun wtf(message: String, ex: Throwable? = null)
 }
-
-enum class Level {
-    None,
-    Verbose,
-    Debug,
-    Info,
-    Warning,
-    Error,
-    Assert
-}
