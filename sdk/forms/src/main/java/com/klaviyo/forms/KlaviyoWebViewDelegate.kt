@@ -12,7 +12,6 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.content.ContextCompat.startActivity
-import androidx.core.view.isVisible
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
@@ -51,15 +50,11 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
         Registry.lifecycleMonitor.onActivityEvent {
             if (it is ActivityEvent.ConfigurationChanged) {
                 val newOrientation = it.newConfig.orientation
-                orientation?.let { oldOrientation ->
-                    if (oldOrientation != newOrientation && webView?.isVisible == true) {
-                        Registry.log.debug("New screen rotation, closing form")
-                        close()
-                        orientation = newOrientation
-                    }
-                } ?: run {
-                    orientation = newOrientation
+                if (orientation != newOrientation) {
+                    Registry.log.debug("New screen orientation, closing form")
+                    close()
                 }
+                orientation = newOrientation
             }
         }
     }
