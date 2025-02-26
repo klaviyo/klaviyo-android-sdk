@@ -4,11 +4,9 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
-import com.klaviyo.forms.BridgeMessage.Companion.getEventProperties
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
-import io.mockk.verify
 import org.json.JSONException
 import org.json.JSONObject
 import org.junit.After
@@ -30,37 +28,6 @@ class BridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `test getProperties successfully parses properties`() {
-        // Setup
-        val json = JSONObject()
-        val properties = JSONObject()
-        properties.put("key1", "value1")
-        properties.put("key2", "value2")
-        json.put("properties", properties)
-
-        // Act
-        val result = json.getEventProperties()
-
-        // Assert
-        assertEquals(2, result.size)
-        assertEquals("value1", result[EventKey.CUSTOM("key1")])
-        assertEquals("value2", result[EventKey.CUSTOM("key2")])
-    }
-
-    @Test
-    fun `test getProperties logs error on exception`() {
-        // Setup
-        val json = JSONObject("{\"properties\": {\"key1\": 123}}") // Non-string value
-        every { Registry.log.error(any(), any<Throwable>()) } just Runs
-
-        // Act
-        json.getEventProperties()
-
-        // Assert
-        verify { Registry.log.error(any(), any<Exception>()) }
-    }
-
-    @Test
     fun `test decodeWebviewMessage with unrecognized message type throws exception`() {
         // Setup
         val unrecognizedMessage = "{\"type\": \"javascript is for clowns\", \"data\": {}}"
@@ -74,25 +41,27 @@ class BridgeMessageTest : BaseTest() {
     @Test
     fun `test decodeWebviewMessage properly decodes show type`() {
         // Setup
-        val showMessage = "{\"type\": \"formWillAppear\", \"data\": {\"form_id\": \"abc123\"}}"
+        val showMessage = "{\"type\": \"formWillAppear\", \"data\": {\"formId\": \"abc123\"}}"
 
         // Act
         val result = BridgeMessage.decodeWebviewMessage(showMessage)
 
         // Assert
-        assertEquals(BridgeMessage.Show(formId = "abc123"), result)
+        assert(result is BridgeMessage.Show)
+        assertEquals("abc123", (result as BridgeMessage.Show).formId)
     }
 
     @Test
     fun `test decodeWebviewMessage properly decodes close type`() {
         // Setup
-        val closeMessage = "{\"type\": \"formDisappeared\", \"data\": {\"form_id\": \"abc123\"}}"
+        val closeMessage = "{\"type\": \"formDisappeared\", \"data\": {\"formId\": \"abc123\"}}"
 
         // Act
         val result = BridgeMessage.decodeWebviewMessage(closeMessage)
 
         // Assert
-        assertEquals(BridgeMessage.Close(formId = "abc123"), result)
+        assert(result is BridgeMessage.Close)
+        assertEquals("abc123", (result as BridgeMessage.Close).formId)
     }
 
     @Test
@@ -110,12 +79,67 @@ class BridgeMessageTest : BaseTest() {
     @Test
     fun `test decodeWebviewMessage success profile event`() {
         // Setup
-        val eventMessage = "{\"type\": \"trackProfileEvent\", \"data\": {\"metric\": \"Form completed by profile\", \"properties\": {}}}"
+        val eventMessage = """
+           {
+              "type": "trackProfileEvent",
+              "data": {
+                "metric": "Form completed by profile",
+                "properties": {}
+              }
+           } 
+        """.trimIndent()
         every { Registry.log.error(any(), any<Throwable>()) } just Runs
 
         val decoded = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.ProfileEvent
         val expectedMetric = EventMetric.CUSTOM("Form completed by profile")
         assertEquals(expectedMetric, decoded.event.metric)
+    }
+
+    @Test
+    fun `test decodeWebviewMessage successfully parses profile event with properties`() {
+        val eventMessage = """
+           {
+              "type": "trackProfileEvent",
+              "data": {
+                "metric": "Form completed by profile",
+                "properties": {
+                  "key1": "value1",
+                  "key2": "value2"
+                }
+              }
+           } 
+        """.trimIndent()
+        every { Registry.log.error(any(), any<Throwable>()) } just Runs
+
+        val result = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.ProfileEvent
+
+        // Assert
+        assertEquals(2, result.event.propertyCount())
+        assertEquals("value1", result.event[EventKey.CUSTOM("key1")])
+        assertEquals("value2", result.event[EventKey.CUSTOM("key2")])
+    }
+
+    @Test
+    fun `test getProperties logs error on exception`() {
+        val eventMessage = """
+           {
+              "type": "trackProfileEvent",
+              "data": {
+                "metric": "Form completed by profile",
+                "properties": {
+                  "key1": "value1",
+                  "key2": 2
+                }
+              }
+           } 
+        """.trimIndent()
+        every { Registry.log.error(any(), any<Throwable>()) } just Runs
+
+        val result = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.ProfileEvent
+
+        // Assert
+        assertEquals("value1", result.event[EventKey.CUSTOM("key1")])
+        assertEquals(2, result.event[EventKey.CUSTOM("key2")])
     }
 
     @Test
@@ -260,15 +284,11 @@ class BridgeMessageTest : BaseTest() {
             """
                 [
                   {
+                    "type": "handShook",
+                    "version": 1
+                  },
+                  {
                     "type": "formWillAppear",
-                    "version": 1
-                  },
-                  {
-                    "type": "formDisappeared",
-                    "version": 1
-                  },
-                  {
-                    "type": "trackProfileEvent",
                     "version": 1
                   },
                   {
@@ -276,7 +296,15 @@ class BridgeMessageTest : BaseTest() {
                     "version": 1
                   },
                   {
+                    "type": "trackProfileEvent",
+                    "version": 1
+                  },
+                  {
                     "type": "openDeepLink",
+                    "version": 1
+                  },
+                  {
+                    "type": "formDisappeared",
                     "version": 1
                   },
                   {

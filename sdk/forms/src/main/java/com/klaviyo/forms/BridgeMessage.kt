@@ -136,12 +136,12 @@ internal sealed class BridgeMessage {
         /**
          * Parse [Event] properties for a [ProfileEvent] message
          */
-        internal fun JSONObject.getEventProperties(): Map<EventKey, Serializable> {
+        private fun JSONObject.getEventProperties(): Map<EventKey, Serializable> {
             val map = mutableMapOf<EventKey, Serializable>()
             val propertyMap = getJSONObject("properties")
             propertyMap.keys().forEach {
                 try {
-                    map[EventKey.CUSTOM(it)] = propertyMap.getString(it)
+                    map[EventKey.CUSTOM(it)] = propertyMap.get(it) as Serializable
                 } catch (e: Exception) {
                     Registry.log.error("Failed to write property $it to profile event payload", e)
                 }
