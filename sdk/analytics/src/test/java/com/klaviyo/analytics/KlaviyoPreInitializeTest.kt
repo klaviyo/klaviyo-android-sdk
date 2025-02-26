@@ -55,7 +55,9 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
         every { Registry.configBuilder } returns mockBuilder
         every { mockContext.applicationContext } returns mockk<Application>().apply {
             every { unregisterActivityLifecycleCallbacks(any()) } returns Unit
+            every { unregisterComponentCallbacks(any()) } returns Unit
             every { registerActivityLifecycleCallbacks(any()) } returns Unit
+            every { registerComponentCallbacks(any()) } returns Unit
         }
         Registry.register<ApiClient>(mockApiClient)
     }
