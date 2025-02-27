@@ -12,9 +12,12 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.mockDeviceProperties
+import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -94,7 +97,7 @@ internal class KlaviyoTest : BaseTest() {
         super.setup()
         every { Registry.configBuilder } returns mockBuilder
         Registry.register<ApiClient>(mockApiClient)
-        DevicePropertiesTest.mockDeviceProperties()
+        mockDeviceProperties()
         mockkConstructor(StateSideEffects::class)
         every { anyConstructed<StateSideEffects>().detach() } returns Unit
         Klaviyo.initialize(
@@ -113,7 +116,7 @@ internal class KlaviyoTest : BaseTest() {
         Registry.unregister<ApiClient>()
         super.cleanup()
         Registry.unregister<Config>()
-        DevicePropertiesTest.unmockDeviceProperties()
+        unmockDeviceProperties()
     }
 
     @Test

@@ -8,8 +8,8 @@ import android.webkit.WebView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
-import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.core.BuildConfig
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 
 /**

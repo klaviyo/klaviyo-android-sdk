@@ -1,7 +1,7 @@
 package com.klaviyo.analytics.networking.requests
 
-import com.klaviyo.analytics.DeviceProperties
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import org.json.JSONObject
 
@@ -87,3 +87,18 @@ internal class PushTokenApiRequest(
         return body.toString().hashCode()
     }
 }
+
+fun DeviceProperties.buildMetaData(): Map<String, String?> = mapOf(
+    "device_id" to deviceId,
+    "manufacturer" to manufacturer,
+    "device_model" to model,
+    "os_name" to platform,
+    "os_version" to osVersion,
+    "klaviyo_sdk" to sdkName,
+    "sdk_version" to sdkVersion,
+    "app_name" to applicationLabel,
+    "app_id" to applicationId,
+    "app_version" to appVersion,
+    "app_build" to appVersionCode,
+    "environment" to environment
+)
