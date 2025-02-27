@@ -80,6 +80,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
             .path("onsite/js/klaviyo.js")
             .appendQueryParameter("company_id", Registry.config.apiKey)
             .appendQueryParameter("env", "in-app")
+            .appendAssetSource()
             .build()
 
         Registry.config.applicationContext.assets
@@ -99,6 +100,13 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
         handshakeTimer = Registry.clock.schedule(Registry.config.networkTimeout.toLong()) {
             Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
             close()
+        }
+    }
+
+    private fun Uri.Builder.appendAssetSource() = apply {
+        if (Registry.config.assetSource.isNullOrEmpty()) {
+            Registry.log.info("Appending assetSource=${Registry.config.assetSource} to klaviyo.js")
+            appendQueryParameter("assetSource", Registry.config.assetSource)
         }
     }
 

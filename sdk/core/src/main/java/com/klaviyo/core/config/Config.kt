@@ -6,8 +6,9 @@ import com.klaviyo.core.networking.NetworkMonitor
 interface Config {
     val isDebugBuild: Boolean
     val baseUrl: String
-    val baseCdnUrl: String
     val apiRevision: String
+    val baseCdnUrl: String
+    val assetSource: String?
     val sdkName: String
     val sdkVersion: String
 
@@ -29,6 +30,8 @@ interface Config {
         fun apiKey(apiKey: String): Builder
         fun applicationContext(context: Context): Builder
         fun baseUrl(baseUrl: String): Builder
+        fun baseCdnUrl(baseCdnUrl: String): Builder
+        fun assetSource(assetSource: String?): Builder
         fun apiRevision(apiRevision: String): Builder
         fun debounceInterval(debounceInterval: Int): Builder
         fun networkTimeout(networkTimeout: Int): Builder
