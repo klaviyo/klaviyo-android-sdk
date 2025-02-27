@@ -84,6 +84,8 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
         // Warning: onActivityDestroyed is unreliable, I'm not even going to try to broadcast it
     }
 
+    //region ComponentCallbacks
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         broadcastEvent(ActivityEvent.ConfigurationChanged(newConfig))
     }
