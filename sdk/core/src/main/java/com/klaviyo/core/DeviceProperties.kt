@@ -91,7 +91,7 @@ object DeviceProperties {
     }
 }
 
-fun PackageInfo.getVersionCodeCompat(): Int =
+internal fun PackageInfo.getVersionCodeCompat(): Int =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         (longVersionCode and 0xffffffffL).toInt()
     } else {
@@ -99,7 +99,7 @@ fun PackageInfo.getVersionCodeCompat(): Int =
         versionCode
     }
 
-fun ActivityManager.isBackgroundRestrictedCompat(): Boolean =
+internal fun ActivityManager.isBackgroundRestrictedCompat(): Boolean =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         isBackgroundRestricted
     } else {
