@@ -30,7 +30,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     /**
      * Defines origin(s) for which this delegate should be used
      */
-    val allowedOrigin = setOf(Registry.config.baseUrl)
+    val allowedOrigin: Set<String> get() = setOf(Registry.config.baseUrl)
 
     val bridgeName = "KlaviyoNativeBridge"
 
@@ -103,12 +103,10 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
         }
     }
 
-    private fun Uri.Builder.appendAssetSource() = apply {
-        if (Registry.config.assetSource.isNullOrEmpty()) {
-            Registry.log.info("Appending assetSource=${Registry.config.assetSource} to klaviyo.js")
-            appendQueryParameter("assetSource", Registry.config.assetSource)
-        }
-    }
+    private fun Uri.Builder.appendAssetSource() = Registry.config.assetSource?.let { assetSource ->
+        Registry.log.info("Appending assetSource=$assetSource to klaviyo.js")
+        appendQueryParameter("assetSource", assetSource)
+    } ?: this
 
     /**
      * Called when loading a resource encounters http status code >= 400
