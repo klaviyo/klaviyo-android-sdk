@@ -2,8 +2,6 @@ package com.klaviyo.analytics.networking
 
 import android.os.Handler
 import android.os.HandlerThread
-import com.klaviyo.analytics.DeviceProperties
-import com.klaviyo.analytics.DevicePropertiesTest
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
@@ -13,22 +11,29 @@ import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.RequestMethod
+import com.klaviyo.analytics.networking.requests.buildEventMetaData
+import com.klaviyo.analytics.networking.requests.buildMetaData
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.mockDeviceProperties
+import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.unmockkConstructor
 import io.mockk.unmockkObject
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import java.net.HttpURLConnection
 import java.net.URL
@@ -64,7 +69,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
     override fun setup() {
         super.setup()
 
-        DevicePropertiesTest.mockDeviceProperties()
+        mockDeviceProperties()
+        mockkStatic(DeviceProperties::buildEventMetaData)
         every { DeviceProperties.buildEventMetaData() } returns emptyMap()
         every { DeviceProperties.buildMetaData() } returns emptyMap()
 
@@ -113,6 +119,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
         unmockkObject(KlaviyoApiClient)
         unmockkObject(KlaviyoApiRequestDecoder)
         unmockkObject(HandlerUtil)
+        unmockDeviceProperties()
+        unmockkStatic(DeviceProperties::buildEventMetaData)
     }
 
     private fun mockRequest(
