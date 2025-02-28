@@ -465,6 +465,37 @@ extensions such as `import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body` to acc
 We also provide an `Intent.appendKlaviyoExtras(RemoteMessage)` extension method, which attaches the data to your
 notification intent that the Klaviyo SDK requires in order to track opens when you call `Klaviyo.handlePush(intent)`.
 
+## In App Forms
+
+### Prerequisites
+- Using version 3.2.0 or higher
+- You need to have Klaviyo `analytics` imported and the company ID must be set
+
+### Setup
+`registerForInAppForms` can be chained with your initialization code to allow for form display.
+```kotlin
+Klaviyo
+    .initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+    .registerForInAppForms()
+```
+You can also call it publicly anywhere you can access the Klaviyo forms module:
+```kotlin
+Klaviyo.registerForInAppForms() // make sure you only call this after initializing Klaviyo company ID
+```
+
+### Behavior
+
+Once you call the `registerForInAppForms` function, the web view will persist unattached to UI until a form is ready to be shown.
+This allows you to choose *when* forms will start to overlay on your App UI. It also means that wherever you decide to call this will impact the behavior.
+Consider how often you want to register for forms when you call this, for example:
+* `Activity.onCreate()` -> If you only want forms to appear over a specific activity, checks every time this activity is created.
+* `Application.onResume()` -> Anytime the app is foregrounded, check for forms and show if available.
+
+The web view will listen for forms to display with the same timeout as other requests (10 seconds).
+If no form is available to show, the web view will be removed from memory and there will need to be another call to `registerForInAppForms`
+to fetch available form. This is why we recommend registering on a lifecycle function. Forms will show automatically, and are dismissed by pressing the close button or tapping outside the content of the dialog.
+If an orientation configuration change is detected, we close the web view and remove it from memory.
+
 ## Troubleshooting
 The SDK contains logging at different levels from `verbose` to `assert`. By default, the SDK logs at the `error` level
 in a production environment and at the `warning` level in a debug environment. You can change the log level by adding 
