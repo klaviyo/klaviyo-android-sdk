@@ -1,8 +1,9 @@
 package com.klaviyo.analytics.networking.requests
 
-import com.klaviyo.analytics.DeviceProperties
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import org.json.JSONObject
 
@@ -66,3 +67,18 @@ internal class EventApiRequest(
         )
     }
 }
+
+internal fun DeviceProperties.buildEventMetaData(): Map<String, String?> = mapOf(
+    "Device ID" to deviceId,
+    "Device Manufacturer" to manufacturer,
+    "Device Model" to model,
+    "OS Name" to platform,
+    "OS Version" to osVersion,
+    "SDK Name" to sdkName,
+    "SDK Version" to sdkVersion,
+    "App Name" to applicationLabel,
+    "App ID" to applicationId,
+    "App Version" to appVersion,
+    "App Build" to appVersionCode,
+    "Push Token" to Klaviyo.getPushToken()
+)
