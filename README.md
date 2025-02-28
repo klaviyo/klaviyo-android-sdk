@@ -57,6 +57,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       dependencies {
           implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.2.0-rc.1")
           implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.2.0-rc.1")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:3.2.0-rc.1")
       }
       ```
    </details>
@@ -69,6 +70,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
        dependencies {
            implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.2.0-rc.1"
            implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.2.0-rc.1"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:3.2.0-rc.1"
        }
       ```
    </details>
@@ -190,6 +192,7 @@ Klaviyo.createEvent(event)
 - A [Firebase account](https://firebase.google.com/docs/android/setup) for your Android app
 - Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client) documentation
 - Configure [Android push](https://help.klaviyo.com/hc/en-us/articles/14750928993307) in your Klaviyo account settings
+- Klaviyo `analytics` and `push-fcm` packages
 
 ### Setup
 The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService`, so the
@@ -467,34 +470,46 @@ notification intent that the Klaviyo SDK requires in order to track opens when y
 
 ## In App Forms
 
+In-app forms are messages displayed to mobile app users while they are actively using your app. 
+You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.
+
+[//]: # (TODO -- add help doc link)
+
 ### Prerequisites
-- Using version 3.2.0 or higher
-- You need to have Klaviyo `analytics` imported and the company ID must be set
+- Version 3.2.0 or higher
+- Klaviyo `analytics` and `forms` packages
 
 ### Setup
-`registerForInAppForms` can be chained with your initialization code to allow for form display.
+Once you've created an in-app form in your Klaviyo account, to display it add the following code to your application. 
+
 ```kotlin
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.forms.registerForInAppForms
+
+// You can register as soon as you've initialized
 Klaviyo
     .initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
     .registerForInAppForms()
-```
-You can also call it publicly anywhere you can access the Klaviyo forms module:
-```kotlin
-Klaviyo.registerForInAppForms() // make sure you only call this after initializing Klaviyo company ID
+
+// ... or any time thereafter
+Klaviyo.registerForInAppForms()
 ```
 
 ### Behavior
 
-Once you call the `registerForInAppForms` function, the web view will persist unattached to UI until a form is ready to be shown.
-This allows you to choose *when* forms will start to overlay on your App UI. It also means that wherever you decide to call this will impact the behavior.
-Consider how often you want to register for forms when you call this, for example:
+Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form 
+within 10 seconds, based on the form frequency and trigger settings configured in your Klaviyo account.
+
+You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in 
+your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally
+prevent multiple forms appearing at once.
+
+Consider how often you want to register for forms. For example, registering from an activity lifecycle event is 
+advisable so that the user has multiple opportunities to see your messaging if they are browsing your app for a prolonged period.
 * `Activity.onCreate()` -> If you only want forms to appear over a specific activity, checks every time this activity is created.
 * `Application.onResume()` -> Anytime the app is foregrounded, check for forms and show if available.
 
-The web view will listen for forms to display with the same timeout as other requests (10 seconds).
-If no form is available to show, the web view will be removed from memory and there will need to be another call to `registerForInAppForms`
-to fetch available form. This is why we recommend registering on a lifecycle function. Forms will show automatically, and are dismissed by pressing the close button or tapping outside the content of the dialog.
-If an orientation configuration change is detected, we close the web view and remove it from memory.
+**Note:** If the device's orientation changes, any currently visible form is closed automatically.
 
 ## Troubleshooting
 The SDK contains logging at different levels from `verbose` to `assert`. By default, the SDK logs at the `error` level
