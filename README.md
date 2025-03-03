@@ -480,7 +480,7 @@ You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms t
 - Klaviyo `analytics` and `forms` packages
 
 ### Setup
-Once you've created an in-app form in your Klaviyo account, to display it add the following code to your application. 
+To display in-app forms add the following code to your application. 
 
 ```kotlin
 import com.klaviyo.analytics.Klaviyo
@@ -498,7 +498,7 @@ Klaviyo.registerForInAppForms()
 ### Behavior
 
 Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form 
-within 10 seconds, based on the form frequency and trigger settings configured in your Klaviyo account.
+within 10 seconds, based on form targeting and behavior settings.
 
 You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in 
 your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally
@@ -506,10 +506,14 @@ prevent multiple forms appearing at once.
 
 Consider how often you want to register for forms. For example, registering from an activity lifecycle event is 
 advisable so that the user has multiple opportunities to see your messaging if they are browsing your app for a prolonged period.
+However, be advised that this will be shown as soon as the form is ready in the SDK, so you may still need to condition 
+this based on the user's context within your application. Future versions of this product will provide more control in this regard.
+
+
 * `Activity.onCreate()` -> If you only want forms to appear over a specific activity, checks every time this activity is created.
 * `Application.onResume()` -> Anytime the app is foregrounded, check for forms and show if available.
 
-**Note:** If the device's orientation changes, any currently visible form is closed automatically.
+**Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
 
 ## Troubleshooting
 The SDK contains logging at different levels from `verbose` to `assert`. By default, the SDK logs at the `error` level
