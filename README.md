@@ -55,8 +55,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.2.0-rc.1")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.2.0-rc.1")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.2.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.2.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:3.2.0")
       }
       ```
    </details>
@@ -67,8 +68,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.2.0-rc.1"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.2.0-rc.1"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.2.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.2.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:3.2.0"
        }
       ```
    </details>
@@ -190,6 +192,7 @@ Klaviyo.createEvent(event)
 - A [Firebase account](https://firebase.google.com/docs/android/setup) for your Android app
 - Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client) documentation
 - Configure [Android push](https://help.klaviyo.com/hc/en-us/articles/14750928993307) in your Klaviyo account settings
+- Klaviyo `analytics` and `push-fcm` packages
 
 ### Setup
 The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService`, so the
@@ -464,6 +467,53 @@ If you wish to fully customize the display of notifications, we provide a set of
 extensions such as `import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body` to access all the properties sent from Klaviyo.
 We also provide an `Intent.appendKlaviyoExtras(RemoteMessage)` extension method, which attaches the data to your
 notification intent that the Klaviyo SDK requires in order to track opens when you call `Klaviyo.handlePush(intent)`.
+
+## In App Forms
+
+[In-app forms](https://klaviyo.slack.com/archives/C064QGU3BCG/p1741024810256069) are messages displayed to mobile app 
+users while they are actively using your app. You can create new in-app forms in a drag-and-drop editor in the 
+Sign-Up Forms tab in Klaviyo.
+
+### Prerequisites
+- Version 3.2.0 or higher
+- Klaviyo `analytics` and `forms` packages
+
+### Setup
+To display in-app forms add the following code to your application. 
+
+```kotlin
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.forms.registerForInAppForms
+
+// You can register as soon as you've initialized
+Klaviyo
+    .initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+    .registerForInAppForms()
+
+// ... or any time thereafter
+Klaviyo.registerForInAppForms()
+```
+
+### Behavior
+
+Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form 
+within 10 seconds, based on form targeting and behavior settings.
+
+You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in 
+your app's UI a form can appear. It is safe to register multiple times per application session. 
+The SDK will internally prevent multiple forms appearing at once.
+
+Consider how often you want to register for forms. For example, registering from an activity lifecycle event is advisable 
+so that the user has multiple opportunities to see your messaging if they are browsing your app for a prolonged period.
+However, be advised the form will be shown as soon as it is ready, so you may still need to condition this based on the
+user's context within your application. Future versions of this product will provide more control in this regard.
+
+| Callback                 | Description                                                                                            |
+|--------------------------|--------------------------------------------------------------------------------------------------------|
+| `Activity.onCreate()`    | If you only want forms to appear over a specific activity, checks every time this activity is created. |
+| `Application.onResume()` | Anytime the app is foregrounded, check for forms and show if available.                                |
+
+**Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
 
 ## Troubleshooting
 The SDK contains logging at different levels from `verbose` to `assert`. By default, the SDK logs at the `error` level
