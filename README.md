@@ -193,6 +193,7 @@ Klaviyo.createEvent(event)
 - Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client) documentation
 - Configure [Android push](https://help.klaviyo.com/hc/en-us/articles/14750928993307) in your Klaviyo account settings
 - Klaviyo `analytics` and `push-fcm` packages
+- If you expect to use deep links in your push notifications, see the [deep linking](#deep-linking) section below.
 
 ### Setup
 The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService`, so the
@@ -407,6 +408,7 @@ Sign-Up Forms tab in Klaviyo.
 ### Prerequisites
 - Version 3.2.0 or higher
 - Klaviyo `analytics` and `forms` packages
+- If you expect to use deep links in forms, see the [deep linking](#deep-linking) section below.
 
 ### Setup
 To display in-app forms add the following code to your application. 
@@ -446,7 +448,7 @@ user's context within your application. Future versions of this product will pro
 
 **Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
 
-## Deep Linking 
+## Deep Linking
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular
 page within your app in response to a user interaction. Klaviyo supports deep linking from tapping on a Push Notification
 and from In-App Forms interactions. There are broadly three steps to implement deep links in your app:  
