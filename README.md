@@ -472,7 +472,8 @@ notification intent that the Klaviyo SDK requires in order to track opens when y
 
 [In-app forms](https://klaviyo.slack.com/archives/C064QGU3BCG/p1741024810256069) are messages displayed to mobile app 
 users while they are actively using your app. You can create new in-app forms in a drag-and-drop editor in the 
-Sign-Up Forms tab in Klaviyo.
+Sign-Up Forms tab in Klaviyo. Follow the instructions in this section to integrate forms with your app. The SDK will
+display forms according to targeting and behavior settings and collect delivery and engagement analytics automatically.
 
 ### Prerequisites
 - Version 3.2.0 or higher
