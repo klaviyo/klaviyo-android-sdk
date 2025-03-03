@@ -3,6 +3,8 @@ package com.klaviyo.analytics.networking.requests
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.fixtures.mockDeviceProperties
+import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
@@ -25,12 +27,14 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
         super.setup()
         mockkObject(Klaviyo)
         every { Klaviyo.getPushToken() } returns PUSH_TOKEN
+        mockDeviceProperties()
     }
 
     @After
     override fun cleanup() {
         super.cleanup()
         unmockkObject(Klaviyo)
+        unmockDeviceProperties()
     }
 
     @Test
