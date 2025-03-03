@@ -310,76 +310,6 @@ override fun onNewIntent(intent: Intent?) {
 app's launch intent for a tapped notification. Adjust this example to your use-case, ensuring that 
 `Klaviyo.handlePush(intent)` is called whenever your app is opened from a notification.
 
-#### Deep Linking 
-[Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular
-page within your app in response to the user opening a notification. There are broadly three steps to implement
-deep links in your app. 
-
-1. Add intent filters for incoming links:
-
-    Add an intent filter to the activity element of your `AndroidManifest.xml` file.
-    Replace the scheme and host to match the URI scheme that you will embed in your push notifications. 
-
-    ```xml
-    <!-- AndroidManifest.xml -->
-    <manifest>
-        <!-- ... -->
-        <application>
-            <!-- ... -->
-            <activity>
-                <!-- ... -->
-                <intent-filter android:label="@string/filter_view_example_gizmos">
-                    <action android:name="android.intent.action.VIEW" />
-                    <category android:name="android.intent.category.DEFAULT" />
-                    <category android:name="android.intent.category.BROWSABLE" />
-                    <!-- Accepts URIs formatted "example://host.com” -->
-                    <data android:scheme="example" android:host="host.com"/>
-                </intent-filter>
-            </activity>
-        </application>
-    </manifest>
-    ```
-
-2. Read data from incoming intents:
-
-    When the app is opened from a deep link, the intent that started the activity contains data for the deep link.
-    You can parse the URI from the intent's data property and use it to navigate to the appropriate part of your app. 
-
-    ```kotlin
-    override fun onCreate(savedInstanceState: Bundle?) {
-        /* ... */
-        
-        onNewIntent(intent)
-    }
-
-    override fun onNewIntent(intent: Intent?) {
-        // Tracks when a system tray notification is opened
-        Klaviyo.handlePush(intent)
-    
-        // Read deep link data from intent
-        val action: String? = intent?.action 
-        val deepLink: Uri? = intent?.data
-    }
-    ```
-
-3. Test your deep links:
-
-    Using [android debug bridge (adb)](https://developer.android.com/studio/command-line/adb),
-    run the following command to launch your app via an intent containing a deep link to test your deep link handler.
-
-    ```shell
-    adb shell am start
-        -W -a android.intent.action.VIEW
-        -d <URI> <PACKAGE>
-    ```
-
-    To perform integration testing, you can send a
-    [preview push notification](https://help.klaviyo.com/hc/en-us/articles/18011985278875) 
-    containing a deep link from the Klaviyo push editor.
-
-For additional resources on deep linking, refer to
-[Android developer documentation](https://developer.android.com/training/app-links/deep-linking).
-
 ### Advanced Setup
 If you'd prefer to have your own implementation of `FirebaseMessagingService`,
 follow the FCM setup docs including referencing your own service class in the manifest.
@@ -515,6 +445,76 @@ user's context within your application. Future versions of this product will pro
 | `Activity.onCreate()`    | If you only want forms to appear over a specific activity, checks every time this activity is created. |
 
 **Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
+
+## Deep Linking 
+[Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular
+page within your app in response to a user interaction. Klaviyo supports deep linking from tapping on a Push Notification
+and from In-App Forms interactions. There are broadly three steps to implement deep links in your app:  
+
+1. Add intent filters for incoming links:
+
+    Add an intent filter to the activity element of your `AndroidManifest.xml` file.
+    Replace the scheme and host to match the URI scheme that you intend to use for notifications and forms. 
+
+    ```xml
+    <!-- AndroidManifest.xml -->
+    <manifest>
+        <!-- ... -->
+        <application>
+            <!-- ... -->
+            <activity>
+                <!-- ... -->
+                <intent-filter android:label="@string/filter_view_example_gizmos">
+                    <action android:name="android.intent.action.VIEW" />
+                    <category android:name="android.intent.category.DEFAULT" />
+                    <category android:name="android.intent.category.BROWSABLE" />
+                    <!-- Accepts URIs formatted "example://host.com” -->
+                    <data android:scheme="example" android:host="host.com"/>
+                </intent-filter>
+            </activity>
+        </application>
+    </manifest>
+    ```
+
+2. Read data from incoming intents:
+
+    When the app is opened from a deep link, the intent that started the activity contains data for the deep link.
+    You can parse the URI from the intent's data property and use it to navigate to the appropriate part of your app. 
+
+    ```kotlin
+    override fun onCreate(savedInstanceState: Bundle?) {
+        /* ... */
+        
+        onNewIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        // Tracks when a system tray notification is opened
+        Klaviyo.handlePush(intent)
+    
+        // Read deep link data from intent
+        val action: String? = intent?.action 
+        val deepLink: Uri? = intent?.data
+    }
+    ```
+
+3. Test your deep links:
+
+    Using [android debug bridge (adb)](https://developer.android.com/studio/command-line/adb),
+    run the following command to launch your app via an intent containing a deep link to test your deep link handler.
+
+    ```shell
+    adb shell am start
+        -W -a android.intent.action.VIEW
+        -d <URI> <PACKAGE>
+    ```
+
+    To perform integration testing, you can send a
+    [preview push notification](https://help.klaviyo.com/hc/en-us/articles/18011985278875) 
+    containing a deep link from the Klaviyo push editor or use an in-app form that contains a "Go to app screen" action. 
+
+For additional resources on deep linking, refer to
+[Android developer documentation](https://developer.android.com/training/app-links/deep-linking).
 
 ## Troubleshooting
 The SDK contains logging at different levels from `verbose` to `assert`. By default, the SDK logs at the `error` level
