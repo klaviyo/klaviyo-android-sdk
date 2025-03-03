@@ -470,10 +470,9 @@ notification intent that the Klaviyo SDK requires in order to track opens when y
 
 ## In App Forms
 
-In-app forms are messages displayed to mobile app users while they are actively using your app. 
-You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.
-
-[//]: # (TODO -- add help doc link)
+[In-app forms](https://klaviyo.slack.com/archives/C064QGU3BCG/p1741024810256069) are messages displayed to mobile app 
+users while they are actively using your app. You can create new in-app forms in a drag-and-drop editor in the 
+Sign-Up Forms tab in Klaviyo.
 
 ### Prerequisites
 - Version 3.2.0 or higher
@@ -501,13 +500,13 @@ Once `registerForInAppForms()` is called, the SDK will load form data for your a
 within 10 seconds, based on form targeting and behavior settings.
 
 You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in 
-your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally
-prevent multiple forms appearing at once.
+your app's UI a form can appear. It is safe to register multiple times per application session. 
+The SDK will internally prevent multiple forms appearing at once.
 
-Consider how often you want to register for forms. For example, registering from an activity lifecycle event is 
-advisable so that the user has multiple opportunities to see your messaging if they are browsing your app for a prolonged period.
-However, be advised that this will be shown as soon as the form is ready in the SDK, so you may still need to condition 
-this based on the user's context within your application. Future versions of this product will provide more control in this regard.
+Consider how often you want to register for forms. For example, registering from an activity lifecycle event is advisable 
+so that the user has multiple opportunities to see your messaging if they are browsing your app for a prolonged period.
+However, be advised the form will be shown as soon as it is ready, so you may still need to condition this based on the
+user's context within your application. Future versions of this product will provide more control in this regard.
 
 | Callback                 | Description                                                                                            |
 |--------------------------|--------------------------------------------------------------------------------------------------------|
