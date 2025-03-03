@@ -509,9 +509,10 @@ advisable so that the user has multiple opportunities to see your messaging if t
 However, be advised that this will be shown as soon as the form is ready in the SDK, so you may still need to condition 
 this based on the user's context within your application. Future versions of this product will provide more control in this regard.
 
-
-* `Activity.onCreate()` -> If you only want forms to appear over a specific activity, checks every time this activity is created.
-* `Application.onResume()` -> Anytime the app is foregrounded, check for forms and show if available.
+| Callback                 | Description                                                                                            |
+|--------------------------|--------------------------------------------------------------------------------------------------------|
+| `Activity.onCreate()`    | If you only want forms to appear over a specific activity, checks every time this activity is created. |
+| `Application.onResume()` | Anytime the app is foregrounded, check for forms and show if available.                                |
 
 **Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
 
