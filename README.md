@@ -503,15 +503,16 @@ You can call `registerForInAppForms()` any time after initializing with your com
 your app's UI a form can appear. It is safe to register multiple times per application session. 
 The SDK will internally prevent multiple forms appearing at once.
 
-Consider how often you want to register for forms. For example, registering from an activity lifecycle event is advisable 
+Consider how often you want to register for forms. For example, registering from a lifecycle event is advisable 
 so that the user has multiple opportunities to see your messaging if they are browsing your app for a prolonged period.
 However, be advised the form will be shown as soon as it is ready, so you may still need to condition this based on the
 user's context within your application. Future versions of this product will provide more control in this regard.
 
 | Callback                 | Description                                                                                            |
 |--------------------------|--------------------------------------------------------------------------------------------------------|
-| `Activity.onCreate()`    | If you only want forms to appear over a specific activity, checks every time this activity is created. |
+| `Application.onCreate()` | Show a form _only_ upon initial app launch.                                                            |
 | `Application.onResume()` | Anytime the app is foregrounded, check for forms and show if available.                                |
+| `Activity.onCreate()`    | If you only want forms to appear over a specific activity, checks every time this activity is created. |
 
 **Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
 
