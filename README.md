@@ -404,7 +404,7 @@ notification intent that the Klaviyo SDK requires in order to track opens when y
 [In-app forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app 
 users while they are actively using your app. You can create new in-app forms in a drag-and-drop editor in the 
 Sign-Up Forms tab in Klaviyo. Follow the instructions in this section to integrate forms with your app. The SDK will
-display forms according to targeting and behavior settings and collect delivery and engagement analytics automatically.
+display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
 
 ### Prerequisites
 - Version 3.2.0 or higher
@@ -430,7 +430,7 @@ Klaviyo.registerForInAppForms()
 ### Behavior
 
 Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form 
-within 10 seconds, based on form targeting and behavior settings.
+within 15 seconds, based on form targeting and behavior settings.
 
 You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in 
 your app's UI a form can appear. It is safe to register multiple times per application session. 
