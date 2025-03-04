@@ -481,7 +481,7 @@ and from In-App Forms interactions. There are broadly three steps to implement d
 
 2. Read data from incoming intents:
 
-    When the app is opened from a deep link, the intent that started the activity contains data for the deep link.
+    When a user taps a notification or a deep link in an in-app form, the Klaviyo SDK sends your app an intent containing that link.
     You can parse the URI from the intent's data property and use it to navigate to the appropriate part of your app. 
 
     ```kotlin
