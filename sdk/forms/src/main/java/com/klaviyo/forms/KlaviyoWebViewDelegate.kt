@@ -242,6 +242,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Handle a [BridgeMessage.Close] message by detaching and destroying the [KlaviyoWebView]
      */
     private fun close() = webView?.let { webView ->
+        handshakeTimer?.cancel()
         activity?.window?.decorView?.post {
             Registry.log.verbose("Clear IAF WebView reference")
             this.webView = null
@@ -258,8 +259,8 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     /**
      * Handle a [BridgeMessage.Abort] message by logging the reason and destroying the webview
      */
-    private fun abort(reason: String) = Registry.log.info("IAF aborted, reason: $reason").also {
-        close()
+    private fun abort(reason: String) = close().also {
+        Registry.log.info("IAF aborted, reason: $reason")
     }
 
     /**
