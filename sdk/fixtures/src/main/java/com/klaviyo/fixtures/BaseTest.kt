@@ -1,9 +1,13 @@
 package com.klaviyo.fixtures
 
+import android.app.Activity
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.content.res.AssetManager
 import android.os.Build
+import android.view.View
+import android.view.ViewGroup
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.lifecycle.LifecycleMonitor
@@ -13,6 +17,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.spyk
 import io.mockk.unmockkObject
+import java.io.ByteArrayInputStream
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -58,14 +63,38 @@ abstract class BaseTest {
                 }
             }
         }
+
+        val htmlString = """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head data-sdk-name="SDK_NAME"
+                  data-sdk-version="SDK_VERSION"
+                  data-native-bridge-name="BRIDGE_NAME"
+                  data-native-bridge-handshake='BRIDGE_HANDSHAKE'
+            >
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover"/>
+                <meta name="referrer" content="same-origin" /> <!--  This meta tag protects @imported fonts from being blocked by CORS  -->
+                <title>Klaviyo In-App Form Template</title>
+                <link rel="stylesheet" type="text/css" href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css" crossorigin/>
+                <script type="text/javascript" src="KLAVIYO_JS_URL"></script>
+            </head>
+            <body></body>
+            </html>
+        """.trimIndent()
     }
 
     protected val mockApplicationInfo = mockk<ApplicationInfo>()
     protected val mockPackageManager = mockk<PackageManager>()
+    protected val mockAssets = mockk<AssetManager> {
+        every { open("InAppFormsTemplate.html") } returns
+            ByteArrayInputStream(htmlString.encodeToByteArray())
+    }
 
     protected val mockContext = mockk<Context>().apply {
         every { applicationInfo } returns mockApplicationInfo
         every { packageManager } returns mockPackageManager
+        every { assets } returns mockAssets
     }
 
     protected val debounceTime = 5
@@ -80,10 +109,22 @@ abstract class BaseTest {
         every { networkJitterRange } returns 0..0
         every { baseUrl } returns "https://test.fake-klaviyo.com"
         every { apiRevision } returns "1234-56-78"
+        every { baseCdnUrl } returns "https://decent.cdn.url.com"
+        every { assetSource } returns null
+        every { sdkName } returns "klaviyo-android-sdk"
+        every { sdkVersion } returns "4.20.69"
+    }
+    protected val mockContentView: ViewGroup = mockk(relaxed = true)
+    protected val mockDecorView: View = mockk(relaxed = true) {
+        every { findViewById<ViewGroup>(any()) } returns mockContentView
+    }
+    protected val mockActivity: Activity = mockk(relaxed = true) {
+        every { window.decorView } returns mockDecorView
     }
     protected val mockLifecycleMonitor = mockk<LifecycleMonitor>().apply {
         every { onActivityEvent(any()) } returns Unit
         every { offActivityEvent(any()) } returns Unit
+        every { currentActivity } returns mockActivity
     }
     protected val mockNetworkMonitor = mockk<NetworkMonitor>()
     protected val spyDataStore = spyk(InMemoryDataStore())
