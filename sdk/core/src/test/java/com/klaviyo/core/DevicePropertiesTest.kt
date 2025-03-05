@@ -1,44 +1,22 @@
-package com.klaviyo.analytics
+package com.klaviyo.core
 
 import android.Manifest
 import android.content.pm.PackageInfo
 import android.os.Build
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.mockDeviceProperties
+import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkObject
-import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-internal class DevicePropertiesTest : BaseTest() {
+class DevicePropertiesTest : BaseTest() {
 
     companion object {
-        private val mockVersionCode = 123
-
-        fun mockDeviceProperties() {
-            mockkObject(DeviceProperties)
-            every { DeviceProperties.userAgent } returns "Mock User Agent"
-            every { DeviceProperties.model } returns "Mock Model"
-            every { DeviceProperties.applicationLabel } returns "Mock Application Label"
-            every { DeviceProperties.appVersion } returns "Mock App Version"
-            every { DeviceProperties.appVersionCode } returns "Mock Version Code"
-            every { DeviceProperties.sdkName } returns "Mock SDK"
-            every { DeviceProperties.sdkVersion } returns "Mock SDK Version"
-            every { DeviceProperties.backgroundDataEnabled } returns true
-            every { DeviceProperties.notificationPermissionGranted } returns true
-            every { DeviceProperties.applicationId } returns "Mock App ID"
-            every { DeviceProperties.platform } returns "Android"
-            every { DeviceProperties.deviceId } returns "Mock Device ID"
-            every { DeviceProperties.manufacturer } returns "Mock Manufacturer"
-            every { DeviceProperties.osVersion } returns "Mock OS Version"
-        }
-
-        fun unmockDeviceProperties() {
-            unmockkObject(DeviceProperties)
-        }
+        private const val MOCK_VERSION_CODE = 123
     }
 
     @Suppress("DEPRECATION")
@@ -49,8 +27,8 @@ internal class DevicePropertiesTest : BaseTest() {
         )
         packageName = "Mock Package Name"
         versionName = "Mock Version Name"
-        every { longVersionCode } returns mockVersionCode.toLong()
-        versionCode = mockVersionCode
+        every { longVersionCode } returns MOCK_VERSION_CODE.toLong()
+        versionCode = MOCK_VERSION_CODE
     }
 
     @After
@@ -62,7 +40,7 @@ internal class DevicePropertiesTest : BaseTest() {
     @Test
     fun `getVersionCodeCompat detects platform properly`() {
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
-        assertEquals(mockVersionCode, mockPackageInfo.getVersionCodeCompat())
+        assertEquals(MOCK_VERSION_CODE, mockPackageInfo.getVersionCodeCompat())
         verify(exactly = 0) {
             mockPackageInfo.longVersionCode
         }

@@ -12,9 +12,12 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.mockDeviceProperties
+import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -84,7 +87,9 @@ internal class KlaviyoTest : BaseTest() {
     private val mockApplication = mockk<Application>().apply {
         every { mockContext.applicationContext } returns this
         every { unregisterActivityLifecycleCallbacks(any()) } returns Unit
+        every { unregisterComponentCallbacks(any()) } returns Unit
         every { registerActivityLifecycleCallbacks(any()) } returns Unit
+        every { registerComponentCallbacks(any()) } returns Unit
     }
 
     @Before
@@ -92,7 +97,7 @@ internal class KlaviyoTest : BaseTest() {
         super.setup()
         every { Registry.configBuilder } returns mockBuilder
         Registry.register<ApiClient>(mockApiClient)
-        DevicePropertiesTest.mockDeviceProperties()
+        mockDeviceProperties()
         mockkConstructor(StateSideEffects::class)
         every { anyConstructed<StateSideEffects>().detach() } returns Unit
         Klaviyo.initialize(
@@ -111,7 +116,7 @@ internal class KlaviyoTest : BaseTest() {
         Registry.unregister<ApiClient>()
         super.cleanup()
         Registry.unregister<Config>()
-        DevicePropertiesTest.unmockDeviceProperties()
+        unmockDeviceProperties()
     }
 
     @Test
@@ -129,12 +134,15 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `Initialize properly creates new config service and attaches lifecycle listeners`() {
         val expectedListener = Registry.lifecycleCallbacks
+        val expectedConfigListener = Registry.componentCallbacks
         verifyAll {
             mockBuilder.apiKey(API_KEY)
             mockBuilder.applicationContext(mockContext)
             mockBuilder.build()
             mockApplication.unregisterActivityLifecycleCallbacks(match { it == expectedListener })
             mockApplication.registerActivityLifecycleCallbacks(match { it == expectedListener })
+            mockApplication.unregisterComponentCallbacks(match { it == expectedConfigListener })
+            mockApplication.registerComponentCallbacks(match { it == expectedConfigListener })
         }
     }
 

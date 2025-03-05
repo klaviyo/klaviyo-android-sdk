@@ -1,17 +1,16 @@
-package com.klaviyo.analytics
+package com.klaviyo.core
 
 import android.app.ActivityManager
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.os.Build
 import androidx.core.app.NotificationManagerCompat
-import com.klaviyo.core.Registry
 import com.klaviyo.core.config.KlaviyoConfig
 import com.klaviyo.core.config.getPackageInfoCompat
 import com.klaviyo.core.model.fetchOrCreate
 import java.util.UUID
 
-internal object DeviceProperties {
+object DeviceProperties {
 
     private const val DEVICE_ID_KEY = "device_id"
 
@@ -71,8 +70,16 @@ internal object DeviceProperties {
     }
 
     val userAgent: String by lazy {
-        val sdkAgent = "klaviyo-${sdkName.replace("_","-")}"
+        val sdkAgent = "klaviyo-${sdkName.replace("_", "-")}"
         "$applicationLabel/$appVersion ($applicationId; build:$appVersionCode; $platform $osVersion) $sdkAgent/$sdkVersion"
+    }
+
+    val environment: String by lazy {
+        if (Registry.config.applicationContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            "debug"
+        } else {
+            "release"
+        }
     }
 
     private val packageInfo: PackageInfo by lazy {
@@ -82,43 +89,6 @@ internal object DeviceProperties {
     private val activityManager: ActivityManager by lazy {
         Registry.config.applicationContext.getSystemService(ActivityManager::class.java)
     }
-
-    fun buildEventMetaData(): Map<String, String?> = mapOf(
-        "Device ID" to deviceId,
-        "Device Manufacturer" to manufacturer,
-        "Device Model" to model,
-        "OS Name" to platform,
-        "OS Version" to osVersion,
-        "SDK Name" to sdkName,
-        "SDK Version" to sdkVersion,
-        "App Name" to applicationLabel,
-        "App ID" to applicationId,
-        "App Version" to appVersion,
-        "App Build" to appVersionCode,
-        "Push Token" to Klaviyo.getPushToken()
-    )
-
-    fun buildMetaData(): Map<String, String?> = mapOf(
-        "device_id" to deviceId,
-        "manufacturer" to manufacturer,
-        "device_model" to model,
-        "os_name" to platform,
-        "os_version" to osVersion,
-        "klaviyo_sdk" to sdkName,
-        "sdk_version" to sdkVersion,
-        "app_name" to applicationLabel,
-        "app_id" to applicationId,
-        "app_version" to appVersion,
-        "app_build" to appVersionCode,
-        "environment" to getEnvironment()
-    )
-
-    private fun getEnvironment(): String =
-        if (Registry.config.applicationContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-            "debug"
-        } else {
-            "release"
-        }
 }
 
 internal fun PackageInfo.getVersionCodeCompat(): Int =

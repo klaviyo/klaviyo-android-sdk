@@ -1,8 +1,8 @@
 package com.klaviyo.analytics.networking.requests
 
-import com.klaviyo.analytics.DevicePropertiesTest
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.mockDeviceProperties
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
@@ -35,7 +35,7 @@ internal abstract class BaseApiRequestTest<T> : BaseTest() where T : KlaviyoApiR
     @Before
     override fun setup() {
         super.setup()
-        DevicePropertiesTest.mockDeviceProperties()
+        mockDeviceProperties()
     }
 
     @Test

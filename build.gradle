@@ -122,6 +122,7 @@ public class BumpVersion extends DefaultTask {
         file.text = newName
         ant.replace(file:"README.md", token:"analytics:$currentVersion", value:"analytics:$nextVersion")
         ant.replace(file:"README.md", token:"push-fcm:$currentVersion", value:"push-fcm:$nextVersion")
+        ant.replace(file:"README.md", token:"forms:$currentVersion", value:"forms:$nextVersion")
         ant.replace(file:"docs/index.html", token:"$currentVersion", value:"$nextVersion")
     }
 }

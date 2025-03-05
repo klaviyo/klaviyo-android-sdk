@@ -28,6 +28,7 @@ internal object KlaviyoApiRequestDecoder {
                 time,
                 uuid
             )
+            AggregateEventApiRequest::class.simpleName -> AggregateEventApiRequest(time, uuid)
             else -> KlaviyoApiRequest(urlPath, method, time, uuid)
         }.apply {
             headers.replaceAllWith(
