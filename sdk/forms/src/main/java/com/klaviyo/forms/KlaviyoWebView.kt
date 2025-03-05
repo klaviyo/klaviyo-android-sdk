@@ -19,22 +19,12 @@ import com.klaviyo.core.Registry
 internal class KlaviyoWebView : WebView {
     constructor(
         context: Context = Registry.config.applicationContext
-    ) : super(context) {
-        settings.userAgentString = DeviceProperties.userAgent
-        settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
-        setBackgroundColor(Color.TRANSPARENT)
-
-        if (BuildConfig.DEBUG) {
-            setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
-            // Disable webview resources cache when debugging:
-            // settings.cacheMode = WebSettings.LOAD_NO_CACHE
-        }
-    }
+    ) : super(context)
 
     constructor(context: Context, attrs: AttributeSet?) : super(context, attrs, 0)
 
-    fun loadTemplate(html: String, delegate: KlaviyoWebViewDelegate) = setDelegate(delegate)
+    fun loadTemplate(html: String, delegate: KlaviyoWebViewDelegate) = configure()
+        .setDelegate(delegate)
         .loadDataWithBaseURL(
             delegate.allowedOrigin.first(),
             html,
@@ -42,6 +32,18 @@ internal class KlaviyoWebView : WebView {
             null,
             null
         )
+
+    private fun configure() = apply {
+        settings.userAgentString = DeviceProperties.userAgent
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        setBackgroundColor(Color.TRANSPARENT)
+        if (Registry.config.isDebugBuild) {
+            setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+            // Disable webview resources cache when debugging:
+            // settings.cacheMode = WebSettings.LOAD_NO_CACHE
+        }
+    }
 
     private fun setDelegate(delegate: KlaviyoWebViewDelegate) = apply {
         webViewClient = delegate
