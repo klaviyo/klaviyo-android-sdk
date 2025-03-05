@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -131,6 +132,15 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     }
 
     /**
+     * If the webview renderer crashes or gets cleaned up to reclaim memory
+     * we have to clean up and return true here else the host app will crash
+     */
+    override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean = close().let {
+        Registry.log.info("WebView crashed or deallocated")
+        return true
+    }
+
+    /**
      * Intercept page navigation and redirect to an external browser application
      */
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -189,11 +199,9 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Handle a [BridgeMessage.Show] message by displaying the webview before the form animates in
      */
     private fun show() = webView?.let { webView ->
-        activity?.window?.decorView?.let { decorView ->
-            decorView.post {
-                decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
-                webView.visibility = View.VISIBLE
-            }
+        activity?.window?.decorView?.post { decorView ->
+            decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
+            webView.visibility = View.VISIBLE
         } ?: run {
             Registry.log.warning("Unable to show IAF - null activity reference")
         }
@@ -234,14 +242,12 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Handle a [BridgeMessage.Close] message by detaching and destroying the [KlaviyoWebView]
      */
     private fun close() = webView?.let { webView ->
-        activity?.window?.decorView?.let { decorView ->
-            decorView.post {
-                Registry.log.verbose("Clear IAF WebView reference")
-                this.webView = null
-                webView.visibility = View.GONE
-                webView.parent?.let { it as ViewGroup }?.removeView(webView)
-                webView.destroy()
-            }
+        activity?.window?.decorView?.post {
+            Registry.log.verbose("Clear IAF WebView reference")
+            this.webView = null
+            webView.visibility = View.GONE
+            webView.parent?.let { it as ViewGroup }?.removeView(webView)
+            webView.destroy()
         } ?: run {
             Registry.log.warning("Unable to close IAF - null activity reference")
         }
@@ -255,4 +261,9 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     private fun abort(reason: String) = Registry.log.info("IAF aborted, reason: $reason").also {
         close()
     }
+
+    /**
+     * View.post but with self as an argument
+     */
+    private fun View.post(fn: (View) -> Unit) = apply { post { fn(this) } }
 }
