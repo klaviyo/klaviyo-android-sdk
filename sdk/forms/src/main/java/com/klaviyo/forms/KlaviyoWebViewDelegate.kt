@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -104,7 +105,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     }
 
     private fun Uri.Builder.appendAssetSource() = Registry.config.assetSource?.let { assetSource ->
-        Registry.log.info("Appending assetSource=$assetSource to klaviyo.js")
+        Registry.log.debug("Appending assetSource=$assetSource to klaviyo.js")
         appendQueryParameter("assetSource", assetSource)
     } ?: this
 
@@ -118,6 +119,25 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     ) {
         Registry.log.warning("HTTP Error: ${errorResponse?.statusCode} - ${request?.url}")
         super.onReceivedHttpError(view, request, errorResponse)
+    }
+
+    override fun onPageFinished(view: WebView?, url: String?) {
+        super.onPageFinished(view, url)
+        // When an assetSource is specified, log whether we actually got it
+        Registry.config.assetSource?.let { expected ->
+            webView?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
+                Registry.log.debug("Actual Asset Source: $actual. Expected $expected")
+            }
+        }
+    }
+
+    /**
+     * If the webview renderer crashes or gets cleaned up to reclaim memory
+     * we have to clean up and return true here else the host app will crash
+     */
+    override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean = close().let {
+        Registry.log.error("WebView crashed or deallocated")
+        return true
     }
 
     /**
@@ -179,11 +199,9 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Handle a [BridgeMessage.Show] message by displaying the webview before the form animates in
      */
     private fun show() = webView?.let { webView ->
-        activity?.window?.decorView?.let { decorView ->
-            decorView.post {
-                decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
-                webView.visibility = View.VISIBLE
-            }
+        activity?.window?.decorView?.post { decorView ->
+            decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
+            webView.visibility = View.VISIBLE
         } ?: run {
             Registry.log.warning("Unable to show IAF - null activity reference")
         }
@@ -224,16 +242,13 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Handle a [BridgeMessage.Close] message by detaching and destroying the [KlaviyoWebView]
      */
     private fun close() = webView?.let { webView ->
-        activity?.window?.decorView?.let { decorView ->
-            decorView.post {
-                Registry.log.verbose("Clear IAF WebView reference")
-                this.webView = null
-                webView.visibility = View.GONE
-                webView.parent?.let {
-                    (it as ViewGroup).removeView(webView)
-                    webView.destroy()
-                }
-            }
+        handshakeTimer?.cancel()
+        activity?.window?.decorView?.post {
+            Registry.log.verbose("Clear IAF WebView reference")
+            this.webView = null
+            webView.visibility = View.GONE
+            webView.parent?.let { it as ViewGroup }?.removeView(webView)
+            webView.destroy()
         } ?: run {
             Registry.log.warning("Unable to close IAF - null activity reference")
         }
@@ -244,7 +259,12 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     /**
      * Handle a [BridgeMessage.Abort] message by logging the reason and destroying the webview
      */
-    private fun abort(reason: String) = Registry.log.info("IAF aborted, reason: $reason").also {
-        close()
+    private fun abort(reason: String) = close().also {
+        Registry.log.info("IAF aborted, reason: $reason")
     }
+
+    /**
+     * View.post but with self as an argument
+     */
+    private fun View.post(fn: (View) -> Unit) = apply { post { fn(this) } }
 }
