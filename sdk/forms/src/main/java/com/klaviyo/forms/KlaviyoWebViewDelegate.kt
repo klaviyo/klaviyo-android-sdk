@@ -105,7 +105,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     }
 
     private fun Uri.Builder.appendAssetSource() = Registry.config.assetSource?.let { assetSource ->
-        Registry.log.info("Appending assetSource=$assetSource to klaviyo.js")
+        Registry.log.debug("Appending assetSource=$assetSource to klaviyo.js")
         appendQueryParameter("assetSource", assetSource)
     } ?: this
 
@@ -126,7 +126,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
         // When an assetSource is specified, log whether we actually got it
         Registry.config.assetSource?.let { expected ->
             webView?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
-                Registry.log.info("Actual Asset Source: $actual. Expected $expected")
+                Registry.log.debug("Actual Asset Source: $actual. Expected $expected")
             }
         }
     }
@@ -136,7 +136,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * we have to clean up and return true here else the host app will crash
      */
     override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean = close().let {
-        Registry.log.info("WebView crashed or deallocated")
+        Registry.log.error("WebView crashed or deallocated")
         return true
     }
 
