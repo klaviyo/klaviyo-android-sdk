@@ -120,6 +120,16 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
         super.onReceivedHttpError(view, request, errorResponse)
     }
 
+    override fun onPageFinished(view: WebView?, url: String?) {
+        super.onPageFinished(view, url)
+        // When an assetSource is specified, log whether we actually got it
+        Registry.config.assetSource?.let { expected ->
+            webView?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
+                Registry.log.info("Actual Asset Source: $actual. Expected $expected")
+            }
+        }
+    }
+
     /**
      * Intercept page navigation and redirect to an external browser application
      */
@@ -229,10 +239,8 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
                 Registry.log.verbose("Clear IAF WebView reference")
                 this.webView = null
                 webView.visibility = View.GONE
-                webView.parent?.let {
-                    (it as ViewGroup).removeView(webView)
-                    webView.destroy()
-                }
+                webView.parent?.let { it as ViewGroup }?.removeView(webView)
+                webView.destroy()
             }
         } ?: run {
             Registry.log.warning("Unable to close IAF - null activity reference")
