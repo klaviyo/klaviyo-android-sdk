@@ -67,6 +67,7 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         var pausedCount = 0
         var stoppedCount = 0
         var allStoppedCount = 0
+        var configChangeCount = 0
 
         KlaviyoLifecycleMonitor.onActivityEvent {
             when (it) {
@@ -77,6 +78,7 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
                 is ActivityEvent.Paused -> pausedCount++
                 is ActivityEvent.Stopped -> stoppedCount++
                 is ActivityEvent.AllStopped -> allStoppedCount++
+                is ActivityEvent.ConfigurationChanged -> configChangeCount++
             }
         }
 
@@ -86,6 +88,7 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         KlaviyoLifecycleMonitor.onActivitySaveInstanceState(mockk(), mockk())
         KlaviyoLifecycleMonitor.onActivityPaused(mockk())
         KlaviyoLifecycleMonitor.onActivityStopped(mockk())
+        KlaviyoLifecycleMonitor.onConfigurationChanged(mockk())
 
         assertEquals(1, createdCount)
         assertEquals(1, startedCount)
@@ -94,6 +97,7 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         assertEquals(1, pausedCount)
         assertEquals(1, stoppedCount)
         assertEquals(1, allStoppedCount)
+        assertEquals(1, configChangeCount)
     }
 
     @Test

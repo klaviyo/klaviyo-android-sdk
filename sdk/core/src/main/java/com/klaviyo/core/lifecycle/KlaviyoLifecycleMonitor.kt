@@ -2,20 +2,25 @@ package com.klaviyo.core.lifecycle
 
 import android.app.Activity
 import android.app.Application
+import android.content.ComponentCallbacks
+import android.content.res.Configuration
 import android.os.Bundle
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.WeakReferenceDelegate
 import java.util.Collections
 
 /**
  * Service for monitoring the application lifecycle and network connectivity
  */
-internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.ActivityLifecycleCallbacks {
+internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.ActivityLifecycleCallbacks, ComponentCallbacks {
 
     private var activeActivities = 0
 
     private val activityObservers = Collections.synchronizedList(
         mutableListOf<ActivityObserver>()
     )
+
+    override var currentActivity: Activity? by WeakReferenceDelegate()
 
     override fun onActivityEvent(observer: ActivityObserver) {
         activityObservers += observer
@@ -44,6 +49,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     override fun onActivityResumed(activity: Activity) {
+        currentActivity = activity
         broadcastEvent(ActivityEvent.Resumed(activity))
     }
 
@@ -52,10 +58,18 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     override fun onActivityPaused(activity: Activity) {
+        checkActivityClear(activity)
         broadcastEvent(ActivityEvent.Paused(activity))
     }
 
+    private fun checkActivityClear(activity: Activity) {
+        if (activity == currentActivity) {
+            currentActivity = null
+        }
+    }
+
     override fun onActivityStopped(activity: Activity) {
+        checkActivityClear(activity)
         if (activeActivities == 0) return
 
         activeActivities--
@@ -68,6 +82,16 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
 
     override fun onActivityDestroyed(activity: Activity) {
         // Warning: onActivityDestroyed is unreliable, I'm not even going to try to broadcast it
+    }
+
+    //region ComponentCallbacks
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        broadcastEvent(ActivityEvent.ConfigurationChanged(newConfig))
+    }
+
+    override fun onLowMemory() {
+        // currently not needed
     }
 
     //endregion

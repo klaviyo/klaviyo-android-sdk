@@ -52,7 +52,7 @@ object Klaviyo {
      * @param apiKey Your Klaviyo account's public API Key
      * @param applicationContext
      */
-    fun initialize(apiKey: String, applicationContext: Context) = safeCall {
+    fun initialize(apiKey: String, applicationContext: Context) = safeApply {
         Registry.register<Config>(
             Registry.configBuilder
                 .apiKey(apiKey)
@@ -63,7 +63,9 @@ object Klaviyo {
         val application = applicationContext.applicationContext as? Application
         application?.apply {
             unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+            unregisterComponentCallbacks(Registry.componentCallbacks)
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+            registerComponentCallbacks(Registry.componentCallbacks)
         } ?: throw LifecycleException()
 
         Registry.get<ApiClient>().startService()

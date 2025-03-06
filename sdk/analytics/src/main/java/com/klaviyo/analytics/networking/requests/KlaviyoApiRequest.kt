@@ -1,6 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
-import com.klaviyo.analytics.DeviceProperties
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import java.io.BufferedReader
 import java.io.IOException
@@ -378,7 +378,9 @@ internal open class KlaviyoApiRequest(
             else -> connection.errorStream
         }
 
-        responseBody = BufferedReader(InputStreamReader(stream)).use { it.readText() }
+        if (stream != null) {
+            responseBody = BufferedReader(InputStreamReader(stream)).use { it.readText() }
+        }
 
         return status
     }

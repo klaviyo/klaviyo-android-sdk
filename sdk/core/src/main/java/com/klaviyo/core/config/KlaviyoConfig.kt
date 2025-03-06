@@ -97,6 +97,10 @@ object KlaviyoConfig : Config {
         private set
     override var apiRevision: String = BuildConfig.KLAVIYO_API_REVISION
         private set
+    override var baseCdnUrl: String = BuildConfig.KLAVIYO_CDN_URL
+        private set
+    override var assetSource: String? = BuildConfig.KLAVIYO_ASSET_SOURCE.ifEmpty { null }
+        private set
     override lateinit var sdkName: String private set
     override lateinit var sdkVersion: String private set
     override lateinit var apiKey: String private set
@@ -134,6 +138,8 @@ object KlaviyoConfig : Config {
         private var applicationContext: Context? = null
         private var baseUrl: String? = null
         private var apiRevision: String? = null
+        private var baseCdnUrl: String? = null
+        private var assetSource: String? = null
         private var sdkName: String? = null
         private var sdkVersion: String? = null
         private var debounceInterval: Int = DEBOUNCE_INTERVAL
@@ -166,6 +172,14 @@ object KlaviyoConfig : Config {
 
         override fun apiRevision(apiRevision: String): Config.Builder = apply {
             this.apiRevision = apiRevision
+        }
+
+        override fun baseCdnUrl(baseCdnUrl: String): Config.Builder = apply {
+            this.baseCdnUrl = baseCdnUrl
+        }
+
+        override fun assetSource(assetSource: String?): Config.Builder = apply {
+            this.assetSource = assetSource
         }
 
         override fun debounceInterval(debounceInterval: Int) = apply {
@@ -244,13 +258,20 @@ object KlaviyoConfig : Config {
             packageInfo.assertRequiredPermissions(requiredPermissions)
 
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
-            KlaviyoConfig.sdkVersion = context.resources.getString(
+            apiRevision?.let { KlaviyoConfig.apiRevision = it }
+            baseCdnUrl?.let { KlaviyoConfig.baseCdnUrl = it }
+            assetSource?.let { KlaviyoConfig.assetSource = it }
+
+            KlaviyoConfig.sdkName = this.sdkName ?: context.resources.getString(
+                R.string.klaviyo_sdk_name_override
+            )
+            KlaviyoConfig.sdkVersion = this.sdkVersion ?: context.resources.getString(
                 R.string.klaviyo_sdk_version_override
             )
-            KlaviyoConfig.sdkName = context.resources.getString(R.string.klaviyo_sdk_name_override)
-            apiRevision?.let { KlaviyoConfig.apiRevision = it }
+
             KlaviyoConfig.apiKey = apiKey
             KlaviyoConfig.applicationContext = context
+
             KlaviyoConfig.debounceInterval = debounceInterval
             KlaviyoConfig.networkTimeout = networkTimeout
             KlaviyoConfig.networkFlushIntervals = networkFlushIntervals
