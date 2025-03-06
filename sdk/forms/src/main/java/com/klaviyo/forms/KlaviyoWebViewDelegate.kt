@@ -45,7 +45,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     /**
      * Weak reference to the WebView to avoid memory leak
      */
-    private var webView: WebView? by WeakReferenceDelegate()
+    private var webView: KlaviyoWebView? by WeakReferenceDelegate()
 
     /**
      * For tracking device rotation
