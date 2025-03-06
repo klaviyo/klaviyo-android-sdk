@@ -8,7 +8,6 @@ import android.webkit.WebView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
-import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 
@@ -39,7 +38,7 @@ internal class KlaviyoWebView : WebView {
         settings.domStorageEnabled = true
         setBackgroundColor(Color.TRANSPARENT)
         if (Registry.config.isDebugBuild) {
-            setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+            setWebContentsDebuggingEnabled(true)
             // Disable webview resources cache when debugging:
             // settings.cacheMode = WebSettings.LOAD_NO_CACHE
         }

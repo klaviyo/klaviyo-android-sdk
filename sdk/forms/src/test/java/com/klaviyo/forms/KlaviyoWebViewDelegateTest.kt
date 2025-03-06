@@ -1,5 +1,7 @@
 package com.klaviyo.forms
 
+import android.app.Activity
+import android.content.res.AssetManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.view.View
@@ -28,6 +30,7 @@ import io.mockk.slot
 import io.mockk.unmockkAll
 import io.mockk.unmockkConstructor
 import io.mockk.verify
+import java.io.ByteArrayInputStream
 import org.json.JSONException
 import org.json.JSONObject
 import org.junit.After
@@ -37,14 +40,45 @@ import org.junit.Test
 
 internal class KlaviyoWebViewDelegateTest : BaseTest() {
 
-    private companion object {
+    companion object {
         private val slotOnActivityEvent = slot<ActivityObserver>()
+        val htmlString = """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head data-sdk-name="SDK_NAME"
+                  data-sdk-version="SDK_VERSION"
+                  data-native-bridge-name="BRIDGE_NAME"
+                  data-native-bridge-handshake='BRIDGE_HANDSHAKE'
+            >
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover"/>
+                <meta name="referrer" content="same-origin" /> <!--  This meta tag protects @imported fonts from being blocked by CORS  -->
+                <title>Klaviyo In-App Form Template</title>
+                <link rel="stylesheet" type="text/css" href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css" crossorigin/>
+                <script type="text/javascript" src="KLAVIYO_JS_URL"></script>
+            </head>
+            <body></body>
+            </html>
+        """.trimIndent()
     }
 
     private val mockApiClient: ApiClient = mockk(relaxed = true)
     private val mockState: State = mockk(relaxed = true)
     private val mockSettings: WebSettings = mockk(relaxed = true)
     private val mockParentView: ViewGroup = mockk(relaxed = true)
+
+    private val mockAssets = mockk<AssetManager> {
+        every { open("InAppFormsTemplate.html") } returns
+            ByteArrayInputStream(htmlString.encodeToByteArray())
+    }
+
+    private val mockContentView: ViewGroup = mockk(relaxed = true)
+    private val mockDecorView: View = mockk(relaxed = true) {
+        every { findViewById<ViewGroup>(any()) } returns mockContentView
+    }
+    private val mockActivity: Activity = mockk(relaxed = true) {
+        every { window.decorView } returns mockDecorView
+    }
 
     @Before
     override fun setup() {
@@ -53,6 +87,9 @@ internal class KlaviyoWebViewDelegateTest : BaseTest() {
         Registry.register<ApiClient>(mockApiClient)
         Registry.register<State>(mockState)
         every { mockConfig.isDebugBuild } returns false
+        every { mockContext.assets } returns mockAssets
+        every { mockLifecycleMonitor.currentActivity } returns mockActivity
+
         mockkConstructor(KlaviyoWebView::class)
 
         every { anyConstructed<KlaviyoWebView>().settings } returns mockSettings
@@ -213,12 +250,17 @@ internal class KlaviyoWebViewDelegateTest : BaseTest() {
             anyConstructed<KlaviyoWebView>()
                 .settings
         } returns mockSettings
+
+        assertEquals(false, mockSettings.javaScriptEnabled)
+        assertEquals(false, mockSettings.domStorageEnabled)
+
         val delegate = KlaviyoWebViewDelegate()
         delegate.initializeWebView()
 
         verify { mockSettings.javaScriptEnabled = true }
         verify { mockSettings.userAgentString = "Mock User Agent" }
         verify { mockSettings.domStorageEnabled = true }
+        verify(exactly = 0) { mockSettings.cacheMode }
     }
 
     @Test
