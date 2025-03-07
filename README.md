@@ -544,6 +544,16 @@ the following metadata tag to your manifest file.
 </manifest>
 ```
 
+#### WebViews Compatibility
+Klaviyo's in-app forms are powered by [WebViews](https://developer.android.com/reference/android/webkit/WebView).
+At this time, we require a version of WebView compatible with JavaScript standard ES2015. Older versions will fail
+gracefully without displaying a form to the user.
+
+WebView is a system app that updates independently of the OS (as of API level 21). Therefore, understanding backwards
+compatibility is more complicated than looking at Android version / API level. But in general, physical devices on 
+API level 23+ will be compatible. However, the WebView version installed emulators can be outdated, and so forms 
+may not work in an emulator running older versions of Android.
+
 #### Proguard / R8 Issues
 
 If you notice issues in the release build of your apps, you can try to manually add a couple rules
