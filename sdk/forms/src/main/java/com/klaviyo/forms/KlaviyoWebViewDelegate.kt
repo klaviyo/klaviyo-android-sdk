@@ -3,6 +3,8 @@ package com.klaviyo.forms
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.RenderProcessGoneDetail
@@ -51,6 +53,11 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * For tracking device rotation
      */
     private var orientation: Int? = null
+
+    /**
+     * To explicitly set react native here
+     */
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     init {
         /**
@@ -199,18 +206,20 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Handle a [BridgeMessage.Show] message by displaying the webview before the form animates in
      */
     private fun show() = webView?.let { webView ->
-        activity?.runOnUiThread {
-            val contentView = activity?.window?.decorView?.findViewById<ViewGroup>(
-                android.R.id.content
-            )
-            if (contentView != null) {
-                if (webView.parent == null) {
-                    contentView.addView(webView)
+        mainHandler.post {
+            activity?.let { currentActivity ->
+                val contentView = currentActivity.window?.decorView?.findViewById<ViewGroup>(
+                    android.R.id.content
+                )
+                if (contentView != null) {
+                    if (webView.parent == null) {
+                        contentView.addView(webView)
+                    }
+                    webView.visibility = View.VISIBLE
+                } else {
+                    Registry.log.warning("Unable to show IAF - null content view")
                 }
-                webView.visibility = View.VISIBLE
-            } else {
-                Registry.log.warning("Unable to show IAF - null content view")
-            }
+            } ?: Registry.log.warning("Unable to show IAF - null activity reference")
         }
     } ?: run {
         Registry.log.warning("Unable to show IAF - null WebView reference")
@@ -250,14 +259,14 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      */
     private fun close() = webView?.let { webView ->
         handshakeTimer?.cancel()
-        activity?.runOnUiThread {
-            val parentViewGroup = (webView.parent as? ViewGroup)
+        mainHandler.post {
+            val parentViewGroup = webView.parent as? ViewGroup
             parentViewGroup?.removeView(webView)
             webView.visibility = View.GONE
             webView.destroy()
-            this.webView = null // clear after destroyed
+            this.webView = null // clear reference safely
+            Registry.log.verbose("Clear IAF WebView reference")
         }
-        Registry.log.verbose("Clear IAF WebView reference")
     } ?: run {
         Registry.log.warning("Unable to close IAF - null WebView reference")
     }
