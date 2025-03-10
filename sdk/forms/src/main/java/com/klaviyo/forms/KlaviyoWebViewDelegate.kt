@@ -80,34 +80,35 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for in-app forms with handshake data injected in the document head
      */
-    fun initializeWebView() = webView ?: KlaviyoWebView().also { webView ->
-        this.webView = webView
+    fun initializeWebView() {
+        mainHandler.post {
+            webView ?: KlaviyoWebView().also { webView ->
+                this.webView = webView
+                val klaviyoJsUrl = Uri.parse(Registry.config.baseCdnUrl)
+                    .buildUpon()
+                    .path("onsite/js/klaviyo.js")
+                    .appendQueryParameter("company_id", Registry.config.apiKey)
+                    .appendQueryParameter("env", "in-app")
+                    .appendAssetSource()
+                    .build()
 
-        val klaviyoJsUrl = Uri.parse(Registry.config.baseCdnUrl)
-            .buildUpon()
-            .path("onsite/js/klaviyo.js")
-            .appendQueryParameter("company_id", Registry.config.apiKey)
-            .appendQueryParameter("env", "in-app")
-            .appendAssetSource()
-            .build()
+                Registry.config.applicationContext.assets
+                    .open("InAppFormsTemplate.html")
+                    .bufferedReader()
+                    .use(BufferedReader::readText)
+                    .replace("SDK_NAME", Registry.config.sdkName)
+                    .replace("SDK_VERSION", Registry.config.sdkVersion)
+                    .replace("BRIDGE_NAME", this.bridgeName)
+                    .replace("BRIDGE_HANDSHAKE", handShakeData)
+                    .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
+                    .also { html -> webView.loadTemplate(html, this) }
 
-        Registry.config.applicationContext.assets
-            .open("InAppFormsTemplate.html")
-            .bufferedReader()
-            .use(BufferedReader::readText)
-            .replace("SDK_NAME", Registry.config.sdkName)
-            .replace("SDK_VERSION", Registry.config.sdkVersion)
-            .replace("BRIDGE_NAME", this.bridgeName)
-            .replace("BRIDGE_HANDSHAKE", handShakeData)
-            .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
-            .also { html ->
-                webView.loadTemplate(html, this)
+                handshakeTimer?.cancel()
+                handshakeTimer = Registry.clock.schedule(Registry.config.networkTimeout.toLong()) {
+                    Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
+                    close()
+                }
             }
-
-        handshakeTimer?.cancel()
-        handshakeTimer = Registry.clock.schedule(Registry.config.networkTimeout.toLong()) {
-            Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
-            close()
         }
     }
 
@@ -183,15 +184,17 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      */
     @android.webkit.JavascriptInterface
     fun postMessage(message: String) = try {
-        Registry.log.debug("JS interface postMessage $message")
-        when (val bridgeMessage = BridgeMessage.decodeWebviewMessage(message)) {
-            BridgeMessage.HandShook -> handShook()
-            is BridgeMessage.Show -> show()
-            is BridgeMessage.AggregateEventTracked -> createAggregateEvent(bridgeMessage)
-            is BridgeMessage.ProfileEvent -> createProfileEvent(bridgeMessage)
-            is BridgeMessage.DeepLink -> deepLink(bridgeMessage)
-            is BridgeMessage.Close -> close()
-            is BridgeMessage.Abort -> abort(bridgeMessage.reason)
+        mainHandler.post {
+            Registry.log.debug("JS interface postMessage $message")
+            when (val bridgeMessage = BridgeMessage.decodeWebviewMessage(message)) {
+                BridgeMessage.HandShook -> handShook()
+                is BridgeMessage.Show -> show()
+                is BridgeMessage.AggregateEventTracked -> createAggregateEvent(bridgeMessage)
+                is BridgeMessage.ProfileEvent -> createProfileEvent(bridgeMessage)
+                is BridgeMessage.DeepLink -> deepLink(bridgeMessage)
+                is BridgeMessage.Close -> close()
+                is BridgeMessage.Abort -> abort(bridgeMessage.reason)
+            }
         }
     } catch (e: Exception) {
         Registry.log.warning("Failed to relay webview message: $message", e)
@@ -205,25 +208,27 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     /**
      * Handle a [BridgeMessage.Show] message by displaying the webview before the form animates in
      */
-    private fun show() = webView?.let { webView ->
+    private fun show() {
         mainHandler.post {
             activity?.let { currentActivity ->
-                Registry.log.wtf("DANO showing on main thread")
+                if (Looper.getMainLooper().isCurrentThread.not()) {
+                    Registry.log.error("UNEXPECTED: Not on main thread!")
+                    return@post
+                }
+
+                Registry.log.info("CONFIRM: Showing WebView on main thread.")
+
                 val contentView = currentActivity.window?.decorView?.findViewById<ViewGroup>(
                     android.R.id.content
                 )
-                if (contentView != null) {
-                    if (webView.parent == null) {
-                        contentView.addView(webView)
+                contentView?.let {
+                    if (webView?.parent == null) {
+                        it.addView(webView)
                     }
-                    webView.visibility = View.VISIBLE
-                } else {
-                    Registry.log.warning("Unable to show IAF - null content view")
-                }
+                    webView?.visibility = View.VISIBLE
+                } ?: Registry.log.warning("Unable to show IAF - null content view")
             } ?: Registry.log.warning("Unable to show IAF - null activity reference")
         }
-    } ?: run {
-        Registry.log.warning("Unable to show IAF - null WebView reference")
     }
 
     /**
@@ -259,6 +264,10 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Handle a [BridgeMessage.Close] message by detaching and destroying the [KlaviyoWebView]
      */
     private fun close() = webView?.let { webView ->
+        if (Looper.getMainLooper().isCurrentThread.not()) {
+            Registry.log.error("UNEXPECTED: Not on main thread!")
+            return@let
+        }
         handshakeTimer?.cancel()
         mainHandler.post {
             Registry.log.wtf("DANO closing on main thread")
