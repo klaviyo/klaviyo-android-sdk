@@ -199,11 +199,13 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Handle a [BridgeMessage.Show] message by displaying the webview before the form animates in
      */
     private fun show() = webView?.let { webView ->
-        activity?.window?.decorView?.post { decorView ->
-            decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
-            webView.visibility = View.VISIBLE
-        } ?: run {
-            Registry.log.warning("Unable to show IAF - null activity reference")
+        activity?.runOnUiThread {
+            activity?.window?.decorView?.post { decorView ->
+                decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
+                webView.visibility = View.VISIBLE
+            } ?: run {
+                Registry.log.warning("Unable to show IAF - null activity reference")
+            }
         }
     } ?: run {
         Registry.log.warning("Unable to show IAF - null WebView reference")
@@ -243,14 +245,16 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      */
     private fun close() = webView?.let { webView ->
         handshakeTimer?.cancel()
-        activity?.window?.decorView?.post {
-            Registry.log.verbose("Clear IAF WebView reference")
-            this.webView = null
-            webView.visibility = View.GONE
-            webView.parent?.let { it as ViewGroup }?.removeView(webView)
-            webView.destroy()
-        } ?: run {
-            Registry.log.warning("Unable to close IAF - null activity reference")
+        activity?.runOnUiThread {
+            activity?.window?.decorView?.post {
+                Registry.log.verbose("Clear IAF WebView reference")
+                this.webView = null
+                webView.visibility = View.GONE
+                webView.parent?.let { it as ViewGroup }?.removeView(webView)
+                webView.destroy()
+            } ?: run {
+                Registry.log.warning("Unable to close IAF - null activity reference")
+            }
         }
     } ?: run {
         Registry.log.warning("Unable to close IAF - null WebView reference")
