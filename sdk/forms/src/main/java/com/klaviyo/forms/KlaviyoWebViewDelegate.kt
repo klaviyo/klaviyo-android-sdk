@@ -208,6 +208,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     private fun show() = webView?.let { webView ->
         mainHandler.post {
             activity?.let { currentActivity ->
+                Registry.log.wtf("DANO showing on main thread")
                 val contentView = currentActivity.window?.decorView?.findViewById<ViewGroup>(
                     android.R.id.content
                 )
@@ -260,6 +261,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     private fun close() = webView?.let { webView ->
         handshakeTimer?.cancel()
         mainHandler.post {
+            Registry.log.wtf("DANO closing on main thread")
             val parentViewGroup = webView.parent as? ViewGroup
             parentViewGroup?.removeView(webView)
             webView.visibility = View.GONE
