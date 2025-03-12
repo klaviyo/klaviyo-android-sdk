@@ -87,6 +87,17 @@ object Klaviyo {
         }
     }
 
+    fun registerLifecycleCallbacks(applicationContext: Context) = safeApply {
+        Registry.log.wtf("DANO registering for lifecycle callbacks")
+        val application = applicationContext.applicationContext as? Application
+        application?.apply {
+            unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+            unregisterComponentCallbacks(Registry.componentCallbacks)
+            registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+            registerComponentCallbacks(Registry.componentCallbacks)
+        } ?: throw LifecycleException()
+    }
+
     /**
      * Assign new identifiers and attributes to the currently tracked profile.
      * If a profile has already been identified, it will be overwritten by calling [resetProfile].
