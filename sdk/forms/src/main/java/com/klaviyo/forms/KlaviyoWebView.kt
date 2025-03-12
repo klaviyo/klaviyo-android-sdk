@@ -30,7 +30,9 @@ internal class KlaviyoWebView : WebView {
             "text/html",
             null,
             null
-        )
+        ).also {
+            Registry.log.wtf("DANO webview template loaded")
+        }
 
     private fun configure() = apply {
         settings.userAgentString = DeviceProperties.userAgent

@@ -31,6 +31,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     private fun broadcastEvent(event: ActivityEvent) {
+        Registry.log.wtf("DANO broadcasting activity event $event")
         Registry.log.verbose(event.type)
         synchronized(activityObservers) {
             activityObservers.forEach { it(event) }
@@ -49,6 +50,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     override fun onActivityResumed(activity: Activity) {
+        Registry.log.wtf("DANO setting current activity to $activity")
         currentActivity = activity
         broadcastEvent(ActivityEvent.Resumed(activity))
     }
@@ -63,7 +65,9 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     private fun checkActivityClear(activity: Activity) {
+        Registry.log.wtf("DANO checking activity clear with $activity against $currentActivity")
         if (activity == currentActivity) {
+            Registry.log.wtf("DANO clearing current activity")
             currentActivity = null
         }
     }

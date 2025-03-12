@@ -75,7 +75,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      */
     fun initializeWebView() = webView ?: KlaviyoWebView().also { webView ->
         this.webView = webView
-
+        Registry.log.wtf("DANO we have initialized webview from delegate")
         val klaviyoJsUrl = Uri.parse(Registry.config.baseCdnUrl)
             .buildUpon()
             .path("onsite/js/klaviyo.js")
@@ -199,14 +199,19 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Handle a [BridgeMessage.Show] message by displaying the webview before the form animates in
      */
     private fun show() = webView?.let { webView ->
+        Registry.log.wtf(
+            "DANO attempting to show webview from activity $activity. Config set to ${Registry.lifecycleMonitor.currentActivity}"
+        )
         activity?.window?.decorView?.post { decorView ->
             decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
             webView.visibility = View.VISIBLE
         } ?: run {
             Registry.log.warning("Unable to show IAF - null activity reference")
+            close()
         }
     } ?: run {
         Registry.log.warning("Unable to show IAF - null WebView reference")
+        close()
     }
 
     /**
