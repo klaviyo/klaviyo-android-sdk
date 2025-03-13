@@ -47,7 +47,7 @@ object Klaviyo {
 
     /**
      * Use this method to register Klaviyo for lifecycle functions. This is necessary for
-     * apps that are not able to initialize Klaviyo immediately on app launch, but would like to
+     * apps that are not able to [initialize] Klaviyo immediately on app launch, but would like to
      * utilize Klaviyo Forms
      *
      * @param applicationContext
