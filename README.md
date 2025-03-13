@@ -84,10 +84,11 @@ persist data. Upon initialize, the SDK registers listeners for your application'
 to gracefully manage background processes.
 
 `Klaviyo.initialize()` **must** be called before any other SDK methods can be invoked. We recommend initializing from 
-the earliest point in your application code, such as the `Application.onCreate()` method If you are
-unable to provide your Klaviyo API Key in the `Application.onCreate()` method, please call
-`Klaviyo.registerForLifecycleCallbacks()` in the `onCreate()`. You will still need to provide the API
-key eventually for full functionality.
+the earliest point in your application code, the `Application.onCreate()` method.
+
+**Note:** If you are unable to `Application.onCreate()` (e.g. if your API key is dynamic and not yet available) you
+**must** call `Klaviyo.registerForLifecycleCallbacks(applicationContext)` and provide your API key via `initialize`
+as early as it is available.
 
 ```kotlin
 // Application subclass 
@@ -103,10 +104,8 @@ class YourApplication : Application() {
         // Initialize is required before invoking any other Klaviyo SDK functionality 
         Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
         
-        // If you don't have the API key at Application creation, call this before
+        // If unable to call initialize, you must at least register lifecycle listeners:
         Klaviyo.registerForLifecycleCallbacks(applicationContext)
-        // and this after
-        Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
     }
 }
 ```
