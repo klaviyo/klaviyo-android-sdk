@@ -393,7 +393,7 @@ class StateSideEffectsTest : BaseTest() {
                             title = "Invalid input.",
                             detail = "This email is complete chicanery",
                             source = KlaviyoErrorSource(
-                                pointer = "/data/attributes/profile/data/attributes/phone_number"
+                                pointer = "/data/attributes/profile/data/attributes/email"
                             )
                         )
                     )
@@ -401,7 +401,7 @@ class StateSideEffectsTest : BaseTest() {
             }
         )
 
-        verify { klaviyoStateMock.resetPhoneNumber() }
+        verify { klaviyoStateMock.resetEmail() }
         Registry.unregister<State>()
     }
 }
