@@ -117,8 +117,9 @@ internal class StateSideEffects(
         request.responseCode == HTTP_BAD_REQUEST -> {
             request.errorBody.errors.find { it.title == KlaviyoErrorResponse.INVALID_INPUT_TITLE }
                 ?.let { inputError ->
-                    when (inputError.source?.pointer) {
-                        KlaviyoErrorSource.EMAIL_PATH -> {
+                    val pointer = inputError.source?.pointer
+                    when {
+                        pointer?.contains(KlaviyoErrorSource.EMAIL_PATH) == true -> {
                             (Registry.get<State>() as? KlaviyoState)?.resetEmail().also {
                                 Registry.log.warning(
                                     "Invalid email - resetting email state to null"
@@ -126,7 +127,7 @@ internal class StateSideEffects(
                             }
                         }
 
-                        KlaviyoErrorSource.PHONE_NUMBER_PATH -> {
+                        pointer?.contains(KlaviyoErrorSource.PHONE_NUMBER_PATH) == true -> {
                             (Registry.get<State>() as? KlaviyoState)?.resetPhoneNumber().also {
                                 Registry.log.warning(
                                     "Invalid phone number - resetting phone number state to null"
