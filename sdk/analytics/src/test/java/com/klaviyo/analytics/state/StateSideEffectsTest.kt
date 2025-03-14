@@ -340,4 +340,68 @@ class StateSideEffectsTest : BaseTest() {
 
         assertFalse(capturedPushState.isCaptured)
     }
+
+    @Test
+    fun `updated phone error source pointer still resets state`() {
+        Registry.register<State>(klaviyoStateMock)
+        StateSideEffects(
+            state = klaviyoStateMock,
+            apiClient = apiClientMock
+        )
+
+        capturedApiObserver.captured(
+            mockk<ProfileApiRequest>().apply {
+                every { status } returns KlaviyoApiRequest.Status.Failed
+                every { responseCode } returns 400
+                every { errorBody } returns KlaviyoErrorResponse(
+                    listOf(
+                        KlaviyoError(
+                            id = "67ed6dbf-1653-499b-a11d-30310aa01ff7",
+                            status = 400,
+                            title = "Invalid input.",
+                            detail = "Invalid phone number format (Example of a valid format: +12345678901)",
+                            source = KlaviyoErrorSource(
+                                pointer = "/data/attributes/profile/data/attributes/phone_number"
+                            )
+                        )
+                    )
+                )
+            }
+        )
+
+        verify { klaviyoStateMock.resetPhoneNumber() }
+        Registry.unregister<State>()
+    }
+
+    @Test
+    fun `updated email error source pointer still resets state`() {
+        Registry.register<State>(klaviyoStateMock)
+        StateSideEffects(
+            state = klaviyoStateMock,
+            apiClient = apiClientMock
+        )
+
+        capturedApiObserver.captured(
+            mockk<ProfileApiRequest>().apply {
+                every { status } returns KlaviyoApiRequest.Status.Failed
+                every { responseCode } returns 400
+                every { errorBody } returns KlaviyoErrorResponse(
+                    listOf(
+                        KlaviyoError(
+                            id = "67ed6dbf-1653-499b-a11d-30310aa01ff7",
+                            status = 400,
+                            title = "Invalid input.",
+                            detail = "This email is complete chicanery",
+                            source = KlaviyoErrorSource(
+                                pointer = "/data/attributes/profile/data/attributes/phone_number"
+                            )
+                        )
+                    )
+                )
+            }
+        )
+
+        verify { klaviyoStateMock.resetPhoneNumber() }
+        Registry.unregister<State>()
+    }
 }
