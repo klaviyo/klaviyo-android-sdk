@@ -3,6 +3,8 @@ package com.klaviyo.analytics
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import com.klaviyo.analytics.Klaviyo.initialize
+import com.klaviyo.analytics.Klaviyo.resetProfile
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
@@ -20,8 +22,7 @@ import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
 import java.io.Serializable
-import java.util.LinkedList
-import java.util.Queue
+import java.util.*
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -229,7 +230,7 @@ object Klaviyo {
      * @param event A map-like object representing the event attributes
      * @return Returns [Klaviyo] for call chaining
      */
-    fun createEvent(event: Event): Klaviyo = safeApply(preInitQueue) {
+    fun createEvent(event: Event): Klaviyo = safeApply {
         Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
     }
 
