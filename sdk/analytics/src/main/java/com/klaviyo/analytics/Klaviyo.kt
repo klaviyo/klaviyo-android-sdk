@@ -237,10 +237,6 @@ object Klaviyo {
     /**
      * Creates an [Event] associated with the currently tracked profile
      *
-     * While it is preferable to [initialize] before interacting with the Klaviyo SDK,
-     * due to timing issues on some platforms, events are stored in an in-memory buffer prior to initialization,
-     * and will be replayed once you initialize with your public API key.
-     *
      * @param event A map-like object representing the event attributes
      * @return Returns [Klaviyo] for call chaining
      */
@@ -264,9 +260,9 @@ object Klaviyo {
      * From an opened push Intent, creates an [EventMetric.OPENED_PUSH] [Event]
      * containing appropriate tracking parameters
      *
-     * While it is preferable to [initialize] before interacting with the Klaviyo SDK,
-     * due to timing issues on some platforms, events are stored in an in-memory buffer prior to initialization,
-     * and will be replayed once you initialize with your public API key.
+     * While it is generally required to [initialize] before interacting with the Klaviyo SDK,
+     * due to potential timing issues push open events are stored in an in-memory buffer prior to initializing,
+     * and will be ingested once you initialize with your public API key.
      *
      * @param intent the [Intent] from opening a notification
      */
