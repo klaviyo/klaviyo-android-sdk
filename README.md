@@ -55,9 +55,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.2.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.2.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:3.2.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.3.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.3.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:3.3.0")
       }
       ```
    </details>
@@ -68,9 +68,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.2.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.2.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:3.2.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.3.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.3.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:3.3.0"
        }
       ```
    </details>
@@ -84,7 +84,11 @@ persist data. Upon initialize, the SDK registers listeners for your application'
 to gracefully manage background processes.
 
 `Klaviyo.initialize()` **must** be called before any other SDK methods can be invoked. We recommend initializing from 
-the earliest point in your application code, such as the `Application.onCreate()` method.
+the earliest point in your application code, the `Application.onCreate()` method.
+
+**Note:** If you are unable to `Application.onCreate()` (e.g. if your API key is dynamic and not yet available) you
+**must** call `Klaviyo.registerForLifecycleCallbacks(applicationContext)` and provide your API key via `initialize`
+as early as it is available.
 
 ```kotlin
 // Application subclass 
@@ -99,6 +103,9 @@ class YourApplication : Application() {
         
         // Initialize is required before invoking any other Klaviyo SDK functionality 
         Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+        
+        // If unable to call initialize, you must at least register lifecycle listeners:
+        Klaviyo.registerForLifecycleCallbacks(applicationContext)
     }
 }
 ```
@@ -543,6 +550,16 @@ the following metadata tag to your manifest file.
     </application>
 </manifest>
 ```
+
+#### WebViews Compatibility
+Klaviyo's in-app forms are powered by [WebViews](https://developer.android.com/reference/android/webkit/WebView).
+At this time, we require a version of WebView compatible with JavaScript standard ES2015. Older versions will fail
+gracefully without displaying a form to the user.
+
+WebView is a system app that updates independently of the OS (as of API level 21). Therefore, understanding backwards
+compatibility is more complicated than looking at Android version / API level. But in general, physical devices on 
+API level 23+ will be compatible. However, the WebView version installed emulators can be outdated, and so forms 
+may not work in an emulator running older versions of Android.
 
 #### Proguard / R8 Issues
 

@@ -46,6 +46,23 @@ object Klaviyo {
     }
 
     /**
+     * Use this method to register Klaviyo for lifecycle functions. This is necessary for
+     * apps that are not able to [initialize] Klaviyo immediately on app launch, but would like to
+     * utilize Klaviyo Forms
+     *
+     * @param applicationContext
+     */
+    fun registerForLifecycleCallbacks(applicationContext: Context) = safeApply {
+        val application = applicationContext.applicationContext as? Application
+        application?.apply {
+            unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+            unregisterComponentCallbacks(Registry.componentCallbacks)
+            registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+            registerComponentCallbacks(Registry.componentCallbacks)
+        } ?: throw LifecycleException()
+    }
+
+    /**
      * Configure Klaviyo SDK with your account's public API Key and application context.
      * This must be called to before using any other SDK functionality
      *
@@ -60,13 +77,7 @@ object Klaviyo {
                 .build()
         )
 
-        val application = applicationContext.applicationContext as? Application
-        application?.apply {
-            unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
-            unregisterComponentCallbacks(Registry.componentCallbacks)
-            registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
-            registerComponentCallbacks(Registry.componentCallbacks)
-        } ?: throw LifecycleException()
+        registerForLifecycleCallbacks(applicationContext)
 
         Registry.get<ApiClient>().startService()
 
@@ -226,10 +237,6 @@ object Klaviyo {
     /**
      * Creates an [Event] associated with the currently tracked profile
      *
-     * While it is preferable to [initialize] before interacting with the Klaviyo SDK,
-     * due to timing issues on some platforms, events are stored in an in-memory buffer prior to initialization,
-     * and will be replayed once you initialize with your public API key.
-     *
      * @param event A map-like object representing the event attributes
      * @return Returns [Klaviyo] for call chaining
      */
@@ -253,9 +260,9 @@ object Klaviyo {
      * From an opened push Intent, creates an [EventMetric.OPENED_PUSH] [Event]
      * containing appropriate tracking parameters
      *
-     * While it is preferable to [initialize] before interacting with the Klaviyo SDK,
-     * due to timing issues on some platforms, events are stored in an in-memory buffer prior to initialization,
-     * and will be replayed once you initialize with your public API key.
+     * While it is generally required to [initialize] before interacting with the Klaviyo SDK,
+     * due to potential timing issues push open events are stored in an in-memory buffer prior to initializing,
+     * and will be ingested once you initialize with your public API key.
      *
      * @param intent the [Intent] from opening a notification
      */

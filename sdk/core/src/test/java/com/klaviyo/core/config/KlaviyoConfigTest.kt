@@ -73,6 +73,8 @@ internal class KlaviyoConfigTest : BaseTest() {
             .networkFlushDepth(4)
             .networkMaxAttempts(5)
             .networkMaxRetryInterval(7)
+            .baseCdnUrl("spider-water.com")
+            .assetSource("1738")
             .build()
 
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
@@ -97,6 +99,8 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(7, KlaviyoConfig.networkMaxRetryInterval)
         assertEquals("android", KlaviyoConfig.sdkName)
         assertEquals("9.9.9", KlaviyoConfig.sdkVersion)
+        assertEquals("spider-water.com", KlaviyoConfig.baseCdnUrl)
+        assertEquals("1738", KlaviyoConfig.assetSource)
     }
 
     @Test

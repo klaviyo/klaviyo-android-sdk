@@ -80,7 +80,12 @@ abstract class BaseTest {
         every { networkJitterRange } returns 0..0
         every { baseUrl } returns "https://test.fake-klaviyo.com"
         every { apiRevision } returns "1234-56-78"
+        every { baseCdnUrl } returns "https://decent.cdn.url.com"
+        every { assetSource } returns null
+        every { sdkName } returns "klaviyo-android-sdk"
+        every { sdkVersion } returns "4.20.69"
     }
+
     protected val mockLifecycleMonitor = mockk<LifecycleMonitor>().apply {
         every { onActivityEvent(any()) } returns Unit
         every { offActivityEvent(any()) } returns Unit

@@ -33,7 +33,7 @@ data class KlaviyoErrorSource(
 ) {
     internal companion object {
         // current path objects from the backend
-        const val EMAIL_PATH = "/data/attributes/email"
-        const val PHONE_NUMBER_PATH = "/data/attributes/phone_number"
+        const val EMAIL_PATH = "attributes/email"
+        const val PHONE_NUMBER_PATH = "attributes/phone_number"
     }
 }
