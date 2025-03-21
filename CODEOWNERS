@@ -1,2 +1,5 @@
 # Default owner
-*   @klaviyo/mobile-push-team
+*   @klaviyo/mobile-app-growth
+
+# Push notifications specific ownership
+/sdk/push/        @klaviyo/mobile-app-growth @klaviyo/mobile-push-team
