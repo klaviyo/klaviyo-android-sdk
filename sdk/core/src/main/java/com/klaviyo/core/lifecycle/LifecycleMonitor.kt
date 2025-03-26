@@ -1,8 +1,10 @@
 package com.klaviyo.core.lifecycle
 
 import android.app.Activity
+import android.app.Application
 import android.content.res.Configuration
 import android.os.Bundle
+import com.klaviyo.core.utils.AdvancedAPI
 
 typealias ActivityObserver = (activity: ActivityEvent) -> Unit
 
@@ -34,11 +36,8 @@ interface LifecycleMonitor {
 
     /**
      * Tracks the current activity of the host application.
-     *
-     * It is best to allow the lifecycle monitor to track activity internally,
-     * but exposing this as a var allows for an override e.g. in case of timing issues capturing the first Activity
      */
-    var currentActivity: Activity?
+    val currentActivity: Activity?
 
     /**
      * Register an observer to be notified when all application activities stopped
@@ -53,4 +52,16 @@ interface LifecycleMonitor {
      * @param observer
      */
     fun offActivityEvent(observer: ActivityObserver)
+
+    /**
+     * Explicitly sets the current activity.
+     *
+     * It is best to allow the SDK to track activities internally via [Application.ActivityLifecycleCallbacks].
+     * However, this explicit override allows us to work around timing issues such as
+     * when [LifecycleMonitor] can't be attached in time to capture the first Activity.
+     *
+     * @param activity
+     */
+    @AdvancedAPI
+    fun assignCurrentActivity(activity: Activity)
 }
