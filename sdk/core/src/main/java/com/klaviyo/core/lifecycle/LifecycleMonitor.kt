@@ -32,7 +32,13 @@ sealed class ActivityEvent(val activity: Activity? = null, val bundle: Bundle? =
  */
 interface LifecycleMonitor {
 
-    val currentActivity: Activity?
+    /**
+     * Tracks the current activity of the host application.
+     *
+     * It is best to allow the lifecycle monitor to track activity internally,
+     * but exposing this as a var allows for an override e.g. in case of timing issues capturing the first Activity
+     */
+    var currentActivity: Activity?
 
     /**
      * Register an observer to be notified when all application activities stopped
