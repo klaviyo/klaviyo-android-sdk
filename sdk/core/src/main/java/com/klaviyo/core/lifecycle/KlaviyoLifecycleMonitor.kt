@@ -6,6 +6,7 @@ import android.content.ComponentCallbacks
 import android.content.res.Configuration
 import android.os.Bundle
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import java.util.Collections
 
@@ -21,6 +22,11 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     )
 
     override var currentActivity: Activity? by WeakReferenceDelegate()
+
+    @AdvancedAPI
+    override fun assignCurrentActivity(activity: Activity) {
+        currentActivity = activity
+    }
 
     override fun onActivityEvent(observer: ActivityObserver) {
         activityObservers += observer
