@@ -318,8 +318,17 @@ override fun onNewIntent(intent: Intent?) {
 app's launch intent for a tapped notification. Adjust this example to your use-case, ensuring that 
 `Klaviyo.handlePush(intent)` is called whenever your app is opened from a notification.
 
+#### Silent Push Notifications
+Silent push notifications (also known as background pushes) allow your app to receive payloads from Klaviyo without 
+displaying a visible alert to the user. These are typically used to trigger background behavior, such as displaying 
+content, personalizing the app interface, or downloading new information from a server. Silent push notifications 
+are handled by utilizing the `RemoteMessage.isKlaviyoMessage` and `RemoteMessage.isKlaviyoNotification` 
+extension properties, where a Klaviyo message is a silent push if `RemoteMessage.isKlaviyoMessage` is `true` and
+`RemoteMessage.isKlaviyoNotification` is `false`. See `Custom Data` and `Advanced Setup` sections below for 
+additional information and setup examples.
+
 #### Custom Data
-Klaviyo messages can also include custom key-value pairs (custom data) for both standard and silent push notifications.
+Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications.
 You can access these key-value pairs using the extension property `RemoteMessage.keyValuePairs` and check for their
 presence with the boolean extension property `RemoteMessage.hasKlaviyoKeyValuePairs`. This enables you to extract
 additional information from the push payload and handle it appropriately - for instance, by triggering background
