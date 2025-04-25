@@ -204,8 +204,9 @@ Klaviyo.createEvent(event)
 
 ### Setup
 The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService`, so the
-setup process is very similar to the Firebase client documentation linked above.  
-In your `AndroidManifest.xml` file, register `KlaviyoPushService` to receive `MESSAGING_EVENT` intents.
+setup process is very similar to the Firebase client documentation linked above.  We've added it to the library
+manifest, which will be merged with your app on build. If you'd like to override this implementation with your 
+own push service, consider it will impact SDK functionality.
 
 ```xml
 <!-- AndroidManifest.xml -->
@@ -213,7 +214,7 @@ In your `AndroidManifest.xml` file, register `KlaviyoPushService` to receive `ME
     <!-- ... -->
     <application>
         <!-- ... -->
-        <service android:name="com.klaviyo.pushFcm.KlaviyoPushService" android:exported="false">
+        <service android:name="com.your.own.PushService" android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
@@ -356,6 +357,8 @@ follow the FCM setup docs including referencing your own service class in the ma
 The `Application` code snippets above for handling push tokens and intents are still required.
 
 You may either subclass `KlaviyoPushService` or invoke the necessary Klaviyo SDK methods in your service.
+`KlaviyoPushService` is automatically added to your manifest by our SDK, if you prefer to use
+your own implementation it will take precedence over our implementation.
 
 1. Subclass `KlaviyoPushService`:
     ```kotlin
