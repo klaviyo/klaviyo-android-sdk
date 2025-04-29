@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
+import com.klaviyo.core.config.FormEnvironment
 import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.networking.NetworkMonitor
 import io.mockk.every
@@ -84,6 +85,7 @@ abstract class BaseTest {
         every { assetSource } returns null
         every { sdkName } returns "klaviyo-android-sdk"
         every { sdkVersion } returns "4.20.69"
+        every { formEnvironment } returns FormEnvironment.IN_APP
     }
 
     protected val mockLifecycleMonitor = mockk<LifecycleMonitor>().apply {

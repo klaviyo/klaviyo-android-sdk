@@ -104,6 +104,8 @@ object KlaviyoConfig : Config {
     override lateinit var sdkName: String private set
     override lateinit var sdkVersion: String private set
     override lateinit var apiKey: String private set
+    override lateinit var formEnvironment: FormEnvironment
+        private set
     override lateinit var applicationContext: Context private set
     override var debounceInterval = DEBOUNCE_INTERVAL
         private set
@@ -140,6 +142,7 @@ object KlaviyoConfig : Config {
         private var apiRevision: String? = null
         private var baseCdnUrl: String? = null
         private var assetSource: String? = null
+        private var formEnvironment: FormEnvironment = FormEnvironment.IN_APP
         private var sdkName: String? = null
         private var sdkVersion: String? = null
         private var debounceInterval: Int = DEBOUNCE_INTERVAL
@@ -190,6 +193,10 @@ object KlaviyoConfig : Config {
                     "${KlaviyoConfig::debounceInterval.name} must be greater or equal to 0"
                 )
             }
+        }
+
+        override fun formEnvironment(formEnvironment: FormEnvironment) = apply {
+            this.formEnvironment = formEnvironment
         }
 
         override fun networkTimeout(networkTimeout: Int) = apply {
@@ -261,6 +268,7 @@ object KlaviyoConfig : Config {
             apiRevision?.let { KlaviyoConfig.apiRevision = it }
             baseCdnUrl?.let { KlaviyoConfig.baseCdnUrl = it }
             assetSource?.let { KlaviyoConfig.assetSource = it }
+            formEnvironment.let { KlaviyoConfig.formEnvironment = it }
 
             KlaviyoConfig.sdkName = this.sdkName ?: context.resources.getString(
                 R.string.klaviyo_sdk_name_override
