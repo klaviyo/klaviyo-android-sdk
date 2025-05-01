@@ -10,7 +10,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.core.content.ContextCompat.startActivity
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
@@ -34,8 +33,6 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     val allowedOrigin: Set<String> get() = setOf(Registry.config.baseUrl)
 
     val bridgeName = "KlaviyoNativeBridge"
-
-    private val activity: Activity? get() = Registry.lifecycleMonitor.currentActivity
 
     /**
      * For timeout on native bridge "handshake" event
@@ -73,7 +70,9 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for in-app forms with handshake data injected in the document head
      */
-    fun initializeWebView() = webView ?: KlaviyoWebView().also { webView ->
+    fun initializeWebView() = webView?.apply {
+        Registry.log.debug("Klaviyo webview is already initialized")
+    } ?: KlaviyoWebView().also { webView ->
         this.webView = webView
 
         val klaviyoJsUrl = Uri.parse(Registry.config.baseCdnUrl)
@@ -151,11 +150,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
                 data = request.url
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            activity?.let {
-                startActivity(it, intent, null)
-            } ?: run {
-                Registry.log.warning("Unable to launch external browser - null activity reference")
-            }
+            Registry.config.applicationContext.startActivity(intent, null)
             return true
         }
         return super.shouldOverrideUrlLoading(view, request)
@@ -197,17 +192,19 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
     private fun handShook() = handshakeTimer?.cancel()
 
     /**
-     * Handle a [BridgeMessage.Show] message by displaying the webview before the form animates in
+     * Handle a [BridgeMessage.Show] message by launching the overlay activity
      */
-    private fun show() = webView?.let { webView ->
-        activity?.window?.decorView?.post { decorView ->
-            decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
-            webView.visibility = View.VISIBLE
-        } ?: run {
-            Registry.log.warning("Unable to show IAF - null activity reference")
-        }
-    } ?: run {
-        Registry.log.warning("Unable to show IAF - null WebView reference")
+    private fun show() {
+        Registry.config.applicationContext.startActivity(KlaviyoFormsOverlayActivity.launchIntent)
+    }
+
+    /**
+     * Attach the webview to the overlay activity
+     * (Naive PoC implementation, probably want to consider a more robust architecture?)
+     */
+    fun attachWebView(activity: KlaviyoFormsOverlayActivity) = webView?.let { webView ->
+        activity.setContentView(webView)
+        webView.visibility = View.VISIBLE
     }
 
     /**
@@ -223,38 +220,48 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
         Klaviyo.createEvent(message.event)
 
     /**
-     * Handle a [BridgeMessage.DeepLink] message by broadcasting an intent to the host app
+     * Handle a [BridgeMessage.DeepLink] message by broadcasting an [Intent] to the host app
      * similar to how we handle deep links from a notification
      */
-    private fun deepLink(messageType: BridgeMessage.DeepLink) = activity?.let { activity ->
-        activity.startActivity(
+    private fun deepLink(messageType: BridgeMessage.DeepLink) {
+        Registry.config.applicationContext.startActivity(
             Intent().apply {
                 data = Uri.parse(messageType.route)
                 action = Intent.ACTION_VIEW
-                setPackage(activity.packageName)
+                setPackage(Registry.config.applicationContext.packageName)
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
         )
-    } ?: Registry.log.warning(
-        "Failed to launch deeplink ${messageType.route} - null activity reference"
-    )
+    }
 
     /**
      * Handle a [BridgeMessage.Close] message by detaching and destroying the [KlaviyoWebView]
      */
     private fun close() = webView?.let { webView ->
         handshakeTimer?.cancel()
-        activity?.window?.decorView?.post {
-            Registry.log.verbose("Clear IAF WebView reference")
-            this.webView = null
-            webView.visibility = View.GONE
-            webView.parent?.let { it as ViewGroup }?.removeView(webView)
-            webView.destroy()
-        } ?: run {
-            Registry.log.warning("Unable to close IAF - null activity reference")
+        val currentActivity = Registry.lifecycleMonitor.currentActivity
+
+        if (currentActivity is KlaviyoFormsOverlayActivity) {
+            currentActivity.finish()
+        } else if (currentActivity != null) {
+            detachWebView(currentActivity)
         }
     } ?: run {
         Registry.log.warning("Unable to close IAF - null WebView reference")
+    }
+
+    fun detachWebView(activity: Activity) = webView?.let { webView ->
+        activity.runOnUiThread {
+            Registry.log.verbose("Clear IAF WebView reference")
+            this.webView = null
+            webView.visibility = View.GONE
+            webView.parent?.let {
+                it as ViewGroup
+            }?.removeView(webView)
+            webView.destroy()
+        }
+    } ?: run {
+        Registry.log.warning("Unable to detach IAF - null WebView reference")
     }
 
     /**
