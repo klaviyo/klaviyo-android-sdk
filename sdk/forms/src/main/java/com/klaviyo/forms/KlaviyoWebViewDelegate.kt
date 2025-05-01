@@ -93,6 +93,7 @@ internal class KlaviyoWebViewDelegate : WebViewClient(), WebViewCompat.WebMessag
             .replace("BRIDGE_NAME", this.bridgeName)
             .replace("BRIDGE_HANDSHAKE", handShakeData)
             .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
+            .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
             .also { html ->
                 webView.loadTemplate(html, this)
             }

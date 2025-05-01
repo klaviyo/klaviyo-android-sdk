@@ -11,6 +11,7 @@ interface Config {
     val assetSource: String?
     val sdkName: String
     val sdkVersion: String
+    val formEnvironment: FormEnvironment
 
     val apiKey: String
     val applicationContext: Context
@@ -34,6 +35,7 @@ interface Config {
         fun assetSource(assetSource: String?): Builder
         fun apiRevision(apiRevision: String): Builder
         fun debounceInterval(debounceInterval: Int): Builder
+        fun formEnvironment(formEnvironment: FormEnvironment): Builder
         fun networkTimeout(networkTimeout: Int): Builder
         fun networkFlushInterval(networkFlushInterval: Long, type: NetworkMonitor.NetworkType): Builder
         fun networkFlushDepth(networkFlushDepth: Int): Builder
