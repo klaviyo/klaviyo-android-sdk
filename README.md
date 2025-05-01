@@ -203,24 +203,6 @@ Klaviyo.createEvent(event)
 - If you expect to use deep links in your push notifications, see the [deep linking](#deep-linking) section below.
 
 ### Setup
-The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService`, so the
-setup process is very similar to the Firebase client documentation linked above.  
-In your `AndroidManifest.xml` file, register `KlaviyoPushService` to receive `MESSAGING_EVENT` intents.
-
-```xml
-<!-- AndroidManifest.xml -->
-<manifest>
-    <!-- ... -->
-    <application>
-        <!-- ... -->
-        <service android:name="com.klaviyo.pushFcm.KlaviyoPushService" android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
-    </application>
-</manifest>
-``` 
 
 To specify an icon and/or color for Klaviyo notifications, add the following optional metadata elements to the
 application component of `AndroidManifest.xml`. Absent these keys, the firebase keys
@@ -336,7 +318,9 @@ processing, logging analytics events, or dynamically updating app content.
 
 ### Advanced Setup
 If you'd prefer to have your own implementation of `FirebaseMessagingService`,
-follow the FCM setup docs including referencing your own service class in the manifest.
+follow the FCM setup docs including referencing your own service class in the manifest. We've included
+the default Klaviyo Push Service in our SDK Manifest (which will be merged into the final APK), but
+if you'd like to override this you can.
 
 ```xml
 <!-- AndroidManifest.xml -->
@@ -356,6 +340,8 @@ follow the FCM setup docs including referencing your own service class in the ma
 The `Application` code snippets above for handling push tokens and intents are still required.
 
 You may either subclass `KlaviyoPushService` or invoke the necessary Klaviyo SDK methods in your service.
+`KlaviyoPushService` is automatically added to your manifest by our SDK, if you prefer to use
+your own implementation it will take precedence over our implementation.
 
 1. Subclass `KlaviyoPushService`:
     ```kotlin
