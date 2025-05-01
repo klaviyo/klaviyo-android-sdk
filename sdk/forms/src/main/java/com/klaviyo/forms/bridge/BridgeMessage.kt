@@ -1,12 +1,12 @@
-package com.klaviyo.forms
+package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.core.Registry
-import java.io.Serializable
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.Serializable
 
 /**
  * This should be updated with any new message types we add coming from the onsite-in-app-forms

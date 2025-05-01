@@ -4,6 +4,8 @@ import androidx.annotation.UiThread
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.core.safeApply
+import com.klaviyo.forms.overlay.KlaviyoOverlayPresentationManager
+import com.klaviyo.forms.overlay.OverlayPresentationManager
 
 /**
  * Load in-app forms data and display a form to the user if applicable based on the forms
@@ -11,10 +13,8 @@ import com.klaviyo.core.safeApply
  */
 @UiThread
 fun Klaviyo.registerForInAppForms(): Klaviyo = safeApply {
-    // Ensure we only ever register one KlaviyoWebViewClient instance
-    if (!Registry.isRegistered<KlaviyoWebViewClient>()) {
-        Registry.register<KlaviyoWebViewClient>(KlaviyoWebViewClient())
+    // Ensure we only ever register one instance of presentation manager
+    Registry.registerOnce<OverlayPresentationManager> {
+        KlaviyoOverlayPresentationManager()
     }
-
-    Registry.get<KlaviyoWebViewClient>().initializeWebView()
 }

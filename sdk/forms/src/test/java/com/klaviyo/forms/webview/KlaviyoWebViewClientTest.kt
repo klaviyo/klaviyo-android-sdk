@@ -1,4 +1,4 @@
-package com.klaviyo.forms
+package com.klaviyo.forms.webview
 
 import android.app.Activity
 import android.content.Intent

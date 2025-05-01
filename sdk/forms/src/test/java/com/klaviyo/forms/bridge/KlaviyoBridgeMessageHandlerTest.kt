@@ -1,4 +1,4 @@
-package com.klaviyo.forms
+package com.klaviyo.forms.bridge
 
 import android.app.Activity
 import android.content.Intent
@@ -14,6 +14,8 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler
+import com.klaviyo.forms.webview.KlaviyoWebViewClient
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -29,12 +31,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-internal class BridgeMessageHandlerTest : BaseTest() {
+internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
 
     private val mockApiClient: ApiClient = mockk(relaxed = true)
     private val mockState: State = mockk(relaxed = true)
     private val mockWebViewClient: KlaviyoWebViewClient = mockk(relaxed = true)
-    private lateinit var bridgeMessageHandler: BridgeMessageHandler
+    private lateinit var bridgeMessageHandler: KlaviyoBridgeMessageHandler
 
     @Before
     override fun setup() {
@@ -44,7 +46,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
         Registry.register<State>(mockState)
         Registry.register<KlaviyoWebViewClient>(mockWebViewClient)
 
-        bridgeMessageHandler = BridgeMessageHandler()
+        bridgeMessageHandler = KlaviyoBridgeMessageHandler()
     }
 
     @After
@@ -67,7 +69,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `handShook triggers client onJsHandshakeCompleted`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.handShook
+         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.handShook
          */
         postMessage("""{"type":"handShook"}""")
         verify { mockWebViewClient.onJsHandshakeCompleted() }
@@ -76,7 +78,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `formWillAppear triggers show`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.show
+         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.show
          */
         postMessage("""{"type":"formWillAppear"}""")
         verify { mockWebViewClient.show() }
@@ -85,7 +87,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `trackAggregateEvent enqueues API request`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.createAggregateEvent
+         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.createAggregateEvent
          */
         val aggregateMessage = """
             {
@@ -186,7 +188,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `trackProfileEvent enqueues API request`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.createProfileEvent
+         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.createProfileEvent
          */
         val eventMessage = """
            {
@@ -211,7 +213,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `openDeepLink broadcasts intent to start activity`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.deepLink
+         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.deepLink
          */
         every { mockContext.startActivity(any()) } just runs
         every { mockContext.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
@@ -257,7 +259,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `formDisappeared triggers close`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.close
+         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.close
          */
         postMessage("""{"type":"formDisappeared"}""")
         verify { mockWebViewClient.close() }
@@ -266,7 +268,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `abort triggers closes`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.abort
+         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.abort
          */
         postMessage("""{"type":"abort"}""")
         verify { mockWebViewClient.close() }

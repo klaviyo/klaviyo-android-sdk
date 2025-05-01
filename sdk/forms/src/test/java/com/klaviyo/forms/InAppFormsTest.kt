@@ -4,6 +4,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.forms.webview.KlaviyoWebViewClient
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
