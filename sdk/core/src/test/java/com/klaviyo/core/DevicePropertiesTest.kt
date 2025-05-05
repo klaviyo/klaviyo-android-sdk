@@ -65,9 +65,33 @@ class DevicePropertiesTest : BaseTest() {
         every { DeviceProperties.osVersion } returns "4"
         every { DeviceProperties.sdkName } returns "cross_platform"
         every { DeviceProperties.userAgent } answers { callOriginal() }
+        every { DeviceProperties.pluginSdk } returns null
+        every { DeviceProperties.pluginSdkVersion } returns null
 
         assertEquals(
             "MockApp/1.0.0 (com.mock.app; build:2; Android 4) klaviyo-cross-platform/3.0.0",
+            DeviceProperties.userAgent
+        )
+    }
+
+    @Test
+    fun `User agent reflects SDK name override and plugin name`() {
+        mockDeviceProperties()
+        // Use some more realistic values for this, so the expected user agent string actually matches our regexes
+        every { DeviceProperties.applicationLabel } returns "MockApp"
+        every { DeviceProperties.appVersion } returns "1.0.0"
+        every { DeviceProperties.appVersionCode } returns "2"
+        every { DeviceProperties.sdkVersion } returns "3.0.0"
+        every { DeviceProperties.applicationId } returns "com.mock.app"
+        every { DeviceProperties.platform } returns "Android"
+        every { DeviceProperties.osVersion } returns "4"
+        every { DeviceProperties.sdkName } returns "cross_platform"
+        every { DeviceProperties.userAgent } answers { callOriginal() }
+        every { DeviceProperties.pluginSdk } returns "klaviyo-expo"
+        every { DeviceProperties.pluginSdkVersion } returns "1.0.0"
+
+        assertEquals(
+            "MockApp/1.0.0 (com.mock.app; build:2; Android 4) klaviyo-cross-platform/3.0.0 (klaviyo-expo/1.0.0)",
             DeviceProperties.userAgent
         )
     }

@@ -3,4 +3,6 @@
     <!-- Please do not modify these values, it will stop SDK functionality-->
     <string name="klaviyo_sdk_name_override">android</string>
     <string name="klaviyo_sdk_version_override">3.3.1</string>
+    <string name="klaviyo_sdk_plugin_name_override"/>
+    <string name="klaviyo_sdk_plugin_version_override"/>
 </resources>

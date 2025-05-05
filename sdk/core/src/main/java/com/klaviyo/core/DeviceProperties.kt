@@ -57,7 +57,8 @@ object DeviceProperties {
     }
 
     val notificationPermissionGranted: Boolean
-        get() = NotificationManagerCompat.from(Registry.config.applicationContext).areNotificationsEnabled()
+        get() = NotificationManagerCompat.from(Registry.config.applicationContext)
+            .areNotificationsEnabled()
 
     val applicationId: String by lazy {
         Registry.config.applicationContext.packageName
@@ -69,10 +70,25 @@ object DeviceProperties {
         ).toString()
     }
 
-    val userAgent: String by lazy {
-        val sdkAgent = "klaviyo-${sdkName.replace("_", "-")}"
-        "$applicationLabel/$appVersion ($applicationId; build:$appVersionCode; $platform $osVersion) $sdkAgent/$sdkVersion"
+    val pluginSdk: String? by lazy {
+        Registry.config.applicationContext.getString(R.string.klaviyo_sdk_plugin_name_override)
+            .ifBlank { null }
     }
+
+    val pluginSdkVersion: String? by lazy {
+        Registry.config.applicationContext.getString(R.string.klaviyo_sdk_plugin_version_override)
+            .ifBlank { null }
+    }
+
+    val userAgent: String
+        get() {
+            val pluginString = pluginSdk?.let {
+                "($it/$pluginSdkVersion)"
+            }
+            val sdkAgent = "klaviyo-${sdkName.replace("_", "-")}"
+            return "$applicationLabel/$appVersion ($applicationId; build:$appVersionCode; $platform $osVersion)" +
+                " $sdkAgent/$sdkVersion${pluginString?.let { " $it" } ?: ""}"
+        }
 
     val environment: String by lazy {
         if (Registry.config.applicationContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {

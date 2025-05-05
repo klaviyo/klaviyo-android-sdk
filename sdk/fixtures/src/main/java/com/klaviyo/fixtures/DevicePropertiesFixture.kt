@@ -21,6 +21,8 @@ fun mockDeviceProperties() {
     every { DeviceProperties.deviceId } returns "Mock Device ID"
     every { DeviceProperties.manufacturer } returns "Mock Manufacturer"
     every { DeviceProperties.osVersion } returns "Mock OS Version"
+    every { DeviceProperties.pluginSdk } returns "klaviyo-expo"
+    every { DeviceProperties.pluginSdkVersion } returns "1.0.0"
 }
 
 fun unmockDeviceProperties() {
