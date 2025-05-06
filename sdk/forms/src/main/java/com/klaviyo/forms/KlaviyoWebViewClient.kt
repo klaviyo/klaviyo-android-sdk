@@ -24,11 +24,6 @@ import java.io.BufferedReader
 internal class KlaviyoWebViewClient : WebViewClient() {
     val nativeBridge: BridgeMessageHandler = BridgeMessageHandler(this)
 
-    /**
-     * Defines origin(s) for which this delegate should be used
-     */
-    val allowedOrigin: Set<String> get() = setOf(Registry.config.baseUrl)
-
     private val activity: Activity? get() = Registry.lifecycleMonitor.currentActivity
 
     /**
@@ -143,14 +138,15 @@ internal class KlaviyoWebViewClient : WebViewClient() {
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         if (request?.isForMainFrame == true) {
             Registry.log.info("Redirect URL to external browser: ${request.url}")
-            val intent = Intent(Intent.ACTION_VIEW).apply {
+            val intent = Intent().apply {
                 data = request.url
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                action = Intent.ACTION_VIEW
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             Registry.config.applicationContext.startActivity(intent, null)
             return true
         }
-        return super.shouldOverrideUrlLoading(view, request)
+        return false
     }
 
     /**

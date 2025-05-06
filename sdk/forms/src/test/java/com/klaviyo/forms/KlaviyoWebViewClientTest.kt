@@ -1,11 +1,13 @@
 package com.klaviyo.forms
 
 import android.app.Activity
+import android.content.Intent
 import android.content.res.AssetManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -265,5 +267,45 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
         client.close()
         verify { spyLog.warning("Unable to close IAF - null activity reference") }
         verifyClose(true)
+    }
+
+    @Test
+    fun `shouldOverrideUrlLoading redirects to external browser when isForMainFrame is true`() {
+        val client = KlaviyoWebViewClient()
+        val mockUrl = mockk<Uri>(relaxed = true)
+        val mockRequest: WebResourceRequest = mockk {
+            every { isForMainFrame } returns true
+            every { url } returns mockUrl
+        }
+
+        every { mockContext.startActivity(any(), null) } just runs
+
+        val uriSlot = slot<Uri>()
+        val actionSlot = slot<String>()
+        val flagsSlot = slot<Int>()
+
+        mockkConstructor(Intent::class)
+        every { anyConstructed<Intent>().setData(capture(uriSlot)) } returns mockk<Intent>()
+        every { anyConstructed<Intent>().setAction(capture(actionSlot)) } returns mockk<Intent>()
+        every { anyConstructed<Intent>().setFlags(capture(flagsSlot)) } returns mockk<Intent>()
+
+        val result = client.shouldOverrideUrlLoading(null, mockRequest)
+
+        assertEquals(true, result)
+        assertEquals(Intent.ACTION_VIEW, actionSlot.captured)
+        assertEquals(mockUrl, uriSlot.captured)
+        assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, flagsSlot.captured)
+    }
+
+    @Test
+    fun `shouldOverrideUrlLoading does not redirect when isForMainFrame is false`() {
+        val client = KlaviyoWebViewClient()
+        val mockRequest: WebResourceRequest = mockk {
+            every { isForMainFrame } returns false
+        }
+
+        val result = client.shouldOverrideUrlLoading(null, mockRequest)
+
+        assertEquals(false, result)
     }
 }

@@ -26,6 +26,11 @@ internal class BridgeMessageHandler(
     val name = "KlaviyoNativeBridge"
 
     /**
+     * The allowed origin for the webview content and bridge
+     */
+    val allowedOrigin: Set<String> get() = setOf(Registry.config.baseUrl)
+
+    /**
      * When [WEB_MESSAGE_LISTENER] is supported, messages sent over the Native Bridge from JS are received here
      */
     override fun onPostMessage(
@@ -87,8 +92,8 @@ internal class BridgeMessageHandler(
             Intent().apply {
                 data = messageType.route.toUri()
                 action = Intent.ACTION_VIEW
-                setPackage(Registry.config.applicationContext.packageName)
-                setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                `package` = Registry.config.applicationContext.packageName
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
         ) ?: run {
             Registry.log.warning("Unable to open deep link - null activity reference")

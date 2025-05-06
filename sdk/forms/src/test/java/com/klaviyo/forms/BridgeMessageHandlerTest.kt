@@ -220,8 +220,6 @@ internal class BridgeMessageHandlerTest : BaseTest() {
         val mockUrl = mockk<Uri>(relaxed = true)
         every { Uri.parse(any()) } returns mockUrl
 
-        mockkConstructor(Intent::class)
-
         val mockActivity: Activity = mockk(relaxed = true)
         every { mockLifecycleMonitor.currentActivity } returns mockActivity
 
@@ -230,6 +228,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
         val packageSlot = slot<String>()
         val flagsSlot = slot<Int>()
 
+        mockkConstructor(Intent::class)
         every { anyConstructed<Intent>().setData(capture(uriSlot)) } returns mockk<Intent>()
         every { anyConstructed<Intent>().setAction(capture(actionSlot)) } returns mockk<Intent>()
         every { anyConstructed<Intent>().setPackage(capture(packageSlot)) } returns mockk<Intent>()
