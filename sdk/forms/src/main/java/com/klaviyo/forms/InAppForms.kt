@@ -12,9 +12,9 @@ import com.klaviyo.core.safeApply
 @UiThread
 fun Klaviyo.registerForInAppForms(): Klaviyo = safeApply {
     // Ensure we only ever register one delegate instance
-    if (!Registry.isRegistered<KlaviyoWebViewDelegate>()) {
-        Registry.register<KlaviyoWebViewDelegate>(KlaviyoWebViewDelegate())
+    if (!Registry.isRegistered<KlaviyoWebViewClient>()) {
+        Registry.register<KlaviyoWebViewClient>(KlaviyoWebViewClient())
     }
 
-    Registry.get<KlaviyoWebViewDelegate>().initializeWebView()
+    Registry.get<KlaviyoWebViewClient>().initializeWebView()
 }

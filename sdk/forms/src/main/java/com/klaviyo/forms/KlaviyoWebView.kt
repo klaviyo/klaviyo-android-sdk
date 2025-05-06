@@ -22,7 +22,7 @@ internal class KlaviyoWebView : WebView {
 
     constructor(context: Context, attrs: AttributeSet?) : super(context, attrs, 0)
 
-    fun loadTemplate(html: String, delegate: KlaviyoWebViewDelegate) = configure()
+    fun loadTemplate(html: String, delegate: KlaviyoWebViewClient) = configure()
         .setDelegate(delegate)
         .loadDataWithBaseURL(
             delegate.allowedOrigin.first(),
@@ -44,20 +44,20 @@ internal class KlaviyoWebView : WebView {
         }
     }
 
-    private fun setDelegate(delegate: KlaviyoWebViewDelegate) = apply {
+    private fun setDelegate(delegate: KlaviyoWebViewClient) = apply {
         webViewClient = delegate
 
         if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Supported")
             WebViewCompat.addWebMessageListener(
                 this,
-                delegate.bridgeName,
+                delegate.nativeBridge.name,
                 delegate.allowedOrigin,
-                delegate
+                delegate.nativeBridge
             )
         } else {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Unsupported")
-            addJavascriptInterface(delegate, delegate.bridgeName)
+            addJavascriptInterface(delegate.nativeBridge, delegate.nativeBridge.name)
         }
     }
 }
