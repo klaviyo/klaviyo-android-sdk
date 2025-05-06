@@ -83,14 +83,16 @@ internal class BridgeMessageHandler(
      * similar to how we handle deep links from a notification
      */
     private fun deepLink(messageType: BridgeMessage.DeepLink) {
-        Registry.config.applicationContext.startActivity(
+        Registry.lifecycleMonitor.currentActivity?.startActivity(
             Intent().apply {
                 data = messageType.route.toUri()
                 action = Intent.ACTION_VIEW
                 setPackage(Registry.config.applicationContext.packageName)
                 setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
-        )
+        ) ?: run {
+            Registry.log.warning("Unable to open deep link - null activity reference")
+        }
     }
 
     /**
