@@ -22,7 +22,7 @@ import java.io.BufferedReader
  * Manages [KlaviyoWebView] to power in-app forms
  */
 internal class KlaviyoWebViewClient : WebViewClient() {
-    val nativeBridge: BridgeMessageHandler = BridgeMessageHandler(this)
+    private val nativeBridge: BridgeMessageHandler = BridgeMessageHandler(this)
 
     private val activity: Activity? get() = Registry.lifecycleMonitor.currentActivity
 
@@ -86,7 +86,7 @@ internal class KlaviyoWebViewClient : WebViewClient() {
             .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
             .also { html ->
-                webView.loadTemplate(html, this)
+                webView.loadTemplate(html, this, this.nativeBridge)
             }
 
         handshakeTimer?.cancel()

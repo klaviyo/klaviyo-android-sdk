@@ -22,10 +22,11 @@ internal class KlaviyoWebView : WebView {
 
     constructor(context: Context, attrs: AttributeSet?) : super(context, attrs, 0)
 
-    fun loadTemplate(html: String, client: KlaviyoWebViewClient) = configure()
-        .setClient(client)
+    fun loadTemplate(html: String, client: KlaviyoWebViewClient, bridge: BridgeMessageHandler) = configure()
+        .apply { webViewClient = client }
+        .addBridge(bridge)
         .loadDataWithBaseURL(
-            client.nativeBridge.allowedOrigin.first(),
+            bridge.allowedOrigin.first(),
             html,
             "text/html",
             null,
@@ -44,20 +45,22 @@ internal class KlaviyoWebView : WebView {
         }
     }
 
-    private fun setClient(client: KlaviyoWebViewClient) = apply {
-        webViewClient = client
-
+    /**
+     * Inject native bridge message handler into the webview, uses feature detection to see
+     * if we can use WebMessageListener or if we need to fall back on legacy JS interface
+     */
+    private fun addBridge(bridge: BridgeMessageHandler) = apply {
         if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Supported")
             WebViewCompat.addWebMessageListener(
                 this,
-                client.nativeBridge.name,
-                client.nativeBridge.allowedOrigin,
-                client.nativeBridge
+                bridge.name,
+                bridge.allowedOrigin,
+                bridge
             )
         } else {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Unsupported")
-            addJavascriptInterface(client.nativeBridge, client.nativeBridge.name)
+            addJavascriptInterface(bridge, bridge.name)
         }
     }
 }

@@ -277,7 +277,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
         postMessage("sawr a warewolf with a chinese menu inhis hands")
 
         verify {
-            spyLog.warning(
+            spyLog.error(
                 "Failed to relay webview message: sawr a warewolf with a chinese menu inhis hands",
                 any<JSONException>()
             )

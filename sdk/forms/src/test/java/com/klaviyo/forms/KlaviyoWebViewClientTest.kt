@@ -141,10 +141,10 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
         client.initializeWebView()
         every {
             anyConstructed<KlaviyoWebView>()
-                .loadTemplate(any(), client)
+                .loadTemplate(any(), client, mockk())
         } returns Unit
         // checks we load and call these config values
-        verify { anyConstructed<KlaviyoWebView>().loadTemplate(any(), client) }
+        verify { anyConstructed<KlaviyoWebView>().loadTemplate(any(), client, any()) }
         verify { mockAssets.open("InAppFormsTemplate.html") }
         verify { mockConfig.sdkName }
         verify { mockConfig.sdkVersion }

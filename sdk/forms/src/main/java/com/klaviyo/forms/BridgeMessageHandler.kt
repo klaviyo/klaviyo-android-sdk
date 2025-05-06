@@ -19,6 +19,7 @@ import com.klaviyo.core.Registry
 internal class BridgeMessageHandler(
     private val client: KlaviyoWebViewClient = Registry.get()
 ) : WebViewCompat.WebMessageListener {
+
     /**
      * This bridge object is injected into a [KlaviyoWebView] as a global property on the window.
      * This is the name that will be used to access the bridge from JS, i.e. window.KlaviyoNativeBridge
@@ -39,26 +40,30 @@ internal class BridgeMessageHandler(
         sourceOrigin: Uri,
         isMainFrame: Boolean,
         replyProxy: JavaScriptReplyProxy
-    ) = message.data?.let { postMessage(it) } ?: Unit
+    ) = message.data?.let { postMessage(it) } ?: run {
+        Registry.log.warning("Received null message from webview")
+    }
 
     /**
      * When [WEB_MESSAGE_LISTENER] is NOT supported, messages sent over the Native Bridge from JS are received here
      */
     @JavascriptInterface
-    fun postMessage(message: String) = try {
-        Registry.log.debug("JS interface postMessage $message")
-        when (val bridgeMessage = BridgeMessage.decodeWebviewMessage(message)) {
-            BridgeMessage.HandShook -> handShook()
-            is BridgeMessage.Show -> show()
-            is BridgeMessage.AggregateEventTracked -> createAggregateEvent(bridgeMessage)
-            is BridgeMessage.ProfileEvent -> createProfileEvent(bridgeMessage)
-            is BridgeMessage.DeepLink -> deepLink(bridgeMessage)
-            is BridgeMessage.Close -> close()
-            is BridgeMessage.Abort -> abort(bridgeMessage.reason)
+    fun postMessage(message: String) {
+        try {
+            Registry.log.debug("JS interface postMessage $message")
+            when (val bridgeMessage = BridgeMessage.decodeWebviewMessage(message)) {
+                BridgeMessage.HandShook -> handShook()
+                is BridgeMessage.Show -> show()
+                is BridgeMessage.AggregateEventTracked -> createAggregateEvent(bridgeMessage)
+                is BridgeMessage.ProfileEvent -> createProfileEvent(bridgeMessage)
+                is BridgeMessage.DeepLink -> deepLink(bridgeMessage)
+                is BridgeMessage.Close -> close()
+                is BridgeMessage.Abort -> abort(bridgeMessage.reason)
+            }
+        } catch (e: Exception) {
+            Registry.log.error("Failed to relay webview message: $message", e)
         }
-    } catch (e: Exception) {
-        Registry.log.warning("Failed to relay webview message: $message", e)
-    }.let { }
+    }
 
     /**
      * Notify the client that the handshake has completed
@@ -96,7 +101,7 @@ internal class BridgeMessageHandler(
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
         ) ?: run {
-            Registry.log.warning("Unable to open deep link - null activity reference")
+            Registry.log.error("Unable to open deep link - null activity reference")
         }
     }
 
