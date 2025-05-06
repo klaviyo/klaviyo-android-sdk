@@ -1,5 +1,6 @@
 package com.klaviyo.forms
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.webkit.WebMessageCompat
@@ -221,6 +222,9 @@ internal class BridgeMessageHandlerTest : BaseTest() {
 
         mockkConstructor(Intent::class)
 
+        val mockActivity: Activity = mockk(relaxed = true)
+        every { mockLifecycleMonitor.currentActivity } returns mockActivity
+
         val uriSlot = slot<Uri>()
         val actionSlot = slot<String>()
         val packageSlot = slot<String>()
@@ -243,7 +247,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
 
         postMessage(deeplinkMessage)
 
-        verify { mockContext.startActivity(any()) }
+        verify { mockActivity.startActivity(any()) }
 
         assertEquals(mockUrl, uriSlot.captured)
         assertEquals("android.intent.action.VIEW", actionSlot.captured)
