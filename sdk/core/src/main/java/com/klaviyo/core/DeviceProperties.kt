@@ -83,7 +83,7 @@ object DeviceProperties {
     val userAgent: String
         get() {
             val pluginString = pluginSdk?.let {
-                "($it/$pluginSdkVersion)"
+                "($it/${pluginSdkVersion ?: "UNKNOWN"})"
             }
             val sdkAgent = "klaviyo-${sdkName.replace("_", "-")}"
             return "$applicationLabel/$appVersion ($applicationId; build:$appVersionCode; $platform $osVersion)" +
