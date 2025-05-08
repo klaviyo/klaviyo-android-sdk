@@ -8,6 +8,7 @@
 - [ ] I have added sufficient unit/integration tests of my changes.
 - [ ] I have adjusted or added new test cases to team test docs, if applicable.
 - [ ] I am confident these changes are compatible with all Android versions the SDK currently supports.
+<!-- If your changes are particularly affected by different Android version, please note API levels you tested on below  -->
 
 
 ## Release/Versioning Considerations
@@ -19,7 +20,7 @@
   - If so, please merge to a feature branch so documentation updates only go live upon official release.
 - [ ] This is planned work for an upcoming release.
   - If no, author or reviewer should account for this in a release plan, or describe why not below.
-
+<!-- Please add the planned version as a label on this PR -->
 ## Changelog / Code Overview
 <!-- What was changed / added / removed and why. Attach screenshots or other supporting materials -->
 
