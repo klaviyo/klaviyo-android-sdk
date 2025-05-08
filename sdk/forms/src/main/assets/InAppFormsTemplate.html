@@ -7,10 +7,22 @@
       data-forms-data-environment='FORMS_ENVIRONMENT'
 >
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover"/>
-    <meta name="referrer" content="same-origin" /> <!--  This meta tag protects @imported fonts from being blocked by CORS  -->
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover"/>
+
+    <!--  This meta tag protects @imported fonts from being blocked by CORS  -->
+    <meta name="referrer" content="same-origin"/>
+
     <title>Klaviyo In-App Form Template</title>
-    <link rel="stylesheet" type="text/css" href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css" crossorigin/>
+
+    <!-- Load in JS helper functions from assets directory -->
+    <script type="text/javascript" src="file:///android_asset/klaviyo-forms-helpers.js"></script>
+
+    <!-- Static stylesheet for "websafe" fonts that may be unavailable or inconsistent from the system -->
+    <link rel="stylesheet" type="text/css"
+          href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css" crossorigin/>
+
+    <!-- Placeholder script to load klaviyo.js -->
     <script type="text/javascript" src="KLAVIYO_JS_URL"></script>
 </head>
 <body></body>
