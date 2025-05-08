@@ -21,7 +21,7 @@ import java.io.BufferedReader
 /**
  * Manages [KlaviyoWebView] to power in-app forms
  */
-internal class KlaviyoWebViewClient : WebViewClient() {
+internal class KlaviyoWebViewClient : WebViewClient(), JavaScriptEvaluator {
     private val nativeBridge: BridgeMessageHandler = BridgeMessageHandler(this)
 
     private val activity: Activity? get() = Registry.lifecycleMonitor.currentActivity
@@ -42,6 +42,11 @@ internal class KlaviyoWebViewClient : WebViewClient() {
     private var orientation: Int? = null
 
     init {
+        /**
+         * Self-register self as JavaScriptEvaluator
+         */
+        Registry.register<JavaScriptEvaluator>(this)
+
         /**
          * This closes the form on rotation, which we can detect with the local field
          * We wait for a change, see if it's different from the current, and close an open webview
@@ -192,4 +197,29 @@ internal class KlaviyoWebViewClient : WebViewClient() {
      * View.post but with self as an argument
      */
     private fun View.post(fn: (View) -> Unit) = apply { post { fn(this) } }
+
+    /**
+     * TODO set true only when klaviyo-forms-helpers.js has loaded, or after handShook?
+     */
+    override val jsReady: Boolean get() = false
+
+    /**
+     * Evaluate JavaScript in the webview, if possible
+     */
+    override fun evaluateJavascript(
+        javascript: String,
+        callback: (Boolean) -> Unit
+    ) {
+        Registry.lifecycleMonitor.currentActivity?.let { activity ->
+            webView?.evaluateJavascript(javascript) { result ->
+                callback(result === "true")
+            } ?: run {
+                Registry.log.warning("Unable to evaluate Javascript - null WebView reference")
+                callback(false)
+            }
+        } ?: run {
+            Registry.log.warning("Unable to evaluate Javascript - null activity reference")
+            callback(false)
+        }
+    }
 }
