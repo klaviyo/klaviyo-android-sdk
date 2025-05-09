@@ -6,7 +6,10 @@ import androidx.appcompat.app.AppCompatActivity
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.webview.KlaviyoWebViewManager
 
-class KlaviyoFormsOverlayActivity : AppCompatActivity() {
+/**
+ * Presented over the host application to display a Klaviyo form when triggered.
+ */
+internal class KlaviyoFormsOverlayActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

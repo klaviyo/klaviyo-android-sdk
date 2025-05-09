@@ -17,4 +17,5 @@ fun Klaviyo.registerForInAppForms(): Klaviyo = safeApply {
     Registry.registerOnce<OverlayPresentationManager> {
         KlaviyoOverlayPresentationManager()
     }
+    Registry.get<OverlayPresentationManager>().preloadWebView()
 }

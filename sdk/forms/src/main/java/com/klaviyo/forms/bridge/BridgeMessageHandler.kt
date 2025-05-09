@@ -3,9 +3,13 @@ package com.klaviyo.forms.bridge
 import android.webkit.JavascriptInterface
 import androidx.webkit.WebViewCompat
 
+/**
+ * An instance of this class is injected into a [com.klaviyo.forms.webview.KlaviyoWebView] as a global property
+ * on the window. It receives and interprets messages from klaviyo.js over the native bridge
+ */
 interface BridgeMessageHandler : WebViewCompat.WebMessageListener {
+
     /**
-     * This bridge object is injected into a [com.klaviyo.forms.webview.KlaviyoWebView] as a global property on the window.
      * This is the name that will be used to access the bridge from JS, i.e. window.KlaviyoNativeBridge
      */
     val name: String
@@ -15,6 +19,9 @@ interface BridgeMessageHandler : WebViewCompat.WebMessageListener {
      */
     val allowedOrigin: Set<String>
 
+    /**
+     * This method is invoked with klaviyo.js sends a message over the native bridge
+     */
     @JavascriptInterface
     fun postMessage(message: String)
 }

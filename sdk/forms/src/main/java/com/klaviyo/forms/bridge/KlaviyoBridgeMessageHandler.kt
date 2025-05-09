@@ -11,17 +11,17 @@ import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
-import com.klaviyo.forms.overlay.KlaviyoOverlayPresentationManager
+import com.klaviyo.forms.overlay.OverlayPresentationManager
 
 /**
- * Receives and interprets messages from klaviyo.js over the native bridge
+ * An instance of this class is injected into a [com.klaviyo.forms.webview.KlaviyoWebView] as a global property
+ * on the window. It receives and interprets messages from klaviyo.js over the native bridge
  */
 internal class KlaviyoBridgeMessageHandler(
-    private val presentationManager: KlaviyoOverlayPresentationManager = Registry.get(),
+    private val presentationManager: OverlayPresentationManager
 ) : BridgeMessageHandler {
 
     /**
-     * This instance is injected into a [com.klaviyo.forms.webview.KlaviyoWebView] as a global property on the window.
      * This is the name that will be used to access the bridge from JS, i.e. window.KlaviyoNativeBridge
      */
     override val name = "KlaviyoNativeBridge"

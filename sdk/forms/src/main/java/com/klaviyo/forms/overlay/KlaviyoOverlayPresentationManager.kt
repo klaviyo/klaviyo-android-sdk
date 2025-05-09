@@ -8,10 +8,18 @@ import com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler
 import com.klaviyo.forms.webview.KlaviyoWebViewClient
 import com.klaviyo.forms.webview.KlaviyoWebViewManager
 
-class KlaviyoOverlayPresentationManager(
-    private val bridgeMessageHandler: BridgeMessageHandler = KlaviyoBridgeMessageHandler(),
-    private val webViewManager: KlaviyoWebViewManager = KlaviyoWebViewClient(bridgeMessageHandler),
-) : OverlayPresentationManager {
+/**
+ * Coordinates preloading klaviyo.js and presentation forms in an overlay activity
+ */
+internal class KlaviyoOverlayPresentationManager() : OverlayPresentationManager {
+
+    private val bridgeMessageHandler: BridgeMessageHandler = KlaviyoBridgeMessageHandler(this).apply {
+        Registry.register<BridgeMessageHandler>(this)
+    }
+
+    private val webViewManager: KlaviyoWebViewManager = KlaviyoWebViewClient(bridgeMessageHandler).apply {
+        Registry.register<KlaviyoWebViewManager>(this)
+    }
 
     /**
      * For verification that we receive the handshake data
@@ -25,16 +33,19 @@ class KlaviyoOverlayPresentationManager(
 
     init {
         Registry.lifecycleMonitor.onActivityEvent(::onActivityEvent)
-        // TODO preload the webview with network monitor sensitivity
     }
 
     /**
      * Preload the webview and start the handshake timer
+     * TODO add network monitor sensitivity
      */
     override fun preloadWebView() {
         webViewManager.initializeWebView()
         handshakeTimer?.cancel()
-        handshakeTimer = Registry.clock.schedule(Registry.config.networkTimeout.toLong(), ::onPreloadTimeout)
+        handshakeTimer = Registry.clock.schedule(
+            Registry.config.networkTimeout.toLong(),
+            ::onPreloadTimeout
+        )
     }
 
     /**
@@ -47,7 +58,7 @@ class KlaviyoOverlayPresentationManager(
 
     /**
      * If the webview is not loaded in time, we cancel the handshake timer and destroy the webview
-     * TODO - exponential backoff for retrying preload, add network monitoring
+     * TODO - retrying preload with exponential backoff and network monitoring
      */
     private fun onPreloadTimeout() {
         handshakeTimer?.cancel()
@@ -70,12 +81,16 @@ class KlaviyoOverlayPresentationManager(
         }
     }
 
+    /**
+     * Launch the overlay activity
+     * TODO never present a second overlay if already open
+     */
     override fun presentOverlay() {
         Registry.config.applicationContext.startActivity(KlaviyoFormsOverlayActivity.launchIntent)
     }
 
     /**
-     * TODO Close the form within the webview
+     * TODO Close the form within the webview (to get the animation)
      * Detach the webview from the activity
      * Dismiss the activity
      */

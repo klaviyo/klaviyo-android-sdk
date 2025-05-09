@@ -3,7 +3,7 @@ package com.klaviyo.forms.webview
 import android.app.Activity
 import com.klaviyo.forms.overlay.KlaviyoFormsOverlayActivity
 
-interface KlaviyoWebViewManager {
+internal interface KlaviyoWebViewManager {
     /**
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for in-app forms with handshake data injected in the document head
