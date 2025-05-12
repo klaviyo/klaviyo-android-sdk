@@ -28,7 +28,8 @@ internal class KlaviyoWebViewClient(
 ) : AndroidWebViewClient(), WebViewClient {
 
     /**
-     * For verification that we receive the handshake data
+     * For timeout on awaiting the native bridge [com.klaviyo.forms.bridge.BridgeMessage.HandShook] event
+     * as an indicator that klaviyo.js has loaded and the onsite-in-app module is present.
      */
     private var handshakeTimer: Clock.Cancellable? = null
 
