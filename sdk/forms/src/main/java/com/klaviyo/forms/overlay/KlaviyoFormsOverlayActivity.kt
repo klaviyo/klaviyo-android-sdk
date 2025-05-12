@@ -4,7 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.klaviyo.core.Registry
-import com.klaviyo.forms.webview.KlaviyoWebViewManager
+import com.klaviyo.forms.webview.WebViewClient
 
 /**
  * Presented over the host application to display a Klaviyo form when triggered.
@@ -13,11 +13,11 @@ internal class KlaviyoFormsOverlayActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Registry.get<KlaviyoWebViewManager>().attachWebView(this)
+        Registry.get<WebViewClient>().attachWebView(this)
     }
 
     override fun onPause() {
-        Registry.get<KlaviyoWebViewManager>().detachWebView(this)
+        Registry.get<WebViewClient>().detachWebView(this)
         super.onPause()
     }
 

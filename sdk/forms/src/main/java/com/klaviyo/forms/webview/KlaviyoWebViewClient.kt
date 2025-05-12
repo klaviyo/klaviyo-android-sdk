@@ -9,9 +9,10 @@ import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.webkit.WebViewClient as AndroidWebViewClient
 import androidx.core.net.toUri
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.forms.bridge.BridgeMessage.Companion.handShakeData
 import com.klaviyo.forms.bridge.BridgeMessageHandler
@@ -21,11 +22,16 @@ import java.io.BufferedReader
 
 /**
  * Manages the [KlaviyoWebView] instance that powers in-app forms behavior, triggering, rendering and display,
- * and handles all its [WebViewClient] delegate methods
+ * and handles all its [android.webkit.WebViewClient] delegate methods, and loading of klaviyo.js
  */
 internal class KlaviyoWebViewClient(
     private val nativeBridge: BridgeMessageHandler
-) : WebViewClient(), KlaviyoWebViewManager {
+) : AndroidWebViewClient(), WebViewClient {
+
+    /**
+     * For verification that we receive the handshake data
+     */
+    private var handshakeTimer: Clock.Cancellable? = null
 
     /**
      * Weak reference to the WebView to avoid memory leak
@@ -61,7 +67,31 @@ internal class KlaviyoWebViewClient(
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
             .let { html ->
                 webView.loadTemplate(html, this, this.nativeBridge)
+
+                handshakeTimer?.cancel()
+                handshakeTimer = Registry.clock.schedule(
+                    Registry.config.networkTimeout.toLong(),
+                    ::onPreloadTimeout
+                )
             }
+    }
+
+    /**
+     * When the webview has loaded klaviyo.js, we can cancel the timeout
+     */
+    override fun onJsHandshakeCompleted() {
+        handshakeTimer?.cancel()
+        handshakeTimer = null
+    }
+
+    /**
+     * If the webview is not loaded in time, we cancel the handshake timer and destroy the webview
+     * TODO - retrying preload with exponential backoff and network monitoring
+     */
+    private fun onPreloadTimeout() {
+        handshakeTimer?.cancel()
+        destroyWebView()
+        Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
     }
 
     /**

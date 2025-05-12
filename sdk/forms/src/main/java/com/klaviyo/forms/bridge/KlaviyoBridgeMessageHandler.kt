@@ -12,6 +12,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.overlay.OverlayPresentationManager
+import com.klaviyo.forms.webview.WebViewClient
 
 /**
  * An instance of this class is injected into a [com.klaviyo.forms.webview.KlaviyoWebView] as a global property
@@ -68,7 +69,7 @@ internal class KlaviyoBridgeMessageHandler(
     /**
      * Notify the client that the handshake has completed
      */
-    private fun handShook() = presentationManager.onPreloadComplete()
+    private fun handShook() = Registry.get<WebViewClient>().onJsHandshakeCompleted()
 
     /**
      * Notify the client that the webview should be shown
