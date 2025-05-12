@@ -137,7 +137,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `initializeWebView triggers loadTemplate`() {
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         client.initializeWebView()
         every {
             anyConstructed<KlaviyoWebView>()
@@ -156,7 +156,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
     fun `appends asset source`() {
         every { mockConfig.assetSource } returns "riders-on-the-stromboli"
 
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         client.initializeWebView()
 
         verify { spyLog.debug("Appending assetSource=riders-on-the-stromboli to klaviyo.js") }
@@ -164,7 +164,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `show causes webview to appear`() {
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         client.initializeWebView()
         client.show()
         verifyShow()
@@ -172,7 +172,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `show with null webview does not display webview`() {
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         // notably do not init webview
         client.show()
         verify { spyLog.warning("Unable to show IAF - null WebView reference") }
@@ -183,7 +183,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
     fun `show with null decorView does not display webview`() {
         every { mockActivity.window?.decorView } returns null
 
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         client.initializeWebView()
         client.show()
 
@@ -196,7 +196,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
         assertEquals(false, mockSettings.javaScriptEnabled)
         assertEquals(false, mockSettings.domStorageEnabled)
 
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         client.initializeWebView()
 
         verify { mockSettings.javaScriptEnabled = true }
@@ -207,7 +207,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `timeout cancels on handshake`() {
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         client.initializeWebView()
 
         client.onJsHandshakeCompleted()
@@ -218,7 +218,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `closes webview on timeout`() {
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         client.initializeWebView()
         // notably no handshake
         staticClock.execute(10_000)
@@ -229,7 +229,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `close removes webview from view`() {
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         client.initializeWebView()
         client.close()
 
@@ -238,7 +238,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `verify webview closes on an orientation change`() {
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         client.initializeWebView()
 
         slotOnActivityEvent.captured(ActivityEvent.ConfigurationChanged(Configuration()))
@@ -251,7 +251,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `verify close fails on a null webview`() {
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         // notably do not init webview
         client.close()
         verify { spyLog.warning("Unable to close IAF - null WebView reference") }
@@ -262,7 +262,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
     fun `verify close fails on a null decorView`() {
         every { mockActivity.window?.decorView } returns null
 
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         client.initializeWebView()
         client.close()
         verify { spyLog.warning("Unable to close IAF - null activity reference") }
@@ -271,7 +271,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `shouldOverrideUrlLoading redirects to external browser when isForMainFrame is true`() {
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         val mockUrl = mockk<Uri>(relaxed = true)
         val mockRequest: WebResourceRequest = mockk {
             every { isForMainFrame } returns true
@@ -299,7 +299,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `shouldOverrideUrlLoading does not redirect when isForMainFrame is false`() {
-        val client = KlaviyoWebViewClient(InAppFormsConfig(sessionTimeoutDuration = 3600))
+        val client = KlaviyoWebViewClient()
         val mockRequest: WebResourceRequest = mockk {
             every { isForMainFrame } returns false
         }

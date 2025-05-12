@@ -22,7 +22,7 @@ import java.io.BufferedReader
  * Manages [KlaviyoWebView] to power in-app forms
  */
 internal class KlaviyoWebViewClient(
-    val config: InAppFormsConfig
+    val config: InAppFormsConfig = InAppFormsConfig()
 ) : WebViewClient() {
     private val nativeBridge: BridgeMessageHandler = BridgeMessageHandler(this)
 

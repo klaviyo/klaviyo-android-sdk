@@ -11,7 +11,7 @@ import com.klaviyo.core.safeApply
  */
 @UiThread
 fun Klaviyo.registerForInAppForms(
-    config: InAppFormsConfig = InAppFormsConfig(sessionTimeoutDuration = 3600)
+    config: InAppFormsConfig = InAppFormsConfig()
 ): Klaviyo = safeApply {
     // Ensure we only ever register one KlaviyoWebViewClient instance
     if (!Registry.isRegistered<KlaviyoWebViewClient>()) {
