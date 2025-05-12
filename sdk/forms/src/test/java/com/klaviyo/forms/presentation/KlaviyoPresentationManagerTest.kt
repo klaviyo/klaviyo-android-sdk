@@ -25,6 +25,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
     override fun cleanup() {
         super.cleanup()
+        Registry.unregister<WebViewClient>()
     }
 
     @Test
