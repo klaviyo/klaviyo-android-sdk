@@ -16,7 +16,6 @@ import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.forms.bridge.BridgeMessage.Companion.handShakeData
 import com.klaviyo.forms.bridge.BridgeMessageHandler
-import com.klaviyo.forms.overlay.KlaviyoFormsOverlayActivity
 import com.klaviyo.forms.overlay.KlaviyoOverlayPresentationManager
 import java.io.BufferedReader
 
@@ -95,28 +94,36 @@ internal class KlaviyoWebViewClient(
     }
 
     /**
-     * Attach the webview to the overlay activity
+     * Attach the webview to the activity
      */
-    override fun attachWebView(activity: KlaviyoFormsOverlayActivity) = apply {
+    override fun attachWebView(activity: Activity) = apply {
         webView?.let { webView ->
-            activity.setContentView(webView)
-            webView.visibility = View.VISIBLE
+            activity.window?.decorView?.post { decorView ->
+                decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
+                webView.visibility = View.VISIBLE
+            } ?: run {
+                Registry.log.warning("Unable to show IAF - null decorView")
+            }
         } ?: run {
-            Registry.log.warning("Unable to attach IAF - null WebView reference")
+            Registry.log.warning("Unable to show IAF - null WebView reference")
         }
     }
 
     /**
-     * Detach the webview from the overlay activity, keeping it in memory
+     * Detach the webview from the activity
      */
     override fun detachWebView(activity: Activity) = apply {
         webView?.let { webView ->
-            activity.runOnUiThread {
+            handshakeTimer?.cancel()
+            activity.window?.decorView?.post {
                 webView.visibility = View.GONE
                 webView.parent?.let { it as ViewGroup }?.removeView(webView)
+                this.destroyWebView()
+            } ?: run {
+                Registry.log.warning("Unable to close IAF - null decorView")
             }
         } ?: run {
-            Registry.log.warning("Unable to detach IAF - null WebView reference")
+            Registry.log.warning("Unable to close IAF - null WebView reference")
         }
     }
 
@@ -125,6 +132,7 @@ internal class KlaviyoWebViewClient(
      */
     override fun destroyWebView() = apply {
         webView?.let { webView ->
+            Registry.log.verbose("Clear IAF WebView reference")
             webView.destroy()
             this.webView = null
         } ?: run {
@@ -176,6 +184,11 @@ internal class KlaviyoWebViewClient(
         }
         return false
     }
+
+    /**
+     * View.post but with self as an argument
+     */
+    private fun View.post(fn: (View) -> Unit) = apply { post { fn(this) } }
 
     /**
      * Helper to append the asset source to klaviyo.js URL

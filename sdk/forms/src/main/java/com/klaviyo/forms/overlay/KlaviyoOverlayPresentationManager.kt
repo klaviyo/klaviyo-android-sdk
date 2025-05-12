@@ -2,6 +2,7 @@ package com.klaviyo.forms.overlay
 
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.forms.webview.WebViewClient
 
 /**
  * Coordinates preloading klaviyo.js and presentation forms in an overlay activity
@@ -34,21 +35,23 @@ internal class KlaviyoOverlayPresentationManager() : OverlayPresentationManager 
         }
     }
 
-    /**
-     * Launch the overlay activity
-     */
     override fun presentOverlay() {
-        Registry.lifecycleMonitor.currentActivity.takeIf { it !is KlaviyoFormsOverlayActivity }?.run {
-            Registry.config.applicationContext.startActivity(
-                KlaviyoFormsOverlayActivity.launchIntent
+        Registry.lifecycleMonitor.currentActivity?.let {
+            Registry.get<WebViewClient>().attachWebView(
+                it
             )
+        } ?: run {
+            Registry.log.warning("Unable to show IAF - null activity reference")
         }
     }
 
-    /**
-     * Detach the webview from the activity and finish
-     */
     override fun dismissOverlay() {
-        Registry.lifecycleMonitor.currentActivity.takeIf { it is KlaviyoFormsOverlayActivity }?.finish()
+        Registry.lifecycleMonitor.currentActivity?.let {
+            Registry.get<WebViewClient>().detachWebView(
+                it
+            )
+        } ?: run {
+            Registry.log.warning("Unable to dismiss IAF - null activity reference")
+        }
     }
 }

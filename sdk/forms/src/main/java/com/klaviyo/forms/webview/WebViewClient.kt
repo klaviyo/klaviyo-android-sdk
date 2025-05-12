@@ -1,7 +1,6 @@
 package com.klaviyo.forms.webview
 
 import android.app.Activity
-import com.klaviyo.forms.overlay.KlaviyoFormsOverlayActivity
 
 internal interface WebViewClient {
     /**
@@ -18,7 +17,7 @@ internal interface WebViewClient {
     /**
      * Attach the webview to the overlay activity
      */
-    fun attachWebView(activity: KlaviyoFormsOverlayActivity): WebViewClient
+    fun attachWebView(activity: Activity): WebViewClient
 
     /**
      * Detach the webview from the overlay activity, keeping it in memory
