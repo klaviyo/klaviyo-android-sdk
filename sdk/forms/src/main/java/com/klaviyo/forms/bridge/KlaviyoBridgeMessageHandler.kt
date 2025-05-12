@@ -19,7 +19,7 @@ import com.klaviyo.forms.webview.WebViewClient
  * on the window. It receives and interprets messages from klaviyo.js over the native bridge
  */
 internal class KlaviyoBridgeMessageHandler(
-    private val presentationManager: OverlayPresentationManager
+    private val presentationManager: OverlayPresentationManager = Registry.get()
 ) : BridgeMessageHandler {
 
     /**

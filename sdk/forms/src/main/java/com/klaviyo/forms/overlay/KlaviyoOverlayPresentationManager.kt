@@ -2,23 +2,11 @@ package com.klaviyo.forms.overlay
 
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
-import com.klaviyo.forms.bridge.BridgeMessageHandler
-import com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler
-import com.klaviyo.forms.webview.KlaviyoWebViewClient
-import com.klaviyo.forms.webview.WebViewClient
 
 /**
  * Coordinates preloading klaviyo.js and presentation forms in an overlay activity
  */
 internal class KlaviyoOverlayPresentationManager() : OverlayPresentationManager {
-
-    private val bridgeMessageHandler: BridgeMessageHandler = KlaviyoBridgeMessageHandler(this).apply {
-        Registry.register<BridgeMessageHandler>(this)
-    }
-
-    private val webViewClient: WebViewClient = KlaviyoWebViewClient(bridgeMessageHandler).apply {
-        Registry.register<WebViewClient>(this)
-    }
 
     /**
      * For tracking device rotation
@@ -27,10 +15,6 @@ internal class KlaviyoOverlayPresentationManager() : OverlayPresentationManager 
 
     init {
         Registry.lifecycleMonitor.onActivityEvent(::onActivityEvent)
-    }
-
-    override fun initialize() {
-        webViewClient.initializeWebView()
     }
 
     /**
@@ -54,8 +38,7 @@ internal class KlaviyoOverlayPresentationManager() : OverlayPresentationManager 
      * Launch the overlay activity
      */
     override fun presentOverlay() {
-        val currentActivity = Registry.lifecycleMonitor.currentActivity
-        if (currentActivity !is KlaviyoFormsOverlayActivity) {
+        Registry.lifecycleMonitor.currentActivity.takeIf { it !is KlaviyoFormsOverlayActivity }?.run {
             Registry.config.applicationContext.startActivity(
                 KlaviyoFormsOverlayActivity.launchIntent
             )
@@ -64,13 +47,8 @@ internal class KlaviyoOverlayPresentationManager() : OverlayPresentationManager 
 
     /**
      * Detach the webview from the activity and finish
-     * TODO Close the form within the webview first (for the css animation)
      */
     override fun dismissOverlay() {
-        val currentActivity = Registry.lifecycleMonitor.currentActivity
-        if (currentActivity is KlaviyoFormsOverlayActivity) {
-            webViewClient.detachWebView(currentActivity)
-            currentActivity.finish()
-        }
+        Registry.lifecycleMonitor.currentActivity.takeIf { it is KlaviyoFormsOverlayActivity }?.finish()
     }
 }

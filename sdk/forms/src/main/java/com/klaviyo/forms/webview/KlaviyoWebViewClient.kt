@@ -25,7 +25,7 @@ import java.io.BufferedReader
  * and handles all its [android.webkit.WebViewClient] delegate methods, and loading of klaviyo.js
  */
 internal class KlaviyoWebViewClient(
-    private val nativeBridge: BridgeMessageHandler
+    private val nativeBridge: BridgeMessageHandler = Registry.get()
 ) : AndroidWebViewClient(), WebViewClient {
 
     /**
@@ -71,7 +71,7 @@ internal class KlaviyoWebViewClient(
                 handshakeTimer?.cancel()
                 handshakeTimer = Registry.clock.schedule(
                     Registry.config.networkTimeout.toLong(),
-                    ::onPreloadTimeout
+                    ::onJsHandshakeTimeout
                 )
             }
     }
@@ -88,7 +88,7 @@ internal class KlaviyoWebViewClient(
      * If the webview is not loaded in time, we cancel the handshake timer and destroy the webview
      * TODO - retrying preload with exponential backoff and network monitoring
      */
-    private fun onPreloadTimeout() {
+    private fun onJsHandshakeTimeout() {
         handshakeTimer?.cancel()
         destroyWebView()
         Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")

@@ -16,9 +16,12 @@ internal class KlaviyoFormsOverlayActivity : AppCompatActivity() {
         Registry.get<WebViewClient>().attachWebView(this)
     }
 
-    override fun onPause() {
+    /**
+     * TODO Close the form within the webview first (for the css animation)
+     */
+    override fun finish() {
         Registry.get<WebViewClient>().detachWebView(this)
-        super.onPause()
+        super.finish()
     }
 
     companion object {
