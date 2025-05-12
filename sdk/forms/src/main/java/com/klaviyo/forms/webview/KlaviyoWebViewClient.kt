@@ -17,7 +17,7 @@ import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.BridgeMessage.Companion.handShakeData
 import com.klaviyo.forms.bridge.BridgeMessageHandler
-import com.klaviyo.forms.overlay.KlaviyoOverlayPresentationManager
+import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import java.io.BufferedReader
 
 /**
@@ -25,8 +25,7 @@ import java.io.BufferedReader
  * and handles all its [android.webkit.WebViewClient] delegate methods, and loading of klaviyo.js
  */
 internal class KlaviyoWebViewClient(
-    val config: InAppFormsConfig = InAppFormsConfig(),
-    private val nativeBridge: BridgeMessageHandler = Registry.get()
+    val config: InAppFormsConfig = InAppFormsConfig()
 ) : AndroidWebViewClient(), WebViewClient {
 
     /**
@@ -47,6 +46,7 @@ internal class KlaviyoWebViewClient(
     override fun initializeWebView(): Unit = webView?.let {
         Registry.log.debug("Klaviyo webview is already initialized")
     } ?: KlaviyoWebView().let { webView ->
+        val nativeBridge: BridgeMessageHandler = Registry.get()
         this.webView = webView
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
@@ -68,7 +68,7 @@ internal class KlaviyoWebViewClient(
             .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
             .let { html ->
-                webView.loadTemplate(html, this, this.nativeBridge)
+                webView.loadTemplate(html, this, nativeBridge)
 
                 handshakeTimer?.cancel()
                 handshakeTimer = Registry.clock.schedule(
@@ -92,8 +92,10 @@ internal class KlaviyoWebViewClient(
      */
     private fun onJsHandshakeTimeout() {
         handshakeTimer?.cancel()
-        destroyWebView()
         Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
+        Registry.lifecycleMonitor.currentActivity?.let {
+            detachWebView(it)
+        } ?: destroyWebView()
     }
 
     /**
@@ -121,9 +123,10 @@ internal class KlaviyoWebViewClient(
             activity.window?.decorView?.post {
                 webView.visibility = View.GONE
                 webView.parent?.let { it as ViewGroup }?.removeView(webView)
-                this.destroyWebView()
+                destroyWebView()
             } ?: run {
                 Registry.log.warning("Unable to close IAF - null decorView")
+                destroyWebView()
             }
         } ?: run {
             Registry.log.warning("Unable to close IAF - null WebView reference")
@@ -166,7 +169,7 @@ internal class KlaviyoWebViewClient(
      * we have to clean up and return true here else the host app will crash
      */
     override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean =
-        Registry.get<KlaviyoOverlayPresentationManager>().dismissOverlay().let {
+        Registry.get<KlaviyoPresentationManager>().dismiss().let {
             Registry.log.error("WebView crashed or deallocated")
             return true
         }

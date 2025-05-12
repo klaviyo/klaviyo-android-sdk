@@ -14,8 +14,8 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
-import com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler
-import com.klaviyo.forms.webview.KlaviyoWebViewClient
+import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -31,11 +31,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
+/**
+ * @see KlaviyoBridgeMessageHandler
+ */
 internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
 
     private val mockApiClient: ApiClient = mockk(relaxed = true)
     private val mockState: State = mockk(relaxed = true)
-    private val mockWebViewClient: KlaviyoWebViewClient = mockk(relaxed = true)
+    private val mockWebViewClient: WebViewClient = mockk(relaxed = true)
+    private val mockPresentationManager: PresentationManager = mockk(relaxed = true)
+
     private lateinit var bridgeMessageHandler: KlaviyoBridgeMessageHandler
 
     @Before
@@ -44,15 +49,19 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
         mockDeviceProperties()
         Registry.register<ApiClient>(mockApiClient)
         Registry.register<State>(mockState)
-        Registry.register<KlaviyoWebViewClient>(mockWebViewClient)
+        Registry.register<WebViewClient>(mockWebViewClient)
+        Registry.register<PresentationManager>(mockPresentationManager)
 
         bridgeMessageHandler = KlaviyoBridgeMessageHandler()
     }
 
     @After
     override fun cleanup() {
-        Registry.unregister<KlaviyoWebViewClient>()
         unmockDeviceProperties()
+        Registry.unregister<ApiClient>()
+        Registry.unregister<State>()
+        Registry.unregister<WebViewClient>()
+        Registry.unregister<PresentationManager>()
         super.cleanup()
     }
 
@@ -69,7 +78,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `handShook triggers client onJsHandshakeCompleted`() {
         /**
-         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.handShook
+         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.handShook
          */
         postMessage("""{"type":"handShook"}""")
         verify { mockWebViewClient.onJsHandshakeCompleted() }
@@ -78,16 +87,16 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `formWillAppear triggers show`() {
         /**
-         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.show
+         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.show
          */
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockWebViewClient.show() }
+        verify { mockPresentationManager.present() }
     }
 
     @Test
     fun `trackAggregateEvent enqueues API request`() {
         /**
-         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.createAggregateEvent
+         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.createAggregateEvent
          */
         val aggregateMessage = """
             {
@@ -188,7 +197,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `trackProfileEvent enqueues API request`() {
         /**
-         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.createProfileEvent
+         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.createProfileEvent
          */
         val eventMessage = """
            {
@@ -213,7 +222,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `openDeepLink broadcasts intent to start activity`() {
         /**
-         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.deepLink
+         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.deepLink
          */
         every { mockContext.startActivity(any()) } just runs
         every { mockContext.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
@@ -259,19 +268,19 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `formDisappeared triggers close`() {
         /**
-         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.close
+         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.close
          */
         postMessage("""{"type":"formDisappeared"}""")
-        verify { mockWebViewClient.close() }
+        verify { mockPresentationManager.dismiss() }
     }
 
     @Test
     fun `abort triggers closes`() {
         /**
-         * @see com.klaviyo.forms.KlaviyoBridgeMessageHandler.abort
+         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.abort
          */
         postMessage("""{"type":"abort"}""")
-        verify { mockWebViewClient.close() }
+        verify { mockPresentationManager.dismiss() }
     }
 
     @Test

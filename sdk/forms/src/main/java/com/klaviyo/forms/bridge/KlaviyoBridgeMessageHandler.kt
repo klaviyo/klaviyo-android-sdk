@@ -11,16 +11,14 @@ import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
-import com.klaviyo.forms.overlay.OverlayPresentationManager
+import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.webview.WebViewClient
 
 /**
  * An instance of this class is injected into a [com.klaviyo.forms.webview.KlaviyoWebView] as a global property
  * on the window. It receives and interprets messages from klaviyo.js over the native bridge
  */
-internal class KlaviyoBridgeMessageHandler(
-    private val presentationManager: OverlayPresentationManager = Registry.get()
-) : BridgeMessageHandler {
+internal class KlaviyoBridgeMessageHandler() : BridgeMessageHandler {
 
     /**
      * This is the name that will be used to access the bridge from JS, i.e. window.KlaviyoNativeBridge
@@ -74,7 +72,7 @@ internal class KlaviyoBridgeMessageHandler(
     /**
      * Notify the client that the webview should be shown
      */
-    private fun show(bridgeMessage: BridgeMessage.Show) = presentationManager.presentOverlay().also {
+    private fun show(bridgeMessage: BridgeMessage.Show) = Registry.get<PresentationManager>().present().also {
         Registry.log.debug("Present form ${bridgeMessage.formId}")
     }
 
@@ -110,7 +108,7 @@ internal class KlaviyoBridgeMessageHandler(
     /**
      * Instruct presentation manager to dismiss the form overlay activity
      */
-    private fun close() = presentationManager.dismissOverlay()
+    private fun close() = Registry.get<PresentationManager>().dismiss()
 
     /**
      * Handle a [BridgeMessage.Abort] message by logging the reason and destroying the webview

@@ -1,4 +1,4 @@
-package com.klaviyo.forms.overlay
+package com.klaviyo.forms.presentation
 
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
@@ -7,7 +7,7 @@ import com.klaviyo.forms.webview.WebViewClient
 /**
  * Coordinates preloading klaviyo.js and presentation forms in an overlay activity
  */
-internal class KlaviyoOverlayPresentationManager() : OverlayPresentationManager {
+internal class KlaviyoPresentationManager() : PresentationManager {
 
     /**
      * For tracking device rotation
@@ -29,13 +29,13 @@ internal class KlaviyoOverlayPresentationManager() : OverlayPresentationManager 
             val newOrientation = event.newConfig.orientation
             if (orientation != newOrientation) {
                 Registry.log.debug("New screen orientation, closing form")
-                dismissOverlay()
+                dismiss()
             }
             orientation = newOrientation
         }
     }
 
-    override fun presentOverlay() {
+    override fun present() {
         Registry.lifecycleMonitor.currentActivity?.let {
             Registry.get<WebViewClient>().attachWebView(
                 it
@@ -45,7 +45,7 @@ internal class KlaviyoOverlayPresentationManager() : OverlayPresentationManager 
         }
     }
 
-    override fun dismissOverlay() {
+    override fun dismiss() {
         Registry.lifecycleMonitor.currentActivity?.let {
             Registry.get<WebViewClient>().detachWebView(
                 it

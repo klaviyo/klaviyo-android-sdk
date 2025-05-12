@@ -6,8 +6,8 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.safeApply
 import com.klaviyo.forms.bridge.BridgeMessageHandler
 import com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler
-import com.klaviyo.forms.overlay.KlaviyoOverlayPresentationManager
-import com.klaviyo.forms.overlay.OverlayPresentationManager
+import com.klaviyo.forms.presentation.KlaviyoPresentationManager
+import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.webview.KlaviyoWebViewClient
 import com.klaviyo.forms.webview.WebViewClient
 
@@ -20,7 +20,7 @@ fun Klaviyo.registerForInAppForms(
     config: InAppFormsConfig = InAppFormsConfig()
 ): Klaviyo = safeApply {
     // Register IAF services
-    Registry.registerOnce<OverlayPresentationManager> { KlaviyoOverlayPresentationManager() }
+    Registry.registerOnce<PresentationManager> { KlaviyoPresentationManager() }
     Registry.registerOnce<BridgeMessageHandler> { KlaviyoBridgeMessageHandler() }
     Registry.registerOnce<WebViewClient> { KlaviyoWebViewClient(config) }
 
