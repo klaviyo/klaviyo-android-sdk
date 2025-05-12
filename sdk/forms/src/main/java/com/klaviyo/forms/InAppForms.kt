@@ -16,11 +16,13 @@ import com.klaviyo.forms.webview.WebViewClient
  * configured in your Klaviyo account. Note [Klaviyo.initialize] must be called first
  */
 @UiThread
-fun Klaviyo.registerForInAppForms(): Klaviyo = safeApply {
+fun Klaviyo.registerForInAppForms(
+    config: InAppFormsConfig = InAppFormsConfig()
+): Klaviyo = safeApply {
     // Register IAF services
     Registry.registerOnce<OverlayPresentationManager> { KlaviyoOverlayPresentationManager() }
     Registry.registerOnce<BridgeMessageHandler> { KlaviyoBridgeMessageHandler() }
-    Registry.registerOnce<WebViewClient> { KlaviyoWebViewClient() }
+    Registry.registerOnce<WebViewClient> { KlaviyoWebViewClient(config) }
 
     // And initialize the webview client
     Registry.get<WebViewClient>().initializeWebView()

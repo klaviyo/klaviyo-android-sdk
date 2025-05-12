@@ -14,6 +14,7 @@ import androidx.core.net.toUri
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
+import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.BridgeMessage.Companion.handShakeData
 import com.klaviyo.forms.bridge.BridgeMessageHandler
 import com.klaviyo.forms.overlay.KlaviyoOverlayPresentationManager
@@ -24,6 +25,7 @@ import java.io.BufferedReader
  * and handles all its [android.webkit.WebViewClient] delegate methods, and loading of klaviyo.js
  */
 internal class KlaviyoWebViewClient(
+    val config: InAppFormsConfig = InAppFormsConfig(),
     private val nativeBridge: BridgeMessageHandler = Registry.get()
 ) : AndroidWebViewClient(), WebViewClient {
 
