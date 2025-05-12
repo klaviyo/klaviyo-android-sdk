@@ -10,10 +10,12 @@ import com.klaviyo.core.safeApply
  * configured in your Klaviyo account. Note [Klaviyo.initialize] must be called first
  */
 @UiThread
-fun Klaviyo.registerForInAppForms(): Klaviyo = safeApply {
+fun Klaviyo.registerForInAppForms(
+    config: InAppFormsConfig = InAppFormsConfig()
+): Klaviyo = safeApply {
     // Ensure we only ever register one KlaviyoWebViewClient instance
     if (!Registry.isRegistered<KlaviyoWebViewClient>()) {
-        Registry.register<KlaviyoWebViewClient>(KlaviyoWebViewClient())
+        Registry.register<KlaviyoWebViewClient>(KlaviyoWebViewClient(config))
     }
 
     Registry.get<KlaviyoWebViewClient>().initializeWebView()

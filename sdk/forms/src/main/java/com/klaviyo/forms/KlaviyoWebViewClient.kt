@@ -21,7 +21,9 @@ import java.io.BufferedReader
 /**
  * Manages [KlaviyoWebView] to power in-app forms
  */
-internal class KlaviyoWebViewClient : WebViewClient() {
+internal class KlaviyoWebViewClient(
+    val config: InAppFormsConfig = InAppFormsConfig()
+) : WebViewClient() {
     private val nativeBridge: BridgeMessageHandler = BridgeMessageHandler(this)
 
     private val activity: Activity? get() = Registry.lifecycleMonitor.currentActivity
@@ -127,10 +129,11 @@ internal class KlaviyoWebViewClient : WebViewClient() {
      * If the webview renderer crashes or gets cleaned up to reclaim memory
      * we have to clean up and return true here else the host app will crash
      */
-    override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean = close().let {
-        Registry.log.error("WebView crashed or deallocated")
-        return true
-    }
+    override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean =
+        close().let {
+            Registry.log.error("WebView crashed or deallocated")
+            return true
+        }
 
     /**
      * Intercept page navigation and redirect to an external browser application
