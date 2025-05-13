@@ -18,6 +18,7 @@ dependencies {
     implementation project(':sdk:core')
     implementation project(':sdk:analytics')
 
+    implementation AndroidX.appCompat
     implementation AndroidX.webkit
 
     testImplementation project(':sdk:fixtures')
