@@ -1,5 +1,6 @@
 package com.klaviyo.fixtures
 
+import android.app.Activity
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -88,9 +89,11 @@ abstract class BaseTest {
         every { formEnvironment } returns FormEnvironment.IN_APP
     }
 
+    protected val mockActivity: Activity = mockk(relaxed = true)
     protected val mockLifecycleMonitor = mockk<LifecycleMonitor>().apply {
         every { onActivityEvent(any()) } returns Unit
         every { offActivityEvent(any()) } returns Unit
+        every { currentActivity } returns mockActivity
     }
     protected val mockNetworkMonitor = mockk<NetworkMonitor>()
     protected val spyDataStore = spyk(InMemoryDataStore())
