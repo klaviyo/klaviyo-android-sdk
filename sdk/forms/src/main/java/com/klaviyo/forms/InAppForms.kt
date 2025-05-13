@@ -20,9 +20,11 @@ fun Klaviyo.registerForInAppForms(
     config: InAppFormsConfig = InAppFormsConfig()
 ): Klaviyo = safeApply {
     // Register IAF services
-    Registry.registerOnce<PresentationManager> { KlaviyoPresentationManager() }
-    Registry.registerOnce<BridgeMessageHandler> { KlaviyoBridgeMessageHandler() }
-    Registry.registerOnce<WebViewClient> { KlaviyoWebViewClient(config) }
+    Registry.apply {
+        registerOnce<PresentationManager> { KlaviyoPresentationManager() }
+        registerOnce<BridgeMessageHandler> { KlaviyoBridgeMessageHandler() }
+        registerOnce<WebViewClient> { KlaviyoWebViewClient(config) }
+    }
 
     // And initialize the webview client
     Registry.get<WebViewClient>().initializeWebView()

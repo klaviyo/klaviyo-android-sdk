@@ -22,7 +22,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * This closes the form on rotation, which we can detect with the local field
      * We wait for a change, see if it's different from the current, and close an open webview
      *
-     * TODO handle rotation better!
+     * TODO handle rotation better, including enum or typealias for orientation.
      */
     private fun onActivityEvent(event: ActivityEvent) {
         if (event is ActivityEvent.ConfigurationChanged) {

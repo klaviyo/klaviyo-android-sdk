@@ -15,6 +15,7 @@ import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.verify
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -25,7 +26,9 @@ internal class InAppFormsTest : BaseTest() {
         super.setup()
         mockkConstructor(KlaviyoPresentationManager::class)
         mockkConstructor(KlaviyoBridgeMessageHandler::class)
-        mockkConstructor(KlaviyoWebViewClient::class)
+        mockkConstructor(KlaviyoWebViewClient::class).apply {
+            every { anyConstructed<KlaviyoWebViewClient>().initializeWebView() } returns this
+        }
     }
 
     @After
@@ -37,17 +40,7 @@ internal class InAppFormsTest : BaseTest() {
     }
 
     @Test
-    fun `initializes with pre-registered client`() {
-        val delegate: KlaviyoWebViewClient = mockk(relaxed = true)
-        Registry.register<WebViewClient>(delegate)
-        Klaviyo.registerForInAppForms()
-
-        verify { delegate.initializeWebView() }
-    }
-
-    @Test
-    fun `registers a delegate if we don't have one`() {
-        every { anyConstructed<KlaviyoWebViewClient>().initializeWebView() } returns mockk()
+    fun `registers required services`() {
         assert(!Registry.isRegistered<PresentationManager>())
         assert(!Registry.isRegistered<BridgeMessageHandler>())
         assert(!Registry.isRegistered<WebViewClient>())
@@ -57,6 +50,26 @@ internal class InAppFormsTest : BaseTest() {
         assert(Registry.isRegistered<PresentationManager>())
         assert(Registry.isRegistered<BridgeMessageHandler>())
         assert(Registry.isRegistered<WebViewClient>())
+    }
+
+    @Test
+    fun `registers required services once`() {
+        val presenter: PresentationManager = mockk()
+        val bridge: BridgeMessageHandler = mockk()
+        val client: WebViewClient = mockk<WebViewClient>().apply {
+            every { initializeWebView() } returns Unit
+        }
+        Registry.register<PresentationManager>(presenter)
+        Registry.register<BridgeMessageHandler>(bridge)
+        Registry.register<WebViewClient>(client)
+
+        Klaviyo.registerForInAppForms()
+
+        // It used our pre-registered services, and didn't overwrite them
+        assertEquals(presenter, Registry.get<PresentationManager>())
+        assertEquals(bridge, Registry.get<BridgeMessageHandler>())
+        assertEquals(client, Registry.get<WebViewClient>())
+        verify { client.initializeWebView() }
     }
 
     @Test(expected = Test.None::class)

@@ -1,6 +1,6 @@
 package com.klaviyo.forms.presentation
 
-interface PresentationManager {
+internal interface PresentationManager {
     fun present()
     fun dismiss()
 }
