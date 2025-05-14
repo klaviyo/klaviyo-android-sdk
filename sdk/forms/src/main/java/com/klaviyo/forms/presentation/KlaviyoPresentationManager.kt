@@ -2,11 +2,19 @@ package com.klaviyo.forms.presentation
 
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.utils.WeakReferenceDelegate
+import com.klaviyo.core.utils.takeIf
+import com.klaviyo.core.utils.takeIfNot
+import com.klaviyo.forms.webview.WebViewClient
 
 /**
  * Coordinates preloading klaviyo.js and presentation forms in an overlay activity
  */
 internal class KlaviyoPresentationManager() : PresentationManager {
+    private var overlayActivity by WeakReferenceDelegate<KlaviyoFormsOverlayActivity>(null)
+
+    override var presentationState: PresentationState = PresentationState.Hidden
+        private set
 
     /**
      * For tracking device rotation
@@ -23,8 +31,15 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      *
      * TODO handle rotation better, including enum or typealias for orientation.
      */
-    private fun onActivityEvent(event: ActivityEvent) {
-        if (event is ActivityEvent.ConfigurationChanged) {
+    private fun onActivityEvent(event: ActivityEvent) = when (event) {
+        is ActivityEvent.Created -> event.activity.takeIf<KlaviyoFormsOverlayActivity>()?.let { activity ->
+            val formId = presentationState.takeIf<PresentationState.Presenting>()?.formId
+            overlayActivity = activity
+            Registry.get<WebViewClient>().attachWebView(activity)
+            presentationState = PresentationState.Presented(formId)
+        }
+
+        is ActivityEvent.ConfigurationChanged -> presentationState.takeIfNot<PresentationState.Hidden>()?.let {
             val newOrientation = event.newConfig.orientation
             if (orientation != newOrientation) {
                 Registry.log.debug("New screen orientation, closing form")
@@ -32,23 +47,29 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             }
             orientation = newOrientation
         }
+
+        else -> Unit
     }
 
     /**
      * Launch the overlay activity
      */
-    override fun present() = if (Registry.lifecycleMonitor.currentActivity !is KlaviyoFormsOverlayActivity) {
+    override fun present(formId: String?) = presentationState.takeIf<PresentationState.Hidden>()?.let {
+        presentationState = PresentationState.Presenting(formId)
         Registry.config.applicationContext.startActivity(KlaviyoFormsOverlayActivity.launchIntent)
-    } else {
-        Registry.log.debug("Form Overlay Activity is already presented")
+    } ?: run {
+        Registry.log.debug("Cannot present activity, currently in state: $presentationState")
     }
 
     /**
-     * Detach the webview from the activity and finish
+     * Detach the webview from the overlay activity and finish it
      */
-    override fun dismiss() {
-        Registry.lifecycleMonitor.currentActivity.takeIf {
-            it is KlaviyoFormsOverlayActivity
-        }?.finish()
+    override fun dismiss() = overlayActivity?.let { activity ->
+        Registry.log.debug("Dismissing form overlay activity")
+        Registry.get<WebViewClient>().detachWebView(activity)
+        activity.finish()
+        presentationState = PresentationState.Hidden
+    } ?: run {
+        Registry.log.debug("No-op dismiss: overlay activity is not presented")
     }
 }

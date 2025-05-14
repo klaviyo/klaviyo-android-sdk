@@ -103,8 +103,10 @@ internal class KlaviyoWebViewClient(
      */
     override fun attachWebView(activity: Activity) = apply {
         webView?.let { webView ->
-            activity.setContentView(webView)
-            webView.visibility = View.VISIBLE
+            activity.runOnUiThread {
+                activity.setContentView(webView)
+                webView.visibility = View.VISIBLE
+            }
         } ?: run {
             Registry.log.warning("Unable to attach IAF - null WebView reference")
         }
@@ -115,11 +117,9 @@ internal class KlaviyoWebViewClient(
      */
     override fun detachWebView(activity: Activity) = apply {
         webView?.let { webView ->
-            activity.runOnUiThread {
-                webView.visibility = View.GONE
-                webView.parent?.let { it as ViewGroup }?.removeView(webView)
-                destroyWebView()
-            }
+            webView.visibility = View.GONE
+            webView.parent?.let { it as ViewGroup }?.removeView(webView)
+            destroyWebView()
         } ?: run {
             Registry.log.warning("Unable to detach IAF - null WebView reference")
         }
@@ -129,6 +129,7 @@ internal class KlaviyoWebViewClient(
      * Destroy the webview and release the reference
      */
     override fun destroyWebView() = apply {
+        handshakeTimer?.cancel()
         webView?.let { webView ->
             Registry.log.verbose("Clear IAF WebView reference")
             webView.destroy()
