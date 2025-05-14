@@ -2,7 +2,7 @@ package com.klaviyo.core.utils
 
 import org.junit.Test
 
-class TakersTest {
+class TakeIfTest {
     val aThing = "a thing"
 
     @Test
