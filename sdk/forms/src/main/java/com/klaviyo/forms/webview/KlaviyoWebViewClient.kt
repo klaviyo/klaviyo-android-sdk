@@ -26,7 +26,7 @@ import java.io.BufferedReader
  */
 internal class KlaviyoWebViewClient(
     val config: InAppFormsConfig = InAppFormsConfig()
-) : AndroidWebViewClient(), WebViewClient {
+) : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
 
     /**
      * For timeout on awaiting the native bridge [com.klaviyo.forms.bridge.BridgeMessage.HandShook] event
@@ -38,6 +38,13 @@ internal class KlaviyoWebViewClient(
      * Weak reference to the WebView to avoid memory leak
      */
     private var webView: KlaviyoWebView? by WeakReferenceDelegate()
+
+    init {
+        /**
+         * Self-register self as JavaScriptEvaluator
+         */
+        Registry.register<JavaScriptEvaluator>(this)
+    }
 
     /**
      * Initialize a webview instance, with protection against duplication
@@ -69,7 +76,6 @@ internal class KlaviyoWebViewClient(
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
             .let { html ->
                 webView.loadTemplate(html, this, nativeBridge)
-
                 handshakeTimer?.cancel()
                 handshakeTimer = Registry.clock.schedule(
                     Registry.config.networkTimeout.toLong(),
@@ -182,6 +188,26 @@ internal class KlaviyoWebViewClient(
             return true
         }
         return false
+    }
+
+    /**
+     * Evaluate JavaScript in the webview, if possible
+     */
+    override fun evaluateJavascript(
+        javascript: String,
+        callback: (Boolean) -> Unit
+    ) = webView?.let { webView ->
+        Registry.lifecycleMonitor.currentActivity?.runOnUiThread {
+            webView.evaluateJavascript(javascript) { result ->
+                callback(result === "true")
+            }
+        } ?: run {
+            Registry.log.warning("Unable to evaluate Javascript - null activity reference")
+            callback(false)
+        }
+    } ?: run {
+        Registry.log.warning("Unable to evaluate Javascript - null WebView reference")
+        callback(false)
     }
 
     /**
