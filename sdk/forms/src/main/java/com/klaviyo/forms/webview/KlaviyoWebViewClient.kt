@@ -211,11 +211,6 @@ internal class KlaviyoWebViewClient(
     }
 
     /**
-     * View.post but with self as an argument
-     */
-    private fun View.post(fn: (View) -> Unit) = apply { post { fn(this) } }
-
-    /**
      * Helper to append the asset source to klaviyo.js URL
      */
     private fun Uri.Builder.appendAssetSource() = Registry.config.assetSource?.let { assetSource ->
