@@ -28,7 +28,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-internal class KlaviyoWebViewClientTest : BaseTest() {
+class KlaviyoWebViewClientTest : BaseTest() {
 
     companion object {
         val HTML = """
@@ -63,11 +63,6 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
             ByteArrayInputStream(HTML.encodeToByteArray())
     }
 
-    private val mockContentView: ViewGroup = mockk(relaxed = true)
-    private val mockDecorView: View = mockk(relaxed = true) {
-        every { findViewById<ViewGroup>(any()) } returns mockContentView
-    }
-
     @Before
     override fun setup() {
         super.setup()
@@ -75,7 +70,6 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
         every { mockContext.assets } returns mockAssets
-        every { mockActivity.window.decorView } returns mockDecorView
 
         mockkConstructor(KlaviyoWebView::class)
 
@@ -103,6 +97,11 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
         mockkStatic(WebViewCompat::class)
         every { WebViewCompat.addWebMessageListener(any(), any(), any(), any()) } just runs
+
+        val slot = slot<Runnable>()
+        every { mockActivity.runOnUiThread(capture(slot)) } answers {
+            slot.captured.run()
+        }
     }
 
     @After
@@ -113,11 +112,8 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     private fun verifyClose(doesNotClose: Boolean = false) {
         val times = if (doesNotClose) 0 else 1
-        val slot = slot<Runnable>()
-        verify(exactly = times) { mockDecorView.post(capture(slot)) }
-        if (!doesNotClose) slot.captured.run()
+        verify(exactly = times) { anyConstructed<KlaviyoWebView>().visibility = View.GONE }
         verify(exactly = times) { mockParentView.removeView(any()) }
-        assertEquals(staticClock.scheduledTasks.size, 0) // timer is cancelled
     }
 
     private fun verifyDestroy(doesNotDestroy: Boolean = false) {
@@ -128,12 +124,8 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     private fun verifyShow(doesNotShow: Boolean = false) {
         val times = if (doesNotShow) 0 else 1
-        val slot = slot<Runnable>()
-        verify(exactly = times) { mockDecorView.post(capture(slot)) }
-        if (!doesNotShow) slot.captured.run()
         verify(exactly = times) { anyConstructed<KlaviyoWebView>().visibility = View.VISIBLE }
-        verify(exactly = times) { mockDecorView.findViewById<ViewGroup>(any()) }
-        verify(exactly = times) { mockContentView.addView(any()) }
+        verify(exactly = times) { mockActivity.setContentView(any<KlaviyoWebView>()) }
     }
 
     @Test
@@ -176,19 +168,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
         val client = KlaviyoWebViewClient()
         // notably do not init webview
         client.attachWebView(mockActivity)
-        verify { spyLog.warning("Unable to show IAF - null WebView reference") }
-        verifyShow(doesNotShow = true)
-    }
-
-    @Test
-    fun `attachWebView with null decorView does not display webview`() {
-        every { mockActivity.window?.decorView } returns null
-
-        val client = KlaviyoWebViewClient()
-        client.initializeWebView()
-        client.attachWebView(mockActivity)
-
-        verify { spyLog.warning("Unable to show IAF - null decorView") }
+        verify { spyLog.warning("Unable to attach IAF - null WebView reference") }
         verifyShow(doesNotShow = true)
     }
 
@@ -245,21 +225,9 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
         val client = KlaviyoWebViewClient()
         // notably do not init webview
         client.detachWebView(mockActivity)
-        verify { spyLog.warning("Unable to close IAF - null WebView reference") }
+        verify { spyLog.warning("Unable to detach IAF - null WebView reference") }
         verifyClose(doesNotClose = true)
         verifyDestroy(doesNotDestroy = true)
-    }
-
-    @Test
-    fun `verify detachWebView fails on a null decorView`() {
-        every { mockActivity.window?.decorView } returns null
-
-        val client = KlaviyoWebViewClient()
-        client.initializeWebView()
-        client.detachWebView(mockActivity)
-        verify { spyLog.warning("Unable to close IAF - null decorView") }
-        verifyClose(doesNotClose = true)
-        verifyDestroy()
     }
 
     @Test
