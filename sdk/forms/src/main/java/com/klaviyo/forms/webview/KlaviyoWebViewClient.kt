@@ -99,37 +99,29 @@ internal class KlaviyoWebViewClient(
     }
 
     /**
-     * Attach the webview to the activity
+     * Attach the webview to the overlay activity
      */
     override fun attachWebView(activity: Activity) = apply {
         webView?.let { webView ->
-            activity.window?.decorView?.post { decorView ->
-                decorView.findViewById<ViewGroup>(android.R.id.content).addView(webView)
+            activity.runOnUiThread {
+                activity.setContentView(webView)
                 webView.visibility = View.VISIBLE
-            } ?: run {
-                Registry.log.warning("Unable to show IAF - null decorView")
             }
         } ?: run {
-            Registry.log.warning("Unable to show IAF - null WebView reference")
+            Registry.log.warning("Unable to attach IAF - null WebView reference")
         }
     }
 
     /**
-     * Detach the webview from the activity
+     * Detach the webview from the overlay activity, keeping it in memory
      */
     override fun detachWebView(activity: Activity) = apply {
         webView?.let { webView ->
-            handshakeTimer?.cancel()
-            activity.window?.decorView?.post {
-                webView.visibility = View.GONE
-                webView.parent?.let { it as ViewGroup }?.removeView(webView)
-                destroyWebView()
-            } ?: run {
-                Registry.log.warning("Unable to close IAF - null decorView")
-                destroyWebView()
-            }
+            webView.visibility = View.GONE
+            webView.parent?.let { it as ViewGroup }?.removeView(webView)
+            destroyWebView()
         } ?: run {
-            Registry.log.warning("Unable to close IAF - null WebView reference")
+            Registry.log.warning("Unable to detach IAF - null WebView reference")
         }
     }
 
@@ -137,6 +129,7 @@ internal class KlaviyoWebViewClient(
      * Destroy the webview and release the reference
      */
     override fun destroyWebView() = apply {
+        handshakeTimer?.cancel()
         webView?.let { webView ->
             Registry.log.verbose("Clear IAF WebView reference")
             webView.destroy()
@@ -190,11 +183,6 @@ internal class KlaviyoWebViewClient(
         }
         return false
     }
-
-    /**
-     * View.post but with self as an argument
-     */
-    private fun View.post(fn: (View) -> Unit) = apply { post { fn(this) } }
 
     /**
      * Helper to append the asset source to klaviyo.js URL
