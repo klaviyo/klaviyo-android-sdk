@@ -76,6 +76,15 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     }
 
     @Test
+    fun `jsReady triggers client onLocalJsReady`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.jsReady
+         */
+        postMessage("""{"type":"jsReady"}""")
+        verify { mockWebViewClient.onLocalJsReady() }
+    }
+
+    @Test
     fun `handShook triggers client onJsHandshakeCompleted`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.handShook

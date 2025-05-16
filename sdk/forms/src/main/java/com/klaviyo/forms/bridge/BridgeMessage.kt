@@ -13,6 +13,8 @@ import org.json.JSONObject
  */
 internal sealed class BridgeMessage {
 
+    data object JsReady : BridgeMessage()
+
     data object HandShook : BridgeMessage()
 
     data class Show(
@@ -44,6 +46,7 @@ internal sealed class BridgeMessage {
         private const val IAF_MESSAGE_TYPE_KEY = "type"
         private const val IAF_TYPE_VERSION_KEY = "version"
 
+        private const val BRIDGE_JS_READY = "jsReady"
         private const val IAF_MESSAGE_HAND_SHOOK = "handShook"
         private const val IAF_MESSAGE_TYPE_SHOW = "formWillAppear"
         private const val IAF_MESSAGE_TYPE_AGGREGATE_EVENT = "trackAggregateEvent"
@@ -100,6 +103,8 @@ internal sealed class BridgeMessage {
             val jsonData = jsonMessage.optJSONObject(IAF_MESSAGE_DATA_KEY) ?: JSONObject()
 
             return when (val type = jsonMessage.optString(IAF_MESSAGE_TYPE_KEY)) {
+                BRIDGE_JS_READY -> JsReady
+
                 IAF_MESSAGE_HAND_SHOOK -> HandShook
 
                 IAF_MESSAGE_TYPE_SHOW -> Show(

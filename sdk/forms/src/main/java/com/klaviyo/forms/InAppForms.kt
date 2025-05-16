@@ -5,8 +5,10 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.core.safeApply
 import com.klaviyo.forms.bridge.BridgeMessageHandler
+import com.klaviyo.forms.bridge.InAppFormsObservers
 import com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler
 import com.klaviyo.forms.bridge.KlaviyoOnsiteBridge
+import com.klaviyo.forms.bridge.Observers
 import com.klaviyo.forms.bridge.OnsiteBridge
 import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import com.klaviyo.forms.presentation.PresentationManager
@@ -27,6 +29,7 @@ fun Klaviyo.registerForInAppForms(
         registerOnce<BridgeMessageHandler> { KlaviyoBridgeMessageHandler() }
         registerOnce<WebViewClient> { KlaviyoWebViewClient(config) }
         registerOnce<OnsiteBridge> { KlaviyoOnsiteBridge() }
+        registerOnce<Observers> { InAppFormsObservers() }
     }
 
     // And initialize the webview client

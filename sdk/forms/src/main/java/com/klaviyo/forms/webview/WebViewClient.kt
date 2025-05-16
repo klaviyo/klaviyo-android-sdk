@@ -12,6 +12,11 @@ internal interface WebViewClient {
     /**
      * Invoke when [com.klaviyo.forms.bridge.BridgeMessage.HandShook] event is received, klaviyo.js is loaded
      */
+    fun onLocalJsReady()
+
+    /**
+     * Invoke when [com.klaviyo.forms.bridge.BridgeMessage.HandShook] event is received, klaviyo.js is loaded
+     */
     fun onJsHandshakeCompleted()
 
     /**
