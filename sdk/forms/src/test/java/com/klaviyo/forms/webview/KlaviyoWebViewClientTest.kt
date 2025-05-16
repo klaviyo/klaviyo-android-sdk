@@ -5,6 +5,7 @@ import android.content.res.AssetManager
 import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.ValueCallback
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import androidx.webkit.WebViewCompat
@@ -59,8 +60,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
     private val mockSettings: WebSettings = mockk(relaxed = true)
     private val mockParentView: ViewGroup = mockk(relaxed = true)
     private val mockAssets = mockk<AssetManager> {
-        every { open("InAppFormsTemplate.html") } returns
-            ByteArrayInputStream(HTML.encodeToByteArray())
+        every { open("InAppFormsTemplate.html") } returns ByteArrayInputStream(
+            HTML.encodeToByteArray()
+        )
     }
 
     @Before
@@ -268,5 +270,55 @@ class KlaviyoWebViewClientTest : BaseTest() {
         val result = client.shouldOverrideUrlLoading(null, mockRequest)
 
         assertEquals(false, result)
+    }
+
+    @Test
+    fun `evaluateJavascript invokes callback with false if webview is null`() {
+        val client = KlaviyoWebViewClient()
+        var result: Boolean? = null
+        client.evaluateJavascript("test") { result = it }
+        assertEquals(false, result)
+    }
+
+    @Test
+    fun `evaluateJavascript invokes callback with false if currentActivity is null`() {
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        every { Registry.lifecycleMonitor.currentActivity } returns null
+        var result: Boolean? = null
+        client.evaluateJavascript("test") { result = it }
+        assertEquals(false, result)
+    }
+
+    @Test
+    fun `evaluateJavascript invokes webview evaluateJavascript via runOnUiThread and calls back with true or false`() {
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        every { Registry.lifecycleMonitor.currentActivity } returns mockActivity
+
+        // Capture the runOnUiThread call and invoke the runnable
+        val runOnUiThreadSlot = slot<Runnable>()
+        every { mockActivity.runOnUiThread(capture(runOnUiThreadSlot)) } answers {
+            runOnUiThreadSlot.captured.run()
+        }
+
+        // Simulate webview.evaluateJavascript returning "true"
+        every { anyConstructed<KlaviyoWebView>().evaluateJavascript(any(), any()) } answers {
+            val callback = secondArg<ValueCallback<String>>()
+            callback.onReceiveValue("true")
+        }
+        var resultTrue: Boolean? = null
+        client.evaluateJavascript("test") { resultTrue = it }
+        assertEquals(true, resultTrue)
+
+        // Simulate webview.evaluateJavascript returning "false"
+        every { anyConstructed<KlaviyoWebView>().evaluateJavascript(any(), any()) } answers {
+            val callback = secondArg<ValueCallback<String>>()
+            callback.onReceiveValue("false")
+        }
+
+        var resultFalse: Boolean? = null
+        client.evaluateJavascript("test") { resultFalse = it }
+        assertEquals(false, resultFalse)
     }
 }
