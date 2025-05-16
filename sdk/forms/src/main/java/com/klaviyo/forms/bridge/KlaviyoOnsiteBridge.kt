@@ -49,7 +49,7 @@ internal class KlaviyoOnsiteBridge : OnsiteBridge {
             if (result) {
                 Registry.log.verbose("JS $function evaluation succeeded")
             } else {
-                Registry.log.error("JS $function evaluation failed: $javaScript")
+                Registry.log.error("JS $function evaluation failed")
             }
         }
     }

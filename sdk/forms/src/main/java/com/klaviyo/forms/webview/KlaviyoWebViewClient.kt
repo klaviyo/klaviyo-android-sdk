@@ -28,9 +28,6 @@ internal class KlaviyoWebViewClient(
     val config: InAppFormsConfig = InAppFormsConfig()
 ) : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
 
-    override var jsReady: Boolean = false
-        private set
-
     /**
      * For timeout on awaiting the native bridge [com.klaviyo.forms.bridge.BridgeMessage.HandShook] event
      * as an indicator that klaviyo.js has loaded and the onsite-in-app module is present.
@@ -79,7 +76,6 @@ internal class KlaviyoWebViewClient(
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
             .let { html ->
                 webView.loadTemplate(html, this, nativeBridge)
-                jsReady = false
                 handshakeTimer?.cancel()
                 handshakeTimer = Registry.clock.schedule(
                     Registry.config.networkTimeout.toLong(),
@@ -94,7 +90,6 @@ internal class KlaviyoWebViewClient(
     override fun onJsHandshakeCompleted() {
         handshakeTimer?.cancel()
         handshakeTimer = null
-        jsReady = true
     }
 
     /**
@@ -201,18 +196,18 @@ internal class KlaviyoWebViewClient(
     override fun evaluateJavascript(
         javascript: String,
         callback: (Boolean) -> Unit
-    ) {
-        Registry.lifecycleMonitor.currentActivity?.let { activity ->
-            webView?.evaluateJavascript(javascript) { result ->
+    ) = webView?.let { webView ->
+        Registry.lifecycleMonitor.currentActivity?.runOnUiThread {
+            webView.evaluateJavascript(javascript) { result ->
                 callback(result === "true")
-            } ?: run {
-                Registry.log.warning("Unable to evaluate Javascript - null WebView reference")
-                callback(false)
             }
         } ?: run {
             Registry.log.warning("Unable to evaluate Javascript - null activity reference")
             callback(false)
         }
+    } ?: run {
+        Registry.log.warning("Unable to evaluate Javascript - null WebView reference")
+        callback(false)
     }
 
     /**
