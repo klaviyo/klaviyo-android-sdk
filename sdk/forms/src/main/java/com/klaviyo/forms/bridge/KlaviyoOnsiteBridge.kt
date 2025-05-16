@@ -1,6 +1,5 @@
 package com.klaviyo.forms.bridge
 
-import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.webview.JavaScriptEvaluator
@@ -13,8 +12,7 @@ internal class KlaviyoOnsiteBridge : OnsiteBridge {
     @Suppress("EnumEntryName", "ktlint:enum-entry-name-case")
     private enum class HelperFunction {
         setProfile,
-        dispatchLifecycleEvent,
-        dispatchAnalyticsEvent
+        dispatchLifecycleEvent
     }
 
     override fun setProfile(profile: ImmutableProfile) =
@@ -30,13 +28,6 @@ internal class KlaviyoOnsiteBridge : OnsiteBridge {
         type: OnsiteBridge.LifecycleEventType,
         session: OnsiteBridge.LifecycleSessionBehavior
     ) = evaluateJavascript(HelperFunction.dispatchLifecycleEvent, type.name, session.name)
-
-    override fun dispatchAnalyticsEvent(event: Event) =
-        evaluateJavascript(
-            HelperFunction.dispatchAnalyticsEvent,
-            event.metric.name,
-            event.toMap().toString() // TODO properly serialize properties to JSON
-        )
 
     /**
      * Evaluates a JS function in the webview with the given arguments

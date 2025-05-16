@@ -1,6 +1,5 @@
 package com.klaviyo.forms.bridge
 
-import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.ImmutableProfile
 
 /**
@@ -29,9 +28,4 @@ internal interface OnsiteBridge {
      * Dispatch lifecycle events for onsite JS package to consume
      */
     fun dispatchLifecycleEvent(type: LifecycleEventType, session: LifecycleSessionBehavior)
-
-    /**
-     * Dispatch analytics events for onsite JS package to consume
-     */
-    fun dispatchAnalyticsEvent(event: Event)
 }

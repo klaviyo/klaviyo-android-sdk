@@ -1,6 +1,5 @@
 package com.klaviyo.forms.bridge
 
-import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
@@ -92,25 +91,6 @@ class KlaviyoOnsiteBridgeTest : BaseTest() {
         verify {
             jsEvaluator.evaluateJavascript(
                 eq("window.dispatchLifecycleEvent(\"background\",\"persist\")"),
-                any()
-            )
-        }
-    }
-
-    @Test
-    fun `dispatchAnalyticsEvent calls JS evaluator with correct JS`() {
-        val event = mockk<Event>()
-        every { event.metric.name } returns "ViewedProduct"
-        every { event.toMap() } returns mapOf("foo" to "bar")
-        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
-            secondArg<(Boolean) -> Unit>().invoke(true)
-        }
-
-        bridge.dispatchAnalyticsEvent(event)
-
-        verify {
-            jsEvaluator.evaluateJavascript(
-                eq("window.dispatchAnalyticsEvent(\"ViewedProduct\",\"{foo=bar}\")"),
                 any()
             )
         }
