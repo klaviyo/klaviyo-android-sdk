@@ -1,4 +1,4 @@
-package com.klaviyo.forms
+package com.klaviyo.forms.webview
 
 /**
  * Interface for evaluating any JavaScript string, decoupled from direct access to the WebView instance itself

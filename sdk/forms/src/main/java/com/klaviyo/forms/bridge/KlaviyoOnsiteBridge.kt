@@ -1,34 +1,23 @@
-package com.klaviyo.forms
+package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.core.Registry
+import com.klaviyo.forms.webview.JavaScriptEvaluator
 
 /**
- * Interface for communicating into the Klaviyo webview via JS functions established in klaviyo-forms-helpers.js
+ * API for communicating data and events from native to the onsite-in-app JS module
+ * via data attribute setters and event dispatcher functions defined in onsite-bridge.js
  */
-@Suppress("EnumEntryName", "ktlint:enum-entry-name-case")
-class OnsiteInterface(
-    private val evaluator: JavaScriptEvaluator = Registry.get()
-) {
+internal class KlaviyoOnsiteBridge : OnsiteBridge {
+    @Suppress("EnumEntryName", "ktlint:enum-entry-name-case")
     private enum class HelperFunction {
         setProfile,
         dispatchLifecycleEvent,
         dispatchAnalyticsEvent
     }
 
-    enum class LifecycleEventType {
-        background,
-        foreground
-    }
-
-    enum class LifecycleSessionBehavior {
-        persist,
-        restore,
-        purge
-    }
-
-    fun setProfile(profile: ImmutableProfile) =
+    override fun setProfile(profile: ImmutableProfile) =
         evaluateJavascript(
             HelperFunction.setProfile,
             profile.externalId ?: "",
@@ -37,15 +26,16 @@ class OnsiteInterface(
             profile.anonymousId ?: ""
         )
 
-    fun dispatchLifecycleEvent(type: LifecycleEventType, session: LifecycleSessionBehavior) =
-        evaluateJavascript(HelperFunction.dispatchLifecycleEvent, type.name, session.name)
+    override fun dispatchLifecycleEvent(
+        type: OnsiteBridge.LifecycleEventType,
+        session: OnsiteBridge.LifecycleSessionBehavior
+    ) = evaluateJavascript(HelperFunction.dispatchLifecycleEvent, type.name, session.name)
 
-    // TODO properties to string
-    fun dispatchAnalyticsEvent(event: Event) =
+    override fun dispatchAnalyticsEvent(event: Event) =
         evaluateJavascript(
             HelperFunction.dispatchAnalyticsEvent,
             event.metric.name,
-            event.toMap().toString()
+            event.toMap().toString() // TODO properly serialize properties to JSON
         )
 
     /**
@@ -55,7 +45,7 @@ class OnsiteInterface(
         val args = arguments.joinToString(",") { "\"$it\"" }
         val javaScript = "window.$function($args)"
 
-        evaluator.evaluateJavascript(javaScript) { result ->
+        Registry.get<JavaScriptEvaluator>().evaluateJavascript(javaScript) { result ->
             if (result) {
                 Registry.log.verbose("JS $function evaluation succeeded")
             } else {
