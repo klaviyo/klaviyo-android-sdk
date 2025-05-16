@@ -69,6 +69,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         Registry.get<WebViewClient>().detachWebView(activity)
         activity.finish()
         presentationState = PresentationState.Hidden
+        overlayActivity = null
     } ?: run {
         Registry.log.debug("No-op dismiss: overlay activity is not presented")
     }
