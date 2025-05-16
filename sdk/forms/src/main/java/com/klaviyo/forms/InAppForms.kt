@@ -6,6 +6,8 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.safeApply
 import com.klaviyo.forms.bridge.BridgeMessageHandler
 import com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler
+import com.klaviyo.forms.bridge.KlaviyoOnsiteBridge
+import com.klaviyo.forms.bridge.OnsiteBridge
 import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.webview.KlaviyoWebViewClient
@@ -24,6 +26,7 @@ fun Klaviyo.registerForInAppForms(
         registerOnce<PresentationManager> { KlaviyoPresentationManager() }
         registerOnce<BridgeMessageHandler> { KlaviyoBridgeMessageHandler() }
         registerOnce<WebViewClient> { KlaviyoWebViewClient(config) }
+        registerOnce<OnsiteBridge> { KlaviyoOnsiteBridge() }
     }
 
     // And initialize the webview client
