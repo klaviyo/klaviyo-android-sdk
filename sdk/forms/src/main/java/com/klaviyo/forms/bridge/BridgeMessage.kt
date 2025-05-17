@@ -3,7 +3,6 @@ package com.klaviyo.forms.bridge
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
-import com.klaviyo.core.Registry
 import java.io.Serializable
 import org.json.JSONArray
 import org.json.JSONObject
@@ -145,10 +144,8 @@ internal sealed class BridgeMessage {
             val map = mutableMapOf<EventKey, Serializable>()
             val propertyMap = getJSONObject("properties")
             propertyMap.keys().forEach {
-                try {
-                    map[EventKey.CUSTOM(it)] = propertyMap.get(it) as Serializable
-                } catch (e: Exception) {
-                    Registry.log.error("Failed to write property $it to profile event payload", e)
+                (propertyMap.opt(it) as? Serializable)?.let { value ->
+                    map[EventKey.CUSTOM(it)] = value
                 }
             }
             return map
@@ -158,7 +155,7 @@ internal sealed class BridgeMessage {
          * Parse out the android platform deep link
          */
         private fun JSONObject.getDeepLink(): String {
-            val routeString = getString("android")
+            val routeString = optString("android")
             if (routeString.isNullOrEmpty()) {
                 throw IllegalStateException("No android deeplink found in js payload")
             }

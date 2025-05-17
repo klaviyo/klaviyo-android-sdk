@@ -7,7 +7,6 @@ import com.klaviyo.fixtures.BaseTest
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
-import org.json.JSONException
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -234,7 +233,7 @@ class BridgeMessageTest : BaseTest() {
         every { Registry.log.error(any(), any<Throwable>()) } just Runs
 
         // Act & Assert
-        assertThrows(JSONException::class.java) {
+        assertThrows(IllegalStateException::class.java) {
             BridgeMessage.decodeWebviewMessage(deeplinkMessage)
         }
     }

@@ -17,11 +17,9 @@ import com.klaviyo.fixtures.unmockDeviceProperties
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
-import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import org.json.JSONException
@@ -65,7 +63,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
         super.cleanup()
     }
 
-    private fun postMessage(message: String) {
+    private fun postMessage(message: String?) {
         bridgeMessageHandler.onPostMessage(
             mockk(relaxed = true),
             WebMessageCompat(message, null),
@@ -73,6 +71,15 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
             true,
             mockk(relaxed = true)
         )
+    }
+
+    @Test
+    fun `allowed origin returns the base URL`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.allowedOrigin
+         */
+        val expected = setOf(Registry.config.baseUrl)
+        assertEquals(expected, bridgeMessageHandler.allowedOrigin)
     }
 
     @Test
@@ -233,7 +240,6 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.deepLink
          */
-        every { mockContext.startActivity(any()) } just runs
         every { mockContext.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
 
         mockkStatic(Uri::class)
@@ -275,6 +281,29 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     }
 
     @Test
+    fun `openDeepLink fails gracefully if currentActivity is null`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.deepLink
+         */
+        every { mockLifecycleMonitor.currentActivity } returns null
+
+        val deeplinkMessage = """
+            {
+              "type": "openDeepLink",
+              "data": {
+                "ios": "klaviyotest://settings",
+                "android": "klaviyotest://settings"
+              }
+            }
+        """.trimIndent()
+
+        postMessage(deeplinkMessage)
+
+        verify(exactly = 0) { mockActivity.startActivity(any()) }
+        verify { spyLog.error("Unable to open deep link - null activity reference") }
+    }
+
+    @Test
     fun `formDisappeared triggers close`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.close
@@ -289,7 +318,9 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.abort
          */
         postMessage("""{"type":"abort"}""")
-        verify { mockPresentationManager.dismiss() }
+        verify(exactly = 1) { mockPresentationManager.dismiss() }
+        postMessage("""{"type":"abort", "reason":"Because the test requires it"}""")
+        verify(exactly = 2) { mockPresentationManager.dismiss() }
     }
 
     @Test
@@ -300,6 +331,30 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
             spyLog.error(
                 "Failed to relay webview message: sawr a warewolf with a chinese menu inhis hands",
                 any<JSONException>()
+            )
+        }
+    }
+
+    @Test
+    fun `unknown type throws an error`() {
+        postMessage("""{"type":"unknown"}""")
+
+        verify {
+            spyLog.error(
+                "Failed to relay webview message: {\"type\":\"unknown\"}",
+                any<IllegalStateException>()
+            )
+        }
+    }
+
+    @Test
+    fun `null message logs warning`() {
+        postMessage(null)
+
+        verify {
+            spyLog.warning(
+                "Received null message from webview",
+                null
             )
         }
     }
