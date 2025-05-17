@@ -17,6 +17,7 @@ import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.BridgeMessage.Companion.handShakeData
 import com.klaviyo.forms.bridge.BridgeMessageHandler
+import com.klaviyo.forms.bridge.Observers
 import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import java.io.BufferedReader
 
@@ -84,6 +85,10 @@ internal class KlaviyoWebViewClient(
             }
     }
 
+    override fun onLocalJsReady() {
+        Registry.get<Observers>().startObservers()
+    }
+
     /**
      * When the webview has loaded klaviyo.js, we can cancel the timeout
      */
@@ -136,6 +141,7 @@ internal class KlaviyoWebViewClient(
      */
     override fun destroyWebView() = apply {
         handshakeTimer?.cancel()
+        Registry.get<Observers>().stopObservers()
         webView?.let { webView ->
             Registry.log.verbose("Clear IAF WebView reference")
             webView.destroy()
@@ -199,7 +205,7 @@ internal class KlaviyoWebViewClient(
     ) = webView?.let { webView ->
         Registry.lifecycleMonitor.currentActivity?.runOnUiThread {
             webView.evaluateJavascript(javascript) { result ->
-                callback(result === "true")
+                callback(result == "true")
             }
         } ?: run {
             Registry.log.warning("Unable to evaluate Javascript - null activity reference")

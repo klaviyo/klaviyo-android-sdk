@@ -51,6 +51,7 @@ internal class KlaviyoBridgeMessageHandler() : BridgeMessageHandler {
         try {
             Registry.log.debug("JS interface postMessage $message")
             when (val bridgeMessage = BridgeMessage.decodeWebviewMessage(message)) {
+                BridgeMessage.JsReady -> jsReady()
                 BridgeMessage.HandShook -> handShook()
                 is BridgeMessage.Show -> show(bridgeMessage)
                 is BridgeMessage.AggregateEventTracked -> createAggregateEvent(bridgeMessage)
@@ -63,6 +64,11 @@ internal class KlaviyoBridgeMessageHandler() : BridgeMessageHandler {
             Registry.log.error("Failed to relay webview message: $message", e)
         }
     }
+
+    /**
+     * Notify the client that the local JS scripts are loaded
+     */
+    private fun jsReady() = Registry.get<WebViewClient>().onLocalJsReady()
 
     /**
      * Notify the client that the handshake has completed

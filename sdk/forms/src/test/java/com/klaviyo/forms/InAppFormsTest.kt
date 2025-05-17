@@ -6,6 +6,8 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.forms.bridge.BridgeMessageHandler
 import com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler
+import com.klaviyo.forms.bridge.Observers
+import com.klaviyo.forms.bridge.OnsiteBridge
 import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.webview.KlaviyoWebViewClient
@@ -16,6 +18,7 @@ import io.mockk.mockkConstructor
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
 
@@ -36,6 +39,8 @@ internal class InAppFormsTest : BaseTest() {
         Registry.unregister<PresentationManager>()
         Registry.unregister<BridgeMessageHandler>()
         Registry.unregister<WebViewClient>()
+        Registry.unregister<OnsiteBridge>()
+        Registry.unregister<Observers>()
         super.cleanup()
     }
 
@@ -44,12 +49,16 @@ internal class InAppFormsTest : BaseTest() {
         assert(!Registry.isRegistered<PresentationManager>())
         assert(!Registry.isRegistered<BridgeMessageHandler>())
         assert(!Registry.isRegistered<WebViewClient>())
+        assert(!Registry.isRegistered<OnsiteBridge>())
+        assert(!Registry.isRegistered<Observers>())
 
         Klaviyo.registerForInAppForms()
 
-        assert(Registry.isRegistered<PresentationManager>())
-        assert(Registry.isRegistered<BridgeMessageHandler>())
-        assert(Registry.isRegistered<WebViewClient>())
+        assertNotNull(Registry.get<PresentationManager>())
+        assertNotNull(Registry.get<BridgeMessageHandler>())
+        assertNotNull(Registry.get<WebViewClient>())
+        assertNotNull(Registry.get<OnsiteBridge>())
+        assertNotNull(Registry.get<Observers>())
     }
 
     @Test
@@ -59,9 +68,14 @@ internal class InAppFormsTest : BaseTest() {
         val client: WebViewClient = mockk<WebViewClient>().apply {
             every { initializeWebView() } returns Unit
         }
+        val onsiteBridge: OnsiteBridge = mockk()
+        val observers: Observers = mockk()
+
         Registry.register<PresentationManager>(presenter)
         Registry.register<BridgeMessageHandler>(bridge)
         Registry.register<WebViewClient>(client)
+        Registry.register<OnsiteBridge>(onsiteBridge)
+        Registry.register<Observers>(observers)
 
         Klaviyo.registerForInAppForms()
 
@@ -70,6 +84,8 @@ internal class InAppFormsTest : BaseTest() {
         assertEquals(bridge, Registry.get<BridgeMessageHandler>())
         assertEquals(client, Registry.get<WebViewClient>())
         verify { client.initializeWebView() }
+        assertEquals(onsiteBridge, Registry.get<OnsiteBridge>())
+        assertEquals(observers, Registry.get<Observers>())
     }
 
     @Test(expected = Test.None::class)

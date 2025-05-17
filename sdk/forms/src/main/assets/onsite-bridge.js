@@ -65,3 +65,12 @@ window.dispatchAnalyticsEvent = function (metric, strProperties) {
 
     return true
 }
+
+// Notify the SDK over the native bridge that these local JS scripts are initialized
+var bridgeName = document.head.getAttribute("data-native-bridge-name") || ""
+
+if (window[bridgeName] && window[bridgeName].postMessage) {
+    window[bridgeName].postMessage(JSON.stringify({type: "jsReady"}))
+} else {
+    console.error("Unknown bridge name: " + bridgeName)
+}

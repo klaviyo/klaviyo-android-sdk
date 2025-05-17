@@ -3,7 +3,6 @@ package com.klaviyo.forms.bridge
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
-import com.klaviyo.core.Registry
 import java.io.Serializable
 import org.json.JSONArray
 import org.json.JSONObject
@@ -12,6 +11,8 @@ import org.json.JSONObject
  * This should be updated with any new message types we add coming from the onsite-in-app-forms
  */
 internal sealed class BridgeMessage {
+
+    data object JsReady : BridgeMessage()
 
     data object HandShook : BridgeMessage()
 
@@ -44,6 +45,7 @@ internal sealed class BridgeMessage {
         private const val IAF_MESSAGE_TYPE_KEY = "type"
         private const val IAF_TYPE_VERSION_KEY = "version"
 
+        private const val BRIDGE_JS_READY = "jsReady"
         private const val IAF_MESSAGE_HAND_SHOOK = "handShook"
         private const val IAF_MESSAGE_TYPE_SHOW = "formWillAppear"
         private const val IAF_MESSAGE_TYPE_AGGREGATE_EVENT = "trackAggregateEvent"
@@ -100,6 +102,8 @@ internal sealed class BridgeMessage {
             val jsonData = jsonMessage.optJSONObject(IAF_MESSAGE_DATA_KEY) ?: JSONObject()
 
             return when (val type = jsonMessage.optString(IAF_MESSAGE_TYPE_KEY)) {
+                BRIDGE_JS_READY -> JsReady
+
                 IAF_MESSAGE_HAND_SHOOK -> HandShook
 
                 IAF_MESSAGE_TYPE_SHOW -> Show(
@@ -140,10 +144,8 @@ internal sealed class BridgeMessage {
             val map = mutableMapOf<EventKey, Serializable>()
             val propertyMap = getJSONObject("properties")
             propertyMap.keys().forEach {
-                try {
-                    map[EventKey.CUSTOM(it)] = propertyMap.get(it) as Serializable
-                } catch (e: Exception) {
-                    Registry.log.error("Failed to write property $it to profile event payload", e)
+                (propertyMap.opt(it) as? Serializable)?.let { value ->
+                    map[EventKey.CUSTOM(it)] = value
                 }
             }
             return map
@@ -153,7 +155,7 @@ internal sealed class BridgeMessage {
          * Parse out the android platform deep link
          */
         private fun JSONObject.getDeepLink(): String {
-            val routeString = getString("android")
+            val routeString = optString("android")
             if (routeString.isNullOrEmpty()) {
                 throw IllegalStateException("No android deeplink found in js payload")
             }
