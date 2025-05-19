@@ -38,7 +38,7 @@ class ProfileObserverTest : BaseTest() {
     private fun withBridge(): OnsiteBridge {
         val mockBridge = mockk<OnsiteBridge>(relaxed = true)
         Registry.register<OnsiteBridge>(mockBridge)
-        KlaviyoProfileObserver().startObserver()
+        ProfileObserver().startObserver()
         return mockBridge
     }
 
@@ -89,7 +89,7 @@ class ProfileObserverTest : BaseTest() {
     @Test
     fun `stopObserver removes the lambda from state change listeners`() {
         withBridge()
-        val observer = KlaviyoProfileObserver()
+        val observer = ProfileObserver()
         observer.startObserver()
         observer.stopObserver()
         verify(exactly = 1) { stateMock.offStateChange(observerSlot.captured) }

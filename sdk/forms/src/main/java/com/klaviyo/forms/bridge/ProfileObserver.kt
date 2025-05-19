@@ -4,7 +4,15 @@ import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 
-class KlaviyoProfileObserver : Observer {
+/**
+ * Observe [State] in the analytics package to synchronize profile identifiers with the webview
+ */
+internal class ProfileObserver : Observer {
+    override val handshake: HandshakeSpec = HandshakeSpec(
+        type = "profileMutation",
+        version = 1
+    )
+
     override fun startObserver() = Registry.get<State>().onStateChange(::onStateChange).also {
         onStateChange(null, null)
     }

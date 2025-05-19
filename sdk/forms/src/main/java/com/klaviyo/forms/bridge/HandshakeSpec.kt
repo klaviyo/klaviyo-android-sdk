@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Data class to represent a handshake item
+ * Data class to represent a handshake item, enforcing the spec for communication between the JS and native SDK layers.
  */
 internal data class HandshakeSpec(
     val type: String,
@@ -16,6 +16,9 @@ internal data class HandshakeSpec(
     }
 }
 
+/**
+ * Compile a list of [HandshakeSpec] into JSON to be injected into the webview
+ */
 internal fun List<HandshakeSpec>.compileJson(): String {
     val jsonArray = JSONArray()
     for (spec in this) {

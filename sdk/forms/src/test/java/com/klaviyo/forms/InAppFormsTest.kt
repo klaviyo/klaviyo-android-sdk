@@ -6,7 +6,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.forms.bridge.BridgeMessageHandler
 import com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler
-import com.klaviyo.forms.bridge.Observers
+import com.klaviyo.forms.bridge.ObserverCollection
 import com.klaviyo.forms.bridge.OnsiteBridge
 import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import com.klaviyo.forms.presentation.PresentationManager
@@ -40,7 +40,7 @@ internal class InAppFormsTest : BaseTest() {
         Registry.unregister<BridgeMessageHandler>()
         Registry.unregister<WebViewClient>()
         Registry.unregister<OnsiteBridge>()
-        Registry.unregister<Observers>()
+        Registry.unregister<ObserverCollection>()
         super.cleanup()
     }
 
@@ -50,7 +50,7 @@ internal class InAppFormsTest : BaseTest() {
         assert(!Registry.isRegistered<BridgeMessageHandler>())
         assert(!Registry.isRegistered<WebViewClient>())
         assert(!Registry.isRegistered<OnsiteBridge>())
-        assert(!Registry.isRegistered<Observers>())
+        assert(!Registry.isRegistered<ObserverCollection>())
 
         Klaviyo.registerForInAppForms()
 
@@ -58,7 +58,7 @@ internal class InAppFormsTest : BaseTest() {
         assertNotNull(Registry.get<BridgeMessageHandler>())
         assertNotNull(Registry.get<WebViewClient>())
         assertNotNull(Registry.get<OnsiteBridge>())
-        assertNotNull(Registry.get<Observers>())
+        assertNotNull(Registry.get<ObserverCollection>())
     }
 
     @Test
@@ -69,13 +69,13 @@ internal class InAppFormsTest : BaseTest() {
             every { initializeWebView() } returns Unit
         }
         val onsiteBridge: OnsiteBridge = mockk()
-        val observers: Observers = mockk()
+        val observerCollection: ObserverCollection = mockk()
 
         Registry.register<PresentationManager>(presenter)
         Registry.register<BridgeMessageHandler>(bridge)
         Registry.register<WebViewClient>(client)
         Registry.register<OnsiteBridge>(onsiteBridge)
-        Registry.register<Observers>(observers)
+        Registry.register<ObserverCollection>(observerCollection)
 
         Klaviyo.registerForInAppForms()
 
@@ -85,7 +85,7 @@ internal class InAppFormsTest : BaseTest() {
         assertEquals(client, Registry.get<WebViewClient>())
         verify { client.initializeWebView() }
         assertEquals(onsiteBridge, Registry.get<OnsiteBridge>())
-        assertEquals(observers, Registry.get<Observers>())
+        assertEquals(observerCollection, Registry.get<ObserverCollection>())
     }
 
     @Test(expected = Test.None::class)

@@ -14,7 +14,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.forms.bridge.BridgeMessageHandler
-import com.klaviyo.forms.bridge.Observers
+import com.klaviyo.forms.bridge.ObserverCollection
 import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.just
@@ -66,12 +66,12 @@ class KlaviyoWebViewClientTest : BaseTest() {
         )
     }
 
-    private val mockObservers = mockk<Observers>(relaxed = true)
+    private val mockObserverCollection = mockk<ObserverCollection>(relaxed = true)
 
     @Before
     override fun setup() {
         super.setup()
-        Registry.register<Observers>(mockObservers)
+        Registry.register<ObserverCollection>(mockObserverCollection)
         Registry.register<BridgeMessageHandler>(mockBridge)
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
@@ -113,7 +113,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @After
     override fun cleanup() {
         Registry.unregister<BridgeMessageHandler>()
-        Registry.unregister<Observers>()
+        Registry.unregister<ObserverCollection>()
         clearAllMocks()
         super.cleanup()
     }
@@ -128,7 +128,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         val times = if (doesNotDestroy) 0 else 1
         verify(exactly = times) { spyLog.verbose("Clear IAF WebView reference") }
         verify(exactly = times) { anyConstructed<KlaviyoWebView>().destroy() }
-        verify(exactly = times) { mockObservers.stopObservers() }
+        verify(exactly = times) { mockObserverCollection.stopObservers() }
     }
 
     private fun verifyShow(doesNotShow: Boolean = false) {
@@ -198,7 +198,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @Test
     fun `attachesObservers when local JS initializes`() {
         KlaviyoWebViewClient().onLocalJsReady()
-        verify { mockObservers.startObservers() }
+        verify { mockObserverCollection.startObservers() }
     }
 
     @Test

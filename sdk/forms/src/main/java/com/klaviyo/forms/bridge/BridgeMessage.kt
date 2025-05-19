@@ -7,34 +7,75 @@ import java.io.Serializable
 import org.json.JSONObject
 
 /**
+ * Encapsulates messages sent from JS to SDK via the NativeBridge, i.e. [BridgeMessageHandler].
  * This should be updated with any new message types we add coming from the onsite-in-app-forms
+ * By convention, class names should be same as the message type, but in lower camel case
  */
 internal sealed class BridgeMessage {
 
+    /**
+     * Sent from onsite-bridge.js when that local JS asset has initialized
+     */
     data object JsReady : BridgeMessage()
 
+    /**
+     * Sent from the onsite-in-app-forms when the NativeBridge handshake has been completed,
+     * indicating the fender package is fully initialized.
+     */
     data object HandShook : BridgeMessage()
 
+    /**
+     * Sent from the onsite-in-app-forms when a form is about to appear as a signal to present the webview
+     *
+     * @param formId The form ID of the form that is appearing
+     */
     data class FormWillAppear(
         val formId: String
     ) : BridgeMessage()
 
+    /**
+     * Sent from the onsite-in-app-forms when an aggregate event is tracked
+     * so that the SDK can send it via the native API queue
+     *
+     * @param payload The payload of the aggregate event, to be sent unmodified
+     */
     data class TrackAggregateEvent(
         val payload: AggregateEventPayload
     ) : BridgeMessage()
 
+    /**
+     * Sent from the onsite-in-app-forms when a profile event is tracked
+     * so that the SDK can send it via the native API queue
+     *
+     * @param event The event to be sent, the SDK should attach the profile to it
+     */
     data class TrackProfileEvent(
         val event: Event
     ) : BridgeMessage()
 
+    /**
+     * Sent from the onsite-in-app-forms when a deep link is opened
+     *
+     * @param route The deep link route to be opened (usually a URL)
+     */
     data class OpenDeepLink(
         val route: String
     ) : BridgeMessage()
 
+    /**
+     * Sent from the onsite-in-app-forms when a form is closed as a signal to dismiss the webview
+     *
+     * @param formId The form ID of the form that is disappearing
+     */
     data class FormDisappeared(
         val formId: String
     ) : BridgeMessage()
 
+    /**
+     * Sent from the onsite-in-app-forms when an irrecoverable error occurs and the webview should be closed
+     *
+     * @param reason
+     */
     data class Abort(
         val reason: String
     ) : BridgeMessage()
@@ -43,6 +84,15 @@ internal sealed class BridgeMessage {
         private const val MESSAGE_TYPE_KEY = HandshakeSpec.SPEC_TYPE_KEY
         private const val MESSAGE_DATA_KEY = "data"
 
+        /**
+         * Convert a [BridgeMessage] subclass to its "type" by convention (lower camel case)
+         */
+        private inline fun <reified T : BridgeMessage> keyName(): String =
+            T::class.java.simpleName.let { it[0].lowercaseChar() + it.substring(1) }
+
+        /**
+         * Compile a list of [HandshakeSpec] to be injected into the webview
+         */
         internal val handShakeData by lazy {
             listOf(
                 HandshakeSpec(keyName<HandShook>(), 1),
@@ -126,6 +176,3 @@ internal sealed class BridgeMessage {
         }
     }
 }
-
-private inline fun <reified T : BridgeMessage> keyName(): String =
-    T::class.java.simpleName.let { it[0].lowercaseChar() + it.substring(1) }

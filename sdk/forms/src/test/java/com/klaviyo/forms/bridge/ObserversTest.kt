@@ -5,7 +5,7 @@ import io.mockk.verify
 import org.junit.Test
 
 class ObserversTest {
-    object MockObservers : Observers {
+    object MockObserverCollection : ObserverCollection {
         val mockObserver1 = mockk<Observer>(relaxed = true)
         val mockObserver2 = mockk<Observer>(relaxed = true)
 
@@ -17,15 +17,15 @@ class ObserversTest {
 
     @Test
     fun `test startObservers calls startObserver on all observers`() {
-        MockObservers.startObservers()
-        verify(exactly = 1) { MockObservers.mockObserver1.startObserver() }
-        verify(exactly = 1) { MockObservers.mockObserver2.startObserver() }
+        MockObserverCollection.startObservers()
+        verify(exactly = 1) { MockObserverCollection.mockObserver1.startObserver() }
+        verify(exactly = 1) { MockObserverCollection.mockObserver2.startObserver() }
     }
 
     @Test
     fun `test stopObservers calls stopObserver on all observers`() {
-        MockObservers.stopObservers()
-        verify(exactly = 1) { MockObservers.mockObserver1.stopObserver() }
-        verify(exactly = 1) { MockObservers.mockObserver2.stopObserver() }
+        MockObserverCollection.stopObservers()
+        verify(exactly = 1) { MockObserverCollection.mockObserver1.stopObserver() }
+        verify(exactly = 1) { MockObserverCollection.mockObserver2.stopObserver() }
     }
 }

@@ -16,7 +16,7 @@ import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.BridgeMessageHandler
-import com.klaviyo.forms.bridge.Observers
+import com.klaviyo.forms.bridge.ObserverCollection
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import java.io.BufferedReader
@@ -55,6 +55,9 @@ internal class KlaviyoWebViewClient(
         Registry.log.debug("Klaviyo webview is already initialized")
     } ?: KlaviyoWebView().let { webView ->
         val nativeBridge: BridgeMessageHandler = Registry.get()
+        val observerCollection = Registry.get<ObserverCollection>()
+        val handshake = nativeBridge.handshake + observerCollection.handshake()
+
         this.webView = webView
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
@@ -72,7 +75,7 @@ internal class KlaviyoWebViewClient(
             .replace("SDK_NAME", Registry.config.sdkName)
             .replace("SDK_VERSION", Registry.config.sdkVersion)
             .replace("BRIDGE_NAME", nativeBridge.name)
-            .replace("BRIDGE_HANDSHAKE", nativeBridge.handshake.compileJson())
+            .replace("BRIDGE_HANDSHAKE", handshake.compileJson())
             .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
             .let { html ->
@@ -86,7 +89,7 @@ internal class KlaviyoWebViewClient(
     }
 
     override fun onLocalJsReady() {
-        Registry.get<Observers>().startObservers()
+        Registry.get<ObserverCollection>().startObservers()
     }
 
     /**
@@ -141,7 +144,7 @@ internal class KlaviyoWebViewClient(
      */
     override fun destroyWebView() = apply {
         handshakeTimer?.cancel()
-        Registry.get<Observers>().stopObservers()
+        Registry.get<ObserverCollection>().stopObservers()
         webView?.let { webView ->
             Registry.log.verbose("Clear IAF WebView reference")
             webView.destroy()
