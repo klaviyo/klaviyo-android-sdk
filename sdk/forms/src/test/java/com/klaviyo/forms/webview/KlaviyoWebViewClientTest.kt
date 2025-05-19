@@ -5,6 +5,7 @@ import android.content.res.AssetManager
 import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.ValueCallback
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -14,7 +15,10 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.forms.bridge.BridgeMessageHandler
+import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.ObserverCollection
+import com.klaviyo.forms.bridge.compileJson
+import com.klaviyo.forms.presentation.PresentationManager
 import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.just
@@ -33,19 +37,34 @@ import org.junit.Test
 class KlaviyoWebViewClientTest : BaseTest() {
 
     companion object {
-        val HTML = """
+        val HTML_TEMPLATE = """
             <!DOCTYPE html>
             <html lang="en">
             <head data-sdk-name="SDK_NAME"
                   data-sdk-version="SDK_VERSION"
                   data-native-bridge-name="BRIDGE_NAME"
                   data-native-bridge-handshake='BRIDGE_HANDSHAKE'
+                  data-forms-data-environment='FORMS_ENVIRONMENT'
+                  data-klaviyo-local-tracking="1"
+                  data-klaviyo-profile="{}"
             >
                 <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover"/>
-                <meta name="referrer" content="same-origin" /> <!--  This meta tag protects @imported fonts from being blocked by CORS  -->
+                <meta name="viewport"
+                      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover"/>
+            
+                <!--  This meta tag protects @imported fonts from being blocked by CORS  -->
+                <meta name="referrer" content="same-origin"/>
+            
                 <title>Klaviyo In-App Form Template</title>
-                <link rel="stylesheet" type="text/css" href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css" crossorigin/>
+            
+                <!-- Load in JS helper functions from assets directory -->
+                <script type="text/javascript" src="file:///android_asset/onsite-bridge.js"></script>
+            
+                <!-- Static stylesheet for "websafe" fonts that may be unavailable or inconsistent from the system -->
+                <link rel="stylesheet" type="text/css"
+                      href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css" crossorigin/>
+            
+                <!-- Placeholder script to load klaviyo.js -->
                 <script type="text/javascript" src="KLAVIYO_JS_URL"></script>
             </head>
             <body></body>
@@ -53,20 +72,37 @@ class KlaviyoWebViewClientTest : BaseTest() {
         """.trimIndent()
     }
 
+    private val stubKlaviyoJs = "stubKlaviyoJs"
+    private val mockKlaviyoJsUri = mockk<Uri>(relaxed = true).also {
+        every { it.toString() } returns stubKlaviyoJs
+    }
+    private val mockUriBuilder = mockk<Uri.Builder>(relaxed = true).also {
+        every { it.build() } returns mockKlaviyoJsUri
+        every { it.path("onsite/js/klaviyo.js") } returns it
+        every { it.appendQueryParameter("company_id", any()) } returns it
+        every { it.appendQueryParameter("env", any()) } returns it
+    }
+    private val mockCdnUri = mockk<Uri>(relaxed = true).also {
+        every { it.buildUpon() } returns mockUriBuilder
+    }
+
     private val mockBridge: BridgeMessageHandler = mockk<BridgeMessageHandler>(relaxed = true).apply {
         every { name } returns "MockNativeBridge"
         every { allowedOrigin } returns setOf(mockConfig.baseUrl)
+        every { handshake } returns listOf(HandshakeSpec("mockNativeEvent", 1))
     }
 
     private val mockSettings: WebSettings = mockk(relaxed = true)
     private val mockParentView: ViewGroup = mockk(relaxed = true)
     private val mockAssets = mockk<AssetManager> {
         every { open("InAppFormsTemplate.html") } returns ByteArrayInputStream(
-            HTML.encodeToByteArray()
+            HTML_TEMPLATE.encodeToByteArray()
         )
     }
 
-    private val mockObserverCollection = mockk<ObserverCollection>(relaxed = true)
+    private val mockObserverCollection = mockk<ObserverCollection>(relaxed = true).apply {
+        every { handshake } returns listOf(HandshakeSpec("mockObserver", 1))
+    }
 
     @Before
     override fun setup() {
@@ -98,8 +134,10 @@ class KlaviyoWebViewClientTest : BaseTest() {
         mockkStatic(WebViewFeature::class)
         every { WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) } returns true
 
+        val cdnStub = "https://decent.cdn.url.com"
+        every { mockConfig.baseCdnUrl } returns cdnStub
         mockkStatic(Uri::class)
-        every { Uri.parse(any()) } returns mockk(relaxed = true)
+        every { Uri.parse(cdnStub) } returns mockCdnUri
 
         mockkStatic(WebViewCompat::class)
         every { WebViewCompat.addWebMessageListener(any(), any(), any(), any()) } just runs
@@ -138,7 +176,12 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     @Test
-    fun `initializeWebView triggers loadTemplate`() {
+    fun `initializeWebView triggers loadTemplate with proper template substitution`() {
+        val expectedHandshake = listOf(
+            HandshakeSpec("mockNativeEvent", 1),
+            HandshakeSpec("mockObserver", 1)
+        )
+
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
         every {
@@ -146,12 +189,57 @@ class KlaviyoWebViewClientTest : BaseTest() {
                 .loadTemplate(any(), client, mockk())
         } returns Unit
         // checks we load and call these config values
-        verify { anyConstructed<KlaviyoWebView>().loadTemplate(any(), client, any()) }
+
+        val expectedHtml =
+            """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head data-sdk-name="${mockConfig.sdkName}"
+                  data-sdk-version="${mockConfig.sdkVersion}"
+                  data-native-bridge-name="${mockBridge.name}"
+                  data-native-bridge-handshake='${expectedHandshake.compileJson()}'
+                  data-forms-data-environment='in-app'
+                  data-klaviyo-local-tracking="1"
+                  data-klaviyo-profile="{}"
+            >
+                <meta charset="UTF-8">
+                <meta name="viewport"
+                      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover"/>
+            
+                <!--  This meta tag protects @imported fonts from being blocked by CORS  -->
+                <meta name="referrer" content="same-origin"/>
+            
+                <title>Klaviyo In-App Form Template</title>
+            
+                <!-- Load in JS helper functions from assets directory -->
+                <script type="text/javascript" src="file:///android_asset/onsite-bridge.js"></script>
+            
+                <!-- Static stylesheet for "websafe" fonts that may be unavailable or inconsistent from the system -->
+                <link rel="stylesheet" type="text/css"
+                      href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css" crossorigin/>
+            
+                <!-- Placeholder script to load klaviyo.js -->
+                <script type="text/javascript" src="$stubKlaviyoJs"></script>
+            </head>
+            <body></body>
+            </html>
+            """.trimIndent()
+
+        verify { anyConstructed<KlaviyoWebView>().loadTemplate(expectedHtml, client, mockBridge) }
         verify { mockAssets.open("InAppFormsTemplate.html") }
         verify { mockConfig.sdkName }
         verify { mockConfig.sdkVersion }
         // tells us timer has started
         assertEquals(staticClock.scheduledTasks.size, 1)
+    }
+
+    @Test
+    fun `only initializes webview once`() {
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        client.initializeWebView()
+
+        verify { spyLog.debug("Klaviyo webview is already initialized") }
     }
 
     @Test
@@ -333,5 +421,21 @@ class KlaviyoWebViewClientTest : BaseTest() {
         var resultFalse: Boolean? = null
         client.evaluateJavascript("test") { resultFalse = it }
         assertEquals(false, resultFalse)
+    }
+
+    @Test
+    fun `onRenderProcessGone handles webview crash`() {
+        val mockPresentationManager = mockk<PresentationManager>(relaxed = true).apply {
+            every { dismiss() } just runs
+        }
+        Registry.register<PresentationManager>(mockPresentationManager)
+        val client = KlaviyoWebViewClient()
+        val mockDetail: RenderProcessGoneDetail = mockk(relaxed = true)
+        val result = client.onRenderProcessGone(null, mockDetail)
+
+        assertEquals(true, result)
+        verify { mockPresentationManager.dismiss() }
+        verify { spyLog.error("WebView crashed or deallocated") }
+        Registry.unregister<PresentationManager>()
     }
 }

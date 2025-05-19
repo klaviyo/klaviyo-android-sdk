@@ -18,7 +18,7 @@ import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.BridgeMessageHandler
 import com.klaviyo.forms.bridge.ObserverCollection
 import com.klaviyo.forms.bridge.compileJson
-import com.klaviyo.forms.presentation.KlaviyoPresentationManager
+import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
 
 /**
@@ -177,7 +177,7 @@ internal class KlaviyoWebViewClient(
      * we have to clean up and return true here else the host app will crash
      */
     override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean =
-        Registry.get<KlaviyoPresentationManager>().dismiss().let {
+        Registry.get<PresentationManager>().dismiss().let {
             Registry.log.error("WebView crashed or deallocated")
             return true
         }
