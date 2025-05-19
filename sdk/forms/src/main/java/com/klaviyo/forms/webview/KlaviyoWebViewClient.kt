@@ -56,7 +56,7 @@ internal class KlaviyoWebViewClient(
     } ?: KlaviyoWebView().let { webView ->
         val nativeBridge: BridgeMessageHandler = Registry.get()
         val observerCollection = Registry.get<ObserverCollection>()
-        val handshake = nativeBridge.handshake + observerCollection.handshake()
+        val handshake = nativeBridge.handshake + observerCollection.handshake
 
         this.webView = webView
 
