@@ -31,6 +31,11 @@ internal class KlaviyoBridgeMessageHandler() : BridgeMessageHandler {
     override val allowedOrigin: Set<String> get() = setOf(Registry.config.baseUrl)
 
     /**
+     * Handshake data indicating the message types/versions that the SDK supports receiving over the NativeBridge
+     */
+    override val handshake: List<HandshakeSpec> = BridgeMessage.handShakeData
+
+    /**
      * When [WEB_MESSAGE_LISTENER] is supported, messages sent over the Native Bridge from JS are received here
      */
     override fun onPostMessage(
@@ -53,11 +58,11 @@ internal class KlaviyoBridgeMessageHandler() : BridgeMessageHandler {
             when (val bridgeMessage = BridgeMessage.decodeWebviewMessage(message)) {
                 BridgeMessage.JsReady -> jsReady()
                 BridgeMessage.HandShook -> handShook()
-                is BridgeMessage.Show -> show(bridgeMessage)
-                is BridgeMessage.AggregateEventTracked -> createAggregateEvent(bridgeMessage)
-                is BridgeMessage.ProfileEvent -> createProfileEvent(bridgeMessage)
-                is BridgeMessage.DeepLink -> deepLink(bridgeMessage)
-                is BridgeMessage.Close -> close()
+                is BridgeMessage.FormWillAppear -> show(bridgeMessage)
+                is BridgeMessage.TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
+                is BridgeMessage.TrackProfileEvent -> createProfileEvent(bridgeMessage)
+                is BridgeMessage.OpenDeepLink -> deepLink(bridgeMessage)
+                is BridgeMessage.FormDisappeared -> close()
                 is BridgeMessage.Abort -> abort(bridgeMessage.reason)
             }
         } catch (e: Exception) {
@@ -78,27 +83,27 @@ internal class KlaviyoBridgeMessageHandler() : BridgeMessageHandler {
     /**
      * Notify the client that the webview should be shown
      */
-    private fun show(bridgeMessage: BridgeMessage.Show) = Registry.get<PresentationManager>().present().also {
+    private fun show(bridgeMessage: BridgeMessage.FormWillAppear) = Registry.get<PresentationManager>().present().also {
         Registry.log.debug("Present form ${bridgeMessage.formId}")
     }
 
     /**
-     * Handle a [BridgeMessage.AggregateEventTracked] message by creating an API call
+     * Handle a [BridgeMessage.TrackAggregateEvent] message by creating an API call
      */
-    private fun createAggregateEvent(message: BridgeMessage.AggregateEventTracked) =
+    private fun createAggregateEvent(message: BridgeMessage.TrackAggregateEvent) =
         Registry.get<ApiClient>().enqueueAggregateEvent(message.payload)
 
     /**
-     * Handle a [BridgeMessage.ProfileEvent] message by creating an API call
+     * Handle a [BridgeMessage.TrackProfileEvent] message by creating an API call
      */
-    private fun createProfileEvent(message: BridgeMessage.ProfileEvent) =
+    private fun createProfileEvent(message: BridgeMessage.TrackProfileEvent) =
         Klaviyo.createEvent(message.event)
 
     /**
-     * Handle a [BridgeMessage.DeepLink] message by broadcasting an intent to the host app
+     * Handle a [BridgeMessage.OpenDeepLink] message by broadcasting an intent to the host app
      * similar to how we handle deep links from a notification
      */
-    private fun deepLink(messageType: BridgeMessage.DeepLink) {
+    private fun deepLink(messageType: BridgeMessage.OpenDeepLink) {
         Registry.lifecycleMonitor.currentActivity?.startActivity(
             Intent().apply {
                 data = messageType.route.toUri()

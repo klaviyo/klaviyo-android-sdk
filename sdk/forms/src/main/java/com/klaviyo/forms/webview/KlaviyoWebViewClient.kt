@@ -15,9 +15,9 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.forms.InAppFormsConfig
-import com.klaviyo.forms.bridge.BridgeMessage.Companion.handShakeData
 import com.klaviyo.forms.bridge.BridgeMessageHandler
 import com.klaviyo.forms.bridge.Observers
+import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import java.io.BufferedReader
 
@@ -72,7 +72,7 @@ internal class KlaviyoWebViewClient(
             .replace("SDK_NAME", Registry.config.sdkName)
             .replace("SDK_VERSION", Registry.config.sdkVersion)
             .replace("BRIDGE_NAME", nativeBridge.name)
-            .replace("BRIDGE_HANDSHAKE", handShakeData)
+            .replace("BRIDGE_HANDSHAKE", nativeBridge.handshake.compileJson())
             .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
             .let { html ->

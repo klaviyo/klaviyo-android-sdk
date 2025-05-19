@@ -4,7 +4,6 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import java.io.Serializable
-import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -16,23 +15,23 @@ internal sealed class BridgeMessage {
 
     data object HandShook : BridgeMessage()
 
-    data class Show(
+    data class FormWillAppear(
         val formId: String
     ) : BridgeMessage()
 
-    data class AggregateEventTracked(
+    data class TrackAggregateEvent(
         val payload: AggregateEventPayload
     ) : BridgeMessage()
 
-    data class ProfileEvent(
+    data class TrackProfileEvent(
         val event: Event
     ) : BridgeMessage()
 
-    data class DeepLink(
+    data class OpenDeepLink(
         val route: String
     ) : BridgeMessage()
 
-    data class Close(
+    data class FormDisappeared(
         val formId: String
     ) : BridgeMessage()
 
@@ -41,55 +40,19 @@ internal sealed class BridgeMessage {
     ) : BridgeMessage()
 
     companion object {
-        private const val IAF_MESSAGE_DATA_KEY = "data"
-        private const val IAF_MESSAGE_TYPE_KEY = "type"
-        private const val IAF_TYPE_VERSION_KEY = "version"
+        private const val MESSAGE_TYPE_KEY = HandshakeSpec.SPEC_TYPE_KEY
+        private const val MESSAGE_DATA_KEY = "data"
 
-        private const val BRIDGE_JS_READY = "jsReady"
-        private const val IAF_MESSAGE_HAND_SHOOK = "handShook"
-        private const val IAF_MESSAGE_TYPE_SHOW = "formWillAppear"
-        private const val IAF_MESSAGE_TYPE_AGGREGATE_EVENT = "trackAggregateEvent"
-        private const val IAF_MESSAGE_TYPE_PROFILE_EVENT = "trackProfileEvent"
-        private const val IAF_MESSAGE_TYPE_DEEPLINK = "openDeepLink"
-        private const val IAF_MESSAGE_TYPE_CLOSE = "formDisappeared"
-        private const val IAF_MESSAGE_TYPE_ABORT = "abort"
-
-        /**
-         * Handshake data: the types and version numbers of bridge messages that the SDK supports
-         */
         internal val handShakeData by lazy {
-            JSONArray(
-                listOf(
-                    mapOf(
-                        IAF_MESSAGE_TYPE_KEY to IAF_MESSAGE_HAND_SHOOK,
-                        IAF_TYPE_VERSION_KEY to 1
-                    ),
-                    mapOf(
-                        IAF_MESSAGE_TYPE_KEY to IAF_MESSAGE_TYPE_SHOW,
-                        IAF_TYPE_VERSION_KEY to 1
-                    ),
-                    mapOf(
-                        IAF_MESSAGE_TYPE_KEY to IAF_MESSAGE_TYPE_AGGREGATE_EVENT,
-                        IAF_TYPE_VERSION_KEY to 1
-                    ),
-                    mapOf(
-                        IAF_MESSAGE_TYPE_KEY to IAF_MESSAGE_TYPE_PROFILE_EVENT,
-                        IAF_TYPE_VERSION_KEY to 1
-                    ),
-                    mapOf(
-                        IAF_MESSAGE_TYPE_KEY to IAF_MESSAGE_TYPE_DEEPLINK,
-                        IAF_TYPE_VERSION_KEY to 1
-                    ),
-                    mapOf(
-                        IAF_MESSAGE_TYPE_KEY to IAF_MESSAGE_TYPE_CLOSE,
-                        IAF_TYPE_VERSION_KEY to 1
-                    ),
-                    mapOf(
-                        IAF_MESSAGE_TYPE_KEY to IAF_MESSAGE_TYPE_ABORT,
-                        IAF_TYPE_VERSION_KEY to 1
-                    )
-                )
-            ).toString()
+            listOf(
+                HandshakeSpec(keyName<HandShook>(), 1),
+                HandshakeSpec(keyName<FormWillAppear>(), 1),
+                HandshakeSpec(keyName<TrackAggregateEvent>(), 1),
+                HandshakeSpec(keyName<TrackProfileEvent>(), 1),
+                HandshakeSpec(keyName<OpenDeepLink>(), 1),
+                HandshakeSpec(keyName<FormDisappeared>(), 1),
+                HandshakeSpec(keyName<Abort>(), 1)
+            )
         }
 
         /**
@@ -99,37 +62,37 @@ internal sealed class BridgeMessage {
          */
         fun decodeWebviewMessage(message: String): BridgeMessage {
             val jsonMessage = JSONObject(message)
-            val jsonData = jsonMessage.optJSONObject(IAF_MESSAGE_DATA_KEY) ?: JSONObject()
+            val jsonData = jsonMessage.optJSONObject(MESSAGE_DATA_KEY) ?: JSONObject()
 
-            return when (val type = jsonMessage.optString(IAF_MESSAGE_TYPE_KEY)) {
-                BRIDGE_JS_READY -> JsReady
+            return when (val type = jsonMessage.optString(MESSAGE_TYPE_KEY)) {
+                keyName<JsReady>() -> JsReady
 
-                IAF_MESSAGE_HAND_SHOOK -> HandShook
+                keyName<HandShook>() -> HandShook
 
-                IAF_MESSAGE_TYPE_SHOW -> Show(
+                keyName<FormWillAppear>() -> FormWillAppear(
                     formId = jsonData.optString("formId").ifEmpty { "" }
                 )
 
-                IAF_MESSAGE_TYPE_AGGREGATE_EVENT -> AggregateEventTracked(
+                keyName<TrackAggregateEvent>() -> TrackAggregateEvent(
                     payload = jsonData
                 )
 
-                IAF_MESSAGE_TYPE_PROFILE_EVENT -> ProfileEvent(
+                keyName<TrackProfileEvent>() -> TrackProfileEvent(
                     event = Event(
                         jsonData.getString("metric"),
                         properties = jsonData.getEventProperties()
                     )
                 )
 
-                IAF_MESSAGE_TYPE_DEEPLINK -> DeepLink(
+                keyName<OpenDeepLink>() -> OpenDeepLink(
                     route = jsonData.getDeepLink()
                 )
 
-                IAF_MESSAGE_TYPE_CLOSE -> Close(
+                keyName<FormDisappeared>() -> FormDisappeared(
                     formId = jsonData.optString("formId").ifEmpty { "" }
                 )
 
-                IAF_MESSAGE_TYPE_ABORT -> Abort(
+                keyName<Abort>() -> Abort(
                     reason = jsonData.optString("reason").ifEmpty { "Unknown" }
                 )
 
@@ -138,7 +101,7 @@ internal sealed class BridgeMessage {
         }
 
         /**
-         * Parse [Event] properties for a [ProfileEvent] message
+         * Parse [Event] properties for a [TrackProfileEvent] message
          */
         private fun JSONObject.getEventProperties(): Map<EventKey, Serializable> {
             val map = mutableMapOf<EventKey, Serializable>()
@@ -163,3 +126,6 @@ internal sealed class BridgeMessage {
         }
     }
 }
+
+private inline fun <reified T : BridgeMessage> keyName(): String =
+    T::class.java.simpleName.let { it[0].lowercaseChar() + it.substring(1) }

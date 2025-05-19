@@ -20,6 +20,11 @@ internal interface BridgeMessageHandler : WebViewCompat.WebMessageListener {
     val allowedOrigin: Set<String>
 
     /**
+     * Handshake data indicating the message types/versions that the SDK supports receiving over the NativeBridge
+     */
+    val handshake: List<HandshakeSpec>
+
+    /**
      * This method is invoked with klaviyo.js sends a message over the native bridge
      */
     @JavascriptInterface

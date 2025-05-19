@@ -46,8 +46,8 @@ class BridgeMessageTest : BaseTest() {
         val result = BridgeMessage.decodeWebviewMessage(showMessage)
 
         // Assert
-        assert(result is BridgeMessage.Show)
-        assertEquals("abc123", (result as BridgeMessage.Show).formId)
+        assert(result is BridgeMessage.FormWillAppear)
+        assertEquals("abc123", (result as BridgeMessage.FormWillAppear).formId)
     }
 
     @Test
@@ -59,8 +59,8 @@ class BridgeMessageTest : BaseTest() {
         val result = BridgeMessage.decodeWebviewMessage(closeMessage)
 
         // Assert
-        assert(result is BridgeMessage.Close)
-        assertEquals("abc123", (result as BridgeMessage.Close).formId)
+        assert(result is BridgeMessage.FormDisappeared)
+        assertEquals("abc123", (result as BridgeMessage.FormDisappeared).formId)
     }
 
     @Test
@@ -89,7 +89,7 @@ class BridgeMessageTest : BaseTest() {
         """.trimIndent()
         every { Registry.log.error(any(), any<Throwable>()) } just Runs
 
-        val decoded = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.ProfileEvent
+        val decoded = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.TrackProfileEvent
         val expectedMetric = EventMetric.CUSTOM("Form completed by profile")
         assertEquals(expectedMetric, decoded.event.metric)
     }
@@ -110,7 +110,7 @@ class BridgeMessageTest : BaseTest() {
         """.trimIndent()
         every { Registry.log.error(any(), any<Throwable>()) } just Runs
 
-        val result = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.ProfileEvent
+        val result = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.TrackProfileEvent
 
         // Assert
         assertEquals(2, result.event.propertyCount())
@@ -134,7 +134,7 @@ class BridgeMessageTest : BaseTest() {
         """.trimIndent()
         every { Registry.log.error(any(), any<Throwable>()) } just Runs
 
-        val result = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.ProfileEvent
+        val result = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.TrackProfileEvent
 
         // Assert
         assertEquals("value1", result.event[EventKey.CUSTOM("key1")])
@@ -195,7 +195,7 @@ class BridgeMessageTest : BaseTest() {
             )
         // Act
         val result =
-            BridgeMessage.decodeWebviewMessage(aggregateMessage) as BridgeMessage.AggregateEventTracked
+            BridgeMessage.decodeWebviewMessage(aggregateMessage) as BridgeMessage.TrackAggregateEvent
 
         // Assert
         assertEquals(expectedAggBody.toString(), result.payload.toString())
@@ -214,7 +214,7 @@ class BridgeMessageTest : BaseTest() {
             }
         """.trimIndent()
 
-        val result = BridgeMessage.decodeWebviewMessage(deeplinkMessage) as BridgeMessage.DeepLink
+        val result = BridgeMessage.decodeWebviewMessage(deeplinkMessage) as BridgeMessage.OpenDeepLink
 
         assertEquals("klaviyotest://settings", result.route)
     }
@@ -312,7 +312,7 @@ class BridgeMessageTest : BaseTest() {
                   }
                 ]
             """.replace("\\s".toRegex(), ""),
-            BridgeMessage.handShakeData
+            BridgeMessage.handShakeData.compileJson()
         )
     }
 }
