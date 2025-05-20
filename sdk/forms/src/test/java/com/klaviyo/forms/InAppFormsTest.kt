@@ -10,11 +10,13 @@ import com.klaviyo.forms.bridge.ObserverCollection
 import com.klaviyo.forms.bridge.OnsiteBridge
 import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.webview.JavaScriptEvaluator
 import com.klaviyo.forms.webview.KlaviyoWebViewClient
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
+import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -36,9 +38,11 @@ internal class InAppFormsTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        unmockkAll()
         Registry.unregister<PresentationManager>()
         Registry.unregister<BridgeMessageHandler>()
         Registry.unregister<WebViewClient>()
+        Registry.unregister<JavaScriptEvaluator>()
         Registry.unregister<OnsiteBridge>()
         Registry.unregister<ObserverCollection>()
         super.cleanup()
@@ -49,6 +53,7 @@ internal class InAppFormsTest : BaseTest() {
         assert(!Registry.isRegistered<PresentationManager>())
         assert(!Registry.isRegistered<BridgeMessageHandler>())
         assert(!Registry.isRegistered<WebViewClient>())
+        assert(!Registry.isRegistered<JavaScriptEvaluator>())
         assert(!Registry.isRegistered<OnsiteBridge>())
         assert(!Registry.isRegistered<ObserverCollection>())
 
@@ -57,6 +62,7 @@ internal class InAppFormsTest : BaseTest() {
         assertNotNull(Registry.get<PresentationManager>())
         assertNotNull(Registry.get<BridgeMessageHandler>())
         assertNotNull(Registry.get<WebViewClient>())
+        assertNotNull(Registry.get<JavaScriptEvaluator>())
         assertNotNull(Registry.get<OnsiteBridge>())
         assertNotNull(Registry.get<ObserverCollection>())
     }

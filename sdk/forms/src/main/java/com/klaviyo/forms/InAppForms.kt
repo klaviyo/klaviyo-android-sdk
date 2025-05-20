@@ -12,6 +12,7 @@ import com.klaviyo.forms.bridge.ObserverCollection
 import com.klaviyo.forms.bridge.OnsiteBridge
 import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.webview.JavaScriptEvaluator
 import com.klaviyo.forms.webview.KlaviyoWebViewClient
 import com.klaviyo.forms.webview.WebViewClient
 
@@ -27,7 +28,11 @@ fun Klaviyo.registerForInAppForms(
     Registry.apply {
         registerOnce<PresentationManager> { KlaviyoPresentationManager() }
         registerOnce<BridgeMessageHandler> { KlaviyoBridgeMessageHandler() }
-        registerOnce<WebViewClient> { KlaviyoWebViewClient(config) }
+        registerOnce<WebViewClient> {
+            KlaviyoWebViewClient(config).apply {
+                Registry.register<JavaScriptEvaluator>(this)
+            }
+        }
         registerOnce<OnsiteBridge> { KlaviyoOnsiteBridge() }
         registerOnce<ObserverCollection> { KlaviyoObserverCollection() }
     }

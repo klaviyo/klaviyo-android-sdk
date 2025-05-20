@@ -40,13 +40,6 @@ internal class KlaviyoWebViewClient(
      */
     private var webView: KlaviyoWebView? by WeakReferenceDelegate()
 
-    init {
-        /**
-         * Self-register self as JavaScriptEvaluator
-         */
-        Registry.register<JavaScriptEvaluator>(this)
-    }
-
     /**
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for in-app forms with handshake data injected in the document head
@@ -54,7 +47,7 @@ internal class KlaviyoWebViewClient(
     override fun initializeWebView(): Unit = webView?.let {
         Registry.log.debug("Klaviyo webview is already initialized")
     } ?: KlaviyoWebView().let { webView ->
-        val nativeBridge: BridgeMessageHandler = Registry.get()
+        val nativeBridge = Registry.get<BridgeMessageHandler>()
         val observerCollection = Registry.get<ObserverCollection>()
         val handshake = nativeBridge.handshake + observerCollection.handshake
 

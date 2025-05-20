@@ -182,14 +182,6 @@ class KlaviyoWebViewClientTest : BaseTest() {
             HandshakeSpec("mockObserver", 1)
         )
 
-        val client = KlaviyoWebViewClient()
-        client.initializeWebView()
-        every {
-            anyConstructed<KlaviyoWebView>()
-                .loadTemplate(any(), client, mockk())
-        } returns Unit
-        // checks we load and call these config values
-
         val expectedHtml =
             """
             <!DOCTYPE html>
@@ -225,8 +217,11 @@ class KlaviyoWebViewClientTest : BaseTest() {
             </html>
             """.trimIndent()
 
-        verify { anyConstructed<KlaviyoWebView>().loadTemplate(expectedHtml, client, mockBridge) }
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+
         verify { mockAssets.open("InAppFormsTemplate.html") }
+        verify { anyConstructed<KlaviyoWebView>().loadTemplate(expectedHtml, client, mockBridge) }
         verify { mockConfig.sdkName }
         verify { mockConfig.sdkVersion }
         // tells us timer has started
