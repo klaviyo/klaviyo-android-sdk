@@ -22,9 +22,15 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     )
 
     override var currentActivity: Activity? by WeakReferenceDelegate()
+        private set
 
     @AdvancedAPI
     override fun assignCurrentActivity(activity: Activity) {
+        if (activity != currentActivity) {
+            // If we missed this activity's creation, then we need to increment the count now
+            activeActivities++
+        }
+
         currentActivity = activity
     }
 
@@ -50,6 +56,10 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     override fun onActivityStarted(activity: Activity) {
+        if (activeActivities == 0) {
+            broadcastEvent(ActivityEvent.FirstStarted(activity))
+        }
+
         activeActivities++
         broadcastEvent(ActivityEvent.Started(activity))
     }

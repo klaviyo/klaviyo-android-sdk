@@ -26,10 +26,11 @@ fun Klaviyo.registerForInAppForms(
 ): Klaviyo = safeApply {
     // Register IAF services
     Registry.apply {
+        register<InAppFormsConfig>(config)
         registerOnce<PresentationManager> { KlaviyoPresentationManager() }
         registerOnce<BridgeMessageHandler> { KlaviyoBridgeMessageHandler() }
         registerOnce<WebViewClient> {
-            KlaviyoWebViewClient(config).also {
+            KlaviyoWebViewClient().also {
                 register<JavaScriptEvaluator>(it)
             }
         }

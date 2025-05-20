@@ -14,7 +14,6 @@ import androidx.core.net.toUri
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
-import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.BridgeMessageHandler
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.ObserverCollection
@@ -26,9 +25,7 @@ import java.io.BufferedReader
  * Manages the [KlaviyoWebView] instance that powers in-app forms behavior, triggering, rendering and display,
  * and handles all its [android.webkit.WebViewClient] delegate methods, and loading of klaviyo.js
  */
-internal class KlaviyoWebViewClient(
-    val config: InAppFormsConfig = InAppFormsConfig()
-) : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
+internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
 
     /**
      * For timeout on awaiting the native bridge [com.klaviyo.forms.bridge.BridgeMessage.HandShook] event

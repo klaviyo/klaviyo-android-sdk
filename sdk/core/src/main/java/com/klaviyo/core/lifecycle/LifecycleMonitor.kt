@@ -12,7 +12,15 @@ sealed class ActivityEvent(val activity: Activity? = null, val bundle: Bundle? =
 
     val type: String get() = this.javaClass.simpleName
 
+    /**
+     * An activity was created
+     */
     class Created(activity: Activity, bundle: Bundle?) : ActivityEvent(activity, bundle)
+
+    /**
+     * Application moved to the foreground, i.e. went from 0 to 1 active activities
+     */
+    class FirstStarted(activity: Activity) : ActivityEvent(activity)
 
     class Started(activity: Activity) : ActivityEvent(activity)
 
@@ -24,6 +32,9 @@ sealed class ActivityEvent(val activity: Activity? = null, val bundle: Bundle? =
 
     class Stopped(activity: Activity) : ActivityEvent(activity)
 
+    /**
+     * Application moved to the background, called after the last application activity is stopped
+     */
     class AllStopped : ActivityEvent()
 
     class ConfigurationChanged(val newConfig: Configuration) : ActivityEvent()
