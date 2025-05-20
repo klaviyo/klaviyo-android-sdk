@@ -4,7 +4,6 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.OnsiteBridge.LifecycleEventType
-import com.klaviyo.forms.bridge.OnsiteBridge.LifecycleSessionBehavior
 import com.klaviyo.forms.webview.WebViewClient
 
 internal class LifecycleObserver : Observer {
@@ -25,40 +24,35 @@ internal class LifecycleObserver : Observer {
     private fun onLifecycleEvent(activity: ActivityEvent): Unit = when (activity) {
         // App foregrounded
         is ActivityEvent.FirstStarted -> {
-            val behavior = getForegroundedBehavior()
-
-            Registry.get<OnsiteBridge>().dispatchLifecycleEvent(
-                LifecycleEventType.foreground,
-                behavior
-            ) {
-                if (behavior == LifecycleSessionBehavior.purge) {
-                    // Re-initialize the webview if session times out
-                    Registry.get<WebViewClient>()
-                        .destroyWebView()
-                        .initializeWebView()
-                }
+            if (isSessionExpired()) {
+                // Re-initialize the webview if session times out
+                Registry.get<WebViewClient>()
+                    .destroyWebView()
+                    .initializeWebView()
+            } else {
+                Registry.get<OnsiteBridge>().dispatchLifecycleEvent(
+                    LifecycleEventType.foreground
+                )
             }
         }
 
         // App backgrounded
         is ActivityEvent.AllStopped -> {
+            lastBackgrounded = Registry.clock.currentTimeMillis()
             Registry.get<OnsiteBridge>().dispatchLifecycleEvent(
-                LifecycleEventType.background,
-                LifecycleSessionBehavior.persist
-            ) {
-                lastBackgrounded = Registry.clock.currentTimeMillis()
-            }
+                LifecycleEventType.background
+            )
         }
 
         else -> Unit
     }
 
     /**
-     * If the app was last backgrounded within the session timeout, we can restore, else purge.
+     * If the session timeout duration has elapsed since last backgrounded
+     * the session is expired and webview should be re-initialized
      */
-    private fun getForegroundedBehavior(): LifecycleSessionBehavior = lastBackgrounded
+    private fun isSessionExpired(): Boolean = lastBackgrounded
         ?.let { Registry.clock.currentTimeMillis() - it }
-        ?.takeIf { elapsedMs -> elapsedMs < sessionTimeoutMs }
-        ?.let { LifecycleSessionBehavior.restore }
-        ?: LifecycleSessionBehavior.purge
+        ?.let { elapsedMs -> elapsedMs >= sessionTimeoutMs }
+        ?: false
 }

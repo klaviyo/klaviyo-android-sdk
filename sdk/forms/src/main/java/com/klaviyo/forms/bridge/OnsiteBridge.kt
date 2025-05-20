@@ -1,7 +1,6 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.ImmutableProfile
-import com.klaviyo.forms.webview.JsCallback
 
 /**
  * API for communicating data and events from native to the onsite-in-app JS module
@@ -14,12 +13,6 @@ internal interface OnsiteBridge {
         foreground
     }
 
-    enum class LifecycleSessionBehavior {
-        persist,
-        restore,
-        purge
-    }
-
     /**
      * Inject profile data into the webview as data attributes
      */
@@ -28,9 +21,5 @@ internal interface OnsiteBridge {
     /**
      * Dispatch lifecycle events for onsite JS package to consume
      */
-    fun dispatchLifecycleEvent(
-        type: LifecycleEventType,
-        session: LifecycleSessionBehavior,
-        callback: JsCallback = {}
-    )
+    fun dispatchLifecycleEvent(type: LifecycleEventType)
 }

@@ -26,16 +26,14 @@ window.setProfile = function (external_id, email, phone_number, anonymous_id) {
  * Dispatches a lifecycle event to be detected by klaviyo.js
  *
  * @param type - The type of lifecycle event to dispatch: "foreground" | "background"
- * @param session - Session behavior: "persist" | "restore" | "purge"
  */
-window.dispatchLifecycleEvent = function (type, session) {
+window.dispatchLifecycleEvent = function (type) {
     document.head.dispatchEvent(
         new CustomEvent(
             'lifecycleEvent',
             {
                 detail: {
-                    type: type,
-                    session: session
+                    type: type
                 }
             }
         )

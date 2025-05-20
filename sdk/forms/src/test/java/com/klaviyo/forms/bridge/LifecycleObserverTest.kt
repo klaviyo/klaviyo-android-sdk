@@ -37,11 +37,7 @@ class LifecycleObserverTest : BaseTest() {
     }
 
     private fun withBridge(): OnsiteBridge {
-        val mockBridge = mockk<OnsiteBridge>(relaxed = true).apply {
-            every { dispatchLifecycleEvent(any(), any(), any()) } answers {
-                thirdArg<(Boolean) -> Unit>().invoke(true)
-            }
-        }
+        val mockBridge = mockk<OnsiteBridge>(relaxed = true)
         Registry.register<OnsiteBridge>(mockBridge)
         LifecycleObserver().startObserver()
         return mockBridge
@@ -71,7 +67,7 @@ class LifecycleObserverTest : BaseTest() {
         observerSlot.captured(ActivityEvent.Resumed(mockActivity))
 
         verify(inverse = true) {
-            mockBridge.dispatchLifecycleEvent(any(), any(), any())
+            mockBridge.dispatchLifecycleEvent(any())
         }
         verify(inverse = true) {
             mockWebViewClient.destroyWebView()
@@ -79,39 +75,35 @@ class LifecycleObserverTest : BaseTest() {
     }
 
     @Test
-    fun `app launch injects foreground lifecycle event with purge behavior`() {
+    fun `app foregrounded injects foreground lifecycle event`() {
         val mockBridge = withBridge()
 
         observerSlot.captured(ActivityEvent.FirstStarted(mockActivity))
 
         verify {
             mockBridge.dispatchLifecycleEvent(
-                OnsiteBridge.LifecycleEventType.foreground,
-                OnsiteBridge.LifecycleSessionBehavior.purge,
-                any()
+                OnsiteBridge.LifecycleEventType.foreground
             )
         }
-        verify { mockWebViewClient.destroyWebView() }
-        verify { mockWebViewClient.initializeWebView() }
+        verify(inverse = true) { mockWebViewClient.destroyWebView() }
+        verify(inverse = true) { mockWebViewClient.initializeWebView() }
     }
 
     @Test
-    fun `app backgrounded injects background lifecycle event with persist behavior`() {
+    fun `app backgrounded injects background lifecycle event`() {
         val mockBridge = withBridge()
 
         observerSlot.captured(ActivityEvent.AllStopped())
 
         verify {
             mockBridge.dispatchLifecycleEvent(
-                OnsiteBridge.LifecycleEventType.background,
-                OnsiteBridge.LifecycleSessionBehavior.persist,
-                any()
+                OnsiteBridge.LifecycleEventType.background
             )
         }
     }
 
     @Test
-    fun `app foregrounded within session timeout injects foreground lifecycle event with persist behavior`() {
+    fun `app foregrounded within session timeout injects foreground lifecycle event`() {
         val mockBridge = withBridge()
 
         observerSlot.captured(ActivityEvent.AllStopped())
@@ -120,27 +112,23 @@ class LifecycleObserverTest : BaseTest() {
 
         verify {
             mockBridge.dispatchLifecycleEvent(
-                OnsiteBridge.LifecycleEventType.foreground,
-                OnsiteBridge.LifecycleSessionBehavior.restore,
-                any()
+                OnsiteBridge.LifecycleEventType.foreground
             )
         }
         verify(inverse = true) { mockWebViewClient.destroyWebView() }
     }
 
     @Test
-    fun `app foregrounded after session timeout injects foreground lifecycle event with purge behavior and resets webview`() {
+    fun `app foregrounded after session timeout resets webview`() {
         val mockBridge = withBridge()
 
         observerSlot.captured(ActivityEvent.AllStopped())
         staticClock.execute(10_000)
         observerSlot.captured(ActivityEvent.FirstStarted(mockActivity))
 
-        verify {
+        verify(inverse = true) {
             mockBridge.dispatchLifecycleEvent(
-                OnsiteBridge.LifecycleEventType.foreground,
-                OnsiteBridge.LifecycleSessionBehavior.purge,
-                any()
+                OnsiteBridge.LifecycleEventType.foreground
             )
         }
         verify() { mockWebViewClient.destroyWebView() }
