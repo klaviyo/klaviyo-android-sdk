@@ -158,10 +158,16 @@ object Registry {
      * @param T - Type of service, usually an interface
      * @return The instance of the service
      */
-    inline fun <reified T : Any> getOrNull(): T? = try {
-        get()
-    } catch (_: KlaviyoException) {
-        null
+    inline fun <reified T : Any> getOrNull(): T? {
+        val type = typeOf<T>()
+        val service: Any? = services[type]
+
+        if (service is T) return service
+
+        return when (val service = registry[type]?.let { it() }) {
+            is T -> service.apply { services[type] = service }
+            else -> null
+        }
     }
 
     /**

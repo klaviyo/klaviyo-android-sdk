@@ -134,4 +134,12 @@ class RegistryTest {
         val result = Registry.getOrNull<TestDependency>()
         assertEquals(dep, result)
     }
+
+    @Test
+    fun `getOrNull returns a lazily registered service`() {
+        val dep = object : TestDependency {}
+        Registry.register<TestDependency> { dep }
+        val result = Registry.getOrNull<TestDependency>()
+        assertEquals(dep, result)
+    }
 }
