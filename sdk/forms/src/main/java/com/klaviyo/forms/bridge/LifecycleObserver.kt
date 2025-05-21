@@ -3,7 +3,8 @@ package com.klaviyo.forms.bridge
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.forms.InAppFormsConfig
-import com.klaviyo.forms.bridge.OnsiteBridge.LifecycleEventType
+import com.klaviyo.forms.bridge.OnsiteBridge.LifecycleEventType.background
+import com.klaviyo.forms.bridge.OnsiteBridge.LifecycleEventType.foreground
 import com.klaviyo.forms.webview.WebViewClient
 
 internal class LifecycleObserver : Observer {
@@ -21,30 +22,36 @@ internal class LifecycleObserver : Observer {
 
     override fun stopObserver() = Registry.lifecycleMonitor.offActivityEvent(::onLifecycleEvent)
 
-    private fun onLifecycleEvent(activity: ActivityEvent): Unit = when (activity) {
+    private fun onLifecycleEvent(activity: ActivityEvent) = when (activity) {
         // App foregrounded
-        is ActivityEvent.FirstStarted -> {
-            if (isSessionExpired()) {
-                // Re-initialize the webview if session times out
-                Registry.get<WebViewClient>()
-                    .destroyWebView()
-                    .initializeWebView()
-            } else {
-                Registry.get<OnsiteBridge>().dispatchLifecycleEvent(
-                    LifecycleEventType.foreground
-                )
-            }
-        }
-
+        is ActivityEvent.FirstStarted -> onForeground()
         // App backgrounded
-        is ActivityEvent.AllStopped -> {
-            lastBackgrounded = Registry.clock.currentTimeMillis()
-            Registry.get<OnsiteBridge>().dispatchLifecycleEvent(
-                LifecycleEventType.background
-            )
-        }
-
+        is ActivityEvent.AllStopped -> onBackground()
+        // Ignore all others
         else -> Unit
+    }
+
+    /**
+     * On foregrounded, if session timeout has elapsed, re-initialize the webview.
+     * Otherwise, dispatch a foregrounded lifecycle event into the webview
+     */
+    private fun onForeground() {
+        if (isSessionExpired()) {
+            Registry.get<WebViewClient>()
+                .destroyWebView()
+                .initializeWebView()
+        } else {
+            Registry.get<OnsiteBridge>().dispatchLifecycleEvent(foreground)
+        }
+    }
+
+    /**
+     * On backgrounded, store the current time in milliseconds
+     * and dispatch a backgrounded lifecycle event into the webview
+     */
+    private fun onBackground() {
+        lastBackgrounded = Registry.clock.currentTimeMillis()
+        Registry.get<OnsiteBridge>().dispatchLifecycleEvent(background)
     }
 
     /**
