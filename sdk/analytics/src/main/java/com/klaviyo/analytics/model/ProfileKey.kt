@@ -44,12 +44,14 @@ sealed class ProfileKey(name: String) : Keyword(name) {
          *
          * Note: it best to use the explicit setter method for each identifier
          */
-        val IDENTIFIERS = setOf(
-            EXTERNAL_ID.name,
-            EMAIL.name,
-            PHONE_NUMBER.name,
-            ANONYMOUS_ID.name
-        )
+        val IDENTIFIERS by lazy {
+            setOf(
+                EXTERNAL_ID.name,
+                EMAIL.name,
+                PHONE_NUMBER.name,
+                ANONYMOUS_ID.name
+            )
+        }
     }
 }
 
