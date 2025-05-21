@@ -9,7 +9,7 @@ import org.json.JSONObject
 /**
  * Encapsulates messages sent from JS to SDK via the NativeBridge, i.e. [BridgeMessageHandler].
  * This should be updated with any new message types we add coming from the onsite-in-app-forms
- * By convention, class names should be same as the message type, but in lower camel case
+ * By convention, class names should be upper camelcased version of the message type.
  */
 internal sealed class BridgeMessage {
 
@@ -73,8 +73,6 @@ internal sealed class BridgeMessage {
 
     /**
      * Sent from the onsite-in-app-forms when an irrecoverable error occurs and the webview should be closed
-     *
-     * @param reason
      */
     data class Abort(
         val reason: String

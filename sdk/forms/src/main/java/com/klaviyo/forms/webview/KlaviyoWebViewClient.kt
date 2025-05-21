@@ -16,6 +16,7 @@ import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.BridgeMessageHandler
+import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.ObserverCollection
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
@@ -49,7 +50,7 @@ internal class KlaviyoWebViewClient(
     } ?: KlaviyoWebView().let { webView ->
         val nativeBridge = Registry.get<BridgeMessageHandler>()
         val observerCollection = Registry.get<ObserverCollection>()
-        val handshake = nativeBridge.handshake + observerCollection.handshake
+        val handshake: List<HandshakeSpec> = nativeBridge.handshake + observerCollection.handshake
 
         this.webView = webView
 

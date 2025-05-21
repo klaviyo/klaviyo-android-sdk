@@ -17,10 +17,10 @@ internal interface ObserverCollection {
     /**
      * Start all observers in the collection
      */
-    fun startObservers() = observers.forEach { it.startObserver() }
+    fun startObservers() = apply { observers.forEach { it.startObserver() } }
 
     /**
      * Stop all observers in the collection
      */
-    fun stopObservers() = observers.forEach { it.stopObserver() }
+    fun stopObservers() = apply { observers.forEach { it.stopObserver() } }
 }

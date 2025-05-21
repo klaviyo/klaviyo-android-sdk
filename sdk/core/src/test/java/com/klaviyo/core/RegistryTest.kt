@@ -3,6 +3,7 @@ package com.klaviyo.core
 import com.klaviyo.core.config.Log
 import com.klaviyo.fixtures.LogFixture
 import io.mockk.spyk
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -18,6 +19,16 @@ class RegistryTest {
     @Before
     fun setup() {
         Registry.register<Log>(spyk(LogFixture()))
+    }
+
+    @After
+    fun cleanup() {
+        Registry.unregister<Log>()
+        Registry.unregister<TestDependency>()
+        Registry.unregister<TestLazyDependency>()
+        Registry.unregister<TestLazyOnceDependency>()
+        Registry.unregister<TestWrongDependency>()
+        Registry.unregister<TestMissingDependency>()
     }
 
     @Test
@@ -108,5 +119,19 @@ class RegistryTest {
         assertEquals(firstInstance, Registry.get<TestLazyOnceDependency>())
         assertEquals(0, secondCallCount)
         assertEquals(1, firstCallCount)
+    }
+
+    @Test
+    fun `getOrNull returns null for unregistered service`() {
+        val result = Registry.getOrNull<TestMissingDependency>()
+        assertEquals(null, result)
+    }
+
+    @Test
+    fun `getOrNull returns a registered service`() {
+        val dep = object : TestDependency {}
+        Registry.register<TestDependency>(dep)
+        val result = Registry.getOrNull<TestDependency>()
+        assertEquals(dep, result)
     }
 }

@@ -29,8 +29,8 @@ fun Klaviyo.registerForInAppForms(
         registerOnce<PresentationManager> { KlaviyoPresentationManager() }
         registerOnce<BridgeMessageHandler> { KlaviyoBridgeMessageHandler() }
         registerOnce<WebViewClient> {
-            KlaviyoWebViewClient(config).apply {
-                Registry.register<JavaScriptEvaluator>(this)
+            KlaviyoWebViewClient(config).also {
+                register<JavaScriptEvaluator>(it)
             }
         }
         registerOnce<OnsiteBridge> { KlaviyoOnsiteBridge() }
