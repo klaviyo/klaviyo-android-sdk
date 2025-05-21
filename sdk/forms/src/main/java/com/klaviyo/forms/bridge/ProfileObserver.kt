@@ -1,6 +1,7 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Keyword
+import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 
@@ -13,26 +14,23 @@ internal class ProfileObserver : Observer {
         version = 1
     )
 
-    override fun startObserver() = Registry.get<State>().onStateChange(::onStateChange).also {
+    override fun startObserver() {
         // Set initial profile identifiers on startup
-        onStateChange(null, null)
+        injectProfile()
+        Registry.get<State>().onStateChange(::onStateChange)
     }
 
     override fun stopObserver() = Registry.get<State>().offStateChange(::onStateChange)
 
-    private fun onStateChange(key: Keyword?, v: Any?) = when (key?.name) {
-        in IDENTIFIERS, null -> Registry.get<OnsiteBridge>().setProfile(
-            Registry.get<State>().getAsProfile()
-        )
+    /**
+     * Update profile in webview whenever an identifier changes, or profile is reset
+     */
+    private fun onStateChange(key: Keyword?, oldValue: Any?) = when (key?.name) {
+        in ProfileKey.IDENTIFIERS, null -> injectProfile()
         else -> Unit
     }
 
-    companion object {
-        private val IDENTIFIERS = listOf(
-            "external_id",
-            "email",
-            "phone_number",
-            "anonymous_id"
-        )
-    }
+    private fun injectProfile() = Registry.get<OnsiteBridge>().setProfile(
+        Registry.get<State>().getAsProfile()
+    )
 }
