@@ -36,9 +36,9 @@ class LifecycleObserverTest : BaseTest() {
         Registry.unregister<InAppFormsConfig>()
     }
 
-    private fun withBridge(): OnsiteBridge {
-        val mockBridge = mockk<OnsiteBridge>(relaxed = true)
-        Registry.register<OnsiteBridge>(mockBridge)
+    private fun withBridge(): JsBridge {
+        val mockBridge = mockk<JsBridge>(relaxed = true)
+        Registry.register<JsBridge>(mockBridge)
         LifecycleObserver().startObserver()
         return mockBridge
     }
@@ -82,7 +82,7 @@ class LifecycleObserverTest : BaseTest() {
 
         verify {
             mockBridge.dispatchLifecycleEvent(
-                OnsiteBridge.LifecycleEventType.foreground
+                JsBridge.LifecycleEventType.foreground
             )
         }
         verify(inverse = true) { mockWebViewClient.destroyWebView() }
@@ -97,7 +97,7 @@ class LifecycleObserverTest : BaseTest() {
 
         verify {
             mockBridge.dispatchLifecycleEvent(
-                OnsiteBridge.LifecycleEventType.background
+                JsBridge.LifecycleEventType.background
             )
         }
     }
@@ -112,7 +112,7 @@ class LifecycleObserverTest : BaseTest() {
 
         verify {
             mockBridge.dispatchLifecycleEvent(
-                OnsiteBridge.LifecycleEventType.foreground
+                JsBridge.LifecycleEventType.foreground
             )
         }
         verify(inverse = true) { mockWebViewClient.destroyWebView() }
@@ -128,7 +128,7 @@ class LifecycleObserverTest : BaseTest() {
 
         verify(inverse = true) {
             mockBridge.dispatchLifecycleEvent(
-                OnsiteBridge.LifecycleEventType.foreground
+                JsBridge.LifecycleEventType.foreground
             )
         }
         verify() { mockWebViewClient.destroyWebView() }

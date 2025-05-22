@@ -32,13 +32,13 @@ class ProfileObserverTest : BaseTest() {
     @After
     override fun cleanup() {
         Registry.unregister<State>()
-        Registry.unregister<OnsiteBridge>()
+        Registry.unregister<JsBridge>()
         super.cleanup()
     }
 
-    private fun withBridge(): OnsiteBridge {
-        val mockBridge = mockk<OnsiteBridge>(relaxed = true)
-        Registry.register<OnsiteBridge>(mockBridge)
+    private fun withBridge(): JsBridge {
+        val mockBridge = mockk<JsBridge>(relaxed = true)
+        Registry.register<JsBridge>(mockBridge)
         ProfileObserver().startObserver()
         return mockBridge
     }

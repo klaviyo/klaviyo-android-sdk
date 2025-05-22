@@ -9,8 +9,5 @@ internal interface JavaScriptEvaluator {
     /**
      * Evaluates a JavaScript string and invokes callback on success or failure
      */
-    fun evaluateJavascript(
-        javascript: String,
-        callback: JsCallback = {}
-    )
+    fun evaluateJavascript(javascript: String, callback: JsCallback)
 }

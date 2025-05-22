@@ -14,9 +14,9 @@ import androidx.webkit.WebViewFeature
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
-import com.klaviyo.forms.bridge.BridgeMessageHandler
 import com.klaviyo.forms.bridge.HandshakeSpec
-import com.klaviyo.forms.bridge.ObserverCollection
+import com.klaviyo.forms.bridge.JsBridgeObserverCollection
+import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import io.mockk.clearAllMocks
@@ -86,7 +86,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         every { it.buildUpon() } returns mockUriBuilder
     }
 
-    private val mockBridge: BridgeMessageHandler = mockk<BridgeMessageHandler>(relaxed = true).apply {
+    private val mockBridge: NativeBridge = mockk<NativeBridge>(relaxed = true).apply {
         every { name } returns "MockNativeBridge"
         every { allowedOrigin } returns setOf(mockConfig.baseUrl)
         every { handshake } returns listOf(HandshakeSpec("mockNativeEvent", 1))
@@ -100,15 +100,15 @@ class KlaviyoWebViewClientTest : BaseTest() {
         )
     }
 
-    private val mockObserverCollection = mockk<ObserverCollection>(relaxed = true).apply {
+    private val mockObserverCollection = mockk<JsBridgeObserverCollection>(relaxed = true).apply {
         every { handshake } returns listOf(HandshakeSpec("mockObserver", 1))
     }
 
     @Before
     override fun setup() {
         super.setup()
-        Registry.register<ObserverCollection>(mockObserverCollection)
-        Registry.register<BridgeMessageHandler>(mockBridge)
+        Registry.register<JsBridgeObserverCollection>(mockObserverCollection)
+        Registry.register<NativeBridge>(mockBridge)
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
         every { mockContext.assets } returns mockAssets
@@ -150,8 +150,8 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
     @After
     override fun cleanup() {
-        Registry.unregister<BridgeMessageHandler>()
-        Registry.unregister<ObserverCollection>()
+        Registry.unregister<NativeBridge>()
+        Registry.unregister<JsBridgeObserverCollection>()
         clearAllMocks()
         super.cleanup()
     }

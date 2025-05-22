@@ -1,3 +1,5 @@
+// Defines simple methods for bridging data from the native SDK into the klaviyo.js onsite-in-app-forms module
+
 /**
  * Updates the data-klaviyo-profile attribute on the document head
  *
@@ -70,5 +72,5 @@ var bridgeName = document.head.getAttribute("data-native-bridge-name") || ""
 if (window[bridgeName] && window[bridgeName].postMessage) {
     window[bridgeName].postMessage(JSON.stringify({type: "jsReady"}))
 } else {
-    console.error("Unknown bridge name: " + bridgeName)
+    console.error("Invalid native bridge: " + bridgeName)
 }

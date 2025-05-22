@@ -14,7 +14,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 
-class BridgeMessageTest : BaseTest() {
+class NativeBridgeMessageTest : BaseTest() {
 
     @Before
     override fun setup() {
@@ -33,7 +33,7 @@ class BridgeMessageTest : BaseTest() {
 
         // Act & Assert
         assertThrows(IllegalStateException::class.java) {
-            BridgeMessage.decodeWebviewMessage(unrecognizedMessage)
+            NativeBridgeMessage.decodeWebviewMessage(unrecognizedMessage)
         }
     }
 
@@ -43,11 +43,11 @@ class BridgeMessageTest : BaseTest() {
         val showMessage = "{\"type\": \"formWillAppear\", \"data\": {\"formId\": \"abc123\"}}"
 
         // Act
-        val result = BridgeMessage.decodeWebviewMessage(showMessage)
+        val result = NativeBridgeMessage.decodeWebviewMessage(showMessage)
 
         // Assert
-        assert(result is BridgeMessage.FormWillAppear)
-        assertEquals("abc123", (result as BridgeMessage.FormWillAppear).formId)
+        assert(result is NativeBridgeMessage.FormWillAppear)
+        assertEquals("abc123", (result as NativeBridgeMessage.FormWillAppear).formId)
     }
 
     @Test
@@ -56,11 +56,11 @@ class BridgeMessageTest : BaseTest() {
         val closeMessage = "{\"type\": \"formDisappeared\", \"data\": {\"formId\": \"abc123\"}}"
 
         // Act
-        val result = BridgeMessage.decodeWebviewMessage(closeMessage)
+        val result = NativeBridgeMessage.decodeWebviewMessage(closeMessage)
 
         // Assert
-        assert(result is BridgeMessage.FormDisappeared)
-        assertEquals("abc123", (result as BridgeMessage.FormDisappeared).formId)
+        assert(result is NativeBridgeMessage.FormDisappeared)
+        assertEquals("abc123", (result as NativeBridgeMessage.FormDisappeared).formId)
     }
 
     @Test
@@ -71,7 +71,7 @@ class BridgeMessageTest : BaseTest() {
 
         // Act & Assert
         assertThrows(IllegalStateException::class.java) {
-            BridgeMessage.decodeWebviewMessage(eventMessage)
+            NativeBridgeMessage.decodeWebviewMessage(eventMessage)
         }
     }
 
@@ -89,7 +89,7 @@ class BridgeMessageTest : BaseTest() {
         """.trimIndent()
         every { Registry.log.error(any(), any<Throwable>()) } just Runs
 
-        val decoded = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.TrackProfileEvent
+        val decoded = NativeBridgeMessage.decodeWebviewMessage(eventMessage) as NativeBridgeMessage.TrackProfileEvent
         val expectedMetric = EventMetric.CUSTOM("Form completed by profile")
         assertEquals(expectedMetric, decoded.event.metric)
     }
@@ -110,7 +110,7 @@ class BridgeMessageTest : BaseTest() {
         """.trimIndent()
         every { Registry.log.error(any(), any<Throwable>()) } just Runs
 
-        val result = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.TrackProfileEvent
+        val result = NativeBridgeMessage.decodeWebviewMessage(eventMessage) as NativeBridgeMessage.TrackProfileEvent
 
         // Assert
         assertEquals(2, result.event.propertyCount())
@@ -134,7 +134,7 @@ class BridgeMessageTest : BaseTest() {
         """.trimIndent()
         every { Registry.log.error(any(), any<Throwable>()) } just Runs
 
-        val result = BridgeMessage.decodeWebviewMessage(eventMessage) as BridgeMessage.TrackProfileEvent
+        val result = NativeBridgeMessage.decodeWebviewMessage(eventMessage) as NativeBridgeMessage.TrackProfileEvent
 
         // Assert
         assertEquals("value1", result.event[EventKey.CUSTOM("key1")])
@@ -195,7 +195,7 @@ class BridgeMessageTest : BaseTest() {
             )
         // Act
         val result =
-            BridgeMessage.decodeWebviewMessage(aggregateMessage) as BridgeMessage.TrackAggregateEvent
+            NativeBridgeMessage.decodeWebviewMessage(aggregateMessage) as NativeBridgeMessage.TrackAggregateEvent
 
         // Assert
         assertEquals(expectedAggBody.toString(), result.payload.toString())
@@ -214,7 +214,7 @@ class BridgeMessageTest : BaseTest() {
             }
         """.trimIndent()
 
-        val result = BridgeMessage.decodeWebviewMessage(deeplinkMessage) as BridgeMessage.OpenDeepLink
+        val result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage) as NativeBridgeMessage.OpenDeepLink
 
         assertEquals("klaviyotest://settings", result.route)
     }
@@ -234,7 +234,7 @@ class BridgeMessageTest : BaseTest() {
 
         // Act & Assert
         assertThrows(IllegalStateException::class.java) {
-            BridgeMessage.decodeWebviewMessage(deeplinkMessage)
+            NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage)
         }
     }
 
@@ -249,7 +249,7 @@ class BridgeMessageTest : BaseTest() {
             }
         """.trimIndent()
 
-        var result = BridgeMessage.decodeWebviewMessage(deeplinkMessage) as BridgeMessage.Abort
+        var result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage) as NativeBridgeMessage.Abort
 
         assertEquals("test", result.reason)
 
@@ -260,7 +260,7 @@ class BridgeMessageTest : BaseTest() {
             }
         """.trimIndent()
 
-        result = BridgeMessage.decodeWebviewMessage(deeplinkMessageWithoutReason) as BridgeMessage.Abort
+        result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessageWithoutReason) as NativeBridgeMessage.Abort
 
         assertEquals("Unknown", result.reason)
     }
@@ -274,7 +274,10 @@ class BridgeMessageTest : BaseTest() {
               }
             }
         """.trimIndent()
-        assertEquals(BridgeMessage.HandShook, BridgeMessage.decodeWebviewMessage(deeplinkMessage))
+        assertEquals(
+            NativeBridgeMessage.HandShook,
+            NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage)
+        )
     }
 
     @Test
@@ -312,7 +315,7 @@ class BridgeMessageTest : BaseTest() {
                   }
                 ]
             """.replace("\\s".toRegex(), ""),
-            BridgeMessage.handShakeData.compileJson()
+            NativeBridgeMessage.handShakeData.compileJson()
         )
     }
 }

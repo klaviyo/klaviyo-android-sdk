@@ -7,22 +7,22 @@ import java.io.Serializable
 import org.json.JSONObject
 
 /**
- * Encapsulates messages sent from JS to SDK via the NativeBridge, i.e. [BridgeMessageHandler].
+ * Encapsulates messages sent from JS to SDK via the NativeBridge, i.e. [NativeBridge].
  * This should be updated with any new message types we add coming from the onsite-in-app-forms
  * By convention, class names should be upper camelcased version of the message type.
  */
-internal sealed class BridgeMessage {
+internal sealed class NativeBridgeMessage {
 
     /**
      * Sent from onsite-bridge.js when that local JS asset has initialized
      */
-    data object JsReady : BridgeMessage()
+    data object JsReady : NativeBridgeMessage()
 
     /**
      * Sent from the onsite-in-app-forms when the NativeBridge handshake has been completed,
      * indicating the fender package is fully initialized.
      */
-    data object HandShook : BridgeMessage()
+    data object HandShook : NativeBridgeMessage()
 
     /**
      * Sent from the onsite-in-app-forms when a form is about to appear as a signal to present the webview
@@ -31,7 +31,7 @@ internal sealed class BridgeMessage {
      */
     data class FormWillAppear(
         val formId: String
-    ) : BridgeMessage()
+    ) : NativeBridgeMessage()
 
     /**
      * Sent from the onsite-in-app-forms when an aggregate event is tracked
@@ -41,7 +41,7 @@ internal sealed class BridgeMessage {
      */
     data class TrackAggregateEvent(
         val payload: AggregateEventPayload
-    ) : BridgeMessage()
+    ) : NativeBridgeMessage()
 
     /**
      * Sent from the onsite-in-app-forms when a profile event is tracked
@@ -51,7 +51,7 @@ internal sealed class BridgeMessage {
      */
     data class TrackProfileEvent(
         val event: Event
-    ) : BridgeMessage()
+    ) : NativeBridgeMessage()
 
     /**
      * Sent from the onsite-in-app-forms when a deep link is opened
@@ -60,7 +60,7 @@ internal sealed class BridgeMessage {
      */
     data class OpenDeepLink(
         val route: String
-    ) : BridgeMessage()
+    ) : NativeBridgeMessage()
 
     /**
      * Sent from the onsite-in-app-forms when a form is closed as a signal to dismiss the webview
@@ -69,23 +69,23 @@ internal sealed class BridgeMessage {
      */
     data class FormDisappeared(
         val formId: String
-    ) : BridgeMessage()
+    ) : NativeBridgeMessage()
 
     /**
      * Sent from the onsite-in-app-forms when an irrecoverable error occurs and the webview should be closed
      */
     data class Abort(
         val reason: String
-    ) : BridgeMessage()
+    ) : NativeBridgeMessage()
 
     companion object {
         private const val MESSAGE_TYPE_KEY = HandshakeSpec.SPEC_TYPE_KEY
         private const val MESSAGE_DATA_KEY = "data"
 
         /**
-         * Convert a [BridgeMessage] subclass to its "type" by convention (lower camel case)
+         * Convert a [NativeBridgeMessage] subclass to its "type" by convention (lower camel case)
          */
-        private inline fun <reified T : BridgeMessage> keyName(): String =
+        private inline fun <reified T : NativeBridgeMessage> keyName(): String =
             T::class.java.simpleName.let { it[0].lowercaseChar() + it.substring(1) }
 
         /**
@@ -104,11 +104,11 @@ internal sealed class BridgeMessage {
         }
 
         /**
-         * Parse a native bridge message string into a [BridgeMessage]
+         * Parse a native bridge message string into a [NativeBridgeMessage]
          *
          * @throws IllegalStateException for unexpected message strings
          */
-        fun decodeWebviewMessage(message: String): BridgeMessage {
+        fun decodeWebviewMessage(message: String): NativeBridgeMessage {
             val jsonMessage = JSONObject(message)
             val jsonData = jsonMessage.optJSONObject(MESSAGE_DATA_KEY) ?: JSONObject()
 

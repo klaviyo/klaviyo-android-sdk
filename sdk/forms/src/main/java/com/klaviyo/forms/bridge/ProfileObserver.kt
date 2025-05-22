@@ -8,7 +8,7 @@ import com.klaviyo.core.Registry
 /**
  * Observe [State] in the analytics package to synchronize profile identifiers with the webview
  */
-internal class ProfileObserver : Observer {
+internal class ProfileObserver : JsBridgeObserver {
     override val handshake: HandshakeSpec = HandshakeSpec(
         type = "profileMutation",
         version = 1
@@ -30,7 +30,7 @@ internal class ProfileObserver : Observer {
         else -> Unit
     }
 
-    private fun injectProfile() = Registry.get<OnsiteBridge>().setProfile(
+    private fun injectProfile() = Registry.get<JsBridge>().setProfile(
         Registry.get<State>().getAsProfile()
     )
 }

@@ -3,11 +3,11 @@ package com.klaviyo.forms.bridge
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.forms.InAppFormsConfig
-import com.klaviyo.forms.bridge.OnsiteBridge.LifecycleEventType.background
-import com.klaviyo.forms.bridge.OnsiteBridge.LifecycleEventType.foreground
+import com.klaviyo.forms.bridge.JsBridge.LifecycleEventType.background
+import com.klaviyo.forms.bridge.JsBridge.LifecycleEventType.foreground
 import com.klaviyo.forms.webview.WebViewClient
 
-internal class LifecycleObserver : Observer {
+internal class LifecycleObserver : JsBridgeObserver {
     private var lastBackgrounded: Long? = null
 
     private val sessionTimeoutMs: Long
@@ -41,7 +41,7 @@ internal class LifecycleObserver : Observer {
                 .destroyWebView()
                 .initializeWebView()
         } else {
-            Registry.get<OnsiteBridge>().dispatchLifecycleEvent(foreground)
+            Registry.get<JsBridge>().dispatchLifecycleEvent(foreground)
         }
     }
 
@@ -51,7 +51,7 @@ internal class LifecycleObserver : Observer {
      */
     private fun onBackground() {
         lastBackgrounded = Registry.clock.currentTimeMillis()
-        Registry.get<OnsiteBridge>().dispatchLifecycleEvent(background)
+        Registry.get<JsBridge>().dispatchLifecycleEvent(background)
     }
 
     /**
