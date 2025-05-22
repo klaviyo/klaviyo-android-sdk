@@ -81,16 +81,15 @@ class KlaviyoOnsiteBridgeTest : BaseTest() {
     @Test
     fun `dispatchLifecycleEvent calls JS evaluator with correct JS`() {
         val type = OnsiteBridge.LifecycleEventType.background
-        val session = OnsiteBridge.LifecycleSessionBehavior.persist
         every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
             secondArg<(Boolean) -> Unit>().invoke(true)
         }
 
-        bridge.dispatchLifecycleEvent(type, session)
+        bridge.dispatchLifecycleEvent(type)
 
         verify {
             jsEvaluator.evaluateJavascript(
-                eq("window.dispatchLifecycleEvent(\"background\",\"persist\")"),
+                eq("window.dispatchLifecycleEvent(\"background\")"),
                 any()
             )
         }

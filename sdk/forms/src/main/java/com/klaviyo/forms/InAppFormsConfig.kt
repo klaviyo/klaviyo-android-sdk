@@ -1,7 +1,7 @@
 package com.klaviyo.forms
 
 /**
- * Configuration for in app forms
+ * Configuration for in-app forms
  *
  * @param sessionTimeoutDuration Duration (in seconds) of the period of user inactivity after which the user's app session is terminated. Defaults to 1 Hour.
  */

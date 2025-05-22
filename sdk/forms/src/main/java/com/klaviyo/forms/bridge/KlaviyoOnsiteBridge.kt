@@ -15,19 +15,18 @@ internal class KlaviyoOnsiteBridge : OnsiteBridge {
         dispatchLifecycleEvent
     }
 
-    override fun setProfile(profile: ImmutableProfile) =
-        evaluateJavascript(
-            HelperFunction.setProfile,
-            profile.externalId ?: "",
-            profile.email ?: "",
-            profile.phoneNumber ?: "",
-            profile.anonymousId ?: ""
-        )
+    override fun setProfile(profile: ImmutableProfile) = evaluateJavascript(
+        HelperFunction.setProfile,
+        profile.externalId ?: "",
+        profile.email ?: "",
+        profile.phoneNumber ?: "",
+        profile.anonymousId ?: ""
+    )
 
-    override fun dispatchLifecycleEvent(
-        type: OnsiteBridge.LifecycleEventType,
-        session: OnsiteBridge.LifecycleSessionBehavior
-    ) = evaluateJavascript(HelperFunction.dispatchLifecycleEvent, type.name, session.name)
+    override fun dispatchLifecycleEvent(type: OnsiteBridge.LifecycleEventType) = evaluateJavascript(
+        HelperFunction.dispatchLifecycleEvent,
+        type.name
+    )
 
     /**
      * Evaluates a JS function in the webview with the given arguments

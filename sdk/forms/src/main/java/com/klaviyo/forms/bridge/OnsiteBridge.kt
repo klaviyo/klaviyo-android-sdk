@@ -13,12 +13,6 @@ internal interface OnsiteBridge {
         foreground
     }
 
-    enum class LifecycleSessionBehavior {
-        persist,
-        restore,
-        purge
-    }
-
     /**
      * Inject profile data into the webview as data attributes
      */
@@ -27,5 +21,5 @@ internal interface OnsiteBridge {
     /**
      * Dispatch lifecycle events for onsite JS package to consume
      */
-    fun dispatchLifecycleEvent(type: LifecycleEventType, session: LifecycleSessionBehavior)
+    fun dispatchLifecycleEvent(type: LifecycleEventType)
 }
