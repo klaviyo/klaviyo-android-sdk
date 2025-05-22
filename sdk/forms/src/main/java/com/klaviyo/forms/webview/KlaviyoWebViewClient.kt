@@ -14,22 +14,21 @@ import androidx.core.net.toUri
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
-import com.klaviyo.forms.InAppFormsConfig
-import com.klaviyo.forms.bridge.BridgeMessage.Companion.handShakeData
-import com.klaviyo.forms.bridge.BridgeMessageHandler
-import com.klaviyo.forms.presentation.KlaviyoPresentationManager
+import com.klaviyo.forms.bridge.HandshakeSpec
+import com.klaviyo.forms.bridge.JsBridgeObserverCollection
+import com.klaviyo.forms.bridge.NativeBridge
+import com.klaviyo.forms.bridge.compileJson
+import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
 
 /**
  * Manages the [KlaviyoWebView] instance that powers in-app forms behavior, triggering, rendering and display,
  * and handles all its [android.webkit.WebViewClient] delegate methods, and loading of klaviyo.js
  */
-internal class KlaviyoWebViewClient(
-    val config: InAppFormsConfig = InAppFormsConfig()
-) : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
+internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
 
     /**
-     * For timeout on awaiting the native bridge [com.klaviyo.forms.bridge.BridgeMessage.HandShook] event
+     * For timeout on awaiting the native bridge [com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook] event
      * as an indicator that klaviyo.js has loaded and the onsite-in-app module is present.
      */
     private var handshakeTimer: Clock.Cancellable? = null
@@ -39,13 +38,6 @@ internal class KlaviyoWebViewClient(
      */
     private var webView: KlaviyoWebView? by WeakReferenceDelegate()
 
-    init {
-        /**
-         * Self-register self as JavaScriptEvaluator
-         */
-        Registry.register<JavaScriptEvaluator>(this)
-    }
-
     /**
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for in-app forms with handshake data injected in the document head
@@ -53,7 +45,10 @@ internal class KlaviyoWebViewClient(
     override fun initializeWebView(): Unit = webView?.let {
         Registry.log.debug("Klaviyo webview is already initialized")
     } ?: KlaviyoWebView().let { webView ->
-        val nativeBridge: BridgeMessageHandler = Registry.get()
+        val nativeBridge = Registry.get<NativeBridge>()
+        val observerCollection = Registry.get<JsBridgeObserverCollection>()
+        val handshake: List<HandshakeSpec> = nativeBridge.handshake + observerCollection.handshake
+
         this.webView = webView
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
@@ -71,7 +66,7 @@ internal class KlaviyoWebViewClient(
             .replace("SDK_NAME", Registry.config.sdkName)
             .replace("SDK_VERSION", Registry.config.sdkVersion)
             .replace("BRIDGE_NAME", nativeBridge.name)
-            .replace("BRIDGE_HANDSHAKE", handShakeData)
+            .replace("BRIDGE_HANDSHAKE", handshake.compileJson())
             .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
             .let { html ->
@@ -82,6 +77,10 @@ internal class KlaviyoWebViewClient(
                     ::onJsHandshakeTimeout
                 )
             }
+    }
+
+    override fun onLocalJsReady() {
+        Registry.get<JsBridgeObserverCollection>().startObservers()
     }
 
     /**
@@ -136,6 +135,7 @@ internal class KlaviyoWebViewClient(
      */
     override fun destroyWebView() = apply {
         handshakeTimer?.cancel()
+        Registry.get<JsBridgeObserverCollection>().stopObservers()
         webView?.let { webView ->
             Registry.log.verbose("Clear IAF WebView reference")
             webView.destroy()
@@ -158,7 +158,7 @@ internal class KlaviyoWebViewClient(
      * When an assetSource is specified, log whether we actually got it
      */
     override fun onPageFinished(view: WebView?, url: String?) = Registry.config.assetSource?.let { expected ->
-        webView?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
+        view?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
             Registry.log.debug("Actual Asset Source: $actual. Expected $expected")
         }
     } ?: Unit
@@ -168,7 +168,7 @@ internal class KlaviyoWebViewClient(
      * we have to clean up and return true here else the host app will crash
      */
     override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean =
-        Registry.get<KlaviyoPresentationManager>().dismiss().let {
+        Registry.get<PresentationManager>().dismiss().let {
             Registry.log.error("WebView crashed or deallocated")
             return true
         }
@@ -199,7 +199,7 @@ internal class KlaviyoWebViewClient(
     ) = webView?.let { webView ->
         Registry.lifecycleMonitor.currentActivity?.runOnUiThread {
             webView.evaluateJavascript(javascript) { result ->
-                callback(result === "true")
+                callback(result == "true")
             }
         } ?: run {
             Registry.log.warning("Unable to evaluate Javascript - null activity reference")

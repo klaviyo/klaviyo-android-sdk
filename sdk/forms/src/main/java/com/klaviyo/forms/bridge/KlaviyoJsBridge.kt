@@ -8,26 +8,25 @@ import com.klaviyo.forms.webview.JavaScriptEvaluator
  * API for communicating data and events from native to the onsite-in-app JS module
  * via data attribute setters and event dispatcher functions defined in onsite-bridge.js
  */
-internal class KlaviyoOnsiteBridge : OnsiteBridge {
+internal class KlaviyoJsBridge : JsBridge {
     @Suppress("EnumEntryName", "ktlint:enum-entry-name-case")
     private enum class HelperFunction {
         setProfile,
         dispatchLifecycleEvent
     }
 
-    override fun setProfile(profile: ImmutableProfile) =
-        evaluateJavascript(
-            HelperFunction.setProfile,
-            profile.externalId ?: "",
-            profile.email ?: "",
-            profile.phoneNumber ?: "",
-            profile.anonymousId ?: ""
-        )
+    override fun setProfile(profile: ImmutableProfile) = evaluateJavascript(
+        HelperFunction.setProfile,
+        profile.externalId ?: "",
+        profile.email ?: "",
+        profile.phoneNumber ?: "",
+        profile.anonymousId ?: ""
+    )
 
-    override fun dispatchLifecycleEvent(
-        type: OnsiteBridge.LifecycleEventType,
-        session: OnsiteBridge.LifecycleSessionBehavior
-    ) = evaluateJavascript(HelperFunction.dispatchLifecycleEvent, type.name, session.name)
+    override fun dispatchLifecycleEvent(type: JsBridge.LifecycleEventType) = evaluateJavascript(
+        HelperFunction.dispatchLifecycleEvent,
+        type.name
+    )
 
     /**
      * Evaluates a JS function in the webview with the given arguments

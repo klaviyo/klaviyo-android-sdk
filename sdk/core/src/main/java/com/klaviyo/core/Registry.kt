@@ -162,7 +162,12 @@ object Registry {
         val type = typeOf<T>()
         val service: Any? = services[type]
 
-        return if (service is T) service else null
+        if (service is T) return service
+
+        return when (val service = registry[type]?.let { it() }) {
+            is T -> service.apply { services[type] = service }
+            else -> null
+        }
     }
 
     /**
