@@ -7,7 +7,7 @@ internal class KlaviyoObserverCollection : ObserverCollection {
     override val observers: List<Observer> by lazy {
         listOf(
             LifecycleObserver(),
-            ProfileObserver(),
+            ProfileObserver()
         )
     }
 }
