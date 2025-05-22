@@ -7,7 +7,7 @@ import androidx.webkit.WebViewCompat
  * An instance of this class is injected into a [com.klaviyo.forms.webview.KlaviyoWebView] as a global property
  * on the window. It receives and interprets messages from klaviyo.js over the native bridge
  */
-internal interface BridgeMessageHandler : WebViewCompat.WebMessageListener {
+internal interface NativeBridge : WebViewCompat.WebMessageListener {
 
     /**
      * This is the name that will be used to access the bridge from JS, i.e. window.KlaviyoNativeBridge

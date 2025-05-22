@@ -4,10 +4,10 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
-import com.klaviyo.forms.bridge.BridgeMessageHandler
-import com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler
-import com.klaviyo.forms.bridge.ObserverCollection
-import com.klaviyo.forms.bridge.OnsiteBridge
+import com.klaviyo.forms.bridge.JsBridge
+import com.klaviyo.forms.bridge.JsBridgeObserverCollection
+import com.klaviyo.forms.bridge.KlaviyoNativeBridge
+import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.webview.JavaScriptEvaluator
@@ -30,7 +30,7 @@ internal class InAppFormsTest : BaseTest() {
     override fun setup() {
         super.setup()
         mockkConstructor(KlaviyoPresentationManager::class)
-        mockkConstructor(KlaviyoBridgeMessageHandler::class)
+        mockkConstructor(KlaviyoNativeBridge::class)
         mockkConstructor(KlaviyoWebViewClient::class).apply {
             every { anyConstructed<KlaviyoWebViewClient>().initializeWebView() } returns this
         }
@@ -40,58 +40,58 @@ internal class InAppFormsTest : BaseTest() {
     override fun cleanup() {
         unmockkAll()
         Registry.unregister<PresentationManager>()
-        Registry.unregister<BridgeMessageHandler>()
+        Registry.unregister<NativeBridge>()
         Registry.unregister<WebViewClient>()
         Registry.unregister<JavaScriptEvaluator>()
-        Registry.unregister<OnsiteBridge>()
-        Registry.unregister<ObserverCollection>()
+        Registry.unregister<JsBridge>()
+        Registry.unregister<JsBridgeObserverCollection>()
         super.cleanup()
     }
 
     @Test
     fun `registers required services`() {
         assert(!Registry.isRegistered<PresentationManager>())
-        assert(!Registry.isRegistered<BridgeMessageHandler>())
+        assert(!Registry.isRegistered<NativeBridge>())
         assert(!Registry.isRegistered<WebViewClient>())
         assert(!Registry.isRegistered<JavaScriptEvaluator>())
-        assert(!Registry.isRegistered<OnsiteBridge>())
-        assert(!Registry.isRegistered<ObserverCollection>())
+        assert(!Registry.isRegistered<JsBridge>())
+        assert(!Registry.isRegistered<JsBridgeObserverCollection>())
 
         Klaviyo.registerForInAppForms()
 
         assertNotNull(Registry.get<PresentationManager>())
-        assertNotNull(Registry.get<BridgeMessageHandler>())
+        assertNotNull(Registry.get<NativeBridge>())
         assertNotNull(Registry.get<WebViewClient>())
         assertNotNull(Registry.get<JavaScriptEvaluator>())
-        assertNotNull(Registry.get<OnsiteBridge>())
-        assertNotNull(Registry.get<ObserverCollection>())
+        assertNotNull(Registry.get<JsBridge>())
+        assertNotNull(Registry.get<JsBridgeObserverCollection>())
     }
 
     @Test
     fun `registers required services once`() {
         val presenter: PresentationManager = mockk()
-        val bridge: BridgeMessageHandler = mockk()
+        val bridge: NativeBridge = mockk()
         val client: WebViewClient = mockk<WebViewClient>().apply {
             every { initializeWebView() } returns Unit
         }
-        val onsiteBridge: OnsiteBridge = mockk()
-        val observerCollection: ObserverCollection = mockk()
+        val jsBridge: JsBridge = mockk()
+        val observerCollection: JsBridgeObserverCollection = mockk()
 
         Registry.register<PresentationManager>(presenter)
-        Registry.register<BridgeMessageHandler>(bridge)
+        Registry.register<NativeBridge>(bridge)
         Registry.register<WebViewClient>(client)
-        Registry.register<OnsiteBridge>(onsiteBridge)
-        Registry.register<ObserverCollection>(observerCollection)
+        Registry.register<JsBridge>(jsBridge)
+        Registry.register<JsBridgeObserverCollection>(observerCollection)
 
         Klaviyo.registerForInAppForms()
 
         // It used our pre-registered services, and didn't overwrite them
         assertEquals(presenter, Registry.get<PresentationManager>())
-        assertEquals(bridge, Registry.get<BridgeMessageHandler>())
+        assertEquals(bridge, Registry.get<NativeBridge>())
         assertEquals(client, Registry.get<WebViewClient>())
         verify { client.initializeWebView() }
-        assertEquals(onsiteBridge, Registry.get<OnsiteBridge>())
-        assertEquals(observerCollection, Registry.get<ObserverCollection>())
+        assertEquals(jsBridge, Registry.get<JsBridge>())
+        assertEquals(observerCollection, Registry.get<JsBridgeObserverCollection>())
     }
 
     @Test(expected = Test.None::class)

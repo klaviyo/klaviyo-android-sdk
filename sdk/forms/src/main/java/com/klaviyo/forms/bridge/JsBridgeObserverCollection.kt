@@ -1,13 +1,13 @@
 package com.klaviyo.forms.bridge
 
 /**
- * Interface for managing a list of [Observer] abstractly
+ * Interface for managing a list of [JsBridgeObserver] abstractly
  */
-internal interface ObserverCollection {
+internal interface JsBridgeObserverCollection {
     /**
      * List of observers managed by this instance
      */
-    val observers: List<Observer>
+    val observers: List<JsBridgeObserver>
 
     /**
      * Compiles the handshake data from all observers into a single list

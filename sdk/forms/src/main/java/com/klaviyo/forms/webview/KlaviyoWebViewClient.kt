@@ -14,9 +14,9 @@ import androidx.core.net.toUri
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
-import com.klaviyo.forms.bridge.BridgeMessageHandler
 import com.klaviyo.forms.bridge.HandshakeSpec
-import com.klaviyo.forms.bridge.ObserverCollection
+import com.klaviyo.forms.bridge.JsBridgeObserverCollection
+import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
@@ -28,7 +28,7 @@ import java.io.BufferedReader
 internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
 
     /**
-     * For timeout on awaiting the native bridge [com.klaviyo.forms.bridge.BridgeMessage.HandShook] event
+     * For timeout on awaiting the native bridge [com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook] event
      * as an indicator that klaviyo.js has loaded and the onsite-in-app module is present.
      */
     private var handshakeTimer: Clock.Cancellable? = null
@@ -45,8 +45,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     override fun initializeWebView(): Unit = webView?.let {
         Registry.log.debug("Klaviyo webview is already initialized")
     } ?: KlaviyoWebView().let { webView ->
-        val nativeBridge = Registry.get<BridgeMessageHandler>()
-        val observerCollection = Registry.get<ObserverCollection>()
+        val nativeBridge = Registry.get<NativeBridge>()
+        val observerCollection = Registry.get<JsBridgeObserverCollection>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + observerCollection.handshake
 
         this.webView = webView
@@ -80,7 +80,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     }
 
     override fun onLocalJsReady() {
-        Registry.get<ObserverCollection>().startObservers()
+        Registry.get<JsBridgeObserverCollection>().startObservers()
     }
 
     /**
@@ -135,7 +135,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      */
     override fun destroyWebView() = apply {
         handshakeTimer?.cancel()
-        Registry.get<ObserverCollection>().stopObservers()
+        Registry.get<JsBridgeObserverCollection>().stopObservers()
         webView?.let { webView ->
             Registry.log.verbose("Clear IAF WebView reference")
             webView.destroy()

@@ -1,9 +1,9 @@
 package com.klaviyo.forms.bridge
 
 /**
- * General purpose interface for observing events and passing data into the webview
+ * General purpose observer interface for bridging native application or SDK events into the webview
  */
-internal interface Observer {
+internal interface JsBridgeObserver {
     /**
      * HandshakeSpec indicating the type and version of messages this observer communicates into the webview
      */

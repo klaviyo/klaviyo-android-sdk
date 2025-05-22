@@ -8,7 +8,7 @@ import com.klaviyo.forms.webview.JavaScriptEvaluator
  * API for communicating data and events from native to the onsite-in-app JS module
  * via data attribute setters and event dispatcher functions defined in onsite-bridge.js
  */
-internal class KlaviyoOnsiteBridge : OnsiteBridge {
+internal class KlaviyoJsBridge : JsBridge {
     @Suppress("EnumEntryName", "ktlint:enum-entry-name-case")
     private enum class HelperFunction {
         setProfile,
@@ -23,7 +23,7 @@ internal class KlaviyoOnsiteBridge : OnsiteBridge {
         profile.anonymousId ?: ""
     )
 
-    override fun dispatchLifecycleEvent(type: OnsiteBridge.LifecycleEventType) = evaluateJavascript(
+    override fun dispatchLifecycleEvent(type: JsBridge.LifecycleEventType) = evaluateJavascript(
         HelperFunction.dispatchLifecycleEvent,
         type.name
     )

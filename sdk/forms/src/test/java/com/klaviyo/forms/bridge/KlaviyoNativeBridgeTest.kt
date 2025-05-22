@@ -30,16 +30,16 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * @see KlaviyoBridgeMessageHandler
+ * @see KlaviyoNativeBridge
  */
-internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
+internal class KlaviyoNativeBridgeTest : BaseTest() {
 
     private val mockApiClient: ApiClient = mockk(relaxed = true)
     private val mockState: State = mockk(relaxed = true)
     private val mockWebViewClient: WebViewClient = mockk(relaxed = true)
     private val mockPresentationManager: PresentationManager = mockk(relaxed = true)
 
-    private lateinit var bridgeMessageHandler: KlaviyoBridgeMessageHandler
+    private lateinit var bridgeMessageHandler: KlaviyoNativeBridge
 
     @Before
     override fun setup() {
@@ -50,7 +50,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<PresentationManager>(mockPresentationManager)
 
-        bridgeMessageHandler = KlaviyoBridgeMessageHandler()
+        bridgeMessageHandler = KlaviyoNativeBridge()
     }
 
     @After
@@ -76,7 +76,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `allowed origin returns the base URL`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.allowedOrigin
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.allowedOrigin
          */
         val expected = setOf(Registry.config.baseUrl)
         assertEquals(expected, bridgeMessageHandler.allowedOrigin)
@@ -85,7 +85,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `jsReady triggers client onLocalJsReady`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.jsReady
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.jsReady
          */
         postMessage("""{"type":"jsReady"}""")
         verify { mockWebViewClient.onLocalJsReady() }
@@ -94,7 +94,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `handShook triggers client onJsHandshakeCompleted`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.handShook
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.handShook
          */
         postMessage("""{"type":"handShook"}""")
         verify { mockWebViewClient.onJsHandshakeCompleted() }
@@ -103,7 +103,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `formWillAppear triggers show`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.show
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear"}""")
         verify { mockPresentationManager.present() }
@@ -112,7 +112,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `trackAggregateEvent enqueues API request`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.createAggregateEvent
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.createAggregateEvent
          */
         val aggregateMessage = """
             {
@@ -213,7 +213,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `trackProfileEvent enqueues API request`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.createProfileEvent
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.createProfileEvent
          */
         val eventMessage = """
            {
@@ -238,7 +238,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `openDeepLink broadcasts intent to start activity`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.deepLink
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
          */
         every { mockContext.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
 
@@ -283,7 +283,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `openDeepLink fails gracefully if currentActivity is null`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.deepLink
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
          */
         every { mockLifecycleMonitor.currentActivity } returns null
 
@@ -306,7 +306,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `formDisappeared triggers close`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.close
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
         postMessage("""{"type":"formDisappeared"}""")
         verify { mockPresentationManager.dismiss() }
@@ -315,7 +315,7 @@ internal class KlaviyoBridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `abort triggers closes`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoBridgeMessageHandler.abort
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.abort
          */
         postMessage("""{"type":"abort"}""")
         verify(exactly = 1) { mockPresentationManager.dismiss() }

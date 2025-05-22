@@ -9,10 +9,10 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Test
 
-class KlaviyoOnsiteBridgeTest : BaseTest() {
+class KlaviyoJsBridgeTest : BaseTest() {
 
     private val jsEvaluator = mockk<JavaScriptEvaluator>(relaxed = true)
-    private val bridge = KlaviyoOnsiteBridge()
+    private val bridge = KlaviyoJsBridge()
 
     override fun setup() {
         super.setup()
@@ -80,7 +80,7 @@ class KlaviyoOnsiteBridgeTest : BaseTest() {
 
     @Test
     fun `dispatchLifecycleEvent calls JS evaluator with correct JS`() {
-        val type = OnsiteBridge.LifecycleEventType.background
+        val type = JsBridge.LifecycleEventType.background
         every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
             secondArg<(Boolean) -> Unit>().invoke(true)
         }
