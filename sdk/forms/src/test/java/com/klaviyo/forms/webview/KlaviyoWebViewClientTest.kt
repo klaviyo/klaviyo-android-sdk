@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.ValueCallback
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -432,5 +433,31 @@ class KlaviyoWebViewClientTest : BaseTest() {
         verify { mockPresentationManager.dismiss() }
         verify { spyLog.error("WebView crashed or deallocated") }
         Registry.unregister<PresentationManager>()
+    }
+
+    @Test
+    fun `onReceivedHttpError logs a warning`() {
+        val client = KlaviyoWebViewClient()
+        val mockRequest = mockk<WebResourceRequest>(relaxed = true).apply {
+            every { url.toString() } returns "https://example.com"
+        }
+        val mockResponse = mockk<WebResourceResponse>(relaxed = true).apply {
+            every { statusCode } returns 404
+        }
+        client.onReceivedHttpError(null, mockRequest, mockResponse)
+        verify { spyLog.warning("HTTP Error: 404 - https://example.com") }
+    }
+
+    @Test
+    fun `onPageFinished logs the asset source`() {
+        val mockWebview = mockk<KlaviyoWebView>(relaxed = true).apply {
+            every { evaluateJavascript(any(), any()) } answers {
+                val callback = secondArg<ValueCallback<String>>()
+                callback.onReceiveValue("test-asset-source")
+            }
+        }
+        every { mockConfig.assetSource } returns "test-asset-source"
+        KlaviyoWebViewClient().onPageFinished(mockWebview, "https://example.com")
+        verify { spyLog.debug("Actual Asset Source: test-asset-source. Expected test-asset-source") }
     }
 }

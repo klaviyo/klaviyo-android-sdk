@@ -158,7 +158,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * When an assetSource is specified, log whether we actually got it
      */
     override fun onPageFinished(view: WebView?, url: String?) = Registry.config.assetSource?.let { expected ->
-        webView?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
+        view?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
             Registry.log.debug("Actual Asset Source: $actual. Expected $expected")
         }
     } ?: Unit
