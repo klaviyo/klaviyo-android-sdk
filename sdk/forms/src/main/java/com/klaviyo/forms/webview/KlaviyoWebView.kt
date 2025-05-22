@@ -1,18 +1,21 @@
-package com.klaviyo.forms
+package com.klaviyo.forms.webview
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.util.AttributeSet
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
+import com.klaviyo.forms.bridge.BridgeMessageHandler
 
 /**
- * View logic for in-app forms
+ * Custom WebView that powers the in-app forms experience, running klaviyo.js in its JS engine
+ * to handle forms behavior, triggering, rendering and ultimately displaying the form over the host app.
  */
 @SuppressLint("SetJavaScriptEnabled")
 internal class KlaviyoWebView : WebView {
@@ -22,7 +25,7 @@ internal class KlaviyoWebView : WebView {
 
     constructor(context: Context, attrs: AttributeSet?) : super(context, attrs, 0)
 
-    fun loadTemplate(html: String, client: KlaviyoWebViewClient, bridge: BridgeMessageHandler) = configure()
+    fun loadTemplate(html: String, client: WebViewClient, bridge: BridgeMessageHandler) = configure()
         .apply { webViewClient = client }
         .addBridge(bridge)
         .loadDataWithBaseURL(

@@ -1,4 +1,4 @@
-package com.klaviyo.forms
+package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric

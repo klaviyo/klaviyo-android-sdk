@@ -11,6 +11,7 @@ class RegistryTest {
 
     private interface TestDependency
     private interface TestLazyDependency
+    private interface TestLazyOnceDependency
     private interface TestWrongDependency
     private interface TestMissingDependency
 
@@ -62,5 +63,50 @@ class RegistryTest {
     @Test(expected = MissingRegistration::class)
     fun `Throws MissingRegistration for unregistered service`() {
         Registry.get<TestMissingDependency>()
+    }
+
+    @Test
+    fun `registerOnce only registers a service if not already registered`() {
+        // First registration
+        val firstInstance = object : TestDependency {}
+        Registry.registerOnce<TestDependency>(firstInstance)
+        assertEquals(firstInstance, Registry.get<TestDependency>())
+
+        // Attempt to register a new instance
+        val secondInstance = object : TestDependency {}
+        Registry.registerOnce<TestDependency>(secondInstance)
+
+        // Ensure the first instance is still registered
+        assertEquals(firstInstance, Registry.get<TestDependency>())
+    }
+
+    @Test
+    fun `registerOnce lazily only registers a service if not already registered`() {
+        var firstCallCount = 0
+        var secondCallCount = 0
+
+        // First lazy registration
+        Registry.registerOnce<TestLazyOnceDependency> {
+            firstCallCount++
+            object : TestLazyOnceDependency {}
+        }
+
+        // Ensure the service is not initialized yet
+        assertEquals(0, firstCallCount)
+
+        // Access the service to initialize it
+        val firstInstance = Registry.get<TestLazyOnceDependency>()
+        assertEquals(1, firstCallCount)
+
+        // Attempt to register a new lazy instance
+        Registry.registerOnce<TestLazyOnceDependency> {
+            secondCallCount++
+            object : TestLazyOnceDependency {}
+        }
+
+        // Ensure the first instance is still registered
+        assertEquals(firstInstance, Registry.get<TestLazyOnceDependency>())
+        assertEquals(0, secondCallCount)
+        assertEquals(1, firstCallCount)
     }
 }

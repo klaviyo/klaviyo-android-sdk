@@ -1,20 +1,19 @@
-package com.klaviyo.forms
+package com.klaviyo.forms.webview
 
-import android.app.Activity
 import android.content.Intent
 import android.content.res.AssetManager
-import android.content.res.Configuration
 import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.ValueCallback
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
-import com.klaviyo.core.lifecycle.ActivityEvent
-import com.klaviyo.core.lifecycle.ActivityObserver
+import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
+import com.klaviyo.forms.bridge.BridgeMessageHandler
 import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.just
@@ -30,11 +29,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-internal class KlaviyoWebViewClientTest : BaseTest() {
+class KlaviyoWebViewClientTest : BaseTest() {
 
     companion object {
-        private val slotOnActivityEvent = slot<ActivityObserver>()
-
         val HTML = """
             <!DOCTYPE html>
             <html lang="en">
@@ -55,28 +52,26 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
         """.trimIndent()
     }
 
+    private val mockBridge: BridgeMessageHandler = mockk<BridgeMessageHandler>(relaxed = true).apply {
+        every { name } returns "MockNativeBridge"
+        every { allowedOrigin } returns setOf(mockConfig.baseUrl)
+    }
+
     private val mockSettings: WebSettings = mockk(relaxed = true)
     private val mockParentView: ViewGroup = mockk(relaxed = true)
     private val mockAssets = mockk<AssetManager> {
-        every { open("InAppFormsTemplate.html") } returns
-            ByteArrayInputStream(HTML.encodeToByteArray())
-    }
-
-    private val mockContentView: ViewGroup = mockk(relaxed = true)
-    private val mockDecorView: View = mockk(relaxed = true) {
-        every { findViewById<ViewGroup>(any()) } returns mockContentView
-    }
-    private val mockActivity: Activity = mockk(relaxed = true) {
-        every { window.decorView } returns mockDecorView
+        every { open("InAppFormsTemplate.html") } returns ByteArrayInputStream(
+            HTML.encodeToByteArray()
+        )
     }
 
     @Before
     override fun setup() {
         super.setup()
+        Registry.register<BridgeMessageHandler>(mockBridge)
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
         every { mockContext.assets } returns mockAssets
-        every { mockLifecycleMonitor.currentActivity } returns mockActivity
 
         mockkConstructor(KlaviyoWebView::class)
 
@@ -105,7 +100,10 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
         mockkStatic(WebViewCompat::class)
         every { WebViewCompat.addWebMessageListener(any(), any(), any(), any()) } just runs
 
-        every { mockLifecycleMonitor.onActivityEvent(capture(slotOnActivityEvent)) } just runs
+        val slot = slot<Runnable>()
+        every { mockActivity.runOnUiThread(capture(slot)) } answers {
+            slot.captured.run()
+        }
     }
 
     @After
@@ -116,23 +114,20 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
     private fun verifyClose(doesNotClose: Boolean = false) {
         val times = if (doesNotClose) 0 else 1
-        val slot = slot<Runnable>()
-        verify(exactly = times) { mockDecorView.post(capture(slot)) }
-        if (!doesNotClose) slot.captured.run()
-        verify(exactly = times) { spyLog.verbose("Clear IAF WebView reference") }
+        verify(exactly = times) { anyConstructed<KlaviyoWebView>().visibility = View.GONE }
         verify(exactly = times) { mockParentView.removeView(any()) }
+    }
+
+    private fun verifyDestroy(doesNotDestroy: Boolean = false) {
+        val times = if (doesNotDestroy) 0 else 1
+        verify(exactly = times) { spyLog.verbose("Clear IAF WebView reference") }
         verify(exactly = times) { anyConstructed<KlaviyoWebView>().destroy() }
-        assertEquals(staticClock.scheduledTasks.size, 0) // timer is cancelled
     }
 
     private fun verifyShow(doesNotShow: Boolean = false) {
         val times = if (doesNotShow) 0 else 1
-        val slot = slot<Runnable>()
-        verify(exactly = times) { mockDecorView.post(capture(slot)) }
-        if (!doesNotShow) slot.captured.run()
         verify(exactly = times) { anyConstructed<KlaviyoWebView>().visibility = View.VISIBLE }
-        verify(exactly = times) { mockDecorView.findViewById<ViewGroup>(any()) }
-        verify(exactly = times) { mockContentView.addView(any()) }
+        verify(exactly = times) { mockActivity.setContentView(any<KlaviyoWebView>()) }
     }
 
     @Test
@@ -163,31 +158,19 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     @Test
-    fun `show causes webview to appear`() {
+    fun `attachWebView causes webview to appear`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
-        client.show()
+        client.attachWebView(mockActivity)
         verifyShow()
     }
 
     @Test
-    fun `show with null webview does not display webview`() {
+    fun `attachWebView with null webview does not display webview`() {
         val client = KlaviyoWebViewClient()
         // notably do not init webview
-        client.show()
-        verify { spyLog.warning("Unable to show IAF - null WebView reference") }
-        verifyShow(doesNotShow = true)
-    }
-
-    @Test
-    fun `show with null decorView does not display webview`() {
-        every { mockActivity.window?.decorView } returns null
-
-        val client = KlaviyoWebViewClient()
-        client.initializeWebView()
-        client.show()
-
-        verify { spyLog.warning("Unable to show IAF - null activity reference") }
+        client.attachWebView(mockActivity)
+        verify { spyLog.warning("Unable to attach IAF - null WebView reference") }
         verifyShow(doesNotShow = true)
     }
 
@@ -214,6 +197,7 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
         staticClock.execute(10_000)
 
         verifyClose(doesNotClose = true)
+        verifyDestroy(doesNotDestroy = true)
     }
 
     @Test
@@ -225,48 +209,27 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
 
         verify { spyLog.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js") }
         verifyClose()
+        verifyDestroy()
     }
 
     @Test
-    fun `close removes webview from view`() {
+    fun `detachWebView removes webview from view`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
-        client.close()
+        client.detachWebView(mockActivity)
 
         verifyClose()
+        verifyDestroy()
     }
 
     @Test
-    fun `verify webview closes on an orientation change`() {
-        val client = KlaviyoWebViewClient()
-        client.initializeWebView()
-
-        slotOnActivityEvent.captured(ActivityEvent.ConfigurationChanged(Configuration()))
-        // if we emit the same config change we still should only close once
-        slotOnActivityEvent.captured(ActivityEvent.ConfigurationChanged(Configuration()))
-
-        verify(exactly = 1) { spyLog.debug("New screen orientation, closing form") }
-        verifyClose()
-    }
-
-    @Test
-    fun `verify close fails on a null webview`() {
+    fun `verify detachWebView fails on a null webview`() {
         val client = KlaviyoWebViewClient()
         // notably do not init webview
-        client.close()
-        verify { spyLog.warning("Unable to close IAF - null WebView reference") }
-        verifyClose(true)
-    }
-
-    @Test
-    fun `verify close fails on a null decorView`() {
-        every { mockActivity.window?.decorView } returns null
-
-        val client = KlaviyoWebViewClient()
-        client.initializeWebView()
-        client.close()
-        verify { spyLog.warning("Unable to close IAF - null activity reference") }
-        verifyClose(true)
+        client.detachWebView(mockActivity)
+        verify { spyLog.warning("Unable to detach IAF - null WebView reference") }
+        verifyClose(doesNotClose = true)
+        verifyDestroy(doesNotDestroy = true)
     }
 
     @Test
@@ -307,5 +270,55 @@ internal class KlaviyoWebViewClientTest : BaseTest() {
         val result = client.shouldOverrideUrlLoading(null, mockRequest)
 
         assertEquals(false, result)
+    }
+
+    @Test
+    fun `evaluateJavascript invokes callback with false if webview is null`() {
+        val client = KlaviyoWebViewClient()
+        var result: Boolean? = null
+        client.evaluateJavascript("test") { result = it }
+        assertEquals(false, result)
+    }
+
+    @Test
+    fun `evaluateJavascript invokes callback with false if currentActivity is null`() {
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        every { Registry.lifecycleMonitor.currentActivity } returns null
+        var result: Boolean? = null
+        client.evaluateJavascript("test") { result = it }
+        assertEquals(false, result)
+    }
+
+    @Test
+    fun `evaluateJavascript invokes webview evaluateJavascript via runOnUiThread and calls back with true or false`() {
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        every { Registry.lifecycleMonitor.currentActivity } returns mockActivity
+
+        // Capture the runOnUiThread call and invoke the runnable
+        val runOnUiThreadSlot = slot<Runnable>()
+        every { mockActivity.runOnUiThread(capture(runOnUiThreadSlot)) } answers {
+            runOnUiThreadSlot.captured.run()
+        }
+
+        // Simulate webview.evaluateJavascript returning "true"
+        every { anyConstructed<KlaviyoWebView>().evaluateJavascript(any(), any()) } answers {
+            val callback = secondArg<ValueCallback<String>>()
+            callback.onReceiveValue("true")
+        }
+        var resultTrue: Boolean? = null
+        client.evaluateJavascript("test") { resultTrue = it }
+        assertEquals(true, resultTrue)
+
+        // Simulate webview.evaluateJavascript returning "false"
+        every { anyConstructed<KlaviyoWebView>().evaluateJavascript(any(), any()) } answers {
+            val callback = secondArg<ValueCallback<String>>()
+            callback.onReceiveValue("false")
+        }
+
+        var resultFalse: Boolean? = null
+        client.evaluateJavascript("test") { resultFalse = it }
+        assertEquals(false, resultFalse)
     }
 }

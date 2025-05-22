@@ -3,6 +3,8 @@ package com.klaviyo.analytics
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import com.klaviyo.analytics.Klaviyo.initialize
+import com.klaviyo.analytics.Klaviyo.resetProfile
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
@@ -37,12 +39,12 @@ object Klaviyo {
 
     init {
         /**
-         * Since analytics module owns ApiClient, we must register it.
+         * Since the analytics module owns ApiClient, we must register it.
          *
          * This registration is a lambda invoked when the API service is required.
          * KlaviyoApiClient service is not being initialized here.
          */
-        if (!Registry.isRegistered<ApiClient>()) Registry.register<ApiClient> { KlaviyoApiClient }
+        Registry.registerOnce<ApiClient> { KlaviyoApiClient }
     }
 
     /**
