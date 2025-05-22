@@ -2,6 +2,7 @@ package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.ApiObserver
 import com.klaviyo.analytics.networking.requests.EventApiRequest
@@ -196,7 +197,7 @@ class StateSideEffectsTest : BaseTest() {
 
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateChangeObserver.captured(StateChange.KeyValue(ProfileKey.PUSH_STATE, null))
+        capturedStateObserver.captured(StateKey.PUSH_STATE, null)
         verify(exactly = 1) { apiClientMock.enqueuePushToken("token", profile) }
     }
 
@@ -206,7 +207,7 @@ class StateSideEffectsTest : BaseTest() {
 
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateChangeObserver.captured(StateChange.KeyValue(ProfileKey.PUSH_STATE, null))
+        capturedStateObserver.captured(StateKey.PUSH_STATE, null)
         verify(exactly = 0) { apiClientMock.enqueuePushToken(any(), any()) }
     }
 
