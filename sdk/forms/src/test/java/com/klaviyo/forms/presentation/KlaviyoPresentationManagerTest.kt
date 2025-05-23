@@ -140,7 +140,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     private fun verifyRotationClose(callCount: Int) {
         verify(exactly = callCount) { spyLog.debug("New screen orientation, closing form") }
         verify(exactly = callCount) { mockOverlayActivity.finish() }
-        verify(exactly = callCount) { mockWebViewClient.detachWebView(mockOverlayActivity) }
+        verify(exactly = callCount) { mockWebViewClient.detachWebView() }
     }
 
     @Test
@@ -155,7 +155,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     fun `dismiss should detach webview and finish activity`() {
         val manager = withPresentedState()
         manager.dismiss()
-        verify(exactly = 1) { mockWebViewClient.detachWebView(mockOverlayActivity) }
+        verify(exactly = 1) { mockWebViewClient.detachWebView() }
         verify(exactly = 1) { mockOverlayActivity.finish() }
         assertEquals(
             "PresentationState should reset to Hidden",
@@ -168,7 +168,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     fun `dismiss should be ignored if not currently presenting`() {
         val manager = withHiddenState()
         manager.dismiss()
-        verify(exactly = 0) { mockWebViewClient.detachWebView(mockOverlayActivity) }
+        verify(exactly = 0) { mockWebViewClient.detachWebView() }
         verify(exactly = 0) { mockOverlayActivity.finish() }
         verify { spyLog.debug("No-op dismiss: overlay activity is not presented") }
     }
@@ -199,7 +199,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         )
 
         manager.dismiss()
-        verify(exactly = 1) { mockWebViewClient.detachWebView(mockOverlayActivity) }
+        verify(exactly = 1) { mockWebViewClient.detachWebView() }
         verify(exactly = 1) { mockOverlayActivity.finish() }
         assertEquals(
             "PresentationState should reset to Hidden",

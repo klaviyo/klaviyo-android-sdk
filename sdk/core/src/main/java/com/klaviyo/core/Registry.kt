@@ -13,6 +13,8 @@ import com.klaviyo.core.model.DataStore
 import com.klaviyo.core.model.SharedPreferencesDataStore
 import com.klaviyo.core.networking.KlaviyoNetworkMonitor
 import com.klaviyo.core.networking.NetworkMonitor
+import com.klaviyo.core.utils.KlaviyoThreadHelper
+import com.klaviyo.core.utils.ThreadHelper
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -49,6 +51,8 @@ object Registry {
      * Access to [Config.Builder] for registering new or updated SDK configuration
      */
     val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
+
+    val threadHelper: ThreadHelper = KlaviyoThreadHelper
 
     val clock: Clock get() = SystemClock
 

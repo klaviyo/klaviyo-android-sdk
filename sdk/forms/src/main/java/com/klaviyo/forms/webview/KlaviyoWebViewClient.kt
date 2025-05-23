@@ -98,9 +98,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     private fun onJsHandshakeTimeout() {
         handshakeTimer?.cancel()
         Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
-        Registry.lifecycleMonitor.currentActivity?.let {
-            detachWebView(it)
-        } ?: destroyWebView()
+        destroyWebView()
     }
 
     /**
@@ -108,7 +106,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      */
     override fun attachWebView(activity: Activity) = apply {
         webView?.let { webView ->
-            activity.runOnUiThread {
+            Registry.threadHelper.runOnUiThread {
                 activity.setContentView(webView)
                 webView.visibility = View.VISIBLE
             }
@@ -120,11 +118,12 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     /**
      * Detach the webview from the overlay activity, keeping it in memory
      */
-    override fun detachWebView(activity: Activity) = apply {
+    override fun detachWebView() = apply {
         webView?.let { webView ->
-            webView.visibility = View.GONE
-            webView.parent?.let { it as ViewGroup }?.removeView(webView)
-            destroyWebView()
+            Registry.threadHelper.runOnUiThread {
+                webView.visibility = View.GONE
+                webView.parent?.let { it as ViewGroup }?.removeView(webView)
+            }
         } ?: run {
             Registry.log.warning("Unable to detach IAF - null WebView reference")
         }
@@ -137,9 +136,11 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         handshakeTimer?.cancel()
         Registry.get<JsBridgeObserverCollection>().stopObservers()
         webView?.let { webView ->
-            Registry.log.verbose("Clear IAF WebView reference")
-            webView.destroy()
-            this.webView = null
+            Registry.threadHelper.runOnUiThread {
+                Registry.log.verbose("Clear IAF WebView reference")
+                webView.destroy()
+                this.webView = null
+            }
         } ?: run {
             Registry.log.warning("Unable to destroy IAF - null WebView reference")
         }
@@ -197,13 +198,10 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         javascript: String,
         callback: (Boolean) -> Unit
     ) = webView?.let { webView ->
-        Registry.lifecycleMonitor.currentActivity?.runOnUiThread {
+        Registry.threadHelper.runOnUiThread {
             webView.evaluateJavascript(javascript) { result ->
                 callback(result == "true")
             }
-        } ?: run {
-            Registry.log.warning("Unable to evaluate Javascript - null activity reference")
-            callback(false)
         }
     } ?: run {
         Registry.log.warning("Unable to evaluate Javascript - null WebView reference")
