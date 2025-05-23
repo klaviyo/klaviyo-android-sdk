@@ -1,10 +1,11 @@
 package com.klaviyo.forms.bridge
 
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
-import com.klaviyo.forms.webview.WebViewClient
+import com.klaviyo.forms.reInitializeInAppForms
 
 /**
  * When the company changes, the whole webview needs to be reinitialized
@@ -21,16 +22,12 @@ internal class CompanyObserver : JsBridgeObserver {
     override fun stopObserver() = Registry.get<State>().offStateChange(::onStateChange)
 
     private fun onStateChange(key: Keyword?, oldValue: Any?) = when (key) {
-        StateKey.API_KEY -> reinitialize().also {
+        StateKey.API_KEY -> Klaviyo.reInitializeInAppForms().also {
             Registry.log.info(
-                "In-app forms reinitialized: company ID changed from $it to ${Registry.get<State>().apiKey}"
+                "In-app forms reinitialized: company ID changed from $oldValue to ${Registry.get<State>().apiKey}"
             )
         }
 
         else -> Unit
     }
-
-    private fun reinitialize() = Registry.get<WebViewClient>()
-        .destroyWebView()
-        .initializeWebView()
 }
