@@ -3,6 +3,7 @@ package com.klaviyo.forms
 import androidx.annotation.UiThread
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
+import com.klaviyo.core.Registry.registerOnce
 import com.klaviyo.core.safeApply
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
@@ -27,7 +28,9 @@ fun Klaviyo.registerForInAppForms(
     // Register IAF services
     Registry.apply {
         register<InAppFormsConfig>(config)
-        registerOnce<PresentationManager> { KlaviyoPresentationManager() }
+        registerOnce<PresentationManager> {
+            KlaviyoPresentationManager()
+        }
         registerOnce<NativeBridge> { KlaviyoNativeBridge() }
         registerOnce<WebViewClient> {
             KlaviyoWebViewClient().also {
@@ -40,4 +43,29 @@ fun Klaviyo.registerForInAppForms(
 
     // And initialize the webview client
     Registry.get<WebViewClient>().initializeWebView()
+}
+
+/**
+ * Halts the in-app forms services and observers,
+ * hiding any currently displayed forms and preventing any further forms from being presented.
+ */
+@UiThread
+fun Klaviyo.unregisterInAppForms() = safeApply {
+    Registry.apply {
+        unregister<InAppFormsConfig>()
+        getOrNull<PresentationManager>()?.dismiss()
+        getOrNull<WebViewClient>()?.destroyWebView()
+    }
+}
+
+/**
+ * Resets the in-app forms listeners with the current configuration.
+ */
+@UiThread
+internal fun Klaviyo.reInitializeInAppForms() = safeApply {
+    // If config is missing, initial registration has not occurred so we can't re-initialize
+    Registry.getOrNull<InAppFormsConfig>()?.let { config ->
+        unregisterInAppForms()
+        registerForInAppForms(config)
+    }
 }

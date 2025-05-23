@@ -1,11 +1,12 @@
 package com.klaviyo.forms.bridge
 
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.JsBridge.LifecycleEventType.background
 import com.klaviyo.forms.bridge.JsBridge.LifecycleEventType.foreground
-import com.klaviyo.forms.webview.WebViewClient
+import com.klaviyo.forms.reInitializeInAppForms
 
 internal class LifecycleObserver : JsBridgeObserver {
     private var lastBackgrounded: Long? = null
@@ -20,7 +21,10 @@ internal class LifecycleObserver : JsBridgeObserver {
 
     override fun startObserver() = Registry.lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
 
-    override fun stopObserver() = Registry.lifecycleMonitor.offActivityEvent(::onLifecycleEvent)
+    override fun stopObserver() {
+        lastBackgrounded = null
+        Registry.lifecycleMonitor.offActivityEvent(::onLifecycleEvent)
+    }
 
     private fun onLifecycleEvent(activity: ActivityEvent) = when (activity) {
         // App foregrounded
@@ -34,14 +38,10 @@ internal class LifecycleObserver : JsBridgeObserver {
     /**
      * On foregrounded, if session timeout has elapsed, re-initialize the webview.
      * Otherwise, dispatch a foregrounded lifecycle event into the webview
-     *
-     * TODO what if webview was still presented when app was backgrounded?
      */
     private fun onForeground() {
         if (isSessionExpired()) {
-            Registry.get<WebViewClient>()
-                .destroyWebView()
-                .initializeWebView()
+            Klaviyo.reInitializeInAppForms()
         } else {
             Registry.get<JsBridge>().dispatchLifecycleEvent(foreground)
         }
