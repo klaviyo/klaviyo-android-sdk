@@ -142,11 +142,6 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         mockkStatic(WebViewCompat::class)
         every { WebViewCompat.addWebMessageListener(any(), any(), any(), any()) } just runs
-
-        val slot = slot<Runnable>()
-        every { mockActivity.runOnUiThread(capture(slot)) } answers {
-            slot.captured.run()
-        }
     }
 
     @After
@@ -378,26 +373,10 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     @Test
-    fun `evaluateJavascript invokes callback with false if currentActivity is null`() {
-        val client = KlaviyoWebViewClient()
-        client.initializeWebView()
-        every { Registry.lifecycleMonitor.currentActivity } returns null
-        var result: Boolean? = null
-        client.evaluateJavascript("test") { result = it }
-        assertEquals(false, result)
-    }
-
-    @Test
     fun `evaluateJavascript invokes webview evaluateJavascript via runOnUiThread and calls back with true or false`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
         every { Registry.lifecycleMonitor.currentActivity } returns mockActivity
-
-        // Capture the runOnUiThread call and invoke the runnable
-        val runOnUiThreadSlot = slot<Runnable>()
-        every { mockActivity.runOnUiThread(capture(runOnUiThreadSlot)) } answers {
-            runOnUiThreadSlot.captured.run()
-        }
 
         // Simulate webview.evaluateJavascript returning "true"
         every { anyConstructed<KlaviyoWebView>().evaluateJavascript(any(), any()) } answers {
@@ -417,6 +396,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         var resultFalse: Boolean? = null
         client.evaluateJavascript("test") { resultFalse = it }
         assertEquals(false, resultFalse)
+        verify(exactly = 2) { mockThreadHelper.runOnUiThread(any()) }
     }
 
     @Test

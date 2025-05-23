@@ -12,6 +12,15 @@ object KlaviyoThreadHelper : ThreadHelper {
     override fun getHandler(looper: Looper) = Handler(looper)
     override fun getHandlerThread(name: String?) = HandlerThread(name)
     override fun runOnUiThread(block: () -> Unit) {
-        Handler(Looper.getMainLooper()).post(block)
+        val mainLooper = Looper.getMainLooper()
+
+        if (mainLooper == Looper.myLooper()) {
+            // Already on main thread, run immediately
+            block()
+        } else {
+            // Post to main thread
+            getHandler(mainLooper)
+                .post(block)
+        }
     }
 }
