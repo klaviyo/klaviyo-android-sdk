@@ -159,10 +159,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     private fun verifyDestroy(doesNotDestroy: Boolean = false) {
-        val times = if (doesNotDestroy) 0 else 1
-        verify(exactly = times) { spyLog.verbose("Clear IAF WebView reference") }
-        verify(exactly = times) { anyConstructed<KlaviyoWebView>().destroy() }
-        verify(exactly = times) { mockObserverCollection.stopObservers() }
+        verify(inverse = doesNotDestroy) { spyLog.verbose("Clear IAF WebView reference") }
+        verify(inverse = doesNotDestroy) { anyConstructed<KlaviyoWebView>().destroy() }
+        verify(inverse = doesNotDestroy) { mockObserverCollection.stopObservers() }
     }
 
     private fun verifyShow(doesNotShow: Boolean = false) {
@@ -287,6 +286,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         client.onJsHandshakeCompleted()
         staticClock.execute(10_000)
+        client.onJsHandshakeCompleted() // verify a duplicate call wouldn't cause a crash
 
         verifyClose(doesNotClose = true)
         verifyDestroy(doesNotDestroy = true)
@@ -300,7 +300,6 @@ class KlaviyoWebViewClientTest : BaseTest() {
         staticClock.execute(10_000)
 
         verify { spyLog.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js") }
-        verifyClose()
         verifyDestroy()
     }
 
@@ -308,9 +307,26 @@ class KlaviyoWebViewClientTest : BaseTest() {
     fun `detachWebView removes webview from view`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
-        client.detachWebView(mockActivity)
+        client.detachWebView()
+
+        verify { mockThreadHelper.runOnUiThread(any()) }
 
         verifyClose()
+    }
+
+    @Test
+    fun `destroyWebView stops observers and kills webview on main thread`() {
+        val client = KlaviyoWebViewClient()
+
+        client.destroyWebView()
+        verify(inverse = true) { anyConstructed<KlaviyoWebView>().destroy() }
+
+        client.initializeWebView()
+        client.destroyWebView()
+
+        verify { mockObserverCollection.stopObservers() }
+        verify { mockThreadHelper.runOnUiThread(any()) }
+
         verifyDestroy()
     }
 
@@ -318,7 +334,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     fun `verify detachWebView fails on a null webview`() {
         val client = KlaviyoWebViewClient()
         // notably do not init webview
-        client.detachWebView(mockActivity)
+        client.detachWebView()
         verify { spyLog.warning("Unable to detach IAF - null WebView reference") }
         verifyClose(doesNotClose = true)
         verifyDestroy(doesNotDestroy = true)

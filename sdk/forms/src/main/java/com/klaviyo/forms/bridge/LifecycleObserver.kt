@@ -34,6 +34,8 @@ internal class LifecycleObserver : JsBridgeObserver {
     /**
      * On foregrounded, if session timeout has elapsed, re-initialize the webview.
      * Otherwise, dispatch a foregrounded lifecycle event into the webview
+     *
+     * TODO what if webview was still presented when app was backgrounded?
      */
     private fun onForeground() {
         if (isSessionExpired()) {

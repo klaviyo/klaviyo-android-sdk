@@ -66,7 +66,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      */
     override fun dismiss() = overlayActivity?.let { activity ->
         Registry.log.debug("Dismissing form overlay activity")
-        Registry.get<WebViewClient>().detachWebView(activity)
+        Registry.get<WebViewClient>().detachWebView()
         activity.finish()
         presentationState = PresentationState.Hidden
         overlayActivity = null
