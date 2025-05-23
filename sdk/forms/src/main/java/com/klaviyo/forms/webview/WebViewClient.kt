@@ -27,7 +27,7 @@ internal interface WebViewClient {
     /**
      * Detach the webview from the overlay activity, keeping it in memory
      */
-    fun detachWebView(activity: Activity): WebViewClient
+    fun detachWebView(): WebViewClient
 
     /**
      * Destroy the webview and release the reference

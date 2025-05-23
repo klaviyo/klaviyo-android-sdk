@@ -98,9 +98,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     private fun onJsHandshakeTimeout() {
         handshakeTimer?.cancel()
         Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
-        Registry.lifecycleMonitor.currentActivity?.let {
-            detachWebView(it)
-        } ?: destroyWebView()
+        destroyWebView()
     }
 
     /**
@@ -120,11 +118,12 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     /**
      * Detach the webview from the overlay activity, keeping it in memory
      */
-    override fun detachWebView(activity: Activity) = apply {
+    override fun detachWebView() = apply {
         webView?.let { webView ->
-            webView.visibility = View.GONE
-            webView.parent?.let { it as ViewGroup }?.removeView(webView)
-            destroyWebView()
+            Registry.threadHelper.runOnUiThread {
+                webView.visibility = View.GONE
+                webView.parent?.let { it as ViewGroup }?.removeView(webView)
+            }
         } ?: run {
             Registry.log.warning("Unable to detach IAF - null WebView reference")
         }
