@@ -19,6 +19,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import java.util.Collections
 import java.util.concurrent.ConcurrentLinkedDeque
+import java.util.concurrent.CopyOnWriteArrayList
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -38,7 +39,7 @@ internal object KlaviyoApiClient : ApiClient {
      * List of registered API observers
      */
     private val apiObservers = Collections.synchronizedList(
-        mutableListOf<ApiObserver>()
+        CopyOnWriteArrayList(mutableListOf<ApiObserver>())
     )
 
     /**

@@ -9,6 +9,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import java.util.Collections
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Service for monitoring the application lifecycle and network connectivity
@@ -18,7 +19,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     private var activeActivities = 0
 
     private val activityObservers = Collections.synchronizedList(
-        mutableListOf<ActivityObserver>()
+        CopyOnWriteArrayList(mutableListOf<ActivityObserver>())
     )
 
     override var currentActivity: Activity? by WeakReferenceDelegate()

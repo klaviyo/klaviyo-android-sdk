@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.klaviyo.core.Registry
 import java.util.Collections
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Simple DataStore implementation using SharedPreferences for persistence
@@ -20,7 +21,7 @@ internal object SharedPreferencesDataStore : DataStore {
      * List of registered observers
      */
     private val storeObservers = Collections.synchronizedList(
-        mutableListOf<StoreObserver>()
+        CopyOnWriteArrayList(mutableListOf<StoreObserver>())
     )
 
     override fun onStoreChange(observer: StoreObserver) {
