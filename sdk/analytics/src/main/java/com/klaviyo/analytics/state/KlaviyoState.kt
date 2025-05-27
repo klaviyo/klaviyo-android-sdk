@@ -1,11 +1,12 @@
 package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.API_KEY
-import com.klaviyo.analytics.model.Keyword
+import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.model.ProfileKey.ANONYMOUS_ID
+import com.klaviyo.analytics.model.ProfileKey.Companion.IDENTIFIERS
 import com.klaviyo.analytics.model.ProfileKey.EMAIL
 import com.klaviyo.analytics.model.ProfileKey.EXTERNAL_ID
 import com.klaviyo.analytics.model.ProfileKey.PHONE_NUMBER
@@ -36,11 +37,14 @@ internal class KlaviyoState : State {
     override var phoneNumber by _phoneNumber
 
     private val _anonymousId = PersistentObservableString(ANONYMOUS_ID, ::broadcastChange) {
+        // Fallback: always autogenerate an anonymous ID if not currently set
         UUID.randomUUID().toString()
     }
     override val anonymousId by _anonymousId
 
-    private val _attributes = PersistentObservableProfile(PROFILE_ATTRIBUTES, ::broadcastChange)
+    private val _attributes = PersistentObservableProfile(PROFILE_ATTRIBUTES) { _, oldValue ->
+        broadcastAttributesChange(oldValue)
+    }
     private var attributes by _attributes
 
     private val _pushState = PersistentObservableString(PUSH_STATE, ::broadcastChange)
@@ -153,7 +157,7 @@ internal class KlaviyoState : State {
         _anonymousId.reset()
         _attributes.reset()
 
-        broadcastChange(null, oldProfile)
+        broadcastChange(StateChange.ProfileReset(oldProfile))
         Registry.log.verbose("Reset internal user state")
     }
 
@@ -163,16 +167,31 @@ internal class KlaviyoState : State {
     override fun resetAttributes() {
         val oldAttributes = attributes?.copy()
         _attributes.reset()
-        broadcastChange(PROFILE_ATTRIBUTES, oldAttributes)
+        broadcastAttributesChange(oldAttributes)
     }
 
-    private fun <T> broadcastChange(property: PersistentObservableProperty<T>?, oldValue: T?) =
-        broadcastChange(property?.key, oldValue)
+    private fun broadcastChange(property: PersistentObservableProperty<String?>, oldValue: String?) =
+        when (property.key) {
+            is API_KEY -> broadcastChange(StateChange.ApiKey(oldValue))
+            is ProfileKey -> if (property.key.name in IDENTIFIERS) {
+                broadcastChange(
+                    StateChange.ProfileIdentifier(
+                        property.key,
+                        oldValue
+                    )
+                )
+            } else {
+                broadcastChange(StateChange.KeyValue(property.key, oldValue))
+            }
+            else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))
+        }
 
-    private fun broadcastChange(key: Keyword? = null, oldValue: Any? = null) {
-        Registry.log.verbose("KlaviyoState: broadcasting state change from $this")
+    private fun broadcastAttributesChange(oldValue: ImmutableProfile?) =
+        broadcastChange(StateChange.ProfileAttributes(oldValue))
+
+    private fun broadcastChange(change: StateChange) {
         synchronized(stateObservers) {
-            stateObservers.forEach { it(key, oldValue) }
+            stateObservers.forEach { it(change) }
         }
     }
 

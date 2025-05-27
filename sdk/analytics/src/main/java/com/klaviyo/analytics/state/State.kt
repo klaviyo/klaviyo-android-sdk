@@ -1,11 +1,10 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import java.io.Serializable
 
-typealias StateObserver = (key: Keyword?, oldValue: Any?) -> Unit
+typealias StateObserver = (change: StateChange) -> Unit
 
 interface State {
     var apiKey: String?

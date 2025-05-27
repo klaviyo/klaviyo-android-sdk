@@ -1,9 +1,6 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.API_KEY
 import com.klaviyo.analytics.model.ImmutableProfile
-import com.klaviyo.analytics.model.Keyword
-import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
@@ -149,15 +146,26 @@ internal class StateSideEffects(
         else -> Unit
     }
 
-    private fun onStateChange(key: Keyword?, oldValue: Any?) = when (key) {
-        API_KEY -> onApiKeyChange(oldApiKey = oldValue?.toString())
-        ProfileKey.PUSH_STATE -> onPushStateChange()
-        ProfileKey.PUSH_TOKEN -> { /* Token is a no-op, push changes are captured by push state */
+    private fun onStateChange(change: StateChange) = when (change) {
+        is StateChange.ApiKey -> {
+            onApiKeyChange(oldApiKey = change.oldValue)
         }
-        PROFILE_ATTRIBUTES -> if (state.getAsProfile(withAttributes = true).attributes.propertyCount() > 0) {
+
+        is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> {
             onUserStateChange()
-        } else { Unit }
-        else -> onUserStateChange()
+        }
+
+        is StateChange.ProfileAttributes -> if (state.getAsProfile(withAttributes = true).attributes.propertyCount() > 0) {
+            onUserStateChange()
+        } else {
+            Unit
+        }
+
+        is StateChange.KeyValue -> when (change.key) {
+            ProfileKey.PUSH_STATE -> onPushStateChange()
+            ProfileKey.PUSH_TOKEN -> Unit /* Token is a no-op, push changes are captured by push state */
+            else -> Unit
+        }
     }
 
     private fun onLifecycleEvent(activity: ActivityEvent): Unit = when {
@@ -165,6 +173,7 @@ internal class StateSideEffects(
             // This should trigger the token in state to refresh overall push state
             Registry.get<State>().pushToken = it
         } ?: Unit
+
         else -> Unit
     }
 }
