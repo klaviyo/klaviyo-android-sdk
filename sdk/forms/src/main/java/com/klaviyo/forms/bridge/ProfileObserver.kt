@@ -8,7 +8,7 @@ import com.klaviyo.core.Registry
  * Observe [State] in the analytics package to synchronize profile identifiers with the webview
  */
 internal class ProfileObserver : JsBridgeObserver {
-    override val handshake: HandshakeSpec = HandshakeSpec(
+    override val handshake: HandshakeSpec? = HandshakeSpec(
         type = "profileMutation",
         version = 1
     )

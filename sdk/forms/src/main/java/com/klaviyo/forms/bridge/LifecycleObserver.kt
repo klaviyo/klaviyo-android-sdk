@@ -14,7 +14,7 @@ internal class LifecycleObserver : JsBridgeObserver {
     private val sessionTimeoutMs: Long
         get() = Registry.get<InAppFormsConfig>().sessionTimeoutDuration * 1_000
 
-    override val handshake: HandshakeSpec = HandshakeSpec(
+    override val handshake: HandshakeSpec? = HandshakeSpec(
         type = "lifecycleEvent",
         version = 1
     )
