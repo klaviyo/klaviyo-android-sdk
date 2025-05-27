@@ -22,6 +22,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.slot
+import io.mockk.spyk
 import io.mockk.unmockkConstructor
 import io.mockk.verify
 import io.mockk.verifyAll
@@ -549,15 +550,24 @@ internal class KlaviyoTest : BaseTest() {
     fun `Initializing State and side effects is idempotent`() {
         // Since the test setup already initializes Klaviyo:
         val initialState = Registry.get<State>()
+        val spyState = spyk(initialState)
         val initialSideEffects = Registry.get<StateSideEffects>()
+        Registry.register<State>(spyState)
 
-        // Now re-reinitialize: the State/SideEffects should not change
+        // Re-reinitialize multiple times:
         Klaviyo.initialize(
-            apiKey = API_KEY,
+            apiKey = "keyTwo",
             applicationContext = mockContext
         )
 
-        assertEquals(initialState, Registry.get<State>())
+        Klaviyo.initialize(
+            apiKey = "newKey",
+            applicationContext = mockContext
+        )
+
+        // State and SideEffects should not change in registry, nor register additional observers
+        assertEquals(spyState, Registry.get<State>())
         assertEquals(initialSideEffects, Registry.get<StateSideEffects>())
+        verify(exactly = 1) { mockApiClient.onApiRequest(false, any()) }
     }
 }
