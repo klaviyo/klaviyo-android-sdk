@@ -170,6 +170,9 @@ internal class KlaviyoState : State {
         broadcastAttributesChange(oldAttributes)
     }
 
+    /**
+     * From a property change, broadcast the correct state change
+     */
     private fun broadcastChange(property: PersistentObservableProperty<String?>, oldValue: String?) =
         when (property.key) {
             is API_KEY -> broadcastChange(StateChange.ApiKey(oldValue))
@@ -183,16 +186,23 @@ internal class KlaviyoState : State {
             } else {
                 broadcastChange(StateChange.KeyValue(property.key, oldValue))
             }
+
             else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))
         }
 
+    /**
+     * Broadcast a change after the profile attributes are updated
+     */
     private fun broadcastAttributesChange(oldValue: ImmutableProfile?) =
         broadcastChange(StateChange.ProfileAttributes(oldValue))
 
-    private fun broadcastChange(change: StateChange) {
-        synchronized(stateObservers) {
-            stateObservers.forEach { it(change) }
-        }
+    /**
+     * Broadcast a change to all registered observers
+     *
+     * @param change - the state change to broadcast
+     */
+    private fun broadcastChange(change: StateChange) = synchronized(stateObservers) {
+        stateObservers.forEach { it(change) }
     }
 
     /**
