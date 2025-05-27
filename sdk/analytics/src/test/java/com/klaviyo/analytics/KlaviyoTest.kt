@@ -99,7 +99,6 @@ internal class KlaviyoTest : BaseTest() {
         Registry.register<ApiClient>(mockApiClient)
         mockDeviceProperties()
         mockkConstructor(StateSideEffects::class)
-        every { anyConstructed<StateSideEffects>().detach() } returns Unit
         Klaviyo.initialize(
             apiKey = API_KEY,
             applicationContext = mockContext
@@ -109,7 +108,6 @@ internal class KlaviyoTest : BaseTest() {
     @After
     override fun cleanup() {
         unmockkConstructor(StateSideEffects::class)
-        Registry.get<State>().reset()
         Registry.unregister<Config>()
         Registry.unregister<State>()
         Registry.unregister<StateSideEffects>()
@@ -548,17 +546,18 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `State side effect attachments are idempotent`() {
-        verify(exactly = 0) { anyConstructed<StateSideEffects>().detach() }
+    fun `Initializing State and side effects is idempotent`() {
+        // Since the test setup already initializes Klaviyo:
+        val initialState = Registry.get<State>()
+        val initialSideEffects = Registry.get<StateSideEffects>()
+
+        // Now re-reinitialize: the State/SideEffects should not change
         Klaviyo.initialize(
             apiKey = API_KEY,
             applicationContext = mockContext
         )
-        verify(exactly = 1) { anyConstructed<StateSideEffects>().detach() }
-        Klaviyo.initialize(
-            apiKey = API_KEY,
-            applicationContext = mockContext
-        )
-        verify(exactly = 2) { anyConstructed<StateSideEffects>().detach() }
+
+        assertEquals(initialState, Registry.get<State>())
+        assertEquals(initialSideEffects, Registry.get<StateSideEffects>())
     }
 }

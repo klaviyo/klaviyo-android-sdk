@@ -67,7 +67,7 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
-    fun `Subscribes on init and unsubscribes`() {
+    fun `Subscribes on init and detach unsubscribes`() {
         val sideEffects = StateSideEffects(stateMock, apiClientMock)
         verify { stateMock.onStateChange(any()) }
         verify { apiClientMock.onApiRequest(any(), any()) }

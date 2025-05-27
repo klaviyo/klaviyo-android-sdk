@@ -55,6 +55,26 @@ internal class KlaviyoStateTest : BaseTest() {
     }
 
     @Test
+    fun `Observer can detach itself during callback`() = runTest {
+        var observer: StateObserver = { _, _ -> }
+        var didRun = false
+
+        observer = { _, _ ->
+            state.offStateChange(observer)
+            didRun = true
+        }
+
+        state.onStateChange(observer)
+
+        state.reset()
+        assert(didRun) { "Observer did not run as expected" }
+
+        didRun = false
+        state.reset()
+        assert(!didRun) { "Observer should not run the second time" }
+    }
+
+    @Test
     fun `UserInfo is convertible to Profile`() {
         state.externalId = EXTERNAL_ID
         state.email = EMAIL

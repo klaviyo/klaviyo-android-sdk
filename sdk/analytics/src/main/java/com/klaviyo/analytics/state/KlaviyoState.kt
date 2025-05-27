@@ -16,6 +16,7 @@ import com.klaviyo.core.Registry
 import java.io.Serializable
 import java.util.Collections
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Stores information on the currently active user
@@ -58,7 +59,7 @@ internal class KlaviyoState : State {
      * List of registered state change observers
      */
     private val stateObservers = Collections.synchronizedList(
-        mutableListOf<StateObserver>()
+        CopyOnWriteArrayList<StateObserver>()
     )
 
     /**
@@ -112,19 +113,24 @@ internal class KlaviyoState : State {
      * Set an individual property or attribute
      */
     override fun setAttribute(key: ProfileKey, value: Serializable) = when (key) {
-        EMAIL -> (value as? String)?.let { email = it } ?: run { logCastError(EMAIL, value) }
+        EMAIL -> (value as? String)?.let { email = it } ?: run {
+            logCastError(EMAIL, value)
+        }
+
         EXTERNAL_ID -> (value as? String)?.let { externalId = it } ?: run {
             logCastError(
                 EXTERNAL_ID,
                 value
             )
         }
+
         PHONE_NUMBER -> (value as? String)?.let { phoneNumber = it } ?: run {
             logCastError(
                 PHONE_NUMBER,
                 value
             )
         }
+
         else -> this.attributes = (this.attributes?.copy() ?: Profile()).setProperty(key, value)
     }
 
@@ -164,6 +170,7 @@ internal class KlaviyoState : State {
         broadcastChange(property?.key, oldValue)
 
     private fun broadcastChange(key: Keyword? = null, oldValue: Any? = null) {
+        Registry.log.verbose("KlaviyoState: broadcasting state change from $this")
         synchronized(stateObservers) {
             stateObservers.forEach { it(key, oldValue) }
         }
