@@ -77,21 +77,6 @@ class RegistryTest {
     }
 
     @Test
-    fun `registerOnce only registers a service if not already registered`() {
-        // First registration
-        val firstInstance = object : TestDependency {}
-        Registry.registerOnce<TestDependency>(firstInstance)
-        assertEquals(firstInstance, Registry.get<TestDependency>())
-
-        // Attempt to register a new instance
-        val secondInstance = object : TestDependency {}
-        Registry.registerOnce<TestDependency>(secondInstance)
-
-        // Ensure the first instance is still registered
-        assertEquals(firstInstance, Registry.get<TestDependency>())
-    }
-
-    @Test
     fun `registerOnce lazily only registers a service if not already registered`() {
         var firstCallCount = 0
         var secondCallCount = 0

@@ -100,21 +100,6 @@ object Registry {
     }
 
     /**
-     * Register a service for a type, specified by generic parameter
-     * Typical usage would be to register the singleton implementation of an interface
-     * If this service is already registered, a new registration will be ignored
-     *
-     * @param T - Type, usually an interface, to register under
-     * @param service - The implementation
-     */
-    inline fun <reified T : Any> registerOnce(service: Any) {
-        if (!isRegistered<T>()) {
-            val type = typeOf<T>()
-            services[type] = service
-        }
-    }
-
-    /**
      * Lazily register a service builder for a type, specified by generic parameter
      * Typical usage would be to register a builder method for the implementation of an interface
      *
