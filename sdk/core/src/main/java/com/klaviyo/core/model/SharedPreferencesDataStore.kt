@@ -21,7 +21,7 @@ internal object SharedPreferencesDataStore : DataStore {
      * List of registered observers
      */
     private val storeObservers = Collections.synchronizedList(
-        CopyOnWriteArrayList(mutableListOf<StoreObserver>())
+        CopyOnWriteArrayList<StoreObserver>()
     )
 
     override fun onStoreChange(observer: StoreObserver) {

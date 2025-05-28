@@ -26,7 +26,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      * List of registered network change observers
      */
     private val networkChangeObservers = Collections.synchronizedList(
-        CopyOnWriteArrayList(mutableListOf<NetworkObserver>())
+        CopyOnWriteArrayList<NetworkObserver>()
     )
 
     /**

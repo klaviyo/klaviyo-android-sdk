@@ -39,7 +39,7 @@ internal object KlaviyoApiClient : ApiClient {
      * List of registered API observers
      */
     private val apiObservers = Collections.synchronizedList(
-        CopyOnWriteArrayList(mutableListOf<ApiObserver>())
+        CopyOnWriteArrayList<ApiObserver>()
     )
 
     /**

@@ -19,7 +19,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     private var activeActivities = 0
 
     private val activityObservers = Collections.synchronizedList(
-        CopyOnWriteArrayList(mutableListOf<ActivityObserver>())
+        CopyOnWriteArrayList<ActivityObserver>()
     )
 
     override var currentActivity: Activity? by WeakReferenceDelegate()
