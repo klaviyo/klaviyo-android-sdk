@@ -197,7 +197,7 @@ class StateSideEffectsTest : BaseTest() {
 
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(StateKey.PUSH_STATE, null)
+        capturedStateChangeObserver.captured(StateChange.KeyValue(StateKey.PUSH_STATE, null))
         verify(exactly = 1) { apiClientMock.enqueuePushToken("token", profile) }
     }
 
@@ -207,7 +207,7 @@ class StateSideEffectsTest : BaseTest() {
 
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(StateKey.PUSH_STATE, null)
+        capturedStateChangeObserver.captured(StateChange.KeyValue(StateKey.PUSH_STATE, null))
         verify(exactly = 0) { apiClientMock.enqueuePushToken(any(), any()) }
     }
 

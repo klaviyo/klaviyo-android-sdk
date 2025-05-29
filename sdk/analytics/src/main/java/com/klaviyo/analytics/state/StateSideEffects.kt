@@ -163,7 +163,7 @@ internal class StateSideEffects(
         }
 
         is StateChange.KeyValue -> when (change.key) {
-            ProfileKey.PUSH_STATE -> onPushStateChange()
+            StateKey.PUSH_STATE -> onPushStateChange()
             ProfileKey.PUSH_TOKEN -> Unit /* Token is a no-op, push changes are captured by push state */
             else -> Unit
         }

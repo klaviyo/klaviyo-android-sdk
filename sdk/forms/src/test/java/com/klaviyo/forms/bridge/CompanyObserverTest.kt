@@ -1,10 +1,10 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.ProfileKey
-import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.StateChange
+import com.klaviyo.analytics.state.StateChangeObserver
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.reInitializeInAppForms
 import com.klaviyo.forms.webview.WebViewClient
@@ -20,7 +20,7 @@ import org.junit.Before
 import org.junit.Test
 
 class CompanyObserverTest {
-    private val observerSlot = slot<(Keyword?, Any?) -> Unit>()
+    private val observerSlot = slot<StateChangeObserver>()
     private val stateMock = mockk<State>(relaxed = true).apply {
         every { onStateChange(capture(observerSlot)) } returns Unit
         every { apiKey } returns "new_key"
@@ -55,7 +55,7 @@ class CompanyObserverTest {
     fun `startObserver attaches to state change`() {
         CompanyObserver().startObserver()
         assert(observerSlot.isCaptured)
-        observerSlot.captured.invoke(StateKey.API_KEY, "old_key")
+        observerSlot.captured.invoke(StateChange.ApiKey("new_key"))
         verify { Klaviyo.reInitializeInAppForms() }
     }
 
@@ -63,7 +63,9 @@ class CompanyObserverTest {
     fun `observer ignores other keys`() {
         CompanyObserver().startObserver()
         assert(observerSlot.isCaptured)
-        observerSlot.captured.invoke(ProfileKey.CUSTOM("email"), "old_email")
+        observerSlot.captured.invoke(
+            StateChange.KeyValue(ProfileKey.CUSTOM("test_key"), "test_value")
+        )
         verify(inverse = true) { Klaviyo.reInitializeInAppForms() }
     }
 }

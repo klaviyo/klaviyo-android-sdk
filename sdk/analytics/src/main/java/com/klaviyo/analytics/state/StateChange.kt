@@ -1,10 +1,10 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.API_KEY
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.model.StateKey.API_KEY
 
 sealed interface StateChange {
     val key: Keyword?

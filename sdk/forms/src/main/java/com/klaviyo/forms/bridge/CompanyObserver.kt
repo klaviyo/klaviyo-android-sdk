@@ -1,9 +1,8 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.analytics.model.Keyword
-import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.StateChange
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.reInitializeInAppForms
 
@@ -22,10 +21,10 @@ internal class CompanyObserver : JsBridgeObserver {
 
     override fun stopObserver() = Registry.get<State>().offStateChange(::onStateChange)
 
-    private fun onStateChange(key: Keyword?, oldValue: Any?) = when (key) {
-        StateKey.API_KEY -> Klaviyo.reInitializeInAppForms().run {
+    private fun onStateChange(change: StateChange) = when (change) {
+        is StateChange.ApiKey -> Klaviyo.reInitializeInAppForms().run {
             Registry.log.info(
-                "In-app forms reinitialized: company ID changed from $oldValue to ${Registry.get<State>().apiKey}"
+                "In-app forms reinitialized: company ID changed from ${change.oldValue} to ${Registry.get<State>().apiKey}"
             )
         }
 
