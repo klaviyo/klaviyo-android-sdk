@@ -105,7 +105,7 @@ abstract class BaseTest {
 
     protected val mockHandler = mockk<Handler>().apply {
         every { removeCallbacksAndMessages(any()) } returns Unit
-        every { post(any()) } answers { a ->
+        every { post(any()) } answers {
             firstArg<Runnable>().run().let { true }
         }
     }

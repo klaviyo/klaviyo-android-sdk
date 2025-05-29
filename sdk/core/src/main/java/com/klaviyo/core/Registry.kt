@@ -153,8 +153,8 @@ object Registry {
 
         if (service is T) return service
 
-        return when (val service = registry[type]?.let { it() }) {
-            is T -> service.apply { services[type] = service }
+        return when (val lazyService = registry[type]?.let { it() }) {
+            is T -> lazyService.apply { services[type] = lazyService }
             else -> null
         }
     }
@@ -172,10 +172,10 @@ object Registry {
 
         if (service is T) return service
 
-        when (val s = registry[type]?.let { it() }) {
+        when (val lazyService = registry[type]?.let { it() }) {
             is T -> {
-                services[type] = s
-                return s
+                services[type] = lazyService
+                return lazyService
             }
 
             is Any -> throw InvalidRegistration(type)
@@ -183,7 +183,7 @@ object Registry {
                 if (type == typeOf<Config>()) {
                     throw MissingConfig()
                 } else {
-                    throw throw MissingRegistration(type)
+                    throw MissingRegistration(type)
                 }
             }
         }

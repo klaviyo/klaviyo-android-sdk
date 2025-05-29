@@ -85,7 +85,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         every { mockNetworkMonitor.onNetworkChange(capture(slotOnNetworkChange)) } returns Unit
         every { mockNetworkMonitor.offNetworkChange(capture(slotOnNetworkChange)) } returns Unit
 
-        every { mockHandler.postDelayed(any(), any()) } answers { a ->
+        every { mockHandler.postDelayed(any(), any()) } answers {
             postedJob = firstArg<KlaviyoApiClient.NetworkRunnable>()
             true
         }
