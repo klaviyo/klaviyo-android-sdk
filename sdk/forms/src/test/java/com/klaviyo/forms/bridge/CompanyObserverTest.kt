@@ -68,4 +68,12 @@ class CompanyObserverTest {
         )
         verify(inverse = true) { Klaviyo.reInitializeInAppForms() }
     }
+
+    @Test
+    fun `stopObserver removes the lambda from state change listeners`() {
+        val observer = CompanyObserver()
+        observer.startObserver()
+        observer.stopObserver()
+        verify(exactly = 1) { stateMock.offStateChange(observerSlot.captured) }
+    }
 }

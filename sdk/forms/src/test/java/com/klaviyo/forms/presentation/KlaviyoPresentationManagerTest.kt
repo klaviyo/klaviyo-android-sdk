@@ -14,7 +14,6 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.runs
 import io.mockk.slot
-import io.mockk.spyk
 import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.Assert.assertEquals
@@ -43,7 +42,10 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         Registry.unregister<WebViewClient>()
     }
 
-    private fun withPresentedState(): KlaviyoPresentationManager = KlaviyoPresentationManager().apply {
+    private fun withPresentedState(): KlaviyoPresentationManager = KlaviyoPresentationManager().mockPresent()
+
+    private fun KlaviyoPresentationManager.mockPresent() = apply {
+        present("formId")
         assert(slotOnActivityEvent.isCaptured) { "Lifecycle listener should be captured" }
         slotOnActivityEvent.captured(ActivityEvent.Created(mockOverlayActivity, null))
     }
@@ -63,7 +65,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
         assertEquals(
             "PresentationState should be Presented after overlay activity is created",
-            PresentationState.Presented(null),
+            PresentationState.Presented("formId"),
             manager.presentationState
         )
     }
@@ -93,7 +95,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
     @Test
     fun `verify webview closes on an orientation change`() {
-        withPresentedState()
+        val manager = withPresentedState()
 
         val mockConfig = mockk<Configuration>(relaxed = true) {
             orientation = Configuration.ORIENTATION_LANDSCAPE
@@ -104,7 +106,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verifyRotationClose(1)
 
         // Re-open it, and issue the same orientation again, which should be ignored
-        slotOnActivityEvent.captured(ActivityEvent.Created(mockOverlayActivity, null))
+        manager.mockPresent()
         slotOnActivityEvent.captured(ActivityEvent.ConfigurationChanged(mockConfig))
 
         verifyRotationClose(1)
@@ -125,7 +127,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
     @Test
     fun `other lifecycle events are ignored`() {
-        val spyManger = spyk(withPresentedState())
+        withPresentedState()
 
         slotOnActivityEvent.captured(ActivityEvent.Started(mockk()))
         slotOnActivityEvent.captured(ActivityEvent.Resumed(mockk()))
@@ -146,9 +148,14 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     @Test
     fun `present should not start a duplicate activity`() {
         val manager = withPresentedState()
+        verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
         manager.present("formId")
-        verify(exactly = 0) { mockContext.startActivity(mockLaunchIntent) }
-        verify { spyLog.debug("Cannot present activity, currently in state: Presented(formId=null)") }
+        verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
+        verify {
+            spyLog.debug(
+                "Cannot present activity, currently in state: Presented(formId=formId)"
+            )
+        }
     }
 
     @Test

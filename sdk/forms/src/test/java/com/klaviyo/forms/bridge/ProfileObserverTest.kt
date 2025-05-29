@@ -7,7 +7,6 @@ import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateChange
 import com.klaviyo.analytics.state.StateChangeObserver
 import com.klaviyo.core.Registry
-import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -17,7 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-class ProfileObserverTest : BaseTest() {
+class ProfileObserverTest {
 
     private val stubProfile = Profile()
     private val observerSlot = slot<StateChangeObserver>()
@@ -27,16 +26,14 @@ class ProfileObserverTest : BaseTest() {
     }
 
     @Before
-    override fun setup() {
-        super.setup()
+    fun setup() {
         Registry.register<State>(stateMock)
     }
 
     @After
-    override fun cleanup() {
+    fun cleanup() {
         Registry.unregister<State>()
         Registry.unregister<JsBridge>()
-        super.cleanup()
     }
 
     private fun withBridge(): JsBridge {
