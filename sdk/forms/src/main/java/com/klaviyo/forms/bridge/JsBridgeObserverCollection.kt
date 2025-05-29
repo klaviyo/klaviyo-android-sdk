@@ -12,7 +12,7 @@ internal interface JsBridgeObserverCollection {
     /**
      * Compiles the handshake data from all observers into a single list
      */
-    val handshake: List<HandshakeSpec> get() = observers.map { it.handshake }
+    val handshake: List<HandshakeSpec> get() = observers.mapNotNull { it.handshake }
 
     /**
      * Start all observers in the collection

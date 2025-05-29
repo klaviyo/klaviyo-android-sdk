@@ -3,6 +3,7 @@ package com.klaviyo.analytics.state
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
@@ -162,7 +163,7 @@ internal class StateSideEffects(
         }
 
         is StateChange.KeyValue -> when (change.key) {
-            ProfileKey.PUSH_STATE -> onPushStateChange()
+            StateKey.PUSH_STATE -> onPushStateChange()
             ProfileKey.PUSH_TOKEN -> Unit /* Token is a no-op, push changes are captured by push state */
             else -> Unit
         }

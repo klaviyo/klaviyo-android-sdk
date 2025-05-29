@@ -6,6 +6,7 @@ package com.klaviyo.forms.bridge
 internal class KlaviyoObserverCollection : JsBridgeObserverCollection {
     override val observers: List<JsBridgeObserver> by lazy {
         listOf(
+            CompanyObserver(),
             LifecycleObserver(),
             ProfileObserver()
         )

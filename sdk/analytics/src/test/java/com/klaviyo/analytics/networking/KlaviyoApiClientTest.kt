@@ -1,11 +1,8 @@
 package com.klaviyo.analytics.networking
 
-import android.os.Handler
-import android.os.HandlerThread
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
-import com.klaviyo.analytics.networking.KlaviyoApiClient.HandlerUtil
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
@@ -62,7 +59,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private companion object {
         private val slotOnActivityEvent = slot<ActivityObserver>()
         private val slotOnNetworkChange = slot<NetworkObserver>()
-        private val mockHandler = mockk<Handler>()
     }
 
     @Before
@@ -89,22 +85,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
         every { mockNetworkMonitor.onNetworkChange(capture(slotOnNetworkChange)) } returns Unit
         every { mockNetworkMonitor.offNetworkChange(capture(slotOnNetworkChange)) } returns Unit
 
-        mockkObject(HandlerUtil)
-        every { HandlerUtil.getHandler(any()) } returns mockHandler.apply {
-            every { removeCallbacksAndMessages(any()) } returns Unit
-            every { post(any()) } answers { a ->
-                postedJob = (a.invocation.args[0] as KlaviyoApiClient.NetworkRunnable)
-                postedJob!!.run().let { true }
-            }
-            every { postDelayed(any(), any()) } answers { a ->
-                postedJob = a.invocation.args[0] as KlaviyoApiClient.NetworkRunnable
-                true
-            }
-        }
-        every { HandlerUtil.getHandlerThread(any()) } returns mockk<HandlerThread>().apply {
-            every { start() } returns Unit
-            every { looper } returns mockk()
-            every { state } returns Thread.State.NEW
+        every { mockHandler.postDelayed(any(), any()) } answers {
+            postedJob = firstArg<KlaviyoApiClient.NetworkRunnable>()
+            true
         }
 
         KlaviyoApiClient.startService()
@@ -118,7 +101,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
         super.cleanup()
         unmockkObject(KlaviyoApiClient)
         unmockkObject(KlaviyoApiRequestDecoder)
-        unmockkObject(HandlerUtil)
         unmockDeviceProperties()
         unmockkStatic(DeviceProperties::buildEventMetaData)
     }

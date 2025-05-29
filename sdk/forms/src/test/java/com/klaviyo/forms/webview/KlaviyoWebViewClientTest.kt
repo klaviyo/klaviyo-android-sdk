@@ -142,11 +142,6 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         mockkStatic(WebViewCompat::class)
         every { WebViewCompat.addWebMessageListener(any(), any(), any(), any()) } just runs
-
-        val slot = slot<Runnable>()
-        every { mockActivity.runOnUiThread(capture(slot)) } answers {
-            slot.captured.run()
-        }
     }
 
     @After
@@ -164,10 +159,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     private fun verifyDestroy(doesNotDestroy: Boolean = false) {
-        val times = if (doesNotDestroy) 0 else 1
-        verify(exactly = times) { spyLog.verbose("Clear IAF WebView reference") }
-        verify(exactly = times) { anyConstructed<KlaviyoWebView>().destroy() }
-        verify(exactly = times) { mockObserverCollection.stopObservers() }
+        verify(inverse = doesNotDestroy) { spyLog.verbose("Clear IAF WebView reference") }
+        verify(inverse = doesNotDestroy) { anyConstructed<KlaviyoWebView>().destroy() }
+        verify(inverse = doesNotDestroy) { mockObserverCollection.stopObservers() }
     }
 
     private fun verifyShow(doesNotShow: Boolean = false) {
@@ -292,6 +286,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         client.onJsHandshakeCompleted()
         staticClock.execute(10_000)
+        client.onJsHandshakeCompleted() // verify a duplicate call wouldn't cause a crash
 
         verifyClose(doesNotClose = true)
         verifyDestroy(doesNotDestroy = true)
@@ -305,7 +300,6 @@ class KlaviyoWebViewClientTest : BaseTest() {
         staticClock.execute(10_000)
 
         verify { spyLog.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js") }
-        verifyClose()
         verifyDestroy()
     }
 
@@ -313,9 +307,26 @@ class KlaviyoWebViewClientTest : BaseTest() {
     fun `detachWebView removes webview from view`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
-        client.detachWebView(mockActivity)
+        client.detachWebView()
+
+        verify { mockThreadHelper.runOnUiThread(any()) }
 
         verifyClose()
+    }
+
+    @Test
+    fun `destroyWebView stops observers and kills webview on main thread`() {
+        val client = KlaviyoWebViewClient()
+
+        client.destroyWebView()
+        verify(inverse = true) { anyConstructed<KlaviyoWebView>().destroy() }
+
+        client.initializeWebView()
+        client.destroyWebView()
+
+        verify { mockObserverCollection.stopObservers() }
+        verify { mockThreadHelper.runOnUiThread(any()) }
+
         verifyDestroy()
     }
 
@@ -323,7 +334,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     fun `verify detachWebView fails on a null webview`() {
         val client = KlaviyoWebViewClient()
         // notably do not init webview
-        client.detachWebView(mockActivity)
+        client.detachWebView()
         verify { spyLog.warning("Unable to detach IAF - null WebView reference") }
         verifyClose(doesNotClose = true)
         verifyDestroy(doesNotDestroy = true)
@@ -378,26 +389,10 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     @Test
-    fun `evaluateJavascript invokes callback with false if currentActivity is null`() {
-        val client = KlaviyoWebViewClient()
-        client.initializeWebView()
-        every { Registry.lifecycleMonitor.currentActivity } returns null
-        var result: Boolean? = null
-        client.evaluateJavascript("test") { result = it }
-        assertEquals(false, result)
-    }
-
-    @Test
     fun `evaluateJavascript invokes webview evaluateJavascript via runOnUiThread and calls back with true or false`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
         every { Registry.lifecycleMonitor.currentActivity } returns mockActivity
-
-        // Capture the runOnUiThread call and invoke the runnable
-        val runOnUiThreadSlot = slot<Runnable>()
-        every { mockActivity.runOnUiThread(capture(runOnUiThreadSlot)) } answers {
-            runOnUiThreadSlot.captured.run()
-        }
 
         // Simulate webview.evaluateJavascript returning "true"
         every { anyConstructed<KlaviyoWebView>().evaluateJavascript(any(), any()) } answers {
@@ -417,6 +412,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         var resultFalse: Boolean? = null
         client.evaluateJavascript("test") { resultFalse = it }
         assertEquals(false, resultFalse)
+        verify(exactly = 2) { mockThreadHelper.runOnUiThread(any()) }
     }
 
     @Test

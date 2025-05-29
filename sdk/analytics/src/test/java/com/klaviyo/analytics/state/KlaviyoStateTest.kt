@@ -1,8 +1,8 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.API_KEY as API_KEYWORD
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.model.StateKey.API_KEY as API_KEYWORD
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.mockk
 import io.mockk.verify

@@ -13,6 +13,8 @@ import com.klaviyo.core.model.DataStore
 import com.klaviyo.core.model.SharedPreferencesDataStore
 import com.klaviyo.core.networking.KlaviyoNetworkMonitor
 import com.klaviyo.core.networking.NetworkMonitor
+import com.klaviyo.core.utils.KlaviyoThreadHelper
+import com.klaviyo.core.utils.ThreadHelper
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -49,6 +51,8 @@ object Registry {
      * Access to [Config.Builder] for registering new or updated SDK configuration
      */
     val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
+
+    val threadHelper: ThreadHelper = KlaviyoThreadHelper
 
     val clock: Clock get() = SystemClock
 
@@ -149,8 +153,8 @@ object Registry {
 
         if (service is T) return service
 
-        return when (val service = registry[type]?.let { it() }) {
-            is T -> service.apply { services[type] = service }
+        return when (val lazyService = registry[type]?.let { it() }) {
+            is T -> lazyService.apply { services[type] = lazyService }
             else -> null
         }
     }
@@ -168,10 +172,10 @@ object Registry {
 
         if (service is T) return service
 
-        when (val s = registry[type]?.let { it() }) {
+        when (val lazyService = registry[type]?.let { it() }) {
             is T -> {
-                services[type] = s
-                return s
+                services[type] = lazyService
+                return lazyService
             }
 
             is Any -> throw InvalidRegistration(type)
@@ -179,7 +183,7 @@ object Registry {
                 if (type == typeOf<Config>()) {
                     throw MissingConfig()
                 } else {
-                    throw throw MissingRegistration(type)
+                    throw MissingRegistration(type)
                 }
             }
         }

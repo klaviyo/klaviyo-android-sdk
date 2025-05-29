@@ -29,16 +29,20 @@ internal class InAppFormsTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
-        mockkConstructor(KlaviyoPresentationManager::class)
+        mockkConstructor(KlaviyoPresentationManager::class).apply {
+            every { anyConstructed<KlaviyoPresentationManager>().dismiss() } returns Unit
+        }
         mockkConstructor(KlaviyoNativeBridge::class)
         mockkConstructor(KlaviyoWebViewClient::class).apply {
-            every { anyConstructed<KlaviyoWebViewClient>().initializeWebView() } returns this
+            every { anyConstructed<KlaviyoWebViewClient>().initializeWebView() } returns Unit
+            every { anyConstructed<KlaviyoWebViewClient>().destroyWebView() } returns mockk()
         }
     }
 
     @After
     override fun cleanup() {
         unmockkAll()
+        Registry.unregister<InAppFormsConfig>()
         Registry.unregister<PresentationManager>()
         Registry.unregister<NativeBridge>()
         Registry.unregister<WebViewClient>()
@@ -94,11 +98,48 @@ internal class InAppFormsTest : BaseTest() {
         assertEquals(observerCollection, Registry.get<JsBridgeObserverCollection>())
     }
 
+    @Test
+    fun `unregister halts in-app forms services`() {
+        Klaviyo.registerForInAppForms()
+
+        assert(Registry.isRegistered<InAppFormsConfig>())
+
+        Klaviyo.unregisterInAppForms()
+
+        verify { anyConstructed<KlaviyoPresentationManager>().dismiss() }
+        verify { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
+    }
+
+    @Test
+    fun `reinitialize halts and restarts in-app forms services`() {
+        Klaviyo.registerForInAppForms()
+
+        assert(Registry.isRegistered<InAppFormsConfig>())
+
+        Klaviyo.reInitializeInAppForms()
+        assert(Registry.isRegistered<InAppFormsConfig>())
+    }
+
     @Test(expected = Test.None::class)
     fun `missing config exception doesn't ruin our freaking lives`() {
         val exception = MissingConfig()
         every { anyConstructed<KlaviyoWebViewClient>().initializeWebView() } throws exception
         Klaviyo.registerForInAppForms()
         verify { spyLog.error("Klaviyo SDK accessed before initializing", exception) }
+    }
+
+    @Test(expected = Test.None::class)
+    fun `calling unregister before register is a no-op`() {
+        Klaviyo.unregisterInAppForms()
+        verify(inverse = true) { anyConstructed<KlaviyoPresentationManager>().dismiss() }
+        verify(inverse = true) { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
+    }
+
+    @Test(expected = Test.None::class)
+    fun `calling reinitialize before register is a no-op`() {
+        Klaviyo.reInitializeInAppForms()
+        assert(!Registry.isRegistered<InAppFormsConfig>())
+        verify(inverse = true) { anyConstructed<KlaviyoPresentationManager>().dismiss() }
+        verify(inverse = true) { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
     }
 }

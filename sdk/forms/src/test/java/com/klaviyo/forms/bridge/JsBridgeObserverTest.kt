@@ -57,7 +57,8 @@ class JsBridgeObserverTest {
         val klaviyoObserverCollection = KlaviyoObserverCollection()
         val observers = klaviyoObserverCollection.observers
 
-        assertEquals(2, klaviyoObserverCollection.observers.size)
+        assertEquals(3, klaviyoObserverCollection.observers.size)
+        assert(observers.any { it is CompanyObserver }) { "Expected CompanyObserver in the collection" }
         assert(observers.any { it is ProfileObserver }) { "Expected ProfileObserver in the collection" }
         assert(observers.any { it is LifecycleObserver }) { "Expected LifecycleObserver in the collection" }
     }
