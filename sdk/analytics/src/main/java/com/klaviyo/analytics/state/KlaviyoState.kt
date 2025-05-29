@@ -62,17 +62,52 @@ internal class KlaviyoState : State {
     /**
      * List of registered state change observers
      */
-    private val stateObservers = Collections.synchronizedList(
-        CopyOnWriteArrayList<StateObserver>()
+    private val stateChangeObservers = Collections.synchronizedList(
+        CopyOnWriteArrayList<StateChangeObserver>()
     )
+
+    /**
+     * Maps deprecated [StateObserver]s to the new [StateChangeObserver]
+     * to maintain backwards compatibility while moving on to the new data type
+     */
+    private val deprecatedObserverMap = mutableMapOf<StateObserver, StateChangeObserver>()
+
+    @Deprecated(
+        """
+        This callback type is deprecated. StateObserver will be removed in the next major release
+        """,
+        ReplaceWith("onStateChange(observer: StateChangeObserver)")
+    )
+    override fun onStateChange(observer: StateObserver) {
+        // Map the arguments of StateChangeObserver to the provided callback
+        deprecatedObserverMap[observer] = { change: StateChange ->
+            observer(change.key, change.oldValue)
+        }.also(::onStateChange)
+    }
 
     /**
      * Register an observer to be notified when state changes
      *
      * @param observer
      */
-    override fun onStateChange(observer: StateObserver) {
-        stateObservers += observer
+    override fun onStateChange(observer: StateChangeObserver) {
+        stateChangeObservers += observer
+    }
+
+    /**
+     * De-register a [StateObserver] from [onStateChange]
+     *
+     * @param observer
+     */
+    @Deprecated(
+        """
+        This callback type is deprecated. StateObserver will be removed in the next major release
+        """,
+        ReplaceWith("offStateChange(observer: StateChangeObserver)")
+    )
+    override fun offStateChange(observer: StateObserver) {
+        // Remove from the map and detach the actual observer
+        deprecatedObserverMap.remove(observer)?.let(::offStateChange)
     }
 
     /**
@@ -80,8 +115,8 @@ internal class KlaviyoState : State {
      *
      * @param observer
      */
-    override fun offStateChange(observer: StateObserver) {
-        stateObservers -= observer
+    override fun offStateChange(observer: StateChangeObserver) {
+        stateChangeObservers -= observer
     }
 
     /**
@@ -173,22 +208,24 @@ internal class KlaviyoState : State {
     /**
      * From a property change, broadcast the correct state change
      */
-    private fun broadcastChange(property: PersistentObservableProperty<String?>, oldValue: String?) =
-        when (property.key) {
-            is API_KEY -> broadcastChange(StateChange.ApiKey(oldValue))
-            is ProfileKey -> if (property.key.name in IDENTIFIERS) {
-                broadcastChange(
-                    StateChange.ProfileIdentifier(
-                        property.key,
-                        oldValue
-                    )
+    private fun broadcastChange(
+        property: PersistentObservableProperty<String?>,
+        oldValue: String?
+    ) = when (property.key) {
+        is API_KEY -> broadcastChange(StateChange.ApiKey(oldValue))
+        is ProfileKey -> if (property.key.name in IDENTIFIERS) {
+            broadcastChange(
+                StateChange.ProfileIdentifier(
+                    property.key,
+                    oldValue
                 )
-            } else {
-                broadcastChange(StateChange.KeyValue(property.key, oldValue))
-            }
-
-            else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))
+            )
+        } else {
+            broadcastChange(StateChange.KeyValue(property.key, oldValue))
         }
+
+        else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))
+    }
 
     /**
      * Broadcast a change after the profile attributes are updated
@@ -201,8 +238,8 @@ internal class KlaviyoState : State {
      *
      * @param change - the state change to broadcast
      */
-    private fun broadcastChange(change: StateChange) = synchronized(stateObservers) {
-        stateObservers.forEach { it(change) }
+    private fun broadcastChange(change: StateChange) = synchronized(stateChangeObservers) {
+        stateChangeObservers.forEach { it(change) }
     }
 
     /**

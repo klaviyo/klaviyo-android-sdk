@@ -1,8 +1,10 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.API_KEY as API_KEYWORD
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,7 +35,7 @@ internal class KlaviyoStateTest : BaseTest() {
 
     @Test
     fun `State observers concurrency test`() = runTest {
-        val observer: StateObserver = { _ -> Thread.sleep(6) }
+        val observer: StateChangeObserver = { _ -> Thread.sleep(6) }
 
         state.onStateChange(observer)
 
@@ -54,7 +56,7 @@ internal class KlaviyoStateTest : BaseTest() {
 
     @Test
     fun `Observer can detach itself during callback`() = runTest {
-        var observer: StateObserver = { _ -> }
+        var observer: StateChangeObserver = { _ -> }
         var didRun = false
 
         observer = { _ ->
@@ -254,5 +256,32 @@ internal class KlaviyoStateTest : BaseTest() {
 
         assertEquals(state.email, null)
         assertEquals(state.phoneNumber, null)
+    }
+
+    @Test
+    fun `deprecated onStateChange with StateObserver still works`() {
+        val observer = mockk<StateObserver>(relaxed = true)
+
+        fun setValuesAndVerifyCallbacks() {
+            state.reset()
+            state.externalId = EXTERNAL_ID
+            state.email = EMAIL
+            state.phoneNumber = PHONE
+            state.apiKey = "apiKey"
+
+            verify(exactly = 1) { observer.invoke(null, any<Profile>()) }
+            verify(exactly = 1) { observer.invoke(ProfileKey.EXTERNAL_ID, null) }
+            verify(exactly = 1) { observer.invoke(ProfileKey.EMAIL, null) }
+            verify(exactly = 1) { observer.invoke(ProfileKey.PHONE_NUMBER, null) }
+            verify(exactly = 1) { observer.invoke(API_KEYWORD, null) }
+        }
+
+        // Attach observer, set values, expect all callbacks once
+        state.onStateChange(observer)
+        setValuesAndVerifyCallbacks()
+
+        // Detach observer, repeat all the same operations, no additional callbacks expected
+        state.offStateChange(observer)
+        setValuesAndVerifyCallbacks()
     }
 }

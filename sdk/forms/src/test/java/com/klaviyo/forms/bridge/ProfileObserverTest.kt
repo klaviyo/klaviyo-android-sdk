@@ -5,7 +5,7 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateChange
-import com.klaviyo.analytics.state.StateObserver
+import com.klaviyo.analytics.state.StateChangeObserver
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
@@ -20,7 +20,7 @@ import org.junit.Test
 class ProfileObserverTest : BaseTest() {
 
     private val stubProfile = Profile()
-    private val observerSlot = slot<StateObserver>()
+    private val observerSlot = slot<StateChangeObserver>()
     private val stateMock = mockk<State>(relaxed = true).apply {
         every { onStateChange(capture(observerSlot)) } returns Unit
         every { getAsProfile() } returns stubProfile
