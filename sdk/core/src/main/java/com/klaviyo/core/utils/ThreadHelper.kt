@@ -10,5 +10,5 @@ import android.os.Looper
 interface ThreadHelper {
     fun getHandler(looper: Looper): Handler
     fun getHandlerThread(name: String?): HandlerThread
-    fun runOnUiThread(block: () -> Unit)
+    fun runOnUiThread(job: () -> Unit)
 }

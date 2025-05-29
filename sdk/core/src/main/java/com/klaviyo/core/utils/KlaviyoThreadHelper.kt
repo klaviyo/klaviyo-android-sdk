@@ -11,16 +11,15 @@ import android.os.Looper
 object KlaviyoThreadHelper : ThreadHelper {
     override fun getHandler(looper: Looper) = Handler(looper)
     override fun getHandlerThread(name: String?) = HandlerThread(name)
-    override fun runOnUiThread(block: () -> Unit) {
+    override fun runOnUiThread(job: () -> Unit) {
         val mainLooper = Looper.getMainLooper()
 
         if (mainLooper == Looper.myLooper()) {
             // Already on main thread, run immediately
-            block()
+            job()
         } else {
             // Post to main thread
-            getHandler(mainLooper)
-                .post(block)
+            getHandler(mainLooper).post(job)
         }
     }
 }

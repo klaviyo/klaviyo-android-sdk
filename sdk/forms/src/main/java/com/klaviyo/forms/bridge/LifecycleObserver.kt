@@ -12,7 +12,7 @@ internal class LifecycleObserver : JsBridgeObserver {
     private var lastBackgrounded: Long? = null
 
     private val sessionTimeoutMs: Long
-        get() = Registry.get<InAppFormsConfig>().sessionTimeoutDuration * 1_000
+        get() = Registry.get<InAppFormsConfig>().getSessionTimeoutDurationInMillis()
 
     override val handshake: HandshakeSpec? = HandshakeSpec(
         type = "lifecycleEvent",

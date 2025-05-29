@@ -3,7 +3,6 @@ package com.klaviyo.forms
 import androidx.annotation.UiThread
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
-import com.klaviyo.core.Registry.registerOnce
 import com.klaviyo.core.safeApply
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
@@ -52,9 +51,12 @@ fun Klaviyo.registerForInAppForms(
 @UiThread
 fun Klaviyo.unregisterInAppForms() = safeApply {
     Registry.apply {
-        unregister<InAppFormsConfig>()
-        getOrNull<PresentationManager>()?.dismiss()
-        getOrNull<WebViewClient>()?.destroyWebView()
+        if (inAppIsRegistered()) {
+            get<PresentationManager>().dismiss()
+            get<WebViewClient>().destroyWebView()
+        } else {
+            log.warning("Cannot unregisterInAppForms, registerForInAppForms must be called first.")
+        }
     }
 }
 
@@ -63,9 +65,25 @@ fun Klaviyo.unregisterInAppForms() = safeApply {
  */
 @UiThread
 internal fun Klaviyo.reInitializeInAppForms() = safeApply {
-    // If config is missing, initial registration has not occurred so we can't re-initialize
-    Registry.getOrNull<InAppFormsConfig>()?.let { config ->
-        unregisterInAppForms()
-        registerForInAppForms(config)
+    Registry.apply {
+        if (inAppIsRegistered()) {
+            unregisterInAppForms()
+            registerForInAppForms(get<InAppFormsConfig>())
+        } else {
+            log.warning(
+                "Cannot reInitializeInAppForms, registerForInAppForms must be called first."
+            )
+        }
     }
 }
+
+/**
+ * Check if IAF services are registered in the Klaviyo registry.
+ */
+private fun Registry.inAppIsRegistered(): Boolean = listOf(
+    getOrNull<InAppFormsConfig>(),
+    getOrNull<PresentationManager>(),
+    getOrNull<WebViewClient>(),
+    getOrNull<JsBridge>(),
+    getOrNull<NativeBridge>()
+).all { it != null }

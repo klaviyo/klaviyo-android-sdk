@@ -106,7 +106,6 @@ internal class InAppFormsTest : BaseTest() {
 
         Klaviyo.unregisterInAppForms()
 
-        assert(!Registry.isRegistered<InAppFormsConfig>())
         verify { anyConstructed<KlaviyoPresentationManager>().dismiss() }
         verify { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
     }
