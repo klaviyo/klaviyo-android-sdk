@@ -27,9 +27,7 @@ fun Klaviyo.registerForInAppForms(
     // Register IAF services
     Registry.apply {
         register<InAppFormsConfig>(config)
-        registerOnce<PresentationManager> {
-            KlaviyoPresentationManager()
-        }
+        registerOnce<PresentationManager> { KlaviyoPresentationManager() }
         registerOnce<NativeBridge> { KlaviyoNativeBridge() }
         registerOnce<WebViewClient> {
             KlaviyoWebViewClient().also {

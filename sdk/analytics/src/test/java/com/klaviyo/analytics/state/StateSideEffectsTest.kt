@@ -13,6 +13,8 @@ import com.klaviyo.analytics.networking.requests.KlaviyoErrorSource
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
+import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
@@ -406,5 +408,24 @@ class StateSideEffectsTest : BaseTest() {
 
         verify { klaviyoStateMock.resetEmail() }
         Registry.unregister<State>()
+    }
+
+    @Test
+    fun `Resumed lifecycle event triggers push permission refresh`() {
+        Registry.register<State>(stateMock)
+        every { stateMock.pushToken } returns "mocked_push_token"
+        every { stateMock.pushToken = any() } returns Unit
+        val capturedLifecycleObserver = slot<ActivityObserver>()
+        every { mockLifecycleMonitor.onActivityEvent(capture(capturedLifecycleObserver)) } returns Unit
+
+        StateSideEffects(
+            state = stateMock,
+            apiClient = apiClientMock,
+            lifecycleMonitor = mockLifecycleMonitor
+        )
+
+        capturedLifecycleObserver.captured(ActivityEvent.Resumed(mockk()))
+
+        verify { stateMock.pushToken = "mocked_push_token" }
     }
 }

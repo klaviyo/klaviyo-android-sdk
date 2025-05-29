@@ -1,6 +1,5 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
@@ -43,7 +42,7 @@ internal class KlaviyoState : State {
     override val anonymousId by _anonymousId
 
     private val _attributes = PersistentObservableProfile(PROFILE_ATTRIBUTES) { _, oldValue ->
-        broadcastAttributesChange(oldValue)
+        broadcastChange(StateChange.ProfileAttributes(oldValue))
     }
     private var attributes by _attributes
 
@@ -200,9 +199,7 @@ internal class KlaviyoState : State {
      * Clear user's attributes from internal state, leaving profile identifiers intact
      */
     override fun resetAttributes() {
-        val oldAttributes = attributes?.copy()
-        _attributes.reset()
-        broadcastAttributesChange(oldAttributes)
+        attributes = null
     }
 
     /**
@@ -226,12 +223,6 @@ internal class KlaviyoState : State {
 
         else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))
     }
-
-    /**
-     * Broadcast a change after the profile attributes are updated
-     */
-    private fun broadcastAttributesChange(oldValue: ImmutableProfile?) =
-        broadcastChange(StateChange.ProfileAttributes(oldValue))
 
     /**
      * Broadcast a change to all registered observers

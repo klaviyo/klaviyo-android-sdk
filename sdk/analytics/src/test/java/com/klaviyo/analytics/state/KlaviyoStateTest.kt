@@ -2,7 +2,7 @@ package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
-import com.klaviyo.analytics.model.StateKey.API_KEY as API_KEYWORD
+import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.mockk
 import io.mockk.verify
@@ -212,6 +212,7 @@ internal class KlaviyoStateTest : BaseTest() {
     fun `Broadcasts on reset attributes`() {
         var broadcastChange: StateChange? = null
 
+        state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
         state.onStateChange { change ->
             broadcastChange = change
         }
@@ -273,7 +274,7 @@ internal class KlaviyoStateTest : BaseTest() {
             verify(exactly = 1) { observer.invoke(ProfileKey.EXTERNAL_ID, null) }
             verify(exactly = 1) { observer.invoke(ProfileKey.EMAIL, null) }
             verify(exactly = 1) { observer.invoke(ProfileKey.PHONE_NUMBER, null) }
-            verify(exactly = 1) { observer.invoke(API_KEYWORD, null) }
+            verify(exactly = 1) { observer.invoke(StateKey.API_KEY, null) }
         }
 
         // Attach observer, set values, expect all callbacks once
