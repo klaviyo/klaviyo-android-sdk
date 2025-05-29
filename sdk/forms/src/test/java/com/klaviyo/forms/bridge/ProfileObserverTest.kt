@@ -2,7 +2,10 @@ package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.StateChange
+import com.klaviyo.analytics.state.StateChangeObserver
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
@@ -17,7 +20,7 @@ import org.junit.Test
 class ProfileObserverTest : BaseTest() {
 
     private val stubProfile = Profile()
-    private val observerSlot = slot<(Keyword?, Any?) -> Unit>()
+    private val observerSlot = slot<StateChangeObserver>()
     private val stateMock = mockk<State>(relaxed = true).apply {
         every { onStateChange(capture(observerSlot)) } returns Unit
         every { getAsProfile() } returns stubProfile
@@ -60,9 +63,9 @@ class ProfileObserverTest : BaseTest() {
     }
 
     @Test
-    fun `observer calls set profile when key is null`() {
+    fun `observer calls set profile when profile resets`() {
         val mockBridge = withBridge()
-        observerSlot.captured.invoke(null, null)
+        observerSlot.captured.invoke(StateChange.ProfileReset(mockk()))
         verify(exactly = 2) { mockBridge.setProfile(stubProfile) }
     }
 
@@ -72,7 +75,7 @@ class ProfileObserverTest : BaseTest() {
         val mockKeyword = mockk<Keyword>(relaxed = true).apply {
             every { name } returns "something_else"
         }
-        observerSlot.captured.invoke(mockKeyword, "some value")
+        observerSlot.captured.invoke(StateChange.KeyValue(mockKeyword, "some value"))
         verify(exactly = 1) { mockBridge.setProfile(stubProfile) }
     }
 
@@ -87,10 +90,10 @@ class ProfileObserverTest : BaseTest() {
         )
 
         for (key in keys) {
-            val mockKeyword = mockk<Keyword>(relaxed = true).apply {
+            val mockKeyword = mockk<ProfileKey>(relaxed = true).apply {
                 every { name } returns key
             }
-            observerSlot.captured.invoke(mockKeyword, "value")
+            observerSlot.captured.invoke(StateChange.ProfileIdentifier(mockKeyword, "value"))
         }
 
         verify(exactly = keys.count() + 1) { mockBridge.setProfile(stubProfile) }

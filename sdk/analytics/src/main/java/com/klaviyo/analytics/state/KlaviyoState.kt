@@ -1,11 +1,12 @@
 package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.API_KEY
-import com.klaviyo.analytics.model.Keyword
+import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.model.ProfileKey.ANONYMOUS_ID
+import com.klaviyo.analytics.model.ProfileKey.Companion.IDENTIFIERS
 import com.klaviyo.analytics.model.ProfileKey.EMAIL
 import com.klaviyo.analytics.model.ProfileKey.EXTERNAL_ID
 import com.klaviyo.analytics.model.ProfileKey.PHONE_NUMBER
@@ -16,6 +17,7 @@ import com.klaviyo.core.Registry
 import java.io.Serializable
 import java.util.Collections
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Stores information on the currently active user
@@ -35,11 +37,14 @@ internal class KlaviyoState : State {
     override var phoneNumber by _phoneNumber
 
     private val _anonymousId = PersistentObservableString(ANONYMOUS_ID, ::broadcastChange) {
+        // Fallback: always autogenerate an anonymous ID if not currently set
         UUID.randomUUID().toString()
     }
     override val anonymousId by _anonymousId
 
-    private val _attributes = PersistentObservableProfile(PROFILE_ATTRIBUTES, ::broadcastChange)
+    private val _attributes = PersistentObservableProfile(PROFILE_ATTRIBUTES) { _, oldValue ->
+        broadcastAttributesChange(oldValue)
+    }
     private var attributes by _attributes
 
     private val _pushState = PersistentObservableString(PUSH_STATE, ::broadcastChange)
@@ -57,17 +62,52 @@ internal class KlaviyoState : State {
     /**
      * List of registered state change observers
      */
-    private val stateObservers = Collections.synchronizedList(
-        mutableListOf<StateObserver>()
+    private val stateChangeObservers = Collections.synchronizedList(
+        CopyOnWriteArrayList<StateChangeObserver>()
     )
+
+    /**
+     * Maps deprecated [StateObserver]s to the new [StateChangeObserver]
+     * to maintain backwards compatibility while moving on to the new data type
+     */
+    private val deprecatedObserverMap = mutableMapOf<StateObserver, StateChangeObserver>()
+
+    @Deprecated(
+        """
+        This callback type is deprecated. StateObserver will be removed in the next major release
+        """,
+        ReplaceWith("onStateChange(observer: StateChangeObserver)")
+    )
+    override fun onStateChange(observer: StateObserver) {
+        // Map the arguments of StateChangeObserver to the provided callback
+        deprecatedObserverMap[observer] = { change: StateChange ->
+            observer(change.key, change.oldValue)
+        }.also(::onStateChange)
+    }
 
     /**
      * Register an observer to be notified when state changes
      *
      * @param observer
      */
-    override fun onStateChange(observer: StateObserver) {
-        stateObservers += observer
+    override fun onStateChange(observer: StateChangeObserver) {
+        stateChangeObservers += observer
+    }
+
+    /**
+     * De-register a [StateObserver] from [onStateChange]
+     *
+     * @param observer
+     */
+    @Deprecated(
+        """
+        This callback type is deprecated. StateObserver will be removed in the next major release
+        """,
+        ReplaceWith("offStateChange(observer: StateChangeObserver)")
+    )
+    override fun offStateChange(observer: StateObserver) {
+        // Remove from the map and detach the actual observer
+        deprecatedObserverMap.remove(observer)?.let(::offStateChange)
     }
 
     /**
@@ -75,8 +115,8 @@ internal class KlaviyoState : State {
      *
      * @param observer
      */
-    override fun offStateChange(observer: StateObserver) {
-        stateObservers -= observer
+    override fun offStateChange(observer: StateChangeObserver) {
+        stateChangeObservers -= observer
     }
 
     /**
@@ -112,19 +152,24 @@ internal class KlaviyoState : State {
      * Set an individual property or attribute
      */
     override fun setAttribute(key: ProfileKey, value: Serializable) = when (key) {
-        EMAIL -> (value as? String)?.let { email = it } ?: run { logCastError(EMAIL, value) }
+        EMAIL -> (value as? String)?.let { email = it } ?: run {
+            logCastError(EMAIL, value)
+        }
+
         EXTERNAL_ID -> (value as? String)?.let { externalId = it } ?: run {
             logCastError(
                 EXTERNAL_ID,
                 value
             )
         }
+
         PHONE_NUMBER -> (value as? String)?.let { phoneNumber = it } ?: run {
             logCastError(
                 PHONE_NUMBER,
                 value
             )
         }
+
         else -> this.attributes = (this.attributes?.copy() ?: Profile()).setProperty(key, value)
     }
 
@@ -147,7 +192,7 @@ internal class KlaviyoState : State {
         _anonymousId.reset()
         _attributes.reset()
 
-        broadcastChange(null, oldProfile)
+        broadcastChange(StateChange.ProfileReset(oldProfile))
         Registry.log.verbose("Reset internal user state")
     }
 
@@ -157,16 +202,44 @@ internal class KlaviyoState : State {
     override fun resetAttributes() {
         val oldAttributes = attributes?.copy()
         _attributes.reset()
-        broadcastChange(PROFILE_ATTRIBUTES, oldAttributes)
+        broadcastAttributesChange(oldAttributes)
     }
 
-    private fun <T> broadcastChange(property: PersistentObservableProperty<T>?, oldValue: T?) =
-        broadcastChange(property?.key, oldValue)
-
-    private fun broadcastChange(key: Keyword? = null, oldValue: Any? = null) {
-        synchronized(stateObservers) {
-            stateObservers.forEach { it(key, oldValue) }
+    /**
+     * From a property change, broadcast the correct state change
+     */
+    private fun broadcastChange(
+        property: PersistentObservableProperty<String?>,
+        oldValue: String?
+    ) = when (property.key) {
+        is API_KEY -> broadcastChange(StateChange.ApiKey(oldValue))
+        is ProfileKey -> if (property.key.name in IDENTIFIERS) {
+            broadcastChange(
+                StateChange.ProfileIdentifier(
+                    property.key,
+                    oldValue
+                )
+            )
+        } else {
+            broadcastChange(StateChange.KeyValue(property.key, oldValue))
         }
+
+        else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))
+    }
+
+    /**
+     * Broadcast a change after the profile attributes are updated
+     */
+    private fun broadcastAttributesChange(oldValue: ImmutableProfile?) =
+        broadcastChange(StateChange.ProfileAttributes(oldValue))
+
+    /**
+     * Broadcast a change to all registered observers
+     *
+     * @param change - the state change to broadcast
+     */
+    private fun broadcastChange(change: StateChange) = synchronized(stateChangeObservers) {
+        stateChangeObservers.forEach { it(change) }
     }
 
     /**

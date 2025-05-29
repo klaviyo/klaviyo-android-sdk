@@ -1,8 +1,7 @@
 package com.klaviyo.forms.bridge
 
-import com.klaviyo.analytics.model.Keyword
-import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.StateChange
 import com.klaviyo.core.Registry
 
 /**
@@ -25,8 +24,8 @@ internal class ProfileObserver : JsBridgeObserver {
     /**
      * Update profile in webview whenever an identifier changes, or profile is reset
      */
-    private fun onStateChange(key: Keyword?, oldValue: Any?) = when (key?.name) {
-        in ProfileKey.IDENTIFIERS, null -> injectProfile()
+    private fun onStateChange(change: StateChange) = when (change) {
+        is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> injectProfile()
         else -> Unit
     }
 
