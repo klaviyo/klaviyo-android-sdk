@@ -13,8 +13,8 @@ class InAppFormsConfigTest : BaseTest() {
 
     @Test
     fun `test InAppFormsConfig custom values`() = assertEquals(
-        10L,
-        InAppFormsConfig(10_000L).getSessionTimeoutDurationInMillis()
+        10_000L,
+        InAppFormsConfig(10).getSessionTimeoutDurationInMillis()
     )
 
     @Test
