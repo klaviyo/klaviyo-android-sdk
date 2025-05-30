@@ -3,6 +3,7 @@ package com.klaviyo.core
 import com.klaviyo.core.config.Log
 import com.klaviyo.fixtures.LogFixture
 import io.mockk.spyk
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -18,6 +19,16 @@ class RegistryTest {
     @Before
     fun setup() {
         Registry.register<Log>(spyk(LogFixture()))
+    }
+
+    @After
+    fun cleanup() {
+        Registry.unregister<Log>()
+        Registry.unregister<TestDependency>()
+        Registry.unregister<TestLazyDependency>()
+        Registry.unregister<TestLazyOnceDependency>()
+        Registry.unregister<TestWrongDependency>()
+        Registry.unregister<TestMissingDependency>()
     }
 
     @Test
@@ -66,21 +77,6 @@ class RegistryTest {
     }
 
     @Test
-    fun `registerOnce only registers a service if not already registered`() {
-        // First registration
-        val firstInstance = object : TestDependency {}
-        Registry.registerOnce<TestDependency>(firstInstance)
-        assertEquals(firstInstance, Registry.get<TestDependency>())
-
-        // Attempt to register a new instance
-        val secondInstance = object : TestDependency {}
-        Registry.registerOnce<TestDependency>(secondInstance)
-
-        // Ensure the first instance is still registered
-        assertEquals(firstInstance, Registry.get<TestDependency>())
-    }
-
-    @Test
     fun `registerOnce lazily only registers a service if not already registered`() {
         var firstCallCount = 0
         var secondCallCount = 0
@@ -108,5 +104,27 @@ class RegistryTest {
         assertEquals(firstInstance, Registry.get<TestLazyOnceDependency>())
         assertEquals(0, secondCallCount)
         assertEquals(1, firstCallCount)
+    }
+
+    @Test
+    fun `getOrNull returns null for unregistered service`() {
+        val result = Registry.getOrNull<TestMissingDependency>()
+        assertEquals(null, result)
+    }
+
+    @Test
+    fun `getOrNull returns a registered service`() {
+        val dep = object : TestDependency {}
+        Registry.register<TestDependency>(dep)
+        val result = Registry.getOrNull<TestDependency>()
+        assertEquals(dep, result)
+    }
+
+    @Test
+    fun `getOrNull returns a lazily registered service`() {
+        val dep = object : TestDependency {}
+        Registry.register<TestDependency> { dep }
+        val result = Registry.getOrNull<TestDependency>()
+        assertEquals(dep, result)
     }
 }

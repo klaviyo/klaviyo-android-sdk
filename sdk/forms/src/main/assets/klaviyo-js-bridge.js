@@ -1,3 +1,5 @@
+// Defines simple methods for bridging data from the native SDK into the klaviyo.js onsite-in-app-forms module
+
 /**
  * Updates the data-klaviyo-profile attribute on the document head
  *
@@ -26,16 +28,14 @@ window.setProfile = function (external_id, email, phone_number, anonymous_id) {
  * Dispatches a lifecycle event to be detected by klaviyo.js
  *
  * @param type - The type of lifecycle event to dispatch: "foreground" | "background"
- * @param session - Session behavior: "persist" | "restore" | "purge"
  */
-window.dispatchLifecycleEvent = function (type, session) {
+window.dispatchLifecycleEvent = function (type) {
     document.head.dispatchEvent(
         new CustomEvent(
             'lifecycleEvent',
             {
                 detail: {
-                    type: type,
-                    session: session
+                    type: type
                 }
             }
         )
@@ -64,4 +64,13 @@ window.dispatchAnalyticsEvent = function (metric, strProperties) {
     )
 
     return true
+}
+
+// Notify the SDK over the native bridge that these local JS scripts are initialized
+var bridgeName = document.head.getAttribute("data-native-bridge-name") || ""
+
+if (window[bridgeName] && window[bridgeName].postMessage) {
+    window[bridgeName].postMessage(JSON.stringify({type: "jsReady"}))
+} else {
+    console.error("Invalid native bridge: " + bridgeName)
 }

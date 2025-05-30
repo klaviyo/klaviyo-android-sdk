@@ -9,6 +9,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import java.util.Collections
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Service for monitoring the application lifecycle and network connectivity
@@ -18,14 +19,19 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     private var activeActivities = 0
 
     private val activityObservers = Collections.synchronizedList(
-        mutableListOf<ActivityObserver>()
+        CopyOnWriteArrayList<ActivityObserver>()
     )
 
     override var currentActivity: Activity? by WeakReferenceDelegate()
+        private set
 
     @AdvancedAPI
     override fun assignCurrentActivity(activity: Activity) {
-        currentActivity = activity
+        if (activity != currentActivity) {
+            // If we missed this activity's creation, then we need to increment the count now
+            activeActivities++
+            currentActivity = activity
+        }
     }
 
     override fun onActivityEvent(observer: ActivityObserver) {
@@ -50,6 +56,10 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
     }
 
     override fun onActivityStarted(activity: Activity) {
+        if (activeActivities == 0) {
+            broadcastEvent(ActivityEvent.FirstStarted(activity))
+        }
+
         activeActivities++
         broadcastEvent(ActivityEvent.Started(activity))
     }

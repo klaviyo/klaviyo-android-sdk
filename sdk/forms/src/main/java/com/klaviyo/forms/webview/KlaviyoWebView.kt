@@ -11,7 +11,7 @@ import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
-import com.klaviyo.forms.bridge.BridgeMessageHandler
+import com.klaviyo.forms.bridge.NativeBridge
 
 /**
  * Custom WebView that powers the in-app forms experience, running klaviyo.js in its JS engine
@@ -25,7 +25,7 @@ internal class KlaviyoWebView : WebView {
 
     constructor(context: Context, attrs: AttributeSet?) : super(context, attrs, 0)
 
-    fun loadTemplate(html: String, client: WebViewClient, bridge: BridgeMessageHandler) = configure()
+    fun loadTemplate(html: String, client: WebViewClient, bridge: NativeBridge) = configure()
         .apply { webViewClient = client }
         .addBridge(bridge)
         .loadDataWithBaseURL(
@@ -52,7 +52,7 @@ internal class KlaviyoWebView : WebView {
      * Inject native bridge message handler into the webview, uses feature detection to see
      * if we can use WebMessageListener or if we need to fall back on legacy JS interface
      */
-    private fun addBridge(bridge: BridgeMessageHandler) = apply {
+    private fun addBridge(bridge: NativeBridge) = apply {
         if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Supported")
             WebViewCompat.addWebMessageListener(
