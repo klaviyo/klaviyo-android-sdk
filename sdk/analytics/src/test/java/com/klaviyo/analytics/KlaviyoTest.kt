@@ -22,6 +22,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.slot
+import io.mockk.spyk
 import io.mockk.unmockkConstructor
 import io.mockk.verify
 import io.mockk.verifyAll
@@ -99,7 +100,6 @@ internal class KlaviyoTest : BaseTest() {
         Registry.register<ApiClient>(mockApiClient)
         mockDeviceProperties()
         mockkConstructor(StateSideEffects::class)
-        every { anyConstructed<StateSideEffects>().detach() } returns Unit
         Klaviyo.initialize(
             apiKey = API_KEY,
             applicationContext = mockContext
@@ -109,7 +109,6 @@ internal class KlaviyoTest : BaseTest() {
     @After
     override fun cleanup() {
         unmockkConstructor(StateSideEffects::class)
-        Registry.get<State>().reset()
         Registry.unregister<Config>()
         Registry.unregister<State>()
         Registry.unregister<StateSideEffects>()
@@ -548,17 +547,27 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `State side effect attachments are idempotent`() {
-        verify(exactly = 0) { anyConstructed<StateSideEffects>().detach() }
+    fun `Initializing State and side effects is idempotent`() {
+        // Since the test setup already initializes Klaviyo:
+        val initialState = Registry.get<State>()
+        val spyState = spyk(initialState)
+        val initialSideEffects = Registry.get<StateSideEffects>()
+        Registry.register<State>(spyState)
+
+        // Re-reinitialize multiple times:
         Klaviyo.initialize(
-            apiKey = API_KEY,
+            apiKey = "keyTwo",
             applicationContext = mockContext
         )
-        verify(exactly = 1) { anyConstructed<StateSideEffects>().detach() }
+
         Klaviyo.initialize(
-            apiKey = API_KEY,
+            apiKey = "newKey",
             applicationContext = mockContext
         )
-        verify(exactly = 2) { anyConstructed<StateSideEffects>().detach() }
+
+        // State and SideEffects should not change in registry, nor register additional observers
+        assertEquals(spyState, Registry.get<State>())
+        assertEquals(initialSideEffects, Registry.get<StateSideEffects>())
+        verify(exactly = 1) { mockApiClient.onApiRequest(false, any()) }
     }
 }

@@ -3,6 +3,8 @@ package com.klaviyo.analytics
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import com.klaviyo.analytics.Klaviyo.initialize
+import com.klaviyo.analytics.Klaviyo.resetProfile
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
@@ -35,14 +37,18 @@ object Klaviyo {
      */
     private val preInitQueue: Queue<Operation<Unit>> = LinkedList()
 
-    init {
-        /**
-         * Since analytics module owns ApiClient, we must register it.
-         *
-         * This registration is a lambda invoked when the API service is required.
-         * KlaviyoApiClient service is not being initialized here.
-         */
-        if (!Registry.isRegistered<ApiClient>()) Registry.register<ApiClient> { KlaviyoApiClient }
+    /**
+     * Since the analytics module owns these services, it must register them.
+     *
+     * This registration is a lambda invoked when the service is required, not instantiated now
+     */
+    private fun initializeServices() = Registry.apply {
+        registerOnce<ApiClient> { KlaviyoApiClient }
+        registerOnce<State> {
+            KlaviyoState().also { state ->
+                register<StateSideEffects>(StateSideEffects(state))
+            }
+        }
     }
 
     /**
@@ -70,6 +76,8 @@ object Klaviyo {
      * @param applicationContext
      */
     fun initialize(apiKey: String, applicationContext: Context) = safeApply {
+        initializeServices()
+
         Registry.register<Config>(
             Registry.configBuilder
                 .apiKey(apiKey)
@@ -80,10 +88,6 @@ object Klaviyo {
         registerForLifecycleCallbacks(applicationContext)
 
         Registry.get<ApiClient>().startService()
-
-        Registry.register<State>(KlaviyoState())
-        Registry.getOrNull<StateSideEffects>()?.detach()
-        Registry.register<StateSideEffects>(StateSideEffects())
 
         Registry.get<State>().apiKey = apiKey
 

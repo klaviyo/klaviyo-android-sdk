@@ -1,14 +1,18 @@
 package com.klaviyo.fixtures
 
+import android.app.Activity
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.FormEnvironment
 import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.networking.NetworkMonitor
+import com.klaviyo.core.utils.ThreadHelper
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -88,14 +92,34 @@ abstract class BaseTest {
         every { formEnvironment } returns FormEnvironment.IN_APP
     }
 
+    protected val mockActivity: Activity = mockk(relaxed = true)
     protected val mockLifecycleMonitor = mockk<LifecycleMonitor>().apply {
         every { onActivityEvent(any()) } returns Unit
         every { offActivityEvent(any()) } returns Unit
+        every { currentActivity } returns mockActivity
     }
     protected val mockNetworkMonitor = mockk<NetworkMonitor>()
     protected val spyDataStore = spyk(InMemoryDataStore())
     protected val spyLog = spyk(LogFixture())
     protected val staticClock = StaticClock(TIME, ISO_TIME)
+
+    protected val mockHandler = mockk<Handler>().apply {
+        every { removeCallbacksAndMessages(any()) } returns Unit
+        every { post(any()) } answers {
+            firstArg<Runnable>().run().let { true }
+        }
+    }
+    protected val mockThreadHelper = mockk<ThreadHelper>().apply {
+        every { runOnUiThread(any()) } answers {
+            firstArg<() -> Unit>().invoke()
+        }
+        every { getHandler(any()) } returns mockHandler
+        every { getHandlerThread(any()) } returns mockk<HandlerThread>().apply {
+            every { start() } returns Unit
+            every { looper } returns mockk()
+            every { state } returns Thread.State.NEW
+        }
+    }
 
     @Before
     open fun setup() {
@@ -107,6 +131,7 @@ abstract class BaseTest {
         every { Registry.dataStore } returns spyDataStore
         every { Registry.clock } returns staticClock
         every { Registry.log } returns spyLog
+        every { Registry.threadHelper } returns mockThreadHelper
 
         // Mock using latest SDK
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
