@@ -10,7 +10,12 @@ internal interface WebViewClient {
     fun initializeWebView()
 
     /**
-     * Invoke when [com.klaviyo.forms.bridge.BridgeMessage.HandShook] event is received, klaviyo.js is loaded
+     * Invoke when [com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook] event is received, klaviyo.js is loaded
+     */
+    fun onLocalJsReady()
+
+    /**
+     * Invoke when [com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook] event is received, klaviyo.js is loaded
      */
     fun onJsHandshakeCompleted()
 
@@ -22,7 +27,7 @@ internal interface WebViewClient {
     /**
      * Detach the webview from the overlay activity, keeping it in memory
      */
-    fun detachWebView(activity: Activity): WebViewClient
+    fun detachWebView(): WebViewClient
 
     /**
      * Destroy the webview and release the reference
