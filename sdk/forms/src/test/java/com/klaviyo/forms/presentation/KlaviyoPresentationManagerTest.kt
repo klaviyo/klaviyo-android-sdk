@@ -85,17 +85,8 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `verify it ignores orientation change if not presenting`() {
-        withHiddenState()
-
-        slotOnActivityEvent.captured(ActivityEvent.ConfigurationChanged(mockk()))
-
-        verifyRotationClose(0)
-    }
-
-    @Test
-    fun `verify webview closes on an orientation change`() {
-        val manager = withPresentedState()
+    fun `verify webview re-attaches during orientation change`() {
+        withPresentedState()
 
         val mockConfig = mockk<Configuration>(relaxed = true) {
             orientation = Configuration.ORIENTATION_LANDSCAPE
@@ -103,26 +94,12 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
         // Initial orientation event must be a change
         slotOnActivityEvent.captured(ActivityEvent.ConfigurationChanged(mockConfig))
-        verifyRotationClose(1)
+        verify { mockWebViewClient.detachWebView() }
 
-        // Re-open it, and issue the same orientation again, which should be ignored
-        manager.mockPresent()
-        slotOnActivityEvent.captured(ActivityEvent.ConfigurationChanged(mockConfig))
-
-        verifyRotationClose(1)
-
-        // Issue a different orientation, which should again close the webview
-        slotOnActivityEvent.captured(
-            ActivityEvent.ConfigurationChanged(
-                mockk<Configuration>(
-                    relaxed = true
-                ) {
-                    orientation = Configuration.ORIENTATION_PORTRAIT
-                }
-            )
-        )
-
-        verifyRotationClose(2)
+        // After configuration change, the activity gets re-created,
+        // at which point we should re-attach if we were previously presenting
+        slotOnActivityEvent.captured(ActivityEvent.Created(mockOverlayActivity, mockk()))
+        verify { mockWebViewClient.attachWebView(mockOverlayActivity) }
     }
 
     @Test
@@ -136,13 +113,8 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         slotOnActivityEvent.captured(ActivityEvent.Stopped(mockk()))
         slotOnActivityEvent.captured(ActivityEvent.AllStopped())
 
-        verifyRotationClose(0)
-    }
-
-    private fun verifyRotationClose(callCount: Int) {
-        verify(exactly = callCount) { spyLog.debug("New screen orientation, closing form") }
-        verify(exactly = callCount) { mockOverlayActivity.finish() }
-        verify(exactly = callCount) { mockWebViewClient.detachWebView() }
+        verify(inverse = true) { mockWebViewClient.detachWebView() }
+        verify(inverse = true) { mockWebViewClient.attachWebView(mockOverlayActivity) }
     }
 
     @Test
