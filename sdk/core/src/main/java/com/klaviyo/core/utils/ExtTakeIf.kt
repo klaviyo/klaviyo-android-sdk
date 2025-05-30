@@ -9,4 +9,5 @@ inline fun <reified T : Any> Any?.takeIf() = let { it as? T }
 /**
  * Extension of takeIf to exclude with a generic type parameter.
  */
-inline fun <reified T : Any> Any?.takeIfNot() = takeIf { it !is T }
+inline fun <SuperType, reified SubType : SuperType> SuperType?.takeIfNot() =
+    takeIf { it !is SubType }
