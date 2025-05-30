@@ -1,8 +1,8 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.ApiObserver
 import com.klaviyo.analytics.networking.requests.EventApiRequest
@@ -13,6 +13,8 @@ import com.klaviyo.analytics.networking.requests.KlaviyoErrorSource
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
+import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
@@ -30,6 +32,7 @@ class StateSideEffectsTest : BaseTest() {
     private val capturedProfile = slot<Profile>()
     private val capturedApiObserver = slot<ApiObserver>()
     private val capturedStateObserver = slot<StateObserver>()
+    private val capturedStateChangeObserver = slot<StateChangeObserver>()
     private val capturedPushState = slot<String?>()
     private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
         every { onApiRequest(any(), capture(capturedApiObserver)) } returns Unit
@@ -41,7 +44,9 @@ class StateSideEffectsTest : BaseTest() {
 
     private val stateMock = mockk<State>().apply {
         every { onStateChange(capture(capturedStateObserver)) } returns Unit
-        every { offStateChange(any()) } returns Unit
+        every { onStateChange(capture(capturedStateChangeObserver)) } returns Unit
+        every { offStateChange(any<StateObserver>()) } returns Unit
+        every { offStateChange(any<StateChangeObserver>()) } returns Unit
         every { pushState = captureNullable(capturedPushState) } returns Unit
         every { getAsProfile(withAttributes = any()) } returns profile
         every { resetAttributes() } returns Unit
@@ -49,7 +54,7 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     private val klaviyoStateMock = mockk<KlaviyoState>().apply {
-        every { onStateChange(capture(capturedStateObserver)) } returns Unit
+        every { onStateChange(capture(capturedStateChangeObserver)) } returns Unit
         every { resetPhoneNumber() } returns Unit
         every { resetEmail() } returns Unit
     }
@@ -67,14 +72,14 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
-    fun `Subscribes on init and unsubscribes`() {
+    fun `Subscribes on init and detach unsubscribes`() {
         val sideEffects = StateSideEffects(stateMock, apiClientMock)
-        verify { stateMock.onStateChange(any()) }
+        verify { stateMock.onStateChange(any<StateChangeObserver>()) }
         verify { apiClientMock.onApiRequest(any(), any()) }
         verify { mockLifecycleMonitor.onActivityEvent(any()) }
 
         sideEffects.detach()
-        verify { stateMock.offStateChange(any()) }
+        verify { stateMock.offStateChange(any<StateChangeObserver>()) }
         verify { apiClientMock.offApiRequest(any()) }
         verify { mockLifecycleMonitor.offActivityEvent(any()) }
     }
@@ -83,9 +88,9 @@ class StateSideEffectsTest : BaseTest() {
     fun `Profile changes enqueue a single profile API request`() {
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(ProfileKey.EMAIL, null)
-        capturedStateObserver.captured(PROFILE_ATTRIBUTES, null)
-        capturedStateObserver.captured(null, null)
+        capturedStateChangeObserver.captured(StateChange.ProfileIdentifier(ProfileKey.EMAIL, null))
+        capturedStateChangeObserver.captured(StateChange.ProfileAttributes(mockk()))
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
 
         staticClock.execute(debounceTime.toLong())
 
@@ -109,7 +114,7 @@ class StateSideEffectsTest : BaseTest() {
             apiClientMock
         )
 
-        capturedStateObserver.captured(PROFILE_ATTRIBUTES, null)
+        capturedStateChangeObserver.captured(StateChange.ProfileAttributes(mockk()))
 
         staticClock.execute(debounceTime.toLong())
 
@@ -130,7 +135,7 @@ class StateSideEffectsTest : BaseTest() {
             apiClientMock
         )
 
-        capturedStateObserver.captured(PROFILE_ATTRIBUTES, null)
+        capturedStateChangeObserver.captured(StateChange.ProfileAttributes(mockk()))
 
         every { stateMock.getAsProfile(withAttributes = any()) } returns Profile(
             properties = mapOf(
@@ -138,7 +143,7 @@ class StateSideEffectsTest : BaseTest() {
             )
         )
 
-        capturedStateObserver.captured(null, null)
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
 
         verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
 
@@ -163,7 +168,7 @@ class StateSideEffectsTest : BaseTest() {
             apiClientMock
         )
 
-        capturedStateObserver.captured(PROFILE_ATTRIBUTES, null)
+        capturedStateChangeObserver.captured(StateChange.ProfileAttributes(mockk()))
 
         every { stateMock.getAsProfile(withAttributes = any()) } returns Profile(
             properties = mapOf(
@@ -171,7 +176,7 @@ class StateSideEffectsTest : BaseTest() {
             )
         )
 
-        capturedStateObserver.captured(null, null)
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
 
         verify(exactly = 1) { apiClientMock.enqueuePushToken(PUSH_TOKEN, any()) }
     }
@@ -180,7 +185,7 @@ class StateSideEffectsTest : BaseTest() {
     fun `Attributes do enqueue a profile API request`() {
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(PROFILE_ATTRIBUTES, null)
+        capturedStateChangeObserver.captured(StateChange.ProfileAttributes(mockk()))
 
         staticClock.execute(debounceTime.toLong())
 
@@ -194,7 +199,7 @@ class StateSideEffectsTest : BaseTest() {
 
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(ProfileKey.PUSH_STATE, null)
+        capturedStateChangeObserver.captured(StateChange.KeyValue(StateKey.PUSH_STATE, null))
         verify(exactly = 1) { apiClientMock.enqueuePushToken("token", profile) }
     }
 
@@ -204,7 +209,7 @@ class StateSideEffectsTest : BaseTest() {
 
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(ProfileKey.PUSH_STATE, null)
+        capturedStateChangeObserver.captured(StateChange.KeyValue(StateKey.PUSH_STATE, null))
         verify(exactly = 0) { apiClientMock.enqueuePushToken(any(), any()) }
     }
 
@@ -215,7 +220,7 @@ class StateSideEffectsTest : BaseTest() {
 
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateObserver.captured(ProfileKey.PUSH_TOKEN, null)
+        capturedStateChangeObserver.captured(StateChange.KeyValue(ProfileKey.PUSH_TOKEN, null))
         verify(exactly = 0) { apiClientMock.enqueuePushToken(any(), any()) }
     }
 
@@ -403,5 +408,24 @@ class StateSideEffectsTest : BaseTest() {
 
         verify { klaviyoStateMock.resetEmail() }
         Registry.unregister<State>()
+    }
+
+    @Test
+    fun `Resumed lifecycle event triggers push permission refresh`() {
+        Registry.register<State>(stateMock)
+        every { stateMock.pushToken } returns "mocked_push_token"
+        every { stateMock.pushToken = any() } returns Unit
+        val capturedLifecycleObserver = slot<ActivityObserver>()
+        every { mockLifecycleMonitor.onActivityEvent(capture(capturedLifecycleObserver)) } returns Unit
+
+        StateSideEffects(
+            state = stateMock,
+            apiClient = apiClientMock,
+            lifecycleMonitor = mockLifecycleMonitor
+        )
+
+        capturedLifecycleObserver.captured(ActivityEvent.Resumed(mockk()))
+
+        verify { stateMock.pushToken = "mocked_push_token" }
     }
 }

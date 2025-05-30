@@ -1,10 +1,10 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.Keyword
-import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -35,7 +35,7 @@ internal class KlaviyoStateTest : BaseTest() {
 
     @Test
     fun `State observers concurrency test`() = runTest {
-        val observer: StateObserver = { _, _ -> Thread.sleep(6) }
+        val observer: StateChangeObserver = { _ -> Thread.sleep(6) }
 
         state.onStateChange(observer)
 
@@ -52,6 +52,26 @@ internal class KlaviyoStateTest : BaseTest() {
 
         job.start()
         job2.start()
+    }
+
+    @Test
+    fun `Observer can detach itself during callback`() = runTest {
+        var observer: StateChangeObserver = { _ -> }
+        var didRun = false
+
+        observer = { _ ->
+            state.offStateChange(observer)
+            didRun = true
+        }
+
+        state.onStateChange(observer)
+
+        state.reset()
+        assert(didRun) { "Observer did not run as expected" }
+
+        didRun = false
+        state.reset()
+        assert(!didRun) { "Observer should not run the second time" }
     }
 
     @Test
@@ -136,79 +156,70 @@ internal class KlaviyoStateTest : BaseTest() {
         spyDataStore.store(ProfileKey.EMAIL.name, EMAIL)
         spyDataStore.store(ProfileKey.PHONE_NUMBER.name, PHONE)
 
-        var broadcastKey: Keyword? = null
-        var broadcastValue: String? = null
+        var broadcastChange: StateChange.ProfileIdentifier? = null
 
-        state.onStateChange { k, v ->
-            broadcastKey = k
-            broadcastValue = v.toString()
+        state.onStateChange { change ->
+            broadcastChange = change as? StateChange.ProfileIdentifier
         }
 
         state.externalId = "new_external_id"
-        assertEquals(ProfileKey.EXTERNAL_ID, broadcastKey)
-        assertEquals(EXTERNAL_ID, broadcastValue)
+        assertEquals(ProfileKey.EXTERNAL_ID, broadcastChange?.key)
+        assertEquals(EXTERNAL_ID, broadcastChange?.oldValue)
 
         state.email = "new@email.com"
-        assertEquals(ProfileKey.EMAIL, broadcastKey)
-        assertEquals(EMAIL, broadcastValue)
+        assertEquals(ProfileKey.EMAIL, broadcastChange?.key)
+        assertEquals(EMAIL, broadcastChange?.oldValue)
 
         state.phoneNumber = "new_phone"
-        assertEquals(ProfileKey.PHONE_NUMBER, broadcastKey)
-        assertEquals(PHONE, broadcastValue)
+        assertEquals(ProfileKey.PHONE_NUMBER, broadcastChange?.key)
+        assertEquals(PHONE, broadcastChange?.oldValue)
     }
 
     @Test
     fun `Broadcasts on set attributes`() {
-        var broadcastKey: Keyword? = null
-        var broadcastValue: Any? = null
+        var broadcastChange: StateChange.ProfileAttributes? = null
         val customKey = ProfileKey.CUSTOM("color")
 
-        state.onStateChange { k, v ->
-            broadcastKey = k
-            broadcastValue = v
+        state.onStateChange { change ->
+            broadcastChange = change as? StateChange.ProfileAttributes
         }
 
         state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
         state.setAttribute(customKey, "Green")
         state.setAttribute(ProfileKey.LAST_NAME, "Frog")
 
-        assertEquals(PROFILE_ATTRIBUTES, broadcastKey)
-        assertEquals("Kermit", (broadcastValue as? Profile)?.get(ProfileKey.FIRST_NAME))
-        assertEquals("Green", (broadcastValue as? Profile)?.get(customKey))
+        assertEquals("Kermit", broadcastChange?.oldValue?.get(ProfileKey.FIRST_NAME))
+        assertEquals("Green", broadcastChange?.oldValue?.get(customKey))
+        assertNull("Green", broadcastChange?.oldValue?.get(ProfileKey.LAST_NAME))
     }
 
     @Test
     fun `Set attributes does not set on non-string profile info`() {
-        var broadcastKey: Keyword? = null
-        var broadcastValue: Any? = null
+        var broadcastChange: StateChange.ProfileAttributes? = null
 
-        state.onStateChange { k, v ->
-            broadcastKey = k
-            broadcastValue = v
+        state.onStateChange { change ->
+            broadcastChange = change as? StateChange.ProfileAttributes
         }
 
-        // expecting an string but sending an int, should not be set
+        // expecting a string but sending an int, should not be set
         state.setAttribute(ProfileKey.EMAIL, 29864)
         state.setAttribute(ProfileKey.LAST_NAME, "Frog")
 
-        assertEquals(PROFILE_ATTRIBUTES, broadcastKey)
-        assertEquals(null, (broadcastValue as? Profile)?.get(ProfileKey.EMAIL))
+        assertEquals(null, broadcastChange?.oldValue?.get(ProfileKey.EMAIL))
     }
 
     @Test
     fun `Broadcasts on reset attributes`() {
-        var broadcastKey: Keyword? = null
-        var broadcastValue: Any? = null
+        var broadcastChange: StateChange? = null
 
-        state.onStateChange { k, v ->
-            broadcastKey = k
-            broadcastValue = v
+        state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
+        state.onStateChange { change ->
+            broadcastChange = change
         }
 
         state.resetAttributes()
 
-        assertEquals(PROFILE_ATTRIBUTES, broadcastKey)
-        assertNull(broadcastValue)
+        assert(broadcastChange is StateChange.ProfileAttributes)
     }
 
     @Test
@@ -219,19 +230,16 @@ internal class KlaviyoStateTest : BaseTest() {
         state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
         state.setAttribute(ProfileKey.LAST_NAME, "Frog")
 
-        var broadcastKey: Keyword? = null
-        var broadcastValue: Any? = null
+        var broadcastChange: StateChange.ProfileReset? = null
 
-        state.onStateChange { k, v ->
-            broadcastKey = k
-            broadcastValue = v
+        state.onStateChange { change ->
+            broadcastChange = change as? StateChange.ProfileReset
         }
 
         state.reset()
 
-        val broadcastProfile = broadcastValue as Profile
+        val broadcastProfile = broadcastChange?.oldValue ?: Profile()
 
-        assertEquals(null, broadcastKey)
         assertEquals(EXTERNAL_ID, broadcastProfile.externalId)
         assertEquals(EMAIL, broadcastProfile.email)
         assertEquals(PHONE, broadcastProfile.phoneNumber)
@@ -249,5 +257,32 @@ internal class KlaviyoStateTest : BaseTest() {
 
         assertEquals(state.email, null)
         assertEquals(state.phoneNumber, null)
+    }
+
+    @Test
+    fun `deprecated onStateChange with StateObserver still works`() {
+        val observer = mockk<StateObserver>(relaxed = true)
+
+        fun setValuesAndVerifyCallbacks() {
+            state.reset()
+            state.externalId = EXTERNAL_ID
+            state.email = EMAIL
+            state.phoneNumber = PHONE
+            state.apiKey = "apiKey"
+
+            verify(exactly = 1) { observer.invoke(null, any<Profile>()) }
+            verify(exactly = 1) { observer.invoke(ProfileKey.EXTERNAL_ID, null) }
+            verify(exactly = 1) { observer.invoke(ProfileKey.EMAIL, null) }
+            verify(exactly = 1) { observer.invoke(ProfileKey.PHONE_NUMBER, null) }
+            verify(exactly = 1) { observer.invoke(StateKey.API_KEY, null) }
+        }
+
+        // Attach observer, set values, expect all callbacks once
+        state.onStateChange(observer)
+        setValuesAndVerifyCallbacks()
+
+        // Detach observer, repeat all the same operations, no additional callbacks expected
+        state.offStateChange(observer)
+        setValuesAndVerifyCallbacks()
     }
 }
