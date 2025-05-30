@@ -13,6 +13,8 @@ import com.klaviyo.core.model.DataStore
 import com.klaviyo.core.model.SharedPreferencesDataStore
 import com.klaviyo.core.networking.KlaviyoNetworkMonitor
 import com.klaviyo.core.networking.NetworkMonitor
+import com.klaviyo.core.utils.KlaviyoThreadHelper
+import com.klaviyo.core.utils.ThreadHelper
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -49,6 +51,8 @@ object Registry {
      * Access to [Config.Builder] for registering new or updated SDK configuration
      */
     val configBuilder: Config.Builder get() = KlaviyoConfig.Builder()
+
+    val threadHelper: ThreadHelper = KlaviyoThreadHelper
 
     val clock: Clock get() = SystemClock
 
@@ -100,21 +104,6 @@ object Registry {
     }
 
     /**
-     * Register a service for a type, specified by generic parameter
-     * Typical usage would be to register the singleton implementation of an interface
-     * If this service is already registered, a new registration will be ignored
-     *
-     * @param T - Type, usually an interface, to register under
-     * @param service - The implementation
-     */
-    inline fun <reified T : Any> registerOnce(service: Any) {
-        if (!isRegistered<T>()) {
-            val type = typeOf<T>()
-            services[type] = service
-        }
-    }
-
-    /**
      * Lazily register a service builder for a type, specified by generic parameter
      * Typical usage would be to register a builder method for the implementation of an interface
      *
@@ -162,7 +151,12 @@ object Registry {
         val type = typeOf<T>()
         val service: Any? = services[type]
 
-        return if (service is T) service else null
+        if (service is T) return service
+
+        return when (val lazyService = registry[type]?.let { it() }) {
+            is T -> lazyService.apply { services[type] = lazyService }
+            else -> null
+        }
     }
 
     /**
@@ -178,10 +172,10 @@ object Registry {
 
         if (service is T) return service
 
-        when (val s = registry[type]?.let { it() }) {
+        when (val lazyService = registry[type]?.let { it() }) {
             is T -> {
-                services[type] = s
-                return s
+                services[type] = lazyService
+                return lazyService
             }
 
             is Any -> throw InvalidRegistration(type)
@@ -189,7 +183,7 @@ object Registry {
                 if (type == typeOf<Config>()) {
                     throw MissingConfig()
                 } else {
-                    throw throw MissingRegistration(type)
+                    throw MissingRegistration(type)
                 }
             }
         }

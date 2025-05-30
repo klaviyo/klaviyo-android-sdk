@@ -6,17 +6,11 @@ import com.klaviyo.analytics.model.ImmutableProfile
  * API for communicating data and events from native to the onsite-in-app JS module
  */
 @Suppress("EnumEntryName", "ktlint:enum-entry-name-case")
-internal interface OnsiteBridge {
+internal interface JsBridge {
 
     enum class LifecycleEventType {
         background,
         foreground
-    }
-
-    enum class LifecycleSessionBehavior {
-        persist,
-        restore,
-        purge
     }
 
     /**
@@ -27,5 +21,5 @@ internal interface OnsiteBridge {
     /**
      * Dispatch lifecycle events for onsite JS package to consume
      */
-    fun dispatchLifecycleEvent(type: LifecycleEventType, session: LifecycleSessionBehavior)
+    fun dispatchLifecycleEvent(type: LifecycleEventType)
 }

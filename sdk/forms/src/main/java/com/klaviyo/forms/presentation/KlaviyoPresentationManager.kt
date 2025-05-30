@@ -33,10 +33,12 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      */
     private fun onActivityEvent(event: ActivityEvent) = when (event) {
         is ActivityEvent.Created -> event.activity.takeIf<KlaviyoFormsOverlayActivity>()?.let { activity ->
-            val formId = presentationState.takeIf<PresentationState.Presenting>()?.formId
-            overlayActivity = activity
-            Registry.get<WebViewClient>().attachWebView(activity)
-            presentationState = PresentationState.Presented(formId)
+            presentationState.takeIf<PresentationState.Presenting>()?.let {
+                overlayActivity = activity
+                Registry.get<WebViewClient>().attachWebView(activity)
+                presentationState = PresentationState.Presented(it.formId)
+                Registry.log.debug("Finished presenting activity, now in state: $presentationState")
+            }
         }
 
         is ActivityEvent.ConfigurationChanged -> presentationState.takeIfNot<PresentationState.Hidden>()?.let {
@@ -66,7 +68,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      */
     override fun dismiss() = overlayActivity?.let { activity ->
         Registry.log.debug("Dismissing form overlay activity")
-        Registry.get<WebViewClient>().detachWebView(activity)
+        Registry.get<WebViewClient>().detachWebView()
         activity.finish()
         presentationState = PresentationState.Hidden
         overlayActivity = null
