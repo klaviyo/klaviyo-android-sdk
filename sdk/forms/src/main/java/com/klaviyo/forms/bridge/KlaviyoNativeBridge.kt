@@ -83,9 +83,13 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     /**
      * Notify the client that the webview should be shown
      */
-    private fun show(bridgeMessage: NativeBridgeMessage.FormWillAppear) = Registry.get<PresentationManager>().present().also {
-        Registry.log.debug("Present form ${bridgeMessage.formId}")
-    }
+    private fun show(bridgeMessage: NativeBridgeMessage.FormWillAppear) = Registry.get<PresentationManager>()
+        .present(bridgeMessage.formId, bridgeMessage.formVersionId)
+        .also {
+            Registry.log.debug(
+                "Present form ${bridgeMessage.formId}, version ${bridgeMessage.formVersionId}"
+            )
+        }
 
     /**
      * Handle a [NativeBridgeMessage.TrackAggregateEvent] message by creating an API call

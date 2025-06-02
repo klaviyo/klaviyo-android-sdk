@@ -9,10 +9,7 @@ import com.klaviyo.core.Registry
  */
 internal class KlaviyoFormsOverlayActivity : AppCompatActivity() {
 
-    /**
-     * TODO On back button, close the form within the webview first (for the css animation), requires JS injection
-     */
-    override fun onBackPressed() = Registry.get<PresentationManager>().dismiss()
+    override fun onBackPressed() = Registry.get<PresentationManager>().closeFormAndDismiss()
 
     companion object {
         val launchIntent: Intent
