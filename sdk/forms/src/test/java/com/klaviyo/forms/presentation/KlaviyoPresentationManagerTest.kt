@@ -105,6 +105,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     @Test
     fun `other lifecycle events are ignored`() {
         withPresentedState()
+        verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
 
         slotOnActivityEvent.captured(ActivityEvent.Started(mockk()))
         slotOnActivityEvent.captured(ActivityEvent.Resumed(mockk()))
@@ -114,7 +115,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         slotOnActivityEvent.captured(ActivityEvent.AllStopped())
 
         verify(inverse = true) { mockWebViewClient.detachWebView() }
-        verify(inverse = true) { mockWebViewClient.attachWebView(mockOverlayActivity) }
+        verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
     }
 
     @Test
