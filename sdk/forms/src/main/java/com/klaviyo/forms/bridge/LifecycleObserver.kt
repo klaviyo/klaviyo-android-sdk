@@ -14,11 +14,6 @@ internal class LifecycleObserver : JsBridgeObserver {
     private val sessionTimeoutMs: Long
         get() = Registry.get<InAppFormsConfig>().getSessionTimeoutDurationInMillis()
 
-    override val handshake: HandshakeSpec? = HandshakeSpec(
-        type = "lifecycleEvent",
-        version = 1
-    )
-
     override fun startObserver() = Registry.lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
 
     override fun stopObserver() {
@@ -43,7 +38,7 @@ internal class LifecycleObserver : JsBridgeObserver {
         if (isSessionExpired()) {
             Klaviyo.reInitializeInAppForms()
         } else {
-            Registry.get<JsBridge>().dispatchLifecycleEvent(foreground)
+            Registry.get<JsBridge>().lifecycleEvent(foreground)
         }
     }
 
@@ -53,7 +48,7 @@ internal class LifecycleObserver : JsBridgeObserver {
      */
     private fun onBackground() {
         lastBackgrounded = Registry.clock.currentTimeMillis()
-        Registry.get<JsBridge>().dispatchLifecycleEvent(background)
+        Registry.get<JsBridge>().lifecycleEvent(background)
     }
 
     /**

@@ -11,11 +11,6 @@ import com.klaviyo.forms.reInitializeInAppForms
  * to reload klaviyo.js for the new company
  */
 internal class CompanyObserver : JsBridgeObserver {
-    /**
-     * At this time, company ID doesn't have a handshake spec because
-     * it only resets the webview, doesn't communicate with the onsite module
-     */
-    override val handshake: HandshakeSpec? = null
 
     override fun startObserver() = Registry.get<State>().onStateChange(::onStateChange)
 
