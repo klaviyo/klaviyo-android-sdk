@@ -40,7 +40,9 @@ class NativeBridgeMessageTest : BaseTest() {
     @Test
     fun `test decodeWebviewMessage properly decodes show type`() {
         // Setup
-        val showMessage = "{\"type\": \"formWillAppear\", \"data\": {\"formId\": \"abc123\"}}"
+        val showMessage = """
+            {"type": "formWillAppear", "data": {"formId": "abc123", "formVersionId": 123}}
+        """.trimIndent()
 
         // Act
         val result = NativeBridgeMessage.decodeWebviewMessage(showMessage)

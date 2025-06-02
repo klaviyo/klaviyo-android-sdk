@@ -1,6 +1,7 @@
 package com.klaviyo.forms.presentation
 
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf
@@ -8,12 +9,17 @@ import com.klaviyo.core.utils.takeIfNot
 import com.klaviyo.forms.presentation.PresentationState.Hidden
 import com.klaviyo.forms.presentation.PresentationState.Presented
 import com.klaviyo.forms.presentation.PresentationState.Presenting
+import com.klaviyo.forms.bridge.FormId
+import com.klaviyo.forms.bridge.FormVersionId
+import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.webview.WebViewClient
 
 /**
  * Coordinates preloading klaviyo.js and presentation forms in an overlay activity
  */
 internal class KlaviyoPresentationManager() : PresentationManager {
+    private var pendingClose: Clock.Cancellable? = null
+
     private var overlayActivity by WeakReferenceDelegate<KlaviyoFormsOverlayActivity>(null)
 
     override var presentationState: PresentationState = Hidden
@@ -40,10 +46,8 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 presentationState.takeIf<Presenting>()?.let {
                     overlayActivity = activity
                     Registry.get<WebViewClient>().attachWebView(activity)
-                    presentationState = Presented(it.formId)
-                    Registry.log.debug(
-                        "Finished presenting activity, now in state: $presentationState"
-                    )
+                    presentationState = Presented(it.formId, it.formVersionId)
+                    Registry.log.debug("Presentation State: $presentationState")
                 }
             }
 
@@ -53,7 +57,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 presentationState.takeIfNot<PresentationState, Hidden>()?.let {
                     orientation = event.newConfig.orientation
                     Registry.get<WebViewClient>().detachWebView()
-                    presentationState = Presenting(it.formId)
+                    presentationState = Presenting(it.formId, it.formVersionId)
                     Registry.log.debug("New screen orientation, detaching view")
                 }
             }
@@ -64,23 +68,34 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     /**
      * Launch the overlay activity
      */
-    override fun present(formId: String?) = presentationState.takeIf<Hidden>()?.let {
-        presentationState = Presenting(formId)
+    override fun present(formId: FormId?, formVersionId: FormVersionId?) = presentationState.takeIf<Hidden>()?.let {
+        presentationState = Presenting(formId, formVersionId)
+        Registry.log.debug("Presentation State: $presentationState")
         Registry.config.applicationContext.startActivity(KlaviyoFormsOverlayActivity.launchIntent)
     } ?: run {
-        Registry.log.debug("Cannot present activity, currently in state: $presentationState")
+        Registry.log.debug("Cannot present activity. Current state: $presentationState")
     }
 
     /**
      * Detach the webview from the overlay activity and finish it
      */
     override fun dismiss() = overlayActivity?.let { activity ->
-        Registry.log.debug("Dismissing form overlay activity")
+        pendingClose?.cancel().also { pendingClose = null }
         Registry.get<WebViewClient>().detachWebView()
         activity.finish()
         presentationState = Hidden
         overlayActivity = null
+        Registry.log.debug("Presentation State: $presentationState")
     } ?: run {
+        pendingClose?.cancel().also { pendingClose = null }
         Registry.log.debug("No-op dismiss: overlay activity is not presented")
+    }
+
+    override fun closeFormAndDismiss() = presentationState.takeIf<Presented>()?.let {
+        Registry.get<JsBridge>().closeForm(it.formId, it.formVersionId)
+        pendingClose = Registry.clock.schedule(350L, ::dismiss)
+    } ?: run {
+        dismiss()
+        Registry.log.debug("Dismissing without closing form. Current state: $presentationState")
     }
 }
