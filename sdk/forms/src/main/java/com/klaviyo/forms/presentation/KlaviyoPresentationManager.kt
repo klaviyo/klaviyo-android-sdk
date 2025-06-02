@@ -6,12 +6,12 @@ import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf
 import com.klaviyo.core.utils.takeIfNot
-import com.klaviyo.forms.presentation.PresentationState.Hidden
-import com.klaviyo.forms.presentation.PresentationState.Presented
-import com.klaviyo.forms.presentation.PresentationState.Presenting
 import com.klaviyo.forms.bridge.FormId
 import com.klaviyo.forms.bridge.FormVersionId
 import com.klaviyo.forms.bridge.JsBridge
+import com.klaviyo.forms.presentation.PresentationState.Hidden
+import com.klaviyo.forms.presentation.PresentationState.Presented
+import com.klaviyo.forms.presentation.PresentationState.Presenting
 import com.klaviyo.forms.webview.WebViewClient
 
 /**
