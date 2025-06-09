@@ -129,11 +129,11 @@ class KlaviyoJsBridgeTest : BaseTest() {
             secondArg<(Boolean) -> Unit>().invoke(true)
         }
 
-        bridge.closeForm("formId", 123)
+        bridge.closeForm("formId")
 
         verify {
             jsEvaluator.evaluateJavascript(
-                eq("""window.closeForm("formId","123")"""),
+                eq("""window.closeForm("formId")"""),
                 any()
             )
         }

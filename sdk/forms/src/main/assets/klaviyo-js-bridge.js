@@ -81,20 +81,18 @@ window.openForm = function (formId) {
 }
 
 /**
- * Close a Klaviyo form by formVersionId, formId, or if neither is provided, any currently open forms
+ * Close a Klaviyo form by formId, or any currently open forms
  *
  * @param {string} formId
- * @param {string} formVersionId
  * @returns {boolean}
  */
-window.closeForm = function (formId, formVersionId) {
+window.closeForm = function (formId) {
     document.head.dispatchEvent(
         new CustomEvent(
             'closeForm',
             {
                 detail: {
-                    formId: formId,
-                    formVersionId: parseInt(formVersionId, 10) || undefined
+                    formId: formId
                 }
             }
         )

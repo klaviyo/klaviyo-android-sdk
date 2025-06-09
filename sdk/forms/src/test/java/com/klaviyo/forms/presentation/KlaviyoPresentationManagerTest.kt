@@ -47,7 +47,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     private fun withPresentedState(): KlaviyoPresentationManager = KlaviyoPresentationManager().mockPresent()
 
     private fun KlaviyoPresentationManager.mockPresent() = apply {
-        present("formId", 123)
+        present("formId")
         assert(slotOnActivityEvent.isCaptured) { "Lifecycle listener should be captured" }
         slotOnActivityEvent.captured(ActivityEvent.Created(mockOverlayActivity, null))
     }
@@ -67,7 +67,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
         assertEquals(
             "PresentationState should be Presented after overlay activity is created",
-            PresentationState.Presented("formId", 123),
+            PresentationState.Presented("formId"),
             manager.presentationState
         )
     }
@@ -124,11 +124,11 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     fun `present should not start a duplicate activity`() {
         val manager = withPresentedState()
         verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
-        manager.present("formId", 123)
+        manager.present("formId")
         verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
         verify {
             spyLog.debug(
-                "Cannot present activity. Current state: Presented(formId=formId, formVersionId=123)"
+                "Cannot present activity. Current state: Presented(formId=formId)"
             )
         }
     }
@@ -160,13 +160,13 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         val manager = withHiddenState()
 
         // Present comes first
-        manager.present("formId", 123)
+        manager.present("formId")
 
         // Expect start activity to be called and state to be Presenting
         verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
         assertEquals(
             "PresentationState should transition to Presenting",
-            PresentationState.Presenting("formId", 123),
+            PresentationState.Presenting("formId"),
             manager.presentationState
         )
 
@@ -176,7 +176,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
         assertEquals(
             "PresentationState should transition to Presented",
-            PresentationState.Presented("formId", 123),
+            PresentationState.Presented("formId"),
             manager.presentationState
         )
 
@@ -194,7 +194,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     fun `test closeFormAndDismiss with expected JS callback`() {
         val manager = withPresentedState()
         val mockBridge = mockk<JsBridge>().apply {
-            every { closeForm(any(), any()) } answers {
+            every { closeForm(any()) } answers {
                 // Simulate expected JS behavior of sending back a form disappeared message
                 manager.dismiss()
             }
@@ -203,7 +203,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
         manager.closeFormAndDismiss()
 
-        verify(exactly = 1) { mockBridge.closeForm(any(), any()) }
+        verify(exactly = 1) { mockBridge.closeForm(any()) }
         verify(exactly = 1) { mockWebViewClient.detachWebView() }
         verify(exactly = 1) { mockOverlayActivity.finish() }
         assertEquals(
@@ -216,13 +216,13 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     fun `test closeFormAndDismiss dismisses if closeForm does not call back in time`() {
         val manager = withPresentedState()
         val mockBridge = mockk<JsBridge>().apply {
-            every { closeForm(any(), any()) } just runs
+            every { closeForm(any()) } just runs
         }
         Registry.register<JsBridge>(mockBridge)
 
         manager.closeFormAndDismiss()
 
-        verify(exactly = 1) { mockBridge.closeForm(any(), any()) }
+        verify(exactly = 1) { mockBridge.closeForm(any()) }
         verify(exactly = 0) { mockWebViewClient.detachWebView() }
         verify(exactly = 0) { mockOverlayActivity.finish() }
 

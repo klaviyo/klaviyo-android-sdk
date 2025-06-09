@@ -1,7 +1,6 @@
 package com.klaviyo.forms.presentation
 
 import com.klaviyo.forms.bridge.FormId
-import com.klaviyo.forms.bridge.FormVersionId
 
 internal interface PresentationManager {
     /**
@@ -12,7 +11,7 @@ internal interface PresentationManager {
     /**
      * Present the form overlay activity, optionally provide the formId to be presented
      */
-    fun present(formId: FormId?, formVersionId: FormVersionId?)
+    fun present(formId: FormId?)
 
     /**
      * Dismiss the form overlay activity

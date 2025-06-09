@@ -4,8 +4,6 @@ import com.klaviyo.analytics.model.ImmutableProfile
 
 typealias FormId = String
 
-typealias FormVersionId = Int
-
 /**
  * API for communicating data and events from native to the onsite-in-app JS module
  */
@@ -40,8 +38,8 @@ internal interface JsBridge {
     fun openForm(formId: FormId)
 
     /**
-     * Close a form in the webview by [FormVersionId] and/or [FormId].
-     * If neither is provided, close any currently open forms.
+     * Close a form in the webview by [FormId]
+     * If no ID provided, close any currently open forms.
      */
-    fun closeForm(formId: FormId?, formVersionId: FormVersionId?)
+    fun closeForm(formId: FormId?)
 }

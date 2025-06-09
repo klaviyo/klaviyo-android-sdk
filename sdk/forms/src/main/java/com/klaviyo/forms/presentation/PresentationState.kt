@@ -1,27 +1,22 @@
 package com.klaviyo.forms.presentation
 
 import com.klaviyo.forms.bridge.FormId
-import com.klaviyo.forms.bridge.FormVersionId
 
 /**
  * Captures the state of form presentation
  */
 internal sealed interface PresentationState {
     val formId: FormId?
-    val formVersionId: FormVersionId?
 
     data class Presenting(
-        override val formId: FormId?,
-        override val formVersionId: FormVersionId?
+        override val formId: FormId?
     ) : PresentationState
 
     data class Presented(
-        override val formId: FormId?,
-        override val formVersionId: FormVersionId?
+        override val formId: FormId?
     ) : PresentationState
 
     data object Hidden : PresentationState {
         override val formId = null
-        override val formVersionId = null
     }
 }

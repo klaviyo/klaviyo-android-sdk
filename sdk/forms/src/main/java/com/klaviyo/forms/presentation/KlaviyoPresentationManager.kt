@@ -7,7 +7,6 @@ import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf
 import com.klaviyo.core.utils.takeIfNot
 import com.klaviyo.forms.bridge.FormId
-import com.klaviyo.forms.bridge.FormVersionId
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.presentation.PresentationState.Hidden
 import com.klaviyo.forms.presentation.PresentationState.Presented
@@ -46,7 +45,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 presentationState.takeIf<Presenting>()?.let {
                     overlayActivity = activity
                     Registry.get<WebViewClient>().attachWebView(activity)
-                    presentationState = Presented(it.formId, it.formVersionId)
+                    presentationState = Presented(it.formId)
                     Registry.log.debug("Presentation State: $presentationState")
                 }
             }
@@ -57,7 +56,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 presentationState.takeIfNot<PresentationState, Hidden>()?.let {
                     orientation = event.newConfig.orientation
                     Registry.get<WebViewClient>().detachWebView()
-                    presentationState = Presenting(it.formId, it.formVersionId)
+                    presentationState = Presenting(it.formId)
                     Registry.log.debug("New screen orientation, detaching view")
                 }
             }
@@ -68,8 +67,8 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     /**
      * Launch the overlay activity
      */
-    override fun present(formId: FormId?, formVersionId: FormVersionId?) = presentationState.takeIf<Hidden>()?.let {
-        presentationState = Presenting(formId, formVersionId)
+    override fun present(formId: FormId?) = presentationState.takeIf<Hidden>()?.let {
+        presentationState = Presenting(formId)
         Registry.log.debug("Presentation State: $presentationState")
         Registry.config.applicationContext.startActivity(KlaviyoFormsOverlayActivity.launchIntent)
     } ?: run {
@@ -92,7 +91,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     }
 
     override fun closeFormAndDismiss() = presentationState.takeIf<Presented>()?.let {
-        Registry.get<JsBridge>().closeForm(it.formId, it.formVersionId)
+        Registry.get<JsBridge>().closeForm(it.formId)
         pendingClose = Registry.clock.schedule(350L, ::dismiss)
     } ?: run {
         dismiss()
