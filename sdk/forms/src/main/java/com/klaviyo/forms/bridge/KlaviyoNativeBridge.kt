@@ -12,6 +12,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.unregisterInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 
 /**
@@ -83,9 +84,9 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     /**
      * Notify the client that the webview should be shown
      */
-    private fun show(bridgeMessage: NativeBridgeMessage.FormWillAppear) = Registry.get<PresentationManager>().present().also {
-        Registry.log.debug("Present form ${bridgeMessage.formId}")
-    }
+    private fun show(bridgeMessage: NativeBridgeMessage.FormWillAppear) = Registry.get<PresentationManager>()
+        .present(bridgeMessage.formId)
+        .also { Registry.log.debug("Present form ${bridgeMessage.formId}") }
 
     /**
      * Handle a [NativeBridgeMessage.TrackAggregateEvent] message by creating an API call
@@ -124,7 +125,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     /**
      * Handle a [NativeBridgeMessage.Abort] message by logging the reason and destroying the webview
      */
-    private fun abort(reason: String) = close().also {
-        Registry.log.info("IAF aborted, reason: $reason")
+    private fun abort(reason: String) = Klaviyo.unregisterInAppForms().also {
+        Registry.log.error("IAF aborted, reason: $reason")
     }
 }
