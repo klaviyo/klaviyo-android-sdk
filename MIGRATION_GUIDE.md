@@ -2,6 +2,10 @@
 This document provides guidance on how to migrate from the old version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
+# 3.4.0
+### Improvements
+- A deep link from an in-app form will now be issued *after* the form has closed, instead of during the close animation.
+
 # 3.0.0
 
 ### Improvements
