@@ -2,9 +2,11 @@
 This document provides guidance on how to migrate from the old version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
-# 3.3.1
+# 3.4.0
 
 ### Improvements
+- A deep link from an in-app form will now be issued *after* the form has closed, instead of during the close animation.
+
 - The Klaviyo Push Service manifest entry has been added to our PushFcm module. You no longer have to manually
 add this to your AndroidManifest to register our service. This can be easily overridden by declaring your own implementation
 of `KlaviyoPushService` or `FirebaseMessagingService` in the manifest.

@@ -97,7 +97,8 @@ internal sealed class NativeBridgeMessage {
                 HandshakeSpec(keyName<FormWillAppear>(), 1),
                 HandshakeSpec(keyName<TrackAggregateEvent>(), 1),
                 HandshakeSpec(keyName<TrackProfileEvent>(), 1),
-                HandshakeSpec(keyName<OpenDeepLink>(), 1),
+                // Version 2 issues deep link after closing the form (v1 was before close, causing a timing issue)
+                HandshakeSpec(keyName<OpenDeepLink>(), 2),
                 HandshakeSpec(keyName<FormDisappeared>(), 1),
                 HandshakeSpec(keyName<Abort>(), 1)
             )
