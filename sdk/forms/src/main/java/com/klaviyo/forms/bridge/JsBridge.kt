@@ -34,6 +34,8 @@ internal interface JsBridge {
 
     /**
      * Open a form in the webview by its ID
+     * At this time, this is only used for internal testing
+     * Opening a form by ID is not a supported feature in the public API.
      */
     fun openForm(formId: FormId)
 

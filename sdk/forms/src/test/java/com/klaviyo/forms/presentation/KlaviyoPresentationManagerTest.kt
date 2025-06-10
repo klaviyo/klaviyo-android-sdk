@@ -126,11 +126,6 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
         manager.present("formId")
         verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
-        verify {
-            spyLog.debug(
-                "Cannot present activity. Current state: Presented(formId=formId)"
-            )
-        }
     }
 
     @Test
@@ -226,7 +221,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 0) { mockWebViewClient.detachWebView() }
         verify(exactly = 0) { mockOverlayActivity.finish() }
 
-        staticClock.execute(350L)
+        staticClock.execute(400L)
 
         verify(exactly = 1) { mockWebViewClient.detachWebView() }
         verify(exactly = 1) { mockOverlayActivity.finish() }

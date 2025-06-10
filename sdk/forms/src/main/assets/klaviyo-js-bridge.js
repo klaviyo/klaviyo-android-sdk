@@ -71,6 +71,11 @@ window.analyticsEvent = function (metric, strProperties) {
  *
  * Note: This is just standard klaviyo.js functionality, not an onsite-in-app-forms listener.
  *
+ * This is a simplified version of the Klaviyo object, see public docs here:
+ * @see https://developers.klaviyo.com/en/docs/introduction_to_the_klaviyo_object
+ * TL;DR: This allows you to enqueue operations before klaviyo.js script loads,
+ *  and those operations will be executed once onsite forms loads.
+ *
  * @param formId
  * @returns {boolean}
  */

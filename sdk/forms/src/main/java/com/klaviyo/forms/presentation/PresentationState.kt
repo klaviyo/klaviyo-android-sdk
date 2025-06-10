@@ -10,13 +10,18 @@ internal sealed interface PresentationState {
 
     data class Presenting(
         override val formId: FormId?
-    ) : PresentationState
+    ) : PresentationState {
+        override fun toString(): String = "Presenting:$formId"
+    }
 
     data class Presented(
         override val formId: FormId?
-    ) : PresentationState
+    ) : PresentationState {
+        override fun toString(): String = "Presented:$formId"
+    }
 
     data object Hidden : PresentationState {
         override val formId = null
+        override fun toString(): String = "Hidden"
     }
 }

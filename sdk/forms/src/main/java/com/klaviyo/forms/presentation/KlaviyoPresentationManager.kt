@@ -36,8 +36,6 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     /**
      * This closes the form on rotation, which we can detect with the local field
      * We wait for a change, see if it's different from the current, and close an open webview
-     *
-     * TODO handle rotation better, including enum or typealias for orientation.
      */
     private fun onActivityEvent(event: ActivityEvent) = when (event) {
         is ActivityEvent.Created -> event.activity.takeIf<KlaviyoFormsOverlayActivity>()
@@ -85,16 +83,24 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         presentationState = Hidden
         overlayActivity = null
         Registry.log.debug("Presentation State: $presentationState")
-    } ?: run {
-        pendingClose?.cancel().also { pendingClose = null }
+    } ?: pendingClose?.cancel().let {
+        pendingClose = null
         Registry.log.debug("No-op dismiss: overlay activity is not presented")
     }
 
     override fun closeFormAndDismiss() = presentationState.takeIf<Presented>()?.let {
         Registry.get<JsBridge>().closeForm(it.formId)
-        pendingClose = Registry.clock.schedule(350L, ::dismiss)
-    } ?: run {
-        dismiss()
+        pendingClose = Registry.clock.schedule(CLOSE_TIMEOUT, ::dismiss)
+    } ?: dismiss().also {
         Registry.log.debug("Dismissing without closing form. Current state: $presentationState")
+    }
+
+    private companion object {
+        /**
+         * Grace period to close a form with animation, before we just dismiss
+         *  the overlay activity without waiting for formDisappeared event
+         *  ~350ms for the animation, and a little padding.
+         */
+        private const val CLOSE_TIMEOUT = 400L
     }
 }

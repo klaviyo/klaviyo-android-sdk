@@ -94,7 +94,6 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
 
     /**
      * If the webview is not loaded in time, we cancel the handshake timer and destroy the webview
-     * TODO - retrying preload with exponential backoff and network monitoring
      */
     private fun onJsHandshakeTimeout() {
         handshakeTimer?.cancel()
