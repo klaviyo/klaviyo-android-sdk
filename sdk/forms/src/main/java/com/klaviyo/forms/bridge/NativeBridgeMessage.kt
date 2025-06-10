@@ -30,7 +30,7 @@ internal sealed class NativeBridgeMessage {
      * @param formId The form ID of the form that is appearing
      */
     data class FormWillAppear(
-        val formId: String
+        val formId: FormId?
     ) : NativeBridgeMessage()
 
     /**
@@ -68,7 +68,7 @@ internal sealed class NativeBridgeMessage {
      * @param formId The form ID of the form that is disappearing
      */
     data class FormDisappeared(
-        val formId: String
+        val formId: FormId?
     ) : NativeBridgeMessage()
 
     /**
@@ -119,7 +119,7 @@ internal sealed class NativeBridgeMessage {
                 keyName<HandShook>() -> HandShook
 
                 keyName<FormWillAppear>() -> FormWillAppear(
-                    formId = jsonData.optString("formId").ifEmpty { "" }
+                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() }
                 )
 
                 keyName<TrackAggregateEvent>() -> TrackAggregateEvent(
@@ -138,7 +138,7 @@ internal sealed class NativeBridgeMessage {
                 )
 
                 keyName<FormDisappeared>() -> FormDisappeared(
-                    formId = jsonData.optString("formId").ifEmpty { "" }
+                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() }
                 )
 
                 keyName<Abort>() -> Abort(

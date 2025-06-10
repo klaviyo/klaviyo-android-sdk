@@ -15,6 +15,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.forms.bridge.HandshakeSpec
+import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.compileJson
@@ -46,8 +47,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         Registry.log.debug("Klaviyo webview is already initialized")
     } ?: KlaviyoWebView().let { webView ->
         val nativeBridge = Registry.get<NativeBridge>()
-        val observerCollection = Registry.get<JsBridgeObserverCollection>()
-        val handshake: List<HandshakeSpec> = nativeBridge.handshake + observerCollection.handshake
+        val jsBridge = Registry.get<JsBridge>()
+        val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
 
         this.webView = webView
 
@@ -93,7 +94,6 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
 
     /**
      * If the webview is not loaded in time, we cancel the handshake timer and destroy the webview
-     * TODO - retrying preload with exponential backoff and network monitoring
      */
     private fun onJsHandshakeTimeout() {
         handshakeTimer?.cancel()

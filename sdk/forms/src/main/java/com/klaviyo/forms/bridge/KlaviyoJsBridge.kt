@@ -11,20 +11,47 @@ import com.klaviyo.forms.webview.JavaScriptEvaluator
 internal class KlaviyoJsBridge : JsBridge {
     @Suppress("EnumEntryName", "ktlint:enum-entry-name-case")
     private enum class HelperFunction {
-        setProfile,
-        dispatchLifecycleEvent
+        profileMutation,
+        lifecycleEvent,
+        openForm,
+        closeForm
     }
 
-    override fun setProfile(profile: ImmutableProfile) = evaluateJavascript(
-        HelperFunction.setProfile,
+    override val handshake: List<HandshakeSpec> = listOf(
+        HandshakeSpec(
+            type = HelperFunction.profileMutation.name,
+            version = 1
+        ),
+        HandshakeSpec(
+            type = HelperFunction.lifecycleEvent.name,
+            version = 1
+        ),
+        HandshakeSpec(
+            type = HelperFunction.closeForm.name,
+            version = 1
+        )
+    )
+
+    override fun openForm(formId: FormId) = evaluateJavascript(
+        HelperFunction.openForm,
+        formId
+    )
+
+    override fun closeForm(formId: FormId?) = evaluateJavascript(
+        HelperFunction.closeForm,
+        formId ?: ""
+    )
+
+    override fun profileMutation(profile: ImmutableProfile) = evaluateJavascript(
+        HelperFunction.profileMutation,
         profile.externalId ?: "",
         profile.email ?: "",
         profile.phoneNumber ?: "",
         profile.anonymousId ?: ""
     )
 
-    override fun dispatchLifecycleEvent(type: JsBridge.LifecycleEventType) = evaluateJavascript(
-        HelperFunction.dispatchLifecycleEvent,
+    override fun lifecycleEvent(type: JsBridge.LifecycleEventType) = evaluateJavascript(
+        HelperFunction.lifecycleEvent,
         type.name
     )
 

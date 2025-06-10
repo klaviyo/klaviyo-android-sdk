@@ -7,6 +7,7 @@ import com.klaviyo.forms.webview.JavaScriptEvaluator
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class KlaviyoJsBridgeTest : BaseTest() {
@@ -25,7 +26,16 @@ class KlaviyoJsBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `setProfile calls JS evaluator with correct JS`() {
+    fun `compileJson returns correct JSON for supported functions`() {
+        val expectedJson = KlaviyoJsBridge().handshake.compileJson()
+        val actualJson = """
+           [{"type":"profileMutation","version":1},{"type":"lifecycleEvent","version":1},{"type":"closeForm","version":1}]
+        """.trimIndent()
+        assertEquals(actualJson, expectedJson)
+    }
+
+    @Test
+    fun `profileMutation calls JS evaluator with correct JS`() {
         val profile = Profile(
             externalId = "extId",
             email = "kermit@muppets.com",
@@ -36,29 +46,31 @@ class KlaviyoJsBridgeTest : BaseTest() {
             secondArg<(Boolean) -> Unit>().invoke(true)
         }
 
-        bridge.setProfile(profile)
+        bridge.profileMutation(profile)
 
         verify {
             jsEvaluator.evaluateJavascript(
-                eq("window.setProfile(\"extId\",\"kermit@muppets.com\",\"+1234567890\",\"anonId\")"),
+                eq(
+                    """window.profileMutation("extId","kermit@muppets.com","+1234567890","anonId")"""
+                ),
                 any()
             )
         }
     }
 
     @Test
-    fun `setProfile calls JS evaluator with correct JS if identifiers are null`() {
+    fun `profileMutation calls JS evaluator with correct JS if identifiers are null`() {
         val profile = Profile()
 
         every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
             secondArg<(Boolean) -> Unit>().invoke(true)
         }
 
-        bridge.setProfile(profile)
+        bridge.profileMutation(profile)
 
         verify {
             jsEvaluator.evaluateJavascript(
-                eq("window.setProfile(\"\",\"\",\"\",\"\")"),
+                eq("""window.profileMutation("","","","")"""),
                 any()
             )
         }
@@ -72,24 +84,56 @@ class KlaviyoJsBridgeTest : BaseTest() {
             secondArg<(Boolean) -> Unit>().invoke(false)
         }
 
-        bridge.setProfile(profile)
+        bridge.profileMutation(profile)
 
         verify { jsEvaluator.evaluateJavascript(any(), any()) }
-        verify { spyLog.error("JS setProfile evaluation failed") }
+        verify { spyLog.error("JS profileMutation evaluation failed") }
     }
 
     @Test
-    fun `dispatchLifecycleEvent calls JS evaluator with correct JS`() {
+    fun `lifecycleEvent calls JS evaluator with correct JS`() {
         val type = JsBridge.LifecycleEventType.background
         every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
             secondArg<(Boolean) -> Unit>().invoke(true)
         }
 
-        bridge.dispatchLifecycleEvent(type)
+        bridge.lifecycleEvent(type)
 
         verify {
             jsEvaluator.evaluateJavascript(
-                eq("window.dispatchLifecycleEvent(\"background\")"),
+                eq("""window.lifecycleEvent("background")"""),
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun `openForm calls JS evaluator with correct JS`() {
+        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
+            secondArg<(Boolean) -> Unit>().invoke(true)
+        }
+
+        bridge.openForm("formId")
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                eq("""window.openForm("formId")"""),
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun `closeForm calls JS evaluator with correct JS`() {
+        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
+            secondArg<(Boolean) -> Unit>().invoke(true)
+        }
+
+        bridge.closeForm("formId")
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                eq("""window.closeForm("formId")"""),
                 any()
             )
         }
