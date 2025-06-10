@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.webkit.WebMessageCompat
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.networking.ApiClient
@@ -15,12 +16,14 @@ import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.unregisterInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
 import io.mockk.slot
+import io.mockk.unmockkAll
 import io.mockk.verify
 import org.json.JSONException
 import org.json.JSONObject
@@ -45,6 +48,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     override fun setup() {
         super.setup()
         mockDeviceProperties()
+        mockkStatic("com.klaviyo.forms.InAppFormsKt") // Mock the extension function
         Registry.register<ApiClient>(mockApiClient)
         Registry.register<State>(mockState)
         Registry.register<WebViewClient>(mockWebViewClient)
@@ -56,6 +60,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     @After
     override fun cleanup() {
         unmockDeviceProperties()
+        unmockkAll()
         Registry.unregister<ApiClient>()
         Registry.unregister<State>()
         Registry.unregister<WebViewClient>()
@@ -106,7 +111,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockPresentationManager.present() }
+        verify { mockPresentationManager.present(any()) }
     }
 
     @Test
@@ -318,9 +323,9 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.abort
          */
         postMessage("""{"type":"abort"}""")
-        verify(exactly = 1) { mockPresentationManager.dismiss() }
+        verify(exactly = 1) { Klaviyo.unregisterInAppForms() }
         postMessage("""{"type":"abort", "reason":"Because the test requires it"}""")
-        verify(exactly = 2) { mockPresentationManager.dismiss() }
+        verify(exactly = 2) { Klaviyo.unregisterInAppForms() }
     }
 
     @Test
