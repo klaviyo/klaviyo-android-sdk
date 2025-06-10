@@ -86,7 +86,6 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      */
     private fun show(bridgeMessage: NativeBridgeMessage.FormWillAppear) = Registry.get<PresentationManager>()
         .present(bridgeMessage.formId)
-        .also { Registry.log.debug("Present form ${bridgeMessage.formId}") }
 
     /**
      * Handle a [NativeBridgeMessage.TrackAggregateEvent] message by creating an API call

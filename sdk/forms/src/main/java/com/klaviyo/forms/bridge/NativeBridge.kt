@@ -25,7 +25,7 @@ internal interface NativeBridge : WebViewCompat.WebMessageListener {
     val handshake: List<HandshakeSpec>
 
     /**
-     * This method is invoked with klaviyo.js sends a message over the native bridge
+     * This method is invoked when klaviyo.js sends a message over the native bridge
      */
     @JavascriptInterface
     fun postMessage(message: String)

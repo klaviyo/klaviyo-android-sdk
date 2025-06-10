@@ -16,6 +16,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.forms.bridge.HandshakeSpec
+import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.compileJson
@@ -101,13 +102,16 @@ class KlaviyoWebViewClientTest : BaseTest() {
         )
     }
 
-    private val mockObserverCollection = mockk<JsBridgeObserverCollection>(relaxed = true).apply {
+    private val mockJsBridge = mockk<JsBridge>(relaxed = true).apply {
         every { handshake } returns listOf(HandshakeSpec("mockObserver", 1))
     }
+
+    private val mockObserverCollection = mockk<JsBridgeObserverCollection>(relaxed = true)
 
     @Before
     override fun setup() {
         super.setup()
+        Registry.register<JsBridge>(mockJsBridge)
         Registry.register<JsBridgeObserverCollection>(mockObserverCollection)
         Registry.register<NativeBridge>(mockBridge)
         mockDeviceProperties()

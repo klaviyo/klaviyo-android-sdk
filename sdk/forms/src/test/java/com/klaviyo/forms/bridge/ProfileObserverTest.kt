@@ -12,7 +12,6 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -44,18 +43,9 @@ class ProfileObserverTest {
     }
 
     @Test
-    fun `handshake is correct`() = assertEquals(
-        HandshakeSpec(
-            type = "profileMutation",
-            version = 1
-        ),
-        ProfileObserver().handshake
-    )
-
-    @Test
     fun `startObserver attaches lambda and sets profile immediately`() {
         val mockBridge = withBridge()
-        verify(exactly = 1) { mockBridge.setProfile(stubProfile) }
+        verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
         assert(observerSlot.isCaptured)
     }
 
@@ -63,7 +53,7 @@ class ProfileObserverTest {
     fun `observer calls set profile when profile resets`() {
         val mockBridge = withBridge()
         observerSlot.captured.invoke(StateChange.ProfileReset(mockk()))
-        verify(exactly = 2) { mockBridge.setProfile(stubProfile) }
+        verify(exactly = 2) { mockBridge.profileMutation(stubProfile) }
     }
 
     @Test
@@ -73,7 +63,7 @@ class ProfileObserverTest {
             every { name } returns "something_else"
         }
         observerSlot.captured.invoke(StateChange.KeyValue(mockKeyword, "some value"))
-        verify(exactly = 1) { mockBridge.setProfile(stubProfile) }
+        verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
     }
 
     @Test
@@ -93,7 +83,7 @@ class ProfileObserverTest {
             observerSlot.captured.invoke(StateChange.ProfileIdentifier(mockKeyword, "value"))
         }
 
-        verify(exactly = keys.count() + 1) { mockBridge.setProfile(stubProfile) }
+        verify(exactly = keys.count() + 1) { mockBridge.profileMutation(stubProfile) }
     }
 
     @Test
