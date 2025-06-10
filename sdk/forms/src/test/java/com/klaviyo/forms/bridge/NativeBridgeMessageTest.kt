@@ -303,7 +303,7 @@ class NativeBridgeMessageTest : BaseTest() {
                   },
                   {
                     "type": "openDeepLink",
-                    "version": 1
+                    "version": 2
                   },
                   {
                     "type": "formDisappeared",
