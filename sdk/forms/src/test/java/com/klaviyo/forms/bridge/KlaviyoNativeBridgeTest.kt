@@ -111,7 +111,16 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockPresentationManager.present(any()) }
+        verify { mockPresentationManager.present(null) }
+    }
+
+    @Test
+    fun `formWillAppear triggers show with IDs`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
+         */
+        postMessage("""{"type":"formWillAppear", "data":{"formId":"64CjgW"}}""")
+        verify { mockPresentationManager.present("64CjgW") }
     }
 
     @Test

@@ -12,7 +12,6 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -48,15 +47,6 @@ class LifecycleObserverTest : BaseTest() {
     }
 
     @Test
-    fun `handshake is correct`() = assertEquals(
-        HandshakeSpec(
-            type = "lifecycleEvent",
-            version = 1
-        ),
-        observer.handshake
-    )
-
-    @Test
     fun `startObserver attaches and detaches from lifecycle monitor`() {
         observer.stopObserver()
         verify(exactly = 1) { mockLifecycleMonitor.offActivityEvent(observerSlot.captured) }
@@ -67,7 +57,7 @@ class LifecycleObserverTest : BaseTest() {
         observerSlot.captured(ActivityEvent.Resumed(mockActivity))
 
         verify(inverse = true) {
-            mockBridge.dispatchLifecycleEvent(any())
+            mockBridge.lifecycleEvent(any())
         }
         verify(inverse = true) {
             mockWebViewClient.destroyWebView()
@@ -79,7 +69,7 @@ class LifecycleObserverTest : BaseTest() {
         observerSlot.captured(ActivityEvent.FirstStarted(mockActivity))
 
         verify {
-            mockBridge.dispatchLifecycleEvent(
+            mockBridge.lifecycleEvent(
                 JsBridge.LifecycleEventType.foreground
             )
         }
@@ -92,7 +82,7 @@ class LifecycleObserverTest : BaseTest() {
         observerSlot.captured(ActivityEvent.AllStopped())
 
         verify {
-            mockBridge.dispatchLifecycleEvent(
+            mockBridge.lifecycleEvent(
                 JsBridge.LifecycleEventType.background
             )
         }
@@ -105,7 +95,7 @@ class LifecycleObserverTest : BaseTest() {
         observerSlot.captured(ActivityEvent.FirstStarted(mockActivity))
 
         verify {
-            mockBridge.dispatchLifecycleEvent(
+            mockBridge.lifecycleEvent(
                 JsBridge.LifecycleEventType.foreground
             )
         }
@@ -119,7 +109,7 @@ class LifecycleObserverTest : BaseTest() {
         observerSlot.captured(ActivityEvent.FirstStarted(mockActivity))
 
         verify(inverse = true) {
-            mockBridge.dispatchLifecycleEvent(
+            mockBridge.lifecycleEvent(
                 JsBridge.LifecycleEventType.foreground
             )
         }

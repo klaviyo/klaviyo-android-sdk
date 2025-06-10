@@ -9,7 +9,7 @@
  * @param anonymous_id
  * @returns {boolean}
  */
-window.setProfile = function (external_id, email, phone_number, anonymous_id) {
+window.profileMutation = function (external_id, email, phone_number, anonymous_id) {
     document.head.setAttribute("data-klaviyo-profile",
         JSON.stringify(
             {
@@ -29,7 +29,7 @@ window.setProfile = function (external_id, email, phone_number, anonymous_id) {
  *
  * @param type - The type of lifecycle event to dispatch: "foreground" | "background"
  */
-window.dispatchLifecycleEvent = function (type) {
+window.lifecycleEvent = function (type) {
     document.head.dispatchEvent(
         new CustomEvent(
             'lifecycleEvent',
@@ -50,7 +50,7 @@ window.dispatchLifecycleEvent = function (type) {
  * @param metric - The metric of the event
  * @param strProperties - Properties of the event as a JSON string
  */
-window.dispatchAnalyticsEvent = function (metric, strProperties) {
+window.analyticsEvent = function (metric, strProperties) {
     document.head.dispatchEvent(
         new CustomEvent(
             'analyticsEvent',
@@ -63,6 +63,45 @@ window.dispatchAnalyticsEvent = function (metric, strProperties) {
         )
     )
 
+    return true
+}
+
+/**
+ * Force open a Klaviyo form with the given formId.
+ *
+ * Note: This is just standard klaviyo.js functionality, not an onsite-in-app-forms listener.
+ *
+ * This is a simplified version of the Klaviyo object, see public docs here:
+ * @see https://developers.klaviyo.com/en/docs/introduction_to_the_klaviyo_object
+ * TL;DR: This allows you to enqueue operations before klaviyo.js script loads,
+ *  and those operations will be executed once onsite forms loads.
+ *
+ * @param formId
+ * @returns {boolean}
+ */
+window.openForm = function (formId) {
+    window._klOnsite = window._klOnsite || [];
+    window._klOnsite.push(['openForm', formId]);
+    return true
+}
+
+/**
+ * Close a Klaviyo form by formId, or any currently open forms
+ *
+ * @param {string} formId
+ * @returns {boolean}
+ */
+window.closeForm = function (formId) {
+    document.head.dispatchEvent(
+        new CustomEvent(
+            'closeForm',
+            {
+                detail: {
+                    formId: formId
+                }
+            }
+        )
+    )
     return true
 }
 

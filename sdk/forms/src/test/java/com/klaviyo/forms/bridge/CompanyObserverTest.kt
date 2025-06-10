@@ -15,7 +15,6 @@ import io.mockk.slot
 import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -44,12 +43,6 @@ class CompanyObserverTest {
         Registry.unregister<State>()
         unmockkAll()
     }
-
-    @Test
-    fun `handshake is correct`() = assertEquals(
-        null,
-        CompanyObserver().handshake
-    )
 
     @Test
     fun `startObserver attaches to state change`() {
