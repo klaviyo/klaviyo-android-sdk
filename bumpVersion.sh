@@ -1,4 +1,7 @@
 #!/bin/bash
+# This script bumps the version of a project using a custom gradle task.
+# It accepts a semantic version as an argument or prompts the user for it.
+# See ./versioning.gradle for implementation.
 
 # Check if the next version is provided as an argument
 if [[ -z "$1" ]]; then
