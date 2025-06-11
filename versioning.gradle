@@ -1,5 +1,5 @@
-import javax.xml.parsers.DocumentBuilderFactory
 import static de.fayard.refreshVersions.core.Versions.versionFor
+import groovy.xml.XmlParser
 
 /**
  * Command to bump the version of the project
@@ -20,21 +20,19 @@ class BumpVersion extends DefaultTask {
         return nextVersion;
     }
 
-    static String readXmlValue(String filePath, String tagName) {
-        def xmlFile = new File(filePath)
+    private static String readXmlValue(String filePath, String tagName) {
+        def xmlFile = new File("$filePath")
         if (!xmlFile.exists()) {
             throw new FileNotFoundException("File not found: $filePath")
         }
 
-        def factory = DocumentBuilderFactory.newInstance()
-        def builder = factory.newDocumentBuilder()
-        def document = builder.parse(xmlFile)
+        def xmlParser = new XmlParser()
+        def xmlContent = xmlParser.parse(xmlFile)
 
-        def nodeList = document.getElementsByTagName(tagName)
-        if (nodeList.length > 0) {
-            return nodeList.item(0).getTextContent()
-        }
-        return ""
+        // Look for the string with the specific name attribute
+        def result = xmlContent.'string'.find { it.@name == tagName }
+        return result?.text() ?: ""
+
     }
 
     @TaskAction
