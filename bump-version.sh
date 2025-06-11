@@ -3,10 +3,24 @@
 # It accepts a semantic version as an argument or prompts the user for it.
 # See ./versioning.gradle for implementation.
 
+# Extract current version from strings.xml
+STRINGS_XML_PATH="sdk/core/src/main/res/values/strings.xml"
+currentVersion=$(xmllint --xpath "string(//string[@name='klaviyo_sdk_version_override'])" "$STRINGS_XML_PATH")
+
+# Check if the version was found
+if [[ -z "$currentVersion" ]]; then
+  echo "Error: Could not find version_name in $STRINGS_XML_PATH."
+  exit 1
+fi
+
+# Output the current version
+echo "Current version: $currentVersion"
+
 # Check if the next version is provided as an argument
 if [[ -z "$1" ]]; then
   # Prompt the user for the next version if not provided
-  read -p "Enter the next semantic version: " nextVersion
+  echo "Enter the next semantic version (e.g. 1.0.0):"
+  read -rp "Version: " nextVersion
 else
   nextVersion="$1"
 fi
