@@ -1,5 +1,4 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
-import static de.fayard.refreshVersions.core.Versions.versionFor
 
 buildscript {
     ext {
@@ -81,49 +80,4 @@ dokkaHtmlMultiModule {
     )
 }
 
-/**
- * Command to bump the version of the project
- * including updating README and documentation references
- */
-public class BumpVersion extends DefaultTask {
-    private String nextVersion;
-
-    @Option(option = "nextVersion", description = "New semantic version number")
-    public void setNextVersion(String nextVersion) {
-        this.nextVersion = nextVersion;
-    }
-
-    @Input
-    public String getNextVersion() {
-        return nextVersion;
-    }
-
-    static String readXmlValue(String filePath, String tagName) {
-        def xmlFile = new File(filePath)
-        def xmlContent = new XmlSlurper().parse(xmlFile)
-        // Look for the string with the specific name attribute
-        def result = xmlContent.'string'.find { it.@name == tagName }
-        return result?.text() ?: ""
-    }
-
-    @TaskAction
-    public void bumpVersion() {
-        def currentVersion = readXmlValue('sdk/core/src/main/res/values/strings.xml','klaviyo_sdk_version_override')
-        def nextVersion = this.getNextVersion()
-        def currentBuild = versionFor(project, "version.klaviyo.versionCode") as Integer
-        def nextBuild = currentBuild + 1
-        print("Changing semantic version number from $currentVersion to $nextVersion\n")
-        print("Auto-incrementing version code from $currentBuild to $nextBuild\n")
-
-        ant.replace(file:"versions.properties", token:"versionCode=$currentBuild", value:"versionCode=$nextBuild")
-        def file = new File('sdk/core/src/main/res/values/strings.xml')
-        def newName = file.text.replace(currentVersion,nextVersion)
-        file.text = newName
-        ant.replace(file:"README.md", token:"analytics:$currentVersion", value:"analytics:$nextVersion")
-        ant.replace(file:"README.md", token:"push-fcm:$currentVersion", value:"push-fcm:$nextVersion")
-        ant.replace(file:"README.md", token:"forms:$currentVersion", value:"forms:$nextVersion")
-        ant.replace(file:"docs/index.html", token:"$currentVersion", value:"$nextVersion")
-    }
-}
-
-tasks.register("bumpVersion", BumpVersion)
+apply from: "versioning.gradle"
