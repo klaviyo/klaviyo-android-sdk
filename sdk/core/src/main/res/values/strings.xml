@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Please do not modify these values, it will stop SDK functionality-->
+    <!-- Please do not modify / override these values, they are critical for internal versioning  -->
     <string name="klaviyo_sdk_name_override">android</string>
     <string name="klaviyo_sdk_version_override">3.3.1</string>
     <string name="klaviyo_sdk_plugin_name_override"/>
