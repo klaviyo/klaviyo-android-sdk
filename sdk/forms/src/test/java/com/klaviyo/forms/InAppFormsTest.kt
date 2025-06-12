@@ -104,7 +104,7 @@ internal class InAppFormsTest : BaseTest() {
 
         assert(Registry.isRegistered<InAppFormsConfig>())
 
-        Klaviyo.unregisterInAppForms()
+        Klaviyo.unregisterFromInAppForms()
 
         verify { anyConstructed<KlaviyoPresentationManager>().dismiss() }
         verify { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
@@ -130,7 +130,7 @@ internal class InAppFormsTest : BaseTest() {
 
     @Test(expected = Test.None::class)
     fun `calling unregister before register is a no-op`() {
-        Klaviyo.unregisterInAppForms()
+        Klaviyo.unregisterFromInAppForms()
         verify(inverse = true) { anyConstructed<KlaviyoPresentationManager>().dismiss() }
         verify(inverse = true) { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
     }

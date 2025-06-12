@@ -12,7 +12,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.presentation.PresentationManager
-import com.klaviyo.forms.unregisterInAppForms
+import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 
 /**
@@ -124,7 +124,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     /**
      * Handle a [NativeBridgeMessage.Abort] message by logging the reason and destroying the webview
      */
-    private fun abort(reason: String) = Klaviyo.unregisterInAppForms().also {
+    private fun abort(reason: String) = Klaviyo.unregisterFromInAppForms().also {
         Registry.log.error("IAF aborted, reason: $reason")
     }
 }

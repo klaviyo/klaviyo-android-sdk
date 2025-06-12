@@ -16,7 +16,7 @@ import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import com.klaviyo.forms.presentation.PresentationManager
-import com.klaviyo.forms.unregisterInAppForms
+import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
 import io.mockk.mockk
@@ -332,9 +332,9 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.abort
          */
         postMessage("""{"type":"abort"}""")
-        verify(exactly = 1) { Klaviyo.unregisterInAppForms() }
+        verify(exactly = 1) { Klaviyo.unregisterFromInAppForms() }
         postMessage("""{"type":"abort", "reason":"Because the test requires it"}""")
-        verify(exactly = 2) { Klaviyo.unregisterInAppForms() }
+        verify(exactly = 2) { Klaviyo.unregisterFromInAppForms() }
     }
 
     @Test

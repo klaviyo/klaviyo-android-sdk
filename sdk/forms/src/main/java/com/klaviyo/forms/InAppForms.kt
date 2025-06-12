@@ -47,13 +47,13 @@ fun Klaviyo.registerForInAppForms(
  * hiding any currently displayed forms and preventing any further forms from being presented.
  */
 @UiThread
-fun Klaviyo.unregisterInAppForms() = safeApply {
+fun Klaviyo.unregisterFromInAppForms() = safeApply {
     Registry.apply {
         if (inAppIsRegistered()) {
             get<PresentationManager>().dismiss()
             get<WebViewClient>().destroyWebView()
         } else {
-            log.warning("Cannot unregisterInAppForms, registerForInAppForms must be called first.")
+            log.warning("Cannot unregister in-app forms, must be registered first.")
         }
     }
 }
@@ -65,7 +65,7 @@ fun Klaviyo.unregisterInAppForms() = safeApply {
 internal fun Klaviyo.reInitializeInAppForms() = safeApply {
     Registry.apply {
         if (inAppIsRegistered()) {
-            unregisterInAppForms()
+            unregisterFromInAppForms()
             registerForInAppForms(get<InAppFormsConfig>())
         } else {
             log.warning(
