@@ -1,14 +1,28 @@
 package com.klaviyo.core.lifecycle
 
+import android.app.Activity
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.AdvancedAPI
+import com.klaviyo.core.utils.takeIf
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.mockk
 import io.mockk.unmockkObject
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class KlaviyoLifecycleMonitorTest : BaseTest() {
+
+    @After
+    override fun cleanup() {
+        super.cleanup()
+
+        // This should reset the current activity to null by calling it stopped
+        KlaviyoLifecycleMonitor.currentActivity?.let {
+            KlaviyoLifecycleMonitor.onActivityStopped(it)
+        }
+    }
 
     @Test
     fun `Is registered service`() {
@@ -61,6 +75,7 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
     @Test
     fun `All events are invoked`() {
         var createdCount = 0
+        var foregroundedCount = 0
         var startedCount = 0
         var resumedCount = 0
         var saveInstanceStateCount = 0
@@ -72,6 +87,7 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         KlaviyoLifecycleMonitor.onActivityEvent {
             when (it) {
                 is ActivityEvent.Created -> createdCount++
+                is ActivityEvent.FirstStarted -> foregroundedCount++
                 is ActivityEvent.Started -> startedCount++
                 is ActivityEvent.Resumed -> resumedCount++
                 is ActivityEvent.SaveInstanceState -> saveInstanceStateCount++
@@ -91,6 +107,7 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         KlaviyoLifecycleMonitor.onConfigurationChanged(mockk())
 
         assertEquals(1, createdCount)
+        assertEquals(1, foregroundedCount)
         assertEquals(1, startedCount)
         assertEquals(1, resumedCount)
         assertEquals(1, saveInstanceStateCount)
@@ -106,11 +123,45 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         val observer: ActivityObserver = { callCount++ }
 
         KlaviyoLifecycleMonitor.onActivityEvent(observer)
-        KlaviyoLifecycleMonitor.onActivityStarted(mockk())
-        assert(callCount == 1)
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+        assertEquals(1, callCount)
 
         KlaviyoLifecycleMonitor.offActivityEvent(observer)
         KlaviyoLifecycleMonitor.onActivityStopped(mockk())
-        assert(callCount == 1)
+        assertEquals(1, callCount)
+    }
+
+    @OptIn(AdvancedAPI::class)
+    @Test
+    fun `assignCurrentActivity allows overriding current activity`() {
+        assertEquals(null, KlaviyoLifecycleMonitor.currentActivity)
+        val mockActivity: Activity = mockk()
+        KlaviyoLifecycleMonitor.assignCurrentActivity(mockActivity)
+        assertEquals(mockActivity, KlaviyoLifecycleMonitor.currentActivity)
+    }
+
+    @OptIn(AdvancedAPI::class)
+    @Test
+    fun `assignCurrentActivity does not double count an activity that was already tracked`() {
+        val mockActivity: Activity = mockk()
+        var allStoppedCount = 0
+        KlaviyoLifecycleMonitor.onActivityEvent {
+            it.takeIf<ActivityEvent.AllStopped>()?.let() { allStoppedCount++ }
+        }
+
+        // Simulate a regular activity lifecycle tracking this activity
+        KlaviyoLifecycleMonitor.onActivityStarted(mockActivity)
+        KlaviyoLifecycleMonitor.onActivityResumed(mockActivity)
+
+        // Then use assign to manually track it also
+        KlaviyoLifecycleMonitor.assignCurrentActivity(mockActivity)
+
+        // And simulate it stopping
+        KlaviyoLifecycleMonitor.onActivityPaused(mockActivity)
+        KlaviyoLifecycleMonitor.onActivityStopped(mockActivity)
+
+        // It should still be cleared and the backgrounded event should have fired
+        assertEquals(null, KlaviyoLifecycleMonitor.currentActivity)
+        assertEquals(1, allStoppedCount)
     }
 }
