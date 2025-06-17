@@ -155,7 +155,6 @@ internal fun LifecycleMonitor.runWithCurrentOrNextActivity(
 
     var observer: ActivityObserver? = null
     val token: Clock.Cancellable? = timeout?.let { delay ->
-        Registry.log.wtf("Cancel task scheduled for $delay ms")
         Registry.clock.schedule(delay) {
             Registry.log.verbose("Removing postponed observer after timeout")
             observer?.let { offActivityEvent(it) }
