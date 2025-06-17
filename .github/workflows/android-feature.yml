@@ -32,7 +32,7 @@ jobs:
 
       # Call Gradle to run the unit tests
       - name: Unit Tests
-        run: ./gradlew {{ matrix.module }}:test --stacktrace --no-daemon
+        run: ./gradlew ${{ matrix.module }}:test --stacktrace --no-daemon
 
   # Another job for asserting our linting rules
   ktlint:
