@@ -18,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        module: [ :sdk:core, :sdk:analytics, :sdk:forms, :sdk:push-fcm ]
+        module: [ ':sdk:core', ':sdk:analytics', ':sdk:forms', ':sdk:push-fcm' ]
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
