@@ -11,6 +11,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import kotlin.time.Duration.Companion.seconds
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -27,7 +28,7 @@ class LifecycleObserverTest : BaseTest() {
     override fun setup() {
         super.setup()
         every { mockLifecycleMonitor.onActivityEvent(capture(observerSlot)) } returns Unit
-        Registry.register<InAppFormsConfig>(InAppFormsConfig(10))
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(10.seconds))
         Registry.register<PresentationManager>(mockk<PresentationManager>(relaxed = true))
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<JsBridge>(mockBridge)

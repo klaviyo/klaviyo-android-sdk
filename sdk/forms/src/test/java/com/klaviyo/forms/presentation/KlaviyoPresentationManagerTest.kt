@@ -263,7 +263,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 0) { mockActivity.startActivity(any()) }
         assert(slotOnActivityEvent.isCaptured) { "Lifecycle listener should be captured" }
 
-        staticClock.execute(InAppFormsConfig.DEFAULT_SESSION_TIMEOUT * 1000)
+        staticClock.execute(InAppFormsConfig.DEFAULT_SESSION_TIMEOUT)
 
         // Postponed job should have been offed
         verify { mockLifecycleMonitor.offActivityEvent(slotOnActivityEvent.captured) }

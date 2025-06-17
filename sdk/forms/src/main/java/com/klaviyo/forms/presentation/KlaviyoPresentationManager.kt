@@ -91,7 +91,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     override fun present(formId: FormId?) {
         clearTimers()
         cancelPostponedPresent = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
-            timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDurationInMillis()
+            timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
         ) {
             presentationState.takeIf<Hidden>()?.let {
                 presentationState = Presenting(formId)
