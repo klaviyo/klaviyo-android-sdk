@@ -11,7 +11,7 @@ typealias ActivityObserver = (activity: ActivityEvent) -> Unit
 /**
  * Represent different events emitted in response to lifecycle triggers from the host application
  */
-sealed class ActivityEvent(val activity: Activity? = null, val bundle: Bundle? = null) {
+sealed class ActivityEvent(open val activity: Activity? = null, val bundle: Bundle? = null) {
 
     /**
      * Get the type of the event as a string (e.g. for logging)
@@ -21,38 +21,44 @@ sealed class ActivityEvent(val activity: Activity? = null, val bundle: Bundle? =
     /**
      * Emitted when [Activity.onCreate] is called from an activity within the host app
      */
-    class Created(activity: Activity, bundle: Bundle?) : ActivityEvent(activity, bundle)
+    class Created(override val activity: Activity, bundle: Bundle?) : ActivityEvent(
+        activity,
+        bundle
+    )
 
     /**
      * Emitted when [Activity.onStart] is called from an activity within the host app
      */
-    class Started(activity: Activity) : ActivityEvent(activity)
+    class Started(override val activity: Activity) : ActivityEvent(activity)
 
     /**
      * Emitted when the host application moves to the foreground
      * i.e. an activity [Started], and the application transitions from 0 to 1 started activity
      */
-    class FirstStarted(activity: Activity) : ActivityEvent(activity)
+    class FirstStarted(override val activity: Activity) : ActivityEvent(activity)
 
     /**
      * Emitted when [Activity.onResume] is called from an activity within the host app
      */
-    class Resumed(activity: Activity) : ActivityEvent(activity)
+    class Resumed(override val activity: Activity) : ActivityEvent(activity)
 
     /**
      * Emitted when [Activity.onSaveInstanceState] is called from an activity within the host app
      */
-    class SaveInstanceState(activity: Activity, bundle: Bundle) : ActivityEvent(activity, bundle)
+    class SaveInstanceState(override val activity: Activity, bundle: Bundle) : ActivityEvent(
+        activity,
+        bundle
+    )
 
     /**
      * Emitted when [Activity.onPause] is called from an activity within the host app
      */
-    class Paused(activity: Activity) : ActivityEvent(activity)
+    class Paused(override val activity: Activity) : ActivityEvent(activity)
 
     /**
      * Emitted when [Activity.onStop] is called from an activity within the host app
      */
-    class Stopped(activity: Activity) : ActivityEvent(activity)
+    class Stopped(override val activity: Activity) : ActivityEvent(activity)
 
     /**
      * Emitted when the host application moves to the background,

@@ -14,7 +14,6 @@ import org.junit.Test
 class KlaviyoFormsOverlayActivityTest : BaseTest() {
     @Test
     fun `launchIntent creates intent to open the overlay activity`() {
-        every { mockContext.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
         val packageSlot = slot<String>()
         val classSlot = slot<String>()
         val flagsSlot = slot<Int>()
