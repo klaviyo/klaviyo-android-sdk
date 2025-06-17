@@ -1,9 +1,9 @@
-package com.klaviyo.forms
+package com.klaviyo.forms.bridge
 
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.webkit.WebMessageCompat
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.networking.ApiClient
@@ -11,9 +11,14 @@ import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
+import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.unregisterFromInAppForms
+import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -21,6 +26,7 @@ import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.slot
+import io.mockk.unmockkAll
 import io.mockk.verify
 import org.json.JSONException
 import org.json.JSONObject
@@ -29,32 +35,58 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-internal class BridgeMessageHandlerTest : BaseTest() {
+/**
+ * @see KlaviyoNativeBridge
+ */
+internal class KlaviyoNativeBridgeTest : BaseTest() {
 
     private val mockApiClient: ApiClient = mockk(relaxed = true)
     private val mockState: State = mockk(relaxed = true)
-    private val mockWebViewClient: KlaviyoWebViewClient = mockk(relaxed = true)
-    private lateinit var bridgeMessageHandler: BridgeMessageHandler
+    private val mockWebViewClient: WebViewClient = mockk(relaxed = true)
+    private val mockPresentationManager: PresentationManager = mockk(relaxed = true)
+
+    private val mockUri = mockk<Uri>(relaxed = true)
+    private val uriSlot = slot<Uri>()
+    private val actionSlot = slot<String>()
+    private val packageSlot = slot<String>()
+    private val flagsSlot = slot<Int>()
+
+    private lateinit var bridgeMessageHandler: KlaviyoNativeBridge
 
     @Before
     override fun setup() {
         super.setup()
         mockDeviceProperties()
+        mockkStatic("com.klaviyo.forms.InAppFormsKt") // Mock the extension function
         Registry.register<ApiClient>(mockApiClient)
         Registry.register<State>(mockState)
-        Registry.register<KlaviyoWebViewClient>(mockWebViewClient)
+        Registry.register<WebViewClient>(mockWebViewClient)
+        Registry.register<PresentationManager>(mockPresentationManager)
 
-        bridgeMessageHandler = BridgeMessageHandler()
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockUri
+
+        mockkConstructor(Intent::class)
+        every { anyConstructed<Intent>().setData(capture(uriSlot)) } returns mockk<Intent>()
+        every { anyConstructed<Intent>().setAction(capture(actionSlot)) } returns mockk<Intent>()
+        every { anyConstructed<Intent>().setPackage(capture(packageSlot)) } returns mockk<Intent>()
+        every { anyConstructed<Intent>().setFlags(capture(flagsSlot)) } returns mockk<Intent>()
+
+        bridgeMessageHandler = KlaviyoNativeBridge()
     }
 
     @After
     override fun cleanup() {
-        Registry.unregister<KlaviyoWebViewClient>()
         unmockDeviceProperties()
+        unmockkAll()
+        Registry.unregister<ApiClient>()
+        Registry.unregister<State>()
+        Registry.unregister<WebViewClient>()
+        Registry.unregister<PresentationManager>()
         super.cleanup()
     }
 
-    private fun postMessage(message: String) {
+    private fun postMessage(message: String?) {
         bridgeMessageHandler.onPostMessage(
             mockk(relaxed = true),
             WebMessageCompat(message, null),
@@ -65,9 +97,27 @@ internal class BridgeMessageHandlerTest : BaseTest() {
     }
 
     @Test
+    fun `allowed origin returns the base URL`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.allowedOrigin
+         */
+        val expected = setOf(Registry.config.baseUrl)
+        assertEquals(expected, bridgeMessageHandler.allowedOrigin)
+    }
+
+    @Test
+    fun `jsReady triggers client onLocalJsReady`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.jsReady
+         */
+        postMessage("""{"type":"jsReady"}""")
+        verify { mockWebViewClient.onLocalJsReady() }
+    }
+
+    @Test
     fun `handShook triggers client onJsHandshakeCompleted`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.handShook
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.handShook
          */
         postMessage("""{"type":"handShook"}""")
         verify { mockWebViewClient.onJsHandshakeCompleted() }
@@ -76,16 +126,25 @@ internal class BridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `formWillAppear triggers show`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.show
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockWebViewClient.show() }
+        verify { mockPresentationManager.present(null) }
+    }
+
+    @Test
+    fun `formWillAppear triggers show with IDs`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
+         */
+        postMessage("""{"type":"formWillAppear", "data":{"formId":"64CjgW"}}""")
+        verify { mockPresentationManager.present("64CjgW") }
     }
 
     @Test
     fun `trackAggregateEvent enqueues API request`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.createAggregateEvent
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.createAggregateEvent
          */
         val aggregateMessage = """
             {
@@ -186,7 +245,7 @@ internal class BridgeMessageHandlerTest : BaseTest() {
     @Test
     fun `trackProfileEvent enqueues API request`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.createProfileEvent
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.createProfileEvent
          */
         val eventMessage = """
            {
@@ -208,68 +267,86 @@ internal class BridgeMessageHandlerTest : BaseTest() {
         assertEquals(expectedMetric, slot.captured.metric)
     }
 
-    @Test
-    fun `openDeepLink broadcasts intent to start activity`() {
-        /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.deepLink
-         */
-        every { mockContext.startActivity(any()) } just runs
-        every { mockContext.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
+    private val deeplinkMessage = """
+        {
+          "type": "openDeepLink",
+          "data": {
+            "ios": "klaviyotest://settings",
+            "android": "klaviyotest://settings"
+          }
+        }
+    """.trimIndent()
 
-        mockkStatic(Uri::class)
-        val mockUrl = mockk<Uri>(relaxed = true)
-        every { Uri.parse(any()) } returns mockUrl
-
-        val mockActivity: Activity = mockk(relaxed = true)
-        every { mockLifecycleMonitor.currentActivity } returns mockActivity
-
-        val uriSlot = slot<Uri>()
-        val actionSlot = slot<String>()
-        val packageSlot = slot<String>()
-        val flagsSlot = slot<Int>()
-
-        mockkConstructor(Intent::class)
-        every { anyConstructed<Intent>().setData(capture(uriSlot)) } returns mockk<Intent>()
-        every { anyConstructed<Intent>().setAction(capture(actionSlot)) } returns mockk<Intent>()
-        every { anyConstructed<Intent>().setPackage(capture(packageSlot)) } returns mockk<Intent>()
-        every { anyConstructed<Intent>().setFlags(capture(flagsSlot)) } returns mockk<Intent>()
-
-        val deeplinkMessage = """
-            {
-              "type": "openDeepLink",
-              "data": {
-                "ios": "klaviyotest://settings",
-                "android": "klaviyotest://settings"
-              }
-            }
-        """.trimIndent()
-
-        postMessage(deeplinkMessage)
-
+    private fun verifyStartActivityWithDeepLink() {
         verify { mockActivity.startActivity(any()) }
-
-        assertEquals(mockUrl, uriSlot.captured)
+        assertEquals(mockUri, uriSlot.captured)
         assertEquals("android.intent.action.VIEW", actionSlot.captured)
         assertEquals(BuildConfig.LIBRARY_PACKAGE_NAME, packageSlot.captured)
         assertEquals(0x20000000, flagsSlot.captured)
     }
 
     @Test
+    fun `openDeepLink broadcasts intent to start activity`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
+         */
+        every { mockLifecycleMonitor.currentActivity } returns mockActivity
+        postMessage(deeplinkMessage)
+        verifyStartActivityWithDeepLink()
+    }
+
+    @Test
+    fun `openDeepLink waits for next activity currentActivity is null`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
+         */
+        val callbackSlot = slot<ActivityObserver>()
+        every { mockLifecycleMonitor.currentActivity } returns null
+        every { mockLifecycleMonitor.onActivityEvent(capture(callbackSlot)) } just runs
+
+        postMessage(deeplinkMessage)
+
+        verify(exactly = 0) { mockActivity.startActivity(any()) }
+        assert(callbackSlot.isCaptured) { "Lifecycle listener should be captured" }
+
+        staticClock.execute(10)
+        callbackSlot.captured.invoke(ActivityEvent.Resumed(mockActivity))
+        verifyStartActivityWithDeepLink()
+    }
+
+    @Test
+    fun `openDeepLink fails gracefully if no activity is available`() {
+        val callbackSlot = slot<ActivityObserver>()
+        every { mockLifecycleMonitor.currentActivity } returns null
+        every { mockLifecycleMonitor.onActivityEvent(capture(callbackSlot)) } just runs
+
+        postMessage(deeplinkMessage)
+
+        verify(exactly = 0) { mockActivity.startActivity(any()) }
+        assert(callbackSlot.isCaptured) { "Lifecycle listener should be captured" }
+
+        staticClock.execute(50)
+        verify(exactly = 0) { mockActivity.startActivity(any()) }
+    }
+
+    @Test
     fun `formDisappeared triggers close`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.close
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
         postMessage("""{"type":"formDisappeared"}""")
-        verify { mockWebViewClient.close() }
+        verify { mockPresentationManager.dismiss() }
     }
 
     @Test
     fun `abort triggers closes`() {
         /**
-         * @see com.klaviyo.forms.BridgeMessageHandler.abort
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.abort
          */
         postMessage("""{"type":"abort"}""")
-        verify { mockWebViewClient.close() }
+        verify(exactly = 1) { Klaviyo.unregisterFromInAppForms() }
+        postMessage("""{"type":"abort", "reason":"Because the test requires it"}""")
+        verify(exactly = 2) { Klaviyo.unregisterFromInAppForms() }
     }
 
     @Test
@@ -280,6 +357,30 @@ internal class BridgeMessageHandlerTest : BaseTest() {
             spyLog.error(
                 "Failed to relay webview message: sawr a warewolf with a chinese menu inhis hands",
                 any<JSONException>()
+            )
+        }
+    }
+
+    @Test
+    fun `unknown type throws an error`() {
+        postMessage("""{"type":"unknown"}""")
+
+        verify {
+            spyLog.error(
+                "Failed to relay webview message: {\"type\":\"unknown\"}",
+                any<IllegalStateException>()
+            )
+        }
+    }
+
+    @Test
+    fun `null message logs warning`() {
+        postMessage(null)
+
+        verify {
+            spyLog.warning(
+                "Received null message from webview",
+                null
             )
         }
     }

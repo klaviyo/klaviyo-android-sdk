@@ -1,6 +1,7 @@
 package com.klaviyo.fixtures
 
 import com.klaviyo.core.config.Clock
+import kotlin.time.Duration
 
 /**
  * Implementation of Clock for unit tests
@@ -23,6 +24,8 @@ class StaticClock(var time: Long, private val formatted: String) : Clock {
     class ScheduledTask(val time: Long, val task: () -> Unit)
 
     val scheduledTasks = mutableListOf<ScheduledTask>()
+
+    fun execute(advance: Duration) = execute(advance.inWholeMilliseconds)
 
     fun execute(advance: Long = 0) {
         time += advance
