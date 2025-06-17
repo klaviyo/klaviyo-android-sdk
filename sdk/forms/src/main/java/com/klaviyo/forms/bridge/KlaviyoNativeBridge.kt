@@ -12,6 +12,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.presentation.runWithCurrentOrNextActivity
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 
@@ -102,19 +103,21 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     /**
      * Handle a [NativeBridgeMessage.OpenDeepLink] message by broadcasting an intent to the host app
      * similar to how we handle deep links from a notification
+     *
+     * There is a brief window between our overlay activity pausing and the next activity resuming.
+     * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
-    private fun deepLink(messageType: NativeBridgeMessage.OpenDeepLink) {
-        Registry.lifecycleMonitor.currentActivity?.startActivity(
-            Intent().apply {
-                data = messageType.route.toUri()
-                action = Intent.ACTION_VIEW
-                `package` = Registry.config.applicationContext.packageName
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-        ) ?: run {
-            Registry.log.error("Unable to open deep link - null activity reference")
+    private fun deepLink(messageType: NativeBridgeMessage.OpenDeepLink) =
+        Registry.lifecycleMonitor.runWithCurrentOrNextActivity(ACTIVITY_TRANSITION_GRACE_PERIOD) { activity ->
+            activity.startActivity(
+                Intent().apply {
+                    data = messageType.route.toUri()
+                    action = Intent.ACTION_VIEW
+                    `package` = Registry.config.applicationContext.packageName
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+            )
         }
-    }
 
     /**
      * Instruct presentation manager to dismiss the form overlay activity
@@ -126,5 +129,13 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      */
     private fun abort(reason: String) = Klaviyo.unregisterFromInAppForms().also {
         Registry.log.error("IAF aborted, reason: $reason")
+    }
+
+    private companion object {
+        /**
+         * Allow a brief grace period for transitions between activities
+         * In testing, this was rarely exceeded 10ms, allowing some extra time for safety.
+         */
+        private const val ACTIVITY_TRANSITION_GRACE_PERIOD = 50L
     }
 }

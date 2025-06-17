@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.FormEnvironment
@@ -71,6 +72,7 @@ abstract class BaseTest {
     protected val mockContext = mockk<Context>().apply {
         every { applicationInfo } returns mockApplicationInfo
         every { packageManager } returns mockPackageManager
+        every { packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
     }
 
     protected val debounceTime = 5
