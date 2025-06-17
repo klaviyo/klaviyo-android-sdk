@@ -6,6 +6,7 @@ import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.lifecycle.LifecycleMonitor
+import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf
 import com.klaviyo.core.utils.takeIfNot
@@ -47,12 +48,17 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         Registry.lifecycleMonitor.onActivityEvent(::onActivityEvent)
     }
 
-    /**
-     * This closes the form on rotation, which we can detect with the local field
-     * We wait for a change, see if it's different from the current, and close an open webview
-     */
     private fun onActivityEvent(event: ActivityEvent) = when (event) {
-        is ActivityEvent.Created -> event.activity.takeIf<KlaviyoFormsOverlayActivity>()?.let { activity ->
+        is ActivityEvent.Created -> onCreateActivity(event)
+        is ActivityEvent.ConfigurationChanged -> onConfigurationChanged(event)
+        else -> Unit
+    }
+
+    /**
+     * Handles attaching the webview to the overlay activity once it is created.
+     */
+    private fun onCreateActivity(event: ActivityEvent.Created) = safeCall {
+        event.activity.takeIf<KlaviyoFormsOverlayActivity>()?.let { activity ->
             presentationState.takeIf<Presenting>()?.let {
                 overlayActivity = activity
                 Registry.get<WebViewClient>().attachWebView(activity)
@@ -60,8 +66,14 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 Registry.log.debug("Presentation State: $presentationState")
             }
         }
+    }
 
-        is ActivityEvent.ConfigurationChanged -> event.newConfig.orientation.takeIf { it != orientation }
+    /**
+     * Handles device orientation change by observing all configuration changes
+     * and re-attaching the webview if currently presented.
+     */
+    private fun onConfigurationChanged(event: ActivityEvent.ConfigurationChanged) = safeCall {
+        event.newConfig.orientation.takeIf { it != orientation }
             ?.also { newOrientation -> orientation = newOrientation }?.let {
                 presentationState.takeIfNot<PresentationState, Hidden>()?.let {
                     orientation = event.newConfig.orientation
@@ -70,8 +82,6 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                     Registry.log.debug("New screen orientation, detaching view")
                 }
             }
-
-        else -> Unit
     }
 
     /**
@@ -154,9 +164,9 @@ internal fun LifecycleMonitor.runWithCurrentOrNextActivity(
     }
 
     var observer: ActivityObserver? = null
-    val token: Clock.Cancellable? = timeout?.let { delay ->
+    val cancelToken: Clock.Cancellable? = timeout?.let { delay ->
         Registry.clock.schedule(delay) {
-            Registry.log.verbose("Removing postponed observer after timeout")
+            Registry.log.verbose("Removing postponed observer after timeout ${delay}ms")
             observer?.let { offActivityEvent(it) }
         }
     }
@@ -165,10 +175,10 @@ internal fun LifecycleMonitor.runWithCurrentOrNextActivity(
             Registry.log.verbose("Invoking postponed observer on resume")
             job(event.activity)
             observer?.let { offActivityEvent(it) }
-            token?.cancel()
+            cancelToken?.cancel()
         }
     }
     onActivityEvent(observer)
 
-    return token
+    return cancelToken
 }
