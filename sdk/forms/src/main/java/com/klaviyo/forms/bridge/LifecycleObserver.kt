@@ -12,7 +12,7 @@ internal class LifecycleObserver : JsBridgeObserver {
     private var lastBackgrounded: Long? = null
 
     private val sessionTimeoutMs: Long
-        get() = Registry.get<InAppFormsConfig>().getSessionTimeoutDurationInMillis()
+        get() = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
 
     override fun startObserver() = Registry.lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
 
