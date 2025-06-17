@@ -198,7 +198,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
         manager.closeFormAndDismiss()
 
-        verify(exactly = 1) { mockBridge.closeForm(any()) }
+        verify(exactly = 1) { mockBridge.closeForm(null) }
         verify(exactly = 1) { mockWebViewClient.detachWebView() }
         verify(exactly = 1) { mockOverlayActivity.finish() }
         assertEquals(
@@ -217,7 +217,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
         manager.closeFormAndDismiss()
 
-        verify(exactly = 1) { mockBridge.closeForm(any()) }
+        verify(exactly = 1) { mockBridge.closeForm(null) }
         verify(exactly = 0) { mockWebViewClient.detachWebView() }
         verify(exactly = 0) { mockOverlayActivity.finish() }
 

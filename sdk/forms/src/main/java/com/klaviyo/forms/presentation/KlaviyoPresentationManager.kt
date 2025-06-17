@@ -89,7 +89,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     }
 
     override fun closeFormAndDismiss() = presentationState.takeIf<Presented>()?.let {
-        Registry.get<JsBridge>().closeForm(it.formId)
+        Registry.get<JsBridge>().closeForm()
         pendingClose = Registry.clock.schedule(CLOSE_TIMEOUT, ::dismiss)
     } ?: dismiss().also {
         Registry.log.debug("Dismissing without closing form. Current state: $presentationState")

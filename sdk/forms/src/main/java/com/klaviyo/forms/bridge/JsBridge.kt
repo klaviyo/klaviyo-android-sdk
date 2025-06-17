@@ -43,5 +43,5 @@ internal interface JsBridge {
      * Close a form in the webview by [FormId]
      * If no ID provided, close any currently open forms.
      */
-    fun closeForm(formId: FormId?)
+    fun closeForm(formId: FormId? = null)
 }
