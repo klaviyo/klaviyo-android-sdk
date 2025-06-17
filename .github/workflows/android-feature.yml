@@ -14,6 +14,10 @@ jobs:
     # The type of runner that the job will run on
     runs-on: ubuntu-22.04
 
+    strategy:
+      matrix:
+        module: [ :sdk:core, :sdk:analytics, :sdk:forms, :sdk:push-fcm ]
+
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
       - uses: actions/checkout@v4
@@ -28,7 +32,7 @@ jobs:
 
       # Call Gradle to run the unit tests
       - name: Unit Tests
-        run: ./gradlew test --stacktrace --no-daemon
+        run: ./gradlew {{ matrix.module }}:test --stacktrace --no-daemon
 
   # Another job for asserting our linting rules
   ktlint:
