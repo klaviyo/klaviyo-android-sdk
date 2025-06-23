@@ -55,9 +55,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.4.0-alpha.2")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.4.0-alpha.2")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:3.4.0-alpha.2")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.4.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.4.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:3.4.0")
       }
       ```
    </details>
@@ -68,9 +68,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.4.0-alpha.2"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.4.0-alpha.2"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:3.4.0-alpha.2"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.4.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.4.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:3.4.0"
        }
       ```
    </details>
@@ -317,10 +317,10 @@ additional information from the push payload and handle it appropriately - for i
 processing, logging analytics events, or dynamically updating app content.
 
 ### Advanced Setup
-If you'd prefer to have your own implementation of `FirebaseMessagingService`,
-follow the FCM setup docs including referencing your own service class in the manifest. We've included
-the default Klaviyo Push Service in our SDK Manifest (which will be merged into the final APK), but
-if you'd like to override this you can.
+If you'd prefer to have your own implementation of `FirebaseMessagingService`, e.g. to handle push messages from
+multiple sources, follow the FCM setup docs including referencing your own service class in the manifest. 
+We include the default Klaviyo Push Service in our SDK Manifest (which will be merged into the final APK),
+but if you'd like to override this you can.
 
 ```xml
 <!-- AndroidManifest.xml -->
@@ -438,9 +438,17 @@ Sign-Up Forms tab in Klaviyo. Follow the instructions in this section to integra
 display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
 
 ### Prerequisites
-- Version 3.2.0 or higher
 - Klaviyo `analytics` and `forms` packages
 - If you expect to use deep links in forms, see the [deep linking](#deep-linking) section below.
+- We strongly recommend using the latest version of the SDK to ensure compatibility with the latest in-app forms features.
+  The minimum supported version for in-app forms is `3.2.0`, but a feature matrix is provided below. Forms that leverage
+  unsupported features will not appear in your app until you update to a version that supports those features.
+
+| Feature            | Minimum SDK Version |
+|--------------------|---------------------|
+| Basic In-App Forms | 3.2.0               |
+| Time Delay         | 3.4.0               |
+| Audience Targeting | 3.4.0               |
 
 ### Setup
 To display in-app forms add the following code to your application. 
@@ -460,25 +468,19 @@ Klaviyo.registerForInAppForms()
 
 ### Behavior
 
-Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form 
-within 15 seconds, based on form targeting and behavior settings.
+Once `registerForInAppForms()` is called, the SDK will load form data for your account and prepare to display a form
+according to targeting and behavior settings configured in the Klaviyo forms editor for your account. 
 
 You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in 
-your app's UI a form can appear. It is safe to register multiple times per application session. 
-The SDK will internally prevent multiple forms appearing at once.
+your app's UI a form can appear. For the best user experience, we recommend registering after any splash screen  
+or other loading animations have completed. You need only register once per app lifecycle, the SDK will 
+automatically track user inactivity when the app is backgrounded, and restart the form session after timeout period.
+The default timeout is 60 minutes, and is configurable with the `InAppFormsConfig` argument to `registerForInAppForms`.
 
-Consider how often you want to register for forms. For example, registering from a lifecycle event is advisable 
-so that the user has multiple opportunities to see your messaging if they are browsing your app for a prolonged period.
-However, be advised the form will be shown as soon as it is ready, so you may still need to condition this based on the
-user's context within your application. Future versions of this product will provide more control in this regard.
-
-| Callback                 | Description                                                                                            |
-|--------------------------|--------------------------------------------------------------------------------------------------------|
-| `Application.onCreate()` | Show a form _only_ upon initial app launch.                                                            |
-| `Application.onResume()` | Anytime the app is foregrounded, check for forms and show if available.                                |
-| `Activity.onCreate()`    | If you only want forms to appear over a specific activity, checks every time this activity is created. |
-
-**Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
+When a form is ready to be displayed, it will automatically be shown to the user in an Activity overlaid on top of your app.
+The form will rotate with the device orientation, and the user can dismiss it by interacting with it, or pressing the
+native Android back button. Call `unregisterFromInAppForms()` to stop receiving forms, e.g. if a user logs out of your app.  
+Unregister can be used in combination with register to force a session refresh.
 
 ## Deep Linking
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular

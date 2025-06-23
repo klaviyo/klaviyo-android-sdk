@@ -5,8 +5,19 @@ It will be updated as new versions are released including deprecations or breaki
 # 3.4.0
 
 ### Improvements
-- A deep link from an in-app form will now be issued *after* the form has closed, instead of during the close animation.
 
+#### In-App Forms
+- Introduced a configurable session timeout for In-App Forms, which defaults to 60 minutes, as an argument to `registerForInAppForms()`.
+  Previously, registering acted as a kind of one-time check for whether a form should appear. It now establishes a persistent
+  listener 
+- Developers can now force stop or restart the form session with `unregisterFromInAppForms()`, e.g. if a user logs out of the app.
+- As a result, you may choose to revisit the logic of when you call `registerForInAppForms()` in your app. 
+- A deep link from an in-app form will now be issued *after* the form has closed, instead of during the close animation.
+- In-App Forms now fully support rotation, so they will not be dismissed when the device orientation changes.
+- Native back-button support is now implemented, allowing users to dismiss the form with the back button in addition
+  to the form's close button(s).
+
+#### Push Notifications
 - The Klaviyo Push Service manifest entry has been added to our PushFcm module. You no longer have to manually
 add this to your AndroidManifest to register our service. This can be easily overridden by declaring your own implementation
 of `KlaviyoPushService` or `FirebaseMessagingService` in the manifest.
