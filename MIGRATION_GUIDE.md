@@ -4,27 +4,39 @@ It will be updated as new versions are released including deprecations or breaki
 
 # 4.0.0
 
-### Improvements
+## In-App Forms
 
-#### In-App Forms
-- Introduced a configurable session timeout for In-App Forms, which defaults to 60 minutes, as an argument to `registerForInAppForms()`. 
-- Previously, register acted as a one-time check for whether a form should be shown. It now establishes a persistent
-  listener for the duration of the session, and automatically restarts the session after the inactivity timeout.
-- Developers can now force stop or restart the form session with `unregisterFromInAppForms()`, e.g. if a user logs out of the app.
-- The form is now displayed in an overlay activity, instead of being attached to the view hierarchy of the host activity, 
-  for better isolation between the library and host application. 
-- As a result of all the above, you may wish to revisit the logic of when you call `registerForInAppForms()`,
-  particularly if you were previously calling more than once per application session.
-- A deep link from an in-app form will now be issued *after* the form has closed, instead of during the close animation in order
+As a result of changes summarized below, you may wish to revisit the logic of when you call `registerForInAppForms()`,
+particularly if you were previously calling more than once per application session. We recommend registering for
+In-App Forms as soon as any splash screen or other initial loading is complete.
+
+### Updated behaviors
+- In versions 3.2.0-3.3.1, calling `registerForInAppForms()` functioned like a "fetch" that would check if a form was 
+  available and if yes, display it. Version 4.0.0 changes this behavior so that `registerForInAppForms()` sets up a  
+  persistent listener that will be ready to display a form if and when one is targeted to the current profile.
+- For better isolation between the library and host application, a form is now displayed in an Activity overlaid  
+  on the host application, instead of being attached to the view hierarchy of the host's activity.
+- A deep link from an In-App Form will now be issued *after* the form has closed, instead of during the close animation in order
   to prevent a race condition if the host application expects the form to be closed before handling the deep link.
 - In-App Forms now fully support rotation, so they will not be dismissed when the device orientation changes.
-- Native back-button support is now implemented, allowing users to dismiss the form with the back button in addition
-  to the form's close button(s).
+- Native back button support now allows users to close a form via back button, in addition to the form's close button(s).
 
-#### Push Notifications
+### Configurable In-App Form session timeout
+- Introduced a configurable session timeout for In-App Forms, which defaults to 60 minutes, as an argument to `registerForInAppForms()`.
+
+### New `unregisterFromInAppForms()` method
+- Because the `registerForInAppForms()` method now functions as a persistent listener rather than a "fetch", 
+  we've introduced an `unregisterFromInAppForms()` method so you can stop listening for In-App Forms at appropriate times, 
+  such as when a user logs out.
+
+## Push
+
+### Improvements
 - To facilitate integration, the Klaviyo Push Service manifest entry has been added to our `push-fcm` module. 
-You no longer have to manually add this to your manifest to register our service. This can be overridden by declaring
-your own implementation in your manifest, per the advanced integration guide in the README.
+  You no longer have to manually add this to your manifest to register our service. This can be overridden by declaring
+  your own implementation in your manifest, per the advanced integration guide in the README.
+
+### Breaking Changes
 - The deprecated extension property `RemoteMessage.smallIcon` has been removed in favor of `RemoteMessage.getSmallIcon()`.
 
 # 3.0.0
