@@ -15,7 +15,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
@@ -161,17 +160,6 @@ object KlaviyoRemoteMessage {
                 )
                 null
             }
-        }
-
-    @Deprecated("Use getSmallIcon(context: Context) instead")
-    val RemoteMessage.smallIcon: Int
-        get() = try {
-            getSmallIcon(Registry.config.applicationContext)
-        } catch (e: KlaviyoException) {
-            Registry.log.warning(
-                "Klaviyo SDK is uninitialized, can't get icon without application context"
-            )
-            android.R.drawable.sym_def_app_icon
         }
 
     /**

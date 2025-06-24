@@ -31,7 +31,6 @@ class StateSideEffectsTest : BaseTest() {
     private val profile = Profile(email = EMAIL)
     private val capturedProfile = slot<Profile>()
     private val capturedApiObserver = slot<ApiObserver>()
-    private val capturedStateObserver = slot<StateObserver>()
     private val capturedStateChangeObserver = slot<StateChangeObserver>()
     private val capturedPushState = slot<String?>()
     private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
@@ -43,9 +42,7 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     private val stateMock = mockk<State>().apply {
-        every { onStateChange(capture(capturedStateObserver)) } returns Unit
         every { onStateChange(capture(capturedStateChangeObserver)) } returns Unit
-        every { offStateChange(any<StateObserver>()) } returns Unit
         every { offStateChange(any<StateChangeObserver>()) } returns Unit
         every { pushState = captureNullable(capturedPushState) } returns Unit
         every { getAsProfile(withAttributes = any()) } returns profile
