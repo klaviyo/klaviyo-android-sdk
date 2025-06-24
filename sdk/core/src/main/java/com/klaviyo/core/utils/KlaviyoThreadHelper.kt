@@ -6,9 +6,9 @@ import android.os.Looper
 
 /**
  * Abstraction of our interactions with handlers/threads for isolation purposes
- * @deprecated Use [com.klaviyo.core.Registry.threadHelper] instead
+ * @see com.klaviyo.core.Registry.threadHelper
  */
-object KlaviyoThreadHelper : ThreadHelper {
+internal object KlaviyoThreadHelper : ThreadHelper {
     override fun getHandler(looper: Looper) = Handler(looper)
     override fun getHandlerThread(name: String?) = HandlerThread(name)
     override fun runOnUiThread(job: () -> Unit) {

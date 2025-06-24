@@ -1,19 +1,10 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import java.io.Serializable
 
 typealias StateChangeObserver = (change: StateChange) -> Unit
-
-@Deprecated(
-    """
-        This callback type is deprecated and will be removed in the next major release
-        """,
-    ReplaceWith("typealias StateChangeObserver = (change: StateChange) -> Unit")
-)
-typealias StateObserver = (key: Keyword?, oldValue: Any?) -> Unit
 
 interface State {
     var apiKey: String?
@@ -25,37 +16,11 @@ interface State {
     var pushState: String?
 
     /**
-     * Register a [StateObserver] to be notified when state changes
-     *
-     * @param observer
-     */
-    @Deprecated(
-        """
-        This callback type is deprecated. StateObserver will be removed in the next major release
-        """,
-        ReplaceWith("onStateChange(observer: StateChangeObserver)")
-    )
-    fun onStateChange(observer: StateObserver)
-
-    /**
      * Register a [StateChangeObserver] to be notified when state changes
      *
      * @param observer
      */
     fun onStateChange(observer: StateChangeObserver)
-
-    /**
-     * De-register a [StateObserver] from [onStateChange]
-     *
-     * @param observer
-     */
-    @Deprecated(
-        """
-        This callback type is deprecated. StateObserver will be removed in the next major release
-        """,
-        ReplaceWith("offStateChange(observer: StateChangeObserver)")
-    )
-    fun offStateChange(observer: StateObserver)
 
     /**
      * De-register a [StateChangeObserver] from [onStateChange]
