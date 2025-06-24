@@ -18,8 +18,7 @@ In-App Forms as soon as any splash screen or other initial loading is complete.
   on the host application, instead of being attached to the view hierarchy of the host's activity.
 - A deep link from an In-App Form will now be issued *after* the form has closed, instead of during the close animation in order
   to prevent a race condition if the host application expects the form to be closed before handling the deep link.
-- In-App Forms now fully support rotation, so they will not be dismissed when the device orientation changes.
-- Native back button support now allows users to close a form via back button, in addition to the form's close button(s).
+- To support the native back button, the In-App Forms overlay activity captures back button input while presented.
 
 ### Configurable In-App Form session timeout
 - Introduced a configurable session timeout for In-App Forms, which defaults to 60 minutes, as an argument to `registerForInAppForms()`.
