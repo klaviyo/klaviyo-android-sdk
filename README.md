@@ -433,15 +433,19 @@ notification intent that the Klaviyo SDK requires in order to track opens when y
 ## In App Forms
 
 [In-app forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app 
-users while they are actively using your app. You can create new in-app forms in a drag-and-drop editor in the 
+users while they are actively using your app. You can create new In-App Forms in a drag-and-drop editor in the 
 Sign-Up Forms tab in Klaviyo. Follow the instructions in this section to integrate forms with your app. The SDK will
 display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
+
+Beginning with version 4.0.0, In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, 
+you can configure forms to target or exclude specific lists or segments, and the form will only be shown to users
+matching those criteria, based on their profile identifiers set via the `analytics` package.
 
 ### Prerequisites
 - Klaviyo `analytics` and `forms` packages
 - If you expect to use deep links in forms, see the [deep linking](#deep-linking) section below.
-- We strongly recommend using the latest version of the SDK to ensure compatibility with the latest in-app forms features.
-  The minimum supported version for in-app forms is `3.2.0`, but a feature matrix is provided below. Forms that leverage
+- We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features.
+  The minimum supported version for In-App Forms is `3.2.0`, but a feature matrix is provided below. Forms that leverage
   unsupported features will not appear in your app until you update to a version that supports those features.
 - Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 3.2.0-3.3.1 to understanding the
   changes to the In-App Forms behavior.
@@ -453,7 +457,7 @@ display forms according to their targeting and behavior settings and collect del
 | Audience Targeting | 4.0.0               |
 
 ### Setup
-To display in-app forms, add the following code to your application. 
+To display In-App Forms, add the following code to your application. 
 
 ```kotlin
 import com.klaviyo.analytics.Klaviyo
@@ -467,6 +471,46 @@ Klaviyo
 // ... or any time thereafter
 Klaviyo.registerForInAppForms()
 ```
+
+#### In-App Forms Session Configuration
+
+A "session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground 
+interactions that occur within a continuous or near-continuous time window. This is an important concept for In-App Forms,
+as we want to ensure that a user will not see the same forms multiple times within a single session.
+
+A session will time out after a specified period of inactivity. When a user launches the app, if the time between
+the previous interaction with the app and the current one exceeds the specified timeout, we will consider this a new session.
+
+This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, create a new InAppFormsConfig object:
+
+```kotlin
+import com.klaviyo.forms.InAppFormsConfig
+import kotlin.time.Duration.Companion.minutes
+
+// e.g. to configure a session timeout of 30 minutes
+val config = InAppFormsConfig(
+    sessionTimeoutDuration = 30.minutes,
+)
+```
+
+then pass this into the SDK when calling `registerForInAppForms()`:
+
+```kotlin
+Klaviyo.registerForInAppForms(config)
+```
+
+#### Unregistering from In-App Forms
+If at any point you need to prevent the SDK from displaying In-App Forms, e.g. when the user logs out, you may call:
+
+```kotlin
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.forms.unregisterFromInAppForms
+
+Klaviyo.unregisterFromInAppForms()
+```
+
+Note that after unregistering, the next call to registerForInAppForms() will be considered a new app session by the SDK.
+
 
 ### Behavior
 
@@ -484,9 +528,6 @@ The default timeout is 60 minutes, and is configurable with the `InAppFormsConfi
 When a form is ready to be displayed, it will automatically be shown to the user in an overlay Activity.
 The form will rotate with the device orientation, and the user can dismiss it by interacting with it, or pressing the
 native Android back button.
-
-Call `unregisterFromInAppForms()` to stop receiving forms, e.g. if a user logs out of your app. Unregister can be used
-in combination with register to force a session refresh.
 
 ## Deep Linking
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular
@@ -520,7 +561,7 @@ and from In-App Forms interactions. There are broadly three steps to implement d
 
 2. Read data from incoming intents:
 
-    When a user taps a notification or a deep link in an in-app form, the Klaviyo SDK sends your app an intent containing that link.
+    When a user taps a notification or a deep link in an In-App Form, the Klaviyo SDK sends your app an intent containing that link.
     You can parse the URI from the intent's data property and use it to navigate to the appropriate part of your app. 
 
     ```kotlin
@@ -553,7 +594,7 @@ and from In-App Forms interactions. There are broadly three steps to implement d
 
     To perform integration testing, you can send a
     [preview push notification](https://help.klaviyo.com/hc/en-us/articles/18011985278875) 
-    containing a deep link from the Klaviyo push editor or use an in-app form that contains a "Go to app screen" action. 
+    containing a deep link from the Klaviyo push editor or use an In-App Form that contains a "Go to app screen" action. 
 
 For additional resources on deep linking, refer to
 [Android developer documentation](https://developer.android.com/training/app-links/deep-linking).
@@ -584,7 +625,7 @@ the following metadata tag to your manifest file.
 ```
 
 #### WebViews Compatibility
-Klaviyo's in-app forms are powered by [WebViews](https://developer.android.com/reference/android/webkit/WebView).
+Klaviyo's In-App Forms are powered by [WebViews](https://developer.android.com/reference/android/webkit/WebView).
 At this time, we require a version of WebView compatible with JavaScript standard ES2015. Older versions will fail
 gracefully without displaying a form to the user.
 
