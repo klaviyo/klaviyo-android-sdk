@@ -509,7 +509,7 @@ import com.klaviyo.forms.unregisterFromInAppForms
 Klaviyo.unregisterFromInAppForms()
 ```
 
-Note that after unregistering, the next call to registerForInAppForms() will be considered a new app session by the SDK.
+Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new app session by the SDK.
 
 
 ### Behavior
