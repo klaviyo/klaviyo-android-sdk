@@ -1,15 +1,31 @@
 # Migration Guide
-This document provides guidance on how to migrate from the old version of the SDK to a newer version. 
+This document provides guidance on how to migrate from one version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
-# 3.4.0
+# 4.0.0
 
 ### Improvements
-- A deep link from an in-app form will now be issued *after* the form has closed, instead of during the close animation.
 
-- The Klaviyo Push Service manifest entry has been added to our PushFcm module. You no longer have to manually
-add this to your AndroidManifest to register our service. This can be easily overridden by declaring your own implementation
-of `KlaviyoPushService` or `FirebaseMessagingService` in the manifest.
+#### In-App Forms
+- Introduced a configurable session timeout for In-App Forms, which defaults to 60 minutes, as an argument to `registerForInAppForms()`. 
+- Previously, register acted as a one-time check for whether a form should be shown. It now establishes a persistent
+  listener for the duration of the session, and automatically restarts the session after the inactivity timeout.
+- Developers can now force stop or restart the form session with `unregisterFromInAppForms()`, e.g. if a user logs out of the app.
+- The form is now displayed in an overlay activity, instead of being attached to the view hierarchy of the host activity, 
+  for better isolation between the library and host application. 
+- As a result of all the above, you may wish to revisit the logic of when you call `registerForInAppForms()`,
+  particularly if you were previously calling more than once per application session.
+- A deep link from an in-app form will now be issued *after* the form has closed, instead of during the close animation in order
+  to prevent a race condition if the host application expects the form to be closed before handling the deep link.
+- In-App Forms now fully support rotation, so they will not be dismissed when the device orientation changes.
+- Native back-button support is now implemented, allowing users to dismiss the form with the back button in addition
+  to the form's close button(s).
+
+#### Push Notifications
+- To facilitate integration, the Klaviyo Push Service manifest entry has been added to our `push-fcm` module. 
+You no longer have to manually add this to your manifest to register our service. This can be overridden by declaring
+your own implementation in your manifest, per the advanced integration guide in the README.
+- The deprecated extension property `RemoteMessage.smallIcon` has been removed in favor of `RemoteMessage.getSmallIcon()`.
 
 # 3.0.0
 
