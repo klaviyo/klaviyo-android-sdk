@@ -447,7 +447,7 @@ matching those criteria, based on their profile identifiers set via the `analyti
 - We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features.
   The minimum supported version for In-App Forms is `3.2.0`, but a feature matrix is provided below. Forms that leverage
   unsupported features will not appear in your app until you update to a version that supports those features.
-- Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 3.2.0-3.3.1 to understanding the
+- Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 3.2.0-3.3.1 to understand the
   changes to the In-App Forms behavior.
 
 | Feature            | Minimum SDK Version |
