@@ -66,47 +66,12 @@ internal class KlaviyoState : State {
     )
 
     /**
-     * Maps deprecated [StateObserver]s to the new [StateChangeObserver]
-     * to maintain backwards compatibility while moving on to the new data type
-     */
-    private val deprecatedObserverMap = mutableMapOf<StateObserver, StateChangeObserver>()
-
-    @Deprecated(
-        """
-        This callback type is deprecated. StateObserver will be removed in the next major release
-        """,
-        ReplaceWith("onStateChange(observer: StateChangeObserver)")
-    )
-    override fun onStateChange(observer: StateObserver) {
-        // Map the arguments of StateChangeObserver to the provided callback
-        deprecatedObserverMap[observer] = { change: StateChange ->
-            observer(change.key, change.oldValue)
-        }.also(::onStateChange)
-    }
-
-    /**
      * Register an observer to be notified when state changes
      *
      * @param observer
      */
     override fun onStateChange(observer: StateChangeObserver) {
         stateChangeObservers += observer
-    }
-
-    /**
-     * De-register a [StateObserver] from [onStateChange]
-     *
-     * @param observer
-     */
-    @Deprecated(
-        """
-        This callback type is deprecated. StateObserver will be removed in the next major release
-        """,
-        ReplaceWith("offStateChange(observer: StateChangeObserver)")
-    )
-    override fun offStateChange(observer: StateObserver) {
-        // Remove from the map and detach the actual observer
-        deprecatedObserverMap.remove(observer)?.let(::offStateChange)
     }
 
     /**

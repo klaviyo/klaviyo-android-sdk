@@ -55,9 +55,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.4.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.4.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:3.4.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.0.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.0.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.0.0")
       }
       ```
    </details>
@@ -68,9 +68,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.4.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.4.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:3.4.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.0.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.0.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.0.0"
        }
       ```
    </details>
@@ -443,15 +443,17 @@ display forms according to their targeting and behavior settings and collect del
 - We strongly recommend using the latest version of the SDK to ensure compatibility with the latest in-app forms features.
   The minimum supported version for in-app forms is `3.2.0`, but a feature matrix is provided below. Forms that leverage
   unsupported features will not appear in your app until you update to a version that supports those features.
+- Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 3.2.0-3.3.1 to understanding the
+  changes to the In-App Forms behavior.
 
 | Feature            | Minimum SDK Version |
 |--------------------|---------------------|
-| Basic In-App Forms | 3.2.0               |
-| Time Delay         | 3.4.0               |
-| Audience Targeting | 3.4.0               |
+| Basic In-App Forms | 3.2.0+              |
+| Time Delay         | 4.0.0               |
+| Audience Targeting | 4.0.0               |
 
 ### Setup
-To display in-app forms add the following code to your application. 
+To display in-app forms, add the following code to your application. 
 
 ```kotlin
 import com.klaviyo.analytics.Klaviyo
@@ -469,18 +471,22 @@ Klaviyo.registerForInAppForms()
 ### Behavior
 
 Once `registerForInAppForms()` is called, the SDK will load form data for your account and prepare to display a form
-according to targeting and behavior settings configured in the Klaviyo forms editor for your account. 
+according to targeting and behavior settings configured in the Klaviyo forms editor for your account. In-app forms
+requires your company's public API key, which must be provided to the `Klaviyo.initialize()` method. If the API key is
+changed mid-session, the forms session will be reset automatically to employ the new key.
 
-You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in 
-your app's UI a form can appear. For the best user experience, we recommend registering after any splash screen  
-or other loading animations have completed. You need only register once per app lifecycle, the SDK will 
+You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in
+your app's UI a form can appear. For the best user experience, we recommend registering after any splash screen
+or other loading animations have completed. You need only register once per app launch, the SDK will
 automatically track user inactivity when the app is backgrounded, and restart the form session after timeout period.
 The default timeout is 60 minutes, and is configurable with the `InAppFormsConfig` argument to `registerForInAppForms`.
 
-When a form is ready to be displayed, it will automatically be shown to the user in an Activity overlaid on top of your app.
+When a form is ready to be displayed, it will automatically be shown to the user in an overlay Activity.
 The form will rotate with the device orientation, and the user can dismiss it by interacting with it, or pressing the
-native Android back button. Call `unregisterFromInAppForms()` to stop receiving forms, e.g. if a user logs out of your app.  
-Unregister can be used in combination with register to force a session refresh.
+native Android back button.
+
+Call `unregisterFromInAppForms()` to stop receiving forms, e.g. if a user logs out of your app. Unregister can be used
+in combination with register to force a session refresh.
 
 ## Deep Linking
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular
