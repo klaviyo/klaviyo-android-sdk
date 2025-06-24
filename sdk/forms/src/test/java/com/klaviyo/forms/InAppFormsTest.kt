@@ -34,6 +34,7 @@ internal class InAppFormsTest : BaseTest() {
         }
         mockkConstructor(KlaviyoNativeBridge::class)
         mockkConstructor(KlaviyoWebViewClient::class).apply {
+            every { anyConstructed<KlaviyoWebViewClient>().isInitialized } returns false
             every { anyConstructed<KlaviyoWebViewClient>().initializeWebView() } returns Unit
             every { anyConstructed<KlaviyoWebViewClient>().destroyWebView() } returns mockk()
         }
@@ -76,6 +77,7 @@ internal class InAppFormsTest : BaseTest() {
         val presenter: PresentationManager = mockk()
         val bridge: NativeBridge = mockk()
         val client: WebViewClient = mockk<WebViewClient>().apply {
+            every { isInitialized } returns false
             every { initializeWebView() } returns Unit
         }
         val jsBridge: JsBridge = mockk()
@@ -101,22 +103,45 @@ internal class InAppFormsTest : BaseTest() {
     @Test
     fun `unregister halts in-app forms services`() {
         Klaviyo.registerForInAppForms()
-
         assert(Registry.isRegistered<InAppFormsConfig>())
 
         Klaviyo.unregisterFromInAppForms()
-
-        verify { anyConstructed<KlaviyoPresentationManager>().dismiss() }
-        verify { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
+        verifyRegistration(wasDestroyed = true, hasConfig = true)
     }
 
     @Test
-    fun `reinitialize halts and restarts in-app forms services`() {
+    fun `register restarts in-app forms services if webview is initialized`() {
+        Klaviyo.registerForInAppForms()
+        verifyRegistration(wasDestroyed = false, hasConfig = true)
+
+        every { anyConstructed<KlaviyoWebViewClient>().isInitialized } returns true
+        Klaviyo.registerForInAppForms()
+        verifyRegistration(wasDestroyed = true, hasConfig = true)
+    }
+
+    @Test
+    fun `register does not restart in-app forms services if webview is not initialized or argument is false`() {
+        Klaviyo.registerForInAppForms()
+        verifyRegistration(wasDestroyed = false, hasConfig = true)
+
+        Klaviyo.registerForInAppForms()
+        verifyRegistration(wasDestroyed = false, hasConfig = true)
+
+        every { anyConstructed<KlaviyoWebViewClient>().isInitialized } returns true
+        Klaviyo.registerForInAppForms(resetSession = false)
+        verifyRegistration(wasDestroyed = false, hasConfig = true)
+    }
+
+    @Test
+    fun `reinitialize always restarts in-app forms services`() {
         Klaviyo.registerForInAppForms()
 
         assert(Registry.isRegistered<InAppFormsConfig>())
 
         Klaviyo.reInitializeInAppForms()
+
+        verify { anyConstructed<KlaviyoPresentationManager>().dismiss() }
+        verify { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
         assert(Registry.isRegistered<InAppFormsConfig>())
     }
 
@@ -131,15 +156,27 @@ internal class InAppFormsTest : BaseTest() {
     @Test(expected = Test.None::class)
     fun `calling unregister before register is a no-op`() {
         Klaviyo.unregisterFromInAppForms()
-        verify(inverse = true) { anyConstructed<KlaviyoPresentationManager>().dismiss() }
-        verify(inverse = true) { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
+        verifyRegistration(wasDestroyed = false, hasConfig = false)
     }
 
     @Test(expected = Test.None::class)
     fun `calling reinitialize before register is a no-op`() {
         Klaviyo.reInitializeInAppForms()
-        assert(!Registry.isRegistered<InAppFormsConfig>())
-        verify(inverse = true) { anyConstructed<KlaviyoPresentationManager>().dismiss() }
-        verify(inverse = true) { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
+        verifyRegistration(wasDestroyed = false, hasConfig = false)
+    }
+
+    private fun verifyRegistration(wasDestroyed: Boolean = false, hasConfig: Boolean = true) {
+        verify(inverse = !wasDestroyed) { anyConstructed<KlaviyoPresentationManager>().dismiss() }
+        verify(inverse = !wasDestroyed) { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
+
+        if (hasConfig) {
+            assert(Registry.isRegistered<InAppFormsConfig>()) {
+                "InAppFormsConfig should be registered"
+            }
+        } else {
+            assert(!Registry.isRegistered<InAppFormsConfig>()) {
+                "InAppFormsConfig should NOT be registered"
+            }
+        }
     }
 }

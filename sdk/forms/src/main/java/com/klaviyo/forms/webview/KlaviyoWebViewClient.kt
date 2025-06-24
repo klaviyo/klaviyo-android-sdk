@@ -29,6 +29,12 @@ import java.io.BufferedReader
 internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
 
     /**
+     * Whether klaviyo.js handshake has been completed successfully.
+     */
+    override var isInitialized: Boolean = false
+        private set
+
+    /**
      * For timeout on awaiting the native bridge [com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook] event
      * as an indicator that klaviyo.js has loaded and the onsite-in-app module is present.
      */
@@ -51,6 +57,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
 
         this.webView = webView
+        this.isInitialized = false
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
             .buildUpon()
@@ -90,15 +97,15 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     override fun onJsHandshakeCompleted() {
         handshakeTimer?.cancel()
         handshakeTimer = null
+        isInitialized = true
     }
 
     /**
      * If the webview is not loaded in time, we cancel the handshake timer and destroy the webview
      */
     private fun onJsHandshakeTimeout() {
-        handshakeTimer?.cancel()
-        Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
         destroyWebView()
+        Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
     }
 
     /**
@@ -130,10 +137,11 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     }
 
     /**
-     * Destroy the webview and release the reference
+     * Destroy the webview and release the reference, stop the handshake timer
      */
     override fun destroyWebView() = apply {
         handshakeTimer?.cancel()
+        isInitialized = false
         Registry.get<JsBridgeObserverCollection>().stopObservers()
         webView?.let { webView ->
             Registry.threadHelper.runOnUiThread {

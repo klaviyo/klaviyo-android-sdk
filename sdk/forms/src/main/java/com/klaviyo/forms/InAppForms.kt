@@ -18,14 +18,32 @@ import com.klaviyo.forms.webview.WebViewClient
 
 /**
  * Load in-app forms data and display a form to the user if applicable based on the forms
- * configured in your Klaviyo account. Note [Klaviyo.initialize] must be called first
+ * configured in your Klaviyo account. Note [Klaviyo.initialize] must be called first.
+ *
+ * It is generally recommended to call `registerForInAppForms` once per application launch,
+ * or with `resetSession=false` if calling multiple times to avoid disrupting pending forms.
+ *
+ * @param config Optional configuration object, see [InAppFormsConfig].
+ * @param resetSession Whether to halt an active in-app forms session. True by default for backwards compatibility.
+ *   If true, an active session will be stopped and a new one started, which could disrupt pending in-app forms.
+ *   If false and there's already an active session, no new session will be started.
  */
 @UiThread
 fun Klaviyo.registerForInAppForms(
-    config: InAppFormsConfig = InAppFormsConfig()
+    config: InAppFormsConfig = InAppFormsConfig(),
+    resetSession: Boolean = true
 ): Klaviyo = safeApply {
     // Register IAF services
     Registry.apply {
+        getOrNull<WebViewClient>()
+            ?.takeIf { resetSession && it.isInitialized }
+            ?.run {
+                // Stop an existing session if resetSession is true and the webview is initialized.
+                // Preserves prior versions' behavior, though we are moving towards a persistent session and
+                // handling lifecycle events and other triggers purely internally.
+                Klaviyo.unregisterFromInAppForms()
+            }
+
         register<InAppFormsConfig>(config)
         registerOnce<PresentationManager> { KlaviyoPresentationManager() }
         registerOnce<NativeBridge> { KlaviyoNativeBridge() }
@@ -36,10 +54,10 @@ fun Klaviyo.registerForInAppForms(
         }
         registerOnce<JsBridge> { KlaviyoJsBridge() }
         registerOnce<JsBridgeObserverCollection> { KlaviyoObserverCollection() }
-    }
 
-    // And initialize the webview client
-    Registry.get<WebViewClient>().initializeWebView()
+        // And initialize the webview client
+        get<WebViewClient>().initializeWebView()
+    }
 }
 
 /**

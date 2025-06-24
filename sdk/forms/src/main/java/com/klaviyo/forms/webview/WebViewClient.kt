@@ -4,6 +4,11 @@ import android.app.Activity
 
 internal interface WebViewClient {
     /**
+     * Indicates whether the webview is fully initialized
+     */
+    val isInitialized: Boolean
+
+    /**
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for in-app forms with handshake data injected in the document head
      */
