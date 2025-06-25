@@ -510,7 +510,7 @@ import com.klaviyo.forms.unregisterFromInAppForms
 Klaviyo.unregisterFromInAppForms()
 ```
 
-Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new app session by the SDK.
+Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
 ## Deep Linking
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular

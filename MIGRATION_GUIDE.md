@@ -7,7 +7,7 @@ It will be updated as new versions are released including deprecations or breaki
 ## In-App Forms
 
 As a result of changes summarized below, you may wish to revisit the logic of when you call `registerForInAppForms()`
-when upgrading from 3.x, particularly if you were registering than once per application session. Consult the 
+when upgrading from 3.2.0-3.3.1, particularly if you were registering than once per application session. Consult the 
 [README](./README.md#in-app-forms) for the latest integration instructions.
 
 ### Updated behaviors
