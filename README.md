@@ -459,7 +459,7 @@ matching those criteria, based on their profile identifiers set via the `analyti
 ### Setup
 To begin, call `Klaviyo.registerForInAppForms()` after initializing the SDK with your public API key.
 Once registered, the SDK may launch an overlay Activity at any time to present a form according to its targeting and 
-behavior settings configured in your Klaviyo account. For the best user experience, we recommend registering after any  
+behavior settings configured in your Klaviyo account. For the best user experience, we recommend registering after any
 splash screen or loading animations have completed. Depending on your app's architecture, this might be in your
 `Application.onCreate()` method, or in the `onCreate()` method of your main activity.
 
