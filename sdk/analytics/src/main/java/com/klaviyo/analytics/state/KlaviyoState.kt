@@ -1,21 +1,22 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.API_KEY
-import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.model.ProfileKey.ANONYMOUS_ID
+import com.klaviyo.analytics.model.ProfileKey.Companion.IDENTIFIERS
 import com.klaviyo.analytics.model.ProfileKey.EMAIL
 import com.klaviyo.analytics.model.ProfileKey.EXTERNAL_ID
 import com.klaviyo.analytics.model.ProfileKey.PHONE_NUMBER
-import com.klaviyo.analytics.model.ProfileKey.PUSH_STATE
 import com.klaviyo.analytics.model.ProfileKey.PUSH_TOKEN
+import com.klaviyo.analytics.model.StateKey.API_KEY
+import com.klaviyo.analytics.model.StateKey.PUSH_STATE
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import java.io.Serializable
 import java.util.Collections
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Stores information on the currently active user
@@ -35,11 +36,14 @@ internal class KlaviyoState : State {
     override var phoneNumber by _phoneNumber
 
     private val _anonymousId = PersistentObservableString(ANONYMOUS_ID, ::broadcastChange) {
+        // Fallback: always autogenerate an anonymous ID if not currently set
         UUID.randomUUID().toString()
     }
     override val anonymousId by _anonymousId
 
-    private val _attributes = PersistentObservableProfile(PROFILE_ATTRIBUTES, ::broadcastChange)
+    private val _attributes = PersistentObservableProfile(PROFILE_ATTRIBUTES) { _, oldValue ->
+        broadcastChange(StateChange.ProfileAttributes(oldValue))
+    }
     private var attributes by _attributes
 
     private val _pushState = PersistentObservableString(PUSH_STATE, ::broadcastChange)
@@ -57,8 +61,8 @@ internal class KlaviyoState : State {
     /**
      * List of registered state change observers
      */
-    private val stateObservers = Collections.synchronizedList(
-        mutableListOf<StateObserver>()
+    private val stateChangeObservers = Collections.synchronizedList(
+        CopyOnWriteArrayList<StateChangeObserver>()
     )
 
     /**
@@ -66,8 +70,8 @@ internal class KlaviyoState : State {
      *
      * @param observer
      */
-    override fun onStateChange(observer: StateObserver) {
-        stateObservers += observer
+    override fun onStateChange(observer: StateChangeObserver) {
+        stateChangeObservers += observer
     }
 
     /**
@@ -75,8 +79,8 @@ internal class KlaviyoState : State {
      *
      * @param observer
      */
-    override fun offStateChange(observer: StateObserver) {
-        stateObservers -= observer
+    override fun offStateChange(observer: StateChangeObserver) {
+        stateChangeObservers -= observer
     }
 
     /**
@@ -112,19 +116,24 @@ internal class KlaviyoState : State {
      * Set an individual property or attribute
      */
     override fun setAttribute(key: ProfileKey, value: Serializable) = when (key) {
-        EMAIL -> (value as? String)?.let { email = it } ?: run { logCastError(EMAIL, value) }
+        EMAIL -> (value as? String)?.let { email = it } ?: run {
+            logCastError(EMAIL, value)
+        }
+
         EXTERNAL_ID -> (value as? String)?.let { externalId = it } ?: run {
             logCastError(
                 EXTERNAL_ID,
                 value
             )
         }
+
         PHONE_NUMBER -> (value as? String)?.let { phoneNumber = it } ?: run {
             logCastError(
                 PHONE_NUMBER,
                 value
             )
         }
+
         else -> this.attributes = (this.attributes?.copy() ?: Profile()).setProperty(key, value)
     }
 
@@ -147,7 +156,7 @@ internal class KlaviyoState : State {
         _anonymousId.reset()
         _attributes.reset()
 
-        broadcastChange(null, oldProfile)
+        broadcastChange(StateChange.ProfileReset(oldProfile))
         Registry.log.verbose("Reset internal user state")
     }
 
@@ -155,18 +164,38 @@ internal class KlaviyoState : State {
      * Clear user's attributes from internal state, leaving profile identifiers intact
      */
     override fun resetAttributes() {
-        val oldAttributes = attributes?.copy()
-        _attributes.reset()
-        broadcastChange(PROFILE_ATTRIBUTES, oldAttributes)
+        attributes = null
     }
 
-    private fun <T> broadcastChange(property: PersistentObservableProperty<T>?, oldValue: T?) =
-        broadcastChange(property?.key, oldValue)
-
-    private fun broadcastChange(key: Keyword? = null, oldValue: Any? = null) {
-        synchronized(stateObservers) {
-            stateObservers.forEach { it(key, oldValue) }
+    /**
+     * From a property change, broadcast the correct state change
+     */
+    private fun broadcastChange(
+        property: PersistentObservableProperty<String?>,
+        oldValue: String?
+    ) = when (property.key) {
+        is API_KEY -> broadcastChange(StateChange.ApiKey(oldValue))
+        is ProfileKey -> if (property.key.name in IDENTIFIERS) {
+            broadcastChange(
+                StateChange.ProfileIdentifier(
+                    property.key,
+                    oldValue
+                )
+            )
+        } else {
+            broadcastChange(StateChange.KeyValue(property.key, oldValue))
         }
+
+        else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))
+    }
+
+    /**
+     * Broadcast a change to all registered observers
+     *
+     * @param change - the state change to broadcast
+     */
+    private fun broadcastChange(change: StateChange) = synchronized(stateChangeObservers) {
+        stateChangeObservers.forEach { it(change) }
     }
 
     /**

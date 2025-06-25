@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.klaviyo.core.Registry
 import java.util.Collections
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Service for monitoring the application lifecycle and network connectivity
@@ -25,7 +26,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      * List of registered network change observers
      */
     private val networkChangeObservers = Collections.synchronizedList(
-        mutableListOf<NetworkObserver>()
+        CopyOnWriteArrayList<NetworkObserver>()
     )
 
     /**
