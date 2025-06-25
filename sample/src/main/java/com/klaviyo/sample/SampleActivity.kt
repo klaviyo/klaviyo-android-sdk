@@ -1,6 +1,5 @@
 package com.klaviyo.sample
 
-import SampleView
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -22,9 +21,11 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.forms.registerForInAppForms
+import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.sample.ui.theme.KlaviyoandroidsdkTheme
 
-class MainActivity : ComponentActivity() {
+class SampleActivity : ComponentActivity() {
     private val externalId = mutableStateOf(Klaviyo.getExternalId() ?: "")
     private val email = mutableStateOf(Klaviyo.getEmail() ?: "")
     private val phoneNumber = mutableStateOf(Klaviyo.getPhoneNumber() ?: "")
@@ -47,11 +48,13 @@ class MainActivity : ComponentActivity() {
                         phoneNumber,
                         pushToken,
                         notificationPermission,
-                        setProfile = { setProfile() },
-                        resetProfile = { resetProfile() },
-                        createTestEvent = { createTestEvent() },
-                        createViewedProductEvent = { createViewedProductEvent() },
-                        requestPermission = { askNotificationPermission() }
+                        setProfile = ::setProfile,
+                        resetProfile = ::resetProfile,
+                        createTestEvent = ::createTestEvent,
+                        createViewedProductEvent = ::createViewedProductEvent,
+                        registerForInAppForms = ::registerForInAppForms,
+                        unregisterFromInAppForms = ::unregisterFromInAppForms,
+                        requestPermission = ::askNotificationPermission,
                     )
                 }
             }
@@ -62,6 +65,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
+
+        // Parse a deep link from an opened notification or In-App Form
+        intent?.data?.let {
+            Toast.makeText(
+                this.applicationContext,
+                "New intent with URI: ${intent.data}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
 
         //Tracks when a system tray notification is opened
         Klaviyo.handlePush(intent)
@@ -109,6 +121,10 @@ class MainActivity : ComponentActivity() {
 
         Toast.makeText(this, "Created ${event.metric.name} event", Toast.LENGTH_SHORT).show()
     }
+
+    fun registerForInAppForms() = Klaviyo.registerForInAppForms()
+
+    fun unregisterFromInAppForms() = Klaviyo.unregisterFromInAppForms()
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),

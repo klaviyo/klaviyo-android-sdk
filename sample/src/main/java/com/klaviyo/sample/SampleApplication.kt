@@ -3,18 +3,16 @@ package com.klaviyo.sample
 import android.app.Application
 import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
-import com.klaviyo.analytics.model.Profile
-import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.forms.registerForInAppForms
 
 class SampleApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
         // Initialize Klaviyo SDK: Add your public API key here
-        Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+        Klaviyo.initialize("TRJ3wp", applicationContext)
+            .registerForInAppForms() // Register for In-App Forms immediately on app launch (this app has no splash screen)
 
         // Example analytics event to track "Opened App" event on launch
         Klaviyo.createEvent(EventMetric.OPENED_APP)

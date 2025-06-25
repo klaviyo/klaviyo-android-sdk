@@ -1,3 +1,5 @@
+package com.klaviyo.sample
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -34,6 +36,8 @@ fun SampleView(
     resetProfile: () -> Unit = {},
     createTestEvent: () -> Unit = {},
     createViewedProductEvent: () -> Unit = {},
+    registerForInAppForms: () -> Unit = {},
+    unregisterFromInAppForms: () -> Unit = {},
     requestPermission: () -> Unit = {},
 ) {
     Column(
@@ -52,7 +56,7 @@ fun SampleView(
         )
 
         ViewRow(horizontalArrangement = Arrangement.Start) {
-            Text(text = "Profile Information", style = MaterialTheme.typography.titleSmall)
+            Text(text = "Set Profile Information", style = MaterialTheme.typography.titleSmall)
         }
         ViewRow {
             OutlinedTextField(
@@ -118,7 +122,7 @@ fun SampleView(
                     tint = MaterialTheme.colorScheme.primary,
                     contentDescription = "Test Event"
                 )
-                Text (text = "Create Test Event")
+                Text(text = "Create Test Event")
             }
             OutlinedButton(
                 shape = CircleShape,
@@ -137,7 +141,29 @@ fun SampleView(
         ViewRow { Divider() }
 
         ViewRow(horizontalArrangement = Arrangement.Start) {
-            Text(text = "Notifications", style = MaterialTheme.typography.titleSmall)
+            Text(text = "In-App Forms", style = MaterialTheme.typography.titleSmall)
+        }
+        ViewRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                shape = CircleShape,
+                onClick = registerForInAppForms,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(text = "Register")
+            }
+            OutlinedButton(
+                shape = CircleShape,
+                onClick = unregisterFromInAppForms,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(text = "Unregister")
+            }
+        }
+
+        ViewRow { Divider() }
+
+        ViewRow(horizontalArrangement = Arrangement.Start) {
+            Text(text = "Push Notifications", style = MaterialTheme.typography.titleSmall)
         }
         ViewRow() {
             if (hasNotificationPermission.value) {
@@ -160,6 +186,7 @@ fun SampleView(
         }
     }
 }
+
 @Composable
 private fun ViewRow(
     modifier: Modifier = Modifier,
@@ -176,28 +203,28 @@ private fun ViewRow(
 
 @Preview(showBackground = true)
 @Composable
-fun AccountInfoPreview() {
+fun SamplePreviewEmpty() {
     KlaviyoandroidsdkTheme {
-        val externalId = remember { mutableStateOf("") }
-        val email = remember { mutableStateOf("") }
-        val phoneNumber = remember { mutableStateOf("") }
-        val pushToken = remember { mutableStateOf("") }
-        val permission = remember { mutableStateOf(false) }
-
-        SampleView(externalId, email, phoneNumber, pushToken, permission)
+        SampleView(
+            remember { mutableStateOf("") },
+            remember { mutableStateOf("") },
+            remember { mutableStateOf("") },
+            remember { mutableStateOf("") },
+            remember { mutableStateOf(false) },
+        )
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun AccountInfoPreviewFilled() {
+fun SamplePreviewFilled() {
     KlaviyoandroidsdkTheme {
-        val externalId = remember { mutableStateOf("ABC123") }
-        val email = remember { mutableStateOf("profile@test.com") }
-        val phoneNumber = remember { mutableStateOf("+1234567890") }
-        val pushToken = remember { mutableStateOf("abcdefghijklmnopqrstuvwxyz1234567890") }
-        val permission = remember { mutableStateOf(false) }
-
-        SampleView(externalId, email, phoneNumber, pushToken, permission)
+        SampleView(
+            remember { mutableStateOf("ABC123") },
+            remember { mutableStateOf("profile@test.com") },
+            remember { mutableStateOf("+1234567890") },
+            remember { mutableStateOf("abcdefghijklmnopqrstuvwxyz1234567890") },
+            remember { mutableStateOf(false) },
+        )
     }
 }
