@@ -1,11 +1,10 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.Keyword
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import java.io.Serializable
 
-typealias StateObserver = (key: Keyword?, oldValue: Any?) -> Unit
+typealias StateChangeObserver = (change: StateChange) -> Unit
 
 interface State {
     var apiKey: String?
@@ -17,18 +16,18 @@ interface State {
     var pushState: String?
 
     /**
-     * Register an observer to be notified when state changes
+     * Register a [StateChangeObserver] to be notified when state changes
      *
      * @param observer
      */
-    fun onStateChange(observer: StateObserver)
+    fun onStateChange(observer: StateChangeObserver)
 
     /**
-     * De-register an observer from [onStateChange]
+     * De-register a [StateChangeObserver] from [onStateChange]
      *
      * @param observer
      */
-    fun offStateChange(observer: StateObserver)
+    fun offStateChange(observer: StateChangeObserver)
 
     /**
      * Get all user data in state as a [Profile] model object

@@ -4,17 +4,92 @@ import androidx.annotation.UiThread
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.core.safeApply
+import com.klaviyo.forms.bridge.JsBridge
+import com.klaviyo.forms.bridge.JsBridgeObserverCollection
+import com.klaviyo.forms.bridge.KlaviyoJsBridge
+import com.klaviyo.forms.bridge.KlaviyoNativeBridge
+import com.klaviyo.forms.bridge.KlaviyoObserverCollection
+import com.klaviyo.forms.bridge.NativeBridge
+import com.klaviyo.forms.presentation.KlaviyoPresentationManager
+import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.webview.JavaScriptEvaluator
+import com.klaviyo.forms.webview.KlaviyoWebViewClient
+import com.klaviyo.forms.webview.WebViewClient
 
 /**
- * Load in-app forms data and display a form to the user if applicable based on the forms
- * configured in your Klaviyo account. Note [Klaviyo.initialize] must be called first
+ * Start an In-App Forms session.
+ *
+ * This will load forms data and establish ongoing listeners to present a form to the user
+ * whenever a form is triggered by an event or condition according to the targeting and behavior
+ * settings configured for forms in your Klaviyo account.
+ *
+ * Note: a public API key is required, so [Klaviyo.initialize] must be called first.
+ * If the API key changes, the session will be re-initialized automatically with the new key.
+ *
+ * @param config see [InAppFormsConfig] for configuration options.
  */
 @UiThread
-fun Klaviyo.registerForInAppForms(): Klaviyo = safeApply {
-    // Ensure we only ever register one delegate instance
-    if (!Registry.isRegistered<KlaviyoWebViewDelegate>()) {
-        Registry.register<KlaviyoWebViewDelegate>(KlaviyoWebViewDelegate())
+fun Klaviyo.registerForInAppForms(
+    config: InAppFormsConfig = InAppFormsConfig()
+): Klaviyo = safeApply {
+    // Register IAF services
+    Registry.apply {
+        register<InAppFormsConfig>(config)
+        registerOnce<PresentationManager> { KlaviyoPresentationManager() }
+        registerOnce<NativeBridge> { KlaviyoNativeBridge() }
+        registerOnce<WebViewClient> {
+            KlaviyoWebViewClient().also {
+                register<JavaScriptEvaluator>(it)
+            }
+        }
+        registerOnce<JsBridge> { KlaviyoJsBridge() }
+        registerOnce<JsBridgeObserverCollection> { KlaviyoObserverCollection() }
     }
 
-    Registry.get<KlaviyoWebViewDelegate>().initializeWebView()
+    // And initialize the webview client
+    Registry.get<WebViewClient>().initializeWebView()
 }
+
+/**
+ * Halt the In-App Forms services and observers,
+ * hiding any currently displayed forms and preventing any further forms from being presented.
+ */
+@UiThread
+fun Klaviyo.unregisterFromInAppForms() = safeApply {
+    Registry.apply {
+        if (inAppIsRegistered()) {
+            get<PresentationManager>().dismiss()
+            get<WebViewClient>().destroyWebView()
+        } else {
+            log.warning("Cannot unregister In-App Forms, must be registered first.")
+        }
+    }
+}
+
+/**
+ * Resets the In-App Forms listeners with the current configuration.
+ */
+@UiThread
+internal fun Klaviyo.reInitializeInAppForms() = safeApply {
+    Registry.apply {
+        if (inAppIsRegistered()) {
+            unregisterFromInAppForms()
+            registerForInAppForms(get<InAppFormsConfig>())
+        } else {
+            log.warning(
+                "Cannot reInitializeInAppForms, registerForInAppForms must be called first."
+            )
+        }
+    }
+}
+
+/**
+ * Check if IAF services are registered in the Klaviyo registry.
+ */
+private fun Registry.inAppIsRegistered(): Boolean = listOf(
+    getOrNull<InAppFormsConfig>(),
+    getOrNull<PresentationManager>(),
+    getOrNull<WebViewClient>(),
+    getOrNull<JsBridge>(),
+    getOrNull<NativeBridge>()
+).all { it != null }

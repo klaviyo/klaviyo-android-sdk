@@ -1,18 +1,21 @@
-package com.klaviyo.forms
+package com.klaviyo.forms.webview
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.util.AttributeSet
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
+import com.klaviyo.forms.bridge.NativeBridge
 
 /**
- * View logic for in-app forms
+ * Custom WebView that powers the In-App Forms experience, running klaviyo.js in its JS engine
+ * to handle forms behavior, triggering, rendering and ultimately displaying the form over the host app.
  */
 @SuppressLint("SetJavaScriptEnabled")
 internal class KlaviyoWebView : WebView {
@@ -22,10 +25,11 @@ internal class KlaviyoWebView : WebView {
 
     constructor(context: Context, attrs: AttributeSet?) : super(context, attrs, 0)
 
-    fun loadTemplate(html: String, delegate: KlaviyoWebViewDelegate) = configure()
-        .setDelegate(delegate)
+    fun loadTemplate(html: String, client: WebViewClient, bridge: NativeBridge) = configure()
+        .apply { webViewClient = client }
+        .addBridge(bridge)
         .loadDataWithBaseURL(
-            delegate.allowedOrigin.first(),
+            bridge.allowedOrigin.first(),
             html,
             "text/html",
             null,
@@ -44,20 +48,22 @@ internal class KlaviyoWebView : WebView {
         }
     }
 
-    private fun setDelegate(delegate: KlaviyoWebViewDelegate) = apply {
-        webViewClient = delegate
-
+    /**
+     * Inject native bridge message handler into the webview, uses feature detection to see
+     * if we can use WebMessageListener or if we need to fall back on legacy JS interface
+     */
+    private fun addBridge(bridge: NativeBridge) = apply {
         if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Supported")
             WebViewCompat.addWebMessageListener(
                 this,
-                delegate.bridgeName,
-                delegate.allowedOrigin,
-                delegate
+                bridge.name,
+                bridge.allowedOrigin,
+                bridge
             )
         } else {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Unsupported")
-            addJavascriptInterface(delegate, delegate.bridgeName)
+            addJavascriptInterface(bridge, bridge.name)
         }
     }
 }

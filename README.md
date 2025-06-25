@@ -14,6 +14,34 @@ The queue is persisted to local storage so that data is not lost if the device i
 Once integrated, your marketing team will be able to better understand your app users' needs and
 send them timely push notifications via [FCM (Firebase Cloud Messaging)](https://firebase.google.com/docs/cloud-messaging).
 
+## Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Initialization](#initialization)
+- [Profile Identification](#profile-identification)
+- [Event Tracking](#event-tracking)
+- [Push Notifications](#push-notifications)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+  - [Collecting Push Tokens](#collecting-push-tokens)
+  - [Receiving Push Notifications](#receiving-push-notifications)
+    - [Rich Push](#rich-push)
+    - [Tracking Open Events](#tracking-open-events)
+    - [Silent Push Notifications](#silent-push-notifications)
+    - [Custom Data](#custom-data)
+  - [Advanced Setup](#advanced-setup)
+- [In-App Forms](#in-app-forms)
+  - [Prerequisites](#prerequisites-1)
+  - [Setup](#setup-1)
+  - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
+  - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+- [Deep Linking](#deep-linking)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+- [Code Documentation](#code-documentation)
+
 ## Requirements
 
 - Kotlin **1.8.0** or later
@@ -55,9 +83,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:3.3.1")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.3.1")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:3.3.1")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.0.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.0.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.0.0")
       }
       ```
    </details>
@@ -68,9 +96,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.3.1"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.3.1"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:3.3.1"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.0.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.0.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.0.0"
        }
       ```
    </details>
@@ -203,24 +231,6 @@ Klaviyo.createEvent(event)
 - If you expect to use deep links in your push notifications, see the [deep linking](#deep-linking) section below.
 
 ### Setup
-The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService`, so the
-setup process is very similar to the Firebase client documentation linked above.  
-In your `AndroidManifest.xml` file, register `KlaviyoPushService` to receive `MESSAGING_EVENT` intents.
-
-```xml
-<!-- AndroidManifest.xml -->
-<manifest>
-    <!-- ... -->
-    <application>
-        <!-- ... -->
-        <service android:name="com.klaviyo.pushFcm.KlaviyoPushService" android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
-    </application>
-</manifest>
-``` 
 
 To specify an icon and/or color for Klaviyo notifications, add the following optional metadata elements to the
 application component of `AndroidManifest.xml`. Absent these keys, the firebase keys
@@ -335,8 +345,10 @@ additional information from the push payload and handle it appropriately - for i
 processing, logging analytics events, or dynamically updating app content.
 
 ### Advanced Setup
-If you'd prefer to have your own implementation of `FirebaseMessagingService`,
-follow the FCM setup docs including referencing your own service class in the manifest.
+If you'd prefer to have your own implementation of `FirebaseMessagingService`, e.g. to handle push messages from
+multiple sources, follow the FCM setup docs including referencing your own service class in the manifest. 
+We include the default Klaviyo Push Service in our SDK Manifest (which will be merged into the final APK),
+but if you'd like to override this you can.
 
 ```xml
 <!-- AndroidManifest.xml -->
@@ -356,6 +368,8 @@ follow the FCM setup docs including referencing your own service class in the ma
 The `Application` code snippets above for handling push tokens and intents are still required.
 
 You may either subclass `KlaviyoPushService` or invoke the necessary Klaviyo SDK methods in your service.
+`KlaviyoPushService` is automatically added to your manifest by our SDK, if you prefer to use
+your own implementation it will take precedence over our implementation.
 
 1. Subclass `KlaviyoPushService`:
     ```kotlin
@@ -444,20 +458,38 @@ extensions such as `import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body` to acc
 We also provide an `Intent.appendKlaviyoExtras(RemoteMessage)` extension method, which attaches the data to your
 notification intent that the Klaviyo SDK requires in order to track opens when you call `Klaviyo.handlePush(intent)`.
 
-## In App Forms
+## In-App Forms
 
-[In-app forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app 
-users while they are actively using your app. You can create new in-app forms in a drag-and-drop editor in the 
+[In-App Forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app 
+users while they are actively using your app. You can create new In-App Forms in a drag-and-drop editor in the 
 Sign-Up Forms tab in Klaviyo. Follow the instructions in this section to integrate forms with your app. The SDK will
 display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
 
+Beginning with version 4.0.0, In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, 
+you can configure forms to target or exclude specific lists or segments, and the form will only be shown to users
+matching those criteria, based on their profile identifiers set via the `analytics` package.
+
 ### Prerequisites
-- Version 3.2.0 or higher
 - Klaviyo `analytics` and `forms` packages
 - If you expect to use deep links in forms, see the [deep linking](#deep-linking) section below.
+- We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features.
+  The minimum SDK version supporting In-App Forms is `3.2.0`, and a feature matrix is provided below. Forms that leverage
+  unsupported features will not appear in your app until you update to a version that supports those features.
+- Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 3.2.0-3.3.1 
+  to understand changes to In-App Forms behavior.
+
+| Feature            | Minimum SDK Version |
+|--------------------|---------------------|
+| Basic In-App Forms | 3.2.0+              |
+| Time Delay         | 4.0.0               |
+| Audience Targeting | 4.0.0               |
 
 ### Setup
-To display in-app forms add the following code to your application. 
+To begin, call `Klaviyo.registerForInAppForms()` after initializing the SDK with your public API key.
+Once registered, the SDK may launch an overlay Activity at any time to present a form according to its targeting and 
+behavior settings configured in your Klaviyo account. For the best user experience, we recommend registering after any
+splash screen or loading animations have completed. Depending on your app's architecture, this might be in your
+`Application.onCreate()` method, or in the `onCreate()` method of your main activity.
 
 ```kotlin
 import com.klaviyo.analytics.Klaviyo
@@ -472,27 +504,41 @@ Klaviyo
 Klaviyo.registerForInAppForms()
 ```
 
-### Behavior
+#### In-App Forms Session Configuration
 
-Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form 
-within 15 seconds, based on form targeting and behavior settings.
+A "session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground 
+interactions that occur within a continuous or near-continuous time window. This is an important concept for In-App Forms,
+as we want to ensure that a user will not see the same forms multiple times within a single session.
 
-You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in 
-your app's UI a form can appear. It is safe to register multiple times per application session. 
-The SDK will internally prevent multiple forms appearing at once.
+A session will time out after a specified period of inactivity. When a user launches the app, if the time between
+the previous interaction with the app and the current one exceeds the specified timeout, we will consider this a new session.
 
-Consider how often you want to register for forms. For example, registering from a lifecycle event is advisable 
-so that the user has multiple opportunities to see your messaging if they are browsing your app for a prolonged period.
-However, be advised the form will be shown as soon as it is ready, so you may still need to condition this based on the
-user's context within your application. Future versions of this product will provide more control in this regard.
+This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, pass an `InAppFormsConfig`
+object to the `registerForInAppForms()` method. For example, to set a session timeout of 30 minutes:
 
-| Callback                 | Description                                                                                            |
-|--------------------------|--------------------------------------------------------------------------------------------------------|
-| `Application.onCreate()` | Show a form _only_ upon initial app launch.                                                            |
-| `Application.onResume()` | Anytime the app is foregrounded, check for forms and show if available.                                |
-| `Activity.onCreate()`    | If you only want forms to appear over a specific activity, checks every time this activity is created. |
+```kotlin
+import com.klaviyo.forms.InAppFormsConfig
+import kotlin.time.Duration.Companion.minutes
 
-**Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
+// e.g. to configure a session timeout of 30 minutes
+val config = InAppFormsConfig(
+    sessionTimeoutDuration = 30.minutes,
+)
+
+Klaviyo.registerForInAppForms(config)
+```
+
+#### Unregistering from In-App Forms
+If at any point you need to prevent the SDK from displaying In-App Forms, e.g. when the user logs out, you may call:
+
+```kotlin
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.forms.unregisterFromInAppForms
+
+Klaviyo.unregisterFromInAppForms()
+```
+
+Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
 ## Deep Linking
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular
@@ -526,7 +572,7 @@ and from In-App Forms interactions. There are broadly three steps to implement d
 
 2. Read data from incoming intents:
 
-    When a user taps a notification or a deep link in an in-app form, the Klaviyo SDK sends your app an intent containing that link.
+    When a user taps a notification or a deep link in an In-App Form, the Klaviyo SDK sends your app an intent containing that link.
     You can parse the URI from the intent's data property and use it to navigate to the appropriate part of your app. 
 
     ```kotlin
@@ -559,7 +605,7 @@ and from In-App Forms interactions. There are broadly three steps to implement d
 
     To perform integration testing, you can send a
     [preview push notification](https://help.klaviyo.com/hc/en-us/articles/18011985278875) 
-    containing a deep link from the Klaviyo push editor or use an in-app form that contains a "Go to app screen" action. 
+    containing a deep link from the Klaviyo push editor or use an In-App Form that contains a "Go to app screen" action. 
 
 For additional resources on deep linking, refer to
 [Android developer documentation](https://developer.android.com/training/app-links/deep-linking).
@@ -590,7 +636,7 @@ the following metadata tag to your manifest file.
 ```
 
 #### WebViews Compatibility
-Klaviyo's in-app forms are powered by [WebViews](https://developer.android.com/reference/android/webkit/WebView).
+Klaviyo's In-App Forms are powered by [WebViews](https://developer.android.com/reference/android/webkit/WebView).
 At this time, we require a version of WebView compatible with JavaScript standard ES2015. Older versions will fail
 gracefully without displaying a form to the user.
 

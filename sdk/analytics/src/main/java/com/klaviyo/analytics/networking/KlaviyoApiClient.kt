@@ -1,8 +1,6 @@
 package com.klaviyo.analytics.networking
 
 import android.os.Handler
-import android.os.HandlerThread
-import android.os.Looper
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
@@ -19,6 +17,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import java.util.Collections
 import java.util.concurrent.ConcurrentLinkedDeque
+import java.util.concurrent.CopyOnWriteArrayList
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -29,7 +28,9 @@ import org.json.JSONObject
 internal object KlaviyoApiClient : ApiClient {
     internal const val QUEUE_KEY = "klaviyo_api_request_queue"
 
-    private var handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
+    private var handlerThread = Registry.threadHelper.getHandlerThread(
+        KlaviyoApiClient::class.simpleName
+    )
     private var handler: Handler? = null
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
     private var queueInitialized = false
@@ -38,7 +39,7 @@ internal object KlaviyoApiClient : ApiClient {
      * List of registered API observers
      */
     private val apiObservers = Collections.synchronizedList(
-        mutableListOf<ApiObserver>()
+        CopyOnWriteArrayList<ApiObserver>()
     )
 
     /**
@@ -257,12 +258,14 @@ internal object KlaviyoApiClient : ApiClient {
     private fun initBatch() {
         synchronized(this) {
             if (handlerThread.state == Thread.State.TERMINATED) {
-                handlerThread = HandlerUtil.getHandlerThread(KlaviyoApiClient::class.simpleName)
+                handlerThread = Registry.threadHelper.getHandlerThread(
+                    KlaviyoApiClient::class.simpleName
+                )
             }
 
             if (handlerThread.state == Thread.State.NEW) {
                 handlerThread.start()
-                handler = HandlerUtil.getHandler(handlerThread.looper)
+                handler = Registry.threadHelper.getHandler(handlerThread.looper)
             }
         }
 
@@ -372,13 +375,5 @@ internal object KlaviyoApiClient : ApiClient {
             enqueuedTime = Registry.clock.currentTimeMillis()
             handler?.postDelayed(this, flushInterval)
         }
-    }
-
-    /**
-     * Abstraction of our interactions with handlers/threads for isolation purposes
-     */
-    internal object HandlerUtil {
-        fun getHandler(looper: Looper) = Handler(looper)
-        fun getHandlerThread(name: String?) = HandlerThread(name)
     }
 }

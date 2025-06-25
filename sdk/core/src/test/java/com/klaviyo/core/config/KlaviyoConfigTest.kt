@@ -40,8 +40,6 @@ internal class KlaviyoConfigTest : BaseTest() {
         super.setup()
         mockkStatic(PackageManager.PackageInfoFlags::class)
         every { PackageManager.PackageInfoFlags.of(any()) } returns mockPackageManagerFlags
-        every { mockContext.packageManager } returns mockPackageManager
-        every { mockContext.packageName } returns BuildConfig.LIBRARY_PACKAGE_NAME
         every { mockContext.resources } returns mockk {
             every { getString(R.string.klaviyo_sdk_name_override) } returns "android"
             every { getString(R.string.klaviyo_sdk_version_override) } returns "9.9.9"
