@@ -430,9 +430,9 @@ extensions such as `import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body` to acc
 We also provide an `Intent.appendKlaviyoExtras(RemoteMessage)` extension method, which attaches the data to your
 notification intent that the Klaviyo SDK requires in order to track opens when you call `Klaviyo.handlePush(intent)`.
 
-## In App Forms
+## In-App Forms
 
-[In-app forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app 
+[In-App Forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app 
 users while they are actively using your app. You can create new In-App Forms in a drag-and-drop editor in the 
 Sign-Up Forms tab in Klaviyo. Follow the instructions in this section to integrate forms with your app. The SDK will
 display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
