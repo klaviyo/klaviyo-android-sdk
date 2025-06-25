@@ -14,6 +14,34 @@ The queue is persisted to local storage so that data is not lost if the device i
 Once integrated, your marketing team will be able to better understand your app users' needs and
 send them timely push notifications via [FCM (Firebase Cloud Messaging)](https://firebase.google.com/docs/cloud-messaging).
 
+## Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Initialization](#initialization)
+- [Profile Identification](#profile-identification)
+- [Event Tracking](#event-tracking)
+- [Push Notifications](#push-notifications)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+  - [Collecting Push Tokens](#collecting-push-tokens)
+  - [Receiving Push Notifications](#receiving-push-notifications)
+    - [Rich Push](#rich-push)
+    - [Tracking Open Events](#tracking-open-events)
+    - [Silent Push Notifications](#silent-push-notifications)
+    - [Custom Data](#custom-data)
+  - [Advanced Setup](#advanced-setup)
+- [In-App Forms](#in-app-forms)
+  - [Prerequisites](#prerequisites-1)
+  - [Setup](#setup-1)
+  - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
+  - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+- [Deep Linking](#deep-linking)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+- [Code Documentation](#code-documentation)
+
 ## Requirements
 
 - Kotlin **1.8.0** or later
