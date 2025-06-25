@@ -10,7 +10,7 @@
             android:usesCleartextTraffic="true"
     >
         <activity
-                android:name=".MainActivity"
+                android:name=".SampleActivity"
                 android:exported="true"
                 android:theme="@style/Theme.KlaviyoAndroidSdk">
             <intent-filter>
