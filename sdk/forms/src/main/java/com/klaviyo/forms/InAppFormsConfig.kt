@@ -6,7 +6,7 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Configuration for in-app forms
+ * Configuration for In-App Forms
  *
  * @param sessionTimeoutDuration Duration of user inactivity after which the form session is terminated.
  *  Defaults to 1 Hour, must be non-negative. Use 0 to timeout as soon as the app is backgrounded.

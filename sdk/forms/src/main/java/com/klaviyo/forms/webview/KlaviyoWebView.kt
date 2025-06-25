@@ -14,7 +14,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.forms.bridge.NativeBridge
 
 /**
- * Custom WebView that powers the in-app forms experience, running klaviyo.js in its JS engine
+ * Custom WebView that powers the In-App Forms experience, running klaviyo.js in its JS engine
  * to handle forms behavior, triggering, rendering and ultimately displaying the form over the host app.
  */
 @SuppressLint("SetJavaScriptEnabled")

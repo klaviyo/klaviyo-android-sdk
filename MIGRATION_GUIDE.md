@@ -1,15 +1,42 @@
 # Migration Guide
-This document provides guidance on how to migrate from the old version of the SDK to a newer version. 
+This document provides guidance on how to migrate from one version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
-# 3.4.0
+# 4.0.0
+
+## In-App Forms
+
+As a result of changes summarized below, you may wish to revisit the logic of when you call `registerForInAppForms()`
+when upgrading from 3.2.0-3.3.1, particularly if you were registering than once per application session. Consult the 
+[README](./README.md#in-app-forms) for the latest integration instructions.
+
+### Updated behaviors
+- In versions 3.2.0-3.3.1, calling `registerForInAppForms()` functioned like a "fetch" that would check if a form was 
+  available and if yes, display it. Version 4.0.0 changes this behavior so that `registerForInAppForms()` sets up a  
+  persistent listener that will be ready to display a form if and when one is targeted to the current profile.
+- For better isolation between the library and host application, a form is now displayed in an Activity overlaid  
+  on the host application, instead of being attached to the view hierarchy of the host's activity.
+- A deep link from an In-App Form will now be issued *after* the form has closed, instead of during the close animation in order
+  to prevent a race condition if the host application expects the form to be closed before handling the deep link.
+- To support the native back button, the In-App Forms overlay activity now captures back button input while presented.
+
+### Configurable In-App Form session timeout
+- Introduced a configurable session timeout for In-App Forms, which defaults to 60 minutes, as an optional argument to `registerForInAppForms()`.
+
+### New `unregisterFromInAppForms()` method
+- Because the `registerForInAppForms()` method now functions as a persistent listener rather than a "fetch", 
+  we've introduced an `unregisterFromInAppForms()` method so you can stop listening for In-App Forms at appropriate times, 
+  such as when a user logs out.
+
+## Push
 
 ### Improvements
-- A deep link from an in-app form will now be issued *after* the form has closed, instead of during the close animation.
+- To facilitate integration, the Klaviyo Push Service manifest entry has been added to our `push-fcm` module. 
+  You no longer have to manually add this to your manifest to register our service. This can be overridden by declaring
+  your own implementation in your manifest, per the advanced integration guide in the README.
 
-- The Klaviyo Push Service manifest entry has been added to our PushFcm module. You no longer have to manually
-add this to your AndroidManifest to register our service. This can be easily overridden by declaring your own implementation
-of `KlaviyoPushService` or `FirebaseMessagingService` in the manifest.
+### Breaking Changes
+- The deprecated extension property `RemoteMessage.smallIcon` has been removed in favor of `RemoteMessage.getSmallIcon()`.
 
 # 3.0.0
 

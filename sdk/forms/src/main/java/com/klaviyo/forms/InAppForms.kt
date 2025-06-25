@@ -17,8 +17,16 @@ import com.klaviyo.forms.webview.KlaviyoWebViewClient
 import com.klaviyo.forms.webview.WebViewClient
 
 /**
- * Load in-app forms data and display a form to the user if applicable based on the forms
- * configured in your Klaviyo account. Note [Klaviyo.initialize] must be called first
+ * Start an In-App Forms session.
+ *
+ * This will load forms data and establish ongoing listeners to present a form to the user
+ * whenever a form is triggered by an event or condition according to the targeting and behavior
+ * settings configured for forms in your Klaviyo account.
+ *
+ * Note: a public API key is required, so [Klaviyo.initialize] must be called first.
+ * If the API key changes, the session will be re-initialized automatically with the new key.
+ *
+ * @param config see [InAppFormsConfig] for configuration options.
  */
 @UiThread
 fun Klaviyo.registerForInAppForms(
@@ -43,7 +51,7 @@ fun Klaviyo.registerForInAppForms(
 }
 
 /**
- * Halts the in-app forms services and observers,
+ * Halt the In-App Forms services and observers,
  * hiding any currently displayed forms and preventing any further forms from being presented.
  */
 @UiThread
@@ -53,13 +61,13 @@ fun Klaviyo.unregisterFromInAppForms() = safeApply {
             get<PresentationManager>().dismiss()
             get<WebViewClient>().destroyWebView()
         } else {
-            log.warning("Cannot unregister in-app forms, must be registered first.")
+            log.warning("Cannot unregister In-App Forms, must be registered first.")
         }
     }
 }
 
 /**
- * Resets the in-app forms listeners with the current configuration.
+ * Resets the In-App Forms listeners with the current configuration.
  */
 @UiThread
 internal fun Klaviyo.reInitializeInAppForms() = safeApply {

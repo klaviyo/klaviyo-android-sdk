@@ -23,7 +23,7 @@ import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
 
 /**
- * Manages the [KlaviyoWebView] instance that powers in-app forms behavior, triggering, rendering and display,
+ * Manages the [KlaviyoWebView] instance that powers In-App Forms behavior, triggering, rendering and display,
  * and handles all its [android.webkit.WebViewClient] delegate methods, and loading of klaviyo.js
  */
 internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
@@ -41,7 +41,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
 
     /**
      * Initialize a webview instance, with protection against duplication
-     * and initialize klaviyo.js for in-app forms with handshake data injected in the document head
+     * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head
      */
     override fun initializeWebView(): Unit = webView?.let {
         Registry.log.debug("Klaviyo webview is already initialized")
