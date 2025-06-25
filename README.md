@@ -481,7 +481,8 @@ as we want to ensure that a user will not see the same forms multiple times with
 A session will time out after a specified period of inactivity. When a user launches the app, if the time between
 the previous interaction with the app and the current one exceeds the specified timeout, we will consider this a new session.
 
-This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, create a new InAppFormsConfig object:
+This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, pass an `InAppFormsConfig`
+object to the `registerForInAppForms()` method. For example, to set a session timeout of 30 minutes:
 
 ```kotlin
 import com.klaviyo.forms.InAppFormsConfig
@@ -491,11 +492,7 @@ import kotlin.time.Duration.Companion.minutes
 val config = InAppFormsConfig(
     sessionTimeoutDuration = 30.minutes,
 )
-```
 
-then pass this into the SDK when calling `registerForInAppForms()`:
-
-```kotlin
 Klaviyo.registerForInAppForms(config)
 ```
 
