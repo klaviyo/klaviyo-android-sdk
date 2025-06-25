@@ -445,7 +445,7 @@ matching those criteria, based on their profile identifiers set via the `analyti
 - Klaviyo `analytics` and `forms` packages
 - If you expect to use deep links in forms, see the [deep linking](#deep-linking) section below.
 - We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features.
-  The minimum supported version for In-App Forms is `3.2.0`, but a feature matrix is provided below. Forms that leverage
+  The minimum SDK version supporting In-App Forms is `3.2.0`, and a feature matrix is provided below. Forms that leverage
   unsupported features will not appear in your app until you update to a version that supports those features.
 - Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 3.2.0-3.3.1 
   to understand changes to In-App Forms behavior.
@@ -457,7 +457,11 @@ matching those criteria, based on their profile identifiers set via the `analyti
 | Audience Targeting | 4.0.0               |
 
 ### Setup
-To display In-App Forms, add the following code to your application. 
+To begin, call `Klaviyo.registerForInAppForms()` after initializing the SDK with your public API key.
+Once registered, the SDK may launch an overlay Activity at any time to present a form according to its targeting and 
+behavior settings configured in your Klaviyo account. For the best user experience, we recommend registering after any  
+splash screen or loading animations have completed. Depending on your app's architecture, this might be in your
+`Application.onCreate()` method, or in the `onCreate()` method of your main activity.
 
 ```kotlin
 import com.klaviyo.analytics.Klaviyo
@@ -507,24 +511,6 @@ Klaviyo.unregisterFromInAppForms()
 ```
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new app session by the SDK.
-
-
-### Behavior
-
-Once `registerForInAppForms()` is called, the SDK will load form data for your account and prepare to display a form
-according to targeting and behavior settings configured in the Klaviyo forms editor for your account. In-app forms
-requires your company's public API key, which must be provided to the `Klaviyo.initialize()` method. If the API key is
-changed mid-session, the forms session will be reset automatically to employ the new key.
-
-You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in
-your app's UI a form can appear. For the best user experience, we recommend registering after any splash screen
-or other loading animations have completed. You need only register once per app launch, the SDK will
-automatically track user inactivity when the app is backgrounded, and restart the form session after timeout period.
-The default timeout is 60 minutes, and is configurable with the `InAppFormsConfig` argument to `registerForInAppForms`.
-
-When a form is ready to be displayed, it will automatically be shown to the user in an overlay Activity.
-The form will rotate with the device orientation, and the user can dismiss it by interacting with it, or pressing the
-native Android back button.
 
 ## Deep Linking
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular

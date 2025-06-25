@@ -5,7 +5,7 @@ import android.app.Activity
 internal interface WebViewClient {
     /**
      * Initialize a webview instance, with protection against duplication
-     * and initialize klaviyo.js for in-app forms with handshake data injected in the document head
+     * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head
      */
     fun initializeWebView()
 

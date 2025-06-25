@@ -6,9 +6,9 @@ It will be updated as new versions are released including deprecations or breaki
 
 ## In-App Forms
 
-As a result of changes summarized below, you may wish to revisit the logic of when you call `registerForInAppForms()`,
-particularly if you were previously calling more than once per application session. We recommend registering for
-In-App Forms as soon as any splash screen or other initial loading is complete.
+As a result of changes summarized below, you may wish to revisit the logic of when you call `registerForInAppForms()`
+when upgrading from 3.x, particularly if you were registering than once per application session. Consult the 
+[README](./README.md#in-app-forms) for the latest integration instructions.
 
 ### Updated behaviors
 - In versions 3.2.0-3.3.1, calling `registerForInAppForms()` functioned like a "fetch" that would check if a form was 
@@ -18,7 +18,7 @@ In-App Forms as soon as any splash screen or other initial loading is complete.
   on the host application, instead of being attached to the view hierarchy of the host's activity.
 - A deep link from an In-App Form will now be issued *after* the form has closed, instead of during the close animation in order
   to prevent a race condition if the host application expects the form to be closed before handling the deep link.
-- To support the native back button, the In-App Forms overlay activity captures back button input while presented.
+- To support the native back button, the In-App Forms overlay activity now captures back button input while presented.
 
 ### Configurable In-App Form session timeout
 - Introduced a configurable session timeout for In-App Forms, which defaults to 60 minutes, as an argument to `registerForInAppForms()`.
