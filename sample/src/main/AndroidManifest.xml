@@ -1,0 +1,46 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+            android:name="SampleApplication"
+            android:allowBackup="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:supportsRtl="true"
+            android:theme="@style/Theme.KlaviyoAndroidSdk"
+            android:usesCleartextTraffic="true"
+    >
+        <activity
+                android:name=".MainActivity"
+                android:exported="true"
+                android:theme="@style/Theme.KlaviyoAndroidSdk">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+            <!-- Deep Linking Intent Filter -->
+            <intent-filter android:label="@string/deep_link_handler">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <!-- Accepts URIs that begin with "klaviyotest://" -->
+                <data android:scheme="klaviyotest" />
+            </intent-filter>
+        </activity>
+
+        <!-- Optional: Set the Klaviyo SDK logging level (1=verbose, 2=debug etc) -->
+        <meta-data
+                android:name="com.klaviyo.core.log_level"
+                android:value="1"/>
+
+        <!-- Specify the default icon for a notification received from Klaviyo -->
+        <meta-data android:name="com.klaviyo.push.default_notification_icon"
+                   android:resource="@drawable/ic_notification_icon"/>
+
+        <!-- Specify the icon color for a notification received from Klaviyo -->
+        <meta-data android:name="com.klaviyo.push.default_notification_color"
+                   android:resource="@color/teal_700"/>
+
+    </application>
+
+</manifest>

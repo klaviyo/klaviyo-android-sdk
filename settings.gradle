@@ -9,8 +9,9 @@ dependencyResolutionManagement {
     }
 }
 
-// sdk modules
+// SDK modules
 include ":sdk"
+include ":sample"
 include ":sdk:core", ":sdk:analytics", ":sdk:push-fcm", ":sdk:fixtures", ":sdk:forms"
 
 refreshVersions {

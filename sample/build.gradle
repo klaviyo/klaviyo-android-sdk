@@ -1,0 +1,114 @@
+// We use refreshVersions to manage dependencies in this project -- https://splitties.github.io/refreshVersions/
+// If you notice unusual dependency version syntax, it's from refreshVersions
+import static de.fayard.refreshVersions.core.Versions.versionFor
+
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+
+    // ADVANCED NOTE: Comment out if you wish to run the app without Firebase
+    id 'com.google.gms.google-services'
+}
+
+repositories {
+    google()
+    mavenCentral()
+    // SETUP NOTE: Add Jitpack maven repository in order to install Klaviyo Android SDK from JitPack.
+    // Note: It is more typical to use dependencyResolutionManagement block in settings.gradle.
+    // For the purposes of the sample app, we put it here so that important steps are in one place,
+    // and the sample app dependencies do not affect the main SDK config.
+    maven { url "https://jitpack.io" }
+}
+
+android {
+    namespace "${klaviyoGroupId}.sample"
+    buildToolsVersion=versionFor(project, "version.android.buildTools") as String
+
+    defaultConfig {
+        // ADVANCED NOTE: Set your own application ID here
+        applicationId "${klaviyoGroupId}.sample"
+
+        // SETUP NOTE: Configure minimum, target and compile SDK versions:
+        // Klaviyo Android SDK minimum supported Android version is 23
+        minSdk 23
+        // It is recommended to set targetSdkVersion equal to your compileSdkVersion
+        targetSdk 34
+        // Klaviyo Android SDK is compiled against Android API Level 34
+        compileSdk 34
+
+        versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
+        versionName readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_version_override', project(":sdk:core"))
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary true
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            debuggable = true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17.toString()
+    }
+    buildFeatures {
+        compose true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = versionFor(project, AndroidX.compose.compiler)
+    }
+    packagingOptions {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+        }
+    }
+}
+
+dependencies {
+    // SETUP NOTE: Add Klaviyo Android SDK dependencies (uncomment to install from JitPack)
+    // implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:2.1.0"
+    // implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.1.0"
+
+    // Using project dependency as below allows the sample app to compile with the local copy of the SDK code.
+    // You can replace these with the remote dependencies above if you wish to install from JitPack.
+    implementation project(path: ':sdk:analytics')
+    implementation project(path: ':sdk:push-fcm')
+
+    // Firebase dependencies for FCM integration (refreshVersions syntax)
+    // ADVANCED NOTE: Comment out if you wish to run the app without Firebase
+    implementation platform(Firebase.bom)
+    implementation Firebase.cloudMessagingKtx
+
+    // Other app and testing dependencies (refreshVersions syntax)
+    implementation platform(AndroidX.compose.bom)
+    implementation AndroidX.core.ktx
+    implementation AndroidX.lifecycle.runtime.ktx
+    implementation AndroidX.activity.compose
+    implementation AndroidX.compose.ui
+    implementation AndroidX.compose.ui.toolingPreview
+    implementation AndroidX.compose.material
+    implementation AndroidX.compose.material.icons.extended
+    implementation AndroidX.compose.material3
+    implementation AndroidX.appCompat
+    implementation "com.google.accompanist:accompanist-themeadapter-material:_"
+    implementation Google.android.material
+
+    testImplementation Testing.junit4
+
+    androidTestImplementation AndroidX.test.ext.junit
+    androidTestImplementation AndroidX.test.espresso.core
+    androidTestImplementation AndroidX.compose.ui.testJunit4
+    debugImplementation AndroidX.compose.ui.tooling
+    debugImplementation AndroidX.compose.ui.testManifest
+}
