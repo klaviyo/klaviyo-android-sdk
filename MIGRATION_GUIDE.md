@@ -21,7 +21,7 @@ when upgrading from 3.x, particularly if you were registering than once per appl
 - To support the native back button, the In-App Forms overlay activity now captures back button input while presented.
 
 ### Configurable In-App Form session timeout
-- Introduced a configurable session timeout for In-App Forms, which defaults to 60 minutes, as an argument to `registerForInAppForms()`.
+- Introduced a configurable session timeout for In-App Forms, which defaults to 60 minutes, as an optional argument to `registerForInAppForms()`.
 
 ### New `unregisterFromInAppForms()` method
 - Because the `registerForInAppForms()` method now functions as a persistent listener rather than a "fetch", 
