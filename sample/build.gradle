@@ -30,11 +30,11 @@ android {
 
         // SETUP NOTE: Configure minimum, target and compile SDK versions:
         // Klaviyo Android SDK minimum supported Android version is 23
-        minSdk 23
+        minSdk versionFor(project, "version.android.minSdk") as Integer
         // It is recommended to set targetSdkVersion equal to your compileSdkVersion
-        targetSdk 34
+        targetSdk versionFor(project, "version.android.targetSdk") as Integer
         // Klaviyo Android SDK is compiled against Android API Level 34
-        compileSdk 34
+        compileSdk versionFor(project, "version.android.compileSdk") as Integer
 
         versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
         versionName readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_version_override', project(":sdk:core"))
@@ -47,7 +47,7 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
@@ -83,6 +83,7 @@ dependencies {
     // Using project dependency as below allows the sample app to compile with the local copy of the SDK code.
     // You can replace these with the remote dependencies above if you wish to install from JitPack.
     implementation project(path: ':sdk:analytics')
+    implementation project(path: ':sdk:forms')
     implementation project(path: ':sdk:push-fcm')
 
     // Firebase dependencies for FCM integration (refreshVersions syntax)
