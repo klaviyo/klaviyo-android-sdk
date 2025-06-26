@@ -10,8 +10,9 @@ class SampleApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize Klaviyo SDK: Add your public API key here
-        Klaviyo.initialize("TRJ3wp", applicationContext)
+        // Initialize Klaviyo SDK: Add your public API key here or in the local.properties file
+        val klaviyoPublicKey = BuildConfig.KLAVIYO_PUBLIC_KEY
+        Klaviyo.initialize(klaviyoPublicKey, applicationContext)
             .registerForInAppForms() // Register for In-App Forms immediately on app launch (this app has no splash screen)
 
         // Example analytics event to track "Opened App" event on launch
