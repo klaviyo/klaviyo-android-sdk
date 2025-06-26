@@ -1,4 +1,48 @@
-name: publish.yml
+name: Publish to JitPack
+
 on:
+  release:
+    types: [published]
+  push:
+    branches:
+      - master
+      - rel/*
+      - ecm/*
 
 jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: cURL Jitpack to build artifacts
+        run: |
+          local url = "https://jitpack.io/com/github/klaviyo/klaviyo-android-sdk/"
+          
+          if [ "${{ github.event_name }}" == "release" ]; then
+            url += "${{ github.event.release.tag_name }}/build.log"
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            url += "${{ github.sha }}/build.log"
+          fi
+          
+          output=""
+          max_runtime=900 # 15 minutes in seconds
+          interval=30     # Check every 30 seconds
+          elapsed_time=0
+          
+          while [ $elapsed_time -lt $max_runtime ]; do
+            output=$(curl --silent "$url")
+            
+            if [[ $output == *"BUILD FAILED"* ]]; then
+              echo "$output" 
+              exit 1
+            elif [[ $output == *"BUILD SUCCESSFUL"* ]]; then
+              echo "$output" 
+              exit 0
+            fi
+            
+            sleep $interval
+            elapsed_time=$((elapsed_time + interval))
+          done
+          
+          echo "Timed out, last status:"
+          echo "$output"
+          exit 2
