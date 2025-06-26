@@ -7,14 +7,14 @@ on:
     branches:
       - master
       - rel/*
-      - ecm/*
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: cURL Jitpack to build artifacts
+      - name: Build Artifacts on JitPack
         run: |
+          #Poll JitPack until it builds artifacts for this commit/release
           url="https://jitpack.io/com/github/klaviyo/klaviyo-android-sdk/"
           
           if [ "${{ github.event_name }}" == "release" ]; then
