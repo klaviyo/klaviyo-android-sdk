@@ -11,8 +11,11 @@ dependencyResolutionManagement {
 
 // SDK modules
 include ":sdk"
-include ":sample"
 include ":sdk:core", ":sdk:analytics", ":sdk:push-fcm", ":sdk:fixtures", ":sdk:forms"
+
+if (System.getenv("JITPACK") != "true") {
+    include ":sample"
+}
 
 refreshVersions {
     rejectVersionIf {
