@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: cURL Jitpack to build artifacts
         run: |
-          local url = "https://jitpack.io/com/github/klaviyo/klaviyo-android-sdk/"
+          url = "https://jitpack.io/com/github/klaviyo/klaviyo-android-sdk/"
           
           if [ "${{ github.event_name }}" == "release" ]; then
             url += "${{ github.event.release.tag_name }}/build.log"
