@@ -46,12 +46,22 @@ android {
     }
 
     buildTypes {
+        // Set your klaviyo public API key in your local.properties file in the root directory e.g. klaviyoPublicApiKey=ApiKey
+        def localProperties = new Properties()
+        def localPropertiesFile = file("../local.properties")
+        if (localPropertiesFile.exists() && localPropertiesFile.canRead()) {
+            localProperties.load(new FileInputStream(localPropertiesFile))
+        }
+
+        def klaviyoPublicApiKey = (localProperties["klaviyoPublicApiKey"] ?: "KLAVIYO_PUBLIC_API_KEY") as String
+
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
             debuggable = true
+            buildConfigField "String", "KLAVIYO_PUBLIC_KEY", "\"$klaviyoPublicApiKey\""
         }
     }
 
@@ -64,6 +74,7 @@ android {
     }
     buildFeatures {
         compose true
+        buildConfig true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = versionFor(project, AndroidX.compose.compiler)
@@ -76,12 +87,9 @@ android {
 }
 
 dependencies {
-    // SETUP NOTE: Add Klaviyo Android SDK dependencies (uncomment to install from JitPack)
-    // implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:2.1.0"
-    // implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:2.1.0"
-
-    // Using project dependency as below allows the sample app to compile with the local copy of the SDK code.
-    // You can replace these with the remote dependencies above if you wish to install from JitPack.
+    // SETUP NOTE: Add the Klaviyo Android SDK dependencies.
+    // This sample app uses the project dependencies, but you can also use the published SDK version
+    // by replacing with the published SDK dependencies, per instructions in the README.
     implementation project(path: ':sdk:analytics')
     implementation project(path: ':sdk:forms')
     implementation project(path: ':sdk:push-fcm')
