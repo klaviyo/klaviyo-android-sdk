@@ -18,9 +18,9 @@ jobs:
           url="https://jitpack.io/com/github/klaviyo/klaviyo-android-sdk/"
           
           if [ "${{ github.event_name }}" == "release" ]; then
-            url += "${{ github.event.release.tag_name }}/build.log"
+            url+="${{ github.event.release.tag_name }}/build.log"
           elif [ "${{ github.event_name }}" == "push" ]; then
-            url += "${{ github.sha }}/build.log"
+            url+="${{ github.sha }}/build.log"
           fi
           
           output=""
