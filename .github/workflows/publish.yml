@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: cURL Jitpack to build artifacts
         run: |
-          url = "https://jitpack.io/com/github/klaviyo/klaviyo-android-sdk/"
+          url="https://jitpack.io/com/github/klaviyo/klaviyo-android-sdk/"
           
           if [ "${{ github.event_name }}" == "release" ]; then
             url += "${{ github.event.release.tag_name }}/build.log"
@@ -25,7 +25,7 @@ jobs:
           
           output=""
           max_runtime=900 # 15 minutes in seconds
-          interval=30     # Check every 30 seconds
+          interval=30 # Check every 30 seconds
           elapsed_time=0
           
           while [ $elapsed_time -lt $max_runtime ]; do
