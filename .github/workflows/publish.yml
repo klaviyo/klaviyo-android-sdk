@@ -27,6 +27,8 @@ jobs:
           max_runtime=900 # 15 minutes in seconds
           interval=30 # Check every 30 seconds
           elapsed_time=0
+        
+          echo "Waiting for JitPack to build artifacts at $url"
           
           while [ $elapsed_time -lt $max_runtime ]; do
             output=$(curl --silent "$url")
@@ -37,6 +39,8 @@ jobs:
             elif [[ $output == *"BUILD SUCCESSFUL"* ]]; then
               echo "$output" 
               exit 0
+            else
+              echo "At $elapsed_time, build appears to be in progress..."
             fi
             
             sleep $interval
