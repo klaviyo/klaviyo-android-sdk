@@ -29,24 +29,32 @@ jobs:
           elapsed_time=0
         
           echo "Waiting for JitPack to build artifacts at $url"
+          echo
           
           while [ $elapsed_time -lt $max_runtime ]; do
             output=$(curl --silent "$url")
             
             if [[ $output == *"BUILD FAILED"* ]]; then
+              echo "Build Failed!"
+              echo
               echo "$output" 
               exit 1
             elif [[ $output == *"BUILD SUCCESSFUL"* ]]; then
+              echo "Build Complete!"
+              echo
               echo "$output" 
               exit 0
             else
               echo "At $elapsed_time, build appears to be in progress..."
+              echo
             fi
             
             sleep $interval
             elapsed_time=$((elapsed_time + interval))
           done
           
-          echo "Timed out, last status:"
+          echo "Build Timeout, last status:"
+          echo "$url"
+          echo
           echo "$output"
           exit 2
