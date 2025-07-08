@@ -155,7 +155,7 @@ Profile identifiers and other attributes can be set all at once using the `Profi
 ```kotlin
 val profile = Profile(
     externalId = "USER_IDENTIFIER",
-    email = "kermit@example.com",
+    email = "kermit@klaviyo-demo.com",
     phoneNumber = "+12223334444",
     properties = mapOf(
         ProfileKey.FIRST_NAME to "Kermit",
@@ -170,7 +170,7 @@ Or individually with additive fluent setters:
 
 ```kotlin
 Klaviyo.setExternalId("USER_IDENTIFIER")
-    .setEmail("kermit@example.com")
+    .setEmail("kermit@klaviyo-demo.com")
     .setPhoneNumber("+12223334444")
     .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
     .setProfileAttribute(ProfileKey.CUSTOM("instrument"), "banjo")
@@ -185,7 +185,7 @@ to overwrite it with a new profile object.
 
 ```kotlin
 // Start a profile for Kermit
-Klaviyo.setEmail("kermit@example.com")
+Klaviyo.setEmail("kermit@klaviyo-demo.com")
     .setPhoneNumber("+12223334444")
     .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
 
@@ -193,7 +193,7 @@ Klaviyo.setEmail("kermit@example.com")
 Klaviyo.resetProfile()
 
 // Start a new profile for Robin
-Klaviyo.setEmail("robin@example.com")
+Klaviyo.setEmail("robin@klaviyo-demo.com")
     .setPhoneNumber("+5556667777")
     .setProfileAttribute(ProfileKey.FIRST_NAME, "Robin")
 ```
