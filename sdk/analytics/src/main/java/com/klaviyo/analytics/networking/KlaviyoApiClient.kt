@@ -43,6 +43,13 @@ internal object KlaviyoApiClient : ApiClient {
     )
 
     /**
+     * List of registered profile event observers
+     */
+    private val eventObserver = Collections.synchronizedList(
+        CopyOnWriteArrayList<ProfileEventObserver>()
+    )
+
+    /**
      * Initialize logic including lifecycle observers and reviving the queue from persistent store
      */
     override fun startService() {
@@ -74,6 +81,14 @@ internal object KlaviyoApiClient : ApiClient {
         enqueueRequest(AggregateEventApiRequest(payload))
     }
 
+    override fun onProfileEvent(observer: ProfileEventObserver) {
+        eventObserver += observer
+    }
+
+    override fun offProfileEvent(observer: ProfileEventObserver) {
+        eventObserver -= observer
+    }
+
     override fun enqueueUnregisterPushToken(apiKey: String, token: String, profile: Profile) {
         Registry.log.verbose("Enqueuing unregister token request")
         enqueueRequest(UnregisterPushTokenApiRequest(apiKey, token, profile))
@@ -81,10 +96,22 @@ internal object KlaviyoApiClient : ApiClient {
 
     override fun enqueueEvent(event: Event, profile: Profile) {
         Registry.log.verbose("Enqueuing ${event.metric.name} event")
+        broadcastEvent(event)
         enqueueRequest(EventApiRequest(event, profile))
 
         if (event.metric == EventMetric.OPENED_PUSH) {
             flushQueue()
+        }
+    }
+
+    /**
+     * Broadcast a profile event to all observers
+     */
+    private fun broadcastEvent(event: Event) {
+        synchronized(eventObserver) {
+            eventObserver.forEach {
+                it?.invoke(event)
+            }
         }
     }
 
