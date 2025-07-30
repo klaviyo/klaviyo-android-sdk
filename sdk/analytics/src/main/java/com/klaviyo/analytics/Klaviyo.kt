@@ -289,7 +289,7 @@ object Klaviyo {
         Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
 
         Registry.log.verbose("Enqueuing ${event.metric.name} event")
-        Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
+        createEvent(event)
     }
 
     /**
