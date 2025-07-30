@@ -42,7 +42,6 @@ class KlaviyoJsBridgeTest : BaseTest() {
             metric = "Fate Sealed",
             properties = mapOf(
                 EventKey.CUSTOM("name") to "Anna Karenina",
-                EventKey.CUSTOM("action") to "Adultery",
                 EventKey.CUSTOM("location") to "Saint Petersburg"
             )
         )
@@ -56,7 +55,7 @@ class KlaviyoJsBridgeTest : BaseTest() {
         verify {
             jsEvaluator.evaluateJavascript(
                 eq(
-                    """window.profileMutation("Fate Sealed","{name=Anna Karenina, action=Adultery, location=Saint Petersburg}")"""
+                    """window.profileEvent("Fate Sealed","{"name":"Anna Karenina","location":"Saint Petersburg"}")"""
                 ),
                 any()
             )

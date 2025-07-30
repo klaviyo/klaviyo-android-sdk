@@ -62,9 +62,9 @@ internal class KlaviyoJsBridge : JsBridge {
     )
 
     override fun profileEvent(event: Event) = evaluateJavascript(
-        HelperFunction.profileMutation,
+        HelperFunction.profileEvent,
         event.metric.name,
-        event.properties.toString()
+        event.toString()
     )
 
     /**

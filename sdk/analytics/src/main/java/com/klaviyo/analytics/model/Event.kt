@@ -5,7 +5,7 @@ import java.io.Serializable
 /**
  * Controls the data that can be input into a map of event attributes recognised by Klaviyo
  */
-class Event(val metric: EventMetric, val properties: Map<EventKey, Serializable>?) :
+class Event(val metric: EventMetric, properties: Map<EventKey, Serializable>?) :
     BaseModel<EventKey, Event>(properties) {
 
     constructor(metric: String, properties: Map<EventKey, Serializable>?) : this(

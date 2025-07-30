@@ -239,7 +239,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
             metric = "Fate Sealed",
             properties = mapOf(
                 EventKey.CUSTOM("name") to "Anna Karenina",
-                EventKey.CUSTOM("action") to "Adultery",
                 EventKey.CUSTOM("location") to "Saint Petersburg"
             )
         )
