@@ -48,6 +48,18 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
         }
 
     /**
+     * Return a profile object containing only identifier attributes
+     */
+    val identifiers: Profile = Profile(
+        mapOf(
+            ProfileKey.EXTERNAL_ID to (externalId ?: ""),
+            ProfileKey.EMAIL to (email ?: ""),
+            ProfileKey.PHONE_NUMBER to (phoneNumber ?: ""),
+            ProfileKey.ANONYMOUS_ID to (anonymousId ?: "")
+        ).filterNot { it.value.isEmpty() }
+    )
+
+    /**
      * Return a profile object containing only non-identifier attributes
      */
     val attributes: Profile get() = copy().apply {

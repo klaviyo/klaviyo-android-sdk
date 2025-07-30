@@ -35,6 +35,28 @@ internal class ModelTests : BaseTest() {
     }
 
     @Test
+    fun `Identifiers converts to a Profile object with non-identifier attributes stripped out`() {
+        val custKey = ProfileKey.CUSTOM("custom_key")
+        val profile = Profile(
+            externalId = EXTERNAL_ID,
+            email = EMAIL,
+            phoneNumber = PHONE,
+            properties = mapOf(
+                ProfileKey.FIRST_NAME to "kermit",
+                custKey to "test"
+            )
+        )
+
+        val identifiers = profile.identifiers
+
+        assertEquals(EXTERNAL_ID, identifiers.externalId)
+        assertEquals(EMAIL, identifiers.email)
+        assertEquals(PHONE, identifiers.phoneNumber)
+        assertNull(identifiers[ProfileKey.FIRST_NAME])
+        assertNull(identifiers[custKey])
+    }
+
+    @Test
     fun `Attributes converts to a Profile object with identifiers stripped out`() {
         val custKey = ProfileKey.CUSTOM("custom_key")
         val profileAttributes = Profile(
