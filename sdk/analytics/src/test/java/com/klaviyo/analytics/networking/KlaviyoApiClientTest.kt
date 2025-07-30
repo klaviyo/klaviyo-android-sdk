@@ -1,7 +1,6 @@
 package com.klaviyo.analytics.networking
 
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.ApiRequest
@@ -231,29 +230,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
         verify(inverse = true) { anyConstructed<EventApiRequest>().send(any()) }
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         unmockkConstructor(EventApiRequest::class)
-    }
-
-    @Test
-    fun `Profile events are broadcasted to the observers`() {
-        val testEvent = Event(
-            metric = "Fate Sealed",
-            properties = mapOf(
-                EventKey.CUSTOM("name") to "Anna Karenina",
-                EventKey.CUSTOM("location") to "Saint Petersburg"
-            )
-        )
-        var broadcastCount = 0
-        val onProfileEvent = object : ProfileEventObserver {
-            override fun invoke(event: Event) {
-                broadcastCount++
-                assertEquals(testEvent, event)
-            }
-        }
-        KlaviyoApiClient.onProfileEvent(onProfileEvent)
-        KlaviyoApiClient.enqueueEvent(testEvent, Profile().setAnonymousId(ANON_ID))
-        KlaviyoApiClient.offProfileEvent(onProfileEvent)
-        KlaviyoApiClient.enqueueEvent(testEvent, Profile().setAnonymousId(ANON_ID))
-        assertEquals(1, broadcastCount)
     }
 
     @Test

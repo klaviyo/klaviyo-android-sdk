@@ -7,8 +7,6 @@ import com.klaviyo.analytics.networking.requests.ApiRequest
 
 typealias ApiObserver = (request: ApiRequest) -> Unit
 
-typealias ProfileEventObserver = (event: Event) -> Unit
-
 /**
  * Defines public API of the network coordinator service
  */
@@ -84,14 +82,4 @@ interface ApiClient {
      * For sending aggregate analytics for IAF - not to be called directly
      */
     fun enqueueAggregateEvent(payload: AggregateEventPayload)
-
-    /**
-     * Register an observer to be notified when a profile event is sent
-     */
-    fun onProfileEvent(observer: ProfileEventObserver)
-
-    /**
-     * De-register an observer from [onProfileEvent]
-     */
-    fun offProfileEvent(observer: ProfileEventObserver)
 }

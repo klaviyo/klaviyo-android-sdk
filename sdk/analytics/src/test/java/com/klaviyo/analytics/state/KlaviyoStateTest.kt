@@ -2,7 +2,10 @@ package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -23,6 +26,7 @@ internal class KlaviyoStateTest : BaseTest() {
     override fun setup() {
         super.setup()
         state = KlaviyoState()
+        Registry.register<ApiClient>(mockk<ApiClient>(relaxed = true))
     }
 
     @After
@@ -46,6 +50,27 @@ internal class KlaviyoStateTest : BaseTest() {
                 Thread.sleep(8)
             }
             state.offStateChange(observer)
+        }
+
+        job.start()
+        job2.start()
+    }
+
+    @Test
+    fun `Profile events observer concurrency test`() = runTest {
+        val observer: ProfileEventObserver = { _ -> Thread.sleep(6) }
+
+        state.onProfileEvent(observer)
+
+        val job = launch(Dispatchers.IO) {
+            state.createEvent(mockk(), mockk())
+        }
+
+        val job2 = launch(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
+                Thread.sleep(8)
+            }
+            state.offProfileEvent(observer)
         }
 
         job.start()

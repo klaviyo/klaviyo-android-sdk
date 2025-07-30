@@ -1,8 +1,8 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.networking.ApiClient
-import com.klaviyo.analytics.networking.ProfileEventObserver
+import com.klaviyo.analytics.state.ProfileEventObserver
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 
 /**
@@ -11,11 +11,11 @@ import com.klaviyo.core.Registry
 internal class FormsProfileEventObserver : JsBridgeObserver, ProfileEventObserver {
 
     override fun startObserver() {
-        Registry.get<ApiClient>().onProfileEvent(this)
+        Registry.get<State>().onProfileEvent(this)
     }
 
     override fun stopObserver() {
-        Registry.get<ApiClient>().offProfileEvent(this)
+        Registry.get<State>().offProfileEvent(this)
     }
 
     override fun invoke(event: Event) {
