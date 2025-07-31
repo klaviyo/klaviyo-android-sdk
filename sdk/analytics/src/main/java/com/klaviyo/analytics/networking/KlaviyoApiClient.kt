@@ -12,12 +12,17 @@ import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
+import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
+import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
+import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import java.util.Collections
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -85,6 +90,34 @@ internal object KlaviyoApiClient : ApiClient {
 
         if (event.metric == EventMetric.OPENED_PUSH) {
             flushQueue()
+        }
+    }
+
+    /**
+     * Resolve the destination URL for a click track request
+     */
+    override fun resolveDestinationUrl(
+        trackingUrl: String,
+        profile: Profile,
+        callback: ResolveDestinationCallback
+    ) {
+        CoroutineScope(Registry.dispatcher).launch {
+            UniversalClickTrackRequest(trackingUrl, profile).apply {
+                // Send the network request (and notify observers)
+                sendAndBroadcast()
+
+                // Get the result of the request
+                val result = getResult()
+
+                // Invoke the callback with the result (and notify observers)
+                broadcastApiRequest(this)
+                callback(result)
+
+                // If the result is not successful, enqueue the request to be retried later
+                if (result !is ResolveDestinationResult.Success) {
+                    enqueueRequest(prepareToEnqueue())
+                }
+            }
         }
     }
 
@@ -382,7 +415,7 @@ internal object KlaviyoApiClient : ApiClient {
         }
     }
 
-    private fun KlaviyoApiRequest.sendAndBroadcast(): KlaviyoApiRequest.Status = send {
+    private fun KlaviyoApiRequest.sendAndBroadcast(): Status = send {
         broadcastApiRequest(this)
     }
 }
