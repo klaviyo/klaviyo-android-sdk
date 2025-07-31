@@ -1,5 +1,6 @@
 package com.klaviyo.forms.bridge
 
+import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.webview.JavaScriptEvaluator
@@ -14,7 +15,8 @@ internal class KlaviyoJsBridge : JsBridge {
         profileMutation,
         lifecycleEvent,
         openForm,
-        closeForm
+        closeForm,
+        profileEvent
     }
 
     override val handshake: List<HandshakeSpec> = listOf(
@@ -28,6 +30,10 @@ internal class KlaviyoJsBridge : JsBridge {
         ),
         HandshakeSpec(
             type = HelperFunction.closeForm.name,
+            version = 1
+        ),
+        HandshakeSpec(
+            type = HelperFunction.profileEvent.name,
             version = 1
         )
     )
@@ -53,6 +59,12 @@ internal class KlaviyoJsBridge : JsBridge {
     override fun lifecycleEvent(type: JsBridge.LifecycleEventType) = evaluateJavascript(
         HelperFunction.lifecycleEvent,
         type.name
+    )
+
+    override fun profileEvent(event: Event) = evaluateJavascript(
+        HelperFunction.profileEvent,
+        event.metric.name,
+        event.toString()
     )
 
     /**

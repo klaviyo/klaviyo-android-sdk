@@ -1,5 +1,6 @@
 package com.klaviyo.forms.bridge
 
+import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.ImmutableProfile
 
 typealias FormId = String
@@ -44,4 +45,10 @@ internal interface JsBridge {
      * If no ID provided, close any currently open forms.
      */
     fun closeForm(formId: FormId?)
+
+    /**
+     * Dispatch profile events for onsite JS package to consume
+     *
+     */
+    fun profileEvent(event: Event)
 }

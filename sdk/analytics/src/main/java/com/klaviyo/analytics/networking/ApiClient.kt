@@ -58,6 +58,8 @@ interface ApiClient {
 
     /**
      * Queue an API request to track an [Event] to Klaviyo for a [Profile]
+     * Note: Calling this directly will result in events not being broadcasted to Forms. This
+     * is used in 'Trigger By Event' situations
      *
      * @param event
      * @param profile
