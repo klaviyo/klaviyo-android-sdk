@@ -1,5 +1,6 @@
 package com.klaviyo.forms.bridge
 
+import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.ImmutableProfile
 
 typealias FormId = String
@@ -49,4 +50,10 @@ internal interface JsBridge {
      * Injects safe area insets into the webview
      */
     fun setSafeArea(left: Float, top: Float, right: Float, bottom: Float)
+
+    /**
+     * Dispatch profile events for onsite JS package to consume
+     *
+     */
+    fun profileEvent(event: Event)
 }

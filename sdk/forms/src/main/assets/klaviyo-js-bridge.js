@@ -50,10 +50,10 @@ window.lifecycleEvent = function (type) {
  * @param metric - The metric of the event
  * @param strProperties - Properties of the event as a JSON string
  */
-window.analyticsEvent = function (metric, strProperties) {
+window.profileEvent = function (metric, strProperties) {
     document.head.dispatchEvent(
         new CustomEvent(
-            'analyticsEvent',
+            'profileEvent',
             {
                 detail: {
                     metric: metric,

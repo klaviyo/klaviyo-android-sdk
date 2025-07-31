@@ -1,5 +1,7 @@
 package com.klaviyo.forms.bridge
 
+import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
@@ -29,9 +31,35 @@ class KlaviyoJsBridgeTest : BaseTest() {
     fun `compileJson returns correct JSON for supported functions`() {
         val expectedJson = KlaviyoJsBridge().handshake.compileJson()
         val actualJson = """
-           [{"type":"profileMutation","version":1},{"type":"lifecycleEvent","version":1},{"type":"closeForm","version":1}]
+           [{"type":"profileMutation","version":1},{"type":"lifecycleEvent","version":1},{"type":"closeForm","version":1},{"type":"profileEvent","version":1}]
         """.trimIndent()
         assertEquals(actualJson, expectedJson)
+    }
+
+    @Test
+    fun `profileEvent calls JS evaluator with correct JS`() {
+        val testEvent = Event(
+            metric = "Fate Sealed",
+            properties = mapOf(
+                EventKey.CUSTOM("name") to "Anna Karenina",
+                EventKey.CUSTOM("location") to "Saint Petersburg"
+            )
+        )
+
+        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
+            secondArg<(Boolean) -> Unit>().invoke(true)
+        }
+
+        bridge.profileEvent(testEvent)
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                eq(
+                    """window.profileEvent("Fate Sealed","{"name":"Anna Karenina","location":"Saint Petersburg"}")"""
+                ),
+                any()
+            )
+        }
     }
 
     @Test

@@ -1,10 +1,13 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import java.io.Serializable
 
 typealias StateChangeObserver = (change: StateChange) -> Unit
+
+typealias ProfileEventObserver = (event: Event) -> Unit
 
 interface State {
     var apiKey: String?
@@ -53,4 +56,16 @@ interface State {
      * Clear user's attributes from internal state, leaving profile identifiers intact
      */
     fun resetAttributes()
+
+    fun createEvent(event: Event, profile: Profile)
+
+    /**
+     * Register an observer to be notified when a profile event is sent
+     */
+    fun onProfileEvent(observer: ProfileEventObserver)
+
+    /**
+     * De-register an observer from [onProfileEvent]
+     */
+    fun offProfileEvent(observer: ProfileEventObserver)
 }
