@@ -61,6 +61,7 @@ internal class UniversalClickTrackRequest(
         } ?: ResolveDestinationResult.Failure
 
         Status.Unsent, Status.Inflight -> ResolveDestinationResult.Unavailable
+
         else -> ResolveDestinationResult.Failure
     }
 
