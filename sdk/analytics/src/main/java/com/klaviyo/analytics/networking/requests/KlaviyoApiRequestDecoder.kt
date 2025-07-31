@@ -1,5 +1,7 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Companion.URL_JSON_KEY
+import com.klaviyo.core.Registry
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -31,6 +33,7 @@ internal object KlaviyoApiRequestDecoder {
             AggregateEventApiRequest::class.simpleName -> AggregateEventApiRequest(time, uuid)
             else -> KlaviyoApiRequest(urlPath, method, time, uuid)
         }.apply {
+            baseUrl = json.optString(URL_JSON_KEY, Registry.config.baseUrl)
             headers.replaceAllWith(
                 json.getJSONObject(KlaviyoApiRequest.HEADERS_JSON_KEY).let {
                     it.keys().asSequence().associateWith { k -> it.getString(k) }.toMap()

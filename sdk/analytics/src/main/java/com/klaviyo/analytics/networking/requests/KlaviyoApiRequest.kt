@@ -71,6 +71,7 @@ internal open class KlaviyoApiRequest(
         const val METHOD_JSON_KEY = "method"
         const val TIME_JSON_KEY = "time"
         const val UUID_JSON_KEY = "uuid"
+        const val URL_JSON_KEY = "base_url"
         const val HEADERS_JSON_KEY = "headers"
         const val QUERY_JSON_KEY = "query"
         const val BODY_JSON_KEY = "body"
@@ -140,17 +141,18 @@ internal open class KlaviyoApiRequest(
      * Tracks number of attempts to limit retries
      */
     final override var attempts = 0
-        private set(value) {
+        protected set(value) {
             field = value
             headers[HEADER_KLAVIYO_ATTEMPT] = "$value/${Registry.config.networkMaxAttempts}"
         }
+
+    override var baseUrl: String = Registry.config.baseUrl
 
     /**
      * Compiles the base url, path and query data into a [URL] object
      */
     override val url: URL
         get() {
-            val baseUrl = Registry.config.baseUrl
             val queryMap = query.map { (key, value) -> "$key=$value" }
             val queryString = queryMap.joinToString(separator = "&")
 
@@ -262,6 +264,7 @@ internal open class KlaviyoApiRequest(
         .accumulate(METHOD_JSON_KEY, method.name)
         .accumulate(TIME_JSON_KEY, queuedTime)
         .accumulate(UUID_JSON_KEY, uuid)
+        .accumulate(URL_JSON_KEY, baseUrl)
         .accumulate(HEADERS_JSON_KEY, JSONObject(headers as Map<String, String>))
         .accumulate(QUERY_JSON_KEY, JSONObject(query))
         .accumulate(BODY_JSON_KEY, body)

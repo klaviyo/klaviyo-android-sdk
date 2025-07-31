@@ -15,7 +15,7 @@ import org.junit.Test
 
 internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
 
-    override val expectedUrl = "client/events/"
+    override val expectedPath = "client/events"
 
     private val stubEvent: Event = Event(EventMetric.CUSTOM("Test Event"))
 
