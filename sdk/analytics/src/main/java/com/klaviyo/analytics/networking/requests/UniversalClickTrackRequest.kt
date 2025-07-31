@@ -55,14 +55,13 @@ internal class UniversalClickTrackRequest(
     /**
      * Get the result of the request as a [ResolveDestinationResult]
      */
-    fun getResult(): ResolveDestinationResult {
-        return when (status) {
-            Status.Complete -> destinationUrl?.let { destinationUrl ->
-                ResolveDestinationResult.Success(destinationUrl)
-            } ?: ResolveDestinationResult.Failure
-            Status.Unsent, Status.Inflight -> ResolveDestinationResult.Unavailable
-            else -> ResolveDestinationResult.Failure
-        }
+    fun getResult() = when (status) {
+        Status.Complete -> destinationUrl?.let { destinationUrl ->
+            ResolveDestinationResult.Success(destinationUrl)
+        } ?: ResolveDestinationResult.Failure
+
+        Status.Unsent, Status.Inflight -> ResolveDestinationResult.Unavailable
+        else -> ResolveDestinationResult.Failure
     }
 
     /**
