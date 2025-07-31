@@ -3,13 +3,17 @@ package com.klaviyo.analytics.networking.requests
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
+import io.mockk.every
+import java.net.URL
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
 
 internal abstract class BaseApiRequestTest<T> : BaseTest() where T : KlaviyoApiRequest {
 
-    abstract val expectedUrl: String
+    abstract val expectedPath: String
+
+    open val expectedUrl: URL get() = URL("${mockConfig.baseUrl}/$expectedPath?company_id=$API_KEY")
 
     open val expectedMethod = RequestMethod.POST
 
@@ -40,7 +44,16 @@ internal abstract class BaseApiRequestTest<T> : BaseTest() where T : KlaviyoApiR
 
     @Test
     fun `Uses expected URL`() {
-        Assert.assertEquals(expectedUrl, makeTestRequest().urlPath)
+        Assert.assertEquals(expectedUrl.toString(), makeTestRequest().url.toString())
+    }
+
+    @Test
+    fun `Uses expected URL after encoding and decoding even if base url has changed`() {
+        val requestJson = makeTestRequest().toJson()
+        val expectedUrl = expectedUrl
+        every { mockConfig.baseUrl } returns "https://test-two.fake-klaviyo.com"
+        val revivedRequest = KlaviyoApiRequestDecoder.fromJson(requestJson)
+        Assert.assertEquals(expectedUrl.toString(), revivedRequest.url.toString())
     }
 
     @Test

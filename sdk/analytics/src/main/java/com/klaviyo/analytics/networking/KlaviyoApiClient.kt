@@ -136,9 +136,11 @@ internal object KlaviyoApiClient : ApiClient {
                     "${request.type} Request failed with code ${request.responseCode}, and will be retried up to $attemptsRemaining more times."
                 )
             }
+
             Status.Complete -> Registry.log.verbose(
                 "${request.type} Request succeeded with code ${request.responseCode}"
             )
+
             else -> Registry.log.error(
                 "${request.type} Request failed with code ${request.responseCode}, and will be dropped"
             )
@@ -328,12 +330,13 @@ internal object KlaviyoApiClient : ApiClient {
             while (apiQueue.isNotEmpty()) {
                 val request = apiQueue.poll()
 
-                when (request?.send { broadcastApiRequest(request) }) {
+                when (request?.sendAndBroadcast()) {
                     Status.Unsent -> {
                         // Incomplete state: put it back on the queue and break out of serial queue
                         apiQueue.offerFirst(request)
                         break
                     }
+
                     Status.Complete, Status.Failed -> {
                         // On success or absolute failure, remove from queue and persistent store
                         Registry.dataStore.clear(request.uuid)
@@ -341,6 +344,7 @@ internal object KlaviyoApiClient : ApiClient {
                         flushInterval = Registry.config.networkFlushIntervals[networkType]
                         broadcastApiRequest(request)
                     }
+
                     Status.PendingRetry -> {
                         // Encountered a retryable error
                         // Put this back on top of the queue, and we'll try again with backoff
@@ -353,6 +357,7 @@ internal object KlaviyoApiClient : ApiClient {
                     Status.Inflight -> Registry.log.wtf(
                         "Request state was not updated from Inflight"
                     )
+
                     null -> Registry.log.wtf("Queue contains an empty request")
                 }
             }
@@ -375,5 +380,9 @@ internal object KlaviyoApiClient : ApiClient {
             enqueuedTime = Registry.clock.currentTimeMillis()
             handler?.postDelayed(this, flushInterval)
         }
+    }
+
+    private fun KlaviyoApiRequest.sendAndBroadcast(): KlaviyoApiRequest.Status = send {
+        broadcastApiRequest(this)
     }
 }
