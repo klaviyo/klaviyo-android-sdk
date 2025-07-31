@@ -8,7 +8,8 @@ internal class KlaviyoObserverCollection : JsBridgeObserverCollection {
         listOf(
             CompanyObserver(),
             LifecycleObserver(),
-            ProfileObserver()
+            ProfileObserver(),
+            FormsProfileEventObserver()
         )
     }
 }

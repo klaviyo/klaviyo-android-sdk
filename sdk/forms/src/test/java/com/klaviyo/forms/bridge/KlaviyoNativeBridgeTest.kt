@@ -263,7 +263,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         // required steps to the profile event
         verify { mockState.getAsProfile() }
         val slot = slot<Event>()
-        verify { mockApiClient.enqueueEvent(capture(slot), any()) }
+        verify { mockState.createEvent(capture(slot), any()) }
         assertEquals(expectedMetric, slot.captured.metric)
     }
 
