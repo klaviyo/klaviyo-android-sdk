@@ -31,6 +31,7 @@ internal object KlaviyoApiRequestDecoder {
                 uuid
             )
             AggregateEventApiRequest::class.simpleName -> AggregateEventApiRequest(time, uuid)
+            UniversalClickTrackRequest::class.simpleName -> UniversalClickTrackRequest(time, uuid)
             else -> KlaviyoApiRequest(urlPath, method, time, uuid)
         }.apply {
             baseUrl = json.optString(URL_JSON_KEY, Registry.config.baseUrl)
