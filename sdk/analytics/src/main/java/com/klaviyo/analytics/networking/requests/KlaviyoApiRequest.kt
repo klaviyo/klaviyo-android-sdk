@@ -156,11 +156,13 @@ internal open class KlaviyoApiRequest(
             val queryMap = query.map { (key, value) -> "$key=$value" }
             val queryString = queryMap.joinToString(separator = "&")
 
-            return if (queryString.isEmpty()) {
-                URL("$baseUrl/$urlPath")
-            } else {
-                URL("$baseUrl/$urlPath?$queryString")
-            }
+            return URL(
+                baseUrl
+                    .plus("/$urlPath")
+                    .trimEnd('/')
+                    .plus("?$queryString")
+                    .trimEnd('?')
+            )
         }
 
     /**
