@@ -17,6 +17,7 @@ import com.klaviyo.core.utils.KlaviyoThreadHelper
 import com.klaviyo.core.utils.ThreadHelper
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
+import kotlinx.coroutines.Dispatchers
 
 class MissingConfig : KlaviyoException("Klaviyo SDK accessed before initializing")
 class MissingRegistration(type: KType) : KlaviyoException("No service registered for $type")
@@ -46,6 +47,11 @@ object Registry {
      * @throws [MissingConfig] if uninitialized
      */
     val config: Config get() = get()
+
+    /**
+     * Coroutine dispatcher for background tasks
+     */
+    val dispatcher by lazy { Dispatchers.IO }
 
     /**
      * Access to [Config.Builder] for registering new or updated SDK configuration

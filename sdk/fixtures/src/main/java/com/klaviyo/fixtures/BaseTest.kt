@@ -22,6 +22,7 @@ import io.mockk.unmockkObject
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -123,10 +124,13 @@ abstract class BaseTest {
         }
     }
 
+    val dispatcher = StandardTestDispatcher()
+
     @Before
     open fun setup() {
         // Mock Registry by default to encourage unit tests to be decoupled from other services
         mockkObject(Registry)
+        every { Registry.dispatcher } returns dispatcher
         every { Registry.config } returns mockConfig
         every { Registry.lifecycleMonitor } returns mockLifecycleMonitor
         every { Registry.networkMonitor } returns mockNetworkMonitor

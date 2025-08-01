@@ -55,7 +55,7 @@ internal class UniversalClickTrackRequest(
     /**
      * Get the result of the request as a [ResolveDestinationResult]
      */
-    fun getResult() = when (status) {
+    fun getResult(): ResolveDestinationResult = when (status) {
         Status.Complete -> destinationUrl?.let { destinationUrl ->
             ResolveDestinationResult.Success(destinationUrl)
         } ?: ResolveDestinationResult.Failure
@@ -63,6 +63,12 @@ internal class UniversalClickTrackRequest(
         Status.Unsent, Status.Inflight -> ResolveDestinationResult.Unavailable
 
         else -> ResolveDestinationResult.Failure
+    }.also { result ->
+        if (result is ResolveDestinationResult.Success) {
+            Registry.log.verbose("Resolved destination URL: ${result.destinationUrl}")
+        } else {
+            Registry.log.warning("Failed to resolve destination URL for $baseUrl.")
+        }
     }
 
     /**
