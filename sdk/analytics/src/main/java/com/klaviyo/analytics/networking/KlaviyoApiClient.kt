@@ -114,7 +114,7 @@ internal object KlaviyoApiClient : ApiClient {
                 callback(result)
 
                 // If the result is not successful, enqueue the request to be retried later
-                if (result !is ResolveDestinationResult.Success) {
+                if (result is ResolveDestinationResult.Unavailable) {
                     enqueueRequest(prepareToEnqueue())
                 }
             }
