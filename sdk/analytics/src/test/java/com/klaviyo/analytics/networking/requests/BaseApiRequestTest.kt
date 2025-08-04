@@ -71,6 +71,10 @@ internal abstract class BaseApiRequestTest<T> : BaseTest() where T : KlaviyoApiR
         Assert.assertEquals(expectedQuery, makeTestRequest().query)
     }
 
+    /**
+     * Tests that the request can be serialized to JSON and then revived to the same type.
+     * Because the type must be reified, this function must be called from the subclass.
+     */
     inline fun <reified T> testJsonInterop(request: T) where T : KlaviyoApiRequest {
         val requestJson = request.toJson()
         val revivedRequest = KlaviyoApiRequestDecoder.fromJson(requestJson)
