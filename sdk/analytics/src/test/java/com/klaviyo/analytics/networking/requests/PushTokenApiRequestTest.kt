@@ -8,7 +8,7 @@ import org.junit.Test
 
 internal class PushTokenApiRequestTest : BaseApiRequestTest<PushTokenApiRequest>() {
 
-    override val expectedUrl = "client/push-tokens"
+    override val expectedPath = "client/push-tokens"
 
     override fun makeTestRequest(): PushTokenApiRequest =
         PushTokenApiRequest(PUSH_TOKEN, stubProfile)

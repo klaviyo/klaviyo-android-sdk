@@ -22,13 +22,15 @@ dependencies {
     //Depends upon core interfaces for mocking/fixtures
     implementation project(":sdk:core")
     implementation project(":sdk:analytics")
+    implementation KotlinX.coroutines.core
 
     /***** Testing Dependencies *****/
     api Testing.junit4
     api AndroidX.test.runner
     api AndroidX.test.rules
-    // Mocking Dependencies
+    api KotlinX.coroutines.test
     api Testing.mockK
+
     // JSON is bundled with the Android SDK so we need real objects to test against
     api "org.json:json:_"
 }

@@ -8,6 +8,8 @@ import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.RequestMethod
+import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
+import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.buildEventMetaData
 import com.klaviyo.analytics.networking.requests.buildMetaData
 import com.klaviyo.core.DeviceProperties
@@ -36,6 +38,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -745,5 +748,115 @@ internal class KlaviyoApiClientTest : BaseTest() {
         } catch (e: NullPointerException) {
             fail("NullPointerException was thrown: ${e.message}")
         }
+    }
+
+    private val trackingUrl = "https://klaviyo.com/track?id=123"
+    private val profile = Profile().setAnonymousId(ANON_ID)
+    private val mockHeaders = spyk<MutableMap<String, String>>()
+
+    /**
+     * Utility function to set up common mocks for resolveDestinationUrl tests
+     */
+    private fun setupResolveDestinationUrlTest(
+        requestStatus: KlaviyoApiRequest.Status,
+        destinationUrl: URL? = null
+    ) {
+        val expectedResponse = if (destinationUrl is URL) {
+            ResolveDestinationResult.Success(destinationUrl)
+        } else if (requestStatus == KlaviyoApiRequest.Status.Unsent) {
+            ResolveDestinationResult.Unavailable
+        } else {
+            ResolveDestinationResult.Failure
+        }
+
+        mockkConstructor(UniversalClickTrackRequest::class)
+        every { anyConstructed<UniversalClickTrackRequest>().uuid } returns "mock_resolve_destination_uuid"
+        every { anyConstructed<UniversalClickTrackRequest>().send(any()) } returns requestStatus
+        every { anyConstructed<UniversalClickTrackRequest>().getResult() } returns expectedResponse
+        every { anyConstructed<UniversalClickTrackRequest>().headers } returns mockHeaders
+        every { anyConstructed<UniversalClickTrackRequest>().prepareToEnqueue() } answers {
+            this.callOriginal()
+        }
+    }
+
+    private fun verifyEnqueuedClickTrack(inverse: Boolean = false) = if (inverse) {
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        verify(inverse = true) { anyConstructed<UniversalClickTrackRequest>().prepareToEnqueue() }
+    } else {
+        verify { anyConstructed<UniversalClickTrackRequest>().prepareToEnqueue() }
+        val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
+        assertEquals("[\"mock_resolve_destination_uuid\"]", actualQueue)
+    }
+
+    private fun executeResolveDestinationUrl(testScheduler: TestCoroutineScheduler): ResolveDestinationResult? {
+        var callbackResult: ResolveDestinationResult? = null
+
+        KlaviyoApiClient.resolveDestinationUrl(trackingUrl, profile) { result ->
+            callbackResult = result
+        }
+
+        // Wait for coroutine to complete
+        testScheduler.advanceUntilIdle()
+
+        return callbackResult
+    }
+
+    @Test
+    fun `resolveDestinationUrl invokes callback with Success when request succeeds`() = runTest(
+        dispatcher
+    ) {
+        val destinationUrl = URL("https://example.com/destination")
+        setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Complete, destinationUrl)
+
+        assertEquals(
+            ResolveDestinationResult.Success(destinationUrl),
+            executeResolveDestinationUrl(testScheduler)
+        )
+        verifyEnqueuedClickTrack(inverse = true)
+
+        unmockkConstructor(UniversalClickTrackRequest::class)
+    }
+
+    @Test
+    fun `resolveDestinationUrl invokes callback with Unavailable and enqueues request when offline`() =
+        runTest(dispatcher) {
+            setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Unsent)
+
+            assertEquals(
+                ResolveDestinationResult.Unavailable,
+                executeResolveDestinationUrl(testScheduler)
+            )
+            verifyEnqueuedClickTrack()
+
+            unmockkConstructor(UniversalClickTrackRequest::class)
+        }
+
+    @Test
+    fun `resolveDestinationUrl invokes callback with Failure when request fails`() = runTest(
+        dispatcher
+    ) {
+        setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed)
+
+        assertEquals(ResolveDestinationResult.Failure, executeResolveDestinationUrl(testScheduler))
+        verifyEnqueuedClickTrack(inverse = true)
+
+        unmockkConstructor(UniversalClickTrackRequest::class)
+    }
+
+    @Test
+    fun `resolveDestinationUrl creates UniversalClickTrackRequest with correct parameters`() = runTest(
+        dispatcher
+    ) {
+        setupResolveDestinationUrlTest(
+            KlaviyoApiRequest.Status.Complete,
+            URL("https://example.com")
+        )
+
+        executeResolveDestinationUrl(testScheduler)
+
+        verify { anyConstructed<UniversalClickTrackRequest>().baseUrl = trackingUrl }
+        verify { mockHeaders.put(any(), any()) }
+
+        unmockkConstructor(UniversalClickTrackRequest::class)
     }
 }

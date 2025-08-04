@@ -43,7 +43,12 @@ interface ApiRequest {
     val endTime: Long?
 
     /**
-     * URL of the request, omitting query string
+     * Base URL of the request
+     */
+    val baseUrl: String
+
+    /**
+     * Full URL of the request
      */
     val url: URL
 
