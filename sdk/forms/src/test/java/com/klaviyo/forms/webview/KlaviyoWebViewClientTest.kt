@@ -125,6 +125,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         every { anyConstructed<KlaviyoWebView>().webViewClient = any() } just runs
         every { anyConstructed<KlaviyoWebView>().visibility = any() } just runs
         every { anyConstructed<KlaviyoWebView>().parent } returns mockParentView
+        every { anyConstructed<KlaviyoWebView>().setOnApplyWindowInsetsListener(any()) } just runs
         every { anyConstructed<KlaviyoWebView>().destroy() } just runs
         every {
             anyConstructed<KlaviyoWebView>().loadDataWithBaseURL(
