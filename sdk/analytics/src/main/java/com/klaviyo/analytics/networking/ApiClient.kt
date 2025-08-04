@@ -4,6 +4,7 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
+import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
 
 typealias ApiObserver = (request: ApiRequest) -> Unit
 
@@ -65,6 +66,21 @@ interface ApiClient {
      * @param profile
      */
     fun enqueueEvent(event: Event, profile: Profile)
+
+    /**
+     * Resolve a destination URL from a tracking URL
+     *
+     * Makes an immediate network request to resolve a destination URL from the provided click-tracking URL.
+     *
+     * @param trackingUrl URL to the click tracking endpoint
+     * @param profile Profile to include in the request
+     * @param callback Listener to receive success or failure callbacks
+     */
+    fun resolveDestinationUrl(
+        trackingUrl: String,
+        profile: Profile,
+        callback: ResolveDestinationCallback
+    )
 
     /**
      * Register an observer to be notified when an API request is enqueued or changes state
