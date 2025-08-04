@@ -19,7 +19,7 @@ internal class UniversalClickTrackRequest(
         const val DESTINATION_URL_KEY = "original_destination"
     }
 
-    override var type: String = "Universal Link"
+    override val type: String = "Universal Link"
 
     /**
      * Use [baseUrl] to capture whole tracking URL on this request type
