@@ -3,6 +3,7 @@ package com.klaviyo.core.config
 import android.content.Intent
 import android.net.Uri
 import com.klaviyo.core.Registry
+import com.klaviyo.core.lifecycle.runWithCurrentOrNextActivity
 
 typealias DeepLinkHandler = (url: Uri) -> Unit
 

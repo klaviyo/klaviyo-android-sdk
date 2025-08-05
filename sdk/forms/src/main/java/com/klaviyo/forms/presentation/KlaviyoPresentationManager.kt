@@ -3,6 +3,7 @@ package com.klaviyo.forms.presentation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.lifecycle.runWithCurrentOrNextActivity
 import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf

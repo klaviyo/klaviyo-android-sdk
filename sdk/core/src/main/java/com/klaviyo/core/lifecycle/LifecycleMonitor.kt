@@ -100,40 +100,6 @@ interface LifecycleMonitor {
     fun offActivityEvent(observer: ActivityObserver)
 
     /**
-     * Helper function to run a task immediately if there is a current activity,
-     * or wait for the next resumed activity if resumed within the optional timeout.
-     * Returns a token that can be used to cancel the pending task if needed.
-     */
-    fun runWithCurrentOrNextActivity(
-        timeout: Long? = null,
-        job: (activity: Activity) -> Unit
-    ): Clock.Cancellable? {
-        currentActivity?.let { activity ->
-            job(activity)
-            return null
-        }
-
-        var observer: ActivityObserver? = null
-        val cancelToken: Clock.Cancellable? = timeout?.let { delay ->
-            Registry.clock.schedule(delay) {
-                Registry.log.verbose("Removing postponed observer after timeout ${delay}ms")
-                observer?.let { offActivityEvent(it) }
-            }
-        }
-        observer = { event ->
-            event.takeIf<ActivityEvent.Resumed>()?.let { event ->
-                Registry.log.verbose("Invoking postponed observer on resume")
-                job(event.activity)
-                observer?.let { offActivityEvent(it) }
-                cancelToken?.cancel()
-            }
-        }
-        onActivityEvent(observer)
-
-        return cancelToken
-    }
-
-    /**
      * Explicitly sets the current activity.
      * Intended for use in advanced scenarios where [LifecycleMonitor] cannot capture
      * an activity's [com.klaviyo.core.lifecycle.ActivityEvent.Started] event.
@@ -148,4 +114,38 @@ interface LifecycleMonitor {
      */
     @AdvancedAPI
     fun assignCurrentActivity(activity: Activity)
+}
+
+/**
+ * Helper function to run a task immediately if there is a current activity,
+ * or wait for the next resumed activity if resumed within the optional timeout.
+ * Returns a token that can be used to cancel the pending task if needed.
+ */
+fun LifecycleMonitor.runWithCurrentOrNextActivity(
+    timeout: Long? = null,
+    job: (activity: Activity) -> Unit
+): Clock.Cancellable? {
+    currentActivity?.let { activity ->
+        job(activity)
+        return null
+    }
+
+    var observer: ActivityObserver? = null
+    val cancelToken: Clock.Cancellable? = timeout?.let { delay ->
+        Registry.clock.schedule(delay) {
+            Registry.log.verbose("Removing postponed observer after timeout ${delay}ms")
+            observer?.let { offActivityEvent(it) }
+        }
+    }
+    observer = { event ->
+        event.takeIf<ActivityEvent.Resumed>()?.let { event ->
+            Registry.log.verbose("Invoking postponed observer on resume")
+            job(event.activity)
+            observer?.let { offActivityEvent(it) }
+            cancelToken?.cancel()
+        }
+    }
+    onActivityEvent(observer)
+
+    return cancelToken
 }
