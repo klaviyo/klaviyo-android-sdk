@@ -23,6 +23,7 @@ import org.junit.Test
 
 class KlaviyoPresentationManagerTest : BaseTest() {
     private val slotOnActivityEvent = slot<ActivityObserver>()
+    private val slotJob = slot<(activity: Activity) -> Unit>()
     private val mockWebViewClient = mockk<WebViewClient>(relaxed = true)
     private val mockOverlayActivity: Activity = mockk<KlaviyoFormsOverlayActivity>(relaxed = true)
     private val mockLaunchIntent = mockk<Intent>(relaxed = true)
@@ -34,6 +35,15 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         }
 
         every { mockLifecycleMonitor.onActivityEvent(capture(slotOnActivityEvent)) } just runs
+        every {
+            mockLifecycleMonitor.runWithCurrentOrNextActivity(
+                InAppFormsConfig.DEFAULT_SESSION_TIMEOUT.inWholeMilliseconds,
+                capture(slotJob)
+            )
+        } answers {
+            slotJob.captured.invoke(mockActivity)
+            null
+        }
         every { mockContext.startActivity(mockLaunchIntent) } just runs
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<InAppFormsConfig>(InAppFormsConfig())
@@ -232,40 +242,5 @@ class KlaviyoPresentationManagerTest : BaseTest() {
             PresentationState.Hidden,
             manager.presentationState
         )
-    }
-
-    @Test
-    fun `postpones presenting a form till the app is in the foreground`() {
-        // When app is backgrounded, there's no current activity
-        every { mockLifecycleMonitor.currentActivity } returns null
-
-        KlaviyoPresentationManager().present("formId")
-
-        verify(exactly = 0) { mockContext.startActivity(mockLaunchIntent) }
-
-        verify(exactly = 0) { mockActivity.startActivity(any()) }
-        assert(slotOnActivityEvent.isCaptured) { "Lifecycle listener should be captured" }
-
-        staticClock.execute(10)
-        slotOnActivityEvent.captured.invoke(ActivityEvent.Resumed(mockActivity))
-        verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
-    }
-
-    @Test
-    fun `a postponed form expires on session timeout`() {
-        // When app is backgrounded, there's no current activity
-        every { mockLifecycleMonitor.currentActivity } returns null
-
-        KlaviyoPresentationManager().present("formId")
-
-        verify(exactly = 0) { mockContext.startActivity(mockLaunchIntent) }
-
-        verify(exactly = 0) { mockActivity.startActivity(any()) }
-        assert(slotOnActivityEvent.isCaptured) { "Lifecycle listener should be captured" }
-
-        staticClock.execute(InAppFormsConfig.DEFAULT_SESSION_TIMEOUT)
-
-        // Postponed job should have been offed
-        verify { mockLifecycleMonitor.offActivityEvent(slotOnActivityEvent.captured) }
     }
 }
