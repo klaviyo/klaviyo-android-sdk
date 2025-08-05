@@ -112,7 +112,7 @@ object Klaviyo {
      * When registered, this takes the place of the default SDK behavior, which is to broadcast
      * an Intent with the deep link URL back to the host application.
      */
-    fun registerDeepLinkHandler(handler: DeepLinkHandler) {
+    fun registerDeepLinkHandler(handler: DeepLinkHandler) = safeApply {
         Registry.register<DeepLinkHandler>(handler)
     }
 
