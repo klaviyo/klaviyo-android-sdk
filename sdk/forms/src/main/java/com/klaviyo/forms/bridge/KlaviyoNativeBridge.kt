@@ -1,6 +1,5 @@
 package com.klaviyo.forms.bridge
 
-import android.content.Intent
 import android.net.Uri
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -11,8 +10,16 @@ import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.handleDeepLink
+import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
+import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
+import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear
+import com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook
+import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
+import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
+import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
+import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
 import com.klaviyo.forms.presentation.PresentationManager
-import com.klaviyo.forms.presentation.runWithCurrentOrNextActivity
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 
@@ -58,14 +65,14 @@ internal class KlaviyoNativeBridge() : NativeBridge {
         try {
             Registry.log.debug("JS interface postMessage $message")
             when (val bridgeMessage = NativeBridgeMessage.decodeWebviewMessage(message)) {
-                NativeBridgeMessage.JsReady -> jsReady()
-                NativeBridgeMessage.HandShook -> handShook()
-                is NativeBridgeMessage.FormWillAppear -> show(bridgeMessage)
-                is NativeBridgeMessage.TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
-                is NativeBridgeMessage.TrackProfileEvent -> createProfileEvent(bridgeMessage)
-                is NativeBridgeMessage.OpenDeepLink -> deepLink(bridgeMessage)
-                is NativeBridgeMessage.FormDisappeared -> close()
-                is NativeBridgeMessage.Abort -> abort(bridgeMessage.reason)
+                JsReady -> jsReady()
+                HandShook -> handShook()
+                is FormWillAppear -> show(bridgeMessage)
+                is TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
+                is TrackProfileEvent -> createProfileEvent(bridgeMessage)
+                is OpenDeepLink -> deepLink(bridgeMessage)
+                is FormDisappeared -> close()
+                is Abort -> abort(bridgeMessage.reason)
             }
         } catch (e: Exception) {
             Registry.log.error("Failed to relay webview message: $message", e)
@@ -85,39 +92,29 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     /**
      * Notify the client that the webview should be shown
      */
-    private fun show(bridgeMessage: NativeBridgeMessage.FormWillAppear) = Registry.get<PresentationManager>()
+    private fun show(bridgeMessage: FormWillAppear) = Registry.get<PresentationManager>()
         .present(bridgeMessage.formId)
 
     /**
-     * Handle a [NativeBridgeMessage.TrackAggregateEvent] message by creating an API call
+     * Handle a [TrackAggregateEvent] message by creating an API call
      */
-    private fun createAggregateEvent(message: NativeBridgeMessage.TrackAggregateEvent) =
+    private fun createAggregateEvent(message: TrackAggregateEvent) =
         Registry.get<ApiClient>().enqueueAggregateEvent(message.payload)
 
     /**
-     * Handle a [NativeBridgeMessage.TrackProfileEvent] message by creating an API call
+     * Handle a [TrackProfileEvent] message by creating an API call
      */
-    private fun createProfileEvent(message: NativeBridgeMessage.TrackProfileEvent) =
+    private fun createProfileEvent(message: TrackProfileEvent) =
         Klaviyo.createEvent(message.event)
 
     /**
-     * Handle a [NativeBridgeMessage.OpenDeepLink] message by broadcasting an intent to the host app
+     * Handle a [OpenDeepLink] message by broadcasting an intent to the host app
      * similar to how we handle deep links from a notification
      *
      * There is a brief window between our overlay activity pausing and the next activity resuming.
      * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
-    private fun deepLink(messageType: NativeBridgeMessage.OpenDeepLink) =
-        Registry.lifecycleMonitor.runWithCurrentOrNextActivity(ACTIVITY_TRANSITION_GRACE_PERIOD) { activity ->
-            activity.startActivity(
-                Intent().apply {
-                    data = messageType.route.toUri()
-                    action = Intent.ACTION_VIEW
-                    `package` = Registry.config.applicationContext.packageName
-                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
-            )
-        }
+    private fun deepLink(message: OpenDeepLink) = handleDeepLink(message.route.toUri())
 
     /**
      * Instruct presentation manager to dismiss the form overlay activity
@@ -125,17 +122,9 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     private fun close() = Registry.get<PresentationManager>().dismiss()
 
     /**
-     * Handle a [NativeBridgeMessage.Abort] message by logging the reason and destroying the webview
+     * Handle a [Abort] message by logging the reason and destroying the webview
      */
     private fun abort(reason: String) = Klaviyo.unregisterFromInAppForms().also {
         Registry.log.error("IAF aborted, reason: $reason")
-    }
-
-    private companion object {
-        /**
-         * Allow a brief grace period for transitions between activities
-         * In testing, this was rarely exceeded 10ms, allowing some extra time for safety.
-         */
-        private const val ACTIVITY_TRANSITION_GRACE_PERIOD = 50L
     }
 }
