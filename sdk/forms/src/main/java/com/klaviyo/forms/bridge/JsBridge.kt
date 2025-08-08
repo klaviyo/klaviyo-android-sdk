@@ -44,4 +44,9 @@ internal interface JsBridge {
      * If no ID provided, close any currently open forms.
      */
     fun closeForm(formId: FormId?)
+
+    /**
+     * Injects safe area insets into the webview
+     */
+    fun setSafeArea(left: Float, top: Float, right: Float, bottom: Float)
 }

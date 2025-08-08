@@ -105,6 +105,14 @@ window.closeForm = function (formId) {
     return true
 }
 
+window.setSafeArea = function(left, top, right, bottom) {
+    document.documentElement.style.setProperty('--safe-area-inset-left', left + 'px');
+    document.documentElement.style.setProperty('--safe-area-inset-top', top + 'px');
+    document.documentElement.style.setProperty('--safe-area-inset-right', right + 'px');
+    document.documentElement.style.setProperty('--safe-area-inset-bottom', bottom + 'px');
+    return true;
+ }
+
 // Notify the SDK over the native bridge that these local JS scripts are initialized
 var bridgeName = document.head.getAttribute("data-native-bridge-name") || ""
 
