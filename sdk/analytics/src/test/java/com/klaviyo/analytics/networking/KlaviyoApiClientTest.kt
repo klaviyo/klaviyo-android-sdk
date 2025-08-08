@@ -762,11 +762,11 @@ internal class KlaviyoApiClientTest : BaseTest() {
         destinationUrl: URL? = null
     ) {
         val expectedResponse = if (destinationUrl is URL) {
-            ResolveDestinationResult.Success(destinationUrl)
+            ResolveDestinationResult.Success(destinationUrl, trackingUrl)
         } else if (requestStatus == KlaviyoApiRequest.Status.Unsent) {
-            ResolveDestinationResult.Unavailable
+            ResolveDestinationResult.Unavailable(trackingUrl)
         } else {
-            ResolveDestinationResult.Failure
+            ResolveDestinationResult.Failure(trackingUrl)
         }
 
         mockkConstructor(UniversalClickTrackRequest::class)
@@ -808,10 +808,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
         val destinationUrl = URL("https://example.com/destination")
         setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Complete, destinationUrl)
 
-        assertEquals(
-            ResolveDestinationResult.Success(destinationUrl),
-            executeResolveDestinationUrl(testScheduler)
-        )
+        val result = executeResolveDestinationUrl(testScheduler)
+        assert(result is ResolveDestinationResult.Success)
+        assertEquals(destinationUrl, (result as ResolveDestinationResult.Success).destinationUrl)
         verifyEnqueuedClickTrack(inverse = true)
 
         unmockkConstructor(UniversalClickTrackRequest::class)
@@ -822,9 +821,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
         runTest(dispatcher) {
             setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Unsent)
 
-            assertEquals(
-                ResolveDestinationResult.Unavailable,
-                executeResolveDestinationUrl(testScheduler)
+            assert(
+                executeResolveDestinationUrl(testScheduler) is ResolveDestinationResult.Unavailable
             )
             verifyEnqueuedClickTrack()
 
@@ -837,26 +835,27 @@ internal class KlaviyoApiClientTest : BaseTest() {
     ) {
         setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed)
 
-        assertEquals(ResolveDestinationResult.Failure, executeResolveDestinationUrl(testScheduler))
+        assert(executeResolveDestinationUrl(testScheduler) is ResolveDestinationResult.Failure)
         verifyEnqueuedClickTrack(inverse = true)
 
         unmockkConstructor(UniversalClickTrackRequest::class)
     }
 
     @Test
-    fun `resolveDestinationUrl creates UniversalClickTrackRequest with correct parameters`() = runTest(
-        dispatcher
-    ) {
-        setupResolveDestinationUrlTest(
-            KlaviyoApiRequest.Status.Complete,
-            URL("https://example.com")
-        )
+    fun `resolveDestinationUrl creates UniversalClickTrackRequest with correct parameters`() =
+        runTest(
+            dispatcher
+        ) {
+            setupResolveDestinationUrlTest(
+                KlaviyoApiRequest.Status.Complete,
+                URL("https://example.com")
+            )
 
-        executeResolveDestinationUrl(testScheduler)
+            executeResolveDestinationUrl(testScheduler)
 
-        verify { anyConstructed<UniversalClickTrackRequest>().baseUrl = trackingUrl }
-        verify { mockHeaders.put(any(), any()) }
+            verify { anyConstructed<UniversalClickTrackRequest>().baseUrl = trackingUrl }
+            verify { mockHeaders.put(any(), any()) }
 
-        unmockkConstructor(UniversalClickTrackRequest::class)
-    }
+            unmockkConstructor(UniversalClickTrackRequest::class)
+        }
 }
