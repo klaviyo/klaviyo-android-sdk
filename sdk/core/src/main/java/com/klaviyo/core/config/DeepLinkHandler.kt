@@ -2,33 +2,45 @@ package com.klaviyo.core.config
 
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import com.klaviyo.core.Registry
+import java.net.URL
 
-typealias DeepLinkHandler = (url: Uri) -> Unit
+typealias DeepLinkHandler = (uri: Uri) -> Unit
 
-/**
- * Allow a brief grace period for transitions between activities
- * In testing, this was rarely exceeded 10ms, allowing some extra time for safety.
- */
-private const val ACTIVITY_TRANSITION_GRACE_PERIOD = 50L
+object DeepLinking {
+    /**
+     * Allow a brief grace period for transitions between activities
+     * In testing, this was rarely exceeded 10ms, allowing some extra time for safety.
+     */
+    private const val ACTIVITY_TRANSITION_GRACE_PERIOD = 50L
 
-/**
- * Handle a deep link by invoking a registered [DeepLinkHandler] if available,
- * otherwise broadcast it as an intent to be handled by the host app's activity.
- *
- * @param uri The deep link URI to be handled by the host app
- */
-fun handleDeepLink(uri: Uri) = Registry.getOrNull<DeepLinkHandler>()?.invoke(uri) ?: run {
-    Registry.lifecycleMonitor.runWithCurrentOrNextActivity(ACTIVITY_TRANSITION_GRACE_PERIOD) { activity ->
-        activity.startActivity(
-            Intent().apply {
-                data = uri
-                action = Intent.ACTION_VIEW
-                `package` = Registry.config.applicationContext.packageName
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-        )
+    /**
+     * Handle a deep link by invoking a registered [DeepLinkHandler] if available,
+     * otherwise broadcast it as an intent to be handled by the host app's activity.
+     *
+     * @param uri The deep link URI to be handled by the host app
+     */
+    fun handleDeepLink(uri: Uri) = Registry.getOrNull<DeepLinkHandler>()?.invoke(uri) ?: run {
+        Registry.lifecycleMonitor.runWithCurrentOrNextActivity(ACTIVITY_TRANSITION_GRACE_PERIOD) { activity ->
+            activity.startActivity(
+                Intent().apply {
+                    data = uri
+                    action = Intent.ACTION_VIEW
+                    `package` = Registry.config.applicationContext.packageName
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+            )
+        }
     }
+
+    fun handleDeepLink(url: String) = try {
+        handleDeepLink(url.toUri())
+    } catch (e: Exception) {
+        Registry.log.error("Could not handle universal link: $url", e)
+    }
+
+    fun handleDeepLink(url: URL) = handleDeepLink(url.toString())
 }
 
 // idea: gradle plugin that generates the universal link intent filter if they give us a list klaviyo track domains

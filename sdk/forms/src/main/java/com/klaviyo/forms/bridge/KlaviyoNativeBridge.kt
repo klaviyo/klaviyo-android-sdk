@@ -10,7 +10,7 @@ import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.handleDeepLink
+import com.klaviyo.core.config.DeepLinking
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear
@@ -114,7 +114,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * There is a brief window between our overlay activity pausing and the next activity resuming.
      * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
-    private fun deepLink(message: OpenDeepLink) = handleDeepLink(message.route.toUri())
+    private fun deepLink(message: OpenDeepLink) = DeepLinking.handleDeepLink(message.route.toUri())
 
     /**
      * Instruct presentation manager to dismiss the form overlay activity

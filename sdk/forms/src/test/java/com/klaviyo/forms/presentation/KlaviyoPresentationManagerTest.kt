@@ -23,7 +23,6 @@ import org.junit.Test
 
 class KlaviyoPresentationManagerTest : BaseTest() {
     private val slotOnActivityEvent = slot<ActivityObserver>()
-    private val slotJob = slot<(activity: Activity) -> Unit>()
     private val mockWebViewClient = mockk<WebViewClient>(relaxed = true)
     private val mockOverlayActivity: Activity = mockk<KlaviyoFormsOverlayActivity>(relaxed = true)
     private val mockLaunchIntent = mockk<Intent>(relaxed = true)
@@ -33,17 +32,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         mockkObject(KlaviyoFormsOverlayActivity).apply {
             every { KlaviyoFormsOverlayActivity.launchIntent } returns mockLaunchIntent
         }
-
         every { mockLifecycleMonitor.onActivityEvent(capture(slotOnActivityEvent)) } just runs
-        every {
-            mockLifecycleMonitor.runWithCurrentOrNextActivity(
-                InAppFormsConfig.DEFAULT_SESSION_TIMEOUT.inWholeMilliseconds,
-                capture(slotJob)
-            )
-        } answers {
-            slotJob.captured.invoke(mockActivity)
-            null
-        }
         every { mockContext.startActivity(mockLaunchIntent) } just runs
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<InAppFormsConfig>(InAppFormsConfig())

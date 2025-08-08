@@ -1,6 +1,5 @@
 package com.klaviyo.forms.bridge
 
-import android.content.Intent
 import android.net.Uri
 import androidx.webkit.WebMessageCompat
 import com.klaviyo.analytics.Klaviyo
@@ -10,7 +9,7 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.handleDeepLink
+import com.klaviyo.core.config.DeepLinking
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -19,7 +18,7 @@ import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkConstructor
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.unmockkAll
@@ -42,10 +41,6 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     private val mockPresentationManager: PresentationManager = mockk(relaxed = true)
 
     private val mockUri = mockk<Uri>(relaxed = true)
-    private val uriSlot = slot<Uri>()
-    private val actionSlot = slot<String>()
-    private val packageSlot = slot<String>()
-    private val flagsSlot = slot<Int>()
 
     private lateinit var bridgeMessageHandler: KlaviyoNativeBridge
 
@@ -61,12 +56,6 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockUri
-
-        mockkConstructor(Intent::class)
-        every { anyConstructed<Intent>().setData(capture(uriSlot)) } returns mockk<Intent>()
-        every { anyConstructed<Intent>().setAction(capture(actionSlot)) } returns mockk<Intent>()
-        every { anyConstructed<Intent>().setPackage(capture(packageSlot)) } returns mockk<Intent>()
-        every { anyConstructed<Intent>().setFlags(capture(flagsSlot)) } returns mockk<Intent>()
 
         bridgeMessageHandler = KlaviyoNativeBridge()
     }
@@ -278,9 +267,10 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
          */
-        mockkStatic(::handleDeepLink)
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
         postMessage(deeplinkMessage)
-        verify { handleDeepLink(mockUri) }
+        verify { DeepLinking.handleDeepLink(mockUri) }
     }
 
     @Test
