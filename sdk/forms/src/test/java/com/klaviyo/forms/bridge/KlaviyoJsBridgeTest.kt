@@ -138,4 +138,20 @@ class KlaviyoJsBridgeTest : BaseTest() {
             )
         }
     }
+
+    @Test
+    fun `setSafeArea calls JS evaluator with correct JS`() {
+        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
+            secondArg<(Boolean) -> Unit>().invoke(true)
+        }
+
+        bridge.setSafeArea(10f, 20f, 30f, 40f)
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                eq("""window.setSafeArea("10.0","20.0","30.0","40.0")"""),
+                any()
+            )
+        }
+    }
 }

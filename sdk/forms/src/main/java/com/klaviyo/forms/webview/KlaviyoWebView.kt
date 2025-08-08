@@ -6,11 +6,17 @@ import android.graphics.Color
 import android.util.AttributeSet
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.core.util.TypedValueCompat.pxToDp
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat.Type.displayCutout
+import androidx.core.view.WindowInsetsCompat.Type.ime
+import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
+import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.NativeBridge
 
 /**
@@ -28,6 +34,7 @@ internal class KlaviyoWebView : WebView {
     fun loadTemplate(html: String, client: WebViewClient, bridge: NativeBridge) = configure()
         .apply { webViewClient = client }
         .addBridge(bridge)
+        .monitorSafeArea()
         .loadDataWithBaseURL(
             bridge.allowedOrigin.first(),
             html,
@@ -64,6 +71,30 @@ internal class KlaviyoWebView : WebView {
         } else {
             Registry.log.verbose("$WEB_MESSAGE_LISTENER Unsupported")
             addJavascriptInterface(bridge, bridge.name)
+        }
+    }
+
+    private fun monitorSafeArea() = apply {
+        ViewCompat.setOnApplyWindowInsetsListener(this) { myWebView, windowInsets ->
+            // Retrieve insets as raw pixels
+            val displayMetrics = myWebView.context.resources.displayMetrics
+            val safeDrawingInsets = windowInsets.getInsets(
+                systemBars() or displayCutout() or ime()
+            )
+
+            Registry.log.debug(
+                "Safe area insets: left=${safeDrawingInsets.left}, top=${safeDrawingInsets.top}, " +
+                    "right=${safeDrawingInsets.right}, bottom=${safeDrawingInsets.bottom}"
+            )
+            Registry.get<JsBridge>().setSafeArea(
+                // Convert raw pixels to density independent pixels
+                pxToDp(safeDrawingInsets.left.toFloat(), displayMetrics),
+                pxToDp(safeDrawingInsets.top.toFloat(), displayMetrics),
+                pxToDp(safeDrawingInsets.right.toFloat(), displayMetrics),
+                pxToDp(safeDrawingInsets.bottom.toFloat(), displayMetrics)
+            )
+
+            windowInsets
         }
     }
 }
