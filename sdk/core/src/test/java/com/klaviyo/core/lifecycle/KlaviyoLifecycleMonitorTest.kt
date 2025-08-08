@@ -164,4 +164,52 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         assertEquals(null, KlaviyoLifecycleMonitor.currentActivity)
         assertEquals(1, allStoppedCount)
     }
+
+    @OptIn(AdvancedAPI::class)
+    @Test
+    fun `runWithCurrentOrNextActivity runs with currentActivity`() {
+        val mockActivity: Activity = mockk()
+        KlaviyoLifecycleMonitor.assignCurrentActivity(mockActivity)
+        var called = false
+
+        KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
+            timeout = 100
+        ) { _ ->
+            called = true
+        }
+
+        assert(called) { "Callback should be called immediately" }
+    }
+
+    @Test
+    fun `runWithCurrentOrNextActivity waits for next activity if currentActivity is null`() {
+        var called = false
+
+        KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
+            timeout = 100
+        ) { _ ->
+            called = true
+        }
+
+        assert(!called) { "Callback should not be called yet" }
+        staticClock.execute(50)
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+        assert(called) { "Callback should be called after activity resumed" }
+    }
+
+    @Test
+    fun `runWithCurrentOrNextActivity fails if activity is not resumed within timeout`() {
+        var called = false
+
+        KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
+            timeout = 100
+        ) { _ ->
+            called = true
+        }
+
+        assert(!called) { "Callback should not be called yet" }
+        staticClock.execute(150)
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+        assert(!called) { "Callback should not be called if timed out" }
+    }
 }
