@@ -18,7 +18,6 @@ import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
-import com.klaviyo.core.config.DeepLinkHandler
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
@@ -101,19 +100,6 @@ object Klaviyo {
                 preInitQueue.poll()?.let { safeCall(null, it) }
             }
         }
-    }
-
-    /**
-     * Registers a [DeepLinkHandler] to be invoked whenever a deep link is opened, including:
-     * - When a Klaviyo push notification bearing a deep link is opened
-     * - When an In-App Form deep link action is triggered
-     * - When a Universal link with Klaviyo click-tracking is opened
-     *
-     * When registered, this takes the place of the default SDK behavior, which is to broadcast
-     * an Intent with the deep link URL back to the host application.
-     */
-    fun registerDeepLinkHandler(handler: DeepLinkHandler) = safeApply {
-        Registry.register<DeepLinkHandler>(handler)
     }
 
     /**

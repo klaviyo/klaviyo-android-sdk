@@ -15,7 +15,6 @@ import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
-import com.klaviyo.core.config.DeepLinkHandler
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -570,12 +569,5 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(spyState, Registry.get<State>())
         assertEquals(initialSideEffects, Registry.get<StateSideEffects>())
         verify(exactly = 1) { mockApiClient.onApiRequest(false, any()) }
-    }
-
-    @Test
-    fun `registering a deep link handler`() {
-        assertNull(null, Registry.getOrNull<DeepLinkHandler>())
-        Klaviyo.registerDeepLinkHandler() {}
-        assertNotNull(Registry.get<DeepLinkHandler>())
     }
 }
