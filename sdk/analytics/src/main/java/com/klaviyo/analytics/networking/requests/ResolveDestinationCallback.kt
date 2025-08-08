@@ -10,20 +10,22 @@ typealias ResolveDestinationCallback = (result: ResolveDestinationResult) -> Uni
 /**
  * Represents the result of resolving a destination URL from a tracking URL.
  */
-sealed class ResolveDestinationResult {
+sealed class ResolveDestinationResult(open val trackingUrl: String) {
     /**
      * Destination URL successfully resolved.
      */
-    data class Success(val destinationUrl: URL) : ResolveDestinationResult()
+    data class Success(val destinationUrl: URL, override val trackingUrl: String) : ResolveDestinationResult(
+        trackingUrl
+    )
 
     /**
      * Destination URL is not available, the device may be offline or the request has not been sent yet.
      */
-    data object Unavailable : ResolveDestinationResult()
+    data class Unavailable(override val trackingUrl: String) : ResolveDestinationResult(trackingUrl)
 
     /**
      * Fetching the destination URL has failed. This can happen if tracking URL has expired, the request failed,
      * or the server otherwise failed to respond with a valid destination URL.
      */
-    data object Failure : ResolveDestinationResult()
+    data class Failure(override val trackingUrl: String) : ResolveDestinationResult(trackingUrl)
 }
