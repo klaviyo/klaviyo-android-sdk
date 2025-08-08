@@ -148,4 +148,12 @@ interface LifecycleMonitor {
 
         return cancelToken
     }
+
+    companion object {
+        /**
+         * Allow a brief grace period for events triggered by transitions between activities
+         * In testing, this was rarely exceeds 10ms, allowing some extra time for safety.
+         */
+        const val ACTIVITY_TRANSITION_GRACE_PERIOD = 50L
+    }
 }

@@ -4,16 +4,12 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
 import com.klaviyo.core.Registry
+import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION_GRACE_PERIOD
 import java.net.URL
 
 typealias DeepLinkHandler = (uri: Uri) -> Unit
 
 object DeepLinking {
-    /**
-     * Allow a brief grace period for transitions between activities
-     * In testing, this was rarely exceeded 10ms, allowing some extra time for safety.
-     */
-    private const val ACTIVITY_TRANSITION_GRACE_PERIOD = 50L
 
     /**
      * Handle a deep link by invoking a registered [DeepLinkHandler] if available,
