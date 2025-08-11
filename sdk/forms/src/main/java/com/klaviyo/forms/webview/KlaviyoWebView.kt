@@ -8,8 +8,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.util.TypedValueCompat.pxToDp
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsCompat.Type.displayCutout
-import androidx.core.view.WindowInsetsCompat.Type.ime
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
@@ -25,6 +25,8 @@ import com.klaviyo.forms.bridge.NativeBridge
  */
 @SuppressLint("SetJavaScriptEnabled")
 internal class KlaviyoWebView : WebView {
+    private var isSafeAreaInsetsMonitored = false
+
     constructor(
         context: Context = Registry.config.applicationContext
     ) : super(context)
@@ -74,27 +76,35 @@ internal class KlaviyoWebView : WebView {
         }
     }
 
+    /**
+     * Monitors the safe area insets of the webview, which is used to ensure that the form is not
+     * obscured by system UI elements like the status bar, navigation bar, or display cutouts.
+     *
+     * A bug in webview implementation prevents us the use of CSS environment variables
+     * for safe area insets when loading the form prior to attaching it to the view hierarchy,
+     * so we need to monitor the insets and pass them to the JS bridge manually.
+     */
     private fun monitorSafeArea() = apply {
-        ViewCompat.setOnApplyWindowInsetsListener(this) { myWebView, windowInsets ->
-            // Retrieve insets as raw pixels
-            val displayMetrics = myWebView.context.resources.displayMetrics
-            val safeDrawingInsets = windowInsets.getInsets(
-                systemBars() or displayCutout() or ime()
-            )
+        if (!isSafeAreaInsetsMonitored) {
+            isSafeAreaInsetsMonitored = true
 
-            Registry.log.debug(
-                "Safe area insets: left=${safeDrawingInsets.left}, top=${safeDrawingInsets.top}, " +
-                    "right=${safeDrawingInsets.right}, bottom=${safeDrawingInsets.bottom}"
-            )
-            Registry.get<JsBridge>().setSafeArea(
-                // Convert raw pixels to density independent pixels
-                pxToDp(safeDrawingInsets.left.toFloat(), displayMetrics),
-                pxToDp(safeDrawingInsets.top.toFloat(), displayMetrics),
-                pxToDp(safeDrawingInsets.right.toFloat(), displayMetrics),
-                pxToDp(safeDrawingInsets.bottom.toFloat(), displayMetrics)
-            )
+            ViewCompat.setOnApplyWindowInsetsListener(this) { myWebView, windowInsets ->
+                // Retrieve insets as raw pixels
+                val displayMetrics = myWebView.context.resources.displayMetrics
+                val safeDrawingInsets = windowInsets.getInsets(
+                    systemBars() or displayCutout()
+                )
 
-            windowInsets
+                Registry.get<JsBridge>().setSafeArea(
+                    // Convert raw pixels to density independent pixels
+                    pxToDp(safeDrawingInsets.left.toFloat(), displayMetrics),
+                    pxToDp(safeDrawingInsets.top.toFloat(), displayMetrics),
+                    pxToDp(safeDrawingInsets.right.toFloat(), displayMetrics),
+                    pxToDp(safeDrawingInsets.bottom.toFloat(), displayMetrics)
+                )
+
+                WindowInsetsCompat.CONSUMED
+            }
         }
     }
 }
