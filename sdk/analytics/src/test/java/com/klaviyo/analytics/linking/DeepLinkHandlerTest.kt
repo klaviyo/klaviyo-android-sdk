@@ -1,4 +1,4 @@
-package com.klaviyo.core.config
+package com.klaviyo.analytics.linking
 
 import android.app.Activity
 import android.content.Intent

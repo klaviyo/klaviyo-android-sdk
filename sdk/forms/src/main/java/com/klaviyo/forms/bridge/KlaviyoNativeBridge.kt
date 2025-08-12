@@ -8,9 +8,9 @@ import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.DeepLinking
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear

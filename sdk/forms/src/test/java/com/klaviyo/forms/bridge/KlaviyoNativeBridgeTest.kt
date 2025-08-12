@@ -3,13 +3,13 @@ package com.klaviyo.forms.bridge
 import android.net.Uri
 import androidx.webkit.WebMessageCompat
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
-import com.klaviyo.core.config.DeepLinking
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
