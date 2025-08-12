@@ -19,8 +19,8 @@ import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
-import com.klaviyo.core.config.DeepLinkHandler
-import com.klaviyo.core.config.DeepLinking
+import com.klaviyo.analytics.linking.DeepLinkHandler
+import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
