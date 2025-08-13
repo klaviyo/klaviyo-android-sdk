@@ -1,18 +1,15 @@
 package com.klaviyo.forms.bridge
 
-import android.content.Intent
 import android.net.Uri
 import androidx.webkit.WebMessageCompat
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.state.State
-import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.Registry
-import com.klaviyo.core.lifecycle.ActivityEvent
-import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -20,11 +17,9 @@ import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
-import io.mockk.mockkConstructor
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
-import io.mockk.runs
 import io.mockk.slot
 import io.mockk.unmockkAll
 import io.mockk.verify
@@ -46,10 +41,6 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     private val mockPresentationManager: PresentationManager = mockk(relaxed = true)
 
     private val mockUri = mockk<Uri>(relaxed = true)
-    private val uriSlot = slot<Uri>()
-    private val actionSlot = slot<String>()
-    private val packageSlot = slot<String>()
-    private val flagsSlot = slot<Int>()
 
     private lateinit var bridgeMessageHandler: KlaviyoNativeBridge
 
@@ -65,12 +56,6 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockUri
-
-        mockkConstructor(Intent::class)
-        every { anyConstructed<Intent>().setData(capture(uriSlot)) } returns mockk<Intent>()
-        every { anyConstructed<Intent>().setAction(capture(actionSlot)) } returns mockk<Intent>()
-        every { anyConstructed<Intent>().setPackage(capture(packageSlot)) } returns mockk<Intent>()
-        every { anyConstructed<Intent>().setFlags(capture(flagsSlot)) } returns mockk<Intent>()
 
         bridgeMessageHandler = KlaviyoNativeBridge()
     }
@@ -277,56 +262,15 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         }
     """.trimIndent()
 
-    private fun verifyStartActivityWithDeepLink() {
-        verify { mockActivity.startActivity(any()) }
-        assertEquals(mockUri, uriSlot.captured)
-        assertEquals("android.intent.action.VIEW", actionSlot.captured)
-        assertEquals(BuildConfig.LIBRARY_PACKAGE_NAME, packageSlot.captured)
-        assertEquals(0x20000000, flagsSlot.captured)
-    }
-
     @Test
     fun `openDeepLink broadcasts intent to start activity`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
          */
-        every { mockLifecycleMonitor.currentActivity } returns mockActivity
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
         postMessage(deeplinkMessage)
-        verifyStartActivityWithDeepLink()
-    }
-
-    @Test
-    fun `openDeepLink waits for next activity currentActivity is null`() {
-        /**
-         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
-         */
-        val callbackSlot = slot<ActivityObserver>()
-        every { mockLifecycleMonitor.currentActivity } returns null
-        every { mockLifecycleMonitor.onActivityEvent(capture(callbackSlot)) } just runs
-
-        postMessage(deeplinkMessage)
-
-        verify(exactly = 0) { mockActivity.startActivity(any()) }
-        assert(callbackSlot.isCaptured) { "Lifecycle listener should be captured" }
-
-        staticClock.execute(10)
-        callbackSlot.captured.invoke(ActivityEvent.Resumed(mockActivity))
-        verifyStartActivityWithDeepLink()
-    }
-
-    @Test
-    fun `openDeepLink fails gracefully if no activity is available`() {
-        val callbackSlot = slot<ActivityObserver>()
-        every { mockLifecycleMonitor.currentActivity } returns null
-        every { mockLifecycleMonitor.onActivityEvent(capture(callbackSlot)) } just runs
-
-        postMessage(deeplinkMessage)
-
-        verify(exactly = 0) { mockActivity.startActivity(any()) }
-        assert(callbackSlot.isCaptured) { "Lifecycle listener should be captured" }
-
-        staticClock.execute(50)
-        verify(exactly = 0) { mockActivity.startActivity(any()) }
+        verify { DeepLinking.handleDeepLink(mockUri) }
     }
 
     @Test
