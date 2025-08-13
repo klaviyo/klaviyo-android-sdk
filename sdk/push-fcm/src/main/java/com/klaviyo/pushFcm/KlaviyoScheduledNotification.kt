@@ -18,7 +18,9 @@ object KlaviyoScheduledNotification {
         val tag: String,
         val data: Map<String, String>,
         val scheduledTime: Long
-    )
+    ) {
+        val scheduledTimeMillis: Long get() = scheduledTime
+    }
 
     /**
      * Store a notification for scheduled delivery
@@ -51,6 +53,9 @@ object KlaviyoScheduledNotification {
 
             // Store in shared preferences
             Registry.dataStore.store(getStorageKey(tag), json.toString())
+
+            // Add to list of all notifications
+            addToAllNotifications(tag)
 
             Registry.log.info(
                 "Stored scheduled notification with tag: $tag for time: ${Date(scheduledTime)}"
@@ -99,6 +104,7 @@ object KlaviyoScheduledNotification {
      */
     fun removeNotification(tag: String) {
         Registry.dataStore.clear(getStorageKey(tag))
+        removeFromAllNotifications(tag)
         Registry.log.verbose("Removed scheduled notification with tag: $tag")
     }
 
@@ -106,4 +112,58 @@ object KlaviyoScheduledNotification {
      * Get the storage key for a notification tag
      */
     private fun getStorageKey(tag: String) = "$STORAGE_KEY_PREFIX$tag"
+
+    // Key to store all notification tags
+    private const val ALL_NOTIFICATIONS_KEY = "klaviyo_all_scheduled_notifications"
+
+    /**
+     * Get all stored scheduled notifications
+     * * @return A map of notification tags to their associated data
+     */
+    fun getAllNotifications(): Map<String, NotificationData> {
+        val result = mutableMapOf<String, NotificationData>()
+
+        try {
+            // Get all notification tags from storage
+            val allTags = Registry.dataStore.fetch(ALL_NOTIFICATIONS_KEY)?.split(",") ?: emptyList()
+
+            allTags.forEach { tag ->
+                // Get the notification data
+                val notification = getNotification(tag)
+                if (notification != null) {
+                    result[tag] = notification
+                }
+            }
+        } catch (e: Exception) {
+            Registry.log.warning("Failed to retrieve all scheduled notifications", e)
+        }
+
+        return result
+    }
+
+    /**
+     * Update the list of all notification tags when storing a new notification
+     * * @param tag Notification tag to add
+     */
+    private fun addToAllNotifications(tag: String) {
+        val existingTags = Registry.dataStore.fetch(ALL_NOTIFICATIONS_KEY)?.split(",")?.toMutableList() ?: mutableListOf()
+
+        if (!existingTags.contains(tag)) {
+            existingTags.add(tag)
+            Registry.dataStore.store(ALL_NOTIFICATIONS_KEY, existingTags.joinToString(","))
+        }
+    }
+
+    /**
+     * Update the list of all notification tags when removing a notification
+     * * @param tag Notification tag to remove
+     */
+    private fun removeFromAllNotifications(tag: String) {
+        val existingTags = Registry.dataStore.fetch(ALL_NOTIFICATIONS_KEY)?.split(",")?.toMutableList() ?: mutableListOf()
+
+        if (existingTags.contains(tag)) {
+            existingTags.remove(tag)
+            Registry.dataStore.store(ALL_NOTIFICATIONS_KEY, existingTags.joinToString(","))
+        }
+    }
 }

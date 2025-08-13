@@ -1,7 +1,16 @@
 package com.klaviyo.pushFcm
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
 import androidx.work.Data
+import androidx.work.ForegroundInfo
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Worker
@@ -17,6 +26,54 @@ class KlaviyoScheduledNotificationWorker(
     private val appContext: Context,
     params: WorkerParameters
 ) : Worker(appContext, params) {
+
+    // Create a notification channel ID for the foreground service notification
+    private val NOTIFICATION_CHANNEL_ID = "klaviyo_scheduled_notifications_channel"
+    private val FOREGROUND_NOTIFICATION_ID = 1337
+
+    /**
+     * Set up foreground info for the worker to help ensure timely execution
+     * This is required for expedited work in newer Android versions
+     */
+    override fun getForegroundInfo(): ForegroundInfo {
+        return ForegroundInfo(
+            FOREGROUND_NOTIFICATION_ID,
+            createForegroundNotification()
+        )
+    }
+
+    /**
+     * Create a silent notification for the foreground service
+     * This is required for the worker to run with higher priority
+     */
+    private fun createForegroundNotification(): Notification {
+        // Create notification channel if needed (API 26+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Scheduled Notifications",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Used for scheduling Klaviyo notifications"
+                setSound(null, null)
+                enableVibration(false)
+            }
+
+            val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        // Create a silent notification for the foreground service
+        return NotificationCompat.Builder(appContext, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("Scheduling notifications")
+            .setContentText("Ensuring your notifications arrive on time")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSound(null)
+            .setVibrate(null)
+            .setSilent(true)
+            .build()
+    }
 
     companion object {
         private const val TAG_PREFIX = "klaviyo_scheduled_notification_"
@@ -64,9 +121,21 @@ class KlaviyoScheduledNotificationWorker(
                 .putString(KEY_NOTIFICATION_TAG, tag)
                 .build()
 
+            // Create constraints to ensure the work runs even when app is backgrounded
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+
+            // We can't use expedited work with a delay
             val workRequest = OneTimeWorkRequestBuilder<KlaviyoScheduledNotificationWorker>()
                 .setInputData(inputData)
                 .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
+                .setConstraints(constraints)
+                .setBackoffCriteria(
+                    BackoffPolicy.EXPONENTIAL,
+                    15, // minimum backoff delay in seconds
+                    TimeUnit.SECONDS
+                )
                 .addTag(getWorkTag(tag))
                 .build()
 
