@@ -17,6 +17,7 @@ import com.klaviyo.core.utils.ThreadHelper
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.unmockkObject
 import java.lang.reflect.Field
@@ -100,6 +101,17 @@ abstract class BaseTest {
         every { onActivityEvent(any()) } returns Unit
         every { offActivityEvent(any()) } returns Unit
         every { currentActivity } returns mockActivity
+
+        val slotJob = slot<(activity: Activity) -> Unit>()
+        every {
+            runWithCurrentOrNextActivity(
+                any(),
+                capture(slotJob)
+            )
+        } answers {
+            slotJob.captured.invoke(mockActivity)
+            null
+        }
     }
     protected val mockNetworkMonitor = mockk<NetworkMonitor>()
     protected val spyDataStore = spyk(InMemoryDataStore())
