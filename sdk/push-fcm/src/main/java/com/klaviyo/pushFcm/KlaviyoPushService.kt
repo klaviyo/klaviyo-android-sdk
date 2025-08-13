@@ -81,7 +81,8 @@ open class KlaviyoPushService : FirebaseMessagingService() {
      * [KlaviyoNotification.displayNotification]. Subclasses can override this method to customize
      * the handling of standard push notifications, such as modifying the display logic or performing
      * additional processing.
-     * * If the notification contains an [intended_send_time] field with a future timestamp,
+     *
+     * If the notification contains an `intended_send_time` field with a future timestamp,
      * the notification will be scheduled for display at that time instead of showing immediately.
      *
      * @param message The [RemoteMessage] object representing the received push notification.

@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
@@ -76,6 +77,32 @@ class KlaviyoNotification(private val message: RemoteMessage) {
          * NOTE: The FCM SDK also uses a timestamp to construct its integer IDs
          */
         private fun generateId() = Registry.clock.currentTimeMillis().toInt()
+
+        @AdvancedAPI
+        fun buildRemoteMessage(
+            title: String,
+            body: String,
+            intendedSendTime: String,
+            notificationTag: String
+        ): RemoteMessage {
+            // This is a sample method to demonstrate how to build a KlaviyoNotification
+            // In practice, you would receive a RemoteMessage from FCM
+            val messageData = hashMapOf(
+                TITLE_KEY to title,
+                BODY_KEY to body,
+                NOTIFICATION_TAG to notificationTag,
+                INTENDED_SEND_TIME_KEY to intendedSendTime,
+                "_k" to "test_key" // Required for Klaviyo messages
+            )
+
+            // Build the RemoteMessage
+            return RemoteMessage.Builder("test@example.com")
+                .apply {
+                    messageData.forEach { (key, value) ->
+                        addData(key, value)
+                    }
+                }.build()
+        }
     }
 
     /**

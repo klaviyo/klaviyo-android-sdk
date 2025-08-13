@@ -23,7 +23,14 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.unregisterFromInAppForms
+import com.klaviyo.pushFcm.KlaviyoNotification
+import com.klaviyo.pushFcm.KlaviyoPushService
 import com.klaviyo.sample.ui.theme.KlaviyoandroidsdkTheme
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
+import java.util.UUID
 
 class SampleActivity : ComponentActivity() {
     private val externalId = mutableStateOf(Klaviyo.getExternalId() ?: "")
@@ -55,6 +62,7 @@ class SampleActivity : ComponentActivity() {
                         registerForInAppForms = ::registerForInAppForms,
                         unregisterFromInAppForms = ::unregisterFromInAppForms,
                         requestPermission = ::askNotificationPermission,
+                        scheduleNotification = ::scheduleTestNotification,
                     )
                 }
             }
@@ -125,6 +133,52 @@ class SampleActivity : ComponentActivity() {
     fun registerForInAppForms() = Klaviyo.registerForInAppForms()
 
     fun unregisterFromInAppForms() = Klaviyo.unregisterFromInAppForms()
+
+    /**
+     * Creates and sends a test notification with an intended_send_time set to one minute in the future
+     * This demonstrates the scheduled notification feature without requiring server-side changes
+     */
+    private fun scheduleTestNotification() {
+        // Create a calendar instance set to 1 minute in the future, rounded to nearest minute
+        val calendar = Calendar.getInstance()
+        val currentMinute = calendar.get(Calendar.MINUTE)
+        calendar.set(Calendar.MINUTE, currentMinute + 1)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+
+        // Get the scheduled time in device timezone for display
+        val displayTime = calendar.time
+
+        // Format the time as ISO UTC datetime string
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        val intendedSendTime = dateFormat.format(displayTime)
+
+        // Generate a unique tag for the notification
+        val notificationTag = "test-" + UUID.randomUUID().toString()
+
+        // Format a readable time for the notification body
+        val readableTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(displayTime)
+
+        // Build the RemoteMessage
+        val remoteMessage = KlaviyoNotification.buildRemoteMessage(
+            title = "Scheduled Notification",
+            body = "This notification was scheduled to appear at $readableTime",
+            intendedSendTime = intendedSendTime,
+            notificationTag = notificationTag,
+        )
+
+        // Create a KlaviyoPushService instance and pass the message to it
+        val pushService = KlaviyoPushService()
+        pushService.onMessageReceived(remoteMessage)
+
+        Toast.makeText(
+            this,
+            "Scheduled notification for $readableTime",
+            Toast.LENGTH_LONG
+        ).show()
+    }
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),

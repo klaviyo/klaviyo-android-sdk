@@ -39,6 +39,7 @@ fun SampleView(
     registerForInAppForms: () -> Unit = {},
     unregisterFromInAppForms: () -> Unit = {},
     requestPermission: () -> Unit = {},
+    scheduleNotification: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
@@ -178,6 +179,17 @@ fun SampleView(
                 }
             }
         }
+        ViewRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (hasNotificationPermission.value) {
+                OutlinedButton(
+                    shape = CircleShape,
+                    onClick = scheduleNotification,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = "Schedule Notification (1 min)")
+                }
+            }
+        }
         ViewRow(horizontalArrangement = Arrangement.Start) {
             Text(text = "Push Token", style = MaterialTheme.typography.labelMedium)
         }
@@ -224,7 +236,7 @@ fun SamplePreviewFilled() {
             remember { mutableStateOf("profile@test.com") },
             remember { mutableStateOf("+1234567890") },
             remember { mutableStateOf("abcdefghijklmnopqrstuvwxyz1234567890") },
-            remember { mutableStateOf(false) },
+            remember { mutableStateOf(true) },
         )
     }
 }
