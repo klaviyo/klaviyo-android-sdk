@@ -183,20 +183,27 @@ object KlaviyoRemoteMessage {
     /**
      * Parse intended send time from payload if present
      * This is an ISO formatted UTC datetime string representing when the notification should be displayed
+     * * This checks both the direct data field and the keyValuePairs for the intended_send_time
      */
     val RemoteMessage.intendedSendTime: Date?
-        get() = this.data[KlaviyoNotification.INTENDED_SEND_TIME_KEY]?.let { timeString ->
-            try {
-                val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH).apply {
-                    timeZone = TimeZone.getTimeZone("UTC")
+        get() {
+            // First check direct data field
+            val timeString = this.data[KlaviyoNotification.INTENDED_SEND_TIME_KEY] // Then fallback to keyValuePairs if available
+                ?: this.keyValuePairs?.get(KlaviyoNotification.INTENDED_SEND_TIME_KEY)
+
+            return timeString?.let {
+                try {
+                    val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH).apply {
+                        timeZone = TimeZone.getTimeZone("UTC")
+                    }
+                    format.parse(timeString)
+                } catch (e: ParseException) {
+                    Registry.log.warning(
+                        "Klaviyo SDK failed to parse intended_send_time: $timeString",
+                        e
+                    )
+                    null
                 }
-                format.parse(timeString)
-            } catch (e: ParseException) {
-                Registry.log.warning(
-                    "Klaviyo SDK failed to parse intended_send_time: $timeString",
-                    e
-                )
-                null
             }
         }
 
