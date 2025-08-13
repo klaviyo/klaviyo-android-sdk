@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -21,7 +20,6 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_id
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_importance
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_name
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.clickAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.deepLink
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.getColor
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.getSmallIcon
@@ -58,7 +56,6 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val BODY_KEY = "body"
         internal const val URL_KEY = "url"
         internal const val IMAGE_KEY = "image_url"
-        internal const val CLICK_ACTION_KEY = "click_action"
         internal const val SOUND_KEY = "sound"
         internal const val COLOR_KEY = "color"
         internal const val NOTIFICATION_COUNT_KEY = "notification_count"
@@ -195,28 +192,12 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      *
      * @return [PendingIntent]
      */
-    private fun createIntent(context: Context): PendingIntent {
-        val pkgName = context.packageName
-
-        // Create intent to open the activity and/or deep link if specified
-        // Else fall back on the default launcher intent for the package
-        val action = message.clickAction?.let {
-            Intent().appendKlaviyoExtras(message).apply {
-                action = message.clickAction
-                data = message.deepLink
-                setPackage(pkgName)
-                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            }
-        } ?: context.packageManager.getLaunchIntentForPackage(pkgName)?.apply {
-            appendKlaviyoExtras(message)
-            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
-
-        return PendingIntent.getActivity(
-            context,
-            generateId(),
-            action,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
-        )
-    }
+    private fun createIntent(context: Context): PendingIntent = PendingIntent.getActivity(
+        context,
+        generateId(),
+        KlaviyoPushOpenMiddleware.getLaunchIntent(context, message.deepLink).appendKlaviyoExtras(
+            message
+        ),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
+    )
 }

@@ -9,5 +9,16 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Middleware activity that handles push notification opens -->
+        <activity
+            android:name="com.klaviyo.pushFcm.KlaviyoPushOpenMiddleware"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:taskAffinity="${applicationId}.klaviyo.deeplink"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
     </application>
 </manifest>
