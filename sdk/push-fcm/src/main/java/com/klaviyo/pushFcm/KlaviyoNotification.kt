@@ -65,6 +65,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val NOTIFICATION_PRIORITY = "notification_priority"
         internal const val NOTIFICATION_TAG = "notification_tag"
         internal const val KEY_VALUE_PAIRS_KEY = "key_value_pairs"
+        internal const val INTENDED_SEND_TIME_KEY = "intended_send_time"
         private const val DOWNLOAD_TIMEOUT_MS = 5_000
 
         /**

@@ -19,11 +19,29 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
 import java.net.URL
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import org.json.JSONObject
 
 /**
  * Extension functions for RemoteMessage
  * to provide convenient accessors to our data fields
+ *
+ * Example of a notification payload with scheduled delivery:
+ * ```
+ * {
+ *   "_k": "klaviyo-tracker-id",
+ *   "title": "Your notification title",
+ *   "body": "Your notification message",
+ *   "notification_tag": "unique-notification-id",
+ *   "intended_send_time": "2025-05-15T10:30:00Z"  // ISO formatted UTC datetime
+ * }
+ * ```
+ * * When `intended_send_time` is provided and represents a future time, the notification
+ * will be scheduled for display at that time instead of immediately.
  */
 object KlaviyoRemoteMessage {
 
@@ -160,6 +178,45 @@ object KlaviyoRemoteMessage {
                 )
                 null
             }
+        }
+
+    /**
+     * Parse intended send time from payload if present
+     * This is an ISO formatted UTC datetime string representing when the notification should be displayed
+     */
+    val RemoteMessage.intendedSendTime: Date?
+        get() = this.data[KlaviyoNotification.INTENDED_SEND_TIME_KEY]?.let { timeString ->
+            try {
+                val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }
+                format.parse(timeString)
+            } catch (e: ParseException) {
+                Registry.log.warning(
+                    "Klaviyo SDK failed to parse intended_send_time: $timeString",
+                    e
+                )
+                null
+            }
+        }
+
+    /**
+     * Determines if the notification should be scheduled for later display
+     * based on the presence and value of intended_send_time
+     */
+    val RemoteMessage.shouldSchedule: Boolean
+        get() {
+            val intendedTime = this.intendedSendTime
+            if (intendedTime == null) {
+                return false
+            }
+
+            // Add a small buffer (60 seconds) to account for processing time
+            val bufferTimeMillis = 60 * 1000L
+            val currentTime = Registry.clock.currentTimeMillis()
+
+            // Only schedule if intended time is in the future (with buffer)
+            return intendedTime.time > currentTime + bufferTimeMillis
         }
 
     /**

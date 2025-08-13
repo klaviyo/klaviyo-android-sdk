@@ -5,9 +5,12 @@ import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.hasKlaviyoKeyValuePairs
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.intendedSendTime
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.keyValuePairs
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationTag
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.shouldSchedule
 
 /**
  * Implementation of the FCM messaging service that runs when the parent application is started
@@ -15,6 +18,14 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.keyValuePairs
  *
  * If the parent application has their own FCM messaging service defined they need to ensure
  * that the implementation details of this service are carried over into their own
+ *
+ * This service supports scheduled notifications through the `intended_send_time` field in the
+ * notification payload. When this field is present with a future UTC datetime (ISO formatted string),
+ * the notification will be scheduled to appear at that time instead of immediately.
+ *
+ * The scheduling is handled by WorkManager to ensure reliability across app restarts and
+ * uses the notification's tag as a unique identifier. If no tag is provided, a timestamp
+ * will be used instead.
  */
 open class KlaviyoPushService : FirebaseMessagingService() {
 
@@ -70,11 +81,40 @@ open class KlaviyoPushService : FirebaseMessagingService() {
      * [KlaviyoNotification.displayNotification]. Subclasses can override this method to customize
      * the handling of standard push notifications, such as modifying the display logic or performing
      * additional processing.
+     * * If the notification contains an [intended_send_time] field with a future timestamp,
+     * the notification will be scheduled for display at that time instead of showing immediately.
      *
      * @param message The [RemoteMessage] object representing the received push notification.
      */
     open fun onKlaviyoNotificationMessageReceived(message: RemoteMessage) {
         Registry.log.info("Received standard push notification with RemoteMessage: $message")
+
+        // Check if the notification has an intended_send_time in the future
+        if (message.shouldSchedule) {
+            val tag = message.notificationTag ?: Registry.clock.currentTimeMillis().toString()
+            val scheduledTime = message.intendedSendTime?.time
+
+            if (scheduledTime != null) {
+                val scheduled = KlaviyoScheduledNotificationWorker.scheduleNotification(
+                    context = this,
+                    tag = tag,
+                    message = message,
+                    scheduledTimeMillis = scheduledTime
+                )
+
+                if (scheduled) {
+                    Registry.log.info(
+                        "Scheduled notification with tag: $tag for time: ${message.intendedSendTime}"
+                    )
+                    return
+                }
+
+                // If scheduling fails, fall back to immediate display
+                Registry.log.warning("Failed to schedule notification, displaying immediately")
+            }
+        }
+
+        // Display immediately if no scheduling needed or scheduling failed
         KlaviyoNotification(message).displayNotification(this)
     }
 
