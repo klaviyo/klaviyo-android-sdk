@@ -58,7 +58,7 @@ open class KlaviyoPushService : FirebaseMessagingService() {
         super.onMessageReceived(message)
 
         if (message.isKlaviyoMessage) {
-            if (message.isKlaviyoNotification) {
+            if (message.isKlaviyoNotification || message.shouldSchedule) {
                 onKlaviyoNotificationMessageReceived(message = message)
             }
             if (message.hasKlaviyoKeyValuePairs) {
