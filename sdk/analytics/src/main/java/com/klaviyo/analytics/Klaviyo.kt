@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import com.klaviyo.analytics.Klaviyo.initialize
 import com.klaviyo.analytics.Klaviyo.resetProfile
+import com.klaviyo.analytics.linking.DeepLinkHandler
+import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
@@ -12,6 +14,7 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
+import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
@@ -100,6 +103,19 @@ object Klaviyo {
                 preInitQueue.poll()?.let { safeCall(null, it) }
             }
         }
+    }
+
+    /**
+     * Registers a [DeepLinkHandler] to be invoked whenever a deep link is opened, including:
+     * - When a Klaviyo push notification bearing a deep link is opened
+     * - When an In-App Form deep link action is triggered
+     * - When a Universal link with Klaviyo click-tracking is opened
+     *
+     * When registered, this takes the place of the default SDK behavior, which is to broadcast
+     * an Intent with the deep link URL back to the host application.
+     */
+    fun registerDeepLinkHandler(handler: DeepLinkHandler) = safeApply {
+        Registry.register<DeepLinkHandler>(handler)
     }
 
     /**
@@ -290,6 +306,32 @@ object Klaviyo {
 
         Registry.log.verbose("Enqueuing ${event.metric.name} event")
         Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
+    }
+
+    /**
+     * Handles a universal link URL by resolving it to a destination URL asynchronously
+     * and invoking the registered [DeepLinkHandler] or sending the host application an [Intent]
+     */
+    fun handleUniversalLink(url: String) = safeApply {
+        val profile = Registry.get<State>().getAsProfile()
+
+        Registry.get<ApiClient>().resolveDestinationUrl(url, profile) { result ->
+            when (result) {
+                is ResolveDestinationResult.Success -> DeepLinking.handleDeepLink(
+                    result.destinationUrl
+                ).also {
+                    Registry.log.verbose("Resolved destination URL: ${result.destinationUrl}")
+                }
+
+                is ResolveDestinationResult.Unavailable -> Registry.log.warning(
+                    "Destination URL unavailable for ${result.trackingUrl}."
+                )
+
+                is ResolveDestinationResult.Failure -> Registry.log.error(
+                    "Failed to resolve destination URL for ${result.trackingUrl}."
+                )
+            }
+        }
     }
 
     /**
