@@ -20,7 +20,7 @@ internal class EventApiRequest(
 ) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     private companion object {
-        const val PATH = "client/events/"
+        const val PATH = "client/events"
         const val METRIC = "metric"
         const val NAME = "name"
         const val VALUE = "value"
