@@ -111,12 +111,16 @@ object KlaviyoRemoteMessage {
     /**
      * Parse notification title text
      */
-    val RemoteMessage.title: String? get() = this.data[KlaviyoNotification.TITLE_KEY]
+    val RemoteMessage.title: String? get() = this.data[KlaviyoNotification.TITLE_KEY] ?: keyValuePairs?.get(
+        KlaviyoNotification.TITLE_KEY
+    )
 
     /**
      * Parse notification body text
      */
-    val RemoteMessage.body: String? get() = this.data[KlaviyoNotification.BODY_KEY]
+    val RemoteMessage.body: String? get() = this.data[KlaviyoNotification.BODY_KEY] ?: keyValuePairs?.get(
+        KlaviyoNotification.BODY_KEY
+    )
 
     /**
      * Parse deep link into a [Uri] if present
