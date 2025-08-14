@@ -216,7 +216,7 @@ object KlaviyoRemoteMessage {
             val intendedTime = this.intendedSendTime ?: return false
 
             // Add a small buffer to account for processing time
-            val bufferTimeMillis = 10 * 1000L
+            val bufferTimeMillis = 1 * 1000L
             val currentTime = Registry.clock.currentTimeMillis()
 
             // Only schedule if intended time is in the future (with buffer)

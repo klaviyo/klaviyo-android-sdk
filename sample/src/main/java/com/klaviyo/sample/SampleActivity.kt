@@ -23,8 +23,7 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.unregisterFromInAppForms
-import com.klaviyo.pushFcm.KlaviyoNotification
-import com.klaviyo.pushFcm.KlaviyoPushService
+import com.klaviyo.pushFcm.KlaviyoAlarmScheduler
 import com.klaviyo.sample.ui.theme.KlaviyoandroidsdkTheme
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -148,34 +147,22 @@ class SampleActivity : ComponentActivity() {
 
         // Get the scheduled time in device timezone for display
         val displayTime = calendar.time
-
-        // Format the time as ISO UTC datetime string
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
-        val intendedSendTime = dateFormat.format(displayTime)
-
-        // Generate a unique tag for the notification
-        val notificationTag = "test-" + UUID.randomUUID().toString()
-
+        val scheduledTimeMillis = displayTime.time
+        
         // Format a readable time for the notification body
         val readableTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(displayTime)
 
-        // Build the RemoteMessage
-        val remoteMessage = KlaviyoNotification.buildRemoteMessage(
+        // Use the helper method to schedule the notification directly
+        val success = KlaviyoAlarmScheduler.scheduleTestNotification(
+            context = applicationContext,
             title = "Scheduled Notification",
             body = "This notification was scheduled to appear at $readableTime",
-            intendedSendTime = intendedSendTime,
-            notificationTag = notificationTag,
+            scheduledTimeMillis = scheduledTimeMillis
         )
-
-        // Create a KlaviyoPushService instance and pass the message to it
-        val pushService = KlaviyoPushService()
-        pushService.onMessageReceived(remoteMessage)
 
         Toast.makeText(
             this,
-            "Scheduled notification for $readableTime",
+            if (success) "Scheduled notification for $readableTime" else "Failed to schedule notification",
             Toast.LENGTH_LONG
         ).show()
     }

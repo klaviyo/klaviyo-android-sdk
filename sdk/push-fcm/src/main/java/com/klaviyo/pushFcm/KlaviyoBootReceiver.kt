@@ -9,7 +9,7 @@ import com.klaviyo.core.Registry
 /**
  * Broadcast receiver that handles device reboots and reschedules pending notifications
  * * This receiver is triggered when the device completes booting and ensures any
- * scheduled notifications that were persisted are re-scheduled with WorkManager.
+ * scheduled notifications that were persisted are re-scheduled with AlarmManager.
  */
 class KlaviyoBootReceiver : BroadcastReceiver() {
 
@@ -43,7 +43,7 @@ class KlaviyoBootReceiver : BroadcastReceiver() {
                 }.build()
 
                 // Re-schedule the notification
-                KlaviyoScheduledNotificationWorker.scheduleNotification(
+                KlaviyoAlarmScheduler.scheduleNotification(
                     context = context,
                     tag = tag,
                     message = message,

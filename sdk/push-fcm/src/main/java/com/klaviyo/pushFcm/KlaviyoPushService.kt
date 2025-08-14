@@ -23,7 +23,7 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.shouldSchedule
  * notification payload. When this field is present with a future UTC datetime (ISO formatted string),
  * the notification will be scheduled to appear at that time instead of immediately.
  *
- * The scheduling is handled by WorkManager to ensure reliability across app restarts and
+ * The scheduling is handled by AlarmManager for precise timing accuracy and
  * uses the notification's tag as a unique identifier. If no tag is provided, a timestamp
  * will be used instead.
  */
@@ -96,7 +96,7 @@ open class KlaviyoPushService : FirebaseMessagingService() {
             val scheduledTime = message.intendedSendTime?.time
 
             if (scheduledTime != null) {
-                val scheduled = KlaviyoScheduledNotificationWorker.scheduleNotification(
+                val scheduled = KlaviyoAlarmScheduler.scheduleNotification(
                     context = this,
                     tag = tag,
                     message = message,
