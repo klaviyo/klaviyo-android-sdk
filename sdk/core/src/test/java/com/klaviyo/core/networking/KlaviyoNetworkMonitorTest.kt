@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -17,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -54,6 +56,19 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
                 capture(netCallbackSlot)
             )
         } returns mockk()
+    }
+
+    @After
+    override fun cleanup() {
+        super.cleanup()
+        clearAllMocks()
+
+        // Reset KlaviyoNetworkMonitor's networkRequest to allow re-initialization in subsequent tests
+        val field = KlaviyoNetworkMonitor::class.java.getDeclaredField("networkRequest")
+        val originalAccessibility = field.isAccessible // Store original accessibility
+        field.isAccessible = true
+        field.set(KlaviyoNetworkMonitor, null) // Set the lateinit var's backing field to null
+        field.isAccessible = originalAccessibility // Restore original accessibility
     }
 
     @Test
@@ -198,7 +213,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         val exception = SecurityException("missing permission")
         every {
             connectivityManagerMock.requestNetwork(
-                any<NetworkRequest>(),
+                mockRequest,
                 any<ConnectivityManager.NetworkCallback>()
             )
         } throws exception
