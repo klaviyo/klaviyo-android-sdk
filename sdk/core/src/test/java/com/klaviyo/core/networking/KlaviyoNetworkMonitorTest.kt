@@ -192,4 +192,29 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         job.start()
         job2.start()
     }
+
+    @Test()
+    fun `Thrown network exception doesn't crash app`() {
+        val exception = SecurityException("missing permission")
+        every {
+            connectivityManagerMock.requestNetwork(
+                any<NetworkRequest>(),
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        } throws exception
+
+        var callCount = 0
+        val observer: NetworkObserver = {
+            callCount++
+        }
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
+
+        verify {
+            spyLog.warning(
+                "Failed to attach network monitor, degraded performance around requests may occur",
+                exception
+            )
+        }
+        assertEquals(callCount, 0)
+    }
 }
