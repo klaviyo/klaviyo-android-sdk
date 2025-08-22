@@ -14,7 +14,7 @@ when upgrading from 3.2.0-3.3.1, particularly if you were registering than once 
 - In versions 3.2.0-3.3.1, calling `registerForInAppForms()` functioned like a "fetch" that would check if a form was 
   available and if yes, display it. Version 4.0.0 changes this behavior so that `registerForInAppForms()` sets up a  
   persistent listener that will be ready to display a form if and when one is targeted to the current profile.
-- For better isolation between the library and host application, a form is now displayed in an Activity overlaid  
+- For better isolation between the library and host application, a form is now displayed in an Activity overlaid
   on the host application, instead of being attached to the view hierarchy of the host's activity.
 - A deep link from an In-App Form will now be issued *after* the form has closed, instead of during the close animation in order
   to prevent a race condition if the host application expects the form to be closed before handling the deep link.

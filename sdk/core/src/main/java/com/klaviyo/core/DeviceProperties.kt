@@ -39,7 +39,7 @@ object DeviceProperties {
     }
 
     val appVersion: String by lazy {
-        packageInfo.versionName
+        packageInfo.versionName ?: ""
     }
 
     val appVersionCode: String by lazy {
