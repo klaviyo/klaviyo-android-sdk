@@ -14,7 +14,8 @@ internal class KlaviyoJsBridge : JsBridge {
         profileMutation,
         lifecycleEvent,
         openForm,
-        closeForm
+        closeForm,
+        setSafeArea
     }
 
     override val handshake: List<HandshakeSpec> = listOf(
@@ -54,6 +55,15 @@ internal class KlaviyoJsBridge : JsBridge {
         HelperFunction.lifecycleEvent,
         type.name
     )
+
+    override fun setSafeArea(left: Float, top: Float, right: Float, bottom: Float) =
+        evaluateJavascript(
+            HelperFunction.setSafeArea,
+            left.toString(),
+            top.toString(),
+            right.toString(),
+            bottom.toString()
+        )
 
     /**
      * Evaluates a JS function in the webview with the given arguments
