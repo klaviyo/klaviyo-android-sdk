@@ -9,5 +9,9 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- This is an opt-in behavior for now, likely to become the default behavior in next major release -->
+        <meta-data android:name="com.klaviyo.push.automatic_open_tracking" android:value="false"/>
+
     </application>
 </manifest>
