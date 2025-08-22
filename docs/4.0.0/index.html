@@ -217,13 +217,13 @@
       <p class="paragraph">Identifiers are persisted to local storage so that the SDK can keep track of the current profile.</p>
       <p class="paragraph">Profile identifiers and other attributes can be set all at once using the <code class="lang-kotlin">Profile</code> data class:</p>
       <div class="sample-container">
-        <pre><code class="block lang-kotlin" theme="idea">val profile = Profile(<br>    externalId = &quot;USER_IDENTIFIER&quot;,<br>    email = &quot;kermit@example.com&quot;,<br>    phoneNumber = &quot;+12223334444&quot;,<br>    properties = mapOf(<br>        ProfileKey.FIRST_NAME to &quot;Kermit&quot;,<br>        ProfileKey.CUSTOM(&quot;instrument&quot;) to &quot;banjo&quot;<br>    )<br>)<br><br>Klaviyo.setProfile(profile)</code></pre>
+        <pre><code class="block lang-kotlin" theme="idea">val profile = Profile(<br>    externalId = &quot;USER_IDENTIFIER&quot;,<br>    email = &quot;kermit@klaviyo-demo.com&quot;,<br>    phoneNumber = &quot;+12223334444&quot;,<br>    properties = mapOf(<br>        ProfileKey.FIRST_NAME to &quot;Kermit&quot;,<br>        ProfileKey.CUSTOM(&quot;instrument&quot;) to &quot;banjo&quot;<br>    )<br>)<br><br>Klaviyo.setProfile(profile)</code></pre>
 <span class="top-right-position"><span class="copy-icon"></span>
           <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
         </span></div>
       <p class="paragraph">Or individually with additive fluent setters:</p>
       <div class="sample-container">
-        <pre><code class="block lang-kotlin" theme="idea">Klaviyo.setExternalId(&quot;USER_IDENTIFIER&quot;)<br>    .setEmail(&quot;kermit@example.com&quot;)<br>    .setPhoneNumber(&quot;+12223334444&quot;)<br>    .setProfileAttribute(ProfileKey.FIRST_NAME, &quot;Kermit&quot;)<br>    .setProfileAttribute(ProfileKey.CUSTOM(&quot;instrument&quot;), &quot;banjo&quot;)</code></pre>
+        <pre><code class="block lang-kotlin" theme="idea">Klaviyo.setExternalId(&quot;USER_IDENTIFIER&quot;)<br>    .setEmail(&quot;kermit@klaviyo-demo.com&quot;)<br>    .setPhoneNumber(&quot;+12223334444&quot;)<br>    .setProfileAttribute(ProfileKey.FIRST_NAME, &quot;Kermit&quot;)<br>    .setProfileAttribute(ProfileKey.CUSTOM(&quot;instrument&quot;), &quot;banjo&quot;)</code></pre>
 <span class="top-right-position"><span class="copy-icon"></span>
           <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
         </span></div>
@@ -231,7 +231,7 @@
       <h3 class=""> Reset Profile</h3>
       <p class="paragraph">To start a <i>new</i> profile altogether (e.g. if a user logs out) either call <code class="lang-kotlin">Klaviyo.resetProfile()</code> to clear the currently tracked profile identifiers (e.g. on logout), or use <code class="lang-kotlin">Klaviyo.setProfile(profile)</code> to overwrite it with a new profile object.</p>
       <div class="sample-container">
-        <pre><code class="block lang-kotlin" theme="idea">// Start a profile for Kermit<br>Klaviyo.setEmail(&quot;kermit@example.com&quot;)<br>    .setPhoneNumber(&quot;+12223334444&quot;)<br>    .setProfileAttribute(ProfileKey.FIRST_NAME, &quot;Kermit&quot;)<br><br>// Stop tracking Kermit<br>Klaviyo.resetProfile()<br><br>// Start a new profile for Robin<br>Klaviyo.setEmail(&quot;robin@example.com&quot;)<br>    .setPhoneNumber(&quot;+5556667777&quot;)<br>    .setProfileAttribute(ProfileKey.FIRST_NAME, &quot;Robin&quot;)</code></pre>
+        <pre><code class="block lang-kotlin" theme="idea">// Start a profile for Kermit<br>Klaviyo.setEmail(&quot;kermit@klaviyo-demo.com&quot;)<br>    .setPhoneNumber(&quot;+12223334444&quot;)<br>    .setProfileAttribute(ProfileKey.FIRST_NAME, &quot;Kermit&quot;)<br><br>// Stop tracking Kermit<br>Klaviyo.resetProfile()<br><br>// Start a new profile for Robin<br>Klaviyo.setEmail(&quot;robin@klaviyo-demo.com&quot;)<br>    .setPhoneNumber(&quot;+5556667777&quot;)<br>    .setProfileAttribute(ProfileKey.FIRST_NAME, &quot;Robin&quot;)</code></pre>
 <span class="top-right-position"><span class="copy-icon"></span>
           <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
         </span></div>
