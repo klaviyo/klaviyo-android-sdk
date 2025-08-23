@@ -23,7 +23,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.klaviyo.sample.ui.theme.KlaviyoandroidsdkTheme
+import com.klaviyo.sample.ui.theme.KlaviyoAndroidSdkTheme
 
 @Composable
 fun SampleView(
@@ -204,7 +204,7 @@ private fun ViewRow(
 @Preview(showBackground = true)
 @Composable
 fun SamplePreviewEmpty() {
-    KlaviyoandroidsdkTheme {
+    KlaviyoAndroidSdkTheme {
         SampleView(
             remember { mutableStateOf("") },
             remember { mutableStateOf("") },
@@ -218,7 +218,7 @@ fun SamplePreviewEmpty() {
 @Preview(showBackground = true)
 @Composable
 fun SamplePreviewFilled() {
-    KlaviyoandroidsdkTheme {
+    KlaviyoAndroidSdkTheme {
         SampleView(
             remember { mutableStateOf("ABC123") },
             remember { mutableStateOf("profile@test.com") },
