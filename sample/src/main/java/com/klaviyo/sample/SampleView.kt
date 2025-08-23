@@ -23,6 +23,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import com.klaviyo.sample.ui.theme.KlaviyoAndroidSdkTheme
 
 @Composable
@@ -41,7 +44,10 @@ fun SampleView(
     requestPermission: () -> Unit = {},
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.systemBars)
+            .verticalScroll(rememberScrollState())
     ) {
         val focusManager = LocalFocusManager.current
         val keyboardActions = KeyboardActions(
