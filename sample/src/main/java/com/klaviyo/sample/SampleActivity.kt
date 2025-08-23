@@ -9,14 +9,25 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Modifier
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
@@ -27,38 +38,66 @@ import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.sample.ui.theme.KlaviyoAndroidSdkTheme
 
 class SampleActivity : ComponentActivity() {
-    private val externalId = mutableStateOf(Klaviyo.getExternalId() ?: "")
-    private val email = mutableStateOf(Klaviyo.getEmail() ?: "")
-    private val phoneNumber = mutableStateOf(Klaviyo.getPhoneNumber() ?: "")
-    private val pushToken = mutableStateOf(Klaviyo.getPushToken() ?: "")
-    private val notificationPermission = mutableStateOf(false)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
         // Enable edge-to-edge display for all Android versions
-        enableEdgeToEdge()
+        WindowCompat.enableEdgeToEdge(window)
 
         setContent {
+            // State management within the Composable
+            var externalId by remember { mutableStateOf(Klaviyo.getExternalId() ?: "") }
+            var email by remember { mutableStateOf(Klaviyo.getEmail() ?: "") }
+            var phoneNumber by remember { mutableStateOf(Klaviyo.getPhoneNumber() ?: "") }
+            var pushToken by remember { mutableStateOf(Klaviyo.getPushToken() ?: "") }
+            var notificationPermission by remember { mutableStateOf(false) }
+            
+            // Update notification permission when resuming
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        notificationPermission = NotificationManagerCompat.from(this@SampleActivity).areNotificationsEnabled()
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
+            }
+            
             KlaviyoAndroidSdkTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.systemBars),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     SampleView(
-                        externalId,
-                        email,
-                        phoneNumber,
-                        pushToken,
-                        notificationPermission,
-                        setProfile = ::setProfile,
-                        resetProfile = ::resetProfile,
+                        externalId = externalId,
+                        email = email,
+                        phoneNumber = phoneNumber,
+                        pushToken = pushToken,
+                        hasNotificationPermission = notificationPermission,
+                        onExternalIdChange = { externalId = it },
+                        onEmailChange = { email = it },
+                        onPhoneNumberChange = { phoneNumber = it },
+                        setProfile = { setProfile(externalId, email, phoneNumber) },
+                        resetProfile = {
+                            externalId = ""
+                            email = ""
+                            phoneNumber = ""
+                            resetProfile()
+                        },
                         createTestEvent = ::createTestEvent,
                         createViewedProductEvent = ::createViewedProductEvent,
                         registerForInAppForms = ::registerForInAppForms,
                         unregisterFromInAppForms = ::unregisterFromInAppForms,
-                        requestPermission = ::askNotificationPermission,
+                        requestPermission = { 
+                            askNotificationPermission()
+                            notificationPermission = NotificationManagerCompat.from(this@SampleActivity).areNotificationsEnabled()
+                        },
                     )
                 }
             }
@@ -85,25 +124,20 @@ class SampleActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        notificationPermission.value = NotificationManagerCompat.from(this).areNotificationsEnabled()
+        // Note: notification permission state is now managed in Compose
     }
 
-    private fun setProfile() {
+    private fun setProfile(externalId: String, email: String, phoneNumber: String) {
         Klaviyo
-            .setExternalId(externalId.value)
-            .setEmail(email.value)
-            .setPhoneNumber(phoneNumber.value)
+            .setExternalId(externalId)
+            .setEmail(email)
+            .setPhoneNumber(phoneNumber)
 
         Toast.makeText(this, "Profile set", Toast.LENGTH_SHORT).show()
     }
 
     private fun resetProfile() {
-        externalId.value = ""
-        email.value = ""
-        phoneNumber.value = ""
-
         Klaviyo.resetProfile()
-
         Toast.makeText(this, "Profile reset", Toast.LENGTH_SHORT).show()
     }
 

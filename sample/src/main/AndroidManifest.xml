@@ -8,7 +8,7 @@
             android:supportsRtl="true"
             android:theme="@style/Theme.KlaviyoAndroidSdk"
             android:usesCleartextTraffic="true"
-    >
+        >
         <activity
                 android:name=".SampleActivity"
                 android:exported="true"
