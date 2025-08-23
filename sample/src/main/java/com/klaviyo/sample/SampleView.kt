@@ -12,9 +12,6 @@ import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -23,18 +20,18 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import com.klaviyo.sample.ui.theme.KlaviyoAndroidSdkTheme
 
 @Composable
 fun SampleView(
-    externalId: MutableState<String>,
-    email: MutableState<String>,
-    phoneNumber: MutableState<String>,
-    pushToken: MutableState<String>,
-    hasNotificationPermission: MutableState<Boolean>,
+    externalId: String,
+    email: String,
+    phoneNumber: String,
+    pushToken: String,
+    hasNotificationPermission: Boolean,
+    onExternalIdChange: (String) -> Unit = {},
+    onEmailChange: (String) -> Unit = {},
+    onPhoneNumberChange: (String) -> Unit = {},
     setProfile: () -> Unit = {},
     resetProfile: () -> Unit = {},
     createTestEvent: () -> Unit = {},
@@ -43,10 +40,10 @@ fun SampleView(
     unregisterFromInAppForms: () -> Unit = {},
     requestPermission: () -> Unit = {},
 ) {
+    
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.systemBars)
             .verticalScroll(rememberScrollState())
     ) {
         val focusManager = LocalFocusManager.current
@@ -67,8 +64,8 @@ fun SampleView(
         ViewRow {
             OutlinedTextField(
                 label = { Text("External ID") },
-                value = externalId.value,
-                onValueChange = { externalId.value = it },
+                value = externalId,
+                onValueChange = onExternalIdChange,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next, keyboardType = KeyboardType.Ascii),
                 keyboardActions = keyboardActions,
                 modifier = Modifier.weight(1f, fill = true)
@@ -77,8 +74,8 @@ fun SampleView(
         ViewRow {
             OutlinedTextField(
                 label = { Text("Email") },
-                value = email.value,
-                onValueChange = { email.value = it },
+                value = email,
+                onValueChange = onEmailChange,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next, keyboardType = KeyboardType.Email),
                 keyboardActions = keyboardActions, modifier = Modifier.weight(1f, fill = true)
             )
@@ -86,8 +83,8 @@ fun SampleView(
         ViewRow {
             OutlinedTextField(
                 label = { Text("Phone Number") },
-                value = phoneNumber.value,
-                onValueChange = { phoneNumber.value = it },
+                value = phoneNumber,
+                onValueChange = onPhoneNumberChange,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send, keyboardType = KeyboardType.Phone),
                 keyboardActions = keyboardActions,
                 modifier = Modifier.weight(1f, fill = true)
@@ -105,7 +102,7 @@ fun SampleView(
             OutlinedButton(
                 shape = CircleShape,
                 onClick = resetProfile,
-                enabled = externalId.value.isNotEmpty() || email.value.isNotEmpty() || phoneNumber.value.isNotEmpty(),
+                enabled = externalId.isNotEmpty() || email.isNotEmpty() || phoneNumber.isNotEmpty(),
                 modifier = Modifier.weight(1f)
             ) {
                 Text(text = "Reset Profile")
@@ -171,8 +168,8 @@ fun SampleView(
         ViewRow(horizontalArrangement = Arrangement.Start) {
             Text(text = "Push Notifications", style = MaterialTheme.typography.titleSmall)
         }
-        ViewRow() {
-            if (hasNotificationPermission.value) {
+        ViewRow {
+            if (hasNotificationPermission) {
                 Text(text = "Notification Permission Granted")
             } else {
                 OutlinedButton(
@@ -187,8 +184,8 @@ fun SampleView(
         ViewRow(horizontalArrangement = Arrangement.Start) {
             Text(text = "Push Token", style = MaterialTheme.typography.labelMedium)
         }
-        ViewRow() {
-            Text(text = pushToken.value, style = MaterialTheme.typography.bodySmall)
+        ViewRow {
+            Text(text = pushToken, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -212,11 +209,11 @@ private fun ViewRow(
 fun SamplePreviewEmpty() {
     KlaviyoAndroidSdkTheme {
         SampleView(
-            remember { mutableStateOf("") },
-            remember { mutableStateOf("") },
-            remember { mutableStateOf("") },
-            remember { mutableStateOf("") },
-            remember { mutableStateOf(false) },
+            externalId = "",
+            email = "",
+            phoneNumber = "",
+            pushToken = "",
+            hasNotificationPermission = false,
         )
     }
 }
@@ -226,11 +223,11 @@ fun SamplePreviewEmpty() {
 fun SamplePreviewFilled() {
     KlaviyoAndroidSdkTheme {
         SampleView(
-            remember { mutableStateOf("ABC123") },
-            remember { mutableStateOf("profile@test.com") },
-            remember { mutableStateOf("+1234567890") },
-            remember { mutableStateOf("abcdefghijklmnopqrstuvwxyz1234567890") },
-            remember { mutableStateOf(false) },
+            externalId = "ABC123",
+            email = "profile@test.com",
+            phoneNumber = "+1234567890",
+            pushToken = "abcdefghijklmnopqrstuvwxyz1234567890",
+            hasNotificationPermission = false,
         )
     }
 }
