@@ -11,7 +11,8 @@ class SampleApplication : Application() {
         super.onCreate()
 
         // Initialize Klaviyo SDK: Add your public API key here or in the local.properties file
-        val klaviyoPublicKey = BuildConfig.KLAVIYO_PUBLIC_KEY
+        val klaviyoPublicKey = validatePublicKey(BuildConfig.KLAVIYO_PUBLIC_KEY)
+
         Klaviyo.initialize(klaviyoPublicKey, applicationContext)
             .registerForInAppForms() // Register for In-App Forms immediately on app launch (this app has no splash screen)
 
@@ -29,3 +30,7 @@ class SampleApplication : Application() {
         }
     }
 }
+
+@Suppress("SameParameterValue")
+private fun validatePublicKey(klaviyoPublicKey: String) = klaviyoPublicKey.takeIf { it.length == 6 }
+    ?: throw IllegalStateException("Invalid Klaviyo Public Key ${klaviyoPublicKey}. Set your key in local.properties, or hardcode in SampleApplication.kt")

@@ -23,7 +23,7 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.unregisterFromInAppForms
-import com.klaviyo.sample.ui.theme.KlaviyoandroidsdkTheme
+import com.klaviyo.sample.ui.theme.KlaviyoAndroidSdkTheme
 
 class SampleActivity : ComponentActivity() {
     private val externalId = mutableStateOf(Klaviyo.getExternalId() ?: "")
@@ -36,7 +36,7 @@ class SampleActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            KlaviyoandroidsdkTheme {
+            KlaviyoAndroidSdkTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
