@@ -99,6 +99,12 @@ jobs:
         env:
           GOOGLE_SERVICES_JSON: ${{secrets.GOOGLE_SERVICES_JSON}}
 
+      - name: Configure local.properties for instrumented tests
+        run: |
+          echo "klaviyoPublicApiKey=$INSTRUMENTED_TEST_PUBLIC_API_KEY" >> local.properties
+        env:
+          INSTRUMENTED_TEST_PUBLIC_API_KEY: ${{secrets.INSTRUMENTED_TEST_PUBLIC_API_KEY}}
+
       - name: Enable KVM group perms
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
