@@ -6,7 +6,7 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
 
-    // ADVANCED NOTE: Comment out if you wish to run the app without Firebase
+    // ADVANCED SETUP NOTE: Comment out if you wish to run the app without Firebase
     id 'com.google.gms.google-services'
 }
 
@@ -25,7 +25,7 @@ android {
     buildToolsVersion=versionFor(project, "version.android.buildTools") as String
 
     defaultConfig {
-        // ADVANCED NOTE: Set your own application ID here
+        // ADVANCED SETUP NOTE: Set your own application ID here
         applicationId "${klaviyoGroupId}.sample"
 
         // SETUP NOTE: Configure minimum, target and compile SDK versions:
@@ -94,9 +94,10 @@ dependencies {
     implementation project(path: ':sdk:analytics')
     implementation project(path: ':sdk:forms')
     implementation project(path: ':sdk:push-fcm')
+    // See https://splitties.github.io/refreshVersions/ for more info on refreshVersions syntax
 
-    // Firebase dependencies for FCM integration (refreshVersions syntax)
-    // ADVANCED NOTE: Comment out if you wish to run the app without Firebase
+    // Firebase dependencies for FCM integration 
+    // ADVANCED SETUP NOTE: Comment out if you wish to run the app without Firebase
     implementation platform(Firebase.bom)
     implementation Firebase.cloudMessagingKtx
 

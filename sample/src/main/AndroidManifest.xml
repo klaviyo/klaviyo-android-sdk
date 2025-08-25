@@ -18,7 +18,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Deep Linking Intent Filter -->
+            <!-- Example Deep Linking Intent Filter -->
             <intent-filter android:label="@string/deep_link_handler">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -33,11 +33,11 @@
                 android:name="com.klaviyo.core.log_level"
                 android:value="1"/>
 
-        <!-- Specify the default icon for a notification received from Klaviyo -->
+        <!-- Optional: Specify the default icon for a notification received from Klaviyo -->
         <meta-data android:name="com.klaviyo.push.default_notification_icon"
                    android:resource="@drawable/ic_notification_icon"/>
 
-        <!-- Specify the icon color for a notification received from Klaviyo -->
+        <!-- Optional: Specify the icon color for a notification received from Klaviyo -->
         <meta-data android:name="com.klaviyo.push.default_notification_color"
                    android:resource="@color/teal_700"/>
 

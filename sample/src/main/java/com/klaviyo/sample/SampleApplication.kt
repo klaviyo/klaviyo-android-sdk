@@ -19,7 +19,7 @@ class SampleApplication : Application() {
         // Example analytics event to track "Opened App" event on launch
         Klaviyo.createEvent(EventMetric.OPENED_APP)
 
-        // ADVANCED NOTE: Comment out if you wish to run the app without Firebase
+        // ADVANCED SETUP NOTE: Comment out if you wish to run the app without Firebase
         setPushToken()
     }
 
