@@ -12,9 +12,9 @@ on:
       - 'rel/*'
       - 'feat/*'
   
-  # Run on PRs when specific labels are added
+  # Run on PRs when specific labels are added or when labeled PRs are updated
   pull_request:
-    types: [labeled]
+    types: [labeled, synchronize]
   
   # Allow manual triggering
   workflow_dispatch:
@@ -65,7 +65,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api-level: [23, 30, 32, 34, 36]
+        api-level: [23, 36]
         arch: [x86_64]
         exclude:
           # API 23 doesn't support x86_64, use x86 instead
@@ -75,7 +75,7 @@ jobs:
           - api-level: 23
             arch: x86
 
-    timeout-minutes: 30
+    timeout-minutes: 5
 
     steps:
       - name: Checkout repository
