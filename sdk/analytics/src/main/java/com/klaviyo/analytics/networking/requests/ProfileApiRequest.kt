@@ -18,7 +18,7 @@ internal class ProfileApiRequest(
 ) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     companion object {
-        private const val PATH = "client/profiles/"
+        private const val PATH = "client/profiles"
         private const val LOCATION = "location"
 
         fun formatBody(profile: Profile): Array<Pair<String, Any>> {

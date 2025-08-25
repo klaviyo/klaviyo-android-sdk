@@ -2,13 +2,17 @@ package com.klaviyo.analytics
 
 import android.app.Application
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
+import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
@@ -21,11 +25,13 @@ import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
+import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.unmockkConstructor
 import io.mockk.verify
 import io.mockk.verifyAll
+import java.net.URL
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -63,7 +69,12 @@ internal class KlaviyoTest : BaseTest() {
             every { intent.extras } returns bundle
             every { bundle.keySet() } returns payload.keys
             every { intent.getStringExtra(any()) } answers { call -> payload[call.invocation.args[0]] }
-            every { bundle.getString(any(), String()) } answers { call -> payload[call.invocation.args[0]] }
+            every {
+                bundle.getString(
+                    any(),
+                    String()
+                )
+            } answers { call -> payload[call.invocation.args[0]] }
 
             return intent
         }
@@ -569,5 +580,32 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(spyState, Registry.get<State>())
         assertEquals(initialSideEffects, Registry.get<StateSideEffects>())
         verify(exactly = 1) { mockApiClient.onApiRequest(false, any()) }
+    }
+
+    @Test
+    fun `registering a deep link handler`() {
+        assertNull(null, Registry.getOrNull<DeepLinkHandler>())
+        Klaviyo.registerDeepLinkHandler() {}
+        assertNotNull(Registry.get<DeepLinkHandler>())
+    }
+
+    @Test
+    fun `handle universal link with deep link handler`() {
+        val slot = slot<ResolveDestinationCallback>()
+        val trackUrl = "https://trk.klaviyo.com/u/slug"
+        val stubUrl = "https://www.klaviyo.com/some/path?query=param"
+        var called = false
+
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk()
+        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns Unit
+
+        Klaviyo.registerDeepLinkHandler { url -> called = true }
+        Klaviyo.handleUniversalLink(stubUrl)
+
+        // Should have called the registered deep link handler
+        assertTrue(slot.isCaptured)
+        slot.captured.invoke(ResolveDestinationResult.Success(URL(stubUrl), trackUrl))
+        assertTrue(called)
     }
 }

@@ -1,11 +1,8 @@
 package com.klaviyo.forms.presentation
 
-import android.app.Activity
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
-import com.klaviyo.core.lifecycle.ActivityObserver
-import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf
@@ -147,38 +144,4 @@ internal class KlaviyoPresentationManager() : PresentationManager {
          */
         private const val CLOSE_TIMEOUT = 400L
     }
-}
-
-/**
- * Helper function to run a task immediately if there is a current activity,
- * or wait for the next resumed activity if resumed within the optional timeout.
- * Returns a token that can be used to cancel the pending task if needed.
- */
-internal fun LifecycleMonitor.runWithCurrentOrNextActivity(
-    timeout: Long? = null,
-    job: (activity: Activity) -> Unit
-): Clock.Cancellable? {
-    currentActivity?.let { activity ->
-        job(activity)
-        return null
-    }
-
-    var observer: ActivityObserver? = null
-    val cancelToken: Clock.Cancellable? = timeout?.let { delay ->
-        Registry.clock.schedule(delay) {
-            Registry.log.verbose("Removing postponed observer after timeout ${delay}ms")
-            observer?.let { offActivityEvent(it) }
-        }
-    }
-    observer = { event ->
-        event.takeIf<ActivityEvent.Resumed>()?.let { event ->
-            Registry.log.verbose("Invoking postponed observer on resume")
-            job(event.activity)
-            observer?.let { offActivityEvent(it) }
-            cancelToken?.cancel()
-        }
-    }
-    onActivityEvent(observer)
-
-    return cancelToken
 }
