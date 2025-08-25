@@ -1,8 +1,6 @@
 import static de.fayard.refreshVersions.core.Versions.versionFor
 
 subprojects {
-    def javaVersion = JavaVersion.VERSION_17
-
     apply plugin: "com.android.library"
     apply plugin: "kotlin-android"
     apply plugin: "org.jlleitschuh.gradle.ktlint"

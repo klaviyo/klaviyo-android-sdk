@@ -3,6 +3,7 @@
 buildscript {
     ext {
         publishBuildVariant = "release"
+        javaVersion = JavaVersion.VERSION_11
     }
 
     repositories {
