@@ -75,7 +75,7 @@ jobs:
           - api-level: 23
             arch: x86
 
-    timeout-minutes: 5
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
