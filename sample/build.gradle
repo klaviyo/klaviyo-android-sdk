@@ -104,7 +104,7 @@ dependencies {
     implementation platform(AndroidX.compose.bom)
     implementation AndroidX.core.ktx
     implementation AndroidX.lifecycle.runtime.ktx
-    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7"
+    implementation AndroidX.lifecycle.viewModelCompose
     implementation AndroidX.activity.compose
     implementation AndroidX.compose.ui
     implementation AndroidX.compose.ui.toolingPreview
@@ -115,6 +115,7 @@ dependencies {
 
     testImplementation Testing.junit4
 
+    androidTestImplementation platform(AndroidX.compose.bom)
     androidTestImplementation AndroidX.test.ext.junit
     androidTestImplementation AndroidX.test.espresso.core
     androidTestImplementation AndroidX.compose.ui.testJunit4
