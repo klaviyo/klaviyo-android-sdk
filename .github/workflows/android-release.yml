@@ -9,7 +9,6 @@ on:
       - 'rel/*'
   pull_request:
     branches:
-      - 'rel/*'
       - 'ecm/*'
 
 jobs:
