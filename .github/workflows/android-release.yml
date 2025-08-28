@@ -6,7 +6,7 @@ name: Release Branch Version Check
 on:
   push:
     branches:
-      - 'rel/*'
+      - 'ecm/*'
   pull_request:
     branches:
       - 'ecm/*'
