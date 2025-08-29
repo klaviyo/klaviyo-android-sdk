@@ -137,13 +137,15 @@ internal open class KlaviyoApiRequest(
             }
         }
 
+    open val maxAttempts get() = Registry.config.networkMaxAttempts
+
     /**
      * Tracks number of attempts to limit retries
      */
     final override var attempts = 0
         protected set(value) {
             field = value
-            headers[HEADER_KLAVIYO_ATTEMPT] = "$value/${Registry.config.networkMaxAttempts}"
+            headers[HEADER_KLAVIYO_ATTEMPT] = "$value/$maxAttempts"
         }
 
     override var baseUrl: String = Registry.config.baseUrl

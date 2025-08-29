@@ -27,6 +27,13 @@ internal class UniversalClickTrackRequest(
      */
     override var baseUrl: String = ""
 
+    override val maxAttempts get() = if (headers.containsKey(KLAVIYO_CLICK_TIMESTAMP_HEADER)) {
+        super.maxAttempts
+    } else {
+        // TODO test / add a unit test of this, intention is to have 1/1 on first attempt, then 1/50 like usual if it has to be retried
+        1
+    }
+
     /**
      * Extract the destination URL from the response JSON
      * This could be null if the request hasn't completed yet or if the parsing fails
