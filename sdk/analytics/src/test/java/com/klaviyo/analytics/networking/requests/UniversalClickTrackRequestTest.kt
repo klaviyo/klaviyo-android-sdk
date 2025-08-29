@@ -1,7 +1,12 @@
 package com.klaviyo.analytics.networking.requests
 
+import android.net.Uri
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest.Companion.KLAVIYO_CLICK_TIMESTAMP_HEADER
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import java.net.URL
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -67,14 +72,20 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
 
     @Test
     fun `parses destination URL from response`() {
+        mockkStatic(Uri::class)
         val request = makeTestRequest()
             .setResponseBody("""{"original_destination": "$expectedDestination"}""")
             .setStatus(KlaviyoApiRequest.Status.Complete)
 
+        val mockUri = mockk<Uri>()
+        every { Uri.parse(expectedDestination) } returns mockUri
+
         assertEquals(
-            URL(expectedDestination),
+            mockUri,
             (request.getResult() as ResolveDestinationResult.Success).destinationUrl
         )
+
+        unmockkStatic(Uri::class)
     }
 
     @Test

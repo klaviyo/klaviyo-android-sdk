@@ -34,7 +34,6 @@ import io.mockk.spyk
 import io.mockk.unmockkAll
 import io.mockk.verify
 import io.mockk.verifyAll
-import java.net.URL
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -656,7 +655,7 @@ internal class KlaviyoTest : BaseTest() {
 
         // Should have called the registered deep link handler
         assertTrue(slot.isCaptured)
-        slot.captured.invoke(ResolveDestinationResult.Success(URL(DESTINATION_URL), TRACKING_URL))
+        slot.captured.invoke(ResolveDestinationResult.Success(mockTrackUri, TRACKING_URL))
         assertTrue(called)
     }
 

@@ -1,8 +1,9 @@
 package com.klaviyo.analytics.networking.requests
 
+import android.net.Uri
+import androidx.core.net.toUri
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
-import java.net.URL
 import kotlin.time.Duration.Companion.milliseconds
 import org.json.JSONObject
 
@@ -30,15 +31,11 @@ internal class UniversalClickTrackRequest(
      * Extract the destination URL from the response JSON
      * This could be null if the request hasn't completed yet or if the parsing fails
      */
-    private val destinationUrl: URL?
+    private val destinationUrl: Uri?
         get() = try {
             responseBody?.let { body ->
                 JSONObject(body).optString(DESTINATION_URL_KEY)
-            }?.takeIf {
-                it.isNotEmpty()
-            }?.let {
-                URL(it)
-            }
+            }?.toUri()
         } catch (e: Exception) {
             Registry.log.warning("Failed to parse destination URL", e)
             null
