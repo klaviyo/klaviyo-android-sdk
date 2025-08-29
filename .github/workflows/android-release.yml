@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - 'rel/*'
+      - 'ecm/*'
   pull_request:
     branches:
       - 'rel/*'
@@ -64,7 +65,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "🚨 Release Branch Version Mismatch Detected",
+                    "text": "🚨 Release Branch Version Mismatch Detected"
                   }
                 },
                 {
