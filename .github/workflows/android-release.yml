@@ -6,9 +6,11 @@ name: Release Branch Version Check
 on:
   push:
     branches:
+      - 'rel/*'
       - 'ecm/*'
   pull_request:
     branches:
+      - 'rel/*'
       - 'ecm/*'
 
 jobs:
@@ -17,19 +19,18 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
       - uses: actions/checkout@v4
 
       # Extract version from branch name and strings.xml, then compare them
       - name: Validate Version Match
         run: |
-          # Extract version from branch name (rel/x.y.z -> x.y.z)
+          # Extract version from branch name
           BRANCH_NAME="${{ github.ref_name }}"
-          if [[ $BRANCH_NAME =~ ^rel/(.+)$ ]]; then
+          if [[ $BRANCH_NAME =~ ^[a-z]+/(.+)$ ]]; then
             BRANCH_VERSION="${BASH_REMATCH[1]}"
             echo "Branch version: $BRANCH_VERSION"
           else
-            echo "Error: Branch name does not match expected pattern rel/*"
+            echo "Error: branch name does not match expected pattern"
             exit 1
           fi
 
@@ -44,6 +45,38 @@ jobs:
             echo "❌ Version mismatch!"
             echo "Branch version: $BRANCH_VERSION"
             echo "strings.xml version: $STRINGS_VERSION"
-            echo "Please update sdk/core/src/main/res/values/strings.xml to match the branch version"
+            echo "Use ./bump_version.sh to update the version number in this branch (or correct the branch name)."
+            
+            # Set environment variables for Slack notification
+            echo "BRANCH_VERSION=$BRANCH_VERSION" >> $GITHUB_ENV
+            echo "STRINGS_VERSION=$STRINGS_VERSION" >> $GITHUB_ENV
             exit 1
           fi
+
+      # Send Slack notification on version mismatch
+      - name: Send Slack notification on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "🚨 Release Branch Version Mismatch Detected",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "❌ *Version Mismatch Detected*\n*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.ref_name }}`\n*Expected Version:* `${{ env.BRANCH_VERSION }}`\n*strings.xml Version:* `${{ env.STRINGS_VERSION }}`\n*Action:* Please run `./bump_version.sh` to update the version number in this branch (or correct the branch name)."
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
