@@ -2,6 +2,10 @@
 
 buildscript {
     ext {
+        // Java version used for sourceCompatibility, targetCompatibility and kotlin.jvmTarget
+        javaVersion = JavaVersion.VERSION_11
+
+        // Variant of the SDK modules to be published to jitpack
         publishBuildVariant = "release"
     }
 
@@ -18,6 +22,10 @@ buildscript {
         // they belong in the individual module build.gradle files
         classpath Android.tools.build.gradlePlugin
         classpath Kotlin.gradlePlugin
+
+        // Needed (alongside the google-services.json) to connect to google services and use fcm logic in sample app
+        classpath Google.playServicesGradlePlugin
+
         classpath "org.jetbrains.dokka:dokka-gradle-plugin:_"
         classpath "org.jlleitschuh.gradle:ktlint-gradle:_"
     }
