@@ -1,17 +1,12 @@
-# A workflow for validating that release branch versions match the version in strings.xml
+# A workflow for validating that release branch versions match the version in code
 
 name: Release Branch Version Check
 
-# Triggers the workflow on pushes to branches matching rel/*
+# Triggers the workflow when we open/update a PR from a rel/* branch
 on:
-  push:
-    branches:
-      - 'rel/*'
-      - 'ecm/*'
   pull_request:
     branches:
       - 'rel/*'
-      - 'ecm/*'
 
 jobs:
   version-check:
