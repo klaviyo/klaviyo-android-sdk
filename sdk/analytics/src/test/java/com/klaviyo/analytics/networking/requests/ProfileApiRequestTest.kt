@@ -6,7 +6,7 @@ import org.junit.Test
 
 internal class ProfileApiRequestTest : BaseApiRequestTest<ProfileApiRequest>() {
 
-    override val expectedUrl = "client/profiles/"
+    override val expectedPath = "client/profiles"
 
     override fun makeTestRequest(): ProfileApiRequest =
         ProfileApiRequest(stubProfile)

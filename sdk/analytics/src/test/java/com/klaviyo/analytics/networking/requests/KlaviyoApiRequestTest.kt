@@ -22,13 +22,15 @@ import org.junit.Test
 
 internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
-    override val expectedUrl = "test"
+    override val expectedPath = "test"
+
+    override val expectedUrl: URL = URL("${mockConfig.baseUrl}/$expectedPath")
 
     override val expectedMethod: RequestMethod = RequestMethod.GET
 
     override val expectedQuery: Map<String, String> = emptyMap()
 
-    private val expectedFullUrl = "${mockConfig.baseUrl}/$expectedUrl"
+    private val expectedFullUrl = "${mockConfig.baseUrl}/$expectedPath"
 
     private val bodySlot = slot<String>()
 
@@ -81,13 +83,13 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     override fun makeTestRequest(): KlaviyoApiRequest =
-        KlaviyoApiRequest(expectedUrl, RequestMethod.GET)
+        KlaviyoApiRequest(expectedPath, RequestMethod.GET)
 
     @Test
     fun `Treats same UUID as equal requests for deduplication`() {
-        val request1 = KlaviyoApiRequest(expectedUrl, RequestMethod.GET, uuid = "uuid1")
-        val request2 = KlaviyoApiRequest(expectedUrl, RequestMethod.GET, uuid = "uuid2")
-        val request3 = KlaviyoApiRequest(expectedUrl, RequestMethod.GET, uuid = "uuid2")
+        val request1 = KlaviyoApiRequest(expectedPath, RequestMethod.GET, uuid = "uuid1")
+        val request2 = KlaviyoApiRequest(expectedPath, RequestMethod.GET, uuid = "uuid2")
+        val request3 = KlaviyoApiRequest(expectedPath, RequestMethod.GET, uuid = "uuid2")
 
         assertNotEquals(request1, null)
         assertNotEquals(request1, request2)
@@ -292,7 +294,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
         every { connectionMock.responseCode } returns 200
 
-        val request = KlaviyoApiRequest(expectedUrl, RequestMethod.POST).apply {
+        val request = KlaviyoApiRequest(expectedPath, RequestMethod.POST).apply {
             body = expectedBody
         }
         val actualResponse = request.send()
@@ -310,7 +312,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
         every { connectionMock.responseCode } returns 200
 
-        val request = KlaviyoApiRequest(expectedUrl, RequestMethod.POST)
+        val request = KlaviyoApiRequest(expectedPath, RequestMethod.POST)
         val actualResponse = request.send()
 
         assert(!bodySlot.isCaptured)
@@ -322,6 +324,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     private val postJson = """
         {
           "request_type": "KlaviyoApiRequest",
+          "base_url": "https://test.fake-klaviyo.com",
           "headers": {
             "headerKey": "headerValue"
           },
@@ -341,6 +344,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     private val getJson = """
         {
           "request_type": "KlaviyoApiRequest",
+          "base_url": "https://test.fake-klaviyo.com",
           "headers": {
             "headerKey": "headerValue"
           },

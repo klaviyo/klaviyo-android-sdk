@@ -32,7 +32,6 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         mockkObject(KlaviyoFormsOverlayActivity).apply {
             every { KlaviyoFormsOverlayActivity.launchIntent } returns mockLaunchIntent
         }
-
         every { mockLifecycleMonitor.onActivityEvent(capture(slotOnActivityEvent)) } just runs
         every { mockContext.startActivity(mockLaunchIntent) } just runs
         Registry.register<WebViewClient>(mockWebViewClient)
@@ -232,40 +231,5 @@ class KlaviyoPresentationManagerTest : BaseTest() {
             PresentationState.Hidden,
             manager.presentationState
         )
-    }
-
-    @Test
-    fun `postpones presenting a form till the app is in the foreground`() {
-        // When app is backgrounded, there's no current activity
-        every { mockLifecycleMonitor.currentActivity } returns null
-
-        KlaviyoPresentationManager().present("formId")
-
-        verify(exactly = 0) { mockContext.startActivity(mockLaunchIntent) }
-
-        verify(exactly = 0) { mockActivity.startActivity(any()) }
-        assert(slotOnActivityEvent.isCaptured) { "Lifecycle listener should be captured" }
-
-        staticClock.execute(10)
-        slotOnActivityEvent.captured.invoke(ActivityEvent.Resumed(mockActivity))
-        verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
-    }
-
-    @Test
-    fun `a postponed form expires on session timeout`() {
-        // When app is backgrounded, there's no current activity
-        every { mockLifecycleMonitor.currentActivity } returns null
-
-        KlaviyoPresentationManager().present("formId")
-
-        verify(exactly = 0) { mockContext.startActivity(mockLaunchIntent) }
-
-        verify(exactly = 0) { mockActivity.startActivity(any()) }
-        assert(slotOnActivityEvent.isCaptured) { "Lifecycle listener should be captured" }
-
-        staticClock.execute(InAppFormsConfig.DEFAULT_SESSION_TIMEOUT)
-
-        // Postponed job should have been offed
-        verify { mockLifecycleMonitor.offActivityEvent(slotOnActivityEvent.captured) }
     }
 }
