@@ -66,7 +66,7 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.ref_name }}`\n*Expected Version:* `${{ env.BRANCH_VERSION }}`\n*strings.xml Version:* `${{ env.STRINGS_VERSION }}`\n*Action:* Please run `./bump_version.sh` to update the version number in this branch (or correct the branch name)."- type: "section"
+                  text: "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.ref_name }}`\n*Expected Version:* `${{ env.BRANCH_VERSION }}`\n*strings.xml Version:* `${{ env.STRINGS_VERSION }}`\n*Action:* Please run `./bump_version.sh` to update the version number in this branch (or correct the branch name)."
               - type: "section"
                 text:
                   type: "mrkdwn"
