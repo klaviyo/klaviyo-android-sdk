@@ -7,7 +7,6 @@ on:
   push:
     branches:
       - 'rel/*'
-      - 'ecm/*'
   pull_request:
     branches:
       - 'rel/*'
@@ -60,13 +59,19 @@ jobs:
         with:
           payload: |
             {
-              "text": "🚨 Release Branch Version Mismatch Detected",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "❌ *Version Mismatch Detected*\n*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.ref_name }}`\n*Expected Version:* `${{ env.BRANCH_VERSION }}`\n*strings.xml Version:* `${{ env.STRINGS_VERSION }}`\n*Action:* Please run `./bump_version.sh` to update the version number in this branch (or correct the branch name)."
+                    "text": "🚨 Release Branch Version Mismatch Detected",
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.ref_name }}`\n*Expected Version:* `${{ env.BRANCH_VERSION }}`\n*strings.xml Version:* `${{ env.STRINGS_VERSION }}`\n*Action:* Please run `./bump_version.sh` to update the version number in this branch (or correct the branch name)."
                   }
                 },
                 {
