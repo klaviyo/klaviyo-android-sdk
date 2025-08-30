@@ -1,6 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
-import java.net.URL
+import android.net.Uri
 
 /**
  * Callback to be invoked when resolving a destination URL from a tracking URL.
@@ -17,7 +17,7 @@ sealed interface ResolveDestinationResult {
      * Destination URL successfully resolved.
      */
     data class Success(
-        val destinationUrl: URL,
+        val destinationUrl: Uri,
         override val trackingUrl: String
     ) : ResolveDestinationResult
 

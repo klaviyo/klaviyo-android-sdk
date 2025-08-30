@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking
 
+import android.net.Uri
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
@@ -759,9 +760,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
      */
     private fun setupResolveDestinationUrlTest(
         requestStatus: KlaviyoApiRequest.Status,
-        destinationUrl: URL? = null
+        destinationUrl: Uri? = null
     ) {
-        val expectedResponse = if (destinationUrl is URL) {
+        val expectedResponse = if (destinationUrl is Uri) {
             ResolveDestinationResult.Success(destinationUrl, trackingUrl)
         } else if (requestStatus == KlaviyoApiRequest.Status.Unsent) {
             ResolveDestinationResult.Unavailable(trackingUrl)
@@ -805,7 +806,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     fun `resolveDestinationUrl invokes callback with Success when request succeeds`() = runTest(
         dispatcher
     ) {
-        val destinationUrl = URL("https://example.com/destination")
+        val destinationUrl = mockk<Uri>()
         setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Complete, destinationUrl)
 
         val result = executeResolveDestinationUrl(testScheduler)
@@ -848,7 +849,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         ) {
             setupResolveDestinationUrlTest(
                 KlaviyoApiRequest.Status.Complete,
-                URL("https://example.com")
+                mockk()
             )
 
             executeResolveDestinationUrl(testScheduler)

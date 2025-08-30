@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.core.net.toUri
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION_GRACE_PERIOD
-import java.net.URL
 
 typealias DeepLinkHandler = (uri: Uri) -> Unit
 
@@ -35,8 +34,6 @@ object DeepLinking {
     } catch (e: Exception) {
         Registry.log.error("Could not handle universal link: $url", e)
     }
-
-    fun handleDeepLink(url: URL) = handleDeepLink(url.toString())
 }
 
 // idea: gradle plugin that generates the universal link intent filter if they give us a list klaviyo track domains

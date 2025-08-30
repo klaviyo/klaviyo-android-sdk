@@ -3,8 +3,8 @@ package com.klaviyo.analytics
 import android.app.Application
 import android.content.Context
 import android.content.Intent
-import com.klaviyo.analytics.Klaviyo.initialize
-import com.klaviyo.analytics.Klaviyo.resetProfile
+import android.net.Uri
+import androidx.core.net.toUri
 import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
@@ -287,7 +287,7 @@ object Klaviyo {
      * @param intent the [Intent] from opening a notification
      */
     fun handlePush(intent: Intent?) = safeApply(preInitQueue) {
-        if (intent?.isKlaviyoIntent != true) {
+        if (intent?.isKlaviyoNotificationIntent != true) {
             Registry.log.verbose("Non-Klaviyo intent ignored")
             return@safeApply
         }
@@ -312,7 +312,19 @@ object Klaviyo {
      * Handles a universal link URL by resolving it to a destination URL asynchronously
      * and invoking the registered [DeepLinkHandler] or sending the host application an [Intent]
      */
-    fun handleUniversalLink(url: String) = safeApply {
+    fun handleUniversalTrackingLink(url: String): Boolean = safeCall {
+        val isKlaviyo = try {
+            url.toUri().isKlaviyoUniversalLink
+        } catch (e: Exception) {
+            Registry.log.warning("Invalid universal link: $url")
+            false
+        }
+
+        if (!isKlaviyo) {
+            Registry.log.verbose("Non-Klaviyo universal link URL ignored: $url")
+            return@safeCall false
+        }
+
         val profile = Registry.get<State>().getAsProfile()
 
         Registry.get<ApiClient>().resolveDestinationUrl(url, profile) { result ->
@@ -332,12 +344,49 @@ object Klaviyo {
                 )
             }
         }
+
+        true
+    } ?: run {
+        Registry.log.error("Failed to resolve universal link due to exception: $url")
+        false
     }
+
+    /**
+     * Handles a universal link [Intent] by extracting the URL and passing it to [handleUniversalTrackingLink]
+     */
+    fun handleUniversalTrackingLink(intent: Intent?): Boolean = intent?.takeIf {
+        it.isKlaviyoUniversalLinkIntent
+    }?.data?.let {
+        handleUniversalTrackingLink(it.toString())
+    } ?: false
+
+    /**
+     * Checks whether a notification intent originated from Klaviyo
+     */
+    @Deprecated(
+        "Use isKlaviyoNotificationIntent instead, will be removed in the next major version",
+        ReplaceWith("isKlaviyoNotificationIntent")
+    )
+    val Intent.isKlaviyoIntent: Boolean get() = this.isKlaviyoNotificationIntent
 
     /**
      * Checks whether a notification intent originated from Klaviyo
      */
     @Suppress("MemberVisibilityCanBePrivate")
-    val Intent.isKlaviyoIntent: Boolean
+    val Intent.isKlaviyoNotificationIntent: Boolean
         get() = this.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
+
+    /**
+     * Determine if an intent is a Klaviyo click-tracking universal/app link
+     */
+    val Intent.isKlaviyoUniversalLinkIntent: Boolean
+        get() = this.data?.isKlaviyoUniversalLink == true
+
+    /**
+     * Determine if a URI is a Klaviyo click-tracking universal/app link
+     */
+    val Uri.isKlaviyoUniversalLink: Boolean
+        get() = this.let { uri ->
+            uri.scheme in listOf("https", "http") && uri.path?.startsWith("/u/") ?: false
+        }
 }
