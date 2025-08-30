@@ -27,10 +27,13 @@ internal class UniversalClickTrackRequest(
      */
     override var baseUrl: String = ""
 
+    /**
+     * Only attempt initial request with callback once. If it fails, we enqueue the request
+     * to be retried later with normal retry behavior and exponential backoff.
+     */
     override val maxAttempts get() = if (headers.containsKey(KLAVIYO_CLICK_TIMESTAMP_HEADER)) {
         super.maxAttempts
     } else {
-        // TODO test / add a unit test of this, intention is to have 1/1 on first attempt, then 1/50 like usual if it has to be retried
         1
     }
 
@@ -66,7 +69,11 @@ internal class UniversalClickTrackRequest(
 
         Status.Unsent, Status.Inflight -> ResolveDestinationResult.Unavailable(baseUrl)
 
-        else -> ResolveDestinationResult.Failure(baseUrl)
+        else -> when (responseCode) {
+            // Retry with exponential backoff for 429 rate limit error, or 500 server error
+            429, in 500..599 -> ResolveDestinationResult.Unavailable(baseUrl)
+            else -> ResolveDestinationResult.Failure(baseUrl)
+        }
     }
 
     /**
