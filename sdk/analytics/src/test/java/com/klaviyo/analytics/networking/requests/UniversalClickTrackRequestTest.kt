@@ -1,7 +1,12 @@
 package com.klaviyo.analytics.networking.requests
 
+import android.net.Uri
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest.Companion.KLAVIYO_CLICK_TIMESTAMP_HEADER
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import java.net.URL
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -15,14 +20,14 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
 
     private val expectedDestination = "https://example.com/landing-page"
 
-    override val expectedUrl: URL = URL(trackingUrl)
-
     // Since this request type uses the full URL directly, the expectedPath is just a placeholder
     override val expectedPath = ""
 
     override val expectedMethod = RequestMethod.GET
 
     override val expectedQuery = emptyMap<String, String>()
+
+    override val expectedUrl: URL = URL(trackingUrl)
 
     override val expectedHeaders: Map<String, String>
         get() = super.expectedHeaders.toMutableMap() + mapOf(
@@ -66,15 +71,21 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
     }
 
     @Test
-    fun `parses destination URL from response`() {
+    fun `parses destination uri from response`() {
+        mockkStatic(Uri::class)
         val request = makeTestRequest()
             .setResponseBody("""{"original_destination": "$expectedDestination"}""")
             .setStatus(KlaviyoApiRequest.Status.Complete)
 
+        val mockUri = mockk<Uri>()
+        every { Uri.parse(expectedDestination) } returns mockUri
+
         assertEquals(
-            URL(expectedDestination),
+            mockUri,
             (request.getResult() as ResolveDestinationResult.Success).destinationUrl
         )
+
+        unmockkStatic(Uri::class)
     }
 
     @Test
@@ -103,19 +114,31 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
     }
 
     @Test
-    fun `fails when request fails`() {
-        val request = makeTestRequest()
-            .setStatus(KlaviyoApiRequest.Status.Failed)
-
+    fun `fails when request fails with 404`() = arrayOf(
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, null),
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 400),
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 301)
+    ).forEach { request ->
         assert(request.getResult() is ResolveDestinationResult.Failure)
+    }
+
+    @Test
+    fun `fails when request fails`() = arrayOf(
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 429),
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 500),
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 503)
+    ).forEach { request ->
+        assert(request.getResult() is ResolveDestinationResult.Unavailable)
     }
 
     @Test
     fun `sets the timestamp header before enqueuing`() {
         val request = makeTestRequest()
+        assertEquals(1, request.maxAttempts)
         request.prepareToEnqueue()
         request.headers.contains(KLAVIYO_CLICK_TIMESTAMP_HEADER)
         assertEquals(0, request.attempts)
+        assertEquals(50, request.maxAttempts)
     }
 
     /**
@@ -123,18 +146,27 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
      */
     private fun UniversalClickTrackRequest.setResponseBody(body: String) = apply {
         // Use reflection to set the protected responseBody field
-        val responseBodyField = KlaviyoApiRequest::class.java.getDeclaredField("responseBody")
-        responseBodyField.isAccessible = true
-        responseBodyField.set(this, body)
+        KlaviyoApiRequest::class.java.getDeclaredField("responseBody").also {
+            it.isAccessible = true
+            it.set(this, body)
+        }
     }
 
     /**
-     * Use reflection to set the private status field
+     * Use reflection to set the private status/code fields
      */
-    private fun UniversalClickTrackRequest.setStatus(status: KlaviyoApiRequest.Status) = apply {
-        // Use reflection to set the protected responseBody field
-        val responseBodyField = KlaviyoApiRequest::class.java.getDeclaredField("status")
-        responseBodyField.isAccessible = true
-        responseBodyField.set(this, status)
+    private fun UniversalClickTrackRequest.setStatus(
+        status: KlaviyoApiRequest.Status,
+        code: Int? = null
+    ) = apply {
+        // Use reflection to set the protected status field
+        KlaviyoApiRequest::class.java.getDeclaredField("status").also {
+            it.isAccessible = true
+            it.set(this, status)
+        }
+        KlaviyoApiRequest::class.java.getDeclaredField("responseCode").also {
+            it.isAccessible = true
+            it.set(this, code)
+        }
     }
 }

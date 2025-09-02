@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking
 
+import android.net.Uri
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
@@ -752,16 +753,15 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     private val trackingUrl = "https://klaviyo.com/track?id=123"
     private val profile = Profile().setAnonymousId(ANON_ID)
-    private val mockHeaders = spyk<MutableMap<String, String>>()
 
     /**
      * Utility function to set up common mocks for resolveDestinationUrl tests
      */
     private fun setupResolveDestinationUrlTest(
         requestStatus: KlaviyoApiRequest.Status,
-        destinationUrl: URL? = null
+        destinationUrl: Uri? = null
     ) {
-        val expectedResponse = if (destinationUrl is URL) {
+        val expectedResponse = if (destinationUrl is Uri) {
             ResolveDestinationResult.Success(destinationUrl, trackingUrl)
         } else if (requestStatus == KlaviyoApiRequest.Status.Unsent) {
             ResolveDestinationResult.Unavailable(trackingUrl)
@@ -773,9 +773,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
         every { anyConstructed<UniversalClickTrackRequest>().uuid } returns "mock_resolve_destination_uuid"
         every { anyConstructed<UniversalClickTrackRequest>().send(any()) } returns requestStatus
         every { anyConstructed<UniversalClickTrackRequest>().getResult() } returns expectedResponse
-        every { anyConstructed<UniversalClickTrackRequest>().headers } returns mockHeaders
+        every { anyConstructed<UniversalClickTrackRequest>().headers } answers { callOriginal() }
         every { anyConstructed<UniversalClickTrackRequest>().prepareToEnqueue() } answers {
-            this.callOriginal()
+            callOriginal()
         }
     }
 
@@ -805,7 +805,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     fun `resolveDestinationUrl invokes callback with Success when request succeeds`() = runTest(
         dispatcher
     ) {
-        val destinationUrl = URL("https://example.com/destination")
+        val destinationUrl = mockk<Uri>()
         setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Complete, destinationUrl)
 
         val result = executeResolveDestinationUrl(testScheduler)
@@ -846,10 +846,12 @@ internal class KlaviyoApiClientTest : BaseTest() {
         runTest(
             dispatcher
         ) {
+            val mockHeaders = spyk<MutableMap<String, String>>()
             setupResolveDestinationUrlTest(
                 KlaviyoApiRequest.Status.Complete,
-                URL("https://example.com")
+                mockk()
             )
+            every { anyConstructed<UniversalClickTrackRequest>().headers } returns mockHeaders
 
             executeResolveDestinationUrl(testScheduler)
 

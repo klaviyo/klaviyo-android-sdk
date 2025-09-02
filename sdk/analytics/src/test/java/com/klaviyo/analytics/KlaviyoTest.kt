@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import com.klaviyo.analytics.Klaviyo.isKlaviyoUniversalLink
+import com.klaviyo.analytics.Klaviyo.isKlaviyoUniversalLinkIntent
 import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
@@ -20,6 +22,7 @@ import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
+import com.klaviyo.core.config.MissingAPIKey
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -29,10 +32,9 @@ import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.spyk
-import io.mockk.unmockkConstructor
+import io.mockk.unmockkAll
 import io.mockk.verify
 import io.mockk.verifyAll
-import java.net.URL
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -79,6 +81,54 @@ internal class KlaviyoTest : BaseTest() {
 
             return intent
         }
+
+        private const val TRACKING_URL = "https://trk.klaviyo.com/u/slug"
+
+        private const val DESTINATION_URL = "https://www.klaviyo.com/some/path?query=param"
+
+        private val mockTrackUri = mockk<Uri>().also {
+            every { it.scheme } returns "https"
+            every { it.path } returns "/u/slug"
+            every { it.toString() } returns TRACKING_URL
+        }
+
+        private val mockDestinationUri = mockk<Uri>().also {
+            every { it.scheme } returns "https"
+            every { it.path } returns "/some/path"
+            every { it.toString() } returns DESTINATION_URL
+        }
+
+        private val validHttpUri = mockk<Uri>().apply {
+            every { scheme } returns "http"
+            every { path } returns "/u/test"
+        }
+
+        private val invalidSchemeUri = mockk<Uri>().apply {
+            every { scheme } returns "ftp"
+            every { path } returns "/u/slug"
+        }
+
+        private val invalidPathUri = mockk<Uri>().apply {
+            every { scheme } returns "https"
+            every { path } returns "/other/path"
+        }
+
+        private val nullPathUri = mockk<Uri>().apply {
+            every { scheme } returns "https"
+            every { path } returns null
+        }
+
+        private val mockTrackingUriIntent = mockk<Intent>().apply {
+            every { data } returns mockTrackUri
+        }
+
+        private val mockDestinationUriIntent = mockk<Intent>().apply {
+            every { data } returns mockDestinationUri
+        }
+
+        private val mockNullDataIntent = mockk<Intent>().apply {
+            every { data } returns null
+        }
     }
 
     private val capturedProfile = slot<Profile>()
@@ -112,6 +162,8 @@ internal class KlaviyoTest : BaseTest() {
         Registry.register<ApiClient>(mockApiClient)
         mockDeviceProperties()
         mockkConstructor(StateSideEffects::class)
+        mockkStatic(Uri::class)
+
         Klaviyo.initialize(
             apiKey = API_KEY,
             applicationContext = mockContext
@@ -120,7 +172,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @After
     override fun cleanup() {
-        unmockkConstructor(StateSideEffects::class)
+        unmockkAll()
         Registry.unregister<Config>()
         Registry.unregister<State>()
         Registry.unregister<StateSideEffects>()
@@ -621,22 +673,99 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `handle universal link with deep link handler`() {
+    fun `handleUniversalTrackingLink handles a valid tracking url and returns true`() {
         val slot = slot<ResolveDestinationCallback>()
-        val trackUrl = "https://trk.klaviyo.com/u/slug"
-        val stubUrl = "https://www.klaviyo.com/some/path?query=param"
         var called = false
 
-        mockkStatic(Uri::class)
-        every { Uri.parse(any()) } returns mockk()
+        every { Uri.parse(TRACKING_URL) } returns mockTrackUri
+        every { Uri.parse(DESTINATION_URL) } returns mockDestinationUri
         every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns Unit
 
-        Klaviyo.registerDeepLinkHandler { url -> called = true }
-        Klaviyo.handleUniversalLink(stubUrl)
+        Klaviyo.registerDeepLinkHandler { _ -> called = true }
+        assertTrue(Klaviyo.handleUniversalTrackingLink(mockTrackingUriIntent))
 
         // Should have called the registered deep link handler
         assertTrue(slot.isCaptured)
-        slot.captured.invoke(ResolveDestinationResult.Success(URL(stubUrl), trackUrl))
+        slot.captured.invoke(ResolveDestinationResult.Success(mockTrackUri, TRACKING_URL))
         assertTrue(called)
+    }
+
+    @Test
+    fun `handleUniversalTrackingLink handles ResolveDestinationResult Unavailable`() {
+        val slot = slot<ResolveDestinationCallback>()
+
+        every { Uri.parse(TRACKING_URL) } returns mockTrackUri
+        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns Unit
+
+        Klaviyo.handleUniversalTrackingLink(mockTrackingUriIntent)
+
+        assertTrue(slot.isCaptured)
+        slot.captured.invoke(ResolveDestinationResult.Unavailable(TRACKING_URL))
+
+        verify { spyLog.warning(match { it.contains("Destination URL unavailable") }, null) }
+    }
+
+    @Test
+    fun `handleUniversalTrackingLink handles ResolveDestinationResult Failure`() {
+        val slot = slot<ResolveDestinationCallback>()
+
+        every { Uri.parse(TRACKING_URL) } returns mockTrackUri
+        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns Unit
+
+        Klaviyo.handleUniversalTrackingLink(TRACKING_URL)
+
+        assertTrue(slot.isCaptured)
+        slot.captured.invoke(ResolveDestinationResult.Failure(TRACKING_URL))
+
+        verify { spyLog.error(match { it.contains("Failed to resolve destination URL") }, null) }
+    }
+
+    @Test
+    fun `handleUniversalTrackingLink fails gracefully if uninitialized`() {
+        val slot = slot<ResolveDestinationCallback>()
+
+        every { Uri.parse(TRACKING_URL) } returns mockTrackUri
+        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } throws MissingAPIKey()
+
+        assertEquals(false, Klaviyo.handleUniversalTrackingLink(TRACKING_URL))
+
+        assertTrue(slot.isCaptured)
+    }
+
+    @Test
+    fun `handleUniversalTrackingLink returns false for non-Klaviyo Intent`() {
+        assertEquals(false, Klaviyo.handleUniversalTrackingLink(mockDestinationUriIntent))
+    }
+
+    @Test
+    fun `handleUniversalTrackingLink returns false for non-Klaviyo Url`() {
+        assertEquals(false, Klaviyo.handleUniversalTrackingLink(DESTINATION_URL))
+    }
+
+    @Test
+    fun `handleUniversalTrackingLink returns false for missing and Intent with no Url`() {
+        assertEquals(false, Klaviyo.handleUniversalTrackingLink(null))
+        assertEquals(false, Klaviyo.handleUniversalTrackingLink(mockNullDataIntent))
+    }
+
+    @Test
+    fun `handleUniversalTrackingLink returns false for invalid URLs`() {
+        assertEquals(false, Klaviyo.handleUniversalTrackingLink("not a url"))
+    }
+
+    @Test
+    fun `isKlaviyoUniversalLinkIntent extension property validation`() {
+        assertTrue(mockTrackingUriIntent.isKlaviyoUniversalLinkIntent)
+        assertEquals(false, mockDestinationUriIntent.isKlaviyoUniversalLinkIntent)
+        assertEquals(false, mockNullDataIntent.isKlaviyoUniversalLinkIntent)
+    }
+
+    @Test
+    fun `isKlaviyoUniversalLink Uri extension property validation`() {
+        assertTrue(mockTrackUri.isKlaviyoUniversalLink)
+        assertTrue(validHttpUri.isKlaviyoUniversalLink)
+        assertEquals(false, invalidSchemeUri.isKlaviyoUniversalLink)
+        assertEquals(false, invalidPathUri.isKlaviyoUniversalLink)
+        assertEquals(false, nullPathUri.isKlaviyoUniversalLink)
     }
 }
