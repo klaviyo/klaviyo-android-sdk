@@ -27,6 +27,8 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
 
     override val expectedQuery = emptyMap<String, String>()
 
+    override val expectedUrl: URL = URL(trackingUrl)
+
     override val expectedHeaders: Map<String, String>
         get() = super.expectedHeaders.toMutableMap() + mapOf(
             UniversalClickTrackRequest.KLAVIYO_PROFILE_INFO_HEADER to (stubProfile.identifiers.toString())

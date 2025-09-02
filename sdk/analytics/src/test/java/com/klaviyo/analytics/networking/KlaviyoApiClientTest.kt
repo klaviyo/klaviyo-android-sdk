@@ -753,7 +753,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     private val trackingUrl = "https://klaviyo.com/track?id=123"
     private val profile = Profile().setAnonymousId(ANON_ID)
-    private val mockHeaders = spyk<MutableMap<String, String>>()
 
     /**
      * Utility function to set up common mocks for resolveDestinationUrl tests
@@ -774,9 +773,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
         every { anyConstructed<UniversalClickTrackRequest>().uuid } returns "mock_resolve_destination_uuid"
         every { anyConstructed<UniversalClickTrackRequest>().send(any()) } returns requestStatus
         every { anyConstructed<UniversalClickTrackRequest>().getResult() } returns expectedResponse
-        every { anyConstructed<UniversalClickTrackRequest>().headers } returns mockHeaders
+        every { anyConstructed<UniversalClickTrackRequest>().headers } answers { callOriginal() }
         every { anyConstructed<UniversalClickTrackRequest>().prepareToEnqueue() } answers {
-            this.callOriginal()
+            callOriginal()
         }
     }
 
@@ -847,10 +846,12 @@ internal class KlaviyoApiClientTest : BaseTest() {
         runTest(
             dispatcher
         ) {
+            val mockHeaders = spyk<MutableMap<String, String>>()
             setupResolveDestinationUrlTest(
                 KlaviyoApiRequest.Status.Complete,
                 mockk()
             )
+            every { anyConstructed<UniversalClickTrackRequest>().headers } returns mockHeaders
 
             executeResolveDestinationUrl(testScheduler)
 

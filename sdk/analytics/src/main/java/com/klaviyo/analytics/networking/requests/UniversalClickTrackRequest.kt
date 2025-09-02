@@ -31,10 +31,12 @@ internal class UniversalClickTrackRequest(
      * Only attempt initial request with callback once. If it fails, we enqueue the request
      * to be retried later with normal retry behavior and exponential backoff.
      */
-    override val maxAttempts get() = if (headers.containsKey(KLAVIYO_CLICK_TIMESTAMP_HEADER)) {
-        super.maxAttempts
-    } else {
-        1
+    override val maxAttempts: Int get() {
+        return if (headers.containsKey(KLAVIYO_CLICK_TIMESTAMP_HEADER)) {
+            super.maxAttempts
+        } else {
+            1
+        }
     }
 
     /**
