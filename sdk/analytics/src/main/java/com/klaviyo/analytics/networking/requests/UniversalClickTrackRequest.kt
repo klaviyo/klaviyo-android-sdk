@@ -1,8 +1,9 @@
 package com.klaviyo.analytics.networking.requests
 
+import android.net.Uri
+import androidx.core.net.toUri
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
-import java.net.URL
 import kotlin.time.Duration.Companion.milliseconds
 import org.json.JSONObject
 
@@ -27,18 +28,26 @@ internal class UniversalClickTrackRequest(
     override var baseUrl: String = ""
 
     /**
+     * Only attempt initial request with callback once. If it fails, we enqueue the request
+     * to be retried later with normal retry behavior and exponential backoff.
+     */
+    override val maxAttempts: Int get() {
+        return if (headers.containsKey(KLAVIYO_CLICK_TIMESTAMP_HEADER)) {
+            super.maxAttempts
+        } else {
+            1
+        }
+    }
+
+    /**
      * Extract the destination URL from the response JSON
      * This could be null if the request hasn't completed yet or if the parsing fails
      */
-    private val destinationUrl: URL?
+    private val destinationUrl: Uri?
         get() = try {
             responseBody?.let { body ->
                 JSONObject(body).optString(DESTINATION_URL_KEY)
-            }?.takeIf {
-                it.isNotEmpty()
-            }?.let {
-                URL(it)
-            }
+            }?.toUri()
         } catch (e: Exception) {
             Registry.log.warning("Failed to parse destination URL", e)
             null
@@ -62,7 +71,11 @@ internal class UniversalClickTrackRequest(
 
         Status.Unsent, Status.Inflight -> ResolveDestinationResult.Unavailable(baseUrl)
 
-        else -> ResolveDestinationResult.Failure(baseUrl)
+        else -> when (responseCode) {
+            // Retry with exponential backoff for 429 rate limit error, or 500 server error
+            429, in 500..599 -> ResolveDestinationResult.Unavailable(baseUrl)
+            else -> ResolveDestinationResult.Failure(baseUrl)
+        }
     }
 
     /**

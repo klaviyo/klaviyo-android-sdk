@@ -11,14 +11,15 @@ import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
 import io.mockk.slot
+import io.mockk.unmockkAll
 import io.mockk.verify
-import java.net.URL
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
 internal class DeepLinkHandlerTest : BaseTest() {
 
+    private val testUrl = "https://example.com/u/slug"
     private val mockUri = mockk<Uri>(relaxed = true)
     private val uriSlot = slot<Uri>()
     private val actionSlot = slot<String>()
@@ -30,7 +31,7 @@ internal class DeepLinkHandlerTest : BaseTest() {
         super.setup()
 
         mockkStatic(Uri::class)
-        every { Uri.parse(any()) } returns mockUri
+        every { Uri.parse(testUrl) } returns mockUri
 
         mockkConstructor(Intent::class)
         every { anyConstructed<Intent>().setData(capture(uriSlot)) } returns mockk<Intent>()
@@ -42,17 +43,16 @@ internal class DeepLinkHandlerTest : BaseTest() {
     @After
     override fun cleanup() {
         super.cleanup()
+        unmockkAll()
         Registry.unregister<DeepLinkHandler>()
     }
 
     @Test
     fun `test handleDeepLink for a URL with registered handler`() {
-        val mockURL = mockk<URL>(relaxed = true)
-        every { mockURL.toString() } returns "mockUri"
         val deepLinkHandler: DeepLinkHandler = mockk(relaxed = true)
         Registry.register<DeepLinkHandler>(deepLinkHandler)
 
-        DeepLinking.handleDeepLink(mockURL)
+        DeepLinking.handleDeepLink(testUrl)
 
         // Verify that the handler was invoked with the correct URI
         verify { deepLinkHandler.invoke(mockUri) }
