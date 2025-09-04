@@ -29,7 +29,7 @@ val Registry.locationPermissionMonitor: PermissionMonitor
  */
 internal class KlaviyoPermissionMonitor() : PermissionMonitor {
 
-    override val permissionState: Boolean = hasGeofencePermissions()
+    override val permissionState: Boolean get() = hasGeofencePermissions()
 
     private val observers = Collections.synchronizedList(
         CopyOnWriteArrayList<PermissionObserver>()
