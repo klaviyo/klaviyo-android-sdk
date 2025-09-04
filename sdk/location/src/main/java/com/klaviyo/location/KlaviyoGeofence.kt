@@ -5,6 +5,9 @@ import com.google.android.gms.location.GeofencingEvent
 import com.klaviyo.core.Registry
 import org.json.JSONObject
 
+/**
+ * Callback type for geofence events
+ */
 typealias KlaviyoGeofenceCallback = (
     geofence: KlaviyoGeofence,
     transition: KlaviyoGeofenceTransition
@@ -20,7 +23,7 @@ enum class KlaviyoGeofenceTransition {
 
     companion object {
         /**
-         * Convert a GeofencingEvent to a KlaviyoGeofenceTransition enum
+         * Convert a GeofencingEvent to a [KlaviyoGeofenceTransition] enum
          * Makes life easier than dealing with the raw integers
          */
         fun fromGeofencingEvent(event: GeofencingEvent): KlaviyoGeofenceTransition? =
@@ -32,7 +35,7 @@ enum class KlaviyoGeofenceTransition {
             }
 
         /**
-         * Extension function to convert a GeofencingEvent to a KlaviyoGeofenceTransition
+         * Extension function to convert a GeofencingEvent to a [KlaviyoGeofenceTransition]
          */
         fun GeofencingEvent.toKlaviyoGeofenceEvent(): KlaviyoGeofenceTransition? =
             fromGeofencingEvent(this)
@@ -79,7 +82,7 @@ data class KlaviyoGeofence(
 
     companion object {
         /**
-         * Create a KlaviyoGeofence from a JSON response from the Klaviyo API.
+         * Create a [KlaviyoGeofence] from a JSON response from the Klaviyo API.
          * Note: this is where we combine the company ID and location ID to form the geofence ID.
          */
         fun fromApiResponse(json: String) = catching {
@@ -93,7 +96,7 @@ data class KlaviyoGeofence(
         }
 
         /**
-         * Convert a JSON object into a KlaviyoGeofence instance.
+         * Convert a JSON object into a [KlaviyoGeofence] instance.
          */
         fun fromJson(json: JSONObject): KlaviyoGeofence? = catching {
             KlaviyoGeofence(
@@ -105,14 +108,14 @@ data class KlaviyoGeofence(
         }
 
         /**
-         * Convert a JSON string into a KlaviyoGeofence instance.
+         * Convert a JSON string into a [KlaviyoGeofence] instance.
          */
         fun fromJson(json: String): KlaviyoGeofence? = catching {
             fromJson(JSONObject(json))
         }
 
         /**
-         * Convert a Google Geofence into a KlaviyoGeofence.
+         * Convert a Google Geofence into a [KlaviyoGeofence].
          */
         fun fromGeofence(geofence: Geofence): KlaviyoGeofence = KlaviyoGeofence(
             id = geofence.requestId,
@@ -122,7 +125,7 @@ data class KlaviyoGeofence(
         )
 
         /**
-         * Extension function to convert a Google Geofence into a KlaviyoGeofence.
+         * Extension function to convert a Google Geofence into a [KlaviyoGeofence].
          */
         fun Geofence.toKlaviyoGeofence(): KlaviyoGeofence = fromGeofence(this)
 

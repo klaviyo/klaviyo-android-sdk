@@ -6,5 +6,5 @@ import android.content.Intent
 
 class KlaviyoGeofenceReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) =
-        KlaviyoGeofenceManager.handleGeofenceIntent(context, intent)
+        KlaviyoLocationManager.handleGeofenceIntent(context, intent)
 }

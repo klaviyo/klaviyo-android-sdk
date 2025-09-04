@@ -1,8 +1,11 @@
 package com.klaviyo.location
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import androidx.annotation.RequiresPermission
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofenceStatusCodes
 import com.google.android.gms.location.GeofencingClient
@@ -13,11 +16,17 @@ import com.klaviyo.core.Registry
 import com.klaviyo.location.KlaviyoGeofence.Companion.toKlaviyoGeofence
 import com.klaviyo.location.KlaviyoGeofenceTransition.Companion.toKlaviyoGeofenceEvent
 
-internal object KlaviyoGeofenceManager {
+/**
+ * Coordinator for all geofencing operations
+ * - Starts/stops geofence monitoring based on permission state
+ * - Fetches geofences from the Klaviyo backend
+ * - Adds/removes geofences to/from the system geofencing APIs
+ * - Handles geofence transition intents
+ * - Handle boot receiver events to re-register geofences on device reboot
+ */
+internal object KlaviyoLocationManager : LocationManager {
 
     private const val INTENT_CODE = 23
-
-    private var permissionMonitor: PermissionMonitor? = null
 
     /**
      * Lazy-loaded access to the system geofencing APIs
@@ -38,26 +47,33 @@ internal object KlaviyoGeofenceManager {
         )
     }
 
-    fun startGeofenceMonitoring(): KlaviyoGeofenceManager = apply {
-        fetchGeofences()
-
-        permissionMonitor = PermissionMonitor { hasPermissions ->
-            if (hasPermissions) {
-                // Start monitoring geofences
-                getGeofences().forEach { addGeofence(it) }
-            } else {
-                // Stop monitoring geofences
-                stopGeofenceMonitoring()
-            }
+    override fun startGeofenceMonitoring() {
+        Registry.locationPermissionMonitor.apply {
+            onPermissionChanged(::onPermissionChanged)
         }
     }
 
-    fun stopGeofenceMonitoring() = apply {
-        permissionMonitor?.dispose()?.also { permissionMonitor = null }
+    override fun stopGeofenceMonitoring() {
         geofencingClient.removeGeofences(geofenceIntent)
+        Registry.locationPermissionMonitor.apply {
+            offPermissionChanged(::onPermissionChanged)
+        }
     }
 
-    fun addGeofence(geofence: KlaviyoGeofence) {
+    @SuppressLint("MissingPermission")
+    private fun onPermissionChanged(hasPermissions: Boolean) {
+        if (hasPermissions) {
+            // Start monitoring geofences
+            fetchGeofences()
+            monitorGeofences()
+        } else {
+            // Stop monitoring geofences
+            stopGeofenceMonitoring()
+        }
+    }
+
+    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+    private fun addGeofence(geofence: KlaviyoGeofence) {
         // TODO persist a record of all fences, since system doesn't do it for us
         // Boot receiver to re-add them on reboot
         val geofenceToAdd = Geofence.Builder()
@@ -78,31 +94,25 @@ internal object KlaviyoGeofenceManager {
             addGeofences(listOf(geofenceToAdd))
         }.build()
 
-        if (PermissionMonitor.hasGeofencePermissions()) {
-            @Suppress("MissingPermission") // Permission checked by PermissionMonitor.hasGeofencePermissions()
-            geofencingClient.addGeofences(geofenceRequest, geofenceIntent).run {
-                addOnSuccessListener {
-                    Registry.log.debug("Added geofence")
-                }
-                addOnFailureListener {
-                    Registry.log.error("Failed to add geofence $it")
-                }
+        geofencingClient.addGeofences(geofenceRequest, geofenceIntent).run {
+            addOnSuccessListener {
+                Registry.log.debug("Added geofence")
             }
-        } else {
-            val message = PermissionMonitor.getMissingPermissionsMessage()
-            Registry.log.info("Cannot add geofence: $message")
+            addOnFailureListener {
+                Registry.log.error("Failed to add geofence $it")
+            }
         }
     }
 
-    fun removeGeofence(geofence: KlaviyoGeofence) {
+    private fun removeGeofence(geofence: KlaviyoGeofence) {
         geofencingClient.removeGeofences(listOf(geofence.id))
     }
 
     // Make the API request -- use coroutines to send it right away
     // attach listener to await the result
-    // on success, parse the response into KlaviyoGeofence objects
+    // on success, parse the response into com.klaviyo.location.KlaviyoGeofence objects
     // call saveGeofences with the list of geofences
-    fun fetchGeofences() {
+    override fun fetchGeofences() {
         TODO("Fetch geofences from Klaviyo backend and save them locally")
     }
 
@@ -110,10 +120,11 @@ internal object KlaviyoGeofenceManager {
         TODO("Save geofences locally and start monitoring them")
     }
 
-    fun registerGeofences() = getGeofences().forEach { addGeofence(it) }
+    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+    private fun monitorGeofences() = getCurrentGeofences().forEach { addGeofence(it) }
 
-    fun getGeofences(): List<KlaviyoGeofence> {
-        // TODO return geofences currently saved locally
+    override fun getCurrentGeofences(): List<KlaviyoGeofence> {
+        // TODO return geofences currently monitored
         return emptyList()
     }
 
