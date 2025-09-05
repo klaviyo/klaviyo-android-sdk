@@ -4,8 +4,8 @@ import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import com.klaviyo.analytics.Klaviyo.isKlaviyoUniversalLink
-import com.klaviyo.analytics.Klaviyo.isKlaviyoUniversalLinkIntent
+import com.klaviyo.analytics.Klaviyo.isKlaviyoUniversalTrackingIntent
+import com.klaviyo.analytics.Klaviyo.isKlaviyoUniversalTrackingUri
 import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
@@ -755,17 +755,17 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `isKlaviyoUniversalLinkIntent extension property validation`() {
-        assertTrue(mockTrackingUriIntent.isKlaviyoUniversalLinkIntent)
-        assertEquals(false, mockDestinationUriIntent.isKlaviyoUniversalLinkIntent)
-        assertEquals(false, mockNullDataIntent.isKlaviyoUniversalLinkIntent)
+        assertTrue(mockTrackingUriIntent.isKlaviyoUniversalTrackingIntent)
+        assertEquals(false, mockDestinationUriIntent.isKlaviyoUniversalTrackingIntent)
+        assertEquals(false, mockNullDataIntent.isKlaviyoUniversalTrackingIntent)
     }
 
     @Test
     fun `isKlaviyoUniversalLink Uri extension property validation`() {
-        assertTrue(mockTrackUri.isKlaviyoUniversalLink)
-        assertTrue(validHttpUri.isKlaviyoUniversalLink)
-        assertEquals(false, invalidSchemeUri.isKlaviyoUniversalLink)
-        assertEquals(false, invalidPathUri.isKlaviyoUniversalLink)
-        assertEquals(false, nullPathUri.isKlaviyoUniversalLink)
+        assertTrue(mockTrackUri.isKlaviyoUniversalTrackingUri)
+        assertTrue(validHttpUri.isKlaviyoUniversalTrackingUri)
+        assertEquals(false, invalidSchemeUri.isKlaviyoUniversalTrackingUri)
+        assertEquals(false, invalidPathUri.isKlaviyoUniversalTrackingUri)
+        assertEquals(false, nullPathUri.isKlaviyoUniversalTrackingUri)
     }
 }
