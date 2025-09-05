@@ -314,7 +314,7 @@ object Klaviyo {
      */
     fun handleUniversalTrackingLink(url: String): Boolean = safeCall {
         val isKlaviyo = try {
-            url.toUri().isKlaviyoUniversalLink
+            url.toUri().isKlaviyoUniversalTrackingUri
         } catch (e: Exception) {
             Registry.log.warning("Invalid universal link: $url")
             false
@@ -355,7 +355,7 @@ object Klaviyo {
      * Handles a universal link [Intent] by extracting the URL and passing it to [handleUniversalTrackingLink]
      */
     fun handleUniversalTrackingLink(intent: Intent?): Boolean = intent?.takeIf {
-        it.isKlaviyoUniversalLinkIntent
+        it.isKlaviyoUniversalTrackingIntent
     }?.data?.let {
         handleUniversalTrackingLink(it.toString())
     } ?: false
@@ -379,13 +379,13 @@ object Klaviyo {
     /**
      * Determine if an intent is a Klaviyo click-tracking universal/app link
      */
-    val Intent.isKlaviyoUniversalLinkIntent: Boolean
-        get() = this.data?.isKlaviyoUniversalLink == true
+    val Intent.isKlaviyoUniversalTrackingIntent: Boolean
+        get() = this.data?.isKlaviyoUniversalTrackingUri == true
 
     /**
      * Determine if a URI is a Klaviyo click-tracking universal/app link
      */
-    val Uri.isKlaviyoUniversalLink: Boolean
+    val Uri.isKlaviyoUniversalTrackingUri: Boolean
         get() = this.let { uri ->
             uri.scheme in listOf("https", "http") && uri.path?.startsWith("/u/") ?: false
         }
