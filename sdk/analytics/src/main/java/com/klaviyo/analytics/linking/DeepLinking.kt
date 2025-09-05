@@ -8,6 +8,10 @@ import androidx.core.net.toUri
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION_GRACE_PERIOD
 
+/**
+ * Callback type for handling a deep link. When registered, this callback is invoked with any
+ * deep links originating from Klaviyo services, instead of broadcasting an [Intent].
+ */
 typealias DeepLinkHandler = (uri: Uri) -> Unit
 
 /**
@@ -52,12 +56,13 @@ object DeepLinking {
      *
      * @param uri The deep link URI to be attached to the intent
      */
-    private fun sendDeepLinkIntent(uri: Uri) =
+    private fun sendDeepLinkIntent(uri: Uri) {
         Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
             ACTIVITY_TRANSITION_GRACE_PERIOD
         ) { activity ->
             activity.startActivity(makeDeepLinkIntent(uri, activity))
         }
+    }
 
     /**
      * Create an intent to view a deep link within the host application.
@@ -71,7 +76,7 @@ object DeepLinking {
         uri: Uri,
         context: Context,
         copyIntent: Intent? = null
-    ): Intent = Intent().apply {
+    ) = Intent().apply {
         data = uri
         action = Intent.ACTION_VIEW
         `package` = context.packageName

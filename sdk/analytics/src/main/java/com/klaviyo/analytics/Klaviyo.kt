@@ -388,8 +388,8 @@ object Klaviyo {
     /**
      * Determine if an intent is a Klaviyo click-tracking universal/app link
      */
-    val Intent.isKlaviyoUniversalTrackingIntent: Boolean
-        get() = this.data?.isKlaviyoUniversalTrackingUri == true
+    val Intent?.isKlaviyoUniversalTrackingIntent: Boolean
+        get() = this?.data?.isKlaviyoUniversalTrackingUri == true
 
     /**
      * Determine if a URI is a Klaviyo click-tracking universal/app link
