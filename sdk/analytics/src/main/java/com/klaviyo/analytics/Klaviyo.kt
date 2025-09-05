@@ -286,27 +286,36 @@ object Klaviyo {
      *
      * @param intent the [Intent] from opening a notification
      */
-    fun handlePush(intent: Intent?) = safeApply(preInitQueue) {
-        if (intent?.isKlaviyoNotificationIntent != true) {
-            Registry.log.verbose("Non-Klaviyo intent ignored")
-            return@safeApply
-        }
+    fun handlePush(intent: Intent?): Klaviyo = this
+        .takeIf { intent.isKlaviyoNotificationIntent }
+        ?.safeApply(preInitQueue) {
+            // Create and enqueue an $opened_push
+            val event = Event(EventMetric.OPENED_PUSH)
+            val extras = intent?.extras
 
-        val event = Event(EventMetric.OPENED_PUSH)
-        val extras = intent.extras
+            extras?.keySet()?.forEach { key ->
+                if (key.contains("com.klaviyo")) {
+                    val eventKey = EventKey.CUSTOM(key.replace("com.klaviyo.", ""))
+                    event[eventKey] = extras.getString(key, "")
+                }
+            }
 
-        extras?.keySet()?.forEach { key ->
-            if (key.contains("com.klaviyo")) {
-                val eventKey = EventKey.CUSTOM(key.replace("com.klaviyo.", ""))
-                event[eventKey] = extras.getString(key, "")
+            Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
+
+            // Not using createEvent here to avoid nested safeApply calls
+            Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
+        }?.safeApply {
+            // If a Klaviyo notification is deep linked, invoke the developer's deep link handler
+            // if registered. If not, do nothing. The host already received the appropriate intent.
+            intent?.data?.takeIf {
+                DeepLinking.isHandlerRegistered
+            }?.let { uri ->
+                DeepLinking.handleDeepLink(uri)
             }
         }
-
-        Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
-
-        Registry.log.verbose("Enqueuing ${event.metric.name} event")
-        Registry.get<ApiClient>().enqueueEvent(event, Registry.get<State>().getAsProfile())
-    }
+        ?: apply {
+            Registry.log.verbose("Non-Klaviyo intent ignored")
+        }
 
     /**
      * Handles a universal link URL by resolving it to a destination URL asynchronously
@@ -373,8 +382,8 @@ object Klaviyo {
      * Checks whether a notification intent originated from Klaviyo
      */
     @Suppress("MemberVisibilityCanBePrivate")
-    val Intent.isKlaviyoNotificationIntent: Boolean
-        get() = this.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
+    val Intent?.isKlaviyoNotificationIntent: Boolean
+        get() = this?.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
 
     /**
      * Determine if an intent is a Klaviyo click-tracking universal/app link

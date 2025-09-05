@@ -3,9 +3,7 @@ package com.klaviyo.pushFcm
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.content.res.Resources
 import android.content.res.Resources.NotFoundException
-import android.graphics.Color
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.net.Uri
 import android.os.Build
@@ -13,6 +11,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.graphics.toColorInt
+import androidx.core.net.toUri
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.Registry
@@ -33,7 +33,7 @@ object KlaviyoRemoteMessage {
      *
      * @param message
      */
-    fun Intent.appendKlaviyoExtras(message: RemoteMessage) = apply {
+    fun Intent.appendKlaviyoExtras(message: RemoteMessage) = this.apply {
         if (message.isKlaviyoMessage) {
             message.data.forEach {
                 this.putExtra("com.klaviyo.${it.key}", it.value)
@@ -104,7 +104,7 @@ object KlaviyoRemoteMessage {
      * Parse deep link into a [Uri] if present
      */
     val RemoteMessage.deepLink: Uri?
-        get() = this.data[KlaviyoNotification.URL_KEY]?.let { Uri.parse(it) }
+        get() = this.data[KlaviyoNotification.URL_KEY]?.toUri()
 
     /**
      * Parse image url if present
@@ -116,18 +116,10 @@ object KlaviyoRemoteMessage {
     }.getOrNull()
 
     /**
-     * Parse click action (activity or intent filter)
-     * Click action could be explicitly sent, or we should use ACTION_VIEW if a deep link is sent
-     */
-    val RemoteMessage.clickAction: String?
-        get() = this.data[KlaviyoNotification.CLICK_ACTION_KEY]
-            ?: deepLink?.let { Intent.ACTION_VIEW }
-
-    /**
      * Parse [Uri] to sound resource
      */
     val RemoteMessage.sound: Uri?
-        get() = this.data[KlaviyoNotification.SOUND_KEY]?.let { Uri.parse(it) }
+        get() = this.data[KlaviyoNotification.SOUND_KEY]?.toUri()
 
     /**
      * Parse out notification count from payload (for app badging)
@@ -223,7 +215,7 @@ object KlaviyoRemoteMessage {
         this.data[KlaviyoNotification.COLOR_KEY].let { color ->
             val parsedColor = color?.let {
                 try {
-                    Color.parseColor(color)
+                    color.toColorInt()
                 } catch (e: IllegalArgumentException) {
                     Registry.log.warning(
                         "Invalid color: $color. Notification will use default color.",
@@ -278,7 +270,7 @@ object KlaviyoRemoteMessage {
             } else {
                 true
             }
-        } catch (ex: Resources.NotFoundException) {
+        } catch (_: NotFoundException) {
             Registry.log.warning("Couldn't find resource $resId for notification")
             false
         }
