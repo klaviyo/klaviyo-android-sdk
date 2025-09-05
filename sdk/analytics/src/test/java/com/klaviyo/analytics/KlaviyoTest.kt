@@ -3,7 +3,6 @@ package com.klaviyo.analytics
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
-import android.os.Bundle
 import com.klaviyo.analytics.Klaviyo.isKlaviyoUniversalTrackingIntent
 import com.klaviyo.analytics.Klaviyo.isKlaviyoUniversalTrackingUri
 import com.klaviyo.analytics.linking.DeepLinkHandler
@@ -24,6 +23,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
@@ -66,23 +66,8 @@ internal class KlaviyoTest : BaseTest() {
             }"""
         )
 
-        fun mockIntent(payload: Map<String, String>, uri: Uri? = null): Intent {
-            // Mocking an intent to return the stub push payload...
-            val intent = mockk<Intent>()
-            val bundle = mockk<Bundle>()
-            every { intent.data } returns uri
-            every { intent.extras } returns bundle
-            every { bundle.keySet() } returns payload.keys
-            every { intent.getStringExtra(any()) } answers { call -> payload[call.invocation.args[0]] }
-            every {
-                bundle.getString(
-                    any(),
-                    String()
-                )
-            } answers { call -> payload[call.invocation.args[0]] }
-
-            return intent
-        }
+        fun mockIntent(payload: Map<String, String>, uri: Uri? = null) =
+            MockIntent.mockIntentWith(payload, uri).intent
 
         private const val TRACKING_URL = "https://trk.klaviyo.com/u/slug"
 

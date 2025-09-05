@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import androidx.core.net.toUri
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION_GRACE_PERIOD
 
@@ -34,12 +33,6 @@ object DeepLinking {
         uri: Uri
     ) = Registry.getOrNull<DeepLinkHandler>()?.invoke(uri) ?: run {
         sendDeepLinkIntent(uri)
-    }
-
-    fun handleDeepLink(url: String) = try {
-        handleDeepLink(url.toUri())
-    } catch (e: Exception) {
-        Registry.log.error("Could not handle universal link: $url", e)
     }
 
     /**
