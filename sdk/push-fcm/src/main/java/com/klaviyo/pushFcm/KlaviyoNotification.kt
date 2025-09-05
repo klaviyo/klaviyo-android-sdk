@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -195,7 +194,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      *
      * @return [PendingIntent]
      */
-    private fun makePendingIntent(context: Context): PendingIntent =
+    private fun makePendingIntent(context: Context) =
         PendingIntent.getActivity(
             context,
             generateId(),
@@ -208,7 +207,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * When auto-track is enabled, use our middleware activity to handle the open
      * Otherwise, use the deep link if available, or fall back to launching the app
      */
-    private fun makeOpenedIntent(context: Context): Intent? = message.deepLink.let { deepLink ->
+    private fun makeOpenedIntent(context: Context) = message.deepLink.let { deepLink ->
         when {
             // Else if deep link is present, use an ACTION_VIEW intent
             deepLink is Uri -> DeepLinking.makeDeepLinkIntent(deepLink, context)
