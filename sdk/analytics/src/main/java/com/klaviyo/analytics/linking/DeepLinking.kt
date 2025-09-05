@@ -10,6 +10,9 @@ import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION
 
 typealias DeepLinkHandler = (uri: Uri) -> Unit
 
+/**
+ * Utility for handling any deep links into the host application originating from Klaviyo
+ */
 object DeepLinking {
 
     /**
@@ -93,5 +96,3 @@ object DeepLinking {
             null
         }
 }
-
-// idea: gradle plugin that generates the universal link intent filter if they give us a list klaviyo track domains
