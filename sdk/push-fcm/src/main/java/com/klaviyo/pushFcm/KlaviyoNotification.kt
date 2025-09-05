@@ -209,7 +209,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      */
     private fun makeOpenedIntent(context: Context) = message.deepLink.let { deepLink ->
         when {
-            // Else if deep link is present, use an ACTION_VIEW intent
+            // If deep link is present, use an ACTION_VIEW intent
             deepLink is Uri -> DeepLinking.makeDeepLinkIntent(deepLink, context)
             // Else, just launch the app
             else -> DeepLinking.makeLaunchIntent(context)
