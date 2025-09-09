@@ -22,10 +22,13 @@ import com.klaviyo.location.KlaviyoGeofenceTransition.Companion.toKlaviyoGeofenc
  * - Fetches geofences from the Klaviyo backend
  * - Adds/removes geofences to/from the system geofencing APIs
  * - Handles geofence transition intents
- * - Handle boot receiver events to re-register geofences on device reboot
+ * - CHNL-25300 Handle boot receiver events to re-register geofences on device reboot
  */
 internal object KlaviyoLocationManager : LocationManager {
 
+    /**
+     * Arbitrary int for the pending intent request code
+     */
     private const val INTENT_CODE = 23
 
     /**
@@ -74,8 +77,7 @@ internal object KlaviyoLocationManager : LocationManager {
 
     @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
     private fun addGeofence(geofence: KlaviyoGeofence) {
-        // TODO persist a record of all fences, since system doesn't do it for us
-        // Boot receiver to re-add them on reboot
+        // TODO CHNL-25306 persist a record of all fences, since system doesn't do it for us
         val geofenceToAdd = Geofence.Builder()
             .setRequestId(geofence.id)
             .setCircularRegion(
@@ -113,18 +115,18 @@ internal object KlaviyoLocationManager : LocationManager {
     // on success, parse the response into com.klaviyo.location.KlaviyoGeofence objects
     // call saveGeofences with the list of geofences
     override fun fetchGeofences() {
-        TODO("Fetch geofences from Klaviyo backend and save them locally")
+        TODO("CHNL-24475 Fetch geofences from Klaviyo backend and save them locally")
     }
 
     fun saveGeofences(geofences: List<KlaviyoGeofence>) {
-        TODO("Save geofences locally and start monitoring them")
+        TODO("CHNL-24471 Save geofences locally and start monitoring them")
     }
 
     @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
     private fun monitorGeofences() = getCurrentGeofences().forEach { addGeofence(it) }
 
     override fun getCurrentGeofences(): List<KlaviyoGeofence> {
-        // TODO return geofences currently monitored
+        // TODO CHNL-24475 return geofences currently monitored
         return emptyList()
     }
 
@@ -146,7 +148,7 @@ internal object KlaviyoLocationManager : LocationManager {
         geofencingEvent.triggeringGeofences
             ?.map { it.toKlaviyoGeofence() }
             ?.forEach { kGeofence ->
-                // TODO enqueue API request for geofence event
+                // CHNL-25308 TODO enqueue API request for geofence event
                 // TODO what if the app was terminated, and the host app hasn't called `initialize` yet when we get this intent?
                 Registry.log.info("Triggered geofence $geofenceTransition $kGeofence")
             }

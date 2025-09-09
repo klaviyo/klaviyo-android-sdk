@@ -1,6 +1,3 @@
-// Using extensions for code organization, even if the receiver parameter is sometimes unused
-@file:Suppress("UnusedReceiverParameter")
-
 package com.klaviyo.location
 
 import com.klaviyo.analytics.Klaviyo
