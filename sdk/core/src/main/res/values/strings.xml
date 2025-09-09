@@ -2,7 +2,7 @@
 <resources>
     <!-- Please do not modify / override these values, they are critical for internal versioning  -->
     <string name="klaviyo_sdk_name_override">android</string>
-    <string name="klaviyo_sdk_version_override">4.0.0</string>
+    <string name="klaviyo_sdk_version_override">4.0.1</string>
     <string name="klaviyo_sdk_plugin_name_override"/>
     <string name="klaviyo_sdk_plugin_version_override"/>
 </resources>
