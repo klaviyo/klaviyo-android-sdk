@@ -139,6 +139,8 @@ internal open class KlaviyoApiRequest(
 
     open val maxAttempts get() = Registry.config.networkMaxAttempts
 
+    open val timeoutDuration get() = Registry.config.networkTimeout
+
     /**
      * Tracks number of attempts to limit retries
      */
@@ -340,8 +342,8 @@ internal open class KlaviyoApiRequest(
         }
 
         connection.requestMethod = method.name
-        connection.readTimeout = Registry.config.networkTimeout
-        connection.connectTimeout = Registry.config.networkTimeout
+        connection.readTimeout = timeoutDuration
+        connection.connectTimeout = timeoutDuration
 
         requestBody?.let {
             connection.doOutput = true

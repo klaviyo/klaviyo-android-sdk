@@ -31,13 +31,24 @@ internal class UniversalClickTrackRequest(
      * Only attempt initial request with callback once. If it fails, we enqueue the request
      * to be retried later with normal retry behavior and exponential backoff.
      */
-    override val maxAttempts: Int get() {
-        return if (headers.containsKey(KLAVIYO_CLICK_TIMESTAMP_HEADER)) {
+    override val maxAttempts: Int
+        get() = if (headers.containsKey(KLAVIYO_CLICK_TIMESTAMP_HEADER)) {
             super.maxAttempts
         } else {
             1
         }
-    }
+
+    /**
+     * Use a short timeout for the initial request with callback, since we don't want to
+     * keep the user waiting too long. If it fails, we enqueue the request to be retried later.
+     * For retries, use the normal timeout duration.
+     */
+    override val timeoutDuration: Int
+        get() = if (headers.containsKey(KLAVIYO_CLICK_TIMESTAMP_HEADER)) {
+            super.timeoutDuration
+        } else {
+            Registry.config.uxNetworkTimeout
+        }
 
     /**
      * Extract the destination URL from the response JSON

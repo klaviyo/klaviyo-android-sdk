@@ -4,16 +4,17 @@ import android.Manifest
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.annotation.WorkerThread
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.Registry
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
@@ -21,7 +22,6 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_id
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_importance
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_name
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.clickAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.deepLink
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.getColor
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.getSmallIcon
@@ -58,7 +58,6 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val BODY_KEY = "body"
         internal const val URL_KEY = "url"
         internal const val IMAGE_KEY = "image_url"
-        internal const val CLICK_ACTION_KEY = "click_action"
         internal const val SOUND_KEY = "sound"
         internal const val COLOR_KEY = "color"
         internal const val NOTIFICATION_COUNT_KEY = "notification_count"
@@ -136,7 +135,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      */
     private fun buildNotification(context: Context): NotificationCompat.Builder =
         NotificationCompat.Builder(context, message.channel_id)
-            .setContentIntent(createIntent(context))
+            .setContentIntent(makePendingIntent(context))
             .setSmallIcon(message.getSmallIcon(context))
             .also { message.getColor(context)?.let { color -> it.setColor(color) } }
             .setContentTitle(message.title)
@@ -195,28 +194,25 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      *
      * @return [PendingIntent]
      */
-    private fun createIntent(context: Context): PendingIntent {
-        val pkgName = context.packageName
-
-        // Create intent to open the activity and/or deep link if specified
-        // Else fall back on the default launcher intent for the package
-        val action = message.clickAction?.let {
-            Intent().appendKlaviyoExtras(message).apply {
-                action = message.clickAction
-                data = message.deepLink
-                setPackage(pkgName)
-                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            }
-        } ?: context.packageManager.getLaunchIntentForPackage(pkgName)?.apply {
-            appendKlaviyoExtras(message)
-            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
-
-        return PendingIntent.getActivity(
+    private fun makePendingIntent(context: Context) =
+        PendingIntent.getActivity(
             context,
             generateId(),
-            action,
+            makeOpenedIntent(context),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
         )
+
+    /**
+     * Create the appropriate intent to send when the notification is tapped
+     * When auto-track is enabled, use our middleware activity to handle the open
+     * Otherwise, use the deep link if available, or fall back to launching the app
+     */
+    private fun makeOpenedIntent(context: Context) = message.deepLink.let { deepLink ->
+        when {
+            // If deep link is present, use an ACTION_VIEW intent
+            deepLink is Uri -> DeepLinking.makeDeepLinkIntent(deepLink, context)
+            // Else, just launch the app
+            else -> DeepLinking.makeLaunchIntent(context)
+        }?.appendKlaviyoExtras(message)
     }
 }

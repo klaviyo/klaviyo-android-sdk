@@ -3,10 +3,10 @@ package com.klaviyo.analytics
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
-import android.os.Bundle
 import com.klaviyo.analytics.Klaviyo.isKlaviyoUniversalTrackingIntent
 import com.klaviyo.analytics.Klaviyo.isKlaviyoUniversalTrackingUri
 import com.klaviyo.analytics.linking.DeepLinkHandler
+import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
@@ -23,11 +23,13 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.spyk
@@ -64,22 +66,8 @@ internal class KlaviyoTest : BaseTest() {
             }"""
         )
 
-        fun mockIntent(payload: Map<String, String>): Intent {
-            // Mocking an intent to return the stub push payload...
-            val intent = mockk<Intent>()
-            val bundle = mockk<Bundle>()
-            every { intent.extras } returns bundle
-            every { bundle.keySet() } returns payload.keys
-            every { intent.getStringExtra(any()) } answers { call -> payload[call.invocation.args[0]] }
-            every {
-                bundle.getString(
-                    any(),
-                    String()
-                )
-            } answers { call -> payload[call.invocation.args[0]] }
-
-            return intent
-        }
+        fun mockIntent(payload: Map<String, String>, uri: Uri? = null) =
+            MockIntent.mockIntentWith(payload, uri).intent
 
         private const val TRACKING_URL = "https://trk.klaviyo.com/u/slug"
 
@@ -162,6 +150,7 @@ internal class KlaviyoTest : BaseTest() {
         mockDeviceProperties()
         mockkConstructor(StateSideEffects::class)
         mockkStatic(Uri::class)
+        mockkObject(DeepLinking)
 
         Klaviyo.initialize(
             apiKey = API_KEY,
@@ -172,6 +161,7 @@ internal class KlaviyoTest : BaseTest() {
     @After
     override fun cleanup() {
         unmockkAll()
+        Registry.unregister<DeepLinkHandler>()
         Registry.unregister<Config>()
         Registry.unregister<State>()
         Registry.unregister<StateSideEffects>()
@@ -573,21 +563,110 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(Klaviyo.getPushToken(), PUSH_TOKEN)
     }
 
-    @Test
-    fun `Handling opened push Intent enqueues $opened_push API Call`() {
-        // Handle push intent
-        Klaviyo.handlePush(mockIntent(stubIntentExtras))
+    private fun verifyOpenedPushEventEnqueued() = verify(exactly = 1) {
+        mockApiClient.enqueueEvent(
+            match { event -> event.metric == EventMetric.OPENED_PUSH },
+            any()
+        )
+    }
 
-        verify { mockApiClient.enqueueEvent(any(), any()) }
+    private fun captureOpenedPushEvent() = slot<Event>().also {
+        every { mockApiClient.enqueueEvent(capture(it), any()) } returns Unit
+    }
+
+    private fun setupDeepLinkHandler(): Pair<() -> Uri?, (Uri) -> Unit> {
+        var capturedUri: Uri? = null
+        val deepLinkHandler: DeepLinkHandler = { uri -> capturedUri = uri }
+        Klaviyo.registerDeepLinkHandler(deepLinkHandler)
+        return { capturedUri } to deepLinkHandler
     }
 
     @Test
-    fun `Non-klaviyo push payload is ignored`() {
+    fun `Non-klaviyo or null intents are ignored`() {
         // doesn't have _k, klaviyo tracking params
         Klaviyo.handlePush(mockIntent(mapOf("com.other.package.message" to "3rd party push")))
         Klaviyo.handlePush(null)
 
         verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
+    }
+
+    @Test
+    fun `handlePush enqueues opened_push event for klaviyo push intent`() {
+        Klaviyo.handlePush(mockIntent(stubIntentExtras))
+        verifyOpenedPushEventEnqueued()
+    }
+
+    @Test
+    fun `handlePush includes klaviyo extras and push token in opened_push event`() {
+        val eventSlot = captureOpenedPushEvent()
+        Registry.get<State>().pushToken = PUSH_TOKEN
+
+        Klaviyo.handlePush(mockIntent(stubIntentExtras))
+
+        assertTrue(eventSlot.isCaptured)
+        val capturedEvent = eventSlot.captured
+        assertEquals(EventMetric.OPENED_PUSH, capturedEvent.metric)
+
+        // Verify that klaviyo extras are included (with com.klaviyo. prefix removed)
+        assertNotNull(capturedEvent[EventKey.CUSTOM("body")])
+        assertNotNull(capturedEvent[EventKey.CUSTOM("_k")])
+
+        // Verify push token was in the event
+        assertEquals(PUSH_TOKEN, eventSlot.captured[EventKey.PUSH_TOKEN])
+    }
+
+    @Test
+    fun `handlePush invokes DeepLinkHandler when registered and intent has URI data`() {
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val testUri = mockk<Uri>()
+
+        Klaviyo.handlePush(mockIntent(stubIntentExtras, testUri))
+
+        assertEquals(testUri, getCapturedUri())
+    }
+
+    @Test
+    fun `handlePush does not invoke DeepLinkHandler when not registered`() {
+        val testUri = mockk<Uri>()
+
+        Klaviyo.handlePush(mockIntent(stubIntentExtras, testUri))
+
+        verifyOpenedPushEventEnqueued()
+        verify(inverse = true) { DeepLinking.handleDeepLink(testUri) }
+    }
+
+    @Test
+    fun `handlePush does not invoke DeepLinkHandler when intent has no URI data`() {
+        val (getCapturedUri) = setupDeepLinkHandler()
+
+        Klaviyo.handlePush(null)
+        Klaviyo.handlePush(mockIntent(stubIntentExtras))
+
+        assertEquals(null, getCapturedUri())
+        verifyOpenedPushEventEnqueued()
+    }
+
+    @Test
+    fun `handlePush does not invoke deep link handler for non-klaviyo push intents`() {
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val testUri = mockk<Uri>()
+
+        Klaviyo.handlePush(mockIntent(mapOf("some.other.extra" to "value"), testUri))
+
+        assertEquals(null, getCapturedUri())
+        verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
+    }
+
+    @Test
+    fun `handlePush continues deep link handling even if opened_push processing fails`() {
+        val (getCapturedUri) = setupDeepLinkHandler()
+        every { mockApiClient.enqueueEvent(any(), any()) } throws MissingAPIKey()
+        val testUri = mockk<Uri>()
+
+        Klaviyo.handlePush(mockIntent(stubIntentExtras, testUri))
+
+        // Deep link handler should still be invoked despite the API error
+        assertEquals(testUri, getCapturedUri())
     }
 
     @Test
@@ -694,7 +773,13 @@ internal class KlaviyoTest : BaseTest() {
         val slot = slot<ResolveDestinationCallback>()
 
         every { Uri.parse(TRACKING_URL) } returns mockTrackUri
-        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } throws MissingAPIKey()
+        every {
+            mockApiClient.resolveDestinationUrl(
+                any(),
+                any(),
+                capture(slot)
+            )
+        } throws MissingAPIKey()
 
         assertEquals(false, Klaviyo.handleUniversalTrackingLink(TRACKING_URL))
 

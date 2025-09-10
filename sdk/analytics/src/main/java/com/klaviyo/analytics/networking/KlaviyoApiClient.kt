@@ -22,7 +22,9 @@ import java.util.Collections
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -107,11 +109,14 @@ internal object KlaviyoApiClient : ApiClient {
                 sendAndBroadcast()
 
                 // Get the result of the request
+                val request = this
                 val result = getResult()
 
                 // Invoke the callback with the result (and notify observers)
-                broadcastApiRequest(this)
-                callback(result)
+                withContext(Dispatchers.Main) {
+                    broadcastApiRequest(request)
+                    callback(result)
+                }
 
                 // If the result is not successful, enqueue the request to be retried later
                 if (result is ResolveDestinationResult.Unavailable) {
