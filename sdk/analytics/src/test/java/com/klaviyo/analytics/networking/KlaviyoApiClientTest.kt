@@ -38,9 +38,12 @@ import io.mockk.verify
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.junit.After
@@ -52,6 +55,7 @@ import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 internal class KlaviyoApiClientTest : BaseTest() {
 
     private val flushIntervalWifi = 10_000L
@@ -68,6 +72,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+
+        // Set the Main dispatcher to use the test dispatcher
+        Dispatchers.setMain(dispatcher)
 
         mockDeviceProperties()
         mockkStatic(DeviceProperties::buildEventMetaData)
@@ -99,6 +106,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        // Reset the Main dispatcher
+        Dispatchers.resetMain()
+
         spyDataStore.clear(KlaviyoApiClient.QUEUE_KEY)
         KlaviyoApiClient.restoreQueue()
         assertEquals(0, KlaviyoApiClient.getQueueSize())
