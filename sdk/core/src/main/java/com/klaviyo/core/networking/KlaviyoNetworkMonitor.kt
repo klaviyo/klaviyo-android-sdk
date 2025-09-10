@@ -117,7 +117,13 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
         networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
-
-        connectivityManager.requestNetwork(networkRequest, networkCallback)
+        try {
+            connectivityManager.requestNetwork(networkRequest, networkCallback)
+        } catch (e: SecurityException) {
+            Registry.log.warning(
+                "Failed to attach network monitor, degraded performance around requests may occur",
+                e
+            )
+        }
     }
 }

@@ -51,4 +51,9 @@ internal interface JsBridge {
      *
      */
     fun profileEvent(event: Event)
+
+    /**
+     * Injects safe area insets into the webview
+     */
+    fun setSafeArea(left: Float, top: Float, right: Float, bottom: Float)
 }

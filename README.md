@@ -83,9 +83,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.0.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.0.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.0.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.0.1")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.0.1")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.0.1")
       }
       ```
    </details>
@@ -96,9 +96,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.0.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.0.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.0.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.0.1"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.0.1"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.0.1"
        }
       ```
    </details>
