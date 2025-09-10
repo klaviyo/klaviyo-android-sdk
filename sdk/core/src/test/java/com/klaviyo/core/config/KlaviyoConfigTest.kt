@@ -65,6 +65,7 @@ internal class KlaviyoConfigTest : BaseTest() {
             .baseUrl("fakeurl")
             .debounceInterval(1)
             .networkTimeout(2)
+            .uxNetworkTimeout(3)
             .networkFlushInterval(1, NetworkMonitor.NetworkType.Wifi)
             .networkFlushInterval(3, NetworkMonitor.NetworkType.Cell)
             .networkFlushInterval(6, NetworkMonitor.NetworkType.Offline)
@@ -80,6 +81,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals("fakeurl", KlaviyoConfig.baseUrl)
         assertEquals(1, KlaviyoConfig.debounceInterval)
         assertEquals(2, KlaviyoConfig.networkTimeout)
+        assertEquals(3, KlaviyoConfig.uxNetworkTimeout)
         assertEquals(
             1,
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
@@ -111,6 +113,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
         assertEquals(100, KlaviyoConfig.debounceInterval)
         assertEquals(10_000, KlaviyoConfig.networkTimeout)
+        assertEquals(2_000, KlaviyoConfig.uxNetworkTimeout)
         assertEquals(
             10_000L,
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
@@ -137,6 +140,7 @@ internal class KlaviyoConfigTest : BaseTest() {
             .applicationContext(mockContext)
             .debounceInterval(-5000)
             .networkTimeout(-5000)
+            .uxNetworkTimeout(-5000)
             .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Wifi)
             .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Cell)
             .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Offline)
@@ -147,6 +151,7 @@ internal class KlaviyoConfigTest : BaseTest() {
 
         assertEquals(100, KlaviyoConfig.debounceInterval)
         assertEquals(10_000, KlaviyoConfig.networkTimeout)
+        assertEquals(2_000, KlaviyoConfig.uxNetworkTimeout)
         assertEquals(
             10_000L,
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
@@ -165,7 +170,7 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals("android", KlaviyoConfig.sdkName)
         assertEquals("9.9.9", KlaviyoConfig.sdkVersion)
         // Each bad call should have generated an error log
-        verify(exactly = 8) { spyLog.error(any(), null) }
+        verify(exactly = 9) { spyLog.error(any(), null) }
     }
 
     @Test(expected = MissingAPIKey::class)

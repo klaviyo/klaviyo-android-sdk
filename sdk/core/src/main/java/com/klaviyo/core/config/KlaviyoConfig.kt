@@ -60,6 +60,11 @@ object KlaviyoConfig : Config {
     private const val NETWORK_TIMEOUT_DEFAULT: Int = 10_000
 
     /**
+     * Network request timeout duration for a request that impacts critical user experience
+     */
+    private const val UX_NETWORK_TIMEOUT_DEFAULT: Int = 2_000
+
+    /**
      * Intervals between flushing network queue, and the basis for retry with exponential backoff
      *
      * Reasoning: A 30-second interval should give radios time to go back to sleep between batches,
@@ -111,6 +116,8 @@ object KlaviyoConfig : Config {
         private set
     override var networkTimeout = NETWORK_TIMEOUT_DEFAULT
         private set
+    override var uxNetworkTimeout = UX_NETWORK_TIMEOUT_DEFAULT
+        private set
     override var networkFlushIntervals = longArrayOf(
         NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT,
         NETWORK_FLUSH_INTERVAL_CELL_DEFAULT,
@@ -147,6 +154,7 @@ object KlaviyoConfig : Config {
         private var sdkVersion: String? = null
         private var debounceInterval: Int = DEBOUNCE_INTERVAL
         private var networkTimeout: Int = NETWORK_TIMEOUT_DEFAULT
+        private var uxNetworkTimeout: Int = UX_NETWORK_TIMEOUT_DEFAULT
         private var networkFlushIntervals = longArrayOf(
             NETWORK_FLUSH_INTERVAL_WIFI_DEFAULT,
             NETWORK_FLUSH_INTERVAL_CELL_DEFAULT,
@@ -205,6 +213,16 @@ object KlaviyoConfig : Config {
             } else {
                 Registry.log.error(
                     "${KlaviyoConfig::networkTimeout.name} must be greater or equal to 0"
+                )
+            }
+        }
+
+        override fun uxNetworkTimeout(uxNetworkTimeout: Int) = apply {
+            if (uxNetworkTimeout >= 0) {
+                this.uxNetworkTimeout = uxNetworkTimeout
+            } else {
+                Registry.log.error(
+                    "${KlaviyoConfig::uxNetworkTimeout.name} must be greater or equal to 0"
                 )
             }
         }
@@ -282,6 +300,7 @@ object KlaviyoConfig : Config {
 
             KlaviyoConfig.debounceInterval = debounceInterval
             KlaviyoConfig.networkTimeout = networkTimeout
+            KlaviyoConfig.uxNetworkTimeout = uxNetworkTimeout
             KlaviyoConfig.networkFlushIntervals = networkFlushIntervals
             KlaviyoConfig.networkFlushDepth = networkFlushDepth
             KlaviyoConfig.networkMaxAttempts = networkMaxAttempts

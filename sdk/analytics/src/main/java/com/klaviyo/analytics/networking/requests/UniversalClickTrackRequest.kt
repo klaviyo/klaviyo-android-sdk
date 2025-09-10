@@ -47,7 +47,7 @@ internal class UniversalClickTrackRequest(
         get() = if (headers.containsKey(KLAVIYO_CLICK_TIMESTAMP_HEADER)) {
             super.timeoutDuration
         } else {
-            2_000
+            Registry.config.uxNetworkTimeout
         }
 
     /**

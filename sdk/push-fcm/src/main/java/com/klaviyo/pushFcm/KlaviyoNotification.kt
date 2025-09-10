@@ -203,7 +203,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         )
 
     /**
-     * Create the appropriate intent to send with the notification is tapped
+     * Create the appropriate intent to send when the notification is tapped
      * When auto-track is enabled, use our middleware activity to handle the open
      * Otherwise, use the deep link if available, or fall back to launching the app
      */

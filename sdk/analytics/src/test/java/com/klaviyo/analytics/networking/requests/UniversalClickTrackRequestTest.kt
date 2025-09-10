@@ -135,7 +135,7 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
     fun `sets the timestamp header before enqueuing`() {
         val request = makeTestRequest()
         assertEquals(1, request.maxAttempts)
-        assertEquals(2_000, request.timeoutDuration)
+        assertEquals(mockConfig.uxNetworkTimeout, request.timeoutDuration)
         request.prepareToEnqueue()
         request.headers.contains(KLAVIYO_CLICK_TIMESTAMP_HEADER)
         assertEquals(mockConfig.networkTimeout, request.timeoutDuration)

@@ -29,10 +29,10 @@ object DeepLinking {
      *
      * @param uri The deep link URI to be handled by the host app
      */
-    fun handleDeepLink(
-        uri: Uri
-    ) = Registry.getOrNull<DeepLinkHandler>()?.invoke(uri) ?: run {
-        sendDeepLinkIntent(uri)
+    fun handleDeepLink(uri: Uri) {
+        Registry.getOrNull<DeepLinkHandler>()?.invoke(uri) ?: run {
+            sendDeepLinkIntent(uri)
+        }
     }
 
     /**
@@ -41,8 +41,9 @@ object DeepLinking {
      * @param context The context used to access the package manager and start the activity
      * @param extras Optional bundle of extras to be added to the launch intent
      */
-    fun sendLaunchIntent(context: Context, extras: Bundle? = null) =
+    fun sendLaunchIntent(context: Context, extras: Bundle? = null) {
         makeLaunchIntent(context, extras)?.let { context.startActivity(it) }
+    }
 
     /**
      * Sends a deep link intent to the host application.
