@@ -14,7 +14,6 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
-import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
@@ -318,56 +317,27 @@ object Klaviyo {
         }
 
     /**
-     * Handles a universal link URL by resolving it to a destination URL asynchronously
+     * Handles a universal link [Intent], by resolving the destination [Uri] asynchronously
      * and invoking the registered [DeepLinkHandler] or sending the host application an [Intent]
      */
     fun handleUniversalTrackingLink(url: String): Boolean = safeCall {
-        val isKlaviyo = try {
-            url.toUri().isKlaviyoUniversalTrackingUri
+        try {
+            DeepLinking.handleUniversalTrackingLink(url.toUri())
         } catch (e: Exception) {
-            Registry.log.warning("Invalid universal link: $url")
+            Registry.log.warning("Invalid universal link: $url", e)
             false
         }
-
-        if (!isKlaviyo) {
-            Registry.log.verbose("Non-Klaviyo universal link URL ignored: $url")
-            return@safeCall false
-        }
-
-        val profile = Registry.get<State>().getAsProfile()
-
-        Registry.get<ApiClient>().resolveDestinationUrl(url, profile) { result ->
-            when (result) {
-                is ResolveDestinationResult.Success -> DeepLinking.handleDeepLink(
-                    result.destinationUrl
-                ).also {
-                    Registry.log.verbose("Resolved destination URL: ${result.destinationUrl}")
-                }
-
-                is ResolveDestinationResult.Unavailable -> Registry.log.warning(
-                    "Destination URL unavailable for ${result.trackingUrl}."
-                )
-
-                is ResolveDestinationResult.Failure -> Registry.log.error(
-                    "Failed to resolve destination URL for ${result.trackingUrl}."
-                )
-            }
-        }
-
-        true
-    } ?: run {
-        Registry.log.error("Failed to resolve universal link due to exception: $url")
-        false
-    }
+    } ?: false
 
     /**
-     * Handles a universal link [Intent] by extracting the URL and passing it to [handleUniversalTrackingLink]
+     * Handles a universal link [Intent], by resolving the destination [Uri] asynchronously
+     * and invoking the registered [DeepLinkHandler] or sending the host application an [Intent]
      */
-    fun handleUniversalTrackingLink(intent: Intent?): Boolean = intent?.takeIf {
-        it.isKlaviyoUniversalTrackingIntent
-    }?.data?.let {
-        handleUniversalTrackingLink(it.toString())
-    } ?: false
+    fun handleUniversalTrackingLink(intent: Intent?): Boolean = safeCall {
+        intent?.data?.let { uri ->
+            DeepLinking.handleUniversalTrackingLink(uri)
+        }
+    } ?: intent.isKlaviyoUniversalTrackingIntent
 
     /**
      * Checks whether a notification intent originated from Klaviyo
@@ -395,7 +365,5 @@ object Klaviyo {
      * Determine if a URI is a Klaviyo click-tracking universal/app link
      */
     val Uri.isKlaviyoUniversalTrackingUri: Boolean
-        get() = this.let { uri ->
-            uri.scheme in listOf("https", "http") && uri.path?.startsWith("/u/") ?: false
-        }
+        get() = DeepLinking.isUniversalTrackingUri(this)
 }

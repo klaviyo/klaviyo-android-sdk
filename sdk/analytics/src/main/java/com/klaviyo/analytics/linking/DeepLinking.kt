@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION_GRACE_PERIOD
 
@@ -16,12 +19,18 @@ typealias DeepLinkHandler = (uri: Uri) -> Unit
 /**
  * Utility for handling any deep links into the host application originating from Klaviyo
  */
-object DeepLinking {
+internal object DeepLinking {
 
     /**
      * Shortcut to check if the developer has registered a [DeepLinkHandler].
      */
     val isHandlerRegistered: Boolean get() = Registry.getOrNull<DeepLinkHandler>() != null
+
+    /**
+     * Check if a URI is a Klaviyo universal tracking link based on its scheme and path
+     */
+    fun isUniversalTrackingUri(uri: Uri): Boolean =
+        uri.scheme in listOf("https", "http") && uri.path?.startsWith("/u/") ?: false
 
     /**
      * Handle a deep link by invoking a registered [DeepLinkHandler] if available,
@@ -33,6 +42,43 @@ object DeepLinking {
         Registry.getOrNull<DeepLinkHandler>()?.invoke(uri) ?: run {
             sendDeepLinkIntent(uri)
         }
+    }
+
+    /**
+     * Handle a Klaviyo universal tracking link by resolving it to a destination URL asynchronously,
+     * and then passing that URL to [handleDeepLink].
+     *
+     * @return Boolean - whether the URI is a Klaviyo universal tracking link to be resolved
+     */
+    fun handleUniversalTrackingLink(uri: Uri): Boolean {
+        if (!isUniversalTrackingUri(uri)) {
+            Registry.log.error("Not a Klaviyo universal tracking URI: $uri")
+            return false
+        }
+
+        val profile = Registry.get<State>().getAsProfile()
+
+        // Resolve destination URL via async API call
+        Registry.get<ApiClient>().resolveDestinationUrl(uri.toString(), profile) { result ->
+            when (result) {
+                is ResolveDestinationResult.Success -> handleDeepLink(
+                    result.destinationUrl
+                ).also {
+                    Registry.log.verbose("Resolved destination URL: ${result.destinationUrl}")
+                }
+
+                // TODO on failure, we need to launch the app if no handler is registered
+                is ResolveDestinationResult.Unavailable -> Registry.log.warning(
+                    "Destination URL unavailable for ${result.trackingUrl}."
+                )
+
+                is ResolveDestinationResult.Failure -> Registry.log.error(
+                    "Failed to resolve destination URL for ${result.trackingUrl}."
+                )
+            }
+        }
+
+        return true
     }
 
     /**
