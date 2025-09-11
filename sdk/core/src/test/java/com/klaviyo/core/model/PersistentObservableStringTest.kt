@@ -1,6 +1,5 @@
-package com.klaviyo.analytics.state
+package com.klaviyo.core.model
 
-import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.verify
 import org.junit.Assert.assertEquals
@@ -9,11 +8,13 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
-internal class PersistentObservableStringTest : BaseTest() {
+class PersistentObservableStringTest : BaseTest() {
 
     companion object {
         const val KEY = "test_key"
     }
+
+    private class TestKeyword(name: String) : Keyword(name)
 
     @Before
     override fun setup() {
@@ -22,7 +23,7 @@ internal class PersistentObservableStringTest : BaseTest() {
 
     @Test
     fun `Basic set and get`() {
-        var delegatedProperty by PersistentObservableString(ProfileKey.CUSTOM(KEY))
+        var delegatedProperty by PersistentObservableString(TestKeyword(KEY))
         assertNull(delegatedProperty)
         delegatedProperty = "test_value"
         assertEquals("test_value", delegatedProperty)
@@ -31,7 +32,7 @@ internal class PersistentObservableStringTest : BaseTest() {
     @Test
     fun `Reads from and writes to persistent store`() {
         spyDataStore.store(KEY, "value")
-        var delegatedProperty by PersistentObservableString(ProfileKey.CUSTOM(KEY))
+        var delegatedProperty by PersistentObservableString(TestKeyword(KEY))
         assertEquals("value", delegatedProperty)
         delegatedProperty = "new_value"
         verify(exactly = 1) { spyDataStore.fetch(KEY) }
@@ -41,7 +42,7 @@ internal class PersistentObservableStringTest : BaseTest() {
 
     @Test
     fun `Uses fallback if persistent store is empty`() {
-        val delegatedProperty by PersistentObservableString(ProfileKey.CUSTOM(KEY)) { "fallback" }
+        val delegatedProperty by PersistentObservableString(TestKeyword(KEY)) { "fallback" }
         assertEquals("fallback", delegatedProperty)
         assertEquals("fallback", spyDataStore.fetch(KEY))
         verify(exactly = 1) { spyDataStore.store(KEY, "fallback") }
@@ -52,7 +53,7 @@ internal class PersistentObservableStringTest : BaseTest() {
         var invokedWithProperty: PersistentObservableProperty<String?>? = null
         var invokedWithOldValue: String? = null
         val backingProp = PersistentObservableString(
-            ProfileKey.CUSTOM(KEY),
+            TestKeyword(KEY),
             onChanged = { property, oldValue ->
                 invokedWithProperty = property
                 invokedWithOldValue = oldValue
@@ -83,7 +84,7 @@ internal class PersistentObservableStringTest : BaseTest() {
         spyDataStore.store(KEY, "abc123")
         var invokedWithOldValue: String? = null
         var delegatedProperty by PersistentObservableString(
-            ProfileKey.CUSTOM(KEY),
+            TestKeyword(KEY),
             onChanged = { _, oldValue ->
                 invokedWithOldValue = oldValue
             }
@@ -100,7 +101,7 @@ internal class PersistentObservableStringTest : BaseTest() {
         spyDataStore.store(KEY, "value")
         var invoked = false
         var delegatedProperty by PersistentObservableString(
-            ProfileKey.CUSTOM(KEY),
+            TestKeyword(KEY),
             onChanged = { _, _ -> invoked = true }
         )
 
@@ -115,7 +116,7 @@ internal class PersistentObservableStringTest : BaseTest() {
         spyDataStore.store(KEY, "value")
         var invoked = false
         var delegatedProperty by PersistentObservableString(
-            ProfileKey.CUSTOM(KEY),
+            TestKeyword(KEY),
             onChanged = { _, _ -> invoked = true }
         )
 
@@ -130,7 +131,7 @@ internal class PersistentObservableStringTest : BaseTest() {
         spyDataStore.store(KEY, "value")
         var invoked = false
         var delegatedProperty by PersistentObservableString(
-            ProfileKey.CUSTOM(KEY),
+            TestKeyword(KEY),
             onChanged = { _, _ -> invoked = true }
         )
 
@@ -146,7 +147,7 @@ internal class PersistentObservableStringTest : BaseTest() {
         spyDataStore.store(KEY, "value")
         var invoked = false
         val property = PersistentObservableString(
-            ProfileKey.CUSTOM(KEY),
+            TestKeyword(KEY),
             onChanged = { _, _ -> invoked = true }
         )
         val delegatedProperty by property

@@ -1,10 +1,10 @@
-package com.klaviyo.analytics.state
+package com.klaviyo.core.model
 
-import com.klaviyo.analytics.model.Keyword
+import com.klaviyo.core.model.Keyword
 import com.klaviyo.core.Registry
 import kotlin.reflect.KProperty
 
-internal class PersistentObservableString(
+class PersistentObservableString(
     key: Keyword,
     onChanged: PropertyObserver<String?> = { _, _ -> },
     fallback: () -> String? = { null }

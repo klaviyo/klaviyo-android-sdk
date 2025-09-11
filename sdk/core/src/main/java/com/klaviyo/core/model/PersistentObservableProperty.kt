@@ -1,11 +1,11 @@
-package com.klaviyo.analytics.state
+package com.klaviyo.core.model
 
-import com.klaviyo.analytics.model.Keyword
+import com.klaviyo.core.model.Keyword
 import com.klaviyo.core.Registry
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
-internal typealias PropertyObserver<T> = (property: PersistentObservableProperty<T>, oldValue: T?) -> Unit
+typealias PropertyObserver<T> = (property: PersistentObservableProperty<T>, oldValue: T?) -> Unit
 
 /**
  * Property delegate that is backed by the persistent store.
@@ -25,7 +25,7 @@ internal typealias PropertyObserver<T> = (property: PersistentObservableProperty
  * @see [kotlin.properties.ObservableProperty] Inspiration for this class,
  * but it was simpler to re-implement, so we can access the private [value].
  */
-internal abstract class PersistentObservableProperty<T>(
+abstract class PersistentObservableProperty<T>(
     val key: Keyword,
     private val fallback: () -> T? = { null },
     private val onChanged: PropertyObserver<T>

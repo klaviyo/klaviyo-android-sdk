@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.model
 
+import com.klaviyo.core.model.Keyword
 import java.io.Serializable
 import org.json.JSONObject
 

@@ -13,6 +13,8 @@ import com.klaviyo.analytics.model.StateKey.API_KEY
 import com.klaviyo.analytics.model.StateKey.PUSH_STATE
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
+import com.klaviyo.core.model.PersistentObservableProperty
+import com.klaviyo.core.model.PersistentObservableString
 import java.io.Serializable
 import java.util.Collections
 import java.util.UUID
@@ -175,15 +177,18 @@ internal class KlaviyoState : State {
         oldValue: String?
     ) = when (property.key) {
         is API_KEY -> broadcastChange(StateChange.ApiKey(oldValue))
-        is ProfileKey -> if (property.key.name in IDENTIFIERS) {
-            broadcastChange(
-                StateChange.ProfileIdentifier(
-                    property.key,
-                    oldValue
+        is ProfileKey -> {
+            val profileKey = property.key as ProfileKey
+            if (profileKey.name in IDENTIFIERS) {
+                broadcastChange(
+                    StateChange.ProfileIdentifier(
+                        profileKey,
+                        oldValue
+                    )
                 )
-            )
-        } else {
-            broadcastChange(StateChange.KeyValue(property.key, oldValue))
+            } else {
+                broadcastChange(StateChange.KeyValue(profileKey, oldValue))
+            }
         }
 
         else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))

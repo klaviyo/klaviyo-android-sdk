@@ -1,5 +1,7 @@
 package com.klaviyo.analytics.model
 
+import com.klaviyo.core.model.Keyword
+
 /**
  * Common clientside event metrics recognized by Klaviyo
  * Custom metrics can be defined with the [CUSTOM] inner class
