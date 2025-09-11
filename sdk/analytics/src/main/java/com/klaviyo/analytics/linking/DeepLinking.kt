@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import com.klaviyo.analytics.linking.DeepLinking.handleDeepLink
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.State
@@ -19,7 +20,7 @@ typealias DeepLinkHandler = (uri: Uri) -> Unit
 /**
  * Utility for handling any deep links into the host application originating from Klaviyo
  */
-internal object DeepLinking {
+object DeepLinking {
 
     /**
      * Shortcut to check if the developer has registered a [DeepLinkHandler].
