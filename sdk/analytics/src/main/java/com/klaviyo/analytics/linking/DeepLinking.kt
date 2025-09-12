@@ -68,7 +68,6 @@ object DeepLinking {
                     Registry.log.verbose("Resolved destination URL: ${result.destinationUrl}")
                 }
 
-                // TODO on failure, we need to launch the app if no handler is registered
                 is ResolveDestinationResult.Unavailable -> Registry.log.warning(
                     "Destination URL unavailable for ${result.trackingUrl}."
                 )

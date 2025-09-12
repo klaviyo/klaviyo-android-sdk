@@ -334,6 +334,9 @@ object Klaviyo {
     /**
      * Handles a universal link [Intent], by resolving the destination [Uri] asynchronously
      * and invoking the registered [DeepLinkHandler] or sending the host application an [Intent]
+     *
+     * @return [Boolean] Indicating whether the url is a Klaviyo tracking link,
+     *         and the destination url is being resolved asynchronously
      */
     fun handleUniversalTrackingLink(url: String): Boolean = safeCall {
         try {
@@ -347,6 +350,9 @@ object Klaviyo {
     /**
      * Handles a universal link [Intent], by resolving the destination [Uri] asynchronously
      * and invoking the registered [DeepLinkHandler] or sending the host application an [Intent]
+     *
+     * @return [Boolean] Indicating whether the url is a Klaviyo tracking link,
+     *         and the destination url is being resolved asynchronously
      */
     fun handleUniversalTrackingLink(intent: Intent?): Boolean = safeCall {
         intent?.data?.let { uri ->

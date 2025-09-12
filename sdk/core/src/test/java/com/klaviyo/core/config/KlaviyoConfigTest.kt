@@ -14,6 +14,7 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.verify
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 
@@ -173,11 +174,14 @@ internal class KlaviyoConfigTest : BaseTest() {
         verify(exactly = 9) { spyLog.error(any(), null) }
     }
 
-    @Test(expected = MissingAPIKey::class)
+    @Test
     fun `KlaviyoConfig Builder missing API key throws expected exception`() {
-        KlaviyoConfig.Builder()
-            .applicationContext(mockContext)
-            .build()
+        assertThrows(MissingAPIKey::class.java) {
+            KlaviyoConfig.Builder()
+                .applicationContext(mockContext)
+                .build()
+                .apiKey
+        }
     }
 
     @Test(expected = MissingContext::class)

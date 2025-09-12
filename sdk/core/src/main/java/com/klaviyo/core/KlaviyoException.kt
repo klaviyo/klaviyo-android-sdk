@@ -22,8 +22,12 @@ fun <ReturnType> safeCall(
 ): ReturnType? = try {
     block()
 } catch (e: KlaviyoException) {
-    Registry.log.error(e.message, e)
-    errorQueue?.add(block)
+    errorQueue?.apply {
+        Registry.log.warning("The operation will be retried.", e)
+        add(block)
+    } ?: run {
+        Registry.log.error(e.message, e)
+    }
     null
 }
 
