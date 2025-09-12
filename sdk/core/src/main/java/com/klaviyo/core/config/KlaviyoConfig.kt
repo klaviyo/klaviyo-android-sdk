@@ -108,7 +108,14 @@ object KlaviyoConfig : Config {
         private set
     override lateinit var sdkName: String private set
     override lateinit var sdkVersion: String private set
-    override lateinit var apiKey: String private set
+    private var _apiKey: String = ""
+    override var apiKey: String
+        get() = _apiKey.ifEmpty {
+            throw MissingAPIKey()
+        }
+        set(value) {
+            _apiKey = value
+        }
     override lateinit var formEnvironment: FormEnvironment
         private set
     override lateinit var applicationContext: Context private set
@@ -271,10 +278,6 @@ object KlaviyoConfig : Config {
         }
 
         override fun build(): Config {
-            if (apiKey.isEmpty()) {
-                throw MissingAPIKey()
-            }
-
             val context = applicationContext ?: throw MissingContext()
             val packageInfo = context.packageManager.getPackageInfoCompat(
                 context.packageName,

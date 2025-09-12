@@ -103,25 +103,25 @@ internal object KlaviyoApiClient : ApiClient {
         profile: Profile,
         callback: ResolveDestinationCallback
     ) {
+        // Create request outside of coroutine, so initialization errors are raised to the caller
+        val request = UniversalClickTrackRequest(trackingUrl, profile)
+
         CoroutineScope(Registry.dispatcher).launch {
-            UniversalClickTrackRequest(trackingUrl, profile).apply {
-                // Send the network request (and notify observers)
-                sendAndBroadcast()
+            // Send the network request (and notify observers)
+            request.sendAndBroadcast()
 
-                // Get the result of the request
-                val request = this
-                val result = getResult()
+            // Get the result of the request
+            val result = request.getResult()
 
-                // Invoke the callback with the result (and notify observers)
-                withContext(Dispatchers.Main) {
-                    broadcastApiRequest(request)
-                    callback(result)
-                }
+            // Invoke the callback with the result (and notify observers)
+            withContext(Dispatchers.Main) {
+                broadcastApiRequest(request)
+                callback(result)
+            }
 
-                // If the result is not successful, enqueue the request to be retried later
-                if (result is ResolveDestinationResult.Unavailable) {
-                    enqueueRequest(prepareToEnqueue())
-                }
+            // If the result is not successful, enqueue the request to be retried later
+            if (result is ResolveDestinationResult.Unavailable) {
+                enqueueRequest(request.prepareToEnqueue())
             }
         }
     }

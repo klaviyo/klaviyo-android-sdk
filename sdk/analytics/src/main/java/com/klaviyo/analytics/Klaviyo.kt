@@ -23,6 +23,7 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
@@ -44,7 +45,7 @@ object Klaviyo {
      *
      * This registration is a lambda invoked when the service is required, not instantiated now
      */
-    private fun initializeServices() = Registry.apply {
+    private fun registerServices() = Registry.apply {
         registerOnce<ApiClient> { KlaviyoApiClient }
         registerOnce<State> {
             KlaviyoState().also { state ->
@@ -54,15 +55,27 @@ object Klaviyo {
     }
 
     /**
-     * Use this method to register Klaviyo for lifecycle functions. This is necessary for
-     * apps that are not able to [initialize] Klaviyo immediately on app launch, but would like to
-     * utilize Klaviyo Forms
+     * This method is provided for apps that are unable to register their API key immediately
+     * on app launch in order enable limited SDK functionality including tracking app lifecycle,
+     * automated push token collection, and handling universal tracking links.
+     *
+     * Your API key still must be provided as early as possible for full SDK functionality!
      *
      * @param applicationContext
      */
     fun registerForLifecycleCallbacks(applicationContext: Context) = safeApply {
-        val application = applicationContext.applicationContext as? Application
-        application?.apply {
+        registerServices()
+
+        if (!Registry.isRegistered<Config>()) {
+            // Register a partial config, missing API Key, to allow lifecycle tracking and context access for partial functionality
+            Registry.register<Config>(
+                Registry.configBuilder
+                    .applicationContext(applicationContext)
+                    .build()
+            )
+        }
+
+        Registry.config.applicationContext.applicationContext.takeIf<Application>()?.apply {
             unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
             unregisterComponentCallbacks(Registry.componentCallbacks)
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
@@ -78,7 +91,7 @@ object Klaviyo {
      * @param applicationContext
      */
     fun initialize(apiKey: String, applicationContext: Context) = safeApply {
-        initializeServices()
+        registerServices()
 
         Registry.register<Config>(
             Registry.configBuilder
@@ -221,7 +234,9 @@ object Klaviyo {
      *
      * @param pushToken The push token provided by the device push service
      */
-    fun setPushToken(pushToken: String) = safeApply { Registry.get<State>().pushToken = pushToken }
+    fun setPushToken(pushToken: String) = safeApply(preInitQueue) {
+        Registry.get<State>().pushToken = pushToken
+    }
 
     /**
      * @return The device push token, if one has been assigned to currently tracked profile

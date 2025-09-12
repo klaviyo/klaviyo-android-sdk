@@ -4,6 +4,7 @@ import android.net.Uri
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
@@ -14,11 +15,13 @@ import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.buildEventMetaData
 import com.klaviyo.analytics.networking.requests.buildMetaData
 import com.klaviyo.core.DeviceProperties
+import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
+import com.klaviyo.core.safeCall
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -211,6 +214,30 @@ internal class KlaviyoApiClientTest : BaseTest() {
             PUSH_TOKEN,
             Profile().setAnonymousId(ANON_ID)
         )
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(false, postedJob?.force)
+    }
+
+    @Test
+    fun `Enqueues an unregister push API call`() {
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+
+        KlaviyoApiClient.enqueueUnregisterPushToken(
+            "apiKey",
+            PUSH_TOKEN,
+            Profile().setAnonymousId(ANON_ID)
+        )
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(false, postedJob?.force)
+    }
+
+    @Test
+    fun `Enqueues a aggregate event API call`() {
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+
+        KlaviyoApiClient.enqueueAggregateEvent(AggregateEventPayload("{}"))
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         assertEquals(false, postedJob?.force)
@@ -846,6 +873,27 @@ internal class KlaviyoApiClientTest : BaseTest() {
         setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed)
 
         assert(executeResolveDestinationUrl(testScheduler) is ResolveDestinationResult.Failure)
+        verifyEnqueuedClickTrack(inverse = true)
+
+        unmockkConstructor(UniversalClickTrackRequest::class)
+    }
+
+    @Test
+    fun `resolveDestinationUrl raises config exceptions before coroutine scope`() = runTest(
+        dispatcher
+    ) {
+        var called = false
+        setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed)
+        every { anyConstructed<UniversalClickTrackRequest>().headers } answers {
+            // Mock some part of the constructor failing due to missing config
+            called = true
+            throw MissingConfig()
+        }
+
+        // Verify that the config exception is catchable by the caller
+        assertNull(safeCall { executeResolveDestinationUrl(testScheduler) })
+        assert(called)
+
         verifyEnqueuedClickTrack(inverse = true)
 
         unmockkConstructor(UniversalClickTrackRequest::class)
