@@ -32,85 +32,89 @@ internal class KlaviyoUninitializedTest {
         unmockkObject(Registry)
     }
 
-    private inline fun <reified T> assertCaught() where T : Throwable {
+    private inline fun <reified T> assertLoggedError() where T : Throwable {
+        verify { spyLog.error(any(), any<T>()) }
+    }
+
+    private inline fun <reified T> assertLoggedWarning() where T : Throwable {
         verify { spyLog.error(any(), any<T>()) }
     }
 
     @Test
     fun `Profile setter is protected`() {
         Klaviyo.setProfile(Profile())
-        assertCaught<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
     fun `Email setter is protected`() {
         Klaviyo.setEmail(BaseTest.EMAIL)
-        assertCaught<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
     fun `Email getter is protected`() {
         assertNull(Klaviyo.getEmail())
-        assertCaught<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
     fun `Phone setter is protected`() {
         Klaviyo.setPhoneNumber(BaseTest.PHONE)
-        assertCaught<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
     fun `Phone getter is protected`() {
         assertNull(Klaviyo.getPhoneNumber())
-        assertCaught<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
     fun `External ID setter is protected`() {
         Klaviyo.setExternalId(BaseTest.EXTERNAL_ID)
-        assertCaught<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
     fun `External ID getter is protected`() {
         assertNull(Klaviyo.getExternalId())
-        assertCaught<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
     fun `Push token setter is protected`() {
         Klaviyo.setPushToken(BaseTest.PUSH_TOKEN)
-        assertCaught<MissingConfig>()
+        assertLoggedWarning<MissingConfig>()
     }
 
     @Test
     fun `Push token getter is protected`() {
         Klaviyo.getPushToken()
-        assertCaught<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
     fun `Profile Attributes setter is protected`() {
         Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, "John")
-        assertCaught<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
     fun `ResetProfile is protected`() {
         Klaviyo.resetProfile()
-        assertCaught<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
     fun `CreateEvent is protected`() {
         Klaviyo.createEvent(EventMetric.VIEWED_PRODUCT, 1.0)
-        assertCaught<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
     fun `HandlePushToken is protected`() {
         Klaviyo.handlePush(KlaviyoTest.mockIntent(KlaviyoTest.stubIntentExtras))
-        assertCaught<MissingConfig>()
+        assertLoggedWarning<MissingConfig>()
     }
 }
