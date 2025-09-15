@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import com.klaviyo.analytics.linking.DeepLinking.handleDeepLink
+import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.State
@@ -57,7 +58,7 @@ object DeepLinking {
             return false
         }
 
-        val profile = Registry.get<State>().getAsProfile()
+        val profile = Registry.getOrNull<State>()?.getAsProfile() ?: Profile()
 
         // Resolve destination URL via async API call
         Registry.get<ApiClient>().resolveDestinationUrl(uri.toString(), profile) { result ->

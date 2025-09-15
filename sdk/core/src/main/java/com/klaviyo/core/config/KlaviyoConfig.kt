@@ -177,7 +177,7 @@ object KlaviyoConfig : Config {
         )
 
         override fun apiKey(apiKey: String) = apply {
-            this.apiKey = apiKey
+            this.apiKey = apiKey.takeIf { it.isNotEmpty() } ?: throw MissingAPIKey()
         }
 
         override fun applicationContext(context: Context) = apply {

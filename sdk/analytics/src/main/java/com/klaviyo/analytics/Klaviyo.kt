@@ -41,20 +41,6 @@ object Klaviyo {
     private val preInitQueue: Queue<Operation<Unit>> = LinkedList()
 
     /**
-     * Since the analytics module owns these services, it must register them.
-     *
-     * This registration is a lambda invoked when the service is required, not instantiated now
-     */
-    private fun registerServices() = Registry.apply {
-        registerOnce<ApiClient> { KlaviyoApiClient }
-        registerOnce<State> {
-            KlaviyoState().also { state ->
-                register<StateSideEffects>(StateSideEffects(state))
-            }
-        }
-    }
-
-    /**
      * This method is provided for apps that are unable to register their API key immediately
      * on app launch in order enable limited SDK functionality including tracking app lifecycle,
      * automated push token collection, and handling universal tracking links.
@@ -64,8 +50,6 @@ object Klaviyo {
      * @param applicationContext
      */
     fun registerForLifecycleCallbacks(applicationContext: Context) = safeApply {
-        registerServices()
-
         if (!Registry.isRegistered<Config>()) {
             // Register a partial config, missing API Key, to allow lifecycle tracking and context access for partial functionality
             Registry.register<Config>(
@@ -75,6 +59,10 @@ object Klaviyo {
             )
         }
 
+        // Some APIs (such as deep linking) work without an API key, so we can register the core service now
+        Registry.registerOnce<ApiClient> { KlaviyoApiClient }
+
+        // Register lifecycle callbacks to monitor app foreground/background state
         Registry.config.applicationContext.applicationContext.takeIf<Application>()?.apply {
             unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
             unregisterComponentCallbacks(Registry.componentCallbacks)
@@ -91,8 +79,6 @@ object Klaviyo {
      * @param applicationContext
      */
     fun initialize(apiKey: String, applicationContext: Context) = safeApply {
-        registerServices()
-
         Registry.register<Config>(
             Registry.configBuilder
                 .apiKey(apiKey)
@@ -101,6 +87,12 @@ object Klaviyo {
         )
 
         registerForLifecycleCallbacks(applicationContext)
+
+        Registry.registerOnce<State> {
+            KlaviyoState().also { state ->
+                Registry.register<StateSideEffects>(StateSideEffects(state))
+            }
+        }
 
         Registry.get<ApiClient>().startService()
 
