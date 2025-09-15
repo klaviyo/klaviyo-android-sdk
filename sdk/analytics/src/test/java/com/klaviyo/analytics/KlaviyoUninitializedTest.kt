@@ -36,10 +36,6 @@ internal class KlaviyoUninitializedTest {
         verify { spyLog.error(any(), any<T>()) }
     }
 
-    private inline fun <reified T> assertLoggedWarning() where T : Throwable {
-        verify { spyLog.error(any(), any<T>()) }
-    }
-
     @Test
     fun `Profile setter is protected`() {
         Klaviyo.setProfile(Profile())
@@ -85,7 +81,7 @@ internal class KlaviyoUninitializedTest {
     @Test
     fun `Push token setter is protected`() {
         Klaviyo.setPushToken(BaseTest.PUSH_TOKEN)
-        assertLoggedWarning<MissingConfig>()
+        assertLoggedError<MissingConfig>()
     }
 
     @Test
@@ -115,6 +111,6 @@ internal class KlaviyoUninitializedTest {
     @Test
     fun `HandlePushToken is protected`() {
         Klaviyo.handlePush(KlaviyoTest.mockIntent(KlaviyoTest.stubIntentExtras))
-        assertLoggedWarning<MissingConfig>()
+        verify { spyLog.warning(any(), any<MissingConfig>()) }
     }
 }

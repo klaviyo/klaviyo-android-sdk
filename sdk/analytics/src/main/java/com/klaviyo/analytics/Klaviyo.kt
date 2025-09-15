@@ -226,9 +226,7 @@ object Klaviyo {
      *
      * @param pushToken The push token provided by the device push service
      */
-    fun setPushToken(pushToken: String) = safeApply(preInitQueue) {
-        Registry.get<State>().pushToken = pushToken
-    }
+    fun setPushToken(pushToken: String) = safeApply { Registry.get<State>().pushToken = pushToken }
 
     /**
      * @return The device push token, if one has been assigned to currently tracked profile
