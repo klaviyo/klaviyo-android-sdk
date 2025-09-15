@@ -332,7 +332,7 @@ object Klaviyo {
         try {
             DeepLinking.handleUniversalTrackingLink(url.toUri())
         } catch (e: Exception) {
-            Registry.log.warning("Invalid universal link: $url", e)
+            Registry.log.warning("Failed handling universal link: $url", e)
             false
         }
     } ?: false
