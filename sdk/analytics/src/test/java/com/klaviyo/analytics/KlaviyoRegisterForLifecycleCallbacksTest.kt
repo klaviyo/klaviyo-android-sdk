@@ -10,7 +10,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkAll
 import io.mockk.verify
-import io.mockk.verifyAll
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -54,20 +53,10 @@ internal class KlaviyoRegisterForLifecycleCallbacksTest : BaseTest() {
 
         Klaviyo.registerForLifecycleCallbacks(mockApplicationContext)
 
-        verifyAll {
-            mockApplicationContext.unregisterActivityLifecycleCallbacks(
-                match { it == expectedListener }
-            )
-            mockApplicationContext.registerActivityLifecycleCallbacks(
-                match { it == expectedListener }
-            )
-            mockApplicationContext.unregisterComponentCallbacks(
-                match { it == expectedConfigListener }
-            )
-            mockApplicationContext.registerComponentCallbacks(
-                match { it == expectedConfigListener }
-            )
-        }
+        verify { mockApplicationContext.unregisterActivityLifecycleCallbacks(expectedListener) }
+        verify { mockApplicationContext.registerActivityLifecycleCallbacks(expectedListener) }
+        verify { mockApplicationContext.unregisterComponentCallbacks(expectedConfigListener) }
+        verify { mockApplicationContext.registerComponentCallbacks(expectedConfigListener) }
 
         verify(exactly = 0) {
             mockBuilder.apiKey(any())

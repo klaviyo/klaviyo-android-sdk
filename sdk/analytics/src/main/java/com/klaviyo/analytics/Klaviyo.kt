@@ -63,7 +63,7 @@ object Klaviyo {
         Registry.registerOnce<ApiClient> { KlaviyoApiClient }
 
         // Register lifecycle callbacks to monitor app foreground/background state
-        Registry.config.applicationContext.applicationContext.takeIf<Application>()?.apply {
+        applicationContext.applicationContext.takeIf<Application>()?.apply {
             unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
             unregisterComponentCallbacks(Registry.componentCallbacks)
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
@@ -332,7 +332,7 @@ object Klaviyo {
         try {
             DeepLinking.handleUniversalTrackingLink(url.toUri())
         } catch (e: Exception) {
-            Registry.log.warning("Failed handling universal link: $url", e)
+            Registry.log.error("Failed handling universal link: $url", e)
             false
         }
     } ?: false
