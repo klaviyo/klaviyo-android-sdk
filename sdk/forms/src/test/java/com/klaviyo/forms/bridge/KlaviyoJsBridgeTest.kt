@@ -55,7 +55,7 @@ class KlaviyoJsBridgeTest : BaseTest() {
         verify {
             jsEvaluator.evaluateJavascript(
                 eq(
-                    """window.profileEvent("Fate Sealed","{"name":"Anna Karenina","location":"Saint Petersburg"}")"""
+                    """window.profileEvent("Fate Sealed",{"name":"Anna Karenina","location":"Saint Petersburg"})"""
                 ),
                 any()
             )
