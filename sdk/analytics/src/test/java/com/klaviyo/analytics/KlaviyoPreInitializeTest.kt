@@ -72,17 +72,13 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
         super.cleanup()
     }
 
-    private inline fun <reified T> assertCaught() where T : Throwable {
-        verify { spyLog.error(any(), any<T>()) }
-    }
-
     @Test
     fun `Opened Push events are replayed upon initializing`() {
         Klaviyo.handlePush(KlaviyoTest.mockIntent(KlaviyoTest.stubIntentExtras))
-        assertCaught<MissingConfig>()
+        verify { spyLog.warning(any(), any<MissingConfig>()) } // Warning bc it will be replayed
 
         Klaviyo.createEvent(EventMetric.OPENED_APP)
-        assertCaught<MissingConfig>()
+        verify { spyLog.error(any(), any<MissingConfig>()) } // Error bc this is a fully invalid call
 
         verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
 

@@ -20,7 +20,9 @@ import kotlin.reflect.typeOf
 import kotlinx.coroutines.Dispatchers
 
 class MissingConfig : KlaviyoException("Klaviyo SDK accessed before initializing")
-class MissingRegistration(type: KType) : KlaviyoException("No service registered for $type")
+class MissingRegistration(type: KType) : KlaviyoException(
+    "No service registered for $type. Typically caused by accessing SDK before initializing or providing app lifecycle/context."
+)
 class InvalidRegistration(type: KType) : KlaviyoException("Registered service does not match $type")
 
 typealias Registration = () -> Any

@@ -14,7 +14,6 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
-import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
@@ -24,6 +23,7 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
@@ -41,29 +41,29 @@ object Klaviyo {
     private val preInitQueue: Queue<Operation<Unit>> = LinkedList()
 
     /**
-     * Since the analytics module owns these services, it must register them.
+     * This method is provided for apps that are unable to register their API key immediately
+     * on app launch in order enable limited SDK functionality including tracking app lifecycle,
+     * automated push token collection, and handling universal tracking links.
      *
-     * This registration is a lambda invoked when the service is required, not instantiated now
-     */
-    private fun initializeServices() = Registry.apply {
-        registerOnce<ApiClient> { KlaviyoApiClient }
-        registerOnce<State> {
-            KlaviyoState().also { state ->
-                register<StateSideEffects>(StateSideEffects(state))
-            }
-        }
-    }
-
-    /**
-     * Use this method to register Klaviyo for lifecycle functions. This is necessary for
-     * apps that are not able to [initialize] Klaviyo immediately on app launch, but would like to
-     * utilize Klaviyo Forms
+     * Your API key still must be provided as early as possible for full SDK functionality!
      *
      * @param applicationContext
      */
     fun registerForLifecycleCallbacks(applicationContext: Context) = safeApply {
-        val application = applicationContext.applicationContext as? Application
-        application?.apply {
+        if (!Registry.isRegistered<Config>()) {
+            // Register a partial config, missing API Key, to allow lifecycle tracking and context access for partial functionality
+            Registry.register<Config>(
+                Registry.configBuilder
+                    .applicationContext(applicationContext)
+                    .build()
+            )
+        }
+
+        // Some APIs (such as deep linking) work without an API key, so we can register the core service now
+        Registry.registerOnce<ApiClient> { KlaviyoApiClient }
+
+        // Register lifecycle callbacks to monitor app foreground/background state
+        applicationContext.applicationContext.takeIf<Application>()?.apply {
             unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
             unregisterComponentCallbacks(Registry.componentCallbacks)
             registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
@@ -79,8 +79,6 @@ object Klaviyo {
      * @param applicationContext
      */
     fun initialize(apiKey: String, applicationContext: Context) = safeApply {
-        initializeServices()
-
         Registry.register<Config>(
             Registry.configBuilder
                 .apiKey(apiKey)
@@ -89,6 +87,12 @@ object Klaviyo {
         )
 
         registerForLifecycleCallbacks(applicationContext)
+
+        Registry.registerOnce<State> {
+            KlaviyoState().also { state ->
+                Registry.register<StateSideEffects>(StateSideEffects(state))
+            }
+        }
 
         Registry.get<ApiClient>().startService()
 
@@ -318,56 +322,33 @@ object Klaviyo {
         }
 
     /**
-     * Handles a universal link URL by resolving it to a destination URL asynchronously
+     * Handles a universal link [Intent], by resolving the destination [Uri] asynchronously
      * and invoking the registered [DeepLinkHandler] or sending the host application an [Intent]
+     *
+     * @return [Boolean] Indicating whether the url is a Klaviyo tracking link,
+     *         and the destination url is being resolved asynchronously
      */
     fun handleUniversalTrackingLink(url: String): Boolean = safeCall {
-        val isKlaviyo = try {
-            url.toUri().isKlaviyoUniversalTrackingUri
+        try {
+            DeepLinking.handleUniversalTrackingLink(url.toUri())
         } catch (e: Exception) {
-            Registry.log.warning("Invalid universal link: $url")
+            Registry.log.error("Failed handling universal link: $url", e)
             false
         }
-
-        if (!isKlaviyo) {
-            Registry.log.verbose("Non-Klaviyo universal link URL ignored: $url")
-            return@safeCall false
-        }
-
-        val profile = Registry.get<State>().getAsProfile()
-
-        Registry.get<ApiClient>().resolveDestinationUrl(url, profile) { result ->
-            when (result) {
-                is ResolveDestinationResult.Success -> DeepLinking.handleDeepLink(
-                    result.destinationUrl
-                ).also {
-                    Registry.log.verbose("Resolved destination URL: ${result.destinationUrl}")
-                }
-
-                is ResolveDestinationResult.Unavailable -> Registry.log.warning(
-                    "Destination URL unavailable for ${result.trackingUrl}."
-                )
-
-                is ResolveDestinationResult.Failure -> Registry.log.error(
-                    "Failed to resolve destination URL for ${result.trackingUrl}."
-                )
-            }
-        }
-
-        true
-    } ?: run {
-        Registry.log.error("Failed to resolve universal link due to exception: $url")
-        false
-    }
+    } ?: false
 
     /**
-     * Handles a universal link [Intent] by extracting the URL and passing it to [handleUniversalTrackingLink]
+     * Handles a universal link [Intent], by resolving the destination [Uri] asynchronously
+     * and invoking the registered [DeepLinkHandler] or sending the host application an [Intent]
+     *
+     * @return [Boolean] Indicating whether the url is a Klaviyo tracking link,
+     *         and the destination url is being resolved asynchronously
      */
-    fun handleUniversalTrackingLink(intent: Intent?): Boolean = intent?.takeIf {
-        it.isKlaviyoUniversalTrackingIntent
-    }?.data?.let {
-        handleUniversalTrackingLink(it.toString())
-    } ?: false
+    fun handleUniversalTrackingLink(intent: Intent?): Boolean = safeCall {
+        intent?.data?.let { uri ->
+            DeepLinking.handleUniversalTrackingLink(uri)
+        }
+    } ?: intent.isKlaviyoUniversalTrackingIntent
 
     /**
      * Checks whether a notification intent originated from Klaviyo
@@ -395,7 +376,5 @@ object Klaviyo {
      * Determine if a URI is a Klaviyo click-tracking universal/app link
      */
     val Uri.isKlaviyoUniversalTrackingUri: Boolean
-        get() = this.let { uri ->
-            uri.scheme in listOf("https", "http") && uri.path?.startsWith("/u/") ?: false
-        }
+        get() = DeepLinking.isUniversalTrackingUri(this)
 }
