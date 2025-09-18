@@ -4,9 +4,12 @@ name: Release Branch Version Check
 
 # Triggers the workflow when we open/update a PR from a rel/* branch
 on:
-  pull_request:
+  push:
     branches:
       - 'rel/*'
+      - 'ecm/*'
+    tags:
+      - '*'
 
 jobs:
   version-check:
@@ -18,15 +21,26 @@ jobs:
 
       # Extract version from branch name and strings.xml, then compare them
       - name: Validate Version Match
+        id: validate_version_match
         run: |
-          # Extract version from branch name
-          BRANCH_NAME="${{ github.ref_name }}"
-          if [[ $BRANCH_NAME =~ ^[a-z]+/(.+)$ ]]; then
-            BRANCH_VERSION="${BASH_REMATCH[1]}"
-            echo "Branch version: $BRANCH_VERSION"
+          # Determine if this is a tag or branch push
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION_NAME="${GITHUB_REF#refs/tags/}"
+            echo "Detected tag push: $VERSION_NAME"
+          elif [[ "${GITHUB_REF}" == refs/heads/rel/* ]]; then
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            if [[ $BRANCH_NAME =~ ^rel/(.+)$ ]]; then
+              VERSION_NAME="${BASH_REMATCH[1]}"
+              echo "Detected rel/* branch push: $VERSION_NAME"
+            else
+              ERROR_MESSAGE="Error: branch name does not match expected pattern"
+              echo "$ERROR_MESSAGE"
+              echo "ERROR_MESSAGE=$ERROR_MESSAGE" >> $GITHUB_ENV
+              exit 1
+            fi
           else
-            echo "Error: branch name does not match expected pattern"
-            exit 1
+            echo "Info: Not a rel/* branch or tag push. Exiting successfully."
+            exit 0
           fi
 
           # Extract version from strings.xml
@@ -34,21 +48,18 @@ jobs:
           echo "strings.xml version: $STRINGS_VERSION"
 
           # Compare versions
-          if [ "$BRANCH_VERSION" = "$STRINGS_VERSION" ]; then
-            echo "✅ Version match confirmed: $BRANCH_VERSION"
+          if [ "$VERSION_NAME" = "$STRINGS_VERSION" ]; then
+            echo "✅ Version match confirmed: $VERSION_NAME"
           else
-            echo "❌ Version mismatch!"
-            echo "Branch version: $BRANCH_VERSION"
-            echo "strings.xml version: $STRINGS_VERSION"
-            echo "Use ./bump_version.sh to update the version number in this branch (or correct the branch name)."
-          
-            # Set environment variables for Slack notification
-            echo "BRANCH_VERSION=$BRANCH_VERSION" >> $GITHUB_ENV
+            ERROR_MESSAGE="❌ Version mismatch! Expected version: $VERSION_NAME, strings.xml version: $STRINGS_VERSION. Use ./bump_version.sh to update the version number in this branch/tag (or correct the branch/tag name)."
+            echo "$ERROR_MESSAGE"
+            echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
             echo "STRINGS_VERSION=$STRINGS_VERSION" >> $GITHUB_ENV
+            echo "ERROR_MESSAGE=$ERROR_MESSAGE" >> $GITHUB_ENV
             exit 1
           fi
 
-      # Send Slack notification on version mismatch
+      # Send Slack notification on failure
       - name: Send Slack notification on failure
         if: failure()
         uses: slackapi/slack-github-action@v2.1.1
@@ -56,16 +67,16 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
-            text: "🚨 Release Branch Version Mismatch Detected"
+            text: "🚨 Release Version Mismatch Detected"
             blocks:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "🚨 Release Branch Version Mismatch Detected\n"
+                  text: "🚨 Release Version Mismatch Detected\n"
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.ref_name }}`\n*Expected Version:* `${{ env.BRANCH_VERSION }}`\n*strings.xml Version:* `${{ env.STRINGS_VERSION }}`\n*Action:* Please run `./bump_version.sh` to update the version number in this branch (or correct the branch name)."
+                  text: "*Repository:* ${{ github.repository }}\n*Ref:* `${{ github.ref_name }}`\n*Expected Version:* `${{ env.VERSION_NAME }}`\n*strings.xml Version:* `${{ env.STRINGS_VERSION }}`\n*Error:* `${{ env.ERROR_MESSAGE }}`\n*Action:* Please run `./bump_version.sh` to update the version number in this branch/tag (or correct the branch/tag name)."
               - type: "section"
                 text:
                   type: "mrkdwn"
