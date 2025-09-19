@@ -48,16 +48,16 @@ window.lifecycleEvent = function (type) {
  * Dispatches an analytics event to be detected by klaviyo.js
  *
  * @param metric - The metric of the event
- * @param strProperties - Properties of the event as a JSON string
+ * @param properties - Properties of the event as a JavaScript object
  */
-window.profileEvent = function (metric, strProperties) {
+window.profileEvent = function (metric, properties) {
     document.head.dispatchEvent(
         new CustomEvent(
             'profileEvent',
             {
                 detail: {
                     metric: metric,
-                    properties: JSON.parse(strProperties)
+                    properties: properties
                 }
             }
         )
