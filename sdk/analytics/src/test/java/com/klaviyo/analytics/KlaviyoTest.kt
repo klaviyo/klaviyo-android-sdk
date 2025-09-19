@@ -10,6 +10,7 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.state.KlaviyoState
+import com.klaviyo.analytics.state.ProfileEventObserver
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.DeviceProperties
@@ -128,6 +129,36 @@ internal class KlaviyoTest : BaseTest() {
     fun `Registered state and side effects`() {
         assertTrue(Registry.get<State>() is KlaviyoState)
         assertNotNull(Registry.getOrNull<StateSideEffects>())
+    }
+
+    @Test
+    fun `Registering profile event listeners responds to event creation`() {
+        val testEvent = Event(EventMetric.VIEWED_PRODUCT)
+        var count = 0
+        val profileEventObserver = object : ProfileEventObserver {
+            override fun invoke(p1: Event) {
+                count++
+                assertEquals(p1, testEvent)
+            }
+        }
+
+        Klaviyo.createEvent(testEvent)
+
+        verify { mockApiClient.enqueueEvent(testEvent, any()) }
+        assertEquals(count, 0)
+        // register observer
+        Registry.get<State>().onProfileEvent(profileEventObserver)
+
+        Klaviyo.createEvent(testEvent)
+        verify { mockApiClient.enqueueEvent(testEvent, any()) }
+        assertEquals(count, 1)
+
+        // unregister observer
+        Registry.get<State>().offProfileEvent(profileEventObserver)
+
+        Klaviyo.createEvent(testEvent)
+        verify { mockApiClient.enqueueEvent(testEvent, any()) }
+        assertEquals(count, 1)
     }
 
     @Test

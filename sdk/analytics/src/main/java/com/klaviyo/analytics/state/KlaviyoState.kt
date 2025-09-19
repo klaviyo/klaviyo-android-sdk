@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
@@ -11,12 +12,14 @@ import com.klaviyo.analytics.model.ProfileKey.PHONE_NUMBER
 import com.klaviyo.analytics.model.ProfileKey.PUSH_TOKEN
 import com.klaviyo.analytics.model.StateKey.API_KEY
 import com.klaviyo.analytics.model.StateKey.PUSH_STATE
+import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Registry
 import java.io.Serializable
 import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.invoke
 
 /**
  * Stores information on the currently active user
@@ -63,6 +66,13 @@ internal class KlaviyoState : State {
      */
     private val stateChangeObservers = Collections.synchronizedList(
         CopyOnWriteArrayList<StateChangeObserver>()
+    )
+
+    /**
+     * List of registered profile event observers
+     */
+    private val eventObserver = Collections.synchronizedList(
+        CopyOnWriteArrayList<ProfileEventObserver>()
     )
 
     /**
@@ -165,6 +175,23 @@ internal class KlaviyoState : State {
      */
     override fun resetAttributes() {
         attributes = null
+    }
+
+    override fun createEvent(event: Event, profile: Profile) {
+        Registry.get<ApiClient>().enqueueEvent(event, profile)
+        synchronized(eventObserver) {
+            eventObserver.forEach {
+                it?.invoke(event)
+            }
+        }
+    }
+
+    override fun onProfileEvent(observer: ProfileEventObserver) {
+        eventObserver += observer
+    }
+
+    override fun offProfileEvent(observer: ProfileEventObserver) {
+        eventObserver -= observer
     }
 
     /**

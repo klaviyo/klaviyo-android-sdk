@@ -1,5 +1,6 @@
 package com.klaviyo.forms.bridge
 
+import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.webview.JavaScriptEvaluator
@@ -15,6 +16,7 @@ internal class KlaviyoJsBridge : JsBridge {
         lifecycleEvent,
         openForm,
         closeForm,
+        profileEvent,
         setSafeArea
     }
 
@@ -29,6 +31,10 @@ internal class KlaviyoJsBridge : JsBridge {
         ),
         HandshakeSpec(
             type = HelperFunction.closeForm.name,
+            version = 1
+        ),
+        HandshakeSpec(
+            type = HelperFunction.profileEvent.name,
             version = 1
         )
     )
@@ -56,6 +62,12 @@ internal class KlaviyoJsBridge : JsBridge {
         type.name
     )
 
+    override fun profileEvent(event: Event) = evaluateJavascriptRaw(
+        HelperFunction.profileEvent,
+        "\"${event.metric.name.replace("'", "\\'")}\"", // Quoted string
+        event.toString() // Unquoted JSON string (becomes JS object literal)
+    )
+
     override fun setSafeArea(left: Float, top: Float, right: Float, bottom: Float) =
         evaluateJavascript(
             HelperFunction.setSafeArea,
@@ -70,6 +82,22 @@ internal class KlaviyoJsBridge : JsBridge {
      */
     private fun evaluateJavascript(function: HelperFunction, vararg arguments: String) {
         val args = arguments.joinToString(",") { "\"$it\"" }
+        val javaScript = "window.$function($args)"
+
+        Registry.get<JavaScriptEvaluator>().evaluateJavascript(javaScript) { result ->
+            if (result) {
+                Registry.log.verbose("JS $function evaluation succeeded")
+            } else {
+                Registry.log.error("JS $function evaluation failed")
+            }
+        }
+    }
+
+    /**
+     * Evaluates a JS function with raw arguments (no automatic quoting applied)
+     */
+    private fun evaluateJavascriptRaw(function: HelperFunction, vararg arguments: String) {
+        val args = arguments.joinToString(",")
         val javaScript = "window.$function($args)"
 
         Registry.get<JavaScriptEvaluator>().evaluateJavascript(javaScript) { result ->
