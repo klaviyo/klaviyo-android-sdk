@@ -752,6 +752,15 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `unregistering a deep link handler`() {
+        assertNull(null, Registry.getOrNull<DeepLinkHandler>())
+        Klaviyo.registerDeepLinkHandler() {}
+        assertNotNull(Registry.get<DeepLinkHandler>())
+        Klaviyo.unregisterDeepLinkHandler()
+        assertNull(Registry.getOrNull<DeepLinkHandler>())
+    }
+
+    @Test
     fun `handleUniversalTrackingLink handles a valid tracking url and returns true`() {
         val slot = slot<ResolveDestinationCallback>()
         var called = false
