@@ -123,6 +123,14 @@ object Klaviyo {
     }
 
     /**
+     * Removes any registered [DeepLinkHandler], reverting to the default SDK behavior of
+     * broadcasting an Intent with the deep link URL back to the host application.
+     */
+    fun unregisterDeepLinkHandler() = safeApply {
+        Registry.unregister<DeepLinkHandler>()
+    }
+
+    /**
      * Assign new identifiers and attributes to the currently tracked profile.
      * If a profile has already been identified, it will be overwritten by calling [resetProfile].
      *
