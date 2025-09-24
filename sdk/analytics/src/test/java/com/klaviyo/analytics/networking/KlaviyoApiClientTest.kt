@@ -1,21 +1,27 @@
 package com.klaviyo.analytics.networking
 
+import android.net.Uri
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.RequestMethod
+import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
+import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.buildEventMetaData
 import com.klaviyo.analytics.networking.requests.buildMetaData
 import com.klaviyo.core.DeviceProperties
+import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
+import com.klaviyo.core.safeCall
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -35,8 +41,12 @@ import io.mockk.verify
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.junit.After
@@ -48,6 +58,7 @@ import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 internal class KlaviyoApiClientTest : BaseTest() {
 
     private val flushIntervalWifi = 10_000L
@@ -64,6 +75,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+
+        // Set the Main dispatcher to use the test dispatcher
+        Dispatchers.setMain(dispatcher)
 
         mockDeviceProperties()
         mockkStatic(DeviceProperties::buildEventMetaData)
@@ -95,6 +109,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        // Reset the Main dispatcher
+        Dispatchers.resetMain()
+
         spyDataStore.clear(KlaviyoApiClient.QUEUE_KEY)
         KlaviyoApiClient.restoreQueue()
         assertEquals(0, KlaviyoApiClient.getQueueSize())
@@ -197,6 +214,30 @@ internal class KlaviyoApiClientTest : BaseTest() {
             PUSH_TOKEN,
             Profile().setAnonymousId(ANON_ID)
         )
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(false, postedJob?.force)
+    }
+
+    @Test
+    fun `Enqueues an unregister push API call`() {
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+
+        KlaviyoApiClient.enqueueUnregisterPushToken(
+            "apiKey",
+            PUSH_TOKEN,
+            Profile().setAnonymousId(ANON_ID)
+        )
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(false, postedJob?.force)
+    }
+
+    @Test
+    fun `Enqueues a aggregate event API call`() {
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+
+        KlaviyoApiClient.enqueueAggregateEvent(AggregateEventPayload("{}"))
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         assertEquals(false, postedJob?.force)
@@ -746,4 +787,135 @@ internal class KlaviyoApiClientTest : BaseTest() {
             fail("NullPointerException was thrown: ${e.message}")
         }
     }
+
+    private val trackingUrl = "https://klaviyo.com/track?id=123"
+    private val profile = Profile().setAnonymousId(ANON_ID)
+
+    /**
+     * Utility function to set up common mocks for resolveDestinationUrl tests
+     */
+    private fun setupResolveDestinationUrlTest(
+        requestStatus: KlaviyoApiRequest.Status,
+        destinationUrl: Uri? = null
+    ) {
+        val expectedResponse = if (destinationUrl is Uri) {
+            ResolveDestinationResult.Success(destinationUrl, trackingUrl)
+        } else if (requestStatus == KlaviyoApiRequest.Status.Unsent) {
+            ResolveDestinationResult.Unavailable(trackingUrl)
+        } else {
+            ResolveDestinationResult.Failure(trackingUrl)
+        }
+
+        mockkConstructor(UniversalClickTrackRequest::class)
+        every { anyConstructed<UniversalClickTrackRequest>().uuid } returns "mock_resolve_destination_uuid"
+        every { anyConstructed<UniversalClickTrackRequest>().send(any()) } returns requestStatus
+        every { anyConstructed<UniversalClickTrackRequest>().getResult() } returns expectedResponse
+        every { anyConstructed<UniversalClickTrackRequest>().headers } answers { callOriginal() }
+        every { anyConstructed<UniversalClickTrackRequest>().prepareToEnqueue() } answers {
+            callOriginal()
+        }
+    }
+
+    private fun verifyEnqueuedClickTrack(inverse: Boolean = false) = if (inverse) {
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        verify(inverse = true) { anyConstructed<UniversalClickTrackRequest>().prepareToEnqueue() }
+    } else {
+        verify { anyConstructed<UniversalClickTrackRequest>().prepareToEnqueue() }
+        val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
+        assertEquals("[\"mock_resolve_destination_uuid\"]", actualQueue)
+    }
+
+    private fun executeResolveDestinationUrl(testScheduler: TestCoroutineScheduler): ResolveDestinationResult? {
+        var callbackResult: ResolveDestinationResult? = null
+
+        KlaviyoApiClient.resolveDestinationUrl(trackingUrl, profile) { result ->
+            callbackResult = result
+        }
+
+        // Wait for coroutine to complete
+        testScheduler.advanceUntilIdle()
+
+        return callbackResult
+    }
+
+    @Test
+    fun `resolveDestinationUrl invokes callback with Success when request succeeds`() = runTest(
+        dispatcher
+    ) {
+        val destinationUrl = mockk<Uri>()
+        setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Complete, destinationUrl)
+
+        val result = executeResolveDestinationUrl(testScheduler)
+        assert(result is ResolveDestinationResult.Success)
+        assertEquals(destinationUrl, (result as ResolveDestinationResult.Success).destinationUrl)
+        verifyEnqueuedClickTrack(inverse = true)
+
+        unmockkConstructor(UniversalClickTrackRequest::class)
+    }
+
+    @Test
+    fun `resolveDestinationUrl invokes callback with Unavailable and enqueues request when offline`() =
+        runTest(dispatcher) {
+            setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Unsent)
+
+            assert(
+                executeResolveDestinationUrl(testScheduler) is ResolveDestinationResult.Unavailable
+            )
+            verifyEnqueuedClickTrack()
+
+            unmockkConstructor(UniversalClickTrackRequest::class)
+        }
+
+    @Test
+    fun `resolveDestinationUrl invokes callback with Failure when request fails`() = runTest(
+        dispatcher
+    ) {
+        setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed)
+
+        assert(executeResolveDestinationUrl(testScheduler) is ResolveDestinationResult.Failure)
+        verifyEnqueuedClickTrack(inverse = true)
+
+        unmockkConstructor(UniversalClickTrackRequest::class)
+    }
+
+    @Test
+    fun `resolveDestinationUrl raises config exceptions before coroutine scope`() = runTest(
+        dispatcher
+    ) {
+        var called = false
+        setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed)
+        every { anyConstructed<UniversalClickTrackRequest>().headers } answers {
+            // Mock some part of the constructor failing due to missing config
+            called = true
+            throw MissingConfig()
+        }
+
+        // Verify that the config exception is catchable by the caller
+        assertNull(safeCall { executeResolveDestinationUrl(testScheduler) })
+        assert(called)
+
+        verifyEnqueuedClickTrack(inverse = true)
+
+        unmockkConstructor(UniversalClickTrackRequest::class)
+    }
+
+    @Test
+    fun `resolveDestinationUrl creates UniversalClickTrackRequest with correct parameters`() =
+        runTest(
+            dispatcher
+        ) {
+            val mockHeaders = spyk<MutableMap<String, String>>()
+            setupResolveDestinationUrlTest(
+                KlaviyoApiRequest.Status.Complete,
+                mockk()
+            )
+            every { anyConstructed<UniversalClickTrackRequest>().headers } returns mockHeaders
+
+            executeResolveDestinationUrl(testScheduler)
+
+            verify { anyConstructed<UniversalClickTrackRequest>().baseUrl = trackingUrl }
+            verify { mockHeaders.put(any(), any()) }
+
+            unmockkConstructor(UniversalClickTrackRequest::class)
+        }
 }
