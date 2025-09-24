@@ -2,9 +2,11 @@ package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.takeIf
 import org.json.JSONObject
 
 /**
@@ -25,6 +27,7 @@ internal class EventApiRequest(
         const val NAME = "name"
         const val VALUE = "value"
         const val TIME = "time"
+        const val UNIQUE_ID = "unique_id"
     }
 
     override var type: String = "Create Event"
@@ -47,6 +50,7 @@ internal class EventApiRequest(
         }
 
     constructor(event: Event, profile: Profile) : this() {
+        val uniqueId = event.pop(EventKey.CUSTOM(UNIQUE_ID)).takeIf<String>() ?: uuid
         body = jsonMapOf(
             DATA to mapOf(
                 TYPE to EVENT,
@@ -61,6 +65,7 @@ internal class EventApiRequest(
                     VALUE to event.value,
                     TIME to Registry.clock.isoTime(queuedTime),
                     PROPERTIES to event.toMap(),
+                    UNIQUE_ID to uniqueId,
                     allowEmptyMaps = true
                 )
             )

@@ -18,6 +18,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
     override val expectedPath = "client/events"
 
     private val stubEvent: Event = Event(EventMetric.CUSTOM("Test Event"))
+        .setProperty("unique_id", "uuid")
 
     override fun makeTestRequest(): EventApiRequest =
         EventApiRequest(stubEvent, stubProfile)
@@ -80,7 +81,8 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "App Name": "Mock Application Label",
                     "Push Token": "$PUSH_TOKEN"
                   },
-                  "time": "$ISO_TIME"
+                  "time": "$ISO_TIME",
+                  "unique_id": "uuid"
                 }
               }
             }
@@ -131,7 +133,8 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "App Name": "Mock Application Label",
                     "Push Token": "$PUSH_TOKEN"
                   },
-                  "time": "$ISO_TIME"
+                  "time": "$ISO_TIME",
+                  "unique_id": "uuid"
                 }
               }
             }
@@ -184,7 +187,8 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "App Name": "Mock Application Label",
                     "Push Token": "$PUSH_TOKEN"
                   },
-                  "time": "$ISO_TIME"
+                  "time": "$ISO_TIME",
+                  "unique_id": "uuid"
                 }
               }
             }

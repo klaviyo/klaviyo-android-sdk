@@ -167,4 +167,15 @@ internal class ModelTests : BaseTest() {
         assertEquals(custProfile1, custEvent)
         assert(!custEvent.equals("custom"))
     }
+
+    @Test
+    fun `Pop removes an item if it exists`() {
+        val event = Event("test", mapOf(EventKey.CUSTOM("custom") to "value"))
+        val popped = event.pop(EventKey.CUSTOM("custom"))
+        val missing = event.pop(EventKey.CUSTOM("missing"))
+
+        assertEquals("value", popped)
+        assertNull(missing)
+        assert(!event.toMap().containsKey("custom"))
+    }
 }
