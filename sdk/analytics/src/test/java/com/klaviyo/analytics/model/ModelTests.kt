@@ -142,8 +142,8 @@ internal class ModelTests : BaseTest() {
     @Test
     fun `Event properties are reflected in toMap representation`() {
         val event = Event("test").also {
-            it.setValue(1.0)
-            it.setProperty(EventKey.EVENT_ID, "id")
+            it.value = 1.0
+            it.uniqueId = "id"
             it.setProperty(EventKey.CUSTOM("custom"), "custom")
         }
 
@@ -166,5 +166,16 @@ internal class ModelTests : BaseTest() {
         assertEquals(custProfile1, custProfile2)
         assertEquals(custProfile1, custEvent)
         assert(!custEvent.equals("custom"))
+    }
+
+    @Test
+    fun `Pop removes an item if it exists`() {
+        val event = Event("test", mapOf(EventKey.CUSTOM("custom") to "value"))
+        val popped = event.pop(EventKey.CUSTOM("custom"))
+        val missing = event.pop(EventKey.CUSTOM("missing"))
+
+        assertEquals("value", popped)
+        assertNull(missing)
+        assert(!event.toMap().containsKey("custom"))
     }
 }

@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.model
 
+import com.klaviyo.core.Registry
 import java.io.Serializable
 
 /**
@@ -24,11 +25,19 @@ class Event(val metric: EventMetric, properties: Map<EventKey, Serializable>?) :
             else -> try {
                 value.toString().toDouble()
             } catch (e: NumberFormatException) {
+                Registry.log.error("Event value is not a number: $value", e)
                 null
             }
         }
         set(value) {
             this[EventKey.VALUE] = value
+        }
+
+    fun setUniqueId(uniqueId: String?) = apply { this.uniqueId = uniqueId }
+    var uniqueId: String?
+        get() = this[EventKey.EVENT_ID].toString()
+        set(value) {
+            this[EventKey.EVENT_ID] = value
         }
 
     override fun setProperty(key: EventKey, value: Serializable?) = apply {
