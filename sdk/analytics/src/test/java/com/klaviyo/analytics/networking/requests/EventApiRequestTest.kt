@@ -19,6 +19,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
 
     private val stubEvent: Event = Event(EventMetric.CUSTOM("Test Event"))
         .setUniqueId("uuid")
+        .setValue(12.34)
 
     override fun makeTestRequest(): EventApiRequest =
         EventApiRequest(stubEvent, stubProfile)
@@ -82,6 +83,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "Push Token": "$PUSH_TOKEN"
                   },
                   "time": "$ISO_TIME",
+                  "value": 12.34,
                   "unique_id": "uuid"
                 }
               }
@@ -134,6 +136,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "Push Token": "$PUSH_TOKEN"
                   },
                   "time": "$ISO_TIME",
+                  "value": 12.34,
                   "unique_id": "uuid"
                 }
               }
@@ -188,6 +191,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "Push Token": "$PUSH_TOKEN"
                   },
                   "time": "$ISO_TIME",
+                  "value": 12.34,
                   "unique_id": "uuid"
                 }
               }
@@ -195,7 +199,11 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
         """
 
         stubEvent.setProperty("custom_value", "200")
+        val origEvent = stubEvent.copy()
         val request = EventApiRequest(stubEvent, stubProfile)
+
+        // Event was not mutated by creating the API request
+        compareJson(JSONObject(origEvent.toString()), JSONObject(stubEvent.toString()))
 
         // If I mutate profile or properties after creating, it shouldn't affect the request
         stubProfile.setExternalId("ext_id")
