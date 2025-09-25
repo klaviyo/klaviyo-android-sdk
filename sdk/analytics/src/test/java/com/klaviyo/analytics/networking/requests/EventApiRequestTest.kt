@@ -2,6 +2,7 @@ package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -44,6 +45,9 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
 
     @Test
     fun `Builds body request without properties`() {
+        // Note: Including $value and $event_id was an oversight when we first migrated to V3 APIs.
+        // Now we need to leave it in for backwards compatibility (the APIs may be updated in the
+        // future to filter out all reserved keys, but we'll leave it in the SDKs for now).
         val expectJson = """
             {
               "data": {
@@ -80,7 +84,9 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "App Build": "Mock Version Code",
                     "App ID": "Mock App ID",
                     "App Name": "Mock Application Label",
-                    "Push Token": "$PUSH_TOKEN"
+                    "Push Token": "$PUSH_TOKEN",
+                    "${EventKey.VALUE}": 12.34,
+                    "${EventKey.EVENT_ID}": "uuid"
                   },
                   "time": "$ISO_TIME",
                   "value": 12.34,
@@ -133,7 +139,9 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "App Build": "Mock Version Code",
                     "App ID": "Mock App ID",
                     "App Name": "Mock Application Label",
-                    "Push Token": "$PUSH_TOKEN"
+                    "Push Token": "$PUSH_TOKEN",
+                    "${EventKey.VALUE}": 12.34,
+                    "${EventKey.EVENT_ID}": "uuid"
                   },
                   "time": "$ISO_TIME",
                   "value": 12.34,
@@ -188,7 +196,9 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "App Build": "Mock Version Code",
                     "App ID": "Mock App ID",
                     "App Name": "Mock Application Label",
-                    "Push Token": "$PUSH_TOKEN"
+                    "Push Token": "$PUSH_TOKEN",
+                    "${EventKey.VALUE}": 12.34,
+                    "${EventKey.EVENT_ID}": "uuid"
                   },
                   "time": "$ISO_TIME",
                   "value": 12.34,

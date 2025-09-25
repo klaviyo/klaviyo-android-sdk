@@ -2,7 +2,6 @@ package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
@@ -49,8 +48,9 @@ internal class EventApiRequest(
         }
 
     constructor(event: Event, profile: Profile) : this() {
-        val event = event.copy()
-
+        // Note: it'd be cleaner if we popped $value and and $event_id, so that they aren't included
+        // in the properties map too, but that would be a breaking change on the SDK side. The APIs
+        // may be updated to filter out reserved keys in the future, it already does for $event_id.
         body = jsonMapOf(
             DATA to mapOf(
                 TYPE to EVENT,
@@ -62,8 +62,8 @@ internal class EventApiRequest(
                             ATTRIBUTES to mapOf(NAME to event.metric.name)
                         )
                     ),
-                    UNIQUE_ID to event.pop(EventKey.EVENT_ID).let { it as? String ?: uuid },
-                    VALUE to event.pop(EventKey.VALUE),
+                    UNIQUE_ID to event.uniqueId.let { if (it.isNullOrEmpty()) uuid else it },
+                    VALUE to event.value,
                     TIME to Registry.clock.isoTime(queuedTime),
                     PROPERTIES to event.toMap(),
                     allowEmptyMaps = true
