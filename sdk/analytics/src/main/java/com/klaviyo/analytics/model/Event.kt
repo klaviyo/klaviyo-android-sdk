@@ -25,7 +25,7 @@ class Event(val metric: EventMetric, properties: Map<EventKey, Serializable>?) :
             else -> try {
                 value.toString().toDouble()
             } catch (e: NumberFormatException) {
-                Registry.log.warning("Event value is not a number: $value", e)
+                Registry.log.error("Event value is not a number: $value", e)
                 null
             }
         }
