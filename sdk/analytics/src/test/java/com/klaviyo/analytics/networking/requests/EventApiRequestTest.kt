@@ -18,7 +18,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
     override val expectedPath = "client/events"
 
     private val stubEvent: Event = Event(EventMetric.CUSTOM("Test Event"))
-        .setProperty("unique_id", "uuid")
+        .setUniqueId("uuid")
 
     override fun makeTestRequest(): EventApiRequest =
         EventApiRequest(stubEvent, stubProfile)
