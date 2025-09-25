@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.model
 
+import com.klaviyo.core.Registry
 import java.io.Serializable
 
 /**
@@ -24,6 +25,7 @@ class Event(val metric: EventMetric, properties: Map<EventKey, Serializable>?) :
             else -> try {
                 value.toString().toDouble()
             } catch (e: NumberFormatException) {
+                Registry.log.warning("Event value is not a number: $value", e)
                 null
             }
         }

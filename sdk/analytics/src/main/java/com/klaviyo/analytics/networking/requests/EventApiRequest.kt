@@ -51,8 +51,6 @@ internal class EventApiRequest(
     constructor(event: Event, profile: Profile) : this() {
         val event = event.copy()
 
-        Registry.log.wtf("uuid is $uuid")
-
         body = jsonMapOf(
             DATA to mapOf(
                 TYPE to EVENT,

@@ -142,8 +142,8 @@ internal class ModelTests : BaseTest() {
     @Test
     fun `Event properties are reflected in toMap representation`() {
         val event = Event("test").also {
-            it.setValue(1.0)
-            it.setProperty(EventKey.EVENT_ID, "id")
+            it.value = 1.0
+            it.uniqueId = "id"
             it.setProperty(EventKey.CUSTOM("custom"), "custom")
         }
 
