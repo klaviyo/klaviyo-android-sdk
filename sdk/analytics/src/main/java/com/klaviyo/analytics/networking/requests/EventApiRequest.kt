@@ -6,7 +6,6 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
-import com.klaviyo.core.utils.takeIf
 import org.json.JSONObject
 
 /**
@@ -50,7 +49,10 @@ internal class EventApiRequest(
         }
 
     constructor(event: Event, profile: Profile) : this() {
-        val uniqueId = event.pop(EventKey.CUSTOM(UNIQUE_ID)).takeIf<String>() ?: uuid
+        val event = event.copy()
+
+        Registry.log.wtf("uuid is $uuid")
+
         body = jsonMapOf(
             DATA to mapOf(
                 TYPE to EVENT,
@@ -62,10 +64,10 @@ internal class EventApiRequest(
                             ATTRIBUTES to mapOf(NAME to event.metric.name)
                         )
                     ),
-                    VALUE to event.value,
+                    UNIQUE_ID to event.pop(EventKey.EVENT_ID).let { it as? String ?: uuid },
+                    VALUE to event.pop(EventKey.VALUE),
                     TIME to Registry.clock.isoTime(queuedTime),
                     PROPERTIES to event.toMap(),
-                    UNIQUE_ID to uniqueId,
                     allowEmptyMaps = true
                 )
             )
