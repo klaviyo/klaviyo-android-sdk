@@ -35,7 +35,7 @@ class Event(val metric: EventMetric, properties: Map<EventKey, Serializable>?) :
 
     fun setUniqueId(uniqueId: String?) = apply { this.uniqueId = uniqueId }
     var uniqueId: String?
-        get() = this[EventKey.EVENT_ID].toString()
+        get() = this[EventKey.EVENT_ID]?.toString()
         set(value) {
             this[EventKey.EVENT_ID] = value
         }

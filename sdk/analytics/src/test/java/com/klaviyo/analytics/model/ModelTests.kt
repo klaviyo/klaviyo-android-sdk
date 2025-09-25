@@ -135,8 +135,21 @@ internal class ModelTests : BaseTest() {
         assertEquals("0", profile.email)
         assertEquals("0", profile.phoneNumber)
 
-        val event = Event("test", mapOf(EventKey.VALUE to 0))
+        val event = Event(
+            "test",
+            mapOf(
+                EventKey.VALUE to 0,
+                EventKey.EVENT_ID to 0
+            )
+        )
         assertEquals(0.0, event.value)
+        assertEquals("0", event.uniqueId)
+
+        assertEquals(
+            Event("test", mapOf(EventKey.EVENT_ID to hashMapOf("t" to "t"))).uniqueId,
+            "{t=t}"
+        )
+        assertNull(Event("test").uniqueId)
     }
 
     @Test

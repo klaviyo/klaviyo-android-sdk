@@ -8,7 +8,10 @@ import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.unmockkObject
+import io.mockk.unmockkStatic
+import java.util.UUID
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Before
@@ -102,6 +105,9 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
 
     @Test
     fun `Builds request with properties`() {
+        mockkStatic(UUID::class)
+        every { UUID.randomUUID().toString() } returns "00000000-0000-0000-0000-00000000abcd"
+
         val expectJson = """
             {
               "data": {
@@ -141,20 +147,24 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "App Name": "Mock Application Label",
                     "Push Token": "$PUSH_TOKEN",
                     "${EventKey.VALUE}": 12.34,
-                    "${EventKey.EVENT_ID}": "uuid"
                   },
                   "time": "$ISO_TIME",
                   "value": 12.34,
-                  "unique_id": "uuid"
+                  "unique_id": "00000000-0000-0000-0000-00000000abcd"
                 }
               }
             }
         """
 
-        stubEvent.setProperty("custom_value", "200")
-        val request = EventApiRequest(stubEvent, stubProfile)
+        val thisStubEvent = stubEvent.copy()
+            .setUniqueId(null)
+            .setProperty("custom_value", "200")
+
+        val request = EventApiRequest(thisStubEvent, stubProfile)
 
         compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
+
+        unmockkStatic(UUID::class)
     }
 
     @Test
