@@ -8,6 +8,7 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import java.net.URL
+import java.util.Base64
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -30,9 +31,15 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
     override val expectedUrl: URL = URL(trackingUrl)
 
     override val expectedHeaders: Map<String, String>
-        get() = super.expectedHeaders.toMutableMap() + mapOf(
-            UniversalClickTrackRequest.KLAVIYO_PROFILE_INFO_HEADER to (stubProfile.identifiers.toString())
-        )
+        get() {
+            val profileJson = stubProfile.identifiers.toString()
+            val encodedProfile = Base64.getEncoder().encodeToString(
+                profileJson.toByteArray(Charsets.UTF_8)
+            )
+            return super.expectedHeaders.toMutableMap() + mapOf(
+                UniversalClickTrackRequest.KLAVIYO_PROFILE_INFO_HEADER to encodedProfile
+            )
+        }
 
     override fun makeTestRequest(): UniversalClickTrackRequest =
         UniversalClickTrackRequest(trackingUrl, stubProfile)
@@ -58,7 +65,9 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
         val headerValue = request.headers[UniversalClickTrackRequest.KLAVIYO_PROFILE_INFO_HEADER]
         assertNotNull(headerValue)
 
-        val identifiers = JSONObject(headerValue!!)
+        // Decode the Base64 encoded header value
+        val decodedJson = String(Base64.getDecoder().decode(headerValue!!), Charsets.UTF_8)
+        val identifiers = JSONObject(decodedJson)
 
         // Should only have email and anonymous_id
         assertEquals(2, identifiers.length())
