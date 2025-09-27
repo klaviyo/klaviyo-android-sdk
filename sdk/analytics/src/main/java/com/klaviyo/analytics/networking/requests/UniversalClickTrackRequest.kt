@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
+import java.util.Base64
 import kotlin.time.Duration.Companion.milliseconds
 import org.json.JSONObject
 
@@ -69,7 +70,11 @@ internal class UniversalClickTrackRequest(
      */
     constructor(trackingUrl: String, profile: Profile) : this() {
         this.baseUrl = trackingUrl
-        headers.put(KLAVIYO_PROFILE_INFO_HEADER, profile.identifiers.toString())
+        val profileJson = profile.identifiers.toString()
+        val encodedProfile = Base64.getEncoder().encodeToString(
+            profileJson.toByteArray(Charsets.UTF_8)
+        )
+        headers.put(KLAVIYO_PROFILE_INFO_HEADER, encodedProfile)
     }
 
     /**
