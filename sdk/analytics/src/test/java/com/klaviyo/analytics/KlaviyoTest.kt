@@ -605,11 +605,10 @@ internal class KlaviyoTest : BaseTest() {
         every { mockApiClient.enqueueEvent(capture(it), any()) } returns Unit
     }
 
-    private fun setupDeepLinkHandler(): Pair<() -> Uri?, (Uri) -> Unit> {
+    private fun setupDeepLinkHandler(): Pair<() -> Uri?, DeepLinkHandler> {
         var capturedUri: Uri? = null
-        val deepLinkHandler: DeepLinkHandler = { uri -> capturedUri = uri }
-        Klaviyo.registerDeepLinkHandler(deepLinkHandler)
-        return { capturedUri } to deepLinkHandler
+        Klaviyo.registerDeepLinkHandler { uri: Uri -> capturedUri = uri }
+        return { capturedUri } to Registry.get<DeepLinkHandler>()
     }
 
     @Test

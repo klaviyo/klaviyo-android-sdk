@@ -58,16 +58,18 @@ internal class DeepLinkingTest : BaseTest() {
 
     @Test
     fun `isHandlerRegistered returns true when handler is registered`() {
-        val handler: DeepLinkHandler = { _ -> }
-        Registry.register<DeepLinkHandler>(handler)
-
+        Registry.register<DeepLinkHandler>(mockk<DeepLinkHandler>(relaxed = true))
         assertTrue(DeepLinking.isHandlerRegistered)
     }
 
     @Test
     fun `handleDeepLink invokes registered handler when available`() {
         var invokedUri: Uri? = null
-        val handler: DeepLinkHandler = { uri -> invokedUri = uri }
+        val handler = object : DeepLinkHandler {
+            override fun invoke(uri: Uri) {
+                invokedUri = uri
+            }
+        }
         Registry.register<DeepLinkHandler>(handler)
 
         DeepLinking.handleDeepLink(mockUri)
