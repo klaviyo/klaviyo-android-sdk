@@ -16,7 +16,9 @@ import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION
  * Callback type for handling a deep link. When registered, this callback is invoked with any
  * deep links originating from Klaviyo services, instead of broadcasting an [Intent].
  */
-typealias DeepLinkHandler = (uri: Uri) -> Unit
+fun interface DeepLinkHandler {
+    operator fun invoke(uri: Uri)
+}
 
 /**
  * Utility for handling any deep links into the host application originating from Klaviyo
