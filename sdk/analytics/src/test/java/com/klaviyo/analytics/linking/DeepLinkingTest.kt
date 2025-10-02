@@ -92,6 +92,22 @@ internal class DeepLinkingTest : BaseTest() {
     }
 
     @Test
+    fun `handleDeepLink sends no intent if link is unsupported`() {
+        every { anyConstructed<Intent>().resolveActivity(any()) } returns null
+
+        every { testActivity.startActivity(any()) } returns Unit
+        every { Registry.lifecycleMonitor.runWithCurrentOrNextActivity(any(), any()) } answers {
+            val callback = secondArg<(Activity) -> Unit>()
+            callback(testActivity)
+            null
+        }
+
+        DeepLinking.handleDeepLink(mockUri)
+
+        verify(inverse = true) { testActivity.startActivity(any()) }
+    }
+
+    @Test
     fun `sendLaunchIntent does nothing when no launch intent available`() {
         every { testPackageManager.getLaunchIntentForPackage("com.test.app") } returns null
 

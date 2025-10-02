@@ -11,6 +11,7 @@ import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION_GRACE_PERIOD
+import com.klaviyo.core.utils.startActivityIfResolved
 
 /**
  * Callback type for handling a deep link. When registered, this callback is invoked with any
@@ -91,7 +92,7 @@ object DeepLinking {
      * @param extras Optional bundle of extras to be added to the launch intent
      */
     fun sendLaunchIntent(context: Context, extras: Bundle? = null) {
-        makeLaunchIntent(context, extras)?.let { context.startActivity(it) }
+        makeLaunchIntent(context, extras)?.startActivityIfResolved(context)
     }
 
     /**
@@ -102,8 +103,8 @@ object DeepLinking {
     private fun sendDeepLinkIntent(uri: Uri) {
         Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
             ACTIVITY_TRANSITION_GRACE_PERIOD
-        ) { activity ->
-            activity.startActivity(makeDeepLinkIntent(uri, activity))
+        ) { context ->
+            makeDeepLinkIntent(uri, context).startActivityIfResolved(context)
         }
     }
 

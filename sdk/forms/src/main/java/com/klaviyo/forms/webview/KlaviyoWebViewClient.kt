@@ -14,6 +14,7 @@ import androidx.core.net.toUri
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
+import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
@@ -185,7 +186,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
                 action = Intent.ACTION_VIEW
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
-            Registry.config.applicationContext.startActivity(intent, null)
+            intent.startActivityIfResolved(Registry.config.applicationContext)
             return true
         }
         return false
