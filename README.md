@@ -118,9 +118,6 @@ the earliest point in your application code, the `Application.onCreate()` method
 **must** call `Klaviyo.registerForLifecycleCallbacks(applicationContext)` and provide your API key via `initialize`
 as early as it is available.
 
-If choosing to handle deep links via callback methods, you should register your deep link handler here, 
-[more info below](#Deep-Linking).
-
 ```kotlin
 // Application subclass 
 import android.app.Application
@@ -474,24 +471,24 @@ users while they are actively using your app. You can create new In-App Forms in
 Sign-Up Forms tab in Klaviyo. Follow the instructions in this section to integrate forms with your app. The SDK will
 display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
 
-Beginning with version 4.0.0, In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, 
-you can configure forms to target or exclude specific lists or segments, and the form will only be shown to users
-matching those criteria, based on their profile identifiers set via the `analytics` package.
+In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, you can configure forms to target or 
+exclude specific segments of profiles and configure event-based triggers and delays.
+See the table below to understand available features by SDK version.
 
 ### Prerequisites
 - Klaviyo `analytics` and `forms` packages
-- If you expect to use deep links in forms, see the [deep linking](#deep-linking) section below.
+- Configure deep links, see the [Deep Linking](#deep-linking) section
 - We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features.
   The minimum SDK version supporting In-App Forms is `3.2.0`, and a feature matrix is provided below. Forms that leverage
   unsupported features will not appear in your app until you update to a version that supports those features.
-- Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 3.2.0-3.3.1 
-  to understand changes to In-App Forms behavior.
+- Please read the [Migration Guide](MIGRATION_GUIDE.md) whenever you upgrade, to understand changes to In-App Forms behavior.
 
-| Feature            | Minimum SDK Version |
-|--------------------|---------------------|
-| Basic In-App Forms | 3.2.0+              |
-| Time Delay         | 4.0.0               |
-| Audience Targeting | 4.0.0               |
+| Feature              | Minimum SDK Version |
+|----------------------|---------------------|
+| Basic In-App Forms   | 3.2.0               |
+| Time Delay           | 4.0.0               |
+| Audience Targeting   | 4.0.0               |
+| Event Triggers       | 4.1.0               |
 
 ### Setup
 To begin, call `Klaviyo.registerForInAppForms()` after initializing the SDK with your public API key.
@@ -560,6 +557,11 @@ We recommend that you create a helper method to contain the link handling logic.
 using those components to navigate to the appropriate screen in the app. By encapsulating this logic within a helper method,
 you can centralize your logic and reduce duplication of code as you complete the rest of your deep linking setup.
 
+**Optional**: register a deep link handler callback with `Klaviyo.registerDeepLinkHandler()`.
+You should register this from your `Application` or main `Activity`'s `.onCreate()` method, so that it is available early enough in
+the application lifecycle to handle any link that launches the app from a terminated state. See code example in [Initialization Section](#Initialization).
+This handler will be invoked for *any* deep link originating from the Klaviyo SDK, including push notifications, universal tracking links, or In-App Forms.
+
 ### Handling Universal Links
 >  ℹ️ Support for Deep Linking from Email is currently available for early access to select Klaviyo customers. Please contact your CSM to be enrolled.
 >  Full trackable universal links support is available in Klaviyo Android SDK version 4.1.0 and higher.
@@ -578,29 +580,16 @@ profile events *and* your app opens and processes the links correctly, you need 
 #### Setup
 Follow these steps to configure your app to handle Klaviyo universal tracking links.
 
-1. Configure Universal Links in your Klaviyo account
-   Follow our guide on [setting up universal links](<TODO: link to universal linking documentation>) in your Klaviyo account dashboard.
-2. Add an intent filter for your click tracking domain. Klaviyo's Universal Tracking Links are formatted as follows `<your.tracking.domain>/u/linkId`
+1. Configure Universal Links in your Klaviyo account. Follow our guide on
+   [setting up universal links](https://help.klaviyo.com/hc/en-us/articles/41701832186523) in your Klaviyo account dashboard.
+2. Add an intent filter for your click tracking domain. Klaviyo's Universal Tracking Links are formatted `https://<trk.your.domain.com>/u/linkId`
    so your intent filter should only accept paths prefixed with `/u/*`, see example below.
-3. Optional: register a deep link handler callback with Klaviyo that will be invoked for any deep link originating from the Klaviyo SDK. 
-   You should register this from `Application.onCreate` so that it is available early enough in the application launch lifecycle to handle
-   links that launch the app from a terminated state. See code example in [Initialization Section](#Initialization).
-4. In your main activity, you will need to pass the Intent from a Universal Tracking Link to the Klaviyo SDK by calling
+3. In your main activity, you will need to pass the `Intent` from a Universal Tracking Link to the Klaviyo SDK by calling
    our `handleUniversalTrackingLink()` method. This method returns `true` synchronously if the Intent is from opening a
    valid Klaviyo universal tracking link. If it returns `false`, you should handle the non-Klaviyo Intent as appropriate.
-   ```kotlin
-    override fun onNewIntent(intent: Intent?) {
-        if (Klaviyo.handleUniversalTrackingLink(intent)) {
-          // Klaviyo SDK will handle the tracking link asynchronously
-          return
-        }
-        
-        // ... other intent handling logic
-    }
-   ```
-5. Klaviyo will resolve the destination URL and pass it back to your app either by calling your registered deep link callback
+   See code example in the next section.
+4. Klaviyo will resolve the destination URL and pass it back to your app either by calling your registered deep link callback
    or by dispatching an explicit `ACTION_VIEW` intent to your app with the destination URI in its `data` property. 
-
 
 ### Intent Filters
 To handle deep links of any kind, you must add intent filters to your app's manifest file declaring the schemes/domains that your app supports.
@@ -612,12 +601,11 @@ and [Verified App Links](https://developer.android.com/training/app-links).
     ```xml
     <!-- AndroidManifest.xml -->
     <manifest>
-        <!-- ... -->
         <application>
-            <!-- ... -->
+            <!-- Your Main Activity: -->
             <activity>
                 <!-- Custom URI scheme: -->
-                <intent-filter android:label="@string/filter_view_example_gizmos">
+                <intent-filter android:label="Your App Name">
                     <action android:name="android.intent.action.VIEW" />
                     <category android:name="android.intent.category.DEFAULT" />
                     <category android:name="android.intent.category.BROWSABLE" />
@@ -626,9 +614,24 @@ and [Verified App Links](https://developer.android.com/training/app-links).
                 </intent-filter>
    
                 <!-- Verified App Link: -->
+                <intent-filter android:label="Your App Name" android:autoVerify="true">
+                    <action android:name="android.intent.action.VIEW" />
+                    <category android:name="android.intent.category.DEFAULT" />
+                    <category android:name="android.intent.category.BROWSABLE" />
+                    <data android:scheme="http" />
+                    <data android:scheme="https" />
+                    <data android:host="your.domain.com" />
+                </intent-filter>
    
                 <!-- Klaviyo Universal Click Tracking: -->
-   
+                <intent-filter android:label="Your App Name" android:autoVerify="true">
+                    <action android:name="android.intent.action.VIEW" />
+                    <category android:name="android.intent.category.DEFAULT" />
+                    <category android:name="android.intent.category.BROWSABLE" />
+                    <data android:scheme="https" />
+                    <data android:host="trk.your.domain.com" />
+                    <data android:pathPrefix="/u/" />
+                </intent-filter>
             </activity>
         </application>
     </manifest>
@@ -640,6 +643,7 @@ and [Verified App Links](https://developer.android.com/training/app-links).
    You can parse the URI from the intent's data property and use it to navigate to the appropriate part of your app.
 
     ```kotlin
+    // Main Activity
     override fun onCreate(savedInstanceState: Bundle?) {
         /* ... */
         
@@ -647,15 +651,20 @@ and [Verified App Links](https://developer.android.com/training/app-links).
     }
 
     override fun onNewIntent(intent: Intent?) {
-        // Tracks when a system tray notification is opened
-        Klaviyo.handlePush(intent)
-    
-        // Read deep link data from intent
-        val action: String? = intent?.action 
-        val deepLink: Uri? = intent?.data
+        if (Klaviyo.handleUniversalTrackingLink(intent)) {
+          // Klaviyo SDK will handle the tracking link asynchronously and invoke your deep link handler if registered
+          return
+        }
    
-        //Call your encapsulated link handler, see above
-        handleDeepLink(uri)
+        if (intent.isKlaviyoNotificationIntent) {
+            // Klaviyo SDK will track an Opened Push event, and invoke your deep link handler if registered (you may need to return early to avoid duplicate navigation)
+            Klaviyo.handlePush(intent)
+        } 
+    
+        val deepLink: Uri? = intent?.data?.let { uri ->
+            // Read deep link data from intent and navigate to the appropriate part of your app
+            handleDeepLink(uri) 
+        }    
     }
     ```
 
