@@ -9,9 +9,16 @@ import com.klaviyo.core.Registry
  * Logs an error if no activity is found to handle the intent.
  */
 fun Intent.startActivityIfResolved(context: Context) {
-    if (resolveActivity(context.packageManager) == null) {
+    if (activityResolved(context)) {
         Registry.log.error("No activity found to handle intent: $this")
     } else {
         context.startActivity(this)
     }
+}
+
+/**
+ * Check if this intent can be resolved to an activity by the package manager.
+ */
+fun Intent.activityResolved(context: Context): Boolean {
+    return resolveActivity(context.packageManager) != null
 }

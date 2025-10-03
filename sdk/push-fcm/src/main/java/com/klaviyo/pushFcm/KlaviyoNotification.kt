@@ -1,6 +1,7 @@
 package com.klaviyo.pushFcm
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
@@ -16,6 +17,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
@@ -77,6 +79,20 @@ class KlaviyoNotification(private val message: RemoteMessage) {
     }
 
     /**
+     * Check if the app has notification permission
+     *
+     * NOTE: Extracted to a separate function to facilitate testing
+     *
+     * @param context
+     * @return Whether notification permission is granted
+     */
+    @SuppressLint("InlinedApi")
+    internal fun hasNotificationPermission(context: Context): Boolean = ActivityCompat.checkSelfPermission(
+        context,
+        Manifest.permission.POST_NOTIFICATIONS
+    ) == PackageManager.PERMISSION_GRANTED
+
+    /**
      * Formats and displays a notification based on the remote message data payload
      *
      * NOTE: This verifies the origin of the message and the permission state for notifications
@@ -87,13 +103,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * @return Whether a message was displayed
      */
     @WorkerThread
+    @Suppress("MissingPermission")
     fun displayNotification(context: Context): Boolean {
-        if (!message.isKlaviyoNotification ||
-            ActivityCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (!message.isKlaviyoNotification || !hasNotificationPermission(context)) {
             return false
         }
 
@@ -133,7 +145,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * @param context
      * @return [Notification.Builder] to display
      */
-    private fun buildNotification(context: Context): NotificationCompat.Builder =
+    internal fun buildNotification(context: Context): NotificationCompat.Builder =
         NotificationCompat.Builder(context, message.channel_id)
             .setContentIntent(makePendingIntent(context))
             .setSmallIcon(message.getSmallIcon(context))
@@ -211,6 +223,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         when {
             // If deep link is present, use an ACTION_VIEW intent
             deepLink is Uri -> DeepLinking.makeDeepLinkIntent(deepLink, context)
+                .takeIf { it.activityResolved(context) }
+                ?: DeepLinking.makeLaunchIntent(context).also {
+                    Registry.log.error("Push message contained unsupported deep link: $deepLink")
+                }
             // Else, just launch the app
             else -> DeepLinking.makeLaunchIntent(context)
         }?.appendKlaviyoExtras(message)
