@@ -354,7 +354,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
             every { url } returns mockUrl
         }
 
-        every { mockContext.startActivity(any(), null) } just runs
+        every { mockContext.startActivity(any()) } just runs
 
         val mockIntent = MockIntent.setupIntentMocking()
         val result = client.shouldOverrideUrlLoading(null, mockRequest)

@@ -30,7 +30,7 @@ data class MockIntent(
          *
          * @return IntentMock containing the mocked Intent and capturing slots
          */
-        @SuppressLint("WrongConstant")
+        @SuppressLint("WrongConstant", "QueryPermissionsNeeded")
         fun setupIntentMocking(): MockIntent {
             val mockIntent = MockIntent(mockk<Intent>(relaxed = true)).apply {
                 every { intent.addFlags(any()) } returns intent
@@ -48,6 +48,7 @@ data class MockIntent(
             every { anyConstructed<Intent>().putExtras(any<Bundle>()) } returns intent
             every { anyConstructed<Intent>().addFlags(any()) } returns intent
             every { anyConstructed<Intent>().extras } returns bundle
+            every { anyConstructed<Intent>().resolveActivity(any()) } returns mockk()
 
             // Mock getter methods to return captured values
             every { anyConstructed<Intent>().action } answers {
