@@ -10,9 +10,9 @@ import com.klaviyo.core.Registry
  */
 fun Intent.startActivityIfResolved(context: Context) {
     if (activityResolved(context)) {
-        Registry.log.error("No activity found to handle intent: $this")
-    } else {
         context.startActivity(this)
+    } else {
+        Registry.log.error("No activity found to handle intent: $this")
     }
 }
 
