@@ -477,7 +477,7 @@ See the table below to understand available features by SDK version.
 
 ### Prerequisites
 - Klaviyo `analytics` and `forms` packages
-- Configure deep links, see the [Deep Linking](#deep-linking) section
+- If you expect to use deep links in forms, see the [deep linking](#deep-linking) section below.
 - We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features.
   The minimum SDK version supporting In-App Forms is `3.2.0`, and a feature matrix is provided below. Forms that leverage
   unsupported features will not appear in your app until you update to a version that supports those features.
