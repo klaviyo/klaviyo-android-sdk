@@ -139,6 +139,8 @@ class YourApplication : Application() {
     }
     
     private fun handleDeepLink(deepLink: Uri?) {
+        // Optional: deep link handler for links originating from Klaviyo. The SDK will call this if 
+        // registered, else fall back on sending standard ACTION_VIEW to your app.  
         // Parse path and/or query out of a URI to navigate to the appropriate screen in the app
     }
 }
