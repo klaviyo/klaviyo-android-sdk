@@ -181,19 +181,9 @@ internal class KlaviyoState : State {
         Registry.get<ApiClient>().enqueueEvent(event, profile)
         synchronized(eventObserver) {
             if (eventObserver.isEmpty()) {
-                // No observers registered yet - buffer the event for when forms module initializes
-                Registry.log.info(
-                    "KlaviyoState: No profile event observers registered - buffering event ${event.metric.name}"
-                )
                 FormsTriggerBuffer.addEvent(event)
             } else {
-                // Observers are registered - send immediately
-                Registry.log.debug(
-                    "KlaviyoState: Sending event ${event.metric.name} to ${eventObserver.size} observer(s)"
-                )
-                eventObserver.forEach {
-                    it?.invoke(event)
-                }
+                eventObserver.forEach { it?.invoke(event) }
             }
         }
     }
