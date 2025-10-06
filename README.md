@@ -654,12 +654,12 @@ and [Verified App Links](https://developer.android.com/training/app-links).
 
     override fun onNewIntent(intent: Intent?) {
         if (Klaviyo.handleUniversalTrackingLink(intent)) {
-          // Klaviyo SDK will handle the tracking link asynchronously and invoke your deep link handler if registered
+          // Klaviyo SDK will handle the tracking link asynchronously and invoke your deep link handler if registered, else send a new intent to your app with the destination URI
           return
         }
    
         if (intent.isKlaviyoNotificationIntent) {
-            // Klaviyo SDK will track an Opened Push event, and invoke your deep link handler if registered (you may need to return early to avoid duplicate navigation)
+            // Klaviyo SDK will track an Opened Push event. If it contains a link, this will als invoke your deep link handler if registered (you may need to return early to avoid duplicate navigation)
             Klaviyo.handlePush(intent)
         } 
     
@@ -683,7 +683,7 @@ and [Verified App Links](https://developer.android.com/training/app-links).
 
    To perform integration testing:
 * **Push**: Send a [preview push notification](https://help.klaviyo.com/hc/en-us/articles/18011985278875)
-   containing a deep link from the Klaviyo push editor
+   containing a deep link from the Klaviyo push editor.
 * **Forms**: Create an In-App Form that contains a "Go to app screen" action, use Audience Targeting with a test 
    segment or list to target only your testing profiles. 
 * **Universal Tracking Links** Send yourself a test email containing a universal tracking link. If necessary,
