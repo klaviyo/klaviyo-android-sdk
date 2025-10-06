@@ -12,6 +12,9 @@ internal class FormsProfileEventObserver : JsBridgeObserver, ProfileEventObserve
 
     override fun startObserver() {
         Registry.get<State>().onProfileEvent(this)
+        // TODO(forms-buffer): After registering as an observer, check FormsTriggerBuffer for any buffered events
+        // Replay each buffered event through invoke(event) to maintain existing flow
+        // This handles events that arrived before JS was ready (e.g., push opens before initialization)
     }
 
     override fun stopObserver() {
