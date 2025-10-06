@@ -180,11 +180,20 @@ internal class KlaviyoState : State {
     override fun createEvent(event: Event, profile: Profile) {
         Registry.get<ApiClient>().enqueueEvent(event, profile)
         synchronized(eventObserver) {
-            // TODO(forms-buffer): Check if eventObserver is empty, if so, buffer this event with a 10-second timeout
-            // If observers are registered, send immediately (current behavior)
-            // Use FormsTriggerBuffer to store events that arrive before forms module is ready
-            eventObserver.forEach {
-                it?.invoke(event)
+            if (eventObserver.isEmpty()) {
+                // No observers registered yet - buffer the event for when forms module initializes
+                Registry.log.info(
+                    "KlaviyoState: No profile event observers registered - buffering event ${event.metric.name}"
+                )
+                FormsTriggerBuffer.addEvent(event)
+            } else {
+                // Observers are registered - send immediately
+                Registry.log.debug(
+                    "KlaviyoState: Sending event ${event.metric.name} to ${eventObserver.size} observer(s)"
+                )
+                eventObserver.forEach {
+                    it?.invoke(event)
+                }
             }
         }
     }

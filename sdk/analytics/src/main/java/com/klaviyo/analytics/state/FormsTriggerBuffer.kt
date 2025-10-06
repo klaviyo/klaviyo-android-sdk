@@ -1,51 +1,127 @@
 package com.klaviyo.analytics.state
 
-// TODO(forms-buffer): Implement FormsTriggerBuffer with the following design:
-//
-// Purpose: Buffer events that occur before the forms module is ready to receive them
-//          (e.g., push opens before registerForInAppForms() or before JS is ready)
-//
-// Requirements:
-// 1. Thread-safe event storage (use CopyOnWriteArrayList or similar)
-// 2. Each buffered event has a 10-second coroutine-based timeout that auto-removes it
-// 3. Use Registry.dispatcher (Dispatchers.IO) for coroutine scope
-// 4. Provide methods:
-//    - addEvent(event: Event): Adds event to buffer with 10s timeout
-//    - getValidEvents(): List<Event> - Returns all non-expired events
-//    - clearBuffer() - Removes all events (for cleanup/testing)
-//
-// Implementation notes:
-// - Each event should launch its own coroutine with delay(10_000) then auto-remove
-// - Store events with their Job reference so they can be cancelled if retrieved early
-// - Log when events are buffered and when they expire
-//
-// Usage flow:
-// - KlaviyoState.createEvent() adds to buffer when no observers registered
-// - FormsProfileEventObserver.startObserver() retrieves and replays buffered events
-// - Events auto-expire after 10 seconds if not consumed
-//
-// Example structure:
-// object FormsTriggerBuffer {
-//     private data class BufferedEvent(val event: Event, val job: Job)
-//     private val buffer = Collections.synchronizedList(CopyOnWriteArrayList<BufferedEvent>())
-//
-//     fun addEvent(event: Event) {
-//         val job = CoroutineScope(Registry.dispatcher).launch {
-//             delay(10_000)
-//             // Remove event and log timeout
-//         }
-//         buffer.add(BufferedEvent(event, job))
-//     }
-//
-//     fun getValidEvents(): List<Event> {
-//         // Return events and cancel their jobs
-//     }
-// }
+import com.klaviyo.analytics.model.Event
+import com.klaviyo.core.Registry
+import java.util.Collections
+import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
- * Placeholder for FormsTriggerBuffer implementation
- * This class will buffer profile events that occur before the forms module is ready
+ * Buffers profile events that occur before the forms module is ready to receive them.
+ *
+ * This handles the case where events (like push opens) occur before:
+ * - registerForInAppForms() is called
+ * - The Klaviyo JS module signals it's ready
+ *
+ * Each buffered event has a 10-second timeout and will be automatically removed if not consumed.
  */
-internal object FormsTriggerBuffer {
-    // TODO(forms-buffer): Implement the buffer logic here
+object FormsTriggerBuffer {
+
+    /**
+     * Internal wrapper for an event with its cleanup job
+     */
+    private data class BufferedEvent(
+        val event: Event,
+        val job: Job
+    )
+
+    /**
+     * Thread-safe storage for buffered events
+     */
+    private val buffer = Collections.synchronizedList(
+        CopyOnWriteArrayList<BufferedEvent>()
+    )
+
+    /**
+     * Adds an event to the buffer with a 10-second auto-removal timeout
+     *
+     * @param event The event to buffer
+     */
+    fun addEvent(event: Event) {
+        Registry.log.info(
+            "Forms trigger buffer: Buffering event ${event.metric.name} - no observers registered yet"
+        )
+
+        val job = CoroutineScope(Registry.dispatcher).launch {
+            Registry.log.debug(
+                "Forms trigger buffer: Starting 10s timeout for event ${event.metric.name}"
+            )
+            delay(10_000)
+            val wasRemoved = synchronized(buffer) {
+                buffer.removeIf { it.event == event }
+            }
+            if (wasRemoved) {
+                Registry.log.warning(
+                    "Forms trigger buffer: Event ${event.metric.name} expired after 10s timeout without being consumed"
+                )
+            }
+        }
+
+        val bufferedEvent = BufferedEvent(event, job)
+        buffer.add(bufferedEvent)
+
+        Registry.log.info(
+            "Forms trigger buffer: Event ${event.metric.name} added to buffer (current buffer size: ${buffer.size})"
+        )
+    }
+
+    /**
+     * Retrieves all valid (non-expired) events from the buffer and clears them.
+     * Cancels the timeout jobs for all retrieved events.
+     *
+     * @return List of events that were in the buffer
+     */
+    fun getValidEvents(): List<Event> {
+        Registry.log.debug(
+            "Forms trigger buffer: Checking for buffered events (current buffer size: ${buffer.size})"
+        )
+
+        val events = synchronized(buffer) {
+            val eventList = buffer.map { it.event }
+            buffer.forEach { bufferedEvent ->
+                bufferedEvent.job.cancel()
+                Registry.log.debug(
+                    "Forms trigger buffer: Cancelled timeout for event ${bufferedEvent.event.metric.name}"
+                )
+            }
+            buffer.clear()
+            eventList
+        }
+
+        if (events.isNotEmpty()) {
+            Registry.log.info(
+                "Forms trigger buffer: Retrieved ${events.size} buffered event(s) for replay: ${events.joinToString { it.metric.name }}"
+            )
+        } else {
+            Registry.log.debug(
+                "Forms trigger buffer: No buffered events to replay"
+            )
+        }
+
+        return events
+    }
+
+    /**
+     * Clears all buffered events and cancels their timeout jobs.
+     * Primarily used for cleanup and testing.
+     */
+    fun clearBuffer() {
+        synchronized(buffer) {
+            buffer.forEach { it.job.cancel() }
+            val count = buffer.size
+            buffer.clear()
+            if (count > 0) {
+                Registry.log.info(
+                    "Forms trigger buffer: Manually cleared $count buffered event(s)"
+                )
+            } else {
+                Registry.log.debug(
+                    "Forms trigger buffer: clearBuffer() called but buffer was already empty"
+                )
+            }
+        }
+    }
 }
