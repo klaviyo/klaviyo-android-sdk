@@ -10,10 +10,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Buffers profile events that occur before the forms module is ready.
+ * Buffers profile events that occur before observers are registered.
  * Events are held for up to 10 seconds before being automatically removed.
  */
-object FormsTriggerBuffer {
+object TrackedEventsBuffer {
 
     private data class BufferedEvent(val event: Event, val job: Job)
 
@@ -25,19 +25,16 @@ object FormsTriggerBuffer {
         val job = CoroutineScope(Registry.dispatcher).launch {
             delay(10_000)
             synchronized(buffer) {
-                buffer.removeIf { it.event == event }
+                buffer.find { it.event == event }?.let { buffer.remove(it) }
             }
         }
 
         buffer.add(BufferedEvent(event, job))
-        Registry.log.verbose("Buffering event ${event.metric.name} for forms trigger")
+        Registry.log.verbose("Buffering event ${event.metric.name} for profile observers")
     }
 
     fun getValidEvents(): List<Event> = synchronized(buffer) {
-        val events = buffer.map { it.event }
-        buffer.forEach { it.job.cancel() }
-        buffer.clear()
-        events
+        buffer.map { it.event }
     }
 
     fun clearBuffer() = synchronized(buffer) {

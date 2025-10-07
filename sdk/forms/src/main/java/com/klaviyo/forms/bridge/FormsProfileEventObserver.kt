@@ -1,9 +1,9 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.state.FormsTriggerBuffer
 import com.klaviyo.analytics.state.ProfileEventObserver
 import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.TrackedEventsBuffer
 import com.klaviyo.core.Registry
 
 /**
@@ -13,7 +13,10 @@ internal class FormsProfileEventObserver : JsBridgeObserver, ProfileEventObserve
 
     override fun startObserver() {
         Registry.get<State>().onProfileEvent(this)
-        FormsTriggerBuffer.getValidEvents().forEach { invoke(it) }
+        TrackedEventsBuffer.apply {
+            getValidEvents().forEach { invoke(it) }
+            clearBuffer()
+        }
     }
 
     override fun stopObserver() {

@@ -1,11 +1,15 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -280,5 +284,89 @@ internal class KlaviyoStateTest : BaseTest() {
 
         assertEquals(state.email, null)
         assertEquals(state.phoneNumber, null)
+    }
+
+    @Test
+    fun `createEvent buffers event when no observers are registered`() {
+        mockkObject(TrackedEventsBuffer)
+        try {
+            val event = Event(EventMetric.CUSTOM("test_event"))
+            val profile = Profile()
+
+            state.createEvent(event, profile)
+
+            verify { TrackedEventsBuffer.addEvent(event) }
+        } finally {
+            unmockkObject(TrackedEventsBuffer)
+        }
+    }
+
+    @Test
+    fun `createEvent invokes observer when observer is registered`() {
+        var invokedEvent: Event? = null
+        val observer: ProfileEventObserver = { event -> invokedEvent = event }
+
+        state.onProfileEvent(observer)
+
+        val testEvent = Event(EventMetric.CUSTOM("test_event"))
+        val profile = Profile()
+
+        state.createEvent(testEvent, profile)
+
+        assertEquals(testEvent, invokedEvent)
+    }
+
+    @Test
+    fun `createEvent does not buffer when observer is registered`() {
+        mockkObject(TrackedEventsBuffer)
+        try {
+            val observer: ProfileEventObserver = { _ -> }
+            state.onProfileEvent(observer)
+
+            val event = Event(EventMetric.CUSTOM("test_event"))
+            val profile = Profile()
+
+            state.createEvent(event, profile)
+
+            verify(exactly = 0) { TrackedEventsBuffer.addEvent(any()) }
+        } finally {
+            unmockkObject(TrackedEventsBuffer)
+        }
+    }
+
+    @Test
+    fun `createEvent invokes multiple observers when registered`() {
+        var invokedCount = 0
+        val observer1: ProfileEventObserver = { _ -> invokedCount++ }
+        val observer2: ProfileEventObserver = { _ -> invokedCount++ }
+
+        state.onProfileEvent(observer1)
+        state.onProfileEvent(observer2)
+
+        val event = Event(EventMetric.CUSTOM("test_event"))
+        val profile = Profile()
+
+        state.createEvent(event, profile)
+
+        assertEquals(2, invokedCount)
+    }
+
+    @Test
+    fun `createEvent buffers again after all observers are removed`() {
+        mockkObject(TrackedEventsBuffer)
+        try {
+            val observer: ProfileEventObserver = { _ -> }
+            state.onProfileEvent(observer)
+            state.offProfileEvent(observer)
+
+            val event = Event(EventMetric.CUSTOM("test_event"))
+            val profile = Profile()
+
+            state.createEvent(event, profile)
+
+            verify { TrackedEventsBuffer.addEvent(event) }
+        } finally {
+            unmockkObject(TrackedEventsBuffer)
+        }
     }
 }

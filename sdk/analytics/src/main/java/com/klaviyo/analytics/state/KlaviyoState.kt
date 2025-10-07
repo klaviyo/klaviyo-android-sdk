@@ -19,7 +19,6 @@ import java.io.Serializable
 import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
-import kotlin.invoke
 
 /**
  * Stores information on the currently active user
@@ -181,7 +180,7 @@ internal class KlaviyoState : State {
         Registry.get<ApiClient>().enqueueEvent(event, profile)
         synchronized(eventObserver) {
             if (eventObserver.isEmpty()) {
-                FormsTriggerBuffer.addEvent(event)
+                TrackedEventsBuffer.addEvent(event)
             } else {
                 eventObserver.forEach { it?.invoke(event) }
             }
