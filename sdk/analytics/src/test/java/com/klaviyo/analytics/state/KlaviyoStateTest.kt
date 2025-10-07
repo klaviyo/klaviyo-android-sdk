@@ -63,7 +63,7 @@ internal class KlaviyoStateTest : BaseTest() {
         state.onProfileEvent(observer)
 
         val job = launch(Dispatchers.IO) {
-            state.createEvent(mockk(), mockk())
+            state.createEvent(mockk(relaxed = true), mockk())
         }
 
         val job2 = launch(Dispatchers.Default) {
