@@ -38,7 +38,7 @@ internal class TrackedEventsBufferTest : BaseTest() {
 
         TrackedEventsBuffer.addEvent(event)
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertEquals(1, bufferedEvents.size)
         assertEquals(event, bufferedEvents[0])
     }
@@ -53,7 +53,7 @@ internal class TrackedEventsBufferTest : BaseTest() {
         TrackedEventsBuffer.addEvent(event2)
         TrackedEventsBuffer.addEvent(event3)
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertEquals(3, bufferedEvents.size)
         assertEquals(event1, bufferedEvents[0])
         assertEquals(event2, bufferedEvents[1])
@@ -61,37 +61,36 @@ internal class TrackedEventsBufferTest : BaseTest() {
     }
 
     @Test
-    fun `getValidEvents returns all buffered events`() {
+    fun `consumeValidEvents returns all buffered events`() {
         val event1 = Event(EventMetric.CUSTOM("event_1"))
         val event2 = Event(EventMetric.CUSTOM("event_2"))
 
         TrackedEventsBuffer.addEvent(event1)
         TrackedEventsBuffer.addEvent(event2)
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertEquals(2, bufferedEvents.size)
         assertTrue(bufferedEvents.contains(event1))
         assertTrue(bufferedEvents.contains(event2))
     }
 
     @Test
-    fun `getValidEvents returns empty list when no events are buffered`() {
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+    fun `consumeValidEvents returns empty list when no events are buffered`() {
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertTrue(bufferedEvents.isEmpty())
     }
 
     @Test
-    fun `getValidEvents does not clear the buffer`() {
+    fun `consumeValidEvents clears the buffer`() {
         val event = Event(EventMetric.CUSTOM("test_event"))
 
         TrackedEventsBuffer.addEvent(event)
 
-        val firstRetrieval = TrackedEventsBuffer.getValidEvents()
+        val firstRetrieval = TrackedEventsBuffer.consumeValidEvents()
         assertEquals(1, firstRetrieval.size)
 
-        val secondRetrieval = TrackedEventsBuffer.getValidEvents()
-        assertEquals(1, secondRetrieval.size)
-        assertEquals(event, secondRetrieval[0])
+        val secondRetrieval = TrackedEventsBuffer.consumeValidEvents()
+        assertEquals(0, secondRetrieval.size)
     }
 
     @Test
@@ -104,7 +103,7 @@ internal class TrackedEventsBufferTest : BaseTest() {
 
         TrackedEventsBuffer.clearBuffer()
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertTrue(bufferedEvents.isEmpty())
     }
 
@@ -117,7 +116,7 @@ internal class TrackedEventsBufferTest : BaseTest() {
         TrackedEventsBuffer.clearBuffer()
         TrackedEventsBuffer.addEvent(event2)
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertEquals(1, bufferedEvents.size)
         assertEquals(event2, bufferedEvents[0])
     }
@@ -130,7 +129,7 @@ internal class TrackedEventsBufferTest : BaseTest() {
         TrackedEventsBuffer.addEvent(event)
         TrackedEventsBuffer.addEvent(event)
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertEquals(3, bufferedEvents.size)
     }
 
@@ -142,35 +141,35 @@ internal class TrackedEventsBufferTest : BaseTest() {
             TrackedEventsBuffer.addEvent(event)
         }
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertEquals(100, bufferedEvents.size)
     }
 
     @Test
-    fun `getValidEvents while events are being added is thread-safe`() {
+    fun `consumeValidEvents while events are being added is thread-safe`() {
         val event1 = Event(EventMetric.CUSTOM("event_1"))
         val event2 = Event(EventMetric.CUSTOM("event_2"))
 
         TrackedEventsBuffer.addEvent(event1)
 
-        val firstRetrieval = TrackedEventsBuffer.getValidEvents()
+        val firstRetrieval = TrackedEventsBuffer.consumeValidEvents()
         assertTrue(firstRetrieval.isNotEmpty())
 
         TrackedEventsBuffer.addEvent(event2)
 
-        val secondRetrieval = TrackedEventsBuffer.getValidEvents()
-        assertEquals(2, secondRetrieval.size)
+        val secondRetrieval = TrackedEventsBuffer.consumeValidEvents()
+        assertEquals(1, secondRetrieval.size)
     }
 
     @Test
-    fun `clearBuffer while getValidEvents is called is thread-safe`() {
+    fun `clearBuffer while consumeValidEvents is called is thread-safe`() {
         val event = Event(EventMetric.CUSTOM("test_event"))
 
         TrackedEventsBuffer.addEvent(event)
-        TrackedEventsBuffer.getValidEvents()
+        TrackedEventsBuffer.consumeValidEvents()
         TrackedEventsBuffer.clearBuffer()
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertTrue(bufferedEvents.isEmpty())
     }
 
@@ -180,7 +179,7 @@ internal class TrackedEventsBufferTest : BaseTest() {
 
         events.forEach { TrackedEventsBuffer.addEvent(it) }
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertEquals(events, bufferedEvents)
     }
 
@@ -194,7 +193,7 @@ internal class TrackedEventsBufferTest : BaseTest() {
         TrackedEventsBuffer.addEvent(event2)
         TrackedEventsBuffer.addEvent(event3)
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertEquals(3, bufferedEvents.size)
     }
 
@@ -204,13 +203,11 @@ internal class TrackedEventsBufferTest : BaseTest() {
 
         TrackedEventsBuffer.addEvent(event)
 
-        assertEquals(1, TrackedEventsBuffer.getValidEvents().size)
-
         TrackedEventsBuffer.clearBuffer()
 
         advanceTimeBy(10_001)
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertTrue(bufferedEvents.isEmpty())
     }
 
@@ -220,11 +217,9 @@ internal class TrackedEventsBufferTest : BaseTest() {
 
         TrackedEventsBuffer.addEvent(event)
 
-        assertEquals(1, TrackedEventsBuffer.getValidEvents().size)
-
         advanceTimeBy(10_001)
 
-        val afterTimeout = TrackedEventsBuffer.getValidEvents()
+        val afterTimeout = TrackedEventsBuffer.consumeValidEvents()
         assertTrue(afterTimeout.isEmpty())
     }
 
@@ -239,13 +234,13 @@ internal class TrackedEventsBufferTest : BaseTest() {
         TrackedEventsBuffer.addEvent(event2)
         advanceTimeBy(5_001)
 
-        val afterFirstTimeout = TrackedEventsBuffer.getValidEvents()
+        val afterFirstTimeout = TrackedEventsBuffer.consumeValidEvents()
         assertEquals(1, afterFirstTimeout.size)
         assertEquals(event2, afterFirstTimeout[0])
 
         advanceTimeBy(5_001)
 
-        val afterSecondTimeout = TrackedEventsBuffer.getValidEvents()
+        val afterSecondTimeout = TrackedEventsBuffer.consumeValidEvents()
         assertTrue(afterSecondTimeout.isEmpty())
     }
 
@@ -257,7 +252,7 @@ internal class TrackedEventsBufferTest : BaseTest() {
 
         advanceTimeBy(9_999)
 
-        val bufferedEvents = TrackedEventsBuffer.getValidEvents()
+        val bufferedEvents = TrackedEventsBuffer.consumeValidEvents()
         assertEquals(1, bufferedEvents.size)
         assertEquals(event, bufferedEvents[0])
     }

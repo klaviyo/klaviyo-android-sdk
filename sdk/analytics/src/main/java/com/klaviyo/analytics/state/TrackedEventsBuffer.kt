@@ -12,6 +12,16 @@ import kotlinx.coroutines.launch
 /**
  * Buffers profile events that occur before observers are registered.
  * Events are held for up to 10 seconds before being automatically removed.
+ *
+ * IMPORTANT: This buffer is currently designed as a single-consumer system, tightly coupled
+ * to In-App Forms functionality. The buffer only accumulates events when no observers are
+ * registered (see KlaviyoState.createEvent), and consumeValidEvents() clears the buffer on read.
+ *
+ * If we need to support multiple consumers in the future (e.g., other features that need buffered
+ * events), this will require refactoring:
+ * - Remove clear-on-read behavior from consumeValidEvents()
+ * - Consider instance-based buffers with a registry pattern instead of a singleton
+ * - Update KlaviyoState to always buffer events regardless of observer count
  */
 object TrackedEventsBuffer {
 
@@ -33,8 +43,10 @@ object TrackedEventsBuffer {
         Registry.log.verbose("Buffering event ${event.metric.name} for profile observers")
     }
 
-    fun getValidEvents(): List<Event> = synchronized(buffer) {
-        buffer.map { it.event }
+    fun consumeValidEvents(): List<Event> = synchronized(buffer) {
+        buffer.map { it.event }.also {
+            clearBuffer()
+        }
     }
 
     fun clearBuffer() = synchronized(buffer) {

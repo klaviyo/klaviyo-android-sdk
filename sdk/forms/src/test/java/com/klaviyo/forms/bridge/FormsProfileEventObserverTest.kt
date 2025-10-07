@@ -10,7 +10,6 @@ import io.mockk.mockk
 import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -71,12 +70,10 @@ class FormsProfileEventObserverTest {
 
         TrackedEventsBuffer.addEvent(event)
 
-        assertEquals(1, TrackedEventsBuffer.getValidEvents().size)
-
         val observer = FormsProfileEventObserver()
         observer.startObserver()
 
-        val remainingEvents = TrackedEventsBuffer.getValidEvents()
+        val remainingEvents = TrackedEventsBuffer.consumeValidEvents()
         assertTrue(remainingEvents.isEmpty())
     }
 

@@ -13,10 +13,7 @@ internal class FormsProfileEventObserver : JsBridgeObserver, ProfileEventObserve
 
     override fun startObserver() {
         Registry.get<State>().onProfileEvent(this)
-        TrackedEventsBuffer.apply {
-            getValidEvents().forEach { invoke(it) }
-            clearBuffer()
-        }
+        TrackedEventsBuffer.consumeValidEvents().forEach { invoke(it) }
     }
 
     override fun stopObserver() {
