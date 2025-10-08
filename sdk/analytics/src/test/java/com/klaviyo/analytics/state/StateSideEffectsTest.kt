@@ -37,7 +37,7 @@ class StateSideEffectsTest : BaseTest() {
         every { onApiRequest(any(), capture(capturedApiObserver)) } returns Unit
         every { offApiRequest(any()) } returns Unit
         every { enqueueProfile(capture(capturedProfile)) } returns Unit
-        every { enqueueEvent(any(), any()) } returns Unit
+        every { enqueueEvent(any(), any()) } returns mockk(relaxed = true)
         every { enqueuePushToken(any(), any()) } returns Unit
     }
 

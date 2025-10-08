@@ -9,7 +9,9 @@ import com.klaviyo.forms.webview.JavaScriptEvaluator
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 
 class KlaviyoJsBridgeTest : BaseTest() {
@@ -17,11 +19,13 @@ class KlaviyoJsBridgeTest : BaseTest() {
     private val jsEvaluator = mockk<JavaScriptEvaluator>(relaxed = true)
     private val bridge = KlaviyoJsBridge()
 
+    @Before
     override fun setup() {
         super.setup()
         Registry.register<JavaScriptEvaluator>(jsEvaluator)
     }
 
+    @After
     override fun cleanup() {
         super.cleanup()
         Registry.unregister<JavaScriptEvaluator>()
@@ -55,7 +59,7 @@ class KlaviyoJsBridgeTest : BaseTest() {
         verify {
             jsEvaluator.evaluateJavascript(
                 eq(
-                    """window.profileEvent("Fate Sealed",{"name":"Anna Karenina","location":"Saint Petersburg"})"""
+                    """window.profileEvent("Fate Sealed",null,null,null,{"name":"Anna Karenina","location":"Saint Petersburg"})"""
                 ),
                 any()
             )

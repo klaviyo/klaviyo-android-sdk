@@ -49,15 +49,22 @@ window.lifecycleEvent = function (type) {
  *
  * @param metric - The metric of the event
  * @param properties - Properties of the event as a JavaScript object
+ * @param uuid - Unique ID of the event
+ * @param time - Timestamp of the event
+ * @param value - Value of the event
+ *
  */
-window.profileEvent = function (metric, properties) {
+window.profileEvent = function (metric, uuid, time, value, properties) {
     document.head.dispatchEvent(
         new CustomEvent(
             'profileEvent',
             {
                 detail: {
                     metric: metric,
-                    properties: properties
+                    properties: properties,
+                    unique_id: uuid,
+                    time: time,
+                    value: value
                 }
             }
         )

@@ -125,7 +125,7 @@ internal class KlaviyoTest : BaseTest() {
         every { onApiRequest(any(), any()) } returns Unit
         every { offApiRequest(any()) } returns Unit
         every { enqueueProfile(capture(capturedProfile)) } returns Unit
-        every { enqueueEvent(any(), any()) } returns Unit
+        every { enqueueEvent(any(), any()) } returns mockk(relaxed = true)
         every { enqueuePushToken(any(), any()) } returns Unit
     }
 
@@ -191,7 +191,10 @@ internal class KlaviyoTest : BaseTest() {
         val profileEventObserver = object : ProfileEventObserver {
             override fun invoke(p1: Event) {
                 count++
-                assertEquals(p1, testEvent)
+                // Verify the event has been enriched with uniqueId and _time
+                assertEquals(p1.metric, testEvent.metric)
+                assertNotNull(p1.uniqueId)
+                assertNotNull(p1[EventKey.CUSTOM("_time")])
             }
         }
 
@@ -602,7 +605,7 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     private fun captureOpenedPushEvent() = slot<Event>().also {
-        every { mockApiClient.enqueueEvent(capture(it), any()) } returns Unit
+        every { mockApiClient.enqueueEvent(capture(it), any()) } returns mockk(relaxed = true)
     }
 
     private fun setupDeepLinkHandler(): Pair<() -> Uri?, DeepLinkHandler> {

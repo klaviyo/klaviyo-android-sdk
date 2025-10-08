@@ -65,7 +65,7 @@ interface ApiClient {
      * @param event
      * @param profile
      */
-    fun enqueueEvent(event: Event, profile: Profile)
+    fun enqueueEvent(event: Event, profile: Profile): ApiRequest
 
     /**
      * Resolve a destination URL from a tracking URL

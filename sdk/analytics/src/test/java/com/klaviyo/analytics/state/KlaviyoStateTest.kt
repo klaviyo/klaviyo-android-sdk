@@ -63,7 +63,7 @@ internal class KlaviyoStateTest : BaseTest() {
         state.onProfileEvent(observer)
 
         val job = launch(Dispatchers.IO) {
-            state.createEvent(mockk(), mockk())
+            state.createEvent(mockk(relaxed = true), mockk())
         }
 
         val job2 = launch(Dispatchers.Default) {
@@ -280,5 +280,27 @@ internal class KlaviyoStateTest : BaseTest() {
 
         assertEquals(state.email, null)
         assertEquals(state.phoneNumber, null)
+    }
+
+    @Test
+    fun `createEvent adds enriched event to buffer`() {
+        GenericEventBuffer.clearBuffer()
+
+        val event = com.klaviyo.analytics.model.Event(
+            com.klaviyo.analytics.model.EventMetric.CUSTOM("test_event")
+        )
+        val profile = Profile()
+
+        state.createEvent(event, profile)
+
+        val bufferedEvents = GenericEventBuffer.getEvents()
+        assertEquals(1, bufferedEvents.size)
+        assertEquals("test_event", bufferedEvents[0].metric.name)
+        // Verify the event was enriched with uniqueId and _time
+        assertNotEquals(null, bufferedEvents[0].uniqueId)
+        assertNotEquals(
+            null,
+            bufferedEvents[0][com.klaviyo.analytics.model.EventKey.CUSTOM("_time")]
+        )
     }
 }

@@ -1,6 +1,7 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.webview.JavaScriptEvaluator
@@ -62,11 +63,24 @@ internal class KlaviyoJsBridge : JsBridge {
         type.name
     )
 
-    override fun profileEvent(event: Event) = evaluateJavascriptRaw(
-        HelperFunction.profileEvent,
-        "\"${event.metric.name.replace("'", "\\'")}\"", // Quoted string
-        event.toString() // Unquoted JSON string (becomes JS object literal)
-    )
+    override fun profileEvent(event: Event) {
+        // Capture values before any mutations to avoid side effects during argument evaluation
+        val metricName = event.metric.name.toJsString()
+        val uniqueId = event.uniqueId.toJsStringOrNull()
+        val time = event.pop(EventKey.CUSTOM("_time")).toString()
+        val value = event.pop(EventKey.VALUE).toString()
+        val eventJson = event.toString() // Serialize after removing _time and value
+
+        // JavaScript signature: window.profileEvent = function (metric, uuid, time, value, properties)
+        evaluateJavascriptRaw(
+            HelperFunction.profileEvent,
+            metricName,
+            uniqueId,
+            time,
+            value,
+            eventJson // Unquoted JSON string (becomes JS object literal)
+        )
+    }
 
     override fun setSafeArea(left: Float, top: Float, right: Float, bottom: Float) =
         evaluateJavascript(
@@ -109,3 +123,20 @@ internal class KlaviyoJsBridge : JsBridge {
         }
     }
 }
+
+/**
+ * Extension function to convert a Kotlin String to a properly escaped and quoted JavaScript string literal.
+ * Handles single quotes by escaping them.
+ *
+ * Example: "Hello's World" -> "\"Hello\\'s World\""
+ */
+private fun String.toJsString(): String = "\"${this.replace("'", "\\'")}\""
+
+/**
+ * Extension function to convert a nullable Kotlin String to a properly escaped and quoted JavaScript string literal,
+ * or "null" if the string is null.
+ *
+ * Example: "test-uuid" -> "\"test-uuid\""
+ * Example: null -> "null"
+ */
+private fun String?.toJsStringOrNull(): String = this?.toJsString() ?: "null"

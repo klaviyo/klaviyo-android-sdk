@@ -55,6 +55,9 @@ internal class StateSideEffects(
     }
 
     private fun onApiKeyChange(oldApiKey: String?) {
+        // Clear event buffer to prevent cross-account data leakage
+        GenericEventBuffer.clearBuffer()
+
         // If the API key changes, we need to unregister the push token on the previous API key then register the push token with the new API key
         if (!state.pushState.isNullOrEmpty()) {
             state.pushToken?.let {

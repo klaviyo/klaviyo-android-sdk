@@ -6,6 +6,7 @@ import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
+import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
@@ -86,13 +87,15 @@ internal object KlaviyoApiClient : ApiClient {
         enqueueRequest(UnregisterPushTokenApiRequest(apiKey, token, profile))
     }
 
-    override fun enqueueEvent(event: Event, profile: Profile) {
+    override fun enqueueEvent(event: Event, profile: Profile): ApiRequest {
         Registry.log.verbose("Enqueuing ${event.metric.name} event")
-        enqueueRequest(EventApiRequest(event, profile))
+        val request = EventApiRequest(event, profile)
+        enqueueRequest(request)
 
         if (event.metric == EventMetric.OPENED_PUSH) {
             flushQueue()
         }
+        return request
     }
 
     /**
