@@ -116,8 +116,8 @@ private fun Any?.toJsonString(): String = when (this) {
     is Boolean -> this.toString()
     is Map<*, *> -> JSONObject(this).toString()
     null -> "null"
-    else -> this.toString().let{ str ->
-        Registry.log.warning("Potentially unsafe object type for JSON serialization: ${this::class.java}=$str")
+    else -> this.toString().let { str ->
+        Registry.log.warning("Unsafe type for JSON: ${this::class.java}=$str")
         JSONObject.quote(str)
     }
 }

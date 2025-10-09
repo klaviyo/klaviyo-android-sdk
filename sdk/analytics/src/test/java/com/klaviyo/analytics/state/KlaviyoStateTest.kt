@@ -6,9 +6,14 @@ import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.requests.buildEventMetaData
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -28,12 +33,17 @@ internal class KlaviyoStateTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+        mockkStatic(DeviceProperties::buildEventMetaData)
+        every { DeviceProperties.buildEventMetaData() } returns mapOf(
+            "Device ID" to "TestDeviceId"
+        )
         state = KlaviyoState()
         Registry.register<ApiClient>(mockk<ApiClient>(relaxed = true))
     }
 
     @After
     override fun cleanup() {
+        unmockkStatic(DeviceProperties::buildEventMetaData)
         state.reset()
         super.cleanup()
     }
@@ -302,6 +312,10 @@ internal class KlaviyoStateTest : BaseTest() {
         assertNotEquals(
             null,
             bufferedEvents[0][EventKey.TIME]
+        )
+        assertEquals(
+            "TestDeviceId",
+            bufferedEvents[0][EventKey.CUSTOM("Device ID")]
         )
     }
 }
