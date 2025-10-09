@@ -13,5 +13,10 @@ sealed class EventKey(name: String) : Keyword(name) {
      */
     internal object PUSH_TOKEN : EventKey("push_token")
 
+    /**
+     * Internal timestamp property added to events when they are queued
+     */
+    internal object TIME : EventKey("_time")
+
     class CUSTOM(propertyName: String) : EventKey(propertyName)
 }

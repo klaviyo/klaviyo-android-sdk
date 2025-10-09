@@ -37,7 +37,7 @@ internal class GenericEventBufferTest : BaseTest() {
     fun `addEvent adds event to buffer`() {
         val event = Event(EventMetric.CUSTOM("test_event")).apply {
             uniqueId = "test-uuid-123"
-            setProperty("_time", 1234567890L)
+            setProperty(EventKey.TIME, 1234567890L)
         }
 
         GenericEventBuffer.addEvent(event)
@@ -51,15 +51,15 @@ internal class GenericEventBufferTest : BaseTest() {
     fun `addEvent adds multiple events to buffer`() {
         val event1 = Event(EventMetric.CUSTOM("event_1")).apply {
             uniqueId = "uuid-1"
-            setProperty("_time", 1000L)
+            setProperty(EventKey.TIME, 1000L)
         }
         val event2 = Event(EventMetric.CUSTOM("event_2")).apply {
             uniqueId = "uuid-2"
-            setProperty("_time", 2000L)
+            setProperty(EventKey.TIME, 2000L)
         }
         val event3 = Event(EventMetric.CUSTOM("event_3")).apply {
             uniqueId = "uuid-3"
-            setProperty("_time", 3000L)
+            setProperty(EventKey.TIME, 3000L)
         }
 
         GenericEventBuffer.addEvent(event1)
@@ -268,7 +268,7 @@ internal class GenericEventBufferTest : BaseTest() {
     fun `buffer preserves uniqueId property`() {
         val event = Event(EventMetric.CUSTOM("test_event")).apply {
             uniqueId = "my-special-uuid"
-            setProperty("_time", 1234567890L)
+            setProperty(EventKey.TIME, 1234567890L)
         }
 
         GenericEventBuffer.addEvent(event)
@@ -281,13 +281,13 @@ internal class GenericEventBufferTest : BaseTest() {
     fun `buffer preserves _time property`() {
         val event = Event(EventMetric.CUSTOM("test_event")).apply {
             uniqueId = "test-uuid"
-            setProperty("_time", 9876543210L)
+            setProperty(EventKey.TIME, 9876543210L)
         }
 
         GenericEventBuffer.addEvent(event)
 
         val bufferedEvents = GenericEventBuffer.getEvents()
-        assertEquals(9876543210L, bufferedEvents[0][EventKey.CUSTOM("_time")])
+        assertEquals(9876543210L, bufferedEvents[0][EventKey.TIME])
     }
 
     @Test

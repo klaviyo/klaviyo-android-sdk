@@ -1,6 +1,7 @@
 package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
@@ -14,12 +15,13 @@ import com.klaviyo.analytics.model.StateKey.API_KEY
 import com.klaviyo.analytics.model.StateKey.PUSH_STATE
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
+import com.klaviyo.analytics.networking.requests.buildEventMetaData
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import java.io.Serializable
 import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
-import kotlin.invoke
 
 /**
  * Stores information on the currently active user
@@ -179,9 +181,13 @@ internal class KlaviyoState : State {
 
     override fun createEvent(event: Event, profile: Profile) {
         val apiRequest = Registry.get<ApiClient>().enqueueEvent(event, profile)
+        // Copy and enrich event with metadata and time (equivalent formating to the API request)
         val shadowedEvent = event.copy().apply {
             uniqueId = uniqueId ?: apiRequest.uuid
-            setProperty("_time", apiRequest.queuedTime)
+            setProperty(EventKey.TIME, apiRequest.queuedTime)
+            DeviceProperties.buildEventMetaData().forEach { entry ->
+                setProperty(entry.key, entry.value)
+            }
         }
         // Add enriched event to buffer for multi-consumer access
         GenericEventBuffer.addEvent(shadowedEvent)

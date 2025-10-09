@@ -194,7 +194,7 @@ internal class KlaviyoTest : BaseTest() {
                 // Verify the event has been enriched with uniqueId and _time
                 assertEquals(p1.metric, testEvent.metric)
                 assertNotNull(p1.uniqueId)
-                assertNotNull(p1[EventKey.CUSTOM("_time")])
+                assertNotNull(p1[EventKey.TIME])
             }
         }
 

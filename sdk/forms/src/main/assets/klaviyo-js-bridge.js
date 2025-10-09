@@ -61,10 +61,10 @@ window.profileEvent = function (metric, uuid, time, value, properties) {
             {
                 detail: {
                     metric: metric,
-                    properties: properties,
                     unique_id: uuid,
                     time: time,
-                    value: value
+                    value: value,
+                    properties: properties,
                 }
             }
         )
