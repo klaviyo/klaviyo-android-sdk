@@ -20,6 +20,7 @@ import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.NativeBridge
+import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import io.mockk.clearAllMocks
@@ -281,7 +282,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @Test
     fun `attachesObservers when local JS initializes`() {
         KlaviyoWebViewClient().onLocalJsReady()
-        verify { mockObserverCollection.startObservers() }
+        verify { mockObserverCollection.startObservers(NativeBridgeMessage.JsReady) }
     }
 
     @Test

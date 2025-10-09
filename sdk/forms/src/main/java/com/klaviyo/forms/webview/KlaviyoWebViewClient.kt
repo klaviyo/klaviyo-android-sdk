@@ -19,6 +19,7 @@ import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.NativeBridge
+import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
@@ -82,7 +83,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     }
 
     override fun onLocalJsReady() {
-        Registry.get<JsBridgeObserverCollection>().startObservers()
+        Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.JsReady)
     }
 
     /**

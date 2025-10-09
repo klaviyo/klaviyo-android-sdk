@@ -11,6 +11,7 @@ import io.mockk.mockk
 import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -33,14 +34,20 @@ class FormsProfileEventObserverTest {
     }
 
     @Test
+    fun `starts on HandShook`() {
+        val observer = ProfileEventObserver()
+        assertEquals(NativeBridgeMessage.HandShook, observer.startOn)
+    }
+
+    @Test
     fun `invoke event broadcast`() {
-        FormsProfileEventObserver().invoke(testEvent)
+        ProfileEventObserver().invoke(testEvent)
         verify { mockJsBridge.profileEvent(testEvent) }
     }
 
     @Test
     fun `startObserver registers with state`() {
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.startObserver()
         verify { mockState.onProfileEvent(observer) }
     }
@@ -62,7 +69,7 @@ class FormsProfileEventObserverTest {
 
         every { mockState.getBufferedEvents() } returns listOf(event1, event2, event3)
 
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.startObserver()
 
         verify { mockJsBridge.profileEvent(event1) }
@@ -80,7 +87,7 @@ class FormsProfileEventObserverTest {
 
         every { mockState.getBufferedEvents() } returns listOf(event)
 
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.startObserver()
 
         // Buffer should still contain the event (not cleared)
@@ -97,7 +104,7 @@ class FormsProfileEventObserverTest {
 
         every { mockState.getBufferedEvents() } returns events
 
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.startObserver()
 
         events.forEach { event ->
@@ -107,7 +114,7 @@ class FormsProfileEventObserverTest {
 
     @Test
     fun `startObserver handles empty buffer gracefully`() {
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.startObserver()
 
         verify { mockState.onProfileEvent(observer) }
@@ -116,7 +123,7 @@ class FormsProfileEventObserverTest {
 
     @Test
     fun `stopObserver unregisters from state`() {
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.stopObserver()
         verify { mockState.offProfileEvent(observer) }
     }
@@ -129,7 +136,7 @@ class FormsProfileEventObserverTest {
 
         every { mockState.getBufferedEvents() } returns listOf(bufferedEvent)
 
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.startObserver()
 
         verify { mockJsBridge.profileEvent(bufferedEvent) }

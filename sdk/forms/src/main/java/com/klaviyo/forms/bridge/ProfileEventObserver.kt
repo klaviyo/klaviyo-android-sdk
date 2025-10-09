@@ -8,7 +8,10 @@ import com.klaviyo.core.Registry
 /**
  * Observe events sent in the analytics package to trigger forms in the webview
  */
-internal class FormsProfileEventObserver : JsBridgeObserver, ProfileEventObserver {
+internal class ProfileEventObserver : JsBridgeObserver, ProfileEventObserver {
+
+    override val startOn: NativeBridgeMessage
+        get() = NativeBridgeMessage.HandShook
 
     override fun startObserver() {
         // Send buffered events to JS (enriched with uuid and _time)
