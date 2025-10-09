@@ -1,11 +1,19 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
+import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.requests.buildEventMetaData
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,12 +33,17 @@ internal class KlaviyoStateTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+        mockkStatic(DeviceProperties::buildEventMetaData)
+        every { DeviceProperties.buildEventMetaData() } returns mapOf(
+            "Device ID" to "TestDeviceId"
+        )
         state = KlaviyoState()
         Registry.register<ApiClient>(mockk<ApiClient>(relaxed = true))
     }
 
     @After
     override fun cleanup() {
+        unmockkStatic(DeviceProperties::buildEventMetaData)
         state.reset()
         super.cleanup()
     }
@@ -63,7 +76,7 @@ internal class KlaviyoStateTest : BaseTest() {
         state.onProfileEvent(observer)
 
         val job = launch(Dispatchers.IO) {
-            state.createEvent(mockk(), mockk())
+            state.createEvent(mockk(relaxed = true), mockk())
         }
 
         val job2 = launch(Dispatchers.Default) {
@@ -280,5 +293,29 @@ internal class KlaviyoStateTest : BaseTest() {
 
         assertEquals(state.email, null)
         assertEquals(state.phoneNumber, null)
+    }
+
+    @Test
+    fun `createEvent adds enriched event to buffer`() {
+        GenericEventBuffer.clearBuffer()
+
+        val event = Event(EventMetric.CUSTOM("test_event"))
+        val profile = Profile()
+
+        state.createEvent(event, profile)
+
+        val bufferedEvents = GenericEventBuffer.getEvents()
+        assertEquals(1, bufferedEvents.size)
+        assertEquals("test_event", bufferedEvents[0].metric.name)
+        // Verify the event was enriched with uniqueId and _time
+        assertNotEquals(null, bufferedEvents[0].uniqueId)
+        assertNotEquals(
+            null,
+            bufferedEvents[0][EventKey.TIME]
+        )
+        assertEquals(
+            "TestDeviceId",
+            bufferedEvents[0][EventKey.CUSTOM("Device ID")]
+        )
     }
 }

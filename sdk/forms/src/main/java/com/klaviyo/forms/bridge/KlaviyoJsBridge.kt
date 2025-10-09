@@ -1,9 +1,11 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.webview.JavaScriptEvaluator
+import org.json.JSONObject
 
 /**
  * API for communicating data and events from native to the onsite-in-app JS module
@@ -62,11 +64,16 @@ internal class KlaviyoJsBridge : JsBridge {
         type.name
     )
 
-    override fun profileEvent(event: Event) = evaluateJavascriptRaw(
-        HelperFunction.profileEvent,
-        "\"${event.metric.name.replace("'", "\\'")}\"", // Quoted string
-        event.toString() // Unquoted JSON string (becomes JS object literal)
-    )
+    override fun profileEvent(event: Event) {
+        evaluateJavascript(
+            HelperFunction.profileEvent,
+            event.metric.name,
+            event.pop(EventKey.EVENT_ID),
+            event.pop(EventKey.CUSTOM("_time")),
+            event.pop(EventKey.VALUE),
+            event.toMap()
+        )
+    }
 
     override fun setSafeArea(left: Float, top: Float, right: Float, bottom: Float) =
         evaluateJavascript(
@@ -80,8 +87,8 @@ internal class KlaviyoJsBridge : JsBridge {
     /**
      * Evaluates a JS function in the webview with the given arguments
      */
-    private fun evaluateJavascript(function: HelperFunction, vararg arguments: String) {
-        val args = arguments.joinToString(",") { "\"$it\"" }
+    private fun evaluateJavascript(function: HelperFunction, vararg arguments: Any?) {
+        val args = arguments.joinToString(",") { it.toJsonString() }
         val javaScript = "window.$function($args)"
 
         Registry.get<JavaScriptEvaluator>().evaluateJavascript(javaScript) { result ->
@@ -92,20 +99,25 @@ internal class KlaviyoJsBridge : JsBridge {
             }
         }
     }
+}
 
-    /**
-     * Evaluates a JS function with raw arguments (no automatic quoting applied)
-     */
-    private fun evaluateJavascriptRaw(function: HelperFunction, vararg arguments: String) {
-        val args = arguments.joinToString(",")
-        val javaScript = "window.$function($args)"
-
-        Registry.get<JavaScriptEvaluator>().evaluateJavascript(javaScript) { result ->
-            if (result) {
-                Registry.log.verbose("JS $function evaluation succeeded")
-            } else {
-                Registry.log.error("JS $function evaluation failed")
-            }
-        }
+/**
+ * Converts a Kotlin object to a JSON-compatible string representation suitable for embedding in JavaScript code.
+ * e.g.:
+ *  null -> "null"
+ *  "hello" -> "\"hello\""
+ *  123 -> "123"
+ *  true -> "true"
+ *  mapOf("key" to "value") -> "{\"key\":\"value\"}"\
+ */
+private fun Any?.toJsonString(): String = when (this) {
+    is String -> JSONObject.quote(this)
+    is Number -> this.toString()
+    is Boolean -> this.toString()
+    is Map<*, *> -> JSONObject(this).toString()
+    null -> "null"
+    else -> this.toString().let { str ->
+        Registry.log.warning("Unsafe type for JSON: ${this::class.java}=$str")
+        JSONObject.quote(str)
     }
 }

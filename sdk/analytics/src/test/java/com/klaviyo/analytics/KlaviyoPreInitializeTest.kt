@@ -3,14 +3,18 @@ package com.klaviyo.analytics
 import android.app.Application
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.requests.buildEventMetaData
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.junit.After
 import org.junit.Before
@@ -43,10 +47,10 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
         every { startService() } returns Unit
         every { onApiRequest(any(), any()) } returns Unit
         every { offApiRequest(any()) } returns Unit
-        every { enqueueProfile(any()) } returns Unit
-        every { enqueueEvent(any(), any()) } returns Unit
-        every { enqueuePushToken(any(), any()) } returns Unit
-        every { enqueueUnregisterPushToken(any(), any(), any()) } returns Unit
+        every { enqueueProfile(any()) } returns mockk(relaxed = true)
+        every { enqueueEvent(any(), any()) } returns mockk(relaxed = true)
+        every { enqueuePushToken(any(), any()) } returns mockk(relaxed = true)
+        every { enqueueUnregisterPushToken(any(), any(), any()) } returns mockk(relaxed = true)
     }
 
     @Before
@@ -60,10 +64,13 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
             every { registerComponentCallbacks(any()) } returns Unit
         }
         Registry.register<ApiClient>(mockApiClient)
+        mockkStatic(DeviceProperties::buildEventMetaData)
+        every { DeviceProperties.buildEventMetaData() } returns emptyMap()
     }
 
     @After
     override fun cleanup() {
+        unmockkStatic(DeviceProperties::buildEventMetaData)
         Registry.unregister<Config>()
         Registry.get<State>().reset()
         Registry.unregister<State>()
