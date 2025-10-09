@@ -124,9 +124,9 @@ internal class KlaviyoTest : BaseTest() {
         every { startService() } returns Unit
         every { onApiRequest(any(), any()) } returns Unit
         every { offApiRequest(any()) } returns Unit
-        every { enqueueProfile(capture(capturedProfile)) } returns Unit
+        every { enqueueProfile(capture(capturedProfile)) } returns mockk(relaxed = true)
         every { enqueueEvent(any(), any()) } returns mockk(relaxed = true)
-        every { enqueuePushToken(any(), any()) } returns Unit
+        every { enqueuePushToken(any(), any()) } returns mockk(relaxed = true)
     }
 
     private val mockBuilder = mockk<Config.Builder>().apply {
@@ -769,7 +769,9 @@ internal class KlaviyoTest : BaseTest() {
 
         every { Uri.parse(TRACKING_URL) } returns mockTrackUri
         every { Uri.parse(DESTINATION_URL) } returns mockDestinationUri
-        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns Unit
+        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns mockk(
+            relaxed = true
+        )
 
         Klaviyo.registerDeepLinkHandler { _ -> called = true }
         assertTrue(Klaviyo.handleUniversalTrackingLink(mockTrackingUriIntent))
@@ -785,7 +787,9 @@ internal class KlaviyoTest : BaseTest() {
         val slot = slot<ResolveDestinationCallback>()
 
         every { Uri.parse(TRACKING_URL) } returns mockTrackUri
-        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns Unit
+        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns mockk(
+            relaxed = true
+        )
 
         Klaviyo.handleUniversalTrackingLink(mockTrackingUriIntent)
 
@@ -800,7 +804,9 @@ internal class KlaviyoTest : BaseTest() {
         val slot = slot<ResolveDestinationCallback>()
 
         every { Uri.parse(TRACKING_URL) } returns mockTrackUri
-        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns Unit
+        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns mockk(
+            relaxed = true
+        )
 
         Klaviyo.handleUniversalTrackingLink(TRACKING_URL)
 

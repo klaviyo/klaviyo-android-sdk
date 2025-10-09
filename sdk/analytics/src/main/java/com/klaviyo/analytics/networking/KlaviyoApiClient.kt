@@ -67,36 +67,42 @@ internal object KlaviyoApiClient : ApiClient {
         }
     }
 
-    override fun enqueueProfile(profile: Profile) {
+    override fun enqueueProfile(profile: Profile): ApiRequest = ProfileApiRequest(profile).also {
         Registry.log.verbose("Enqueuing Profile request")
-        enqueueRequest(ProfileApiRequest(profile))
+        enqueueRequest(it)
     }
 
-    override fun enqueuePushToken(token: String, profile: Profile) {
-        Registry.log.verbose("Enqueuing Push Token request")
-        enqueueRequest(PushTokenApiRequest(token, profile))
-    }
-
-    override fun enqueueAggregateEvent(payload: AggregateEventPayload) {
-        Registry.log.verbose("Enqueuing Aggregate Event request")
-        enqueueRequest(AggregateEventApiRequest(payload))
-    }
-
-    override fun enqueueUnregisterPushToken(apiKey: String, token: String, profile: Profile) {
-        Registry.log.verbose("Enqueuing unregister token request")
-        enqueueRequest(UnregisterPushTokenApiRequest(apiKey, token, profile))
-    }
-
-    override fun enqueueEvent(event: Event, profile: Profile): ApiRequest {
-        Registry.log.verbose("Enqueuing ${event.metric.name} event")
-        val request = EventApiRequest(event, profile)
-        enqueueRequest(request)
-
-        if (event.metric == EventMetric.OPENED_PUSH) {
-            flushQueue()
+    override fun enqueuePushToken(token: String, profile: Profile): ApiRequest =
+        PushTokenApiRequest(token, profile).also {
+            Registry.log.verbose("Enqueuing Push Token request")
+            enqueueRequest(it)
         }
-        return request
-    }
+
+    override fun enqueueAggregateEvent(payload: AggregateEventPayload): ApiRequest =
+        AggregateEventApiRequest(payload).also {
+            Registry.log.verbose("Enqueuing Aggregate Event request")
+            enqueueRequest(it)
+        }
+
+    override fun enqueueUnregisterPushToken(
+        apiKey: String,
+        token: String,
+        profile: Profile
+    ): ApiRequest =
+        UnregisterPushTokenApiRequest(apiKey, token, profile).also {
+            Registry.log.verbose("Enqueuing unregister token request")
+            enqueueRequest(it)
+        }
+
+    override fun enqueueEvent(event: Event, profile: Profile): ApiRequest =
+        EventApiRequest(event, profile).also {
+            Registry.log.verbose("Enqueuing ${event.metric.name} event")
+            enqueueRequest(it)
+
+            if (event.metric == EventMetric.OPENED_PUSH) {
+                flushQueue()
+            }
+        }
 
     /**
      * Resolve the destination URL for a click track request
@@ -105,10 +111,8 @@ internal object KlaviyoApiClient : ApiClient {
         trackingUrl: String,
         profile: Profile,
         callback: ResolveDestinationCallback
-    ) {
+    ): ApiRequest = UniversalClickTrackRequest(trackingUrl, profile).also { request ->
         // Create request outside of coroutine, so initialization errors are raised to the caller
-        val request = UniversalClickTrackRequest(trackingUrl, profile)
-
         CoroutineScope(Registry.dispatcher).launch {
             // Send the network request (and notify observers)
             request.sendAndBroadcast()

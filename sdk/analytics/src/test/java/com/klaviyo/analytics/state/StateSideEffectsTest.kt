@@ -36,9 +36,9 @@ class StateSideEffectsTest : BaseTest() {
     private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
         every { onApiRequest(any(), capture(capturedApiObserver)) } returns Unit
         every { offApiRequest(any()) } returns Unit
-        every { enqueueProfile(capture(capturedProfile)) } returns Unit
+        every { enqueueProfile(capture(capturedProfile)) } returns mockk(relaxed = true)
         every { enqueueEvent(any(), any()) } returns mockk(relaxed = true)
-        every { enqueuePushToken(any(), any()) } returns Unit
+        every { enqueuePushToken(any(), any()) } returns mockk(relaxed = true)
     }
 
     private val stateMock = mockk<State>().apply {
