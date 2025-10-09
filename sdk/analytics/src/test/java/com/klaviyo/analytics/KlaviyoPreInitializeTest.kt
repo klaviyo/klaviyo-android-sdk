@@ -43,10 +43,10 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
         every { startService() } returns Unit
         every { onApiRequest(any(), any()) } returns Unit
         every { offApiRequest(any()) } returns Unit
-        every { enqueueProfile(any()) } returns Unit
+        every { enqueueProfile(any()) } returns mockk(relaxed = true)
         every { enqueueEvent(any(), any()) } returns mockk(relaxed = true)
-        every { enqueuePushToken(any(), any()) } returns Unit
-        every { enqueueUnregisterPushToken(any(), any(), any()) } returns Unit
+        every { enqueuePushToken(any(), any()) } returns mockk(relaxed = true)
+        every { enqueueUnregisterPushToken(any(), any(), any()) } returns mockk(relaxed = true)
     }
 
     @Before
