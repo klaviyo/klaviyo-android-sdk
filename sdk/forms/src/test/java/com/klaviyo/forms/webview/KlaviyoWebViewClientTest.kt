@@ -296,6 +296,8 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         verifyClose(doesNotClose = true)
         verifyDestroy(doesNotDestroy = true)
+
+        verify { mockObserverCollection.startObservers(NativeBridgeMessage.HandShook) }
     }
 
     @Test

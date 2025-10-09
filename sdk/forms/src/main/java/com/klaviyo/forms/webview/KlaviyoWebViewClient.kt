@@ -90,6 +90,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * When the webview has loaded klaviyo.js, we can cancel the timeout
      */
     override fun onJsHandshakeCompleted() {
+        Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.HandShook)
         handshakeTimer?.cancel()
         handshakeTimer = null
     }
