@@ -5,6 +5,7 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.webview.JavaScriptEvaluator
+import org.json.JSONObject
 
 /**
  * API for communicating data and events from native to the onsite-in-app JS module
@@ -64,21 +65,13 @@ internal class KlaviyoJsBridge : JsBridge {
     )
 
     override fun profileEvent(event: Event) {
-        // Capture values before any mutations to avoid side effects during argument evaluation
-        val metricName = event.metric.name.toJsString()
-        val uniqueId = event.uniqueId.toJsStringOrNull()
-        val time = event.pop(EventKey.CUSTOM("_time")).toString()
-        val value = event.pop(EventKey.VALUE).toString()
-        val eventJson = event.toString() // Serialize after removing _time and value
-
-        // JavaScript signature: window.profileEvent = function (metric, uuid, time, value, properties)
-        evaluateJavascriptRaw(
+        evaluateJavascript(
             HelperFunction.profileEvent,
-            metricName,
-            uniqueId,
-            time,
-            value,
-            eventJson // Unquoted JSON string (becomes JS object literal)
+            event.metric.name,
+            event.pop(EventKey.EVENT_ID),
+            event.pop(EventKey.CUSTOM("_time")),
+            event.pop(EventKey.VALUE),
+            event.toMap()
         )
     }
 
@@ -94,24 +87,8 @@ internal class KlaviyoJsBridge : JsBridge {
     /**
      * Evaluates a JS function in the webview with the given arguments
      */
-    private fun evaluateJavascript(function: HelperFunction, vararg arguments: String) {
-        val args = arguments.joinToString(",") { "\"$it\"" }
-        val javaScript = "window.$function($args)"
-
-        Registry.get<JavaScriptEvaluator>().evaluateJavascript(javaScript) { result ->
-            if (result) {
-                Registry.log.verbose("JS $function evaluation succeeded")
-            } else {
-                Registry.log.error("JS $function evaluation failed")
-            }
-        }
-    }
-
-    /**
-     * Evaluates a JS function with raw arguments (no automatic quoting applied)
-     */
-    private fun evaluateJavascriptRaw(function: HelperFunction, vararg arguments: String) {
-        val args = arguments.joinToString(",")
+    private fun evaluateJavascript(function: HelperFunction, vararg arguments: Any?) {
+        val args = arguments.joinToString(",") { it.toJsonString() }
         val javaScript = "window.$function($args)"
 
         Registry.get<JavaScriptEvaluator>().evaluateJavascript(javaScript) { result ->
@@ -125,18 +102,22 @@ internal class KlaviyoJsBridge : JsBridge {
 }
 
 /**
- * Extension function to convert a Kotlin String to a properly escaped and quoted JavaScript string literal.
- * Handles single quotes by escaping them.
- *
- * Example: "Hello's World" -> "\"Hello\\'s World\""
+ * Converts a Kotlin object to a JSON-compatible string representation suitable for embedding in JavaScript code.
+ * e.g.:
+ *  null -> "null"
+ *  "hello" -> "\"hello\""
+ *  123 -> "123"
+ *  true -> "true"
+ *  mapOf("key" to "value") -> "{\"key\":\"value\"}"\
  */
-private fun String.toJsString(): String = "\"${this.replace("'", "\\'")}\""
-
-/**
- * Extension function to convert a nullable Kotlin String to a properly escaped and quoted JavaScript string literal,
- * or "null" if the string is null.
- *
- * Example: "test-uuid" -> "\"test-uuid\""
- * Example: null -> "null"
- */
-private fun String?.toJsStringOrNull(): String = this?.toJsString() ?: "null"
+private fun Any?.toJsonString(): String = when (this) {
+    is String -> JSONObject.quote(this)
+    is Number -> this.toString()
+    is Boolean -> this.toString()
+    is Map<*, *> -> JSONObject(this).toString()
+    null -> "null"
+    else -> this.toString().let{ str ->
+        Registry.log.warning("Potentially unsafe object type for JSON serialization: ${this::class.java}=$str")
+        JSONObject.quote(str)
+    }
+}

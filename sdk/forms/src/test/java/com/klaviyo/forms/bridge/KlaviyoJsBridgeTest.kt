@@ -67,6 +67,57 @@ class KlaviyoJsBridgeTest : BaseTest() {
     }
 
     @Test
+    fun `profileEvent with time, value and unique ID calls JS evaluator with correct JS`() {
+        val testEvent = Event(
+            metric = "Viewed Product"
+        ).apply {
+            value = 19.99
+            uniqueId = "event123"
+            setProperty(EventKey.CUSTOM("_time"), "2024-10-01T12:00:00Z")
+        }
+
+        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
+            secondArg<(Boolean) -> Unit>().invoke(true)
+        }
+
+        bridge.profileEvent(testEvent)
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                eq(
+                    """window.profileEvent("Viewed Product","event123","2024-10-01T12:00:00Z",19.99,{})"""
+                ),
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun `profileEvent escapes dangerous characters for evaluating JS string`() {
+        val testEvent = Event(
+            metric = "Viewed Product\"; alert('Hacked');//"
+        ).apply {
+            setProperty(EventKey.CUSTOM("\"badKey\""), "}")
+            uniqueId = "event123'"
+        }
+
+        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
+            secondArg<(Boolean) -> Unit>().invoke(true)
+        }
+
+        bridge.profileEvent(testEvent)
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                eq(
+                    """window.profileEvent("Viewed Product\"; alert('Hacked');//","event123'",null,null,{"\"badKey\"":"}"})"""
+                ),
+                any()
+            )
+        }
+    }
+
+    @Test
     fun `profileMutation calls JS evaluator with correct JS`() {
         val profile = Profile(
             externalId = "extId",
