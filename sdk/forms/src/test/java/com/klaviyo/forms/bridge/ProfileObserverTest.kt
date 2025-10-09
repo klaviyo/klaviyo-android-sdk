@@ -38,7 +38,7 @@ class ProfileObserverTest {
     private fun withBridge(): JsBridge {
         val mockBridge = mockk<JsBridge>(relaxed = true)
         Registry.register<JsBridge>(mockBridge)
-        ProfileObserver().startObserver()
+        ProfileMutationObserver().startObserver()
         return mockBridge
     }
 
@@ -89,7 +89,7 @@ class ProfileObserverTest {
     @Test
     fun `stopObserver removes the lambda from state change listeners`() {
         withBridge()
-        val observer = ProfileObserver()
+        val observer = ProfileMutationObserver()
         observer.startObserver()
         observer.stopObserver()
         verify(exactly = 1) { stateMock.offStateChange(observerSlot.captured) }

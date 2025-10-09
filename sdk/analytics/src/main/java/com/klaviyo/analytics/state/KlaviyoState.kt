@@ -18,6 +18,7 @@ import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.analytics.networking.requests.buildEventMetaData
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.AdvancedAPI
 import java.io.Serializable
 import java.util.Collections
 import java.util.UUID
@@ -204,6 +205,14 @@ internal class KlaviyoState : State {
 
     override fun offProfileEvent(observer: ProfileEventObserver) {
         eventObserver -= observer
+    }
+
+    override fun getBufferedEvents(): List<Event> =
+        GenericEventBuffer.getEvents()
+
+    @AdvancedAPI
+    override fun clearBufferedEvents() {
+        GenericEventBuffer.clearBuffer()
     }
 
     /**

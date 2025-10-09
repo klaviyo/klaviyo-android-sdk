@@ -3,14 +3,15 @@ package com.klaviyo.forms.bridge
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
-import com.klaviyo.analytics.state.GenericEventBuffer
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.AdvancedAPI
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.After
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -30,18 +31,23 @@ class FormsProfileEventObserverTest {
     fun setup() {
         Registry.register<JsBridge>(mockJsBridge)
         Registry.register<State>(mockState)
-        GenericEventBuffer.clearBuffer()
+    }
+
+    @Test
+    fun `starts on HandShook`() {
+        val observer = ProfileEventObserver()
+        assertEquals(NativeBridgeMessage.HandShook, observer.startOn)
     }
 
     @Test
     fun `invoke event broadcast`() {
-        FormsProfileEventObserver().invoke(testEvent)
+        ProfileEventObserver().invoke(testEvent)
         verify { mockJsBridge.profileEvent(testEvent) }
     }
 
     @Test
     fun `startObserver registers with state`() {
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.startObserver()
         verify { mockState.onProfileEvent(observer) }
     }
@@ -61,11 +67,9 @@ class FormsProfileEventObserverTest {
             setProperty("_time", 3000L)
         }
 
-        GenericEventBuffer.addEvent(event1)
-        GenericEventBuffer.addEvent(event2)
-        GenericEventBuffer.addEvent(event3)
+        every { mockState.getBufferedEvents() } returns listOf(event1, event2, event3)
 
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.startObserver()
 
         verify { mockJsBridge.profileEvent(event1) }
@@ -73,6 +77,7 @@ class FormsProfileEventObserverTest {
         verify { mockJsBridge.profileEvent(event3) }
     }
 
+    @OptIn(AdvancedAPI::class)
     @Test
     fun `startObserver does not clear buffer after processing events`() {
         val event = Event(EventMetric.CUSTOM("buffered_event")).apply {
@@ -80,14 +85,13 @@ class FormsProfileEventObserverTest {
             setProperty("_time", 5000L)
         }
 
-        GenericEventBuffer.addEvent(event)
+        every { mockState.getBufferedEvents() } returns listOf(event)
 
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.startObserver()
 
         // Buffer should still contain the event (not cleared)
-        val remainingEvents = GenericEventBuffer.getEvents()
-        assertTrue(remainingEvents.isNotEmpty())
+        verify(exactly = 0) { mockState.clearBufferedEvents() }
     }
 
     @Test
@@ -97,9 +101,10 @@ class FormsProfileEventObserverTest {
                 uniqueId = "uuid-$it"
             }
         }
-        events.forEach { GenericEventBuffer.addEvent(it) }
 
-        val observer = FormsProfileEventObserver()
+        every { mockState.getBufferedEvents() } returns events
+
+        val observer = ProfileEventObserver()
         observer.startObserver()
 
         events.forEach { event ->
@@ -109,7 +114,7 @@ class FormsProfileEventObserverTest {
 
     @Test
     fun `startObserver handles empty buffer gracefully`() {
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.startObserver()
 
         verify { mockState.onProfileEvent(observer) }
@@ -118,7 +123,7 @@ class FormsProfileEventObserverTest {
 
     @Test
     fun `stopObserver unregisters from state`() {
-        val observer = FormsProfileEventObserver()
+        val observer = ProfileEventObserver()
         observer.stopObserver()
         verify { mockState.offProfileEvent(observer) }
     }
@@ -128,9 +133,10 @@ class FormsProfileEventObserverTest {
         val bufferedEvent = Event(EventMetric.CUSTOM("buffered_event")).apply {
             uniqueId = "buffered-uuid"
         }
-        GenericEventBuffer.addEvent(bufferedEvent)
 
-        val observer = FormsProfileEventObserver()
+        every { mockState.getBufferedEvents() } returns listOf(bufferedEvent)
+
+        val observer = ProfileEventObserver()
         observer.startObserver()
 
         verify { mockJsBridge.profileEvent(bufferedEvent) }
@@ -143,7 +149,6 @@ class FormsProfileEventObserverTest {
 
     @After
     fun cleanup() {
-        GenericEventBuffer.clearBuffer()
         Registry.unregister<JsBridge>()
         Registry.unregister<State>()
         unmockkAll()
