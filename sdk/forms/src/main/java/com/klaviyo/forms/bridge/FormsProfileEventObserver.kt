@@ -1,7 +1,6 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.state.GenericEventBuffer
 import com.klaviyo.analytics.state.ProfileEventObserver
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
@@ -13,7 +12,7 @@ internal class FormsProfileEventObserver : JsBridgeObserver, ProfileEventObserve
 
     override fun startObserver() {
         // Send buffered events to JS (enriched with uuid and _time)
-        GenericEventBuffer.getEvents().forEach { event ->
+        Registry.get<State>().getBufferedEvents().forEach { event ->
             invoke(event)
         }
         // Register for future events

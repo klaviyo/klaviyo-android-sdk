@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
  * This buffer enables features like In-App Forms to access recent event history
  * without requiring tight coupling or singleton observers.
  */
-object GenericEventBuffer {
+internal object GenericEventBuffer {
 
     private const val MAX_CAPACITY = 10
     private const val EVENT_TTL_MS = 10_000L

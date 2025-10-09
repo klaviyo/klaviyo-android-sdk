@@ -3,6 +3,7 @@ package com.klaviyo.analytics.state
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.core.utils.AdvancedAPI
 import java.io.Serializable
 
 typealias StateChangeObserver = (change: StateChange) -> Unit
@@ -68,4 +69,16 @@ interface State {
      * De-register an observer from [onProfileEvent]
      */
     fun offProfileEvent(observer: ProfileEventObserver)
+
+    /**
+     * Get currently buffered events in chronological order (oldest first).
+     * Buffer holds most recent 10 events within last 10 seconds.
+     */
+    fun getBufferedEvents(): List<Event>
+
+    /**
+     * Clear all currently buffered events.
+     */
+    @AdvancedAPI
+    fun clearBufferedEvents()
 }
