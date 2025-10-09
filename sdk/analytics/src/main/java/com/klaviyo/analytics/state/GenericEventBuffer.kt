@@ -52,14 +52,9 @@ object GenericEventBuffer {
     fun addEvent(event: Event) {
         // Create expiration job using Registry's dispatcher
         // Wrapped in try-catch to handle test scenarios where Registry might not be ready
-        val expirationJob = try {
-            CoroutineScope(Registry.dispatcher).launch {
-                delay(EVENT_TTL_MS)
-                removeEvent(event)
-            }
-        } catch (e: Exception) {
-            // In test scenarios, Registry might not be ready - create a no-op job
-            Job()
+        val expirationJob = CoroutineScope(Registry.dispatcher).launch {
+            delay(EVENT_TTL_MS)
+            removeEvent(event)
         }
 
         val bufferedEvent = BufferedEvent(event, expirationJob)

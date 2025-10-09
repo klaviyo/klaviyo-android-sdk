@@ -1,5 +1,8 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
+import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
@@ -286,9 +289,7 @@ internal class KlaviyoStateTest : BaseTest() {
     fun `createEvent adds enriched event to buffer`() {
         GenericEventBuffer.clearBuffer()
 
-        val event = com.klaviyo.analytics.model.Event(
-            com.klaviyo.analytics.model.EventMetric.CUSTOM("test_event")
-        )
+        val event = Event(EventMetric.CUSTOM("test_event"))
         val profile = Profile()
 
         state.createEvent(event, profile)
@@ -300,7 +301,7 @@ internal class KlaviyoStateTest : BaseTest() {
         assertNotEquals(null, bufferedEvents[0].uniqueId)
         assertNotEquals(
             null,
-            bufferedEvents[0][com.klaviyo.analytics.model.EventKey.CUSTOM("_time")]
+            bufferedEvents[0][EventKey.TIME]
         )
     }
 }

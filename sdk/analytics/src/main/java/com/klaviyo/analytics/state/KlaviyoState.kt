@@ -1,6 +1,7 @@
 package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
@@ -19,7 +20,6 @@ import java.io.Serializable
 import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
-import kotlin.invoke
 
 /**
  * Stores information on the currently active user
@@ -181,7 +181,7 @@ internal class KlaviyoState : State {
         val apiRequest = Registry.get<ApiClient>().enqueueEvent(event, profile)
         val shadowedEvent = event.copy().apply {
             uniqueId = uniqueId ?: apiRequest.uuid
-            setProperty("_time", apiRequest.queuedTime)
+            setProperty(EventKey.TIME, apiRequest.queuedTime)
         }
         // Add enriched event to buffer for multi-consumer access
         GenericEventBuffer.addEvent(shadowedEvent)
