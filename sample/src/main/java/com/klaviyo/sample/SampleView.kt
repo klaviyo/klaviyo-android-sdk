@@ -26,7 +26,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.klaviyo.sample.ui.theme.KlaviyoAndroidSdkTheme
 
 private object UiConstants {
@@ -63,10 +62,10 @@ private object UiConstants {
 
 @Composable
 fun SampleView(
+    viewModel: SampleViewModel,
     onRequestNotificationPermission: () -> Unit,
     onShowToast: (String) -> Unit
 ) {
-    val viewModel: SampleViewModel = viewModel()
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     fun executeWithToast(

@@ -9,12 +9,16 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
 
 class SampleActivity : ComponentActivity() {
+    // Initialize ViewModel using the by viewModels() delegate
+    private val viewModel: SampleViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -23,6 +27,7 @@ class SampleActivity : ComponentActivity() {
 
         setContent {
             SampleView(
+                viewModel = viewModel,
                 onRequestNotificationPermission = { askNotificationPermission() },
                 onShowToast = { message -> showToast(message) }
             )
@@ -51,10 +56,6 @@ class SampleActivity : ComponentActivity() {
         super.onResume()
         // Note: notification permission state is now managed in Compose
     }
-
-
-    // Note: ViewModel reference will be set in onCreate
-    private lateinit var viewModel: SampleViewModel
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
