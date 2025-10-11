@@ -5,8 +5,6 @@ import static de.fayard.refreshVersions.core.Versions.versionFor
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
-
-    // ADVANCED SETUP NOTE: Comment out if you wish to run the app without Firebase
     id 'com.google.gms.google-services'
 }
 
@@ -25,15 +23,12 @@ android {
     buildToolsVersion=versionFor(project, "version.android.buildTools") as String
 
     defaultConfig {
-        // ADVANCED SETUP NOTE: Set your own application ID here
+        // SETUP NOTE: Set your own application ID here
         applicationId "${klaviyoGroupId}.sample"
 
-        // SETUP NOTE: Configure minimum, target and compile SDK versions:
         // Klaviyo Android SDK minimum supported Android version is 23
         minSdk versionFor(project, "version.android.minSdk") as Integer
-        // It is recommended to set targetSdkVersion equal to your compileSdkVersion
         targetSdk versionFor(project, "version.android.targetSdk") as Integer
-        // Klaviyo Android SDK is compiled against Android API Level 34
         compileSdk versionFor(project, "version.android.compileSdk") as Integer
 
         versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
@@ -97,7 +92,6 @@ dependencies {
     // See https://splitties.github.io/refreshVersions/ for more info on refreshVersions syntax
 
     // Firebase dependencies for FCM integration 
-    // ADVANCED SETUP NOTE: Comment out if you wish to run the app without Firebase
     implementation platform(Firebase.bom)
     implementation Firebase.cloudMessagingKtx
 

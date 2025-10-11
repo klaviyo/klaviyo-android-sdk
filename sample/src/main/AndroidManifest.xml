@@ -13,18 +13,43 @@
                 android:name=".SampleActivity"
                 android:exported="true"
                 android:theme="@style/Theme.KlaviyoAndroidSdk">
+
+            <!-- Launch intent -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Example Deep Linking Intent Filter -->
+            <!-- Sample Deep Linking Intent Filters -->
+
+            <!-- Custom URI scheme: -->
             <intent-filter android:label="@string/deep_link_handler">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <!-- Accepts URIs that begin with "klaviyotest://" -->
                 <data android:scheme="klaviyotest" />
+            </intent-filter>
+
+            <!-- Verified App Link: -->
+            <intent-filter android:label="Your App Name" android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:host="your.domain.com" />
+            </intent-filter>
+
+            <!-- Klaviyo Universal Click Tracking: -->
+            <intent-filter android:label="Your App Name" android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="trk.your.domain.com" />
+                <!-- SETUP NOTE: path prefix for Klaviyo Universal Click Tracking should be /u/ or else unsupported tracking links may be routed to your app -->
+                <data android:pathPrefix="/u/" />
             </intent-filter>
         </activity>
 
