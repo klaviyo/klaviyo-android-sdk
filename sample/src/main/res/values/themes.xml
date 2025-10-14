@@ -1,6 +1,4 @@
-
 <resources>
-
     <style name="Theme.KlaviyoAndroidSdk" parent="android:Theme.Material.Light.DarkActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowTranslucentStatus">true</item>
