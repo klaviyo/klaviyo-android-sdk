@@ -43,7 +43,7 @@ object Klaviyo {
     /**
      * This method is provided for apps that are unable to register their API key immediately
      * on app launch in order enable limited SDK functionality including tracking app lifecycle,
-     * automated push token collection, and handling universal tracking links.
+     * detection of permission changes, and handling universal tracking links.
      *
      * Your API key still must be provided as early as possible for full SDK functionality!
      *

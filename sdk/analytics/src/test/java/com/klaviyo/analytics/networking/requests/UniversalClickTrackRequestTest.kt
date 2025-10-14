@@ -3,6 +3,8 @@ package com.klaviyo.analytics.networking.requests
 import android.net.Uri
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest.Companion.KLAVIYO_CLICK_TIMESTAMP_HEADER
+import com.klaviyo.fixtures.mockBase64
+import com.klaviyo.fixtures.unmockBase64
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -10,9 +12,11 @@ import io.mockk.unmockkStatic
 import java.net.URL
 import java.util.Base64
 import org.json.JSONObject
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClickTrackRequest>() {
@@ -43,6 +47,18 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
 
     override fun makeTestRequest(): UniversalClickTrackRequest =
         UniversalClickTrackRequest(trackingUrl, stubProfile)
+
+    @Before
+    override fun setup() {
+        super.setup()
+        mockBase64()
+    }
+
+    @After
+    override fun cleanup() {
+        super.cleanup()
+        unmockBase64()
+    }
 
     @Test
     fun `jSON interoperability`() = testJsonInterop(makeTestRequest())
