@@ -583,7 +583,7 @@ profile events *and* your app opens and processes the links correctly, you need 
 Follow these steps to configure your app to handle Klaviyo universal tracking links.
 
 1. Configure Universal Links in your Klaviyo account. Follow our guide on
-   [setting up universal links](https://help.klaviyo.com/hc/en-us/articles/41701832186523) in your Klaviyo account dashboard.
+   [setting up universal links](https://help.klaviyo.com/hc/en-us/articles/42110451656987) in your Klaviyo account dashboard.
 2. Add an intent filter for your click tracking domain. Klaviyo's Universal Tracking Links are formatted `https://<trk.your.domain.com>/u/linkId`
    so your intent filter should only accept paths prefixed with `/u/*`, see example below.
 3. In your main activity, you will need to pass the `Intent` from a Universal Tracking Link to the Klaviyo SDK by calling
