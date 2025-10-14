@@ -1,10 +1,10 @@
 package com.klaviyo.analytics.networking.requests
 
 import android.net.Uri
+import android.util.Base64
 import androidx.core.net.toUri
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
-import java.util.Base64
 import kotlin.time.Duration.Companion.milliseconds
 import org.json.JSONObject
 
@@ -71,8 +71,9 @@ internal class UniversalClickTrackRequest(
     constructor(trackingUrl: String, profile: Profile) : this() {
         this.baseUrl = trackingUrl
         val profileJson = profile.identifiers.toString()
-        val encodedProfile = Base64.getEncoder().encodeToString(
-            profileJson.toByteArray(Charsets.UTF_8)
+        val encodedProfile = Base64.encodeToString(
+            profileJson.toByteArray(Charsets.UTF_8),
+            Base64.NO_WRAP
         )
         headers.put(KLAVIYO_PROFILE_INFO_HEADER, encodedProfile)
     }

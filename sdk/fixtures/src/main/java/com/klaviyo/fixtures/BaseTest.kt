@@ -1,5 +1,6 @@
 package com.klaviyo.fixtures
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -139,6 +140,7 @@ abstract class BaseTest {
 
     val dispatcher = StandardTestDispatcher()
 
+    @SuppressLint("NewApi")
     @Before
     open fun setup() {
         // Mock Registry by default to encourage unit tests to be decoupled from other services
@@ -154,6 +156,9 @@ abstract class BaseTest {
 
         // Mock using latest SDK
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
+
+        // Replace base64 encoding
+        mockBase64()
     }
 
     @After

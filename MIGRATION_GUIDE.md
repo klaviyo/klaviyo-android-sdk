@@ -2,6 +2,12 @@
 This document provides guidance on how to migrate from one version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
+# 5.1.0
+
+### Deprecations
+- The extension property `Intent.isKlaviyoIntent` has been replaced with `Intent.isKlaviyoNotificationIntent`
+  to better delineate its purpose and avoid confusion with other Klaviyo-related intents such as universal tracking links.
+
 # 4.0.0
 
 ## In-App Forms
