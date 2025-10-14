@@ -34,9 +34,8 @@ jobs:
       - name: Unit Tests
         run: ./gradlew ${{ matrix.module }}:test --stacktrace --no-daemon
 
-  # Another job for asserting our linting rules
-  ktlint:
-    name: Run ktlintCheck
+  lint:
+    name: Run Linters
 
     # The type of runner that the job will run on
     runs-on: ubuntu-22.04
@@ -54,5 +53,9 @@ jobs:
           java-package: jdk
 
       # Call Gradle to run ktlint check
-      - name: KtlintCheck
-        run: bash ./gradlew ktlintCheck
+      - name: Ktlint Check
+        run: ./gradlew ktlintCheck --no-daemon
+
+      # Call Gradle to run Android Lint
+      - name: Android Lint
+        run: ./gradlew lintRelease --no-daemon
