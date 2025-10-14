@@ -37,7 +37,7 @@ jobs:
         run: ./gradlew ${{ matrix.module }}:test --stacktrace --no-daemon
 
   # A job for running linters (ktlint + Android Lint)
-  linters:
+  lint:
     name: Run Linters
 
     # The type of runner that the job will run on
@@ -61,7 +61,7 @@ jobs:
 
       # Call Gradle to run Android Lint
       - name: Android Lint
-        run: ./gradlew lintDebug --no-daemon
+        run: ./gradlew lintRelease --no-daemon
 
   # Another job for building our SDK's AAR file
   aar:

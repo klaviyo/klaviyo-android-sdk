@@ -58,4 +58,4 @@ jobs:
 
       # Call Gradle to run Android Lint
       - name: Android Lint
-        run: ./gradlew lintDebug --no-daemon
+        run: ./gradlew lintRelease --no-daemon
