@@ -35,6 +35,28 @@ internal class ModelTests : BaseTest() {
     }
 
     @Test
+    fun `Identifiers converts to a Profile object with non-identifier attributes stripped out`() {
+        val custKey = ProfileKey.CUSTOM("custom_key")
+        val profile = Profile(
+            externalId = EXTERNAL_ID,
+            email = EMAIL,
+            phoneNumber = PHONE,
+            properties = mapOf(
+                ProfileKey.FIRST_NAME to "kermit",
+                custKey to "test"
+            )
+        )
+
+        val identifiers = profile.identifiers
+
+        assertEquals(EXTERNAL_ID, identifiers.externalId)
+        assertEquals(EMAIL, identifiers.email)
+        assertEquals(PHONE, identifiers.phoneNumber)
+        assertNull(identifiers[ProfileKey.FIRST_NAME])
+        assertNull(identifiers[custKey])
+    }
+
+    @Test
     fun `Attributes converts to a Profile object with identifiers stripped out`() {
         val custKey = ProfileKey.CUSTOM("custom_key")
         val profileAttributes = Profile(
@@ -113,15 +135,28 @@ internal class ModelTests : BaseTest() {
         assertEquals("0", profile.email)
         assertEquals("0", profile.phoneNumber)
 
-        val event = Event("test", mapOf(EventKey.VALUE to 0))
+        val event = Event(
+            "test",
+            mapOf(
+                EventKey.VALUE to 0,
+                EventKey.EVENT_ID to 0
+            )
+        )
         assertEquals(0.0, event.value)
+        assertEquals("0", event.uniqueId)
+
+        assertEquals(
+            Event("test", mapOf(EventKey.EVENT_ID to hashMapOf("t" to "t"))).uniqueId,
+            "{t=t}"
+        )
+        assertNull(Event("test").uniqueId)
     }
 
     @Test
     fun `Event properties are reflected in toMap representation`() {
         val event = Event("test").also {
-            it.setValue(1.0)
-            it.setProperty(EventKey.EVENT_ID, "id")
+            it.value = 1.0
+            it.uniqueId = "id"
             it.setProperty(EventKey.CUSTOM("custom"), "custom")
         }
 
@@ -144,5 +179,16 @@ internal class ModelTests : BaseTest() {
         assertEquals(custProfile1, custProfile2)
         assertEquals(custProfile1, custEvent)
         assert(!custEvent.equals("custom"))
+    }
+
+    @Test
+    fun `Pop removes an item if it exists`() {
+        val event = Event("test", mapOf(EventKey.CUSTOM("custom") to "value"))
+        val popped = event.pop(EventKey.CUSTOM("custom"))
+        val missing = event.pop(EventKey.CUSTOM("missing"))
+
+        assertEquals("value", popped)
+        assertNull(missing)
+        assert(!event.toMap().containsKey("custom"))
     }
 }

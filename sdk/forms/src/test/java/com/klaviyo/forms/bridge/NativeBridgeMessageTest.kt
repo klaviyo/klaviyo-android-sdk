@@ -269,7 +269,7 @@ class NativeBridgeMessageTest : BaseTest() {
 
     @Test
     fun `handshake field sends proper type`() {
-        val deeplinkMessage = """            
+        val deeplinkMessage = """
             {
               "type": "handShook",
               "data": {

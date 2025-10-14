@@ -12,7 +12,11 @@ internal interface JsBridgeObserverCollection {
     /**
      * Start all observers in the collection
      */
-    fun startObservers() = apply { observers.forEach { it.startObserver() } }
+    fun startObservers(forEvent: NativeBridgeMessage) = apply {
+        observers
+            .filter { it.startOn == forEvent }
+            .forEach { it.startObserver() }
+    }
 
     /**
      * Stop all observers in the collection

@@ -1,6 +1,8 @@
 package com.klaviyo.forms.presentation
 
 import android.content.Intent
+import android.os.Bundle
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.klaviyo.core.Registry
 
@@ -9,7 +11,19 @@ import com.klaviyo.core.Registry
  */
 internal class KlaviyoFormsOverlayActivity : AppCompatActivity() {
 
-    override fun onBackPressed() = Registry.get<PresentationManager>().closeFormAndDismiss()
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Handle back button press using modern API (required for API 33+)
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    Registry.get<PresentationManager>().closeFormAndDismiss()
+                }
+            }
+        )
+    }
 
     companion object {
         val launchIntent: Intent

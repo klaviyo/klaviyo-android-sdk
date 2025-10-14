@@ -14,10 +14,12 @@ import androidx.core.net.toUri
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
+import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.NativeBridge
+import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
@@ -81,13 +83,14 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     }
 
     override fun onLocalJsReady() {
-        Registry.get<JsBridgeObserverCollection>().startObservers()
+        Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.JsReady)
     }
 
     /**
      * When the webview has loaded klaviyo.js, we can cancel the timeout
      */
     override fun onJsHandshakeCompleted() {
+        Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.HandShook)
         handshakeTimer?.cancel()
         handshakeTimer = null
     }
@@ -185,7 +188,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
                 action = Intent.ACTION_VIEW
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
-            Registry.config.applicationContext.startActivity(intent, null)
+            intent.startActivityIfResolved(Registry.config.applicationContext)
             return true
         }
         return false

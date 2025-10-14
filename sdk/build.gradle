@@ -75,6 +75,20 @@ subprojects {
                 )
             }
         }
+
+        lint {
+            // Fail the build if any lint errors are found
+            abortOnError = true
+
+            // Check release builds for issues
+            checkReleaseBuilds = true
+
+            // Treat NewApi errors as fatal (API level compatibility)
+            error 'NewApi'
+
+            // Generate HTML report for local review
+            htmlReport = true
+        }
     }
 
     dependencies {

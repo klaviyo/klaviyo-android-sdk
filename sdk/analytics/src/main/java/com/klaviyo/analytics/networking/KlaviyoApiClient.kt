@@ -6,18 +6,26 @@ import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
+import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
+import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
+import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
+import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import java.util.Collections
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -59,32 +67,69 @@ internal object KlaviyoApiClient : ApiClient {
         }
     }
 
-    override fun enqueueProfile(profile: Profile) {
+    override fun enqueueProfile(profile: Profile): ApiRequest = ProfileApiRequest(profile).also {
         Registry.log.verbose("Enqueuing Profile request")
-        enqueueRequest(ProfileApiRequest(profile))
+        enqueueRequest(it)
     }
 
-    override fun enqueuePushToken(token: String, profile: Profile) {
-        Registry.log.verbose("Enqueuing Push Token request")
-        enqueueRequest(PushTokenApiRequest(token, profile))
-    }
+    override fun enqueuePushToken(token: String, profile: Profile): ApiRequest =
+        PushTokenApiRequest(token, profile).also {
+            Registry.log.verbose("Enqueuing Push Token request")
+            enqueueRequest(it)
+        }
 
-    override fun enqueueAggregateEvent(payload: AggregateEventPayload) {
-        Registry.log.verbose("Enqueuing Aggregate Event request")
-        enqueueRequest(AggregateEventApiRequest(payload))
-    }
+    override fun enqueueAggregateEvent(payload: AggregateEventPayload): ApiRequest =
+        AggregateEventApiRequest(payload).also {
+            Registry.log.verbose("Enqueuing Aggregate Event request")
+            enqueueRequest(it)
+        }
 
-    override fun enqueueUnregisterPushToken(apiKey: String, token: String, profile: Profile) {
-        Registry.log.verbose("Enqueuing unregister token request")
-        enqueueRequest(UnregisterPushTokenApiRequest(apiKey, token, profile))
-    }
+    override fun enqueueUnregisterPushToken(
+        apiKey: String,
+        token: String,
+        profile: Profile
+    ): ApiRequest =
+        UnregisterPushTokenApiRequest(apiKey, token, profile).also {
+            Registry.log.verbose("Enqueuing unregister token request")
+            enqueueRequest(it)
+        }
 
-    override fun enqueueEvent(event: Event, profile: Profile) {
-        Registry.log.verbose("Enqueuing ${event.metric.name} event")
-        enqueueRequest(EventApiRequest(event, profile))
+    override fun enqueueEvent(event: Event, profile: Profile): ApiRequest =
+        EventApiRequest(event, profile).also {
+            Registry.log.verbose("Enqueuing ${event.metric.name} event")
+            enqueueRequest(it)
 
-        if (event.metric == EventMetric.OPENED_PUSH) {
-            flushQueue()
+            if (event.metric == EventMetric.OPENED_PUSH) {
+                flushQueue()
+            }
+        }
+
+    /**
+     * Resolve the destination URL for a click track request
+     */
+    override fun resolveDestinationUrl(
+        trackingUrl: String,
+        profile: Profile,
+        callback: ResolveDestinationCallback
+    ): ApiRequest = UniversalClickTrackRequest(trackingUrl, profile).also { request ->
+        // Create request outside of coroutine, so initialization errors are raised to the caller
+        CoroutineScope(Registry.dispatcher).launch {
+            // Send the network request (and notify observers)
+            request.sendAndBroadcast()
+
+            // Get the result of the request
+            val result = request.getResult()
+
+            // Invoke the callback with the result (and notify observers)
+            withContext(Dispatchers.Main) {
+                broadcastApiRequest(request)
+                callback(result)
+            }
+
+            // If the result is not successful, enqueue the request to be retried later
+            if (result is ResolveDestinationResult.Unavailable) {
+                enqueueRequest(request.prepareToEnqueue())
+            }
         }
     }
 
@@ -136,9 +181,11 @@ internal object KlaviyoApiClient : ApiClient {
                     "${request.type} Request failed with code ${request.responseCode}, and will be retried up to $attemptsRemaining more times."
                 )
             }
+
             Status.Complete -> Registry.log.verbose(
                 "${request.type} Request succeeded with code ${request.responseCode}"
             )
+
             else -> Registry.log.error(
                 "${request.type} Request failed with code ${request.responseCode}, and will be dropped"
             )
@@ -328,12 +375,13 @@ internal object KlaviyoApiClient : ApiClient {
             while (apiQueue.isNotEmpty()) {
                 val request = apiQueue.poll()
 
-                when (request?.send { broadcastApiRequest(request) }) {
+                when (request?.sendAndBroadcast()) {
                     Status.Unsent -> {
                         // Incomplete state: put it back on the queue and break out of serial queue
                         apiQueue.offerFirst(request)
                         break
                     }
+
                     Status.Complete, Status.Failed -> {
                         // On success or absolute failure, remove from queue and persistent store
                         Registry.dataStore.clear(request.uuid)
@@ -341,6 +389,7 @@ internal object KlaviyoApiClient : ApiClient {
                         flushInterval = Registry.config.networkFlushIntervals[networkType]
                         broadcastApiRequest(request)
                     }
+
                     Status.PendingRetry -> {
                         // Encountered a retryable error
                         // Put this back on top of the queue, and we'll try again with backoff
@@ -353,6 +402,7 @@ internal object KlaviyoApiClient : ApiClient {
                     Status.Inflight -> Registry.log.wtf(
                         "Request state was not updated from Inflight"
                     )
+
                     null -> Registry.log.wtf("Queue contains an empty request")
                 }
             }
@@ -375,5 +425,9 @@ internal object KlaviyoApiClient : ApiClient {
             enqueuedTime = Registry.clock.currentTimeMillis()
             handler?.postDelayed(this, flushInterval)
         }
+    }
+
+    private fun KlaviyoApiRequest.sendAndBroadcast(): Status = send {
+        broadcastApiRequest(this)
     }
 }
