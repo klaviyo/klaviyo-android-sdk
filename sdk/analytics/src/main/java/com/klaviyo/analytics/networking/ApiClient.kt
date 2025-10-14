@@ -4,6 +4,7 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
+import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
 
 typealias ApiObserver = (request: ApiRequest) -> Unit
 
@@ -37,32 +38,60 @@ interface ApiClient {
      * Queue an API request to save [Profile] data to Klaviyo
      *
      * @param profile
+     * @return The API request that was enqueued
      */
-    fun enqueueProfile(profile: Profile)
+    fun enqueueProfile(profile: Profile): ApiRequest
 
     /**
      * Queue an API request to save a push token to Klaviyo for a [Profile]
      *
      * @param token
      * @param profile
+     * @return The API request that was enqueued
      */
-    fun enqueuePushToken(token: String, profile: Profile)
+    fun enqueuePushToken(token: String, profile: Profile): ApiRequest
 
     /**
      * Queue an API request to remove a push token from a [Profile]
      *
      * @param token
      * @param profile
+     * @return The API request that was enqueued
      */
-    fun enqueueUnregisterPushToken(apiKey: String, token: String, profile: Profile)
+    fun enqueueUnregisterPushToken(apiKey: String, token: String, profile: Profile): ApiRequest
 
     /**
      * Queue an API request to track an [Event] to Klaviyo for a [Profile]
+     * Note: Calling this directly will result in events not being broadcasted to Forms. This
+     * is used in 'Trigger By Event' situations
      *
      * @param event
      * @param profile
+     * @return The API request that was enqueued
      */
-    fun enqueueEvent(event: Event, profile: Profile)
+    fun enqueueEvent(event: Event, profile: Profile): ApiRequest
+
+    /**
+     * For sending aggregate analytics for IAF - not to be called directly
+     *
+     * @return The API request that was enqueued
+     */
+    fun enqueueAggregateEvent(payload: AggregateEventPayload): ApiRequest
+
+    /**
+     * Resolve a destination URL from a tracking URL
+     *
+     * Makes an immediate network request to resolve a destination URL from the provided click-tracking URL.
+     *
+     * @param trackingUrl URL to the click tracking endpoint
+     * @param profile Profile to include in the request
+     * @param callback Listener to receive success or failure callbacks
+     */
+    fun resolveDestinationUrl(
+        trackingUrl: String,
+        profile: Profile,
+        callback: ResolveDestinationCallback
+    ): ApiRequest
 
     /**
      * Register an observer to be notified when an API request is enqueued or changes state
@@ -77,9 +106,4 @@ interface ApiClient {
      * @param observer
      */
     fun offApiRequest(observer: ApiObserver)
-
-    /**
-     * For sending aggregate analytics for IAF - not to be called directly
-     */
-    fun enqueueAggregateEvent(payload: AggregateEventPayload)
 }

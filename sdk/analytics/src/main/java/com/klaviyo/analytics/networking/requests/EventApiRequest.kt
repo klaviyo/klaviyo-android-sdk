@@ -20,11 +20,12 @@ internal class EventApiRequest(
 ) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     private companion object {
-        const val PATH = "client/events/"
+        const val PATH = "client/events"
         const val METRIC = "metric"
         const val NAME = "name"
         const val VALUE = "value"
         const val TIME = "time"
+        const val UNIQUE_ID = "unique_id"
     }
 
     override var type: String = "Create Event"
@@ -47,6 +48,9 @@ internal class EventApiRequest(
         }
 
     constructor(event: Event, profile: Profile) : this() {
+        // Note: it'd be cleaner if we popped $value and and $event_id, so that they aren't included
+        // in the properties map too, but that would be a breaking change on the SDK side. The APIs
+        // may be updated to filter out reserved keys in the future, it already does for $event_id.
         body = jsonMapOf(
             DATA to mapOf(
                 TYPE to EVENT,
@@ -58,6 +62,7 @@ internal class EventApiRequest(
                             ATTRIBUTES to mapOf(NAME to event.metric.name)
                         )
                     ),
+                    UNIQUE_ID to event.uniqueId.let { if (it.isNullOrEmpty()) uuid else it },
                     VALUE to event.value,
                     TIME to Registry.clock.isoTime(queuedTime),
                     PROPERTIES to event.toMap(),

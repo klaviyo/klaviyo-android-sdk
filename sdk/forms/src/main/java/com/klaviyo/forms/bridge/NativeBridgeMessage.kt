@@ -19,7 +19,7 @@ internal sealed class NativeBridgeMessage {
     data object JsReady : NativeBridgeMessage()
 
     /**
-     * Sent from the onsite-in-app-forms when the NativeBridge handshake has been completed,
+     * Sent from onsite-in-app-forms when the NativeBridge handshake has been completed,
      * indicating the fender package is fully initialized.
      */
     data object HandShook : NativeBridgeMessage()

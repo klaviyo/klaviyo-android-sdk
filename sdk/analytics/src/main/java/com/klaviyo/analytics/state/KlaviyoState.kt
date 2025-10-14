@@ -1,5 +1,7 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
@@ -11,8 +13,12 @@ import com.klaviyo.analytics.model.ProfileKey.PHONE_NUMBER
 import com.klaviyo.analytics.model.ProfileKey.PUSH_TOKEN
 import com.klaviyo.analytics.model.StateKey.API_KEY
 import com.klaviyo.analytics.model.StateKey.PUSH_STATE
+import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
+import com.klaviyo.analytics.networking.requests.buildEventMetaData
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.AdvancedAPI
 import java.io.Serializable
 import java.util.Collections
 import java.util.UUID
@@ -63,6 +69,13 @@ internal class KlaviyoState : State {
      */
     private val stateChangeObservers = Collections.synchronizedList(
         CopyOnWriteArrayList<StateChangeObserver>()
+    )
+
+    /**
+     * List of registered profile event observers
+     */
+    private val eventObserver = Collections.synchronizedList(
+        CopyOnWriteArrayList<ProfileEventObserver>()
     )
 
     /**
@@ -165,6 +178,41 @@ internal class KlaviyoState : State {
      */
     override fun resetAttributes() {
         attributes = null
+    }
+
+    override fun createEvent(event: Event, profile: Profile) {
+        val apiRequest = Registry.get<ApiClient>().enqueueEvent(event, profile)
+        // Copy and enrich event with metadata and time (equivalent formating to the API request)
+        val shadowedEvent = event.copy().apply {
+            uniqueId = uniqueId ?: apiRequest.uuid
+            setProperty(EventKey.TIME, apiRequest.queuedTime)
+            DeviceProperties.buildEventMetaData().forEach { entry ->
+                setProperty(entry.key, entry.value)
+            }
+        }
+        // Add enriched event to buffer for multi-consumer access
+        GenericEventBuffer.addEvent(shadowedEvent)
+        synchronized(eventObserver) {
+            eventObserver.forEach {
+                it?.invoke(shadowedEvent)
+            }
+        }
+    }
+
+    override fun onProfileEvent(observer: ProfileEventObserver) {
+        eventObserver += observer
+    }
+
+    override fun offProfileEvent(observer: ProfileEventObserver) {
+        eventObserver -= observer
+    }
+
+    override fun getBufferedEvents(): List<Event> =
+        GenericEventBuffer.getEvents()
+
+    @AdvancedAPI
+    override fun clearBufferedEvents() {
+        GenericEventBuffer.clearBuffer()
     }
 
     /**

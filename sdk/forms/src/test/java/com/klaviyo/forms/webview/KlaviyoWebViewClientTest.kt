@@ -14,11 +14,13 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.NativeBridge
+import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import io.mockk.clearAllMocks
@@ -28,7 +30,6 @@ import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
 import io.mockk.runs
-import io.mockk.slot
 import io.mockk.verify
 import java.io.ByteArrayInputStream
 import org.junit.After
@@ -281,7 +282,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @Test
     fun `attachesObservers when local JS initializes`() {
         KlaviyoWebViewClient().onLocalJsReady()
-        verify { mockObserverCollection.startObservers() }
+        verify { mockObserverCollection.startObservers(NativeBridgeMessage.JsReady) }
     }
 
     @Test
@@ -295,6 +296,8 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         verifyClose(doesNotClose = true)
         verifyDestroy(doesNotDestroy = true)
+
+        verify { mockObserverCollection.startObservers(NativeBridgeMessage.HandShook) }
     }
 
     @Test
@@ -354,23 +357,15 @@ class KlaviyoWebViewClientTest : BaseTest() {
             every { url } returns mockUrl
         }
 
-        every { mockContext.startActivity(any(), null) } just runs
+        every { mockContext.startActivity(any()) } just runs
 
-        val uriSlot = slot<Uri>()
-        val actionSlot = slot<String>()
-        val flagsSlot = slot<Int>()
-
-        mockkConstructor(Intent::class)
-        every { anyConstructed<Intent>().setData(capture(uriSlot)) } returns mockk<Intent>()
-        every { anyConstructed<Intent>().setAction(capture(actionSlot)) } returns mockk<Intent>()
-        every { anyConstructed<Intent>().setFlags(capture(flagsSlot)) } returns mockk<Intent>()
-
+        val mockIntent = MockIntent.setupIntentMocking()
         val result = client.shouldOverrideUrlLoading(null, mockRequest)
 
         assertEquals(true, result)
-        assertEquals(Intent.ACTION_VIEW, actionSlot.captured)
-        assertEquals(mockUrl, uriSlot.captured)
-        assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, flagsSlot.captured)
+        assertEquals(Intent.ACTION_VIEW, mockIntent.action.captured)
+        assertEquals(mockUrl, mockIntent.data.captured)
+        assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, mockIntent.flags.captured)
     }
 
     @Test

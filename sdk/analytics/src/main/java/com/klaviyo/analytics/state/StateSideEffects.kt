@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
@@ -15,6 +16,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.LifecycleMonitor
+import com.klaviyo.core.utils.takeIf
 
 internal class StateSideEffects(
     private val state: State = Registry.get<State>(),
@@ -53,6 +55,9 @@ internal class StateSideEffects(
     }
 
     private fun onApiKeyChange(oldApiKey: String?) {
+        // Clear event buffer to prevent cross-account data leakage
+        GenericEventBuffer.clearBuffer()
+
         // If the API key changes, we need to unregister the push token on the previous API key then register the push token with the new API key
         if (!state.pushState.isNullOrEmpty()) {
             state.pushToken?.let {
@@ -169,12 +174,12 @@ internal class StateSideEffects(
         }
     }
 
-    private fun onLifecycleEvent(activity: ActivityEvent): Unit = when {
-        activity is ActivityEvent.Resumed -> Registry.get<State>().pushToken?.let {
-            // This should trigger the token in state to refresh overall push state
-            Registry.get<State>().pushToken = it
-        } ?: Unit
-
-        else -> Unit
+    private fun onLifecycleEvent(activity: ActivityEvent) {
+        activity.takeIf<ActivityEvent.Resumed>()?.run {
+            Registry.get<State>().pushToken?.let {
+                // Trigger the token in state to refresh overall push state, if changed
+                Klaviyo.setPushToken(it)
+            }
+        }
     }
 }

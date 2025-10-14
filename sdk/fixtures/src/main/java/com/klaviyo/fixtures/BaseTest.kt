@@ -1,5 +1,6 @@
 package com.klaviyo.fixtures
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -17,11 +18,13 @@ import com.klaviyo.core.utils.ThreadHelper
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.unmockkObject
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -82,6 +85,7 @@ abstract class BaseTest {
         every { debounceInterval } returns debounceTime
         every { networkMaxAttempts } returns 50
         every { networkTimeout } returns 1000
+        every { uxNetworkTimeout } returns 100
         every { networkMaxRetryInterval } returns 180_000L
         every { networkFlushIntervals } returns longArrayOf(10_000, 30_000, 60_000)
         every { networkJitterRange } returns 0..0
@@ -99,6 +103,17 @@ abstract class BaseTest {
         every { onActivityEvent(any()) } returns Unit
         every { offActivityEvent(any()) } returns Unit
         every { currentActivity } returns mockActivity
+
+        val slotJob = slot<(activity: Activity) -> Unit>()
+        every {
+            runWithCurrentOrNextActivity(
+                any(),
+                capture(slotJob)
+            )
+        } answers {
+            slotJob.captured.invoke(mockActivity)
+            null
+        }
     }
     protected val mockNetworkMonitor = mockk<NetworkMonitor>()
     protected val spyDataStore = spyk(InMemoryDataStore())
@@ -123,10 +138,14 @@ abstract class BaseTest {
         }
     }
 
+    val dispatcher = StandardTestDispatcher()
+
+    @SuppressLint("NewApi")
     @Before
     open fun setup() {
         // Mock Registry by default to encourage unit tests to be decoupled from other services
         mockkObject(Registry)
+        every { Registry.dispatcher } returns dispatcher
         every { Registry.config } returns mockConfig
         every { Registry.lifecycleMonitor } returns mockLifecycleMonitor
         every { Registry.networkMonitor } returns mockNetworkMonitor
@@ -137,6 +156,9 @@ abstract class BaseTest {
 
         // Mock using latest SDK
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
+
+        // Replace base64 encoding
+        mockBase64()
     }
 
     @After
