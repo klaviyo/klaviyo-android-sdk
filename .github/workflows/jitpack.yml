@@ -9,12 +9,13 @@ on:
       - rel/*
       - feat/*
   pull_request:
-    types: [labeled, synchronize]
+    types: [labeled]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    # Run on releases, pushes, or PRs with the jitpack:build label
+    # Run on releases, pushes, workflow_dispatch, or PRs with the jitpack:build label
     if: |
       github.event_name != 'pull_request' ||
       contains(github.event.pull_request.labels.*.name, 'jitpack:build')

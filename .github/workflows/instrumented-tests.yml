@@ -1,7 +1,7 @@
 # Workflow for running Android instrumented tests across multiple API levels
 # Runs on master, release branches, and PRs with specific labels
 
-name: Android SDK Instrumented Tests
+name: Instrumented Tests
 
 # Trigger conditions
 on:
@@ -13,7 +13,7 @@ on:
   
   # Run on PRs when specific labels are added or when labeled PRs are updated
   pull_request:
-    types: [labeled, synchronize]
+    types: [ labeled, synchronize ]
   
   # Allow manual triggering
   workflow_dispatch:
@@ -30,6 +30,7 @@ on:
 jobs:
   # Job to check if we should run instrumented tests on PRs
   check-pr-labels:
+    name: Label Check
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-22.04
     outputs:
@@ -52,27 +53,22 @@ jobs:
 
   # Main instrumented tests job
   instrumented-tests:
-    name: API ${{ matrix.api-level }} Instrumented Tests
+    name: ${{ github.event_name == 'workflow_dispatch' && format('API {0}', inputs.api_level || 'default') || format('API {0}', matrix.api-level) }}
     runs-on: ubuntu-22.04
-    
+
     # Run if: push to branches OR PR with correct labels OR manual dispatch
     if: |
-      github.event_name == 'push' || 
+      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && needs.check-pr-labels.outputs.should-run == 'true')
-    
-    needs: [check-pr-labels]
+
+    needs: [ check-pr-labels ]
     # Allow check-pr-labels to be skipped for non-PR events
     continue-on-error: false
-    
+
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - api-level: 23
-            arch: x86
-          - api-level: 36
-            arch: x86_64
+      matrix: ${{ github.event_name != 'workflow_dispatch' && fromJSON('{"include":[{"api-level":23,"arch":"x86"},{"api-level":36,"arch":"x86_64"}]}') || fromJSON('{"include":[{}]}') }}
 
     timeout-minutes: 15
 
@@ -168,28 +164,6 @@ jobs:
           path: sample/build/test-results/
           retention-days: 7
 
-  # Summary job that provides overall status
-  instrumented-tests-summary:
-    name: Instrumented Tests Summary
-    runs-on: ubuntu-22.04
-    needs: [instrumented-tests]
-    if: always() && needs.instrumented-tests.result != 'skipped'
-
-    steps:
-      - name: Check test results
-        run: |
-          if [ "${{ needs.instrumented-tests.result }}" == "success" ]; then
-            echo "✅ All instrumented tests passed across API levels!"
-          elif [ "${{ needs.instrumented-tests.result }}" == "failure" ]; then
-            echo "❌ Some instrumented tests failed. Check the individual API level jobs for details."
-            exit 1
-          elif [ "${{ needs.instrumented-tests.result }}" == "cancelled" ]; then
-            echo "⚠️ Instrumented tests were cancelled."
-            exit 1
-          else
-            echo "⚠️ Instrumented tests completed with status: ${{ needs.instrumented-tests.result }}"
-          fi
-
       - name: Send Slack notification on push failure
         if: failure() && github.event_name == 'push'
         uses: slackapi/slack-github-action@v2.1.1
@@ -197,7 +171,7 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
-            text: "🚨 Android Instrumented Tests Failed on ${{ github.ref_name }}"
+            text: "🚨 Instrumented Tests Failed on ${{ github.ref_name }}"
             blocks:
               - type: "section"
                 text:
@@ -206,7 +180,7 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.ref_name }}`\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}\n*Result:* `${{ needs.instrumented-tests.result }}`"
+                  text: "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.ref_name }}`\n*API Level:* ${{ steps.api-setup.outputs.api_level }}\n*Architecture:* ${{ steps.api-setup.outputs.arch }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
               - type: "section"
                 text:
                   type: "mrkdwn"

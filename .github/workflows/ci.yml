@@ -19,7 +19,7 @@ jobs:
 
     strategy:
       matrix:
-        module: [ ':sdk:core', ':sdk:analytics', ':sdk:forms', ':sdk:push-fcm', ':sample' ]
+        module: [ ':sdk:core', ':sdk:analytics', ':sdk:forms', ':sdk:push-fcm' ]
 
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +32,28 @@ jobs:
       # Call Gradle to run the unit tests
       - name: Unit Tests
         run: ./gradlew ${{ matrix.module }}:test --stacktrace --no-daemon
+
+      - name: Send Slack notification on master failure
+        if: failure() && github.ref == 'refs/heads/master'
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🚨 Android CI Unit Tests Failed on Master"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "🚨 Unit Tests Failed on Master\n"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Repository:* ${{ github.repository }}\n*Module:* ${{ matrix.module }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
 
   # A job for running linters (ktlint + Android Lint)
   lint:
@@ -56,30 +78,23 @@ jobs:
       - name: Android Lint
         run: ./gradlew lintRelease --no-daemon
 
-  # Notify on master failures
-  notify-master-failure:
-    name: Notify Master Failure
-    runs-on: ubuntu-22.04
-    needs: [test, lint]
-    if: failure() && github.ref == 'refs/heads/master'
-
-    steps:
-      - name: Send Slack notification
+      - name: Send Slack notification on master failure
+        if: failure() && github.ref == 'refs/heads/master'
         uses: slackapi/slack-github-action@v2.1.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
-            text: "🚨 Android CI Failure on Master"
+            text: "🚨 Android CI Lint Failed on Master"
             blocks:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "🚨 CI Failure on Master Branch\n"
+                  text: "🚨 Lint Failed on Master\n"
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}\n*Test Result:* `${{ needs.test.result }}`\n*Lint Result:* `${{ needs.lint.result }}`"
+                  text: "*Repository:* ${{ github.repository }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
               - type: "section"
                 text:
                   type: "mrkdwn"
