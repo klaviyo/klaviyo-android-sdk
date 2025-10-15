@@ -126,7 +126,7 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
-            text: "🚨 Instrumented Tests Failed on ${{ github.ref_name }}"
+            text: "🚨 Instrumented Tests Failed on ${{ github.event.pull_request.head.ref || github.ref_name }}"
             blocks:
               - type: "section"
                 text:
@@ -135,7 +135,7 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.ref_name }}`\n*API Level:* ${{ steps.api-setup.outputs.api_level }}\n*Architecture:* ${{ steps.api-setup.outputs.arch }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
+                  text: "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.event.pull_request.head.ref || github.ref_name }}`\n*API Level:* ${{ steps.api-setup.outputs.api_level }}\n*Architecture:* ${{ steps.api-setup.outputs.arch }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
               - type: "section"
                 text:
                   type: "mrkdwn"
