@@ -22,6 +22,8 @@ jobs:
         module: [ ':sdk:core', ':sdk:analytics', ':sdk:forms', ':sdk:push-fcm', ':sample' ]
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Setup Android Build Environment
         uses: ./.github/actions/setup
         with:
@@ -39,6 +41,8 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Setup Android Build Environment
         uses: ./.github/actions/setup
         with:

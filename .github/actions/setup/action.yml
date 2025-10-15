@@ -9,9 +9,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
-    - uses: actions/checkout@v4
-
     # Sets up a JDK on the job so that we can run Java code
     - name: Set up JDK 17
       uses: actions/setup-java@v3

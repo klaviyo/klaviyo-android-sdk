@@ -77,6 +77,8 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Setup Android Build Environment
         uses: ./.github/actions/setup
         with:
