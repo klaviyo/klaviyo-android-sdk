@@ -14,18 +14,6 @@ on:
   # Run on PRs when specific labels are added or when labeled PRs are updated
   pull_request:
     types: [ labeled, synchronize ]
-  
-  # Allow manual triggering
-  workflow_dispatch:
-    inputs:
-      api_level:
-        description: 'Specific API level to test (optional, defaults to matrix)'
-        required: false
-        type: string
-      arch:
-        description: 'Architecture (x86 or x86_64, optional, defaults based on API level)'
-        required: false
-        type: string
 
 jobs:
   # Job to check if we should run instrumented tests on PRs
@@ -53,13 +41,12 @@ jobs:
 
   # Main instrumented tests job
   instrumented-tests:
-    name: ${{ matrix.api-level && format('API {0}', matrix.api-level) || 'Instrumented Tests' }}
+    name: API ${{ matrix.api-level }}
     runs-on: ubuntu-22.04
 
-    # Run if: push to branches OR PR with correct labels OR manual dispatch
+    # Run if: push to branches OR PR with correct labels
     if: |
       github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && needs.check-pr-labels.outputs.should-run == 'true')
 
     needs: [ check-pr-labels ]
@@ -68,7 +55,12 @@ jobs:
 
     strategy:
       fail-fast: false
-      matrix: ${{ github.event_name != 'workflow_dispatch' && fromJSON('{"include":[{"api-level":23,"arch":"x86"},{"api-level":36,"arch":"x86_64"}]}') || fromJSON('{"include":[{}]}') }}
+      matrix:
+        include:
+          - api-level: 23
+            arch: x86
+          - api-level: 36
+            arch: x86_64
 
     timeout-minutes: 15
 
@@ -92,24 +84,11 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # Use manual API level and arch if specified in workflow_dispatch, otherwise use matrix
       - name: Set API Level and Architecture
         id: api-setup
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ inputs.api_level }}" ]; then
-            echo "api_level=${{ inputs.api_level }}" >> $GITHUB_OUTPUT
-            # Use provided arch, or default based on API level
-            if [ -n "${{ inputs.arch }}" ]; then
-              echo "arch=${{ inputs.arch }}" >> $GITHUB_OUTPUT
-            elif [ "${{ inputs.api_level }}" -lt 24 ]; then
-              echo "arch=x86" >> $GITHUB_OUTPUT
-            else
-              echo "arch=x86_64" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "api_level=${{ matrix.api-level }}" >> $GITHUB_OUTPUT
-            echo "arch=${{ matrix.arch }}" >> $GITHUB_OUTPUT
-          fi
+          echo "api_level=${{ matrix.api-level }}" >> $GITHUB_OUTPUT
+          echo "arch=${{ matrix.arch }}" >> $GITHUB_OUTPUT
 
       - name: AVD cache
         uses: actions/cache@v4
