@@ -148,11 +148,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr edit ${{ github.event.pull_request.number }} --remove-label "test:all" --add-label "test:all:done"
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "test:all"
 
       - name: Update PR labels on failure
         if: failure() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr edit ${{ github.event.pull_request.number }} --remove-label "test:all" --add-label "test:all:failed"
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "test:all"
