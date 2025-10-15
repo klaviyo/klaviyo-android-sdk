@@ -16,42 +16,18 @@ on:
     types: [ labeled, synchronize ]
 
 jobs:
-  # Job to check if we should run instrumented tests on PRs
-  check-pr-labels:
-    name: Label Check
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-22.04
-    outputs:
-      should-run: ${{ steps.check.outputs.result }}
-    steps:
-      - name: Check for instrumented test labels
-        id: check
-        uses: actions/github-script@v7
-        with:
-          result-encoding: string
-          script: |
-            const labels = context.payload.pull_request.labels.map(label => label.name);
-            const testLabels = ['test:instrumented', 'test:all'];
-            const hasTestLabel = testLabels.some(label => labels.includes(label));
-            
-            console.log(`Labels: ${labels.join(', ')}`);
-            console.log(`Has test label: ${hasTestLabel}`);
-            
-            return hasTestLabel ? 'true' : 'false';
-
   # Main instrumented tests job
   instrumented-tests:
     name: API ${{ matrix.api-level }}
     runs-on: ubuntu-22.04
 
-    # Run if: push to branches OR PR with correct labels
+    # Run if: push to branches OR PR with test labels
     if: |
       github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && needs.check-pr-labels.outputs.should-run == 'true')
-
-    needs: [ check-pr-labels ]
-    # Allow check-pr-labels to be skipped for non-PR events
-    continue-on-error: false
+      (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.labels.*.name, 'test:instrumented') ||
+        contains(github.event.pull_request.labels.*.name, 'test:all')
+      ))
 
     strategy:
       fail-fast: false

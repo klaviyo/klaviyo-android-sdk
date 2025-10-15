@@ -12,7 +12,7 @@ on:
 
 jobs:
   version-check:
-    name: Validate Release Branch Version
+    name: Verify Version Number Matches Branch/Tag
     runs-on: ubuntu-22.04
 
     steps:
