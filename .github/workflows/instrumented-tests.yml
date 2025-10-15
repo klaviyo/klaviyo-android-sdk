@@ -1,5 +1,5 @@
 # Workflow for running Android instrumented tests across multiple API levels
-# Runs on master, release/feature branches, and PRs with specific labels
+# Runs on master, release branches, and PRs with specific labels
 
 name: Android SDK Instrumented Tests
 
@@ -10,7 +10,6 @@ on:
     branches:
       - 'master'
       - 'rel/*'
-      - 'feat/*'
   
   # Run on PRs when specific labels are added or when labeled PRs are updated
   pull_request:
@@ -21,6 +20,10 @@ on:
     inputs:
       api_level:
         description: 'Specific API level to test (optional, defaults to matrix)'
+        required: false
+        type: string
+      arch:
+        description: 'Architecture (x86 or x86_64, optional, defaults based on API level)'
         required: false
         type: string
 
@@ -65,39 +68,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api-level: [23, 36]
-        arch: [x86_64]
-        exclude:
-          # API 23 doesn't support x86_64, use x86 instead
-          - api-level: 23
-            arch: x86_64
         include:
           - api-level: 23
             arch: x86
+          - api-level: 36
+            arch: x86_64
 
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Setup Android Build Environment
+        uses: ./.github/actions/setup
         with:
-          distribution: 'zulu'
-          java-version: '17'
-          java-package: jdk
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          cache-read-only: ${{ github.ref != 'refs/heads/master' }}
-
-      - name: Add Google Services from Secrets
-        run: 'echo "$GOOGLE_SERVICES_JSON" > ./sample/google-services.json'
-        shell: bash
-        env:
-          GOOGLE_SERVICES_JSON: ${{secrets.GOOGLE_SERVICES_JSON}}
+          google-services-json: ${{secrets.GOOGLE_SERVICES_JSON}}
 
       - name: Configure local.properties for instrumented tests
         run: |
@@ -111,14 +94,23 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # Use manual API level if specified in workflow_dispatch, otherwise use matrix
-      - name: Set API Level
+      # Use manual API level and arch if specified in workflow_dispatch, otherwise use matrix
+      - name: Set API Level and Architecture
         id: api-setup
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ inputs.api_level }}" ]; then
             echo "api_level=${{ inputs.api_level }}" >> $GITHUB_OUTPUT
+            # Use provided arch, or default based on API level
+            if [ -n "${{ inputs.arch }}" ]; then
+              echo "arch=${{ inputs.arch }}" >> $GITHUB_OUTPUT
+            elif [ "${{ inputs.api_level }}" -lt 24 ]; then
+              echo "arch=x86" >> $GITHUB_OUTPUT
+            else
+              echo "arch=x86_64" >> $GITHUB_OUTPUT
+            fi
           else
             echo "api_level=${{ matrix.api-level }}" >> $GITHUB_OUTPUT
+            echo "arch=${{ matrix.arch }}" >> $GITHUB_OUTPUT
           fi
 
       - name: AVD cache
@@ -128,14 +120,14 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-${{ steps.api-setup.outputs.api_level }}-${{ matrix.arch }}
+          key: avd-${{ steps.api-setup.outputs.api_level }}-${{ steps.api-setup.outputs.arch }}
 
       - name: Create AVD and generate snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ steps.api-setup.outputs.api_level }}
-          arch: ${{ matrix.arch }}
+          arch: ${{ steps.api-setup.outputs.arch }}
           target: ${{ steps.api-setup.outputs.api_level >= 30 && 'google_apis' || 'default' }}
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
@@ -146,7 +138,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ steps.api-setup.outputs.api_level }}
-          arch: ${{ matrix.arch }}
+          arch: ${{ steps.api-setup.outputs.arch }}
           target: ${{ steps.api-setup.outputs.api_level >= 30 && 'google_apis' || 'default' }}
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
@@ -160,7 +152,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-reports-api-${{ steps.api-setup.outputs.api_level }}
+          name: test-reports-api-${{ steps.api-setup.outputs.api_level }}-${{ steps.api-setup.outputs.arch }}
           path: |
             sample/build/reports/androidTests/connected/
             sample/build/outputs/androidTest-results/
@@ -170,7 +162,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-api-${{ steps.api-setup.outputs.api_level }}
+          name: test-results-api-${{ steps.api-setup.outputs.api_level }}-${{ steps.api-setup.outputs.arch }}
           path: sample/build/test-results/
           retention-days: 7
 
@@ -179,8 +171,8 @@ jobs:
     name: Instrumented Tests Summary
     runs-on: ubuntu-22.04
     needs: [instrumented-tests]
-    if: always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && needs.check-pr-labels.outputs.should-run == 'true'))
-    
+    if: always() && needs.instrumented-tests.result != 'skipped'
+
     steps:
       - name: Check test results
         run: |
@@ -195,3 +187,25 @@ jobs:
           else
             echo "⚠️ Instrumented tests completed with status: ${{ needs.instrumented-tests.result }}"
           fi
+
+      - name: Send Slack notification on push failure
+        if: failure() && github.event_name == 'push'
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🚨 Android Instrumented Tests Failed on ${{ github.ref_name }}"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "🚨 Instrumented Tests Failed\n"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.ref_name }}`\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}\n*Result:* `${{ needs.instrumented-tests.result }}`"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
