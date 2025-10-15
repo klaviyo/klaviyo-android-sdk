@@ -126,11 +126,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr edit ${{ github.event.pull_request.number }} --remove-label "jitpack:build" --add-label "jitpack:build:done"
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "jitpack:build"
 
       - name: Update PR labels on failure
         if: failure() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr edit ${{ github.event.pull_request.number }} --remove-label "jitpack:build" --add-label "jitpack:build:failed"
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "jitpack:build"
