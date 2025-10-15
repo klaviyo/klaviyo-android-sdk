@@ -53,7 +53,7 @@ jobs:
 
   # Main instrumented tests job
   instrumented-tests:
-    name: ${{ github.event_name == 'workflow_dispatch' && format('API {0}', inputs.api_level || 'default') || format('API {0}', matrix.api-level) }}
+    name: API ${{ matrix.api-level || inputs.api_level || 'Manual' }}
     runs-on: ubuntu-22.04
 
     # Run if: push to branches OR PR with correct labels OR manual dispatch
