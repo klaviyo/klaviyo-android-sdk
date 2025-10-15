@@ -26,6 +26,10 @@ jobs:
       github.event_name != 'pull_request' ||
       contains(github.event.pull_request.labels.*.name, 'jitpack:build')
     steps:
+      - name: Checkout repository
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+
       - name: Determine Version Info
         id: version
         run: |

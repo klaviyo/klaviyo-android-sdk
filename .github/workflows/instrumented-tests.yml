@@ -23,7 +23,7 @@ on:
 jobs:
   # Main instrumented tests job
   instrumented-tests:
-    name: API ${{ matrix.api-level }}
+    name: Run
     runs-on: ubuntu-22.04
 
     # Run if: push to branches OR PR with test:all label
