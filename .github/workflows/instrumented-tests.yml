@@ -3,6 +3,11 @@
 
 name: Instrumented Tests
 
+# Required permissions for label management
+permissions:
+  contents: read
+  pull-requests: write
+
 # Trigger conditions
 on:
   # Run on pushes to main branches
@@ -21,13 +26,10 @@ jobs:
     name: API ${{ matrix.api-level }}
     runs-on: ubuntu-22.04
 
-    # Run if: push to branches OR PR with test labels
+    # Run if: push to branches OR PR with test:all label
     if: |
       github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'test:instrumented') ||
-        contains(github.event.pull_request.labels.*.name, 'test:all')
-      ))
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test:all'))
 
     strategy:
       fail-fast: false
@@ -140,3 +142,17 @@ jobs:
                 text:
                   type: "mrkdwn"
                   text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+
+      - name: Update PR labels on success
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "test:all" --add-label "test:all:done"
+
+      - name: Update PR labels on failure
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "test:all" --add-label "test:all:failed"
