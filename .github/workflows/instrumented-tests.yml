@@ -53,7 +53,7 @@ jobs:
 
   # Main instrumented tests job
   instrumented-tests:
-    name: API ${{ matrix.api-level || inputs.api_level || 'Manual' }}
+    name: ${{ matrix.api-level && format('API {0}', matrix.api-level) || 'Instrumented Tests' }}
     runs-on: ubuntu-22.04
 
     # Run if: push to branches OR PR with correct labels OR manual dispatch
