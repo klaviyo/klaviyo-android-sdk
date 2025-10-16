@@ -13,8 +13,6 @@ import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
 import com.klaviyo.core.Registry
-import com.klaviyo.location.KlaviyoGeofence.Companion.toKlaviyoGeofence
-import com.klaviyo.location.KlaviyoGeofenceTransition.Companion.toKlaviyoGeofenceEvent
 
 /**
  * Coordinator for all geofencing operations
