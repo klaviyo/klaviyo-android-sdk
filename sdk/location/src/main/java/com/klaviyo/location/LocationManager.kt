@@ -1,0 +1,38 @@
+package com.klaviyo.location
+
+import android.content.Context
+import android.content.Intent
+
+typealias GeofenceObserver = (List<KlaviyoGeofence>) -> Unit
+
+interface LocationManager {
+    /**
+     * Register an observer to be notified when geofences are synced
+     */
+    fun onGeofenceSync(callback: GeofenceObserver)
+
+    /**
+     * Unregister an observer previously added with [onGeofenceSync]
+     */
+    fun offGeofenceSync(callback: GeofenceObserver)
+
+    /**
+     * Start monitoring geofences, waiting for necessary permissions if needed
+     */
+    fun startGeofenceMonitoring()
+
+    /**
+     * Stop monitoring all geofences
+     */
+    fun stopGeofenceMonitoring()
+
+    /**
+     * Get the list of currently stored geofences
+     */
+    fun getStoredGeofences(): List<KlaviyoGeofence>
+
+    /**
+     * Handle an incoming geofence intent from the system
+     */
+    fun handleGeofenceIntent(context: Context?, intent: Intent?)
+}

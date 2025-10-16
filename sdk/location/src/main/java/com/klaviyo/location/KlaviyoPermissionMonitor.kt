@@ -14,7 +14,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 /**
  * Extension property to access a shared [PermissionMonitor] instance
  */
-val Registry.locationPermissionMonitor: PermissionMonitor
+internal val Registry.locationPermissionMonitor: PermissionMonitor
     get() = getOrNull<PermissionMonitor>() ?: KlaviyoPermissionMonitor().also {
         register<PermissionMonitor>(it)
     }

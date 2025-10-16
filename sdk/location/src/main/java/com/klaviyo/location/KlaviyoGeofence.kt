@@ -3,6 +3,7 @@ package com.klaviyo.location
 import com.google.android.gms.location.Geofence
 import com.klaviyo.analytics.networking.requests.FetchedGeofence
 import com.klaviyo.core.Registry
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -119,3 +120,7 @@ fun JSONObject.toKlaviyoGeofence(): KlaviyoGeofence? = try {
     Registry.log.warning("Failed to parse KlaviyoGeofence from $this", e)
     null
 }
+
+internal fun JSONArray.toKlaviyoGeofences(): List<KlaviyoGeofence> = List(length()) {
+    getJSONObject(it).toKlaviyoGeofence()
+}.filterNotNull()

@@ -14,7 +14,7 @@ fun Klaviyo.registerGeofencing(): Klaviyo = safeApply {
     // Register dependencies
     Registry.apply {
         registerOnce<PermissionMonitor> { KlaviyoPermissionMonitor() }
-        registerOnce<LocationManager> { KlaviyoLocationManager }
+        registerOnce<LocationManager> { KlaviyoLocationManager() }
     }
 
     // And start monitoring
@@ -27,7 +27,7 @@ fun Klaviyo.registerGeofencing(): Klaviyo = safeApply {
  * Klaviyo will automatically stop monitoring if location permissions are revoked.
  */
 fun Klaviyo.unregisterGeofencing(): Klaviyo = safeApply {
-    Registry.getOrNull<LocationManager>()?.startGeofenceMonitoring() ?: run {
+    Registry.getOrNull<LocationManager>()?.stopGeofenceMonitoring() ?: run {
         log.warning("Cannot unregister geofencing, must be registered first.")
     }
 }
