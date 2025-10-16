@@ -4,6 +4,7 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
+import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
 import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
 
 typealias ApiObserver = (request: ApiRequest) -> Unit
@@ -91,6 +92,17 @@ interface ApiClient {
         trackingUrl: String,
         profile: Profile,
         callback: ResolveDestinationCallback
+    ): ApiRequest
+
+    /**
+     * Fetch geofences from the Klaviyo backend
+     *
+     * Makes an immediate network request to fetch the list of geofences configured for this company.
+     *
+     * @param callback Listener to receive success or failure callbacks with raw JSON data
+     */
+    fun fetchGeofences(
+        callback: FetchGeofencesCallback
     ): ApiRequest
 
     /**

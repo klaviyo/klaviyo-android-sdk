@@ -8,6 +8,8 @@ import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
+import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
+import com.klaviyo.analytics.networking.requests.FetchGeofencesRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
@@ -127,6 +129,28 @@ internal object KlaviyoApiClient : ApiClient {
             if (result is ResolveDestinationResult.Unavailable) {
                 enqueueRequest(request.prepareToEnqueue())
             }
+        }
+    }
+
+    /**
+     * Fetch geofences from the Klaviyo backend
+     */
+    override fun fetchGeofences(
+        callback: FetchGeofencesCallback
+    ): ApiRequest = FetchGeofencesRequest().also { request ->
+        // Create request outside of coroutine, so initialization errors are raised to the caller
+        CoroutineScope(Registry.dispatcher).launch {
+            // Send the network request and broadcast
+            request.sendAndBroadcast()
+
+            // Get the result of the request
+            val result = request.getResult()
+
+            // Broadcast again for observability
+            broadcastApiRequest(request)
+
+            // Invoke the callback with the result
+            callback(result)
         }
     }
 
