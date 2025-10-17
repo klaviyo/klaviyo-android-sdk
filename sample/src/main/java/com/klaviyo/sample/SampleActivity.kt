@@ -16,6 +16,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
 import com.klaviyo.analytics.model.EventMetric
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,7 +39,7 @@ class SampleActivity : ComponentActivity() {
         // Example analytics event to track "Opened App" event on launch
         Klaviyo.createEvent(EventMetric.OPENED_APP)
 
-        // Enable edge-to-edge display for all Android versions
+        // Enable edge-to-edge display for all Android versions for consistency
         WindowCompat.enableEdgeToEdge(window)
 
         setContent {
@@ -64,7 +65,9 @@ class SampleActivity : ComponentActivity() {
         // SETUP NOTE: Track an event when user opens a notification.
         // If the notification is a deep link, the SDK will invoke your registered handler.
         // If not using a deep link handler, you should parse the URI from intent.data below.
-        Klaviyo.handlePush(intent)
+        if (intent.isKlaviyoNotificationIntent) {
+            Klaviyo.handlePush(intent)
+        }
     }
 
     private val requestPermissionLauncher = registerForActivityResult(

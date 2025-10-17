@@ -70,25 +70,25 @@ class SampleViewModel : ViewModel() {
     }
     
     fun resetProfile() {
-        externalId = ""
-        email = ""
-        phoneNumber = ""
+        updateExternalId("")
+        updateEmail("")
+        updatePhoneNumber("")
         Klaviyo.resetProfile()
     }
     
     // Event actions
     fun createTestEvent() {
         val event = Event(EventMetric.CUSTOM("Test Event"))
-            .setProperty(EventKey.CUSTOM("System Time"), System.currentTimeMillis() / 1000L)
+            .setProperty("System Time", System.currentTimeMillis() / 1000L)
         
         Klaviyo.createEvent(event)
     }
     
     fun createViewedProductEvent() {
         val event = Event(EventMetric.VIEWED_PRODUCT)
-            .setProperty(EventKey.VALUE, 100)
             .setProperty(EventKey.CUSTOM("Product"), "Lily Pad")
-        
+            .setValue(99.99)
+
         Klaviyo.createEvent(event)
     }
     
