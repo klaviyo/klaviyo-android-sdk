@@ -925,8 +925,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Test
     fun `fetchGeofences invokes callback with Success when request succeeds`() = runTest(dispatcher) {
         val expectedGeofences = listOf(
-            FetchedGeofence("id1", 40.7128, -74.006, 100.0),
-            FetchedGeofence("id2", 40.6892, -74.0445, 200.0)
+            FetchedGeofence("aPiKeY", "id1", 40.7128, -74.006, 100.0),
+            FetchedGeofence("aPiKeY", "id2", 40.6892, -74.0445, 200.0)
         )
         setupFetchGeofencesTest(KlaviyoApiRequest.Status.Complete, expectedGeofences)
 
