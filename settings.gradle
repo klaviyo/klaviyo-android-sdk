@@ -13,6 +13,7 @@ dependencyResolutionManagement {
 include ":sdk"
 include ":sdk:analytics"
 include ":sdk:core"
+include ":sdk:fixtures"
 include ":sdk:forms"
 include ":sdk:location"
 include ":sdk:push-fcm"
