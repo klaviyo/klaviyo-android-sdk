@@ -18,9 +18,7 @@ include ":sdk:location"
 include ":sdk:push-fcm"
 
 if (System.getenv("JITPACK") != "true") {
-    // Test fixtures don't need to be built by jitpack
     include ":sample"
-    include ":sdk:fixtures"
 }
 
 refreshVersions {
