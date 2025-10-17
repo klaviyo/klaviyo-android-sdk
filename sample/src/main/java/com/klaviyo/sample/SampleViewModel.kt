@@ -1,5 +1,6 @@
 package com.klaviyo.sample
 
+import androidx.annotation.UiThread
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -89,12 +90,15 @@ class SampleViewModel : ViewModel() {
     }
     
     // Push notification actions
+    @UiThread
     fun updateNotificationPermission(hasPermission: Boolean) {
+        // Note: Klaviyo SDK automatically monitors permission, no need to notify Klaviyo here
         hasNotificationPermission = hasPermission
     }
-    
+
+    @UiThread
     fun updatePushToken(token: String) {
-        pushToken = token
         Klaviyo.setPushToken(token)
+        pushToken = token
     }
 }

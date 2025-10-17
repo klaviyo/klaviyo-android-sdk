@@ -13,9 +13,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.EventMetric
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class SampleActivity : ComponentActivity() {
     // Initialize ViewModel using the by viewModels() delegate
@@ -23,6 +26,14 @@ class SampleActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // SETUP NOTE: Fetch the current push token and register with Klaviyo Push-FCM
+        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+            // Dispatch to main for the UI update
+            lifecycleScope.launch(Dispatchers.Main) {
+                viewModel.updatePushToken(token)
+            }
+        }
 
         // Example analytics event to track "Opened App" event on launch
         Klaviyo.createEvent(EventMetric.OPENED_APP)
@@ -59,11 +70,7 @@ class SampleActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { isGranted: Boolean ->
-        FirebaseMessaging.getInstance().token.addOnSuccessListener {
-            // Note: you don't need to notify Klaviyo SDK after permission changes
-            viewModel.updatePushToken(it)
-        }
-
+        // Note: you don't need to notify Klaviyo SDK after permission changes
         showToast("Notification permission ${if(isGranted) "granted" else "denied"}")
     }
 

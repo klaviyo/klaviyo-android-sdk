@@ -22,11 +22,6 @@ class SampleApplication : Application() {
                 // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
                 showToast("Deep link to: $uri")
             }
-
-        // SETUP NOTE: Fetch the current push token and register with Klaviyo Push-FCM
-        FirebaseMessaging.getInstance().token.addOnSuccessListener {
-            Klaviyo.setPushToken(it)
-        }
     }
 }
 
