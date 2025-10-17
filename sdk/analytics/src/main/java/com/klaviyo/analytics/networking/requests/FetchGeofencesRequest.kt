@@ -40,7 +40,7 @@ internal class FetchGeofencesRequest(
             responseBody
                 ?.let { JSONObject(it) }
                 ?.getJSONArray(DATA)
-                ?.toFetchedGeofences()
+                ?.toFetchedGeofences(Registry.config.apiKey)
         } catch (e: Exception) {
             Registry.log.warning("Failed to parse geofences response", e)
             null
