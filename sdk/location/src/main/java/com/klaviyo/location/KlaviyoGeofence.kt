@@ -13,7 +13,7 @@ import org.json.JSONObject
  */
 data class KlaviyoGeofence(
     /**
-     * The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a hyphen.
+     * The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a colon.
      */
     val id: String,
     /**
@@ -29,15 +29,39 @@ data class KlaviyoGeofence(
      */
     val radius: Float
 ) {
+    init {
+        // Validate the geofence ID format: {6-char-companyId}:{non-empty-locationId}
+        val parts = id.split(':', limit = 2)
+        if (parts.size != 2) {
+            Registry.log.warning(
+                "Invalid geofence ID format: '$id' - expected format '{companyId}:{locationId}'"
+            )
+        } else {
+            val extractedCompanyId = parts[0]
+            val extractedLocationId = parts[1]
+
+            if (extractedCompanyId.length != 6) {
+                Registry.log.warning(
+                    "Invalid geofence ID format: '$id' - companyId must be exactly 6 characters, got ${extractedCompanyId.length}"
+                )
+            }
+            if (extractedLocationId.isEmpty()) {
+                Registry.log.warning(
+                    "Invalid geofence ID format: '$id' - locationId cannot be empty"
+                )
+            }
+        }
+    }
+
     /**
      * Company ID to which this geofence belongs, extracted from the geofence ID.
      */
-    val companyId: String = id.split('-').firstOrNull() ?: ""
+    val companyId: String = id.substringBefore(':')
 
     /**
      * Location ID to which this geofence belongs, extracted from the geofence ID.
      */
-    val locationId: String = id.split('-').getOrNull(1) ?: ""
+    val locationId: String = id.substringAfter(':', "")
 
     /**
      * Convert this geofence to a JSON string for storage or transmission.
@@ -63,7 +87,7 @@ data class KlaviyoGeofence(
  * Note: this is where we combine the company ID and location ID to form the geofence ID.
  */
 fun FetchedGeofence.toKlaviyoGeofence(): KlaviyoGeofence = KlaviyoGeofence(
-    id = "${Registry.config.apiKey}-$id",
+    id = "$companyId:$id",
     latitude = latitude,
     longitude = longitude,
     radius = radius.toFloat()
