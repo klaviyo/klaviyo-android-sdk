@@ -107,6 +107,18 @@ fun SampleView(
                 onExternalIdChange = viewModel::updateExternalId,
                 onEmailChange = viewModel::updateEmail,
                 onPhoneNumberChange = viewModel::updatePhoneNumber,
+                setExternalId = executeWithToast(
+                    viewModel::setExternalId,
+                    "External ID set"
+                ),
+                setEmail = executeWithToast(
+                    viewModel::setEmail,
+                    "Email set"
+                ),
+                setPhoneNumber = executeWithToast(
+                    viewModel::setPhoneNumber,
+                    "Phone number set"
+                ),
                 setProfile = executeWithToast(
                     viewModel::setProfile,
                     UiConstants.PROFILE_SET
@@ -147,6 +159,9 @@ private fun SampleViewContent(
     onExternalIdChange: (String) -> Unit = {},
     onEmailChange: (String) -> Unit = {},
     onPhoneNumberChange: (String) -> Unit = {},
+    setExternalId: () -> Unit = {},
+    setEmail: () -> Unit = {},
+    setPhoneNumber: () -> Unit = {},
     setProfile: () -> Unit = {},
     resetProfile: () -> Unit = {},
     createTestEvent: () -> Unit = {},
@@ -180,7 +195,10 @@ private fun SampleViewContent(
             onValueChange = onExternalIdChange,
             keyboardType = KeyboardType.Ascii,
             imeAction = ImeAction.Next,
-            keyboardActions = keyboardActions
+            keyboardActions = keyboardActions,
+            trailingIcon = {
+                EntryTrailingButton(onClick = setExternalId)
+            }
         )
         ProfileTextField(
             label = UiConstants.EMAIL_LABEL,
@@ -188,7 +206,10 @@ private fun SampleViewContent(
             onValueChange = onEmailChange,
             keyboardType = KeyboardType.Email,
             imeAction = ImeAction.Next,
-            keyboardActions = keyboardActions
+            keyboardActions = keyboardActions,
+            trailingIcon = {
+                EntryTrailingButton(onClick = setEmail)
+            }
         )
         ProfileTextField(
             label = UiConstants.PHONE_LABEL,
@@ -196,7 +217,10 @@ private fun SampleViewContent(
             onValueChange = onPhoneNumberChange,
             keyboardType = KeyboardType.Phone,
             imeAction = ImeAction.Send,
-            keyboardActions = keyboardActions
+            keyboardActions = keyboardActions,
+            trailingIcon = {
+                EntryTrailingButton(onClick = setPhoneNumber)
+            }
         )
         ViewRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionButton(
@@ -314,7 +338,8 @@ private fun ProfileTextField(
     onValueChange: (String) -> Unit,
     keyboardType: KeyboardType,
     imeAction: ImeAction,
-    keyboardActions: KeyboardActions
+    keyboardActions: KeyboardActions,
+    trailingIcon: @Composable (() -> Unit)? = null
 ) {
     ViewRow {
         OutlinedTextField(
@@ -323,6 +348,7 @@ private fun ProfileTextField(
             onValueChange = onValueChange,
             keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
             keyboardActions = keyboardActions,
+            trailingIcon = trailingIcon,
             modifier = Modifier.weight(1f, fill = true)
         )
     }
@@ -343,6 +369,20 @@ private fun ActionButton(
         modifier = modifier
     ) {
         icon?.invoke()
+        Text(text = text)
+    }
+}
+
+@Composable
+private fun EntryTrailingButton(
+    text: String = "Set",
+    onClick: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        shape = CircleShape,
+        modifier = Modifier.padding(end = 16.dp)
+    ) {
         Text(text = text)
     }
 }

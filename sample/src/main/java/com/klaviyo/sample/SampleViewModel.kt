@@ -50,6 +50,18 @@ class SampleViewModel : ViewModel() {
         phoneNumber = value
     }
     
+    fun setExternalId() {
+        Klaviyo.setExternalId(externalId)
+    }
+
+    fun setEmail() {
+        Klaviyo.setEmail(email)
+    }
+
+    fun setPhoneNumber() {
+        Klaviyo.setPhoneNumber(phoneNumber)
+    }
+
     fun setProfile() {
         Klaviyo
             .setExternalId(externalId)
