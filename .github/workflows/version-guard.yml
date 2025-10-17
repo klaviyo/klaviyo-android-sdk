@@ -1,6 +1,6 @@
 # A workflow for validating that release branch versions match the version in code
 
-name: Release Branch Version Check
+name: Version Number Validation
 
 # Triggers the workflow when we open/update a PR from a rel/* branch
 on:
@@ -12,7 +12,7 @@ on:
 
 jobs:
   version-check:
-    name: Validate Release Branch Version
+    name: Verify Version Number Matches Branch/Tag
     runs-on: ubuntu-22.04
 
     steps:

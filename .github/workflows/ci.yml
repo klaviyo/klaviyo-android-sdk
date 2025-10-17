@@ -1,0 +1,101 @@
+# A workflow for controlling the actions taken by CI for pull requests and master branch
+
+name: Android SDK CI
+
+# Triggers the workflow on pull requests and when code is merged into master
+on:
+  pull_request:
+  push:
+    branches:
+      - 'master'
+
+jobs:
+  # A job for running our tests
+  test:
+    name: Run Unit Tests
+
+    # The type of runner that the job will run on
+    runs-on: ubuntu-22.04
+
+    strategy:
+      matrix:
+        module: [ ':sdk:core', ':sdk:analytics', ':sdk:forms', ':sdk:push-fcm' ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Android Build Environment
+        uses: ./.github/actions/setup
+        with:
+          google-services-json: ${{secrets.GOOGLE_SERVICES_JSON}}
+
+      # Call Gradle to run the unit tests
+      - name: Unit Tests
+        run: ./gradlew ${{ matrix.module }}:test --stacktrace --no-daemon
+
+      - name: Send Slack notification on master failure
+        if: failure() && github.ref == 'refs/heads/master'
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🚨 Android CI Unit Tests Failed on Master"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "🚨 Unit Tests Failed on Master\n"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Repository:* ${{ github.repository }}\n*Module:* ${{ matrix.module }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+
+  # A job for running linters (ktlint + Android Lint)
+  lint:
+    name: Run Linters
+
+    # The type of runner that the job will run on
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Android Build Environment
+        uses: ./.github/actions/setup
+        with:
+          google-services-json: ${{secrets.GOOGLE_SERVICES_JSON}}
+
+      # Call Gradle to run ktlint check
+      - name: Ktlint Check
+        run: ./gradlew ktlintCheck --no-daemon
+
+      # Call Gradle to run Android Lint
+      - name: Android Lint
+        run: ./gradlew lintRelease --no-daemon
+
+      - name: Send Slack notification on master failure
+        if: failure() && github.ref == 'refs/heads/master'
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🚨 Android CI Lint Failed on Master"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "🚨 Lint Failed on Master\n"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Repository:* ${{ github.repository }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"

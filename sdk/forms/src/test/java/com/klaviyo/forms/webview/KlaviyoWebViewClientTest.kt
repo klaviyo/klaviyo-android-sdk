@@ -10,6 +10,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
+import androidx.core.view.ViewCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.klaviyo.core.Registry
@@ -119,6 +120,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
         every { mockConfig.isDebugBuild } returns false
         every { mockContext.assets } returns mockAssets
 
+        mockkStatic(ViewCompat::class)
+        every { ViewCompat.setOnApplyWindowInsetsListener(any(), any()) } just runs
+
         mockkConstructor(KlaviyoWebView::class)
 
         every { anyConstructed<KlaviyoWebView>().settings } returns mockSettings
@@ -126,7 +130,6 @@ class KlaviyoWebViewClientTest : BaseTest() {
         every { anyConstructed<KlaviyoWebView>().webViewClient = any() } just runs
         every { anyConstructed<KlaviyoWebView>().visibility = any() } just runs
         every { anyConstructed<KlaviyoWebView>().parent } returns mockParentView
-        every { anyConstructed<KlaviyoWebView>().setOnApplyWindowInsetsListener(any()) } just runs
         every { anyConstructed<KlaviyoWebView>().destroy() } just runs
         every {
             anyConstructed<KlaviyoWebView>().loadDataWithBaseURL(
