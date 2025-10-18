@@ -7,6 +7,9 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
+import com.klaviyo.analytics.networking.requests.FetchGeofencesRequest
+import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
+import com.klaviyo.analytics.networking.requests.FetchedGeofence
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.RequestMethod
@@ -918,4 +921,96 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
             unmockkConstructor(UniversalClickTrackRequest::class)
         }
+
+    @Test
+    fun `fetchGeofences invokes callback with Success when request succeeds`() = runTest(dispatcher) {
+        val expectedGeofences = listOf(
+            FetchedGeofence("id1", 40.7128, -74.006, 100.0),
+            FetchedGeofence("id2", 40.6892, -74.0445, 200.0)
+        )
+        setupFetchGeofencesTest(KlaviyoApiRequest.Status.Complete, expectedGeofences)
+
+        val result = executeFetchGeofences(testScheduler)
+        assert(result is FetchGeofencesResult.Success)
+        assertEquals(2, (result as FetchGeofencesResult.Success).data.size)
+
+        unmockkConstructor(FetchGeofencesRequest::class)
+    }
+
+    @Test
+    fun `fetchGeofences invokes callback with Unavailable when request is unsent`() = runTest(
+        dispatcher
+    ) {
+        setupFetchGeofencesTest(KlaviyoApiRequest.Status.Unsent)
+
+        val result = executeFetchGeofences(testScheduler)
+        assert(result is FetchGeofencesResult.Unavailable)
+
+        unmockkConstructor(FetchGeofencesRequest::class)
+    }
+
+    @Test
+    fun `fetchGeofences invokes callback with Failure when request fails`() = runTest(dispatcher) {
+        setupFetchGeofencesTest(KlaviyoApiRequest.Status.Failed)
+
+        val result = executeFetchGeofences(testScheduler)
+        assert(result is FetchGeofencesResult.Failure)
+
+        unmockkConstructor(FetchGeofencesRequest::class)
+    }
+
+    @Test
+    fun `fetchGeofences broadcasts request for observability`() = runTest(dispatcher) {
+        setupFetchGeofencesTest(KlaviyoApiRequest.Status.Complete, emptyList())
+        var broadcastCount = 0
+        KlaviyoApiClient.onApiRequest { broadcastCount++ }
+
+        executeFetchGeofences(testScheduler)
+
+        // Should broadcast at least once (after sendAndBroadcast and after getting result)
+        assertEquals(2, broadcastCount)
+
+        unmockkConstructor(FetchGeofencesRequest::class)
+    }
+
+    @Test
+    fun `fetchGeofences with empty geofence list`() = runTest(dispatcher) {
+        setupFetchGeofencesTest(KlaviyoApiRequest.Status.Complete, emptyList())
+
+        val result = executeFetchGeofences(testScheduler)
+        assert(result is FetchGeofencesResult.Success)
+        assertEquals(0, (result as FetchGeofencesResult.Success).data.size)
+
+        unmockkConstructor(FetchGeofencesRequest::class)
+    }
+
+    private fun setupFetchGeofencesTest(
+        requestStatus: KlaviyoApiRequest.Status,
+        geofences: List<FetchedGeofence> = emptyList()
+    ) {
+        mockkConstructor(FetchGeofencesRequest::class)
+        every { anyConstructed<FetchGeofencesRequest>().send(any()) } answers {
+            // Simulate network state for the request
+            this.firstArg<() -> Unit>().invoke()
+            requestStatus
+        }
+        every { anyConstructed<FetchGeofencesRequest>().getResult() } returns when (requestStatus) {
+            KlaviyoApiRequest.Status.Complete -> FetchGeofencesResult.Success(geofences)
+            KlaviyoApiRequest.Status.Unsent, KlaviyoApiRequest.Status.Inflight -> FetchGeofencesResult.Unavailable
+            else -> FetchGeofencesResult.Failure
+        }
+        every { anyConstructed<FetchGeofencesRequest>().uuid } returns "mock_fetch_geofences_uuid"
+    }
+
+    private fun executeFetchGeofences(testScheduler: TestCoroutineScheduler): FetchGeofencesResult? {
+        var callbackResult: FetchGeofencesResult? = null
+        KlaviyoApiClient.fetchGeofences { result ->
+            callbackResult = result
+        }
+
+        // Wait for coroutine to complete
+        testScheduler.advanceUntilIdle()
+
+        return callbackResult
+    }
 }
