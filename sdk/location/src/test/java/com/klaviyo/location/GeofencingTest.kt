@@ -1,10 +1,15 @@
 package com.klaviyo.location
 
+import android.content.Context
+import com.google.android.gms.location.LocationServices
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.MockIntent
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertNotNull
@@ -23,12 +28,17 @@ internal class GeofencingTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+        mockkStatic(LocationServices::class)
+        every { LocationServices.getGeofencingClient(any<Context>()) } returns mockk(relaxed = true)
+        MockIntent.mockPendingIntent()
     }
 
     @After
     override fun cleanup() {
         Registry.unregister<LocationManager>()
         Registry.unregister<PermissionMonitor>()
+        MockIntent.unmockPendingIntent()
+        unmockkStatic(LocationServices::class)
         super.cleanup()
     }
 

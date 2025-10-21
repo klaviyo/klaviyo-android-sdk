@@ -1,6 +1,7 @@
 package com.klaviyo.fixtures
 
 import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -8,7 +9,9 @@ import io.mockk.CapturingSlot
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
+import io.mockk.mockkStatic
 import io.mockk.slot
+import io.mockk.unmockkStatic
 
 /**
  * Data class to hold all Intent capturing slots for easy access and destructuring
@@ -83,6 +86,30 @@ data class MockIntent(
             } answers { call -> payload[call.invocation.args[0]] }
 
             return mockIntent
+        }
+
+        fun mockPendingIntent() {
+            mockkStatic(PendingIntent::class)
+            every {
+                PendingIntent.getActivity(
+                    any(),
+                    any(),
+                    any(),
+                    any()
+                )
+            } returns mockk(relaxed = true)
+            every {
+                PendingIntent.getBroadcast(
+                    any(),
+                    any(),
+                    any(),
+                    any()
+                )
+            } returns mockk(relaxed = true)
+        }
+
+        fun unmockPendingIntent() {
+            unmockkStatic(PendingIntent::class)
         }
     }
 }

@@ -8,7 +8,6 @@ import androidx.annotation.CheckResult
 import androidx.core.app.ActivityCompat
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
-import java.util.Collections
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -29,11 +28,18 @@ internal val Registry.locationPermissionMonitor: PermissionMonitor
  */
 internal class KlaviyoPermissionMonitor() : PermissionMonitor {
 
-    override val permissionState: Boolean get() = hasGeofencePermissions()
+    /**
+     * Cached permission state to enable change detection
+     */
+    private var cachedPermissionState: Boolean = try {
+        hasGeofencePermissions()
+    } catch (_: Exception) {
+        false
+    }
 
-    private val observers = Collections.synchronizedList(
-        CopyOnWriteArrayList<PermissionObserver>()
-    )
+    override val permissionState: Boolean get() = cachedPermissionState
+
+    private val observers = CopyOnWriteArrayList<PermissionObserver>()
 
     override fun onPermissionChanged(callback: PermissionObserver) {
         if (observers.isEmpty()) {
@@ -50,21 +56,21 @@ internal class KlaviyoPermissionMonitor() : PermissionMonitor {
     }
 
     private fun notifyObservers(state: Boolean) {
-        synchronized(observers) {
-            observers.forEach { it(state) }
-        }
+        observers.forEach { it(state) }
     }
 
     // Check permissions when app is resumed (user might have changed them in settings)
     private fun onActivityEvent(event: ActivityEvent) {
         if (event is ActivityEvent.Resumed) {
             val currentPermissionState = hasGeofencePermissions()
+            val previousState = cachedPermissionState
 
             // Only notify if permissions actually changed
-            if (permissionState != currentPermissionState) {
+            if (previousState != currentPermissionState) {
                 Registry.log.debug(
-                    "Permission state changed: $permissionState -> $currentPermissionState"
+                    "Permission state changed: $previousState -> $currentPermissionState"
                 )
+                cachedPermissionState = currentPermissionState
                 notifyObservers(currentPermissionState)
             }
         }
@@ -77,30 +83,6 @@ internal class KlaviyoPermissionMonitor() : PermissionMonitor {
         @CheckResult
         fun hasGeofencePermissions(context: Context = Registry.config.applicationContext): Boolean =
             hasLocationPermission(context) && hasBackgroundLocationPermission(context)
-
-        /**
-         * Get a user-friendly message about which permissions are missing
-         */
-        fun getMissingPermissionsMessage(context: Context = Registry.config.applicationContext): String? {
-            val missingPermissions = mutableListOf<String>()
-
-            if (!hasLocationPermission(context)) {
-                missingPermissions.add("Location permission")
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocationPermission(
-                    context
-                )
-            ) {
-                missingPermissions.add("Background location permission")
-            }
-
-            return if (missingPermissions.isEmpty()) {
-                null
-            } else {
-                "Missing required permissions: ${missingPermissions.joinToString(", ")}"
-            }
-        }
 
         private fun hasLocationPermission(context: Context): Boolean =
             ActivityCompat.checkSelfPermission(
