@@ -7,6 +7,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.forms.registerForInAppForms
+import com.klaviyo.location.registerGeofencing
 
 class SampleApplication : Application() {
     override fun onCreate() {
@@ -17,6 +18,7 @@ class SampleApplication : Application() {
 
         Klaviyo.initialize(klaviyoPublicKey, applicationContext)
             .registerForInAppForms() // Register for In-App Forms immediately on app launch (this app has no splash screen)
+            .registerGeofencing() // Start geofencing monitoring
             .registerDeepLinkHandler { uri ->
                 // OPTIONAL SETUP NOTE: Register a callback to handle any deep links from Klaviyo notifications, in-app forms, or universal tracking links
                 // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
