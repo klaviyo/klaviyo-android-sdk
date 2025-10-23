@@ -1,7 +1,19 @@
 package com.klaviyo.sample
 
+import android.Manifest.permission
+import android.content.pm.PackageManager.PERMISSION_GRANTED
+import android.os.Build
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -10,9 +22,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.*
+import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -23,9 +43,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.android.gms.maps.model.LatLng
+import com.klaviyo.location.KlaviyoGeofence
 import com.klaviyo.sample.ui.theme.KlaviyoAndroidSdkTheme
 
 private object UiConstants {
@@ -42,6 +65,7 @@ private object UiConstants {
     const val EVENTS_SECTION = "Create Events"
     const val FORMS_SECTION = "In-App Forms"
     const val PUSH_SECTION = "Push Notifications"
+    const val LOCATION_SECTION = "Location & Geofencing"
 
     // Labels
     const val EXTERNAL_ID_LABEL = "External ID"
@@ -64,6 +88,8 @@ private object UiConstants {
 fun SampleView(
     viewModel: SampleViewModel,
     onRequestNotificationPermission: () -> Unit,
+    onRequestLocationPermission: () -> Unit,
+    onRequestBackgroundLocationPermission: () -> Unit,
     onShowToast: (String) -> Unit
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -79,8 +105,33 @@ fun SampleView(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                val notificationManager = NotificationManagerCompat.from(context)
-                viewModel.updateNotificationPermission(notificationManager.areNotificationsEnabled())
+                // Update notification permission state
+                NotificationManagerCompat.from(context).apply {
+                    viewModel.updateNotificationPermission(areNotificationsEnabled())
+                }
+
+                // Update location permission state
+                ContextCompat.checkSelfPermission(
+                    context,
+                    permission.ACCESS_FINE_LOCATION
+                ).also { permission ->
+                    viewModel.updateLocationPermission(permission == PERMISSION_GRANTED)
+                }
+
+                // Update background location permission state (Android 10+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        permission.ACCESS_BACKGROUND_LOCATION
+                    ).also { permission ->
+                        viewModel.updateBackgroundLocationPermission(
+                            permission == PERMISSION_GRANTED
+                        )
+                    }
+                } else {
+                    // Background location is automatically granted with foreground on older versions
+                    viewModel.updateBackgroundLocationPermission(viewModel.hasLocationPermission)
+                }
             }
         }
 
@@ -88,6 +139,13 @@ fun SampleView(
 
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Fetch user location when permission is granted
+    LaunchedEffect(viewModel.hasLocationPermission) {
+        if (viewModel.hasLocationPermission && viewModel.userLocation == null) {
+            viewModel.fetchUserLocation(context)
         }
     }
 
@@ -104,6 +162,12 @@ fun SampleView(
                 phoneNumber = viewModel.phoneNumber,
                 pushToken = viewModel.pushToken,
                 hasNotificationPermission = viewModel.hasNotificationPermission,
+                isFormsRegistered = viewModel.isFormsRegistered,
+                hasLocationPermission = viewModel.hasLocationPermission,
+                hasBackgroundLocationPermission = viewModel.hasBackgroundLocationPermission,
+                isGeofencingRegistered = viewModel.isGeofencingRegistered,
+                monitoredGeofences = viewModel.monitoredGeofences,
+                userLocation = viewModel.userLocation,
                 onExternalIdChange = viewModel::updateExternalId,
                 onEmailChange = viewModel::updateEmail,
                 onPhoneNumberChange = viewModel::updatePhoneNumber,
@@ -143,7 +207,17 @@ fun SampleView(
                     viewModel::unregisterFromInAppForms,
                     UiConstants.FORMS_UNREGISTERED
                 ),
-                requestPermission = onRequestNotificationPermission
+                requestPermission = onRequestNotificationPermission,
+                requestLocationPermission = onRequestLocationPermission,
+                requestBackgroundLocationPermission = onRequestBackgroundLocationPermission,
+                registerForGeofencing = executeWithToast(
+                    viewModel::registerForGeofencing,
+                    "Registered for geofencing"
+                ),
+                unregisterFromGeofencing = executeWithToast(
+                    viewModel::unregisterFromGeofencing,
+                    "Unregistered from geofencing"
+                )
             )
         }
     }
@@ -156,6 +230,12 @@ private fun SampleViewContent(
     phoneNumber: String,
     pushToken: String,
     hasNotificationPermission: Boolean,
+    isFormsRegistered: Boolean,
+    hasLocationPermission: Boolean,
+    hasBackgroundLocationPermission: Boolean,
+    isGeofencingRegistered: Boolean,
+    monitoredGeofences: List<KlaviyoGeofence>,
+    userLocation: LatLng?,
     onExternalIdChange: (String) -> Unit = {},
     onEmailChange: (String) -> Unit = {},
     onPhoneNumberChange: (String) -> Unit = {},
@@ -169,8 +249,11 @@ private fun SampleViewContent(
     registerForInAppForms: () -> Unit = {},
     unregisterFromInAppForms: () -> Unit = {},
     requestPermission: () -> Unit = {},
+    requestLocationPermission: () -> Unit = {},
+    requestBackgroundLocationPermission: () -> Unit = {},
+    registerForGeofencing: () -> Unit = {},
+    unregisterFromGeofencing: () -> Unit = {}
 ) {
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -237,7 +320,7 @@ private fun SampleViewContent(
             )
         }
 
-        ViewRow { Divider() }
+        ViewRow { HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color) }
 
         SectionHeader(UiConstants.EVENTS_SECTION)
         ViewRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -267,23 +350,25 @@ private fun SampleViewContent(
             )
         }
 
-        ViewRow { Divider() }
+        ViewRow { HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color) }
 
         SectionHeader(UiConstants.FORMS_SECTION)
         ViewRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionButton(
                 text = UiConstants.REGISTER,
                 onClick = registerForInAppForms,
+                enabled = !isFormsRegistered,
                 modifier = Modifier.weight(1f)
             )
             ActionButton(
                 text = UiConstants.UNREGISTER,
                 onClick = unregisterFromInAppForms,
+                enabled = isFormsRegistered,
                 modifier = Modifier.weight(1f)
             )
         }
 
-        ViewRow { Divider() }
+        ViewRow { HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color) }
 
         SectionHeader(UiConstants.PUSH_SECTION)
         ViewRow {
@@ -302,6 +387,23 @@ private fun SampleViewContent(
         }
         ViewRow {
             Text(text = pushToken, style = MaterialTheme.typography.bodySmall)
+        }
+
+        ViewRow { HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color) }
+
+        SectionHeader(UiConstants.LOCATION_SECTION)
+        ViewRow {
+            LocationView(
+                hasLocationPermission = hasLocationPermission,
+                hasBackgroundLocationPermission = hasBackgroundLocationPermission,
+                isGeofencingRegistered = isGeofencingRegistered,
+                monitoredGeofences = monitoredGeofences,
+                userLocation = userLocation,
+                onRequestLocationPermission = requestLocationPermission,
+                onRequestBackgroundLocationPermission = requestBackgroundLocationPermission,
+                onRegisterForGeofencing = registerForGeofencing,
+                onUnregisterFromGeofencing = unregisterFromGeofencing
+            )
         }
     }
 }
@@ -397,6 +499,12 @@ fun SamplePreviewEmpty() {
             phoneNumber = "",
             pushToken = "",
             hasNotificationPermission = false,
+            isFormsRegistered = false,
+            hasLocationPermission = false,
+            hasBackgroundLocationPermission = false,
+            isGeofencingRegistered = false,
+            monitoredGeofences = emptyList(),
+            userLocation = null
         )
     }
 }
@@ -411,6 +519,12 @@ fun SamplePreviewFilled() {
             phoneNumber = "+1234567890",
             pushToken = "abcdefghijklmnopqrstuvwxyz1234567890",
             hasNotificationPermission = false,
+            isFormsRegistered = false,
+            hasLocationPermission = true,
+            hasBackgroundLocationPermission = false,
+            isGeofencingRegistered = false,
+            monitoredGeofences = emptyList(),
+            userLocation = null
         )
     }
 }
