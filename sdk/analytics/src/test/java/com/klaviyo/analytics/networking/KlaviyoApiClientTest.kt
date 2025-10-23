@@ -276,17 +276,29 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Enqueueing an Opened Push event flushes the queue immediately`() {
+    fun `Enqueueing any internal event metric flushes the queue immediately`() {
         mockkConstructor(EventApiRequest::class)
         every { anyConstructed<EventApiRequest>().send(any()) } returns KlaviyoApiRequest.Status.Complete
 
-        KlaviyoApiClient.enqueueEvent(
-            Event(EventMetric.OPENED_PUSH),
-            Profile().setAnonymousId(ANON_ID)
+        // Test with various internal metrics (those starting with $)
+        val internalMetrics = listOf(
+            EventMetric.OPENED_PUSH,
+            EventMetric.CUSTOM("\$geofence_enter"),
+            EventMetric.CUSTOM("\$geofence_exit"),
+            EventMetric.CUSTOM("\$any_internal_metric")
         )
 
-        verify { anyConstructed<EventApiRequest>().send(any()) }
-        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        internalMetrics.forEach { metric ->
+            KlaviyoApiClient.enqueueEvent(
+                Event(metric),
+                Profile().setAnonymousId(ANON_ID)
+            )
+
+            // Verify queue was flushed immediately for this internal metric
+            verify { anyConstructed<EventApiRequest>().send(any()) }
+            assertEquals(0, KlaviyoApiClient.getQueueSize())
+        }
+
         unmockkConstructor(EventApiRequest::class)
     }
 

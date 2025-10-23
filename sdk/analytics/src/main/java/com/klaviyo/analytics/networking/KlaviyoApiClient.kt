@@ -2,7 +2,6 @@ package com.klaviyo.analytics.networking
 
 import android.os.Handler
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
@@ -98,7 +97,7 @@ internal object KlaviyoApiClient : ApiClient {
             Registry.log.verbose("Enqueuing ${event.metric.name} event")
             enqueueRequest(it)
 
-            if (event.metric == EventMetric.OPENED_PUSH) {
+            if (event.metric.isInternal) {
                 flushQueue()
             }
         }

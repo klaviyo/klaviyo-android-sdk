@@ -3,13 +3,20 @@ package com.klaviyo.location
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.tasks.Task
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.ApiObserver
+import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.analytics.networking.requests.FetchedGeofence
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
@@ -19,9 +26,11 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.slot
+import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
@@ -114,6 +123,15 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     private var locationManager = KlaviyoLocationManager()
 
+    // Mock BroadcastReceiver.PendingResult for geofence intent tests
+    private val mockPendingResult = mockk<BroadcastReceiver.PendingResult>(
+        relaxed = true
+    )
+
+    private val mockState = mockk<State>(relaxed = true)
+    private val mockEvent = mockk<Event>(relaxed = true)
+    private val mockProfile = mockk<Profile>(relaxed = true)
+
     @Before
     override fun setup() {
         super.setup()
@@ -167,6 +185,32 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         every { mockPermissionMonitor.permissionState } returns true
         locationManager.startGeofenceMonitoring()
         clearMocks(mockGeofencingClient, answers = false)
+    }
+
+    // Helper to setup mock State with API key and profile
+    private fun setupMockStateWithApiKey(returnEvent: Event = mockEvent) {
+        every { mockState.apiKey } returns API_KEY
+        every { mockState.getAsProfile() } returns mockProfile
+        every { mockState.createEvent(any(), any()) } returns returnEvent
+        Registry.register<State> { mockState }
+    }
+
+    // Helper to create an Event with a specific uniqueId
+    private fun createEventWithUuid(uuid: String): Event {
+        return mockk<Event>(relaxed = true).apply {
+            every { uniqueId } returns uuid
+        }
+    }
+
+    // Helper to wrap test logic with GeofencingEvent static mocking
+    private fun withMockedGeofencingEvent(event: GeofencingEvent, block: () -> Unit) {
+        mockkStatic(GeofencingEvent::class)
+        try {
+            every { GeofencingEvent.fromIntent(any()) } returns event
+            block()
+        } finally {
+            unmockkStatic(GeofencingEvent::class)
+        }
     }
 
     @Test
@@ -808,5 +852,476 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         // Verify pending result was finished
         verify { mockPendingResult.finish() }
+    }
+
+    /**
+     * Helper to create a mock GeofencingEvent with specified parameters
+     */
+    private fun mockGeofencingEvent(
+        hasError: Boolean = false,
+        errorCode: Int = 0,
+        transition: Int = Geofence.GEOFENCE_TRANSITION_ENTER,
+        geofences: List<Geofence> = emptyList()
+    ): GeofencingEvent = mockk<GeofencingEvent>(relaxed = true).apply {
+        every { hasError() } returns hasError
+        every { getErrorCode() } returns errorCode
+        every { geofenceTransition } returns transition
+        every { triggeringGeofences } returns geofences
+    }
+
+    /**
+     * Helper to create a mock Geofence with specified parameters
+     */
+    private fun mockGeofence(
+        id: String,
+        lat: Double = NYC_LAT,
+        lon: Double = NYC_LNG,
+        radius: Float = NYC_RADIUS
+    ): Geofence = mockk<Geofence>(relaxed = true).apply {
+        every { requestId } returns id
+        every { latitude } returns lat
+        every { longitude } returns lon
+        every { getRadius() } returns radius
+    }
+
+    @Test
+    fun `handleGeofenceIntent returns early when GeofencingEvent is null`() {
+        // Setup: Register State to verify it's not accessed
+        val mockState = mockk<State>(relaxed = true)
+        Registry.register<State> { mockState }
+
+        // Mock GeofencingEvent.fromIntent to return null
+        mockkStatic(GeofencingEvent::class)
+        every { GeofencingEvent.fromIntent(any()) } returns null
+
+        val mockIntent = mockk<Intent>(relaxed = true)
+        locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+        // Should return early and not create events
+        verify(exactly = 0) { mockState.createEvent(any(), any()) }
+
+        unmockkStatic(GeofencingEvent::class)
+    }
+
+    @Test
+    fun `handleGeofenceIntent logs error and returns when GeofencingEvent has error`() {
+        // Setup: Register State to verify it's not accessed
+        val mockState = mockk<State>(relaxed = true)
+        Registry.register<State> { mockState }
+
+        // Mock GeofencingEvent with error
+        val mockEvent = mockGeofencingEvent(hasError = true, errorCode = 1000)
+        mockkStatic(GeofencingEvent::class)
+        every { GeofencingEvent.fromIntent(any()) } returns mockEvent
+
+        val mockIntent = mockk<Intent>(relaxed = true)
+        locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+        // Should log error and return early without creating events
+        verify(exactly = 0) { mockState.createEvent(any(), any()) }
+
+        unmockkStatic(GeofencingEvent::class)
+    }
+
+    @Test
+    fun `handleGeofenceIntent creates event for ENTER transition when State is initialized`() {
+        // Setup: Register State in Registry
+        setupMockStateWithApiKey()
+
+        // Mock geofence and event
+        val geofence = mockGeofence("$API_KEY:geo1")
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Verify event was created with correct metric
+            verify {
+                mockState.createEvent(
+                    match { event ->
+                        event.metric == GeofenceEventMetric.ENTER &&
+                            event[GeofenceEventProperty.GEOFENCE_ID] == "$API_KEY:geo1"
+                    },
+                    mockProfile
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `handleGeofenceIntent creates event for EXIT transition`() {
+        // Setup: Register State in Registry
+        setupMockStateWithApiKey()
+
+        // Mock geofence and event
+        val geofence = mockGeofence("$API_KEY:geo1")
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_EXIT,
+            geofences = listOf(geofence)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Verify event was created with correct metric
+            verify {
+                mockState.createEvent(
+                    match { event ->
+                        event.metric == GeofenceEventMetric.EXIT
+                    },
+                    mockProfile
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `handleGeofenceIntent creates events for multiple geofences`() {
+        // Setup: Register State in Registry
+        setupMockStateWithApiKey()
+
+        // Mock multiple geofences
+        val geofence1 = mockGeofence("$API_KEY:geo1", NYC_LAT, NYC_LNG, NYC_RADIUS)
+        val geofence2 = mockGeofence("$API_KEY:geo2", LONDON_LAT, LONDON_LNG, LONDON_RADIUS)
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence1, geofence2)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Verify events were created for both geofences
+            verify(exactly = 2) {
+                mockState.createEvent(any(), mockProfile)
+            }
+        }
+    }
+
+    @Test
+    fun `handleGeofenceIntent auto-initializes Klaviyo when State is not registered`() {
+        // Setup: Ensure State is NOT in Registry
+        Registry.unregister<State>()
+
+        // Mock State that will be registered after initialization
+        val mockState = mockk<State>(relaxed = true)
+        val mockProfile = mockk<Profile>(relaxed = true)
+        every { mockState.getAsProfile() } returns mockProfile
+        every { mockState.createEvent(any(), any()) } returns mockEvent
+
+        // Mock Klaviyo.initialize - need to register State when called
+        mockkObject(Klaviyo)
+        every { Klaviyo.initialize(any(), any<Context>()) } answers {
+            Registry.register<State> { mockState }
+            Klaviyo
+        }
+
+        // Mock geofence with company ID
+        val companyId = "TEST_API_KEY"
+        val geofence = mockGeofence("$companyId:geo1")
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence)
+        )
+        mockkStatic(GeofencingEvent::class)
+        every { GeofencingEvent.fromIntent(any()) } returns mockEvent
+
+        val mockContext = mockk<Context>(relaxed = true)
+        val mockIntent = mockk<Intent>(relaxed = true)
+        locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+        // Verify Klaviyo was auto-initialized with correct company ID (using any() for context since applicationContext is called)
+        verify { Klaviyo.initialize(companyId, any()) }
+
+        // Verify event was created after initialization
+        verify {
+            mockState.createEvent(
+                match { event -> event.metric == GeofenceEventMetric.ENTER },
+                mockProfile
+            )
+        }
+
+        unmockkStatic(GeofencingEvent::class)
+        unmockkObject(Klaviyo)
+    }
+
+    @Test
+    fun `handleGeofenceIntent logs error for unknown transition type`() {
+        // Setup: Register State in Registry
+        val mockState = mockk<State>(relaxed = true)
+        Registry.register<State> { mockState }
+
+        // Capture API key before using in match block
+        val apiKey = Registry.config.apiKey
+
+        // Mock geofence with invalid transition
+        val geofence = mockGeofence("$apiKey:geo1")
+        val mockEvent = mockGeofencingEvent(
+            transition = 999, // Invalid transition
+            geofences = listOf(geofence)
+        )
+        mockkStatic(GeofencingEvent::class)
+        every { GeofencingEvent.fromIntent(any()) } returns mockEvent
+
+        val mockIntent = mockk<Intent>(relaxed = true)
+        locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+        // Should log error and not create any events
+        verify(exactly = 0) { mockState.createEvent(any(), any()) }
+
+        unmockkStatic(GeofencingEvent::class)
+    }
+
+    // ========== goAsync() / waitForRequestCompletion Tests ==========
+
+    @Test
+    fun `handleGeofenceIntent calls pendingResult finish when request completes successfully`() {
+        // Setup: Register State in Registry
+        val eventUuid = "test-event-uuid"
+        val completableEvent = createEventWithUuid(eventUuid)
+        setupMockStateWithApiKey(completableEvent)
+
+        // Create mock request that will be observed
+        val completableRequest = mockk<ApiRequest>(relaxed = true).apply {
+            every { uuid } returns eventUuid
+            every { responseCode } returns 200
+        }
+
+        val geofence = mockGeofence("$API_KEY:geo1")
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Capture the API observer that was registered
+            val observerSlot = slot<ApiObserver>()
+            verify { mockApiClient.onApiRequest(false, capture(observerSlot)) }
+
+            // Simulate the observer being called with the completed request
+            observerSlot.captured(completableRequest)
+
+            // Verify pendingResult.finish() was called
+            verify { mockPendingResult.finish() }
+
+            // Verify observer was unregistered
+            verify { mockApiClient.offApiRequest(any()) }
+        }
+    }
+
+    @Test
+    fun `handleGeofenceIntent calls pendingResult finish when request fails`() {
+        // Setup: Register State in Registry
+        val eventUuid = "test-event-uuid"
+        val failedEvent = createEventWithUuid(eventUuid)
+        setupMockStateWithApiKey(failedEvent)
+
+        // Create mock request that will be observed
+        val failedRequest = mockk<ApiRequest>(relaxed = true).apply {
+            every { uuid } returns eventUuid
+            every { responseCode } returns 500
+        }
+
+        val geofence = mockGeofence("$API_KEY:geo1")
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Capture the API observer that was registered
+            val observerSlot = slot<ApiObserver>()
+            verify { mockApiClient.onApiRequest(false, capture(observerSlot)) }
+
+            // Simulate the observer being called with the failed request
+            observerSlot.captured(failedRequest)
+
+            // Verify pendingResult.finish() was called
+            verify { mockPendingResult.finish() }
+
+            // Verify observer was unregistered
+            verify { mockApiClient.offApiRequest(any()) }
+        }
+    }
+
+    @Test
+    fun `handleGeofenceIntent calls pendingResult finish on timeout`() {
+        // Setup: Register State in Registry
+        val eventUuid = "test-event-uuid"
+        val pendingEvent = createEventWithUuid(eventUuid)
+        setupMockStateWithApiKey(pendingEvent)
+
+        val geofence = mockGeofence("$API_KEY:geo1")
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Verify timeout was scheduled by checking the scheduled tasks
+            assertEquals(1, staticClock.scheduledTasks.size)
+            val scheduledTask = staticClock.scheduledTasks.first()
+            assertEquals(TIME + 9500L, scheduledTask.time)
+
+            // Execute the timeout task
+            scheduledTask.task()
+
+            // Verify pendingResult.finish() was called by timeout
+            verify { mockPendingResult.finish() }
+
+            // Verify observer was unregistered
+            verify { mockApiClient.offApiRequest(any()) }
+        }
+    }
+
+    @Test
+    fun `handleGeofenceIntent waits for all requests to complete before calling finish`() {
+        // Setup: Register State in Registry
+        val event1Uuid = "event-1-uuid"
+        val event2Uuid = "event-2-uuid"
+        val event1 = createEventWithUuid(event1Uuid)
+        val event2 = createEventWithUuid(event2Uuid)
+
+        val apiKey = Registry.config.apiKey
+        val mockState = mockk<State>(relaxed = true)
+        val mockProfile = mockk<Profile>(relaxed = true)
+        every { mockState.apiKey } returns apiKey
+        every { mockState.getAsProfile() } returns mockProfile
+        every { mockState.createEvent(any(), any()) } returnsMany listOf(event1, event2)
+        Registry.register<State> { mockState }
+
+        // Create mock requests that will be observed
+        val request1 = mockk<ApiRequest>(relaxed = true).apply {
+            every { uuid } returns event1Uuid
+            every { responseCode } returns 200
+        }
+        val request2 = mockk<ApiRequest>(relaxed = true).apply {
+            every { uuid } returns event2Uuid
+            every { responseCode } returns 200
+        }
+
+        val geofence1 = mockGeofence("$apiKey:geo1")
+        val geofence2 = mockGeofence("$apiKey:geo2")
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence1, geofence2)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Capture the API observer that was registered
+            val observerSlot = slot<ApiObserver>()
+            verify { mockApiClient.onApiRequest(false, capture(observerSlot)) }
+
+            // Simulate only the first request completing
+            observerSlot.captured(request1)
+
+            // Verify finish() was NOT called yet (waiting for second request)
+            verify(exactly = 0) { mockPendingResult.finish() }
+
+            // Simulate the second request completing
+            observerSlot.captured(request2)
+
+            // Now verify finish() was called
+            verify(exactly = 1) { mockPendingResult.finish() }
+
+            // Verify observer was unregistered
+            verify { mockApiClient.offApiRequest(any()) }
+        }
+    }
+
+    @Test
+    fun `handleGeofenceIntent calls finish immediately when no geofences trigger`() {
+        // Setup: Register State in Registry
+        val mockState = mockk<State>(relaxed = true)
+        Registry.register<State> { mockState }
+
+        // Mock event with NO geofences
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = emptyList()
+        )
+        mockkStatic(GeofencingEvent::class)
+        every { GeofencingEvent.fromIntent(any()) } returns mockEvent
+
+        val mockIntent = mockk<Intent>(relaxed = true)
+        locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+        // Verify finish() was called immediately
+        verify { mockPendingResult.finish() }
+
+        // Verify observer was NOT registered (no requests to wait for)
+        verify(exactly = 0) { mockApiClient.onApiRequest(any(), any()) }
+
+        unmockkStatic(GeofencingEvent::class)
+    }
+
+    @Test
+    fun `handleGeofenceIntent calls finish immediately when triggeringGeofences is null`() {
+        // Setup: Register State in Registry
+        val mockState = mockk<State>(relaxed = true)
+        Registry.register<State> { mockState }
+
+        // Mock event with NULL triggeringGeofences
+        val mockEvent = mockk<GeofencingEvent>(relaxed = true).apply {
+            every { hasError() } returns false
+            every { geofenceTransition } returns Geofence.GEOFENCE_TRANSITION_ENTER
+            every { triggeringGeofences } returns null
+        }
+
+        mockkStatic(GeofencingEvent::class)
+        every { GeofencingEvent.fromIntent(any()) } returns mockEvent
+
+        val mockIntent = mockk<Intent>(relaxed = true)
+        locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+        // Verify finish() was called immediately
+        verify { mockPendingResult.finish() }
+
+        // Verify observer was NOT registered (no requests to wait for)
+        verify(exactly = 0) { mockApiClient.onApiRequest(any(), any()) }
+
+        // Verify no events were created
+        verify(exactly = 0) { mockState.createEvent(any(), any()) }
+
+        unmockkStatic(GeofencingEvent::class)
+    }
+
+    @Test
+    fun `handleGeofenceIntent schedules 9_5 second timeout`() {
+        val eventWithUuid = createEventWithUuid("timeout-test-uuid")
+        setupMockStateWithApiKey(eventWithUuid)
+        val geofence = mockGeofence("$API_KEY:geo1")
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Verify timeout was scheduled with 9500ms delay by checking the scheduled tasks
+            assertEquals(1, staticClock.scheduledTasks.size)
+            val scheduledTask = staticClock.scheduledTasks.first()
+            assertEquals(TIME + 9500L, scheduledTask.time)
+        }
     }
 }
