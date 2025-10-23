@@ -20,7 +20,6 @@ import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.AdvancedAPI
 import java.io.Serializable
-import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -67,16 +66,12 @@ internal class KlaviyoState : State {
     /**
      * List of registered state change observers
      */
-    private val stateChangeObservers = Collections.synchronizedList(
-        CopyOnWriteArrayList<StateChangeObserver>()
-    )
+    private val stateChangeObservers = CopyOnWriteArrayList<StateChangeObserver>()
 
     /**
      * List of registered profile event observers
      */
-    private val eventObserver = Collections.synchronizedList(
-        CopyOnWriteArrayList<ProfileEventObserver>()
-    )
+    private val eventObserver = CopyOnWriteArrayList<ProfileEventObserver>()
 
     /**
      * Register an observer to be notified when state changes
@@ -192,10 +187,8 @@ internal class KlaviyoState : State {
         }
         // Add enriched event to buffer for multi-consumer access
         GenericEventBuffer.addEvent(shadowedEvent)
-        synchronized(eventObserver) {
-            eventObserver.forEach {
-                it?.invoke(shadowedEvent)
-            }
+        eventObserver.forEach {
+            it?.invoke(shadowedEvent)
         }
     }
 
@@ -242,7 +235,7 @@ internal class KlaviyoState : State {
      *
      * @param change - the state change to broadcast
      */
-    private fun broadcastChange(change: StateChange) = synchronized(stateChangeObservers) {
+    private fun broadcastChange(change: StateChange) {
         stateChangeObservers.forEach { it(change) }
     }
 
