@@ -127,6 +127,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     @After
     override fun cleanup() {
         unmockkStatic(GeofencingEvent::class)
+        unmockkObject(KlaviyoPermissionMonitor.Companion)
+        unmockkObject(Klaviyo)
         super.cleanup()
     }
 
@@ -390,9 +392,10 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     @Test
     fun `storeGeofences saves geofences to dataStore`() {
+        val apiKey = Registry.config.apiKey
         val geofences = listOf(
-            KlaviyoGeofence("geo1", NYC_LON, NYC_LAT, NYC_RADIUS),
-            KlaviyoGeofence("geo2", LONDON_LON, LONDON_LAT, LONDON_RADIUS)
+            KlaviyoGeofence("$apiKey:geo1", NYC_LON, NYC_LAT, NYC_RADIUS),
+            KlaviyoGeofence("$apiKey:geo2", LONDON_LON, LONDON_LAT, LONDON_RADIUS)
         )
 
         // Store geofences
@@ -401,8 +404,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         // Retrieve and verify they were stored correctly
         val retrieved = locationManager.getStoredGeofences()
         assertEquals(2, retrieved.size)
-        assertGeofenceEquals(retrieved[0], "geo1", NYC_LAT, NYC_LON, NYC_RADIUS)
-        assertGeofenceEquals(retrieved[1], "geo2", LONDON_LAT, LONDON_LON, LONDON_RADIUS)
+        assertGeofenceEquals(retrieved[0], "$apiKey:geo1", NYC_LAT, NYC_LON, NYC_RADIUS)
+        assertGeofenceEquals(retrieved[1], "$apiKey:geo2", LONDON_LAT, LONDON_LON, LONDON_RADIUS)
     }
 
     @Test
@@ -531,10 +534,11 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     @Test
     fun `permission change to granted triggers monitoring to start`() {
+        val apiKey = Registry.config.apiKey
         // Store some geofences first
         locationManager.storeGeofences(
             listOf(
-                KlaviyoGeofence("geo1", NYC_LON, NYC_LAT, NYC_RADIUS)
+                KlaviyoGeofence("$apiKey:geo1", NYC_LON, NYC_LAT, NYC_RADIUS)
             )
         )
 
@@ -570,11 +574,12 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     @Test
     fun `startMonitoring adds all stored geofences to GeofencingClient in one batch`() {
+        val apiKey = Registry.config.apiKey
         // Store multiple geofences
         locationManager.storeGeofences(
             listOf(
-                KlaviyoGeofence("geo1", NYC_LON, NYC_LAT, NYC_RADIUS),
-                KlaviyoGeofence("geo2", LONDON_LON, LONDON_LAT, LONDON_RADIUS)
+                KlaviyoGeofence("$apiKey:geo1", NYC_LON, NYC_LAT, NYC_RADIUS),
+                KlaviyoGeofence("$apiKey:geo2", LONDON_LON, LONDON_LAT, LONDON_RADIUS)
             )
         )
 
@@ -592,10 +597,11 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     @Test
     fun `full lifecycle - start, permission change, stop`() {
+        val apiKey = Registry.config.apiKey
         // Store geofences
         locationManager.storeGeofences(
             listOf(
-                KlaviyoGeofence("geo1", NYC_LON, NYC_LAT, NYC_RADIUS)
+                KlaviyoGeofence("$apiKey:geo1", NYC_LON, NYC_LAT, NYC_RADIUS)
             )
         )
 
@@ -636,9 +642,10 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     @Test
     fun `fetchGeofences replaces old geofences in system monitoring`() {
+        val apiKey = Registry.config.apiKey
         // Setup: Store initial geofences and start monitoring
         locationManager.storeGeofences(
-            listOf(KlaviyoGeofence("old_geo", NYC_LON, NYC_LAT, NYC_RADIUS))
+            listOf(KlaviyoGeofence("$apiKey:old_geo", NYC_LON, NYC_LAT, NYC_RADIUS))
         )
 
         every { mockPermissionMonitor.permissionState } returns true
@@ -1260,6 +1267,124 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             assertEquals(1, staticClock.scheduledTasks.size)
             val scheduledTask = staticClock.scheduledTasks.first()
             assertEquals(TIME + 9500L, scheduledTask.time)
+        }
+    }
+
+    // --- handleBootEvent tests ---
+
+    @Test
+    fun `handleBootEvent returns early when location permissions not granted`() {
+        // Mock the companion object method
+        mockkObject(KlaviyoPermissionMonitor.Companion)
+        every { KlaviyoPermissionMonitor.hasGeofencePermissions(any()) } returns false
+
+        locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Verify no geofencing operations occurred
+        verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
+    }
+
+    @Test
+    fun `handleBootEvent returns early when no geofences are stored`() {
+        // Mock the companion object method and Klaviyo initialization
+        mockkObject(KlaviyoPermissionMonitor.Companion)
+        mockkObject(Klaviyo)
+        every { KlaviyoPermissionMonitor.hasGeofencePermissions(any()) } returns true
+        every { Klaviyo.registerForLifecycleCallbacks(any()) } returns Klaviyo
+
+        // Ensure no geofences are stored
+        locationManager.clearStoredGeofences()
+
+        locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Verify no geofencing operations occurred
+        verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
+    }
+
+    @Test
+    fun `handleBootEvent successfully restores geofences when all conditions met`() {
+        val apiKey = Registry.config.apiKey
+        // Mock the companion object method and Klaviyo initialization
+        mockkObject(KlaviyoPermissionMonitor.Companion)
+        mockkObject(Klaviyo)
+        every { KlaviyoPermissionMonitor.hasGeofencePermissions(any()) } returns true
+        every { Klaviyo.registerForLifecycleCallbacks(any()) } returns Klaviyo
+
+        // Store some geofences
+        locationManager.storeGeofences(
+            listOf(
+                KlaviyoGeofence("$apiKey:geo1", NYC_LON, NYC_LAT, NYC_RADIUS),
+                KlaviyoGeofence("$apiKey:geo2", LONDON_LON, LONDON_LAT, LONDON_RADIUS)
+            )
+        )
+
+        locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Verify geofences were re-registered with the system
+        verify(exactly = 1) { mockGeofencingClient.addGeofences(any(), any()) }
+    }
+
+    @Test
+    fun `handleBootEvent restores correct number of geofences`() {
+        val apiKey = Registry.config.apiKey
+        // Mock the companion object method and Klaviyo initialization
+        mockkObject(KlaviyoPermissionMonitor.Companion)
+        mockkObject(Klaviyo)
+        every { KlaviyoPermissionMonitor.hasGeofencePermissions(any()) } returns true
+        every { Klaviyo.registerForLifecycleCallbacks(any()) } returns Klaviyo
+
+        // Store 3 geofences
+        locationManager.storeGeofences(
+            listOf(
+                KlaviyoGeofence("$apiKey:geo1", NYC_LON, NYC_LAT, NYC_RADIUS),
+                KlaviyoGeofence("$apiKey:geo2", LONDON_LON, LONDON_LAT, LONDON_RADIUS),
+                KlaviyoGeofence("$apiKey:geo3", NYC_LON + 1, NYC_LAT + 1, NYC_RADIUS)
+            )
+        )
+
+        locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Verify all 3 geofences were added in a single batch
+        verify(exactly = 1) {
+            mockGeofencingClient.addGeofences(
+                match { request ->
+                    request.geofences.size == 3
+                },
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun `handleBootEvent restores geofences with correct properties`() {
+        val apiKey = Registry.config.apiKey
+        // Mock the companion object method and Klaviyo initialization
+        mockkObject(KlaviyoPermissionMonitor.Companion)
+        mockkObject(Klaviyo)
+        every { KlaviyoPermissionMonitor.hasGeofencePermissions(any()) } returns true
+        every { Klaviyo.registerForLifecycleCallbacks(any()) } returns Klaviyo
+
+        // Store a single geofence with specific properties
+        locationManager.storeGeofences(
+            listOf(
+                KlaviyoGeofence("$apiKey:test_geo", NYC_LON, NYC_LAT, NYC_RADIUS)
+            )
+        )
+
+        locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Verify geofence was added with correct properties
+        verify(exactly = 1) {
+            mockGeofencingClient.addGeofences(
+                match { request ->
+                    request.geofences.size == 1 &&
+                        request.geofences.first().requestId == "$apiKey:test_geo" &&
+                        request.geofences.first().latitude == NYC_LAT &&
+                        request.geofences.first().longitude == NYC_LON &&
+                        request.geofences.first().radius == NYC_RADIUS
+                },
+                any()
+            )
         }
     }
 }

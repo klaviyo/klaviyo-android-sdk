@@ -23,6 +23,7 @@ import com.klaviyo.analytics.networking.ApiObserver
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Config
 import java.util.concurrent.CopyOnWriteArrayList
 import org.json.JSONArray
 
@@ -390,5 +391,43 @@ internal class KlaviyoLocationManager(
         Registry.get<State>().run {
             createEvent(event, getAsProfile())
         }.uniqueId
+    }
+
+    /**
+     * Handle device boot event to re-register geofences
+     *
+     * System geofences are cleared on device reboot, so we need to restore them from
+     * persistent storage. This method checks for location permissions and re-registers
+     * any stored geofences if permissions are granted.
+     *
+     * Note: This requires Klaviyo to have been initialized at least once before the device reboot
+     * so that Config, dataStore, and location permissions are accessible. If Klaviyo has never been
+     * initialized, this method will silently return without restoring geofences.
+     */
+    @SuppressLint("MissingPermission")
+    override fun restoreGeofencesOnBoot(context: Context) {
+        // Check if we have location permissions
+        if (!KlaviyoPermissionMonitor.hasGeofencePermissions(context)) {
+            Registry.log.info("Location permissions not granted, skipping geofence restoration")
+            return
+        }
+
+        Registry.log.info("Handling device boot event to restore geofences")
+
+        if (!Registry.isRegistered<Config>()) {
+            // Initialize Klaviyo with config to access dataStore
+            Klaviyo.registerForLifecycleCallbacks(context)
+        }
+
+        // Re-register geofences with the system
+        getStoredGeofences()
+            .takeIf { !it.isEmpty() }
+            ?.let { storedGeofences ->
+                Registry.log.info("Restoring ${storedGeofences.size} geofences after boot")
+                startMonitoring(storedGeofences)
+            }
+            ?: run {
+                Registry.log.info("No stored geofences to restore after boot")
+            }
     }
 }
