@@ -19,7 +19,6 @@ import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
-import java.util.Collections
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
@@ -46,9 +45,7 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * List of registered API observers
      */
-    private val apiObservers = Collections.synchronizedList(
-        CopyOnWriteArrayList<ApiObserver>()
-    )
+    private val apiObservers = CopyOnWriteArrayList<ApiObserver>()
 
     /**
      * Initialize logic including lifecycle observers and reviving the queue from persistent store
@@ -200,9 +197,7 @@ internal object KlaviyoApiClient : ApiClient {
             Registry.log.verbose("${request.responseCode} $response")
         }
 
-        synchronized(apiObservers) {
-            apiObservers.forEach { it(request) }
-        }
+        apiObservers.forEach { it(request) }
     }
 
     /**

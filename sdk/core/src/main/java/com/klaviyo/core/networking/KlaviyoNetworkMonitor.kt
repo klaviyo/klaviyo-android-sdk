@@ -6,7 +6,6 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.klaviyo.core.Registry
-import java.util.Collections
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -25,9 +24,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     /**
      * List of registered network change observers
      */
-    private val networkChangeObservers = Collections.synchronizedList(
-        CopyOnWriteArrayList<NetworkObserver>()
-    )
+    private val networkChangeObservers = CopyOnWriteArrayList<NetworkObserver>()
 
     /**
      * Callback object to register with system
@@ -73,9 +70,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
 
         Registry.log.verbose("Network ${if (isConnected) "available" else "unavailable"}")
 
-        synchronized(networkChangeObservers) {
-            networkChangeObservers.forEach { it(isConnected) }
-        }
+        networkChangeObservers.forEach { it(isConnected) }
     }
 
     /**

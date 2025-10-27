@@ -8,7 +8,6 @@ import android.os.Bundle
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.core.utils.WeakReferenceDelegate
-import java.util.Collections
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -18,9 +17,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
 
     private var activeActivities = 0
 
-    private val activityObservers = Collections.synchronizedList(
-        CopyOnWriteArrayList<ActivityObserver>()
-    )
+    private val activityObservers = CopyOnWriteArrayList<ActivityObserver>()
 
     override var currentActivity: Activity? by WeakReferenceDelegate()
         private set
@@ -44,9 +41,7 @@ internal object KlaviyoLifecycleMonitor : LifecycleMonitor, Application.Activity
 
     private fun broadcastEvent(event: ActivityEvent) {
         Registry.log.verbose(event.type)
-        synchronized(activityObservers) {
-            activityObservers.forEach { it(event) }
-        }
+        activityObservers.forEach { it(event) }
     }
 
     //region ActivityLifecycleCallbacks
