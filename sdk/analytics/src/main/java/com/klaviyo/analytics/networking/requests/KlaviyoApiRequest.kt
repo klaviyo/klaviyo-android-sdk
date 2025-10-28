@@ -300,6 +300,7 @@ internal open class KlaviyoApiRequest(
 
     /**
      * Builds and sends a network request to Klaviyo and then parses and handles the response
+     * This is a blocking call, should only be used from a background thread or coroutine
      *
      * @param onStatusChange: Callback to be invoked whenever the request's status changes
      * @returns The string value of the response body, if one was returned

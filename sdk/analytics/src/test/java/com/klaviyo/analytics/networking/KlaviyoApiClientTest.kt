@@ -827,7 +827,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `resolveDestinationUrl returns Success when request succeeds`() = runTest(dispatcher) {
+    fun `resolveDestinationUrl returns Success when request succeeds`() = runTest {
         val destinationUrl = mockk<Uri>()
         setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Complete, destinationUrl)
 
@@ -842,7 +842,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `resolveDestinationUrl returns Unavailable and enqueues request when offline`() =
-        runTest(dispatcher) {
+        runTest {
             setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Unsent)
 
             val result = KlaviyoApiClient.resolveDestinationUrl(trackingUrl, profile)
@@ -854,7 +854,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
 
     @Test
-    fun `resolveDestinationUrl returns Failure when request fails`() = runTest(dispatcher) {
+    fun `resolveDestinationUrl returns Failure when request fails`() = runTest {
         setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed)
 
         val result = KlaviyoApiClient.resolveDestinationUrl(trackingUrl, profile)
@@ -895,7 +895,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `resolveDestinationUrl creates UniversalClickTrackRequest with correct parameters`() =
-        runTest(dispatcher) {
+        runTest {
             val mockHeaders = spyk<MutableMap<String, String>>()
             setupResolveDestinationUrlTest(
                 KlaviyoApiRequest.Status.Complete,
@@ -912,7 +912,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
 
     @Test
-    fun `resolveDestinationUrl callback version delegates to suspending version`() = runTest(
+    fun `resolveDestinationUrl legacy implementation invokes callback`() = runTest(
         dispatcher
     ) {
         val destinationUrl = mockk<Uri>()
@@ -926,7 +926,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `fetchGeofences returns Success when request succeeds`() = runTest(dispatcher) {
+    fun `fetchGeofences returns Success when request succeeds`() = runTest {
         val expectedGeofences = listOf(
             FetchedGeofence("id1", 40.7128, -74.006, 100.0),
             FetchedGeofence("id2", 40.6892, -74.0445, 200.0)
@@ -942,7 +942,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `fetchGeofences returns Unavailable when request is unsent`() = runTest(dispatcher) {
+    fun `fetchGeofences returns Unavailable when request is unsent`() = runTest {
         setupFetchGeofencesTest(KlaviyoApiRequest.Status.Unsent)
 
         val result = KlaviyoApiClient.fetchGeofences()
@@ -953,7 +953,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `fetchGeofences returns Failure when request fails`() = runTest(dispatcher) {
+    fun `fetchGeofences returns Failure when request fails`() = runTest {
         setupFetchGeofencesTest(KlaviyoApiRequest.Status.Failed)
 
         val result = KlaviyoApiClient.fetchGeofences()
@@ -964,7 +964,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `fetchGeofences with empty geofence list`() = runTest(dispatcher) {
+    fun `fetchGeofences with empty geofence list`() = runTest {
         setupFetchGeofencesTest(KlaviyoApiRequest.Status.Complete, emptyList())
 
         val result = KlaviyoApiClient.fetchGeofences()
@@ -976,7 +976,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `fetchGeofences callback version delegates to suspending version`() = runTest(dispatcher) {
+    fun `fetchGeofences legacy implementation invokes callback`() = runTest {
         val expectedGeofences = listOf(
             FetchedGeofence("id1", 40.7128, -74.006, 100.0),
             FetchedGeofence("id2", 40.6892, -74.0445, 200.0)

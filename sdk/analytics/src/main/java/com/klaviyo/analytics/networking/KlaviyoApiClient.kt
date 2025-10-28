@@ -26,6 +26,7 @@ import com.klaviyo.core.safeLaunch
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -109,10 +110,12 @@ internal object KlaviyoApiClient : ApiClient {
     override suspend fun resolveDestinationUrl(
         trackingUrl: String,
         profile: Profile
-    ): ResolveDestinationResult = UniversalClickTrackRequest(
-        trackingUrl,
-        profile
-    ).resolveOrEnqueue()
+    ): ResolveDestinationResult = withContext(Registry.dispatcher) {
+        UniversalClickTrackRequest(
+            trackingUrl,
+            profile
+        ).resolveOrEnqueue()
+    }
 
     /**
      * Resolve the destination URL for a universal click tracking link
@@ -126,30 +129,31 @@ internal object KlaviyoApiClient : ApiClient {
         callback: ResolveDestinationCallback
     ): ApiRequest = UniversalClickTrackRequest(trackingUrl, profile).apply {
         CoroutineScope(Registry.dispatcher).safeLaunch {
-            val result = resolveOrEnqueue()
-            callback(result)
+            callback(resolveOrEnqueue())
         }
     }
 
     /**
-     * Resolve the destination URL for a universal click tracking link
+     * Blocking method to resolve the destination URL for a universal click tracking link
      * or enqueue a retry to record a click later if it fails.
      */
     private fun UniversalClickTrackRequest.resolveOrEnqueue(): ResolveDestinationResult {
         sendAndBroadcast()
-        val result = getResult()
-        if (result is ResolveDestinationResult.Unavailable) {
-            enqueueRequest(prepareToEnqueue())
+        return getResult().also { result ->
+            if (result is ResolveDestinationResult.Unavailable) {
+                enqueueRequest(prepareToEnqueue())
+            }
         }
-        return result
     }
 
     /**
      * Fetch geofences from the Klaviyo API
      */
-    override suspend fun fetchGeofences(): FetchGeofencesResult = FetchGeofencesRequest().apply {
-        sendAndBroadcast()
-    }.getResult()
+    override suspend fun fetchGeofences(): FetchGeofencesResult = withContext(Registry.dispatcher) {
+        FetchGeofencesRequest().apply {
+            sendAndBroadcast()
+        }.getResult()
+    }
 
     /**
      * Fetch geofences from the Klaviyo API
@@ -456,7 +460,7 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Send the API request and notify API observers when request transitions between states
+     * Blocking method to send an API request, notifying API observers on transition between states
      */
     private fun KlaviyoApiRequest.sendAndBroadcast(): Status = send {
         broadcastApiRequest(this)
