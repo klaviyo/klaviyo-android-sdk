@@ -301,9 +301,10 @@ internal open class KlaviyoApiRequest(
     /**
      * Builds and sends a network request to Klaviyo and then parses and handles the response
      *
+     * @param onStatusChange: Callback to be invoked whenever the request's status changes
      * @returns The string value of the response body, if one was returned
      */
-    fun send(beforeSend: () -> Unit = { }): Status {
+    fun send(onStatusChange: () -> Unit = { }): Status {
         if (!Registry.networkMonitor.isNetworkConnected()) {
             Registry.log.verbose("Send prevented while network unavailable")
             return status
@@ -316,7 +317,8 @@ internal open class KlaviyoApiRequest(
             val connection = buildUrlConnection()
 
             try {
-                beforeSend.invoke()
+                // Pre-flight status change notification
+                onStatusChange.invoke()
                 connection.connect()
                 parseResponse(connection)
             } finally {
@@ -326,6 +328,9 @@ internal open class KlaviyoApiRequest(
             Registry.log.error(ex.message ?: "", ex)
             status = Status.Failed
             status
+        } finally {
+            // Post-flight status change notification
+            onStatusChange.invoke()
         }
     }
 
