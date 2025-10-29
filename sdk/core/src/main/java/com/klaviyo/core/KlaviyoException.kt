@@ -1,15 +1,16 @@
 package com.klaviyo.core
 
+import com.klaviyo.core.config.KlaviyoConfig
 import java.util.Queue
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 typealias Operation<T> = () -> T
-typealias SuspendOperation = suspend CoroutineScope.() -> Unit
 
 /**
  * Base class for exceptions thrown within the Klaviyo SDK
@@ -19,9 +20,15 @@ typealias SuspendOperation = suspend CoroutineScope.() -> Unit
 abstract class KlaviyoException(final override val message: String) : Exception(message)
 
 /**
- * Safely invoke a function and log KlaviyoExceptions rather than crash
- * Take care not to nest [safeCall] invocations, because the inner exception
+ * Safely perform an operation, catch and log Exceptions rather than crash.
+ * Primarily meant to catch [KlaviyoException] as a guard against invalid operations such as invoking Klaviyo prior to initializing.
+ * In production, this also safeguards the host app against crashing due to uncaught exceptions in Klaviyo code.
+ *
+ * Note: Take care not to nest [safeCall] / [safeApply] invocations, because the inner exception
  * will not halt execution of the outer method.
+ *
+ * Warning: This is not a substitute for proper exception handling at the call site,
+ * reserve this for safeguarding against wholly unexpected failures.
  */
 fun <ReturnType> safeCall(
     errorQueue: Queue<Operation<ReturnType>>? = null,
@@ -36,10 +43,26 @@ fun <ReturnType> safeCall(
         Registry.log.error(e.message, e)
     }
     null
+} catch (e: Throwable) {
+    if (KlaviyoConfig.isDebugBuild) {
+        // To avoid development blindness, re-throw uncaught exceptions in DEBUG builds
+        throw e
+    } else {
+        Registry.log.error("Caught unhandled exception:", e)
+        null
+    }
 }
 
 /**
- * Safe apply function that logs [KlaviyoException] rather than crash
+ * Safely perform an operation, catch and log Exceptions rather than crash.
+ * Primarily meant to catch [KlaviyoException] as a guard against invalid operations such as invoking Klaviyo prior to initializing.
+ * In production, this also safeguards the host app against crashing due to uncaught exceptions in Klaviyo code.
+ *
+ * Note: Take care not to nest [safeCall] / [safeApply] invocations, because the inner exception
+ * will not halt execution of the outer method.
+ *
+ * Warning: This is not a substitute for proper exception handling at the call site,
+ * reserve this for safeguarding against wholly unexpected failures.
  */
 fun <Caller> Caller.safeApply(
     errorQueue: Queue<Operation<Unit>>? = null,
@@ -47,23 +70,29 @@ fun <Caller> Caller.safeApply(
 ) = apply { safeCall(errorQueue, block) }
 
 /**
- * Launch a coroutine wrapped in a generic exception handler
+ * Launch a coroutine to safely perform a suspending operation and catch and log Exceptions rather than crash.
+ * Primarily meant to catch [KlaviyoException] as a guard against invalid operations such as invoking Klaviyo prior to initializing.
+ * In production, this also safeguards the host app against crashing due to uncaught exceptions in Klaviyo code.
+ *
+ * Warning: This is not a substitute for proper exception handling at the call site,
+ * reserve this for safeguarding against wholly unexpected failures.
  */
 fun CoroutineScope.safeLaunch(
     context: CoroutineContext = EmptyCoroutineContext,
     start: CoroutineStart = CoroutineStart.DEFAULT,
-    errorQueue: Queue<SuspendOperation>? = null,
-    block: SuspendOperation
-): Job = launch(context, start) {
-    try {
-        block()
-    } catch (e: KlaviyoException) {
-        errorQueue?.apply {
-            Registry.log.warning("The operation will be retried.", e)
-            add(block)
-        } ?: run {
-            Registry.log.error(e.message, e)
+    block: suspend CoroutineScope.() -> Unit
+): Job = launch(
+    context + CoroutineExceptionHandler { _, e ->
+        when (e) {
+            is KlaviyoException -> Registry.log.error(e.message, e)
+            else -> if (KlaviyoConfig.isDebugBuild) {
+                // To avoid development blindness, re-throw uncaught exceptions in DEBUG builds
+                throw e
+            } else {
+                Registry.log.error("Caught unhandled exception in coroutine scope:", e)
+            }
         }
-        null
-    }
-}
+    },
+    start,
+    block
+)
