@@ -8,6 +8,7 @@ import org.json.JSONObject
  * Represents a geofence from the API response with its attributes.
  */
 data class FetchedGeofence(
+    val companyId: String,
     val id: String,
     val latitude: Double,
     val longitude: Double,
@@ -18,9 +19,10 @@ data class FetchedGeofence(
  * Parse a geofence from a JSON:API response object.
  * Returns null if parsing fails.
  */
-internal fun JSONObject.toFetchedGeofence(): FetchedGeofence? = try {
+internal fun JSONObject.toFetchedGeofence(companyId: String): FetchedGeofence? = try {
     getJSONObject("attributes").let { attributes ->
         FetchedGeofence(
+            companyId,
             id = getString("id"),
             latitude = attributes.getDouble("latitude"),
             longitude = attributes.getDouble("longitude"),
@@ -36,6 +38,6 @@ internal fun JSONObject.toFetchedGeofence(): FetchedGeofence? = try {
  * Convert a JSON array of geofences to a list of [FetchedGeofence] objects.
  * Filters out any null entries resulting from parsing failures.
  */
-internal fun JSONArray.toFetchedGeofences(): List<FetchedGeofence> = List(length()) {
-    getJSONObject(it).toFetchedGeofence()
+internal fun JSONArray.toFetchedGeofences(companyId: String): List<FetchedGeofence> = List(length()) {
+    getJSONObject(it).toFetchedGeofence(companyId)
 }.filterNotNull()
