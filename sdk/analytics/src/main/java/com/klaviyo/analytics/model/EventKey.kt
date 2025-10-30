@@ -18,5 +18,5 @@ sealed class EventKey(name: String) : Keyword(name) {
      */
     internal object TIME : EventKey("_time")
 
-    class CUSTOM(propertyName: String) : EventKey(propertyName)
+    open class CUSTOM(propertyName: String) : EventKey(propertyName)
 }

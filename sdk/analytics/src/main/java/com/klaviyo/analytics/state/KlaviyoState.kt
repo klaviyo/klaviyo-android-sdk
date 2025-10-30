@@ -175,22 +175,24 @@ internal class KlaviyoState : State {
         attributes = null
     }
 
-    override fun createEvent(event: Event, profile: Profile) {
-        val apiRequest = Registry.get<ApiClient>().enqueueEvent(event, profile)
-        // Copy and enrich event with metadata and time (equivalent formating to the API request)
-        val shadowedEvent = event.copy().apply {
-            uniqueId = uniqueId ?: apiRequest.uuid
-            setProperty(EventKey.TIME, apiRequest.queuedTime)
-            DeviceProperties.buildEventMetaData().forEach { entry ->
-                setProperty(entry.key, entry.value)
+    override fun createEvent(event: Event, profile: Profile): Event = Registry.get<ApiClient>()
+        .enqueueEvent(event, profile)
+        .let { apiRequest ->
+            // Copy and enrich event with metadata and time (equivalent formating to the API request)
+            event.copy().apply {
+                uniqueId = uniqueId ?: apiRequest.uuid
+                setProperty(EventKey.TIME, apiRequest.queuedTime)
+                DeviceProperties.buildEventMetaData().forEach { entry ->
+                    setProperty(entry.key, entry.value)
+                }
+            }
+        }.also { enrichedEvent ->
+            // Add enriched event to buffer for multi-consumer access
+            GenericEventBuffer.addEvent(enrichedEvent)
+            eventObserver.forEach {
+                it?.invoke(enrichedEvent)
             }
         }
-        // Add enriched event to buffer for multi-consumer access
-        GenericEventBuffer.addEvent(shadowedEvent)
-        eventObserver.forEach {
-            it?.invoke(shadowedEvent)
-        }
-    }
 
     override fun onProfileEvent(observer: ProfileEventObserver) {
         eventObserver += observer
