@@ -93,11 +93,11 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
     override fun enqueueEvent(event: Event, profile: Profile): ApiRequest =
-        EventApiRequest(event, profile).also {
+        EventApiRequest(event, profile).also { request ->
             Registry.log.verbose("Enqueuing ${event.metric.name} event")
-            enqueueRequest(it)
+            enqueueRequest(request, priority = event.metric.isKlaviyoMetric)
 
-            if (event.metric.isInternal) {
+            if (event.metric.isKlaviyoMetric) {
                 flushQueue()
             }
         }
@@ -169,22 +169,28 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Enqueues an [KlaviyoApiRequest] to run in the background
+     * Enqueues one or more [KlaviyoApiRequest]s to send on a background thread
      * These requests are sent to the Klaviyo asynchronous APIs
      *
      * This method will initialize the API queue and the batching thread
      * if this is the first request made since launch.
      */
-    fun enqueueRequest(vararg requests: KlaviyoApiRequest) {
+    fun enqueueRequest(vararg requests: KlaviyoApiRequest, priority: Boolean = false) {
         if (apiQueue.isEmpty()) {
             initBatch()
         }
+
+        requests.takeIf { priority }?.reverse()
 
         var addedRequest = false
         requests.forEach { request ->
             if (!apiQueue.contains(request)) {
                 Registry.dataStore.store(request.uuid, request.toString())
-                apiQueue.offer(request)
+                if (priority) {
+                    apiQueue.offerFirst(request)
+                } else {
+                    apiQueue.offer(request)
+                }
                 broadcastApiRequest(request)
                 addedRequest = true
             }

@@ -418,6 +418,54 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `enqueueRequest with headOfLine places request at front of queue`() {
+        // Enqueue some regular requests first
+        val regularRequests = (0..2).map { mockRequest("regular-$it") }
+        KlaviyoApiClient.enqueueRequest(*regularRequests.toTypedArray())
+        assertEquals(3, KlaviyoApiClient.getQueueSize())
+
+        // Now enqueue a priority request
+        val priorityRequest = mockRequest("priority-request")
+        KlaviyoApiClient.enqueueRequest(priorityRequest, priority = true)
+
+        // Queue size should be 4
+        assertEquals(4, KlaviyoApiClient.getQueueSize())
+
+        // Force flush to verify the priority request is processed first
+        KlaviyoApiClient.flushQueue()
+
+        // Priority request should be sent first, then the regular requests
+        verify(exactly = 1) { priorityRequest.send(any()) }
+        regularRequests.forEach { request ->
+            verify(exactly = 1) { request.send(any()) }
+        }
+
+        // Queue should be empty after flush
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `enqueueRequest with headOfLine accepts multiple priority requests`() {
+        // Enqueue some regular requests
+        KlaviyoApiClient.enqueueRequest(mockRequest("regular-1"))
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        // Enqueue multiple priority requests
+        val priorityRequest1 = mockRequest("priority-1")
+        val priorityRequest2 = mockRequest("priority-2")
+        KlaviyoApiClient.enqueueRequest(priorityRequest1, priorityRequest2, priority = true)
+
+        assertEquals(3, KlaviyoApiClient.getQueueSize())
+
+        // Flush and verify priority requests were processed
+        KlaviyoApiClient.flushQueue()
+
+        verify(exactly = 1) { priorityRequest1.send(any()) }
+        verify(exactly = 1) { priorityRequest2.send(any()) }
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
     fun `Flushes queue when configured size is reached`() {
         repeat(queueDepth) {
             KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
