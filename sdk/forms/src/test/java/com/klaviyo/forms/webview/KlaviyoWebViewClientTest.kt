@@ -310,7 +310,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         // notably no handshake
         staticClock.execute(10_000)
 
-        verify { spyLog.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js") }
+        verify { spyLog.warning("IAF WebView Aborted: Timeout waiting for Klaviyo.js") }
         verifyDestroy()
     }
 

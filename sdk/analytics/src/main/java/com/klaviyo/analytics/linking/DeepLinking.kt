@@ -57,7 +57,7 @@ object DeepLinking {
      */
     fun handleUniversalTrackingLink(uri: Uri): Boolean {
         if (!isUniversalTrackingUri(uri)) {
-            Registry.log.info("Not a Klaviyo universal tracking URI: $uri")
+            Registry.log.verbose("Not a Klaviyo universal tracking URI: $uri")
             return false
         }
 
