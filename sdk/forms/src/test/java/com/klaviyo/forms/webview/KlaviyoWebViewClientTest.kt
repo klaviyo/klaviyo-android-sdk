@@ -237,6 +237,8 @@ class KlaviyoWebViewClientTest : BaseTest() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
         client.initializeWebView()
+        // Verify that loadTemplate was only called once (which means WebView was only constructed once)
+        verify(exactly = 1) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
     }
 
     @Test

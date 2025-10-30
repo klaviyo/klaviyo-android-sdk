@@ -69,7 +69,7 @@ internal abstract class PersistentObservableProperty<T>(
      */
     protected open fun validateChange(oldValue: T?, newValue: T?): Boolean =
         if (oldValue == newValue) {
-            Registry.log.verbose("Ignored update for $key, value is unchanged")
+            Registry.log.debug("Ignored update for $key, value is unchanged")
             false
         } else {
             true
