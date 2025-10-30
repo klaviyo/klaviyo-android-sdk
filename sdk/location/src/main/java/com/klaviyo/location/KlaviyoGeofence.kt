@@ -1,50 +1,19 @@
 package com.klaviyo.location
 
 import com.google.android.gms.location.Geofence
-import com.google.android.gms.location.GeofencingEvent
+import com.klaviyo.analytics.networking.requests.FetchedGeofence
 import com.klaviyo.core.Registry
 import org.json.JSONObject
 
 /**
- * Callback type for geofence events
+ * Primary representation of a geofence in the Klaviyo SDK.
+ * Here we combine the company ID and location ID to form a composite geofence ID.
+ *
+ * Note: This is distinct from the [FetchedGeofence] which represents the raw API response data.
  */
-typealias KlaviyoGeofenceCallback = (
-    geofence: KlaviyoGeofence,
-    transition: KlaviyoGeofenceTransition
-) -> Unit
-
-/**
- * Represents the type of transition that occurred for a geofence event
- */
-enum class KlaviyoGeofenceTransition {
-    Entered,
-    Exited,
-    Dwelt;
-
-    companion object {
-        /**
-         * Convert a GeofencingEvent to a [KlaviyoGeofenceTransition] enum
-         * Makes life easier than dealing with the raw integers
-         */
-        fun fromGeofencingEvent(event: GeofencingEvent): KlaviyoGeofenceTransition? =
-            when (event.geofenceTransition) {
-                Geofence.GEOFENCE_TRANSITION_ENTER -> Entered
-                Geofence.GEOFENCE_TRANSITION_EXIT -> Exited
-                Geofence.GEOFENCE_TRANSITION_DWELL -> Dwelt
-                else -> null
-            }
-
-        /**
-         * Extension function to convert a GeofencingEvent to a [KlaviyoGeofenceTransition]
-         */
-        fun GeofencingEvent.toKlaviyoGeofenceEvent(): KlaviyoGeofenceTransition? =
-            fromGeofencingEvent(this)
-    }
-}
-
 data class KlaviyoGeofence(
     /**
-     * The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a hyphen.
+     * The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a colon.
      */
     val id: String,
     /**
@@ -60,83 +29,93 @@ data class KlaviyoGeofence(
      */
     val radius: Float
 ) {
+    init {
+        // Validate the geofence ID format: {6-char-companyId}:{non-empty-locationId}
+        val parts = id.split(':', limit = 2)
+        if (parts.size != 2) {
+            Registry.log.warning(
+                "Invalid geofence ID format: '$id' - expected format '{companyId}:{locationId}'"
+            )
+        } else {
+            val extractedCompanyId = parts[0]
+            val extractedLocationId = parts[1]
+
+            if (extractedCompanyId.length != 6) {
+                Registry.log.warning(
+                    "Invalid geofence ID format: '$id' - companyId must be exactly 6 characters, got ${extractedCompanyId.length}"
+                )
+            }
+            if (extractedLocationId.isEmpty()) {
+                Registry.log.warning(
+                    "Invalid geofence ID format: '$id' - locationId cannot be empty"
+                )
+            }
+        }
+    }
+
     /**
      * Company ID to which this geofence belongs, extracted from the geofence ID.
      */
-    val companyId: String = id.split('-').firstOrNull() ?: ""
+    val companyId: String = id.substringBefore(':')
 
     /**
      * Location ID to which this geofence belongs, extracted from the geofence ID.
      */
-    val locationId: String = id.split('-').getOrNull(1) ?: ""
+    val locationId: String = id.substringAfter(':', "")
 
     /**
      * Convert this geofence to a JSON string for storage or transmission.
      */
-    fun toJson(geofence: KlaviyoGeofence): String = JSONObject().apply {
-        put("id", geofence.id)
-        put("latitude", geofence.latitude)
-        put("longitude", geofence.longitude)
-        put("radius", geofence.radius)
-    }.toString()
+    fun toJson() = JSONObject().apply {
+        put(KEY_ID, id)
+        put(KEY_LATITUDE, latitude)
+        put(KEY_LONGITUDE, longitude)
+        put(KEY_RADIUS, radius)
+    }
 
     companion object {
-        /**
-         * Create a [KlaviyoGeofence] from a JSON response from the Klaviyo API.
-         * Note: this is where we combine the company ID and location ID to form the geofence ID.
-         */
-        fun fromApiResponse(json: String) = catching {
-            val companyId = Registry.config.apiKey
-
-            fromJson(
-                JSONObject(json).apply {
-                    put("id", "$companyId-${getString("id")}")
-                }
-            )
-        }
-
-        /**
-         * Convert a JSON object into a [KlaviyoGeofence] instance.
-         */
-        fun fromJson(json: JSONObject): KlaviyoGeofence? = catching {
-            KlaviyoGeofence(
-                id = json.getString("id"),
-                latitude = json.getDouble("latitude"),
-                longitude = json.getDouble("longitude"),
-                radius = json.getDouble("radius").toFloat()
-            )
-        }
-
-        /**
-         * Convert a JSON string into a [KlaviyoGeofence] instance.
-         */
-        fun fromJson(json: String): KlaviyoGeofence? = catching {
-            fromJson(JSONObject(json))
-        }
-
-        /**
-         * Convert a Google Geofence into a [KlaviyoGeofence].
-         */
-        fun fromGeofence(geofence: Geofence): KlaviyoGeofence = KlaviyoGeofence(
-            id = geofence.requestId,
-            latitude = geofence.latitude,
-            longitude = geofence.longitude,
-            radius = geofence.radius
-        )
-
-        /**
-         * Extension function to convert a Google Geofence into a [KlaviyoGeofence].
-         */
-        fun Geofence.toKlaviyoGeofence(): KlaviyoGeofence = fromGeofence(this)
-
-        /**
-         * Helper to catch and log exceptions during parsing.
-         */
-        private fun catching(block: () -> KlaviyoGeofence?): KlaviyoGeofence? = try {
-            block()
-        } catch (e: Exception) {
-            Registry.log.error("Failed to parse KlaviyoGeofence", e)
-            null
-        }
+        const val KEY_ID = "id"
+        const val KEY_LATITUDE = "latitude"
+        const val KEY_LONGITUDE = "longitude"
+        const val KEY_RADIUS = "radius"
     }
+}
+
+/**
+ * Create a [KlaviyoGeofence] from a [FetchedGeofence] API response object.
+ *
+ * Note: this is where we combine the company ID and location ID to form the geofence ID.
+ */
+fun FetchedGeofence.toKlaviyoGeofence(): KlaviyoGeofence = KlaviyoGeofence(
+    id = "$companyId:$id",
+    latitude = latitude,
+    longitude = longitude,
+    radius = radius.toFloat()
+)
+
+/**
+ * Extension function to convert a Google Geofence into a [KlaviyoGeofence].
+ * Expected to already be using composite ID
+ */
+fun Geofence.toKlaviyoGeofence(): KlaviyoGeofence = KlaviyoGeofence(
+    id = requestId,
+    latitude = latitude,
+    longitude = longitude,
+    radius = radius
+)
+
+/**
+ * Parse a [KlaviyoGeofence] from a JSON object.
+ * Returns null if parsing fails.
+ */
+fun JSONObject.toKlaviyoGeofence(): KlaviyoGeofence? = try {
+    KlaviyoGeofence(
+        id = getString(KlaviyoGeofence.KEY_ID),
+        latitude = getDouble(KlaviyoGeofence.KEY_LATITUDE),
+        longitude = getDouble(KlaviyoGeofence.KEY_LONGITUDE),
+        radius = getDouble(KlaviyoGeofence.KEY_RADIUS).toFloat()
+    )
+} catch (e: Exception) {
+    Registry.log.warning("Failed to parse KlaviyoGeofence from $this", e)
+    null
 }
