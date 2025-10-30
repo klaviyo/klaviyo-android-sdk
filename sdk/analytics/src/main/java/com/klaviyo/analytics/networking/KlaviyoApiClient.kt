@@ -8,6 +8,9 @@ import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
+import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
+import com.klaviyo.analytics.networking.requests.FetchGeofencesRequest
+import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
@@ -19,11 +22,10 @@ import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.safeLaunch
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
@@ -102,31 +104,68 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
     /**
-     * Resolve the destination URL for a click track request
+     * Resolve the destination URL for a universal click tracking link
+     * or enqueue a retry to record a click later if it fails.
+     */
+    override suspend fun resolveDestinationUrl(
+        trackingUrl: String,
+        profile: Profile
+    ): ResolveDestinationResult = withContext(Registry.dispatcher) {
+        UniversalClickTrackRequest(
+            trackingUrl,
+            profile
+        ).resolveOrEnqueue()
+    }
+
+    /**
+     * Resolve the destination URL for a universal click tracking link
+     * or enqueue a retry to record a click later if it fails.
+     *
+     * Note: callback-based implementation for Java interop, Kotlin devs are encouraged to use suspend implementation
      */
     override fun resolveDestinationUrl(
         trackingUrl: String,
         profile: Profile,
         callback: ResolveDestinationCallback
-    ): ApiRequest = UniversalClickTrackRequest(trackingUrl, profile).also { request ->
-        // Create request outside of coroutine, so initialization errors are raised to the caller
-        CoroutineScope(Registry.dispatcher).launch {
-            // Send the network request (and notify observers)
-            request.sendAndBroadcast()
+    ): ApiRequest = UniversalClickTrackRequest(trackingUrl, profile).apply {
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            callback(resolveOrEnqueue())
+        }
+    }
 
-            // Get the result of the request
-            val result = request.getResult()
-
-            // Invoke the callback with the result (and notify observers)
-            withContext(Dispatchers.Main) {
-                broadcastApiRequest(request)
-                callback(result)
-            }
-
-            // If the result is not successful, enqueue the request to be retried later
+    /**
+     * Blocking method to resolve the destination URL for a universal click tracking link
+     * or enqueue a retry to record a click later if it fails.
+     */
+    private fun UniversalClickTrackRequest.resolveOrEnqueue(): ResolveDestinationResult {
+        sendAndBroadcast()
+        return getResult().also { result ->
             if (result is ResolveDestinationResult.Unavailable) {
-                enqueueRequest(request.prepareToEnqueue())
+                enqueueRequest(prepareToEnqueue())
             }
+        }
+    }
+
+    /**
+     * Fetch geofences from the Klaviyo API
+     */
+    override suspend fun fetchGeofences(): FetchGeofencesResult = withContext(Registry.dispatcher) {
+        FetchGeofencesRequest().apply {
+            sendAndBroadcast()
+        }.getResult()
+    }
+
+    /**
+     * Fetch geofences from the Klaviyo API
+     *
+     * Note: callback-based implementation for Java interop, Kotlin devs are encouraged to use suspend implementation
+     */
+    override fun fetchGeofences(
+        callback: FetchGeofencesCallback
+    ): ApiRequest = FetchGeofencesRequest().apply {
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            sendAndBroadcast()
+            callback(getResult())
         }
     }
 
@@ -382,7 +421,6 @@ internal object KlaviyoApiClient : ApiClient {
                         Registry.dataStore.clear(request.uuid)
                         // Reset the flush interval, in case we had done any exp backoff
                         flushInterval = Registry.config.networkFlushIntervals[networkType]
-                        broadcastApiRequest(request)
                     }
 
                     Status.PendingRetry -> {
@@ -390,7 +428,6 @@ internal object KlaviyoApiClient : ApiClient {
                         // Put this back on top of the queue, and we'll try again with backoff
                         apiQueue.offerFirst(request)
                         flushInterval = request.computeRetryInterval()
-                        broadcastApiRequest(request)
                         break
                     }
                     // These should not strictly be possible...
@@ -422,6 +459,9 @@ internal object KlaviyoApiClient : ApiClient {
         }
     }
 
+    /**
+     * Blocking method to send an API request, notifying API observers on transition between states
+     */
     private fun KlaviyoApiRequest.sendAndBroadcast(): Status = send {
         broadcastApiRequest(this)
     }

@@ -138,6 +138,10 @@ abstract class BaseTest {
         }
     }
 
+    /**
+     * For tests that rely on coroutines, be sure to also use
+     * [kotlinx.coroutines.test.runTest] so that uncaught exceptions are detected
+     */
     val dispatcher = StandardTestDispatcher()
 
     @SuppressLint("NewApi")

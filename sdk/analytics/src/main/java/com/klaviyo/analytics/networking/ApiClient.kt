@@ -4,7 +4,10 @@ import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
+import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
+import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
+import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 
 typealias ApiObserver = (request: ApiRequest) -> Unit
 
@@ -85,12 +88,48 @@ interface ApiClient {
      *
      * @param trackingUrl URL to the click tracking endpoint
      * @param profile Profile to include in the request
-     * @param callback Listener to receive success or failure callbacks
+     * @return ResolveDestinationResult containing the destination URL or error
+     */
+    suspend fun resolveDestinationUrl(
+        trackingUrl: String,
+        profile: Profile
+    ): ResolveDestinationResult
+
+    /**
+     * Resolve a destination URL from a tracking URL
+     *
+     * Makes an immediate network request to resolve a destination URL from the provided click-tracking URL.
+     * This callback-based implementation is provided for legacy support and Java interoperability
+     *
+     * @param trackingUrl URL to the click tracking endpoint
+     * @param profile Profile to include in the request
+     * @param callback Listener to receive success or failure callbacks, invoked on main thread
      */
     fun resolveDestinationUrl(
         trackingUrl: String,
         profile: Profile,
         callback: ResolveDestinationCallback
+    ): ApiRequest
+
+    /**
+     * Fetch geofences from the Klaviyo backend
+     *
+     * Makes an immediate network request to fetch the list of geofences configured for this company.
+     *
+     * @return FetchGeofencesResult containing the list of geofences or error
+     */
+    suspend fun fetchGeofences(): FetchGeofencesResult
+
+    /**
+     * Fetch geofences from the Klaviyo backend
+     *
+     * Makes an immediate network request to fetch the list of geofences configured for this company.
+     * This callback-based implementation is provided for legacy support and Java interoperability
+     *
+     * @param callback Listener to receive success or failure callbacks with raw JSON data, invoked on main thread
+     */
+    fun fetchGeofences(
+        callback: FetchGeofencesCallback
     ): ApiRequest
 
     /**

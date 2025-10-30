@@ -13,7 +13,6 @@ import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
-import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
 import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.ProfileEventObserver
@@ -27,6 +26,7 @@ import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -37,8 +37,14 @@ import io.mockk.spyk
 import io.mockk.unmockkAll
 import io.mockk.verify
 import io.mockk.verifyAll
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -46,6 +52,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 internal class KlaviyoTest : BaseTest() {
 
     companion object {
@@ -146,6 +153,10 @@ internal class KlaviyoTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+
+        // Set the Main dispatcher to use the test dispatcher
+        Dispatchers.setMain(dispatcher)
+
         every { Registry.configBuilder } returns mockBuilder
         Registry.register<ApiClient>(mockApiClient)
         mockDeviceProperties()
@@ -161,6 +172,9 @@ internal class KlaviyoTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        // Reset the Main dispatcher
+        Dispatchers.resetMain()
+
         unmockkAll()
         Registry.unregister<DeepLinkHandler>()
         Registry.unregister<Config>()
@@ -763,75 +777,99 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `handleUniversalTrackingLink handles a valid tracking url and returns true`() {
-        val slot = slot<ResolveDestinationCallback>()
+    fun `handleUniversalTrackingLink handles a valid tracking url and returns true`() = runTest {
         var called = false
+        Klaviyo.registerDeepLinkHandler { _ -> called = true }
 
-        every { Uri.parse(TRACKING_URL) } returns mockTrackUri
-        every { Uri.parse(DESTINATION_URL) } returns mockDestinationUri
-        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns mockk(
-            relaxed = true
+        coEvery {
+            mockApiClient.resolveDestinationUrl(
+                TRACKING_URL,
+                any()
+            )
+        } returns ResolveDestinationResult.Success(
+            mockDestinationUri,
+            TRACKING_URL
         )
 
-        Klaviyo.registerDeepLinkHandler { _ -> called = true }
         assertTrue(Klaviyo.handleUniversalTrackingLink(mockTrackingUriIntent))
 
+        // Advance the test dispatcher to process the coroutine
+        dispatcher.scheduler.advanceUntilIdle()
+
         // Should have called the registered deep link handler
-        assertTrue(slot.isCaptured)
-        slot.captured.invoke(ResolveDestinationResult.Success(mockTrackUri, TRACKING_URL))
         assertTrue(called)
     }
 
     @Test
-    fun `handleUniversalTrackingLink handles ResolveDestinationResult Unavailable`() {
-        val slot = slot<ResolveDestinationCallback>()
+    fun `handleUniversalTrackingLink handles ResolveDestinationResult Unavailable`() = runTest {
+        var called = false
+        Klaviyo.registerDeepLinkHandler { _ -> called = true }
 
-        every { Uri.parse(TRACKING_URL) } returns mockTrackUri
-        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns mockk(
-            relaxed = true
+        coEvery {
+            mockApiClient.resolveDestinationUrl(
+                TRACKING_URL,
+                any()
+            )
+        } returns ResolveDestinationResult.Unavailable(
+            TRACKING_URL
         )
 
         Klaviyo.handleUniversalTrackingLink(mockTrackingUriIntent)
 
-        assertTrue(slot.isCaptured)
-        slot.captured.invoke(ResolveDestinationResult.Unavailable(TRACKING_URL))
+        // Advance the test dispatcher to process the coroutine
+        dispatcher.scheduler.advanceUntilIdle()
 
-        verify { spyLog.warning(match { it.contains("Destination URL unavailable") }, null) }
+        // Should NOT have called the registered deep link handler
+        assertFalse(called)
     }
 
     @Test
-    fun `handleUniversalTrackingLink handles ResolveDestinationResult Failure`() {
-        val slot = slot<ResolveDestinationCallback>()
+    fun `handleUniversalTrackingLink handles ResolveDestinationResult Failure`() = runTest {
+        var called = false
+        Klaviyo.registerDeepLinkHandler { _ -> called = true }
 
         every { Uri.parse(TRACKING_URL) } returns mockTrackUri
-        every { mockApiClient.resolveDestinationUrl(any(), any(), capture(slot)) } returns mockk(
-            relaxed = true
+        coEvery {
+            mockApiClient.resolveDestinationUrl(
+                TRACKING_URL,
+                any()
+            )
+        } returns ResolveDestinationResult.Failure(
+            TRACKING_URL
         )
 
         Klaviyo.handleUniversalTrackingLink(TRACKING_URL)
 
-        assertTrue(slot.isCaptured)
-        slot.captured.invoke(ResolveDestinationResult.Failure(TRACKING_URL))
+        // Advance the test dispatcher to process the coroutine
+        dispatcher.scheduler.advanceUntilIdle()
 
         verify { spyLog.error(match { it.contains("Failed to resolve destination URL") }, null) }
+
+        // Should NOT have called the registered deep link handler
+        assertFalse(called)
     }
 
     @Test
-    fun `handleUniversalTrackingLink fails gracefully if uninitialized`() {
-        val slot = slot<ResolveDestinationCallback>()
+    fun `handleUniversalTrackingLink fails gracefully if uninitialized`() = runTest {
+        var called = false
+        Klaviyo.registerDeepLinkHandler { _ -> called = true }
 
         every { Uri.parse(TRACKING_URL) } returns mockTrackUri
-        every {
+        coEvery {
             mockApiClient.resolveDestinationUrl(
                 any(),
-                any(),
-                capture(slot)
+                any()
             )
         } throws MissingAPIKey()
 
-        assertEquals(false, Klaviyo.handleUniversalTrackingLink(TRACKING_URL))
+        // Function returns true for valid tracking URLs, even if resolution fails
+        assertEquals(true, Klaviyo.handleUniversalTrackingLink(TRACKING_URL))
 
-        assertTrue(slot.isCaptured)
+        // The exception should be caught in the coroutine scope, and not crash
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Should NOT have called the registered deep link handler
+        assertFalse(called)
     }
 
     @Test
