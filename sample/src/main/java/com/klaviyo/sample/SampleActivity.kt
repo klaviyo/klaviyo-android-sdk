@@ -126,7 +126,7 @@ class SampleActivity : ComponentActivity() {
         if (isGranted) {
             showToast("Location permission granted")
         } else {
-            showToast("Location permission revoked")
+            showToast("Location permission not granted")
         }
     }
 
@@ -156,10 +156,6 @@ class SampleActivity : ComponentActivity() {
         } else {
             showToast("Background location permission denied")
         }
-    }
-
-    private fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 }
 

@@ -2,6 +2,7 @@ package com.klaviyo.sample
 
 import android.Manifest.permission
 import android.content.pm.PackageManager.PERMISSION_GRANTED
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.android.gms.maps.model.LatLng
 import com.klaviyo.location.KlaviyoGeofence
 import com.klaviyo.sample.ui.theme.KlaviyoAndroidSdkTheme
 
@@ -116,7 +118,7 @@ fun SampleView(
                 }
 
                 // Update background location permission state (Android 10+)
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     ContextCompat.checkSelfPermission(
                         context, permission.ACCESS_BACKGROUND_LOCATION
                     ).also { permission ->
@@ -229,7 +231,7 @@ private fun SampleViewContent(
     hasBackgroundLocationPermission: Boolean,
     isGeofencingRegistered: Boolean,
     monitoredGeofences: List<KlaviyoGeofence>,
-    userLocation: com.google.android.gms.maps.model.LatLng?,
+    userLocation: LatLng?,
     onExternalIdChange: (String) -> Unit = {},
     onEmailChange: (String) -> Unit = {},
     onPhoneNumberChange: (String) -> Unit = {},

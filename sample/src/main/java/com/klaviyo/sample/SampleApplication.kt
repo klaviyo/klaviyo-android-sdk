@@ -30,7 +30,7 @@ class SampleApplication : Application() {
 internal fun Context.showToast(message: String) = Toast.makeText(
     this,
     message,
-    Toast.LENGTH_SHORT
+    Toast.LENGTH_LONG
 ).show()
 
 @Suppress("SameParameterValue")

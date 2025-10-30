@@ -153,6 +153,8 @@ class SampleViewModel : ViewModel() {
     @UiThread
     fun updateLocationPermission(hasPermission: Boolean) {
         hasLocationPermission = hasPermission
+        Registry.getOrNull<LocationManager>()?.offGeofenceSync(::setGeofences)
+
         if (hasPermission) {
             // Get current geofences from the location module, and then tap in to the internal
             //  geofence sync events subscription to keep the view updated.
@@ -163,7 +165,6 @@ class SampleViewModel : ViewModel() {
         } else {
             monitoredGeofences = emptyList()
             userLocation = null
-            Registry.getOrNull<LocationManager>()?.offGeofenceSync(::setGeofences)
         }
     }
 
@@ -199,5 +200,11 @@ class SampleViewModel : ViewModel() {
             // Permission check already done, but handle edge case
             userLocation = null
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // Clean up geofence sync subscription to prevent memory leak
+        Registry.getOrNull<LocationManager>()?.offGeofenceSync(::setGeofences)
     }
 }
