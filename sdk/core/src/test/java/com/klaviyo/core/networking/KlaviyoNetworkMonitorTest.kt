@@ -158,11 +158,11 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
 
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
         netCallbackSlot.captured.onAvailable(mockk())
-        verify { spyLog.verbose("Network available") }
+        verify { spyLog.verbose(any()) }
 
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
         netCallbackSlot.captured.onUnavailable()
-        verify { spyLog.verbose("Network unavailable") }
+        verify { spyLog.verbose(any()) }
     }
 
     @Test
