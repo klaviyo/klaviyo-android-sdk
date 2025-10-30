@@ -17,7 +17,8 @@ sealed class EventMetric(name: String) : Keyword(name) {
     open class CUSTOM(name: String) : EventMetric(name)
 
     /**
-     * Internal Klaviyo event metrics are prefixed with a '$' character
+     * Key Klaviyo event metrics are prefixed with a '$' character, these may
+     * treated with higher priority and subjected to special validation.
      */
-    internal val isInternal: Boolean = this.name.startsWith("$")
+    internal val isKlaviyoMetric: Boolean = this.name.startsWith("$")
 }

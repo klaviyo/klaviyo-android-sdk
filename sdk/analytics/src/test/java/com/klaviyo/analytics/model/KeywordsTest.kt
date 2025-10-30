@@ -48,7 +48,7 @@ class KeywordsTest {
     @Test
     fun `Event type keys`() {
         assertEquals("\$opened_push", EventMetric.OPENED_PUSH.name)
-        assert(EventMetric.OPENED_PUSH.isInternal)
+        assert(EventMetric.OPENED_PUSH.isKlaviyoMetric)
         assertEquals("Opened App", EventMetric.OPENED_APP.name)
         assertEquals("Viewed Product", EventMetric.VIEWED_PRODUCT.name)
         assertEquals("Added to Cart", EventMetric.ADDED_TO_CART.name)

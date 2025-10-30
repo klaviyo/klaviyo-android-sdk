@@ -334,9 +334,12 @@ internal class KlaviyoLocationManager : LocationManager {
         // Track all API requests we're creating
         val requestUuids = geofencingEvent.triggeringGeofences?.map { it.toKlaviyoGeofence() }
             ?.mapNotNull { kGeofence ->
-                if (Registry.getOrNull<State>()?.apiKey != kGeofence.companyId) {
+                if (Registry.getOrNull<State>()?.apiKey == null) {
                     Registry.log.info("Automatically initialized Klaviyo from geofence event")
                     Klaviyo.initialize(kGeofence.companyId, context.applicationContext)
+                } else if (Registry.getOrNull<State>()?.apiKey != kGeofence.companyId) {
+                    Registry.log.error("Skipping geofence event for non-matching company ID.")
+                    null
                 }
 
                 Registry.log.info("Triggered geofence $geofenceTransition $kGeofence")
