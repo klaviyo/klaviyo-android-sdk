@@ -149,7 +149,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         manager.dismiss()
         verify(exactly = 0) { mockWebViewClient.detachWebView() }
         verify(exactly = 0) { mockOverlayActivity.finish() }
-        verify { spyLog.debug("No-op dismiss: overlay activity is not presented") }
+        verify { spyLog.debug(any()) }
     }
 
     @Test

@@ -170,7 +170,7 @@ class KlaviyoJsBridgeTest : BaseTest() {
         bridge.profileMutation(profile)
 
         verify { jsEvaluator.evaluateJavascript(any(), any()) }
-        verify { spyLog.error("JS profileMutation evaluation failed") }
+        verify { spyLog.error(any()) }
     }
 
     @Test

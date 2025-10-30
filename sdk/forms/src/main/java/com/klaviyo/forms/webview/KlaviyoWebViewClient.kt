@@ -100,7 +100,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      */
     private fun onJsHandshakeTimeout() {
         handshakeTimer?.cancel()
-        Registry.log.debug("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
+        Registry.log.warning("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
         destroyWebView()
     }
 
