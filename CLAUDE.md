@@ -47,14 +47,14 @@ Activate java 17 in terminal, e.g. ~/Library/Java/JavaVirtualMachines/temurin-17
 # Run all tests in the project
 ./gradlew test
 
-# Run tests for a specific module
+# Run unit tests for a specific module
+./gradlew :sdk:core:testDebugUnitTest
+./gradlew :sdk:analytics:testDebugUnitTest
+./gradlew :sdk:forms:testDebugUnitTest
+./gradlew :sdk:push-fcm:testDebugUnitTest
+./gradlew :sdk:location:testDebugUnitTest
 
-./gradlew :sdk:core:test
-./gradlew :sdk:analytics:test
-./gradlew :sdk:forms:test
-./gradlew :sdk:push-fcm:test
-
-# Run a specific unit test, e.g.
+# Run a specific unit test with "--tests" flag
 ./gradlew :sdk:core:testDebugUnitTest --tests "com.klaviyo.core.KLogTest"
 
 ```
@@ -143,6 +143,8 @@ The SDK uses JUnit for unit testing with each module containing its own test dir
 The project enforces the Kotlin code style using ktlint with some customizations:
 - Android-specific rules are enabled
 - All code must pass ktlint checks before merging
+- Do not use fully qualified names inline, import them instead.
+- Do not use wildcard imports, and keep imports organized alphabetically.
 
 Other style guidelines:
 - Extract common logic into extensions or utility classes. Typically these can live in the `core` module
