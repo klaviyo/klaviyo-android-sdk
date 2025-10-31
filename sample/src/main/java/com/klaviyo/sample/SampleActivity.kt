@@ -46,6 +46,8 @@ class SampleActivity : ComponentActivity() {
             SampleView(
                 viewModel = viewModel,
                 onRequestNotificationPermission = { askNotificationPermission() },
+                onRequestLocationPermission = { askLocationPermission() },
+                onRequestBackgroundLocationPermission = { askBackgroundLocationPermission() },
                 onShowToast = { message -> showToast(message) }
             )
         }
@@ -100,6 +102,59 @@ class SampleActivity : ComponentActivity() {
             }
         } else {
             // FCM SDK (and your app) can post notifications.
+        }
+    }
+
+    private fun askLocationPermission() {
+        if (ContextCompat.checkSelfPermission(
+                this, Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            // Location permission already granted
+        } else if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            // Note: It would be typical to show an educational UI here before, omitting in this sample app.
+            requestLocationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        } else {
+            // Directly ask for the permission
+            requestLocationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    private val requestLocationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            showToast("Location permission granted")
+        } else {
+            showToast("Location permission not granted")
+        }
+    }
+
+    private fun askBackgroundLocationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(
+                    this, Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                // Background location permission already granted
+            } else if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
+                // Show educational UI
+                showToast("Please allow location access 'All the time' for geofence notifications")
+                requestBackgroundLocationPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            } else {
+                // Directly ask for the permission
+                requestBackgroundLocationPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            }
+        }
+    }
+
+    private val requestBackgroundLocationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            showToast("Background location permission granted")
+        } else {
+            showToast("Background location permission denied")
         }
     }
 }
