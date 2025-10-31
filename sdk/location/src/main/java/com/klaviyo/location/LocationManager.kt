@@ -44,4 +44,9 @@ interface LocationManager {
         intent: Intent,
         pendingResult: BroadcastReceiver.PendingResult
     )
+
+    /**
+     * Handle device boot event to re-register geofences
+     */
+    fun restoreGeofencesOnBoot(context: Context)
 }
