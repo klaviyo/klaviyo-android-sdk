@@ -41,7 +41,6 @@ internal val Registry.locationManager: LocationManager
  * - Fetches geofences from the Klaviyo backend
  * - Adds/removes geofences to/from the system geofencing APIs
  * - Handles geofence transition intents
- * - TODO CHNL-25300 Handle boot receiver events to re-register geofences on device reboot
  */
 internal class KlaviyoLocationManager(
     private val geofencingClient: GeofencingClient? = null,
