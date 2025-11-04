@@ -1,12 +1,10 @@
 package com.klaviyo.location
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import androidx.annotation.RequiresPermission
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_ENTER
 import com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_EXIT
@@ -107,33 +105,45 @@ internal class KlaviyoLocationManager(
     }
 
     /**
-     * Start monitoring geofences, waiting for necessary permissions if needed
+     * Start Klaviyo's location monitoring service.
+     *
+     * If sufficient permission is already granted, then we will fetch geofence data and start
+     * monitoring with system's location services immediately
+     * If not, we will wait till proper permission is granted before fetching.
      */
     override fun startGeofenceMonitoring() {
-        // Evaluate initial permission state and start/stop monitoring accordingly
-        onPermissionChanged(Registry.locationPermissionMonitor.permissionState)
-        onGeofenceSync(::startMonitoring)
-        Registry.locationPermissionMonitor.onPermissionChanged(::onPermissionChanged)
+        updateSystemMonitoring(Registry.locationPermissionMonitor.permissionState)
+        onGeofenceSync(::startSystemMonitoring)
+        Registry.locationPermissionMonitor.onPermissionChanged(::updateSystemMonitoring)
     }
 
     /**
-     * Stop monitoring geofences or permission changes
+     * Stop Klaviyo's location monitoring service
+     * Remove all fences from LocationServices, and stop all listeners
      */
     override fun stopGeofenceMonitoring() {
-        stopMonitoring()
-        offGeofenceSync(::startMonitoring)
-        Registry.locationPermissionMonitor.offPermissionChanged(::onPermissionChanged)
+        stopSystemMonitoring()
+        offGeofenceSync(::startSystemMonitoring)
+        Registry.locationPermissionMonitor.offPermissionChanged(::updateSystemMonitoring)
     }
 
-    @SuppressLint("MissingPermission")
-    private fun onPermissionChanged(hasPermissions: Boolean) {
+    /**
+     * Update our system monitoring state based on current permission status
+     */
+    private fun updateSystemMonitoring(hasPermissions: Boolean) {
         if (hasPermissions) {
-            // Start monitoring geofences, and trigger an update from API
-            startMonitoring()
+            // Start monitoring currently stored geofences
+            getStoredGeofences().takeIf { geofences ->
+                geofences.isNotEmpty()
+            }?.let { geofences ->
+                startSystemMonitoring(geofences)
+            }
+
+            // Kick off fetch request to refresh geofences from API
             fetchGeofences()
         } else {
             // Only stop if we were previously monitoring
-            stopMonitoring()
+            stopSystemMonitoring()
         }
     }
 
@@ -222,16 +232,23 @@ internal class KlaviyoLocationManager(
     }
 
     /**
-     * Register all currently stored geofences with the system geofencing APIs
+     * Add the provided geofences with the to system location service's geofencing client.
      */
-    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
-    private fun startMonitoring(geofences: List<KlaviyoGeofence> = getStoredGeofences()) {
+    @SuppressLint("MissingPermission")
+    private fun startSystemMonitoring(geofences: List<KlaviyoGeofence>) {
         // Remove all current geofences from system client first
-        stopMonitoring()
+        stopSystemMonitoring()
 
-        if (geofences.isEmpty()) {
-            Registry.log.debug("No geofences to monitor")
-            return
+        when {
+            geofences.isEmpty() -> {
+                Registry.log.debug("No geofences to monitor")
+                return
+            }
+
+            !Registry.locationPermissionMonitor.permissionState -> {
+                Registry.log.warning("Insufficient location permission")
+                return
+            }
         }
 
         geofences.map { geofence ->
@@ -265,7 +282,7 @@ internal class KlaviyoLocationManager(
     /**
      * Stop monitoring all Klaviyo geofences
      */
-    private fun stopMonitoring() {
+    private fun stopSystemMonitoring() {
         client.removeGeofences(intent)
     }
 

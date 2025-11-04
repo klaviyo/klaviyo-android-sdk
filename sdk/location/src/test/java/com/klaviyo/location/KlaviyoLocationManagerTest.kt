@@ -497,6 +497,9 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         // Capture and invoke the observer with permission granted
         val observer = capturePermissionObserver()
+
+        // Update permission state, and notify observer
+        every { mockPermissionMonitor.permissionState } returns true
         observer(true)
         advanceUntilIdle()
 
@@ -536,6 +539,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         // Capture and invoke the observer with permission granted
         val observer = capturePermissionObserver()
+
+        every { mockPermissionMonitor.permissionState } returns true
         observer(true)
 
         // Verify addGeofences was called once with a batch of all geofences
@@ -562,6 +567,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         val observer = capturePermissionObserver()
 
         // Simulate permission granted
+        every { mockPermissionMonitor.permissionState } returns true
         observer(true)
         advanceUntilIdle()
         verify(exactly = 1) { mockGeofencingClient.addGeofences(any(), mockPendingIntent) }
@@ -593,6 +599,21 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         // Note: startMonitoring removes old fences first, then adds new ones
         verify(atLeast = 1) { mockGeofencingClient.removeGeofences(mockPendingIntent) }
         verify(atLeast = 1) { mockGeofencingClient.addGeofences(any(), mockPendingIntent) }
+    }
+
+    @Test
+    fun `permission change while fetching geofences is caught`() {
+        // Setup: Start monitoring with permissions granted
+        setupMonitoringWithPermissions()
+
+        // Mimic permission change while fetch was in background
+        every { mockPermissionMonitor.permissionState } returns false
+
+        // Trigger fetch and simulate successful API response
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC, stubLondon)))
+
+        // Verify permission-protected API was not touched
+        verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
     }
 
     @Test
