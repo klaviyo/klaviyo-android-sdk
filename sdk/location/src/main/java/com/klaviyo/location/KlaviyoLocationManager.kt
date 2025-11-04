@@ -122,13 +122,12 @@ internal class KlaviyoLocationManager : LocationManager {
             when (result) {
                 is FetchGeofencesResult.Success -> {
                     // Map FetchedGeofence to KlaviyoGeofence objects using extension function
-                    val geofences = result.data.map { it.toKlaviyoGeofence() }
-
-                    Registry.log.verbose("Successfully fetched ${geofences.size} geofences")
-                    storeGeofences(geofences)
-
-                    // Notify observers that new geofences have been fetched
-                    notifyObservers(geofences)
+                    result.data.map {
+                        it.toKlaviyoGeofence()
+                    }.let { geofences ->
+                        Registry.log.verbose("Successfully fetched ${geofences.size} geofences")
+                        storeGeofences(geofences)
+                    }
                 }
 
                 is FetchGeofencesResult.Unavailable -> {
@@ -159,6 +158,9 @@ internal class KlaviyoLocationManager : LocationManager {
             // Store in dataStore
             Registry.dataStore.store(GEOFENCES_STORAGE_KEY, jsonArray.toString())
             Registry.log.verbose("Saved ${geofences.size} geofences to persistent storage")
+
+            // Notify observers that new geofences have been fetched and stored
+            notifyObservers(geofences)
         } catch (e: Exception) {
             Registry.log.error("Failed to save geofences", e)
         }
