@@ -90,8 +90,10 @@ internal class KlaviyoLocationManager(
      */
     private val observers = CopyOnWriteArrayList<GeofenceObserver>()
 
-    override fun onGeofenceSync(callback: GeofenceObserver) {
-        observers += callback
+    override fun onGeofenceSync(unique: Boolean, callback: GeofenceObserver) {
+        if (!unique || !observers.contains(callback)) {
+            observers += callback
+        }
     }
 
     override fun offGeofenceSync(callback: GeofenceObserver) {
@@ -113,8 +115,8 @@ internal class KlaviyoLocationManager(
      */
     override fun startGeofenceMonitoring() {
         updateSystemMonitoring(Registry.locationPermissionMonitor.permissionState)
-        onGeofenceSync(::startSystemMonitoring)
-        Registry.locationPermissionMonitor.onPermissionChanged(::updateSystemMonitoring)
+        onGeofenceSync(true, ::startSystemMonitoring)
+        Registry.locationPermissionMonitor.onPermissionChanged(true, ::updateSystemMonitoring)
     }
 
     /**

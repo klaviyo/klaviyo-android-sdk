@@ -41,11 +41,13 @@ internal class KlaviyoPermissionMonitor() : PermissionMonitor {
 
     private val observers = CopyOnWriteArrayList<PermissionObserver>()
 
-    override fun onPermissionChanged(callback: PermissionObserver) {
+    override fun onPermissionChanged(unique: Boolean, callback: PermissionObserver) {
         if (observers.isEmpty()) {
             Registry.lifecycleMonitor.onActivityEvent(::onActivityEvent)
         }
-        observers += callback
+        if (!unique || !observers.contains(callback)) {
+            observers += callback
+        }
     }
 
     override fun offPermissionChanged(callback: PermissionObserver) {

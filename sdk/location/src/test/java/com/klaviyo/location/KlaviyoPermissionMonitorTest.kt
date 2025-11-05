@@ -137,7 +137,7 @@ internal class KlaviyoPermissionMonitorTest : BaseTest() {
 
         val observer: PermissionObserver = {}
 
-        permissionMonitor.onPermissionChanged(observer)
+        permissionMonitor.onPermissionChanged(callback = observer)
 
         // Should register lifecycle observer
         verify(exactly = 1) { mockLifecycleMonitor.onActivityEvent(any()) }
@@ -151,11 +151,57 @@ internal class KlaviyoPermissionMonitorTest : BaseTest() {
         val observer1: PermissionObserver = {}
         val observer2: PermissionObserver = {}
 
-        permissionMonitor.onPermissionChanged(observer1)
-        permissionMonitor.onPermissionChanged(observer2)
+        permissionMonitor.onPermissionChanged(callback = observer1)
+        permissionMonitor.onPermissionChanged(callback = observer2)
 
         // Should only register lifecycle observer once
         verify(exactly = 1) { mockLifecycleMonitor.onActivityEvent(any()) }
+    }
+
+    @Test
+    fun `onPermissionChanged with unique=false allows duplicate observers`() {
+        mockPermissions(fineLocation = true, backgroundLocation = true)
+        permissionMonitor = KlaviyoPermissionMonitor()
+
+        var callCount = 0
+        val observer: PermissionObserver = { callCount++ }
+
+        // Register same observer multiple times with unique=false
+        permissionMonitor.onPermissionChanged(false, observer)
+        permissionMonitor.onPermissionChanged(false, observer)
+        permissionMonitor.onPermissionChanged(false, observer)
+
+        val lifecycleObserver = captureLifecycleObserver()
+
+        // Change permission state to trigger notification
+        mockPermissions(fineLocation = false, backgroundLocation = false)
+        lifecycleObserver(ActivityEvent.Resumed(mockActivity))
+
+        // Should be called 3 times (once per registration)
+        assertEquals(3, callCount)
+    }
+
+    @Test
+    fun `onPermissionChanged with unique=true prevents duplicate observers`() {
+        mockPermissions(fineLocation = true, backgroundLocation = true)
+        permissionMonitor = KlaviyoPermissionMonitor()
+
+        var callCount = 0
+        val observer: PermissionObserver = { callCount++ }
+
+        // Register same observer multiple times with unique=true
+        permissionMonitor.onPermissionChanged(true, observer)
+        permissionMonitor.onPermissionChanged(true, observer)
+        permissionMonitor.onPermissionChanged(true, observer)
+
+        val lifecycleObserver = captureLifecycleObserver()
+
+        // Change permission state to trigger notification
+        mockPermissions(fineLocation = false, backgroundLocation = false)
+        lifecycleObserver(ActivityEvent.Resumed(mockActivity))
+
+        // Should be called only once (duplicates were prevented)
+        assertEquals(1, callCount)
     }
 
     @Test
@@ -164,7 +210,7 @@ internal class KlaviyoPermissionMonitorTest : BaseTest() {
         permissionMonitor = KlaviyoPermissionMonitor()
 
         val observer: PermissionObserver = {}
-        permissionMonitor.onPermissionChanged(observer)
+        permissionMonitor.onPermissionChanged(callback = observer)
 
         permissionMonitor.offPermissionChanged(observer)
 
@@ -180,8 +226,8 @@ internal class KlaviyoPermissionMonitorTest : BaseTest() {
         val observer1: PermissionObserver = {}
         val observer2: PermissionObserver = {}
 
-        permissionMonitor.onPermissionChanged(observer1)
-        permissionMonitor.onPermissionChanged(observer2)
+        permissionMonitor.onPermissionChanged(callback = observer1)
+        permissionMonitor.onPermissionChanged(callback = observer2)
         permissionMonitor.offPermissionChanged(observer1)
 
         // Should not unregister lifecycle observer since observer2 still exists
@@ -194,7 +240,7 @@ internal class KlaviyoPermissionMonitorTest : BaseTest() {
         permissionMonitor = KlaviyoPermissionMonitor()
 
         val observer: PermissionObserver = mockk(relaxed = true)
-        permissionMonitor.onPermissionChanged(observer)
+        permissionMonitor.onPermissionChanged(callback = observer)
 
         // Capture lifecycle observer and simulate app resume
         val lifecycleObserver = captureLifecycleObserver()
@@ -215,7 +261,7 @@ internal class KlaviyoPermissionMonitorTest : BaseTest() {
         permissionMonitor = KlaviyoPermissionMonitor()
 
         val observer: PermissionObserver = mockk(relaxed = true)
-        permissionMonitor.onPermissionChanged(observer)
+        permissionMonitor.onPermissionChanged(callback = observer)
 
         val lifecycleObserver = captureLifecycleObserver()
 
@@ -235,7 +281,7 @@ internal class KlaviyoPermissionMonitorTest : BaseTest() {
 
         var notificationCount = 0
         val observer: PermissionObserver = { notificationCount++ }
-        permissionMonitor.onPermissionChanged(observer)
+        permissionMonitor.onPermissionChanged(callback = observer)
 
         val lifecycleObserver = captureLifecycleObserver()
 
@@ -367,7 +413,7 @@ internal class KlaviyoPermissionMonitorTest : BaseTest() {
         permissionMonitor = KlaviyoPermissionMonitor()
 
         val observer: PermissionObserver = {}
-        permissionMonitor.onPermissionChanged(observer)
+        permissionMonitor.onPermissionChanged(callback = observer)
 
         val lifecycleObserver = captureLifecycleObserver()
 

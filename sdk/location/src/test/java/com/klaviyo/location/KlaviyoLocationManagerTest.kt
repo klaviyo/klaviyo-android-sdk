@@ -105,7 +105,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     private val mockPermissionMonitor = mockk<PermissionMonitor>(relaxed = true).apply {
         every { permissionState } returns false
-        every { onPermissionChanged(any()) } just runs
+        every { onPermissionChanged(any(), any()) } just runs
         every { offPermissionChanged(any()) } just runs
     }
 
@@ -153,7 +153,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     // Helper to capture and invoke permission observer
     private fun capturePermissionObserver(): PermissionObserver {
         val observerSlot = slot<PermissionObserver>()
-        verify { mockPermissionMonitor.onPermissionChanged(capture(observerSlot)) }
+        verify { mockPermissionMonitor.onPermissionChanged(any(), capture(observerSlot)) }
         return observerSlot.captured
     }
 
@@ -193,7 +193,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `onGeofencesSynced registers observer`() {
+    fun `onGeofenceSynced registers observer`() {
         var callbackInvoked = false
         var receivedGeofences: List<KlaviyoGeofence>? = null
         val observer: GeofenceObserver = { geofences ->
@@ -201,7 +201,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             receivedGeofences = geofences
         }
 
-        locationManager.onGeofenceSync(observer)
+        locationManager.onGeofenceSync(callback = observer)
 
         // Trigger a fetch that will notify observers
         mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
@@ -218,6 +218,40 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
+    fun `onGeofenceSync with unique=false allows duplicate observers`() {
+        var callCount = 0
+        val observer: GeofenceObserver = { callCount++ }
+
+        // Register same observer multiple times with unique=false
+        locationManager.onGeofenceSync(false, observer)
+        locationManager.onGeofenceSync(false, observer)
+        locationManager.onGeofenceSync(false, observer)
+
+        // Trigger notification
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
+
+        // Should be called 3 times (once per registration)
+        assertEquals(3, callCount)
+    }
+
+    @Test
+    fun `onGeofenceSync with unique=true prevents duplicate observers`() {
+        var callCount = 0
+        val observer: GeofenceObserver = { callCount++ }
+
+        // Register same observer multiple times with unique=true
+        locationManager.onGeofenceSync(true, observer)
+        locationManager.onGeofenceSync(true, observer)
+        locationManager.onGeofenceSync(true, observer)
+
+        // Trigger notification
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
+
+        // Should be called only once (duplicates were prevented)
+        assertEquals(1, callCount)
+    }
+
+    @Test
     fun `offGeofencesSynced unregisters observer`() {
         var callbackInvoked = false
         val observer: GeofenceObserver = {
@@ -225,7 +259,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         }
 
         // Register then unregister
-        locationManager.onGeofenceSync(observer)
+        locationManager.onGeofenceSync(callback = observer)
         locationManager.offGeofenceSync(observer)
 
         // Trigger a fetch
@@ -242,8 +276,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         val observer1: GeofenceObserver = { callback1Invoked = true }
         val observer2: GeofenceObserver = { callback2Invoked = true }
 
-        locationManager.onGeofenceSync(observer1)
-        locationManager.onGeofenceSync(observer2)
+        locationManager.onGeofenceSync(callback = observer1)
+        locationManager.onGeofenceSync(callback = observer2)
 
         // Trigger a fetch
         mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
@@ -258,7 +292,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         var callbackInvoked = false
         val observer: GeofenceObserver = { callbackInvoked = true }
 
-        locationManager.onGeofenceSync(observer)
+        locationManager.onGeofenceSync(callback = observer)
 
         // Trigger a fetch that fails
         coEvery { mockApiClient.fetchGeofences() } returns FetchGeofencesResult.Failure
@@ -417,7 +451,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             callbackInvoked = true
             geofences = receivedGeofences
         }
-        locationManager.onGeofenceSync(observer)
+        locationManager.onGeofenceSync(callback = observer)
 
         // First, store some geofences
         val json = geofencesJson(stubLondon.toJson())
@@ -447,8 +481,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         advanceUntilIdle()
 
         // Verify permission state was checked and observer was registered
-        verify { mockPermissionMonitor.onPermissionChanged(any()) }
-        coVerify { mockApiClient.fetchGeofences() }
+        verify { mockPermissionMonitor.onPermissionChanged(true, any()) }
+        coVerify(exactly = 1) { mockApiClient.fetchGeofences() }
     }
 
     @Test
@@ -581,6 +615,32 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         // Stop monitoring
         locationManager.stopGeofenceMonitoring()
         verify { mockPermissionMonitor.offPermissionChanged(any()) }
+    }
+
+    @Test
+    fun `startGeofenceMonitoring is idempotent with observers`() = runTest {
+        // Setup: Store some geofences and grant permissions
+        locationManager.storeGeofences(listOf(stubNYC.toKlaviyoGeofence()))
+        every { mockPermissionMonitor.permissionState } returns true
+
+        // Call startGeofenceMonitoring multiple times
+        locationManager.startGeofenceMonitoring()
+        locationManager.startGeofenceMonitoring()
+        locationManager.startGeofenceMonitoring()
+        advanceUntilIdle()
+
+        // Verify that onPermissionChanged was called with unique=true each time
+        verify(exactly = 3) { mockPermissionMonitor.onPermissionChanged(true, any()) }
+
+        // Now test that observers don't duplicate by fetching new geofences
+        // and verifying system monitoring is updated exactly once
+        clearMocks(mockGeofencingClient, answers = false)
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubLondon)))
+
+        // Verify system monitoring was updated exactly once
+        // (If geofence sync observers were duplicated, these would be called multiple times)
+        verify(exactly = 1) { mockGeofencingClient.removeGeofences(mockPendingIntent) }
+        verify(exactly = 1) { mockGeofencingClient.addGeofences(any(), mockPendingIntent) }
     }
 
     @Test

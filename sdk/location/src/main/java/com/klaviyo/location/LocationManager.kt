@@ -9,8 +9,12 @@ typealias GeofenceObserver = (List<KlaviyoGeofence>) -> Unit
 interface LocationManager {
     /**
      * Register an observer to be notified when geofences are synced
+     *
+     * @param unique If true, prevents registering the same observer multiple times.
+     *               Note this only works for references e.g. ::method, not lambdas
+     * @param callback The observer function to be called when geofences are synced
      */
-    fun onGeofenceSync(callback: GeofenceObserver)
+    fun onGeofenceSync(unique: Boolean = false, callback: GeofenceObserver)
 
     /**
      * Unregister an observer previously added with [onGeofenceSync]
