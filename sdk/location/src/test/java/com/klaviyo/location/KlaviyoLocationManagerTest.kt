@@ -529,7 +529,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         locationManager.storeGeofences(
             listOf(
                 stubNYC.toKlaviyoGeofence(),
-                stubLondon.toKlaviyoGeofence(),
+                stubLondon.toKlaviyoGeofence()
             )
         )
 
@@ -644,8 +644,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
                 match {
                     it.geofences.first().let { geofence ->
                         geofence.latitude == NYC_LAT &&
-                        geofence.longitude == NYC_LNG &&
-                        geofence.radius == NYC_RADIUS
+                            geofence.longitude == NYC_LNG &&
+                            geofence.radius == NYC_RADIUS
                     } && it.geofences.size == 1
                 },
                 mockPendingIntent
