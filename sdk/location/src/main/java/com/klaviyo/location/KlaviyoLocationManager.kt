@@ -341,7 +341,7 @@ internal class KlaviyoLocationManager : LocationManager {
                     Klaviyo.initialize(kGeofence.companyId, context.applicationContext)
                 } else if (Registry.getOrNull<State>()?.apiKey != kGeofence.companyId) {
                     Registry.log.error("Skipping geofence event for non-matching company ID.")
-                    null
+                    return@mapNotNull null
                 }
 
                 Registry.log.info("Triggered geofence $geofenceTransition $kGeofence")
@@ -425,7 +425,7 @@ internal class KlaviyoLocationManager : LocationManager {
         KlaviyoGeofenceTransition.Exited -> GeofenceEventMetric.EXIT
         KlaviyoGeofenceTransition.Dwelt -> GeofenceEventMetric.DWELL
     }.let { metric ->
-        Event(metric, mapOf(GeofenceEventProperty.GEOFENCE_ID to geofence.id))
+        Event(metric, mapOf(GeofenceEventProperty.GEOFENCE_ID to geofence.locationId))
     }.let { event ->
         Registry.log.debug(
             "Created geofence event: ${event.metric.name} for geofence ${geofence.id}"

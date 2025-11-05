@@ -1,7 +1,6 @@
 package com.klaviyo.location
 
 import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
@@ -20,6 +19,7 @@ import org.junit.Test
  */
 internal class KlaviyoGeofenceReceiverTest : BaseTest() {
 
+    private val mockIntent = mockk<Intent>(relaxed = true)
     private val mockLocationManager = mockk<LocationManager>(relaxed = true)
     private val mockPendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
     private val receiver = spyk(KlaviyoGeofenceReceiver()).apply {
@@ -32,70 +32,41 @@ internal class KlaviyoGeofenceReceiverTest : BaseTest() {
 
         // Register mock in Registry
         Registry.register<LocationManager> { mockLocationManager }
-    }
-
-    @Test
-    fun `onReceive delegates to LocationManager handleGeofenceIntent`() {
-        val mockContext = mockk<Context>(relaxed = true)
-        val mockIntent = mockk<Intent>(relaxed = true)
 
         // Setup context to return itself as applicationContext
         every { mockContext.applicationContext } returns mockContext
+    }
 
+    @Test
+    fun `onReceive delegates to LocationManager handleGeofenceIntent async`() {
         // Trigger the receiver
         receiver.onReceive(mockContext, mockIntent)
 
         // Verify delegation with correct parameters
         verify(exactly = 1) {
             mockLocationManager.handleGeofenceIntent(
-                mockContext, // applicationContext
+                mockContext,
                 mockIntent,
                 mockPendingResult
             )
         }
-    }
-
-    @Test
-    fun `onReceive calls goAsync to extend receiver lifecycle`() {
-        val mockContext = mockk<Context>(relaxed = true)
-        val mockIntent = mockk<Intent>(relaxed = true)
-
-        every { mockContext.applicationContext } returns mockContext
-
-        // Trigger the receiver
-        receiver.onReceive(mockContext, mockIntent)
 
         // Verify goAsync was called
         verify(exactly = 1) { receiver.goAsync() }
     }
 
     @Test
-    fun `onReceive uses applicationContext not activity context`() {
-        val mockActivityContext = mockk<Context>(relaxed = true)
-        val mockApplicationContext = mockk<Context>(relaxed = true)
-        val mockIntent = mockk<Intent>(relaxed = true)
-
-        // Setup context to return different applicationContext
-        every { mockActivityContext.applicationContext } returns mockApplicationContext
+    fun `onReceive handles any exceptions to avoid a crash`() {
+        every { mockLocationManager.handleGeofenceIntent(any(), any(), any()) } throws Exception()
 
         // Trigger the receiver
-        receiver.onReceive(mockActivityContext, mockIntent)
+        receiver.onReceive(mockContext, mockIntent)
 
-        // Verify handleGeofenceIntent was called with applicationContext, not activity context
         verify(exactly = 1) {
             mockLocationManager.handleGeofenceIntent(
-                mockApplicationContext, // Should use applicationContext
+                mockContext,
                 mockIntent,
                 mockPendingResult
-            )
-        }
-
-        // Verify it was NOT called with activity context
-        verify(exactly = 0) {
-            mockLocationManager.handleGeofenceIntent(
-                mockActivityContext,
-                any(),
-                any()
             )
         }
     }

@@ -114,6 +114,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     private val mockPendingIntent = MockIntent.mockPendingIntent()
+    private val mockIntent = mockk<Intent>(relaxed = true)
 
     private val mockPermissionMonitor = mockk<PermissionMonitor>(relaxed = true).apply {
         every { permissionState } returns false
@@ -123,11 +124,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     private var locationManager = KlaviyoLocationManager()
 
-    // Mock BroadcastReceiver.PendingResult for geofence intent tests
-    private val mockPendingResult = mockk<BroadcastReceiver.PendingResult>(
-        relaxed = true
-    )
-
+    private val mockPendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
     private val mockState = mockk<State>(relaxed = true)
     private val mockEvent = mockk<Event>(relaxed = true)
     private val mockProfile = mockk<Profile>(relaxed = true)
@@ -196,10 +193,28 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     // Helper to create an Event with a specific uniqueId
-    private fun createEventWithUuid(uuid: String): Event {
-        return mockk<Event>(relaxed = true).apply {
-            every { uniqueId } returns uuid
+    private fun createEventWithUuid(uuid: String): Event = mockk<Event>(relaxed = true).apply {
+        every { uniqueId } returns uuid
+    }
+
+    // Helper to create an ApiRequest with specific properties
+    private fun createApiRequest(requestUuid: String, expectedResponseCode: Int): ApiRequest =
+        mockk<ApiRequest>(relaxed = true).apply {
+            every { uuid } returns requestUuid
+            every { responseCode } returns expectedResponseCode
         }
+
+    // Helper to capture and return the API observer
+    private fun captureApiObserver(): ApiObserver {
+        val observerSlot = slot<ApiObserver>()
+        verify { mockApiClient.onApiRequest(true, capture(observerSlot)) }
+        return observerSlot.captured
+    }
+
+    // Helper to verify API request observer lifecycle
+    private fun verifyRequestObserverLifecycle() {
+        verify(exactly = 1) { mockPendingResult.finish() }
+        verify { mockApiClient.offApiRequest(any()) }
     }
 
     // Helper to wrap test logic with GeofencingEvent static mocking
@@ -212,6 +227,38 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             unmockkStatic(GeofencingEvent::class)
         }
     }
+
+    /**
+     * Helper to create a mock GeofencingEvent with specified parameters
+     */
+    private fun mockGeofencingEvent(
+        hasError: Boolean = false,
+        errorCode: Int = 0,
+        transition: Int = Geofence.GEOFENCE_TRANSITION_ENTER,
+        geofences: List<Geofence> = emptyList()
+    ): GeofencingEvent = mockk<GeofencingEvent>(relaxed = true).apply {
+        every { hasError() } returns hasError
+        every { getErrorCode() } returns errorCode
+        every { geofenceTransition } returns transition
+        every { triggeringGeofences } returns geofences
+    }
+
+    /**
+     * Helper to create a mock Geofence with specified parameters
+     */
+    private fun mockGeofence(
+        id: String,
+        lat: Double = NYC_LAT,
+        lon: Double = NYC_LNG,
+        radius: Float = NYC_RADIUS
+    ): Geofence = mockk<Geofence>(relaxed = true).apply {
+        every { requestId } returns id
+        every { latitude } returns lat
+        every { longitude } returns lon
+        every { getRadius() } returns radius
+    }
+
+    //region Registry and Initialization Tests
 
     @Test
     fun `locationManager registry extension returns existing instance`() {
@@ -240,6 +287,10 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         assertTrue(result is KlaviyoLocationManager)
         assertSame(result, Registry.get<LocationManager>())
     }
+
+    //endregion
+
+    //region Observer Pattern Tests
 
     @Test
     fun `onGeofenceSynced registers observer`() {
@@ -352,6 +403,10 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         assertEquals(false, callbackInvoked)
     }
 
+    //endregion
+
+    //region Persistence Tests
+
     @Test
     fun `getStoredGeofences retrieves persisted geofences from dataStore`() {
         // Manually save geofences to dataStore to test retrieval
@@ -444,6 +499,10 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         )
     }
 
+    //endregion
+
+    //region API Fetch Tests
+
     @Test
     fun `fetchGeofences successfully processes geofence results`() = runTest {
         mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC, stubLondon)))
@@ -519,6 +578,10 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         assertTrue(callbackInvoked)
         assertEquals(0, geofences?.size)
     }
+
+    //endregion
+
+    //region Monitoring Lifecycle Tests
 
     @Test
     fun `startGeofenceMonitoring evaluates initial permission state`() = runTest {
@@ -786,15 +849,15 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
     }
 
+    //endregion
+
+    //region Intent Handling Tests
+
     @Test
     fun `handleGeofenceIntent logs warning and finishes when GeofencingEvent is null`() {
         // Mock GeofencingEvent.fromIntent to return null
         mockkStatic(GeofencingEvent::class)
         every { GeofencingEvent.fromIntent(any()) } returns null
-
-        val mockContext = mockk<Context>(relaxed = true)
-        val mockIntent = mockk<Intent>(relaxed = true)
-        val mockPendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
 
         // Call handleGeofenceIntent
         locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
@@ -809,16 +872,9 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     @Test
     fun `handleGeofenceIntent logs error and finishes when GeofencingEvent has error`() {
         // Mock GeofencingEvent with error
-        val mockGeofencingEvent = mockk<GeofencingEvent>(relaxed = true)
-        every { mockGeofencingEvent.hasError() } returns true
-        every { mockGeofencingEvent.errorCode } returns 1000
-
+        val mockGeofencingEvent = mockGeofencingEvent(hasError = true, errorCode = 1000)
         mockkStatic(GeofencingEvent::class)
         every { GeofencingEvent.fromIntent(any()) } returns mockGeofencingEvent
-
-        val mockContext = mockk<Context>(relaxed = true)
-        val mockIntent = mockk<Intent>(relaxed = true)
-        val mockPendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
 
         // Call handleGeofenceIntent
         locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
@@ -833,16 +889,9 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     @Test
     fun `handleGeofenceIntent logs error and finishes when geofence transition is unknown`() {
         // Mock GeofencingEvent with unknown transition type
-        val mockGeofencingEvent = mockk<GeofencingEvent>(relaxed = true)
-        every { mockGeofencingEvent.hasError() } returns false
-        every { mockGeofencingEvent.geofenceTransition } returns 999 // Unknown transition
-
+        val mockGeofencingEvent = mockGeofencingEvent(transition = 999)
         mockkStatic(GeofencingEvent::class)
         every { GeofencingEvent.fromIntent(any()) } returns mockGeofencingEvent
-
-        val mockContext = mockk<Context>(relaxed = true)
-        val mockIntent = mockk<Intent>(relaxed = true)
-        val mockPendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
 
         // Call handleGeofenceIntent
         locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
@@ -852,36 +901,6 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         // Verify pending result was finished
         verify { mockPendingResult.finish() }
-    }
-
-    /**
-     * Helper to create a mock GeofencingEvent with specified parameters
-     */
-    private fun mockGeofencingEvent(
-        hasError: Boolean = false,
-        errorCode: Int = 0,
-        transition: Int = Geofence.GEOFENCE_TRANSITION_ENTER,
-        geofences: List<Geofence> = emptyList()
-    ): GeofencingEvent = mockk<GeofencingEvent>(relaxed = true).apply {
-        every { hasError() } returns hasError
-        every { getErrorCode() } returns errorCode
-        every { geofenceTransition } returns transition
-        every { triggeringGeofences } returns geofences
-    }
-
-    /**
-     * Helper to create a mock Geofence with specified parameters
-     */
-    private fun mockGeofence(
-        id: String,
-        lat: Double = NYC_LAT,
-        lon: Double = NYC_LNG,
-        radius: Float = NYC_RADIUS
-    ): Geofence = mockk<Geofence>(relaxed = true).apply {
-        every { requestId } returns id
-        every { latitude } returns lat
-        every { longitude } returns lon
-        every { getRadius() } returns radius
     }
 
     @Test
@@ -944,7 +963,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
                 mockState.createEvent(
                     match { event ->
                         event.metric == GeofenceEventMetric.ENTER &&
-                            event[GeofenceEventProperty.GEOFENCE_ID] == "$API_KEY:geo1"
+                            event[GeofenceEventProperty.GEOFENCE_ID] == "geo1"
                     },
                     mockProfile
                 )
@@ -1023,11 +1042,11 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         }
 
         // Mock geofence with company ID
-        val companyId = "TEST_API_KEY"
-        val geofence = mockGeofence("$companyId:geo1")
+        val geofence1 = mockGeofence("$API_KEY:geo1")
+        val geofence2 = mockGeofence("abc123:geo2")
         val mockEvent = mockGeofencingEvent(
             transition = Geofence.GEOFENCE_TRANSITION_ENTER,
-            geofences = listOf(geofence)
+            geofences = listOf(geofence1, geofence2)
         )
         mockkStatic(GeofencingEvent::class)
         every { GeofencingEvent.fromIntent(any()) } returns mockEvent
@@ -1037,7 +1056,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
 
         // Verify Klaviyo was auto-initialized with correct company ID (using any() for context since applicationContext is called)
-        verify { Klaviyo.initialize(companyId, any()) }
+        verify { Klaviyo.initialize(API_KEY, any()) }
 
         // Verify event was created after initialization
         verify {
@@ -1047,6 +1066,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             )
         }
 
+        verify(exactly = 1) { mockState.createEvent(any(), any()) }
         unmockkStatic(GeofencingEvent::class)
         unmockkObject(Klaviyo)
     }
@@ -1085,12 +1105,6 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         val completableEvent = createEventWithUuid(eventUuid)
         setupMockStateWithApiKey(completableEvent)
 
-        // Create mock request that will be observed
-        val completableRequest = mockk<ApiRequest>(relaxed = true).apply {
-            every { uuid } returns eventUuid
-            every { responseCode } returns 200
-        }
-
         val geofence = mockGeofence("$API_KEY:geo1")
         val mockEvent = mockGeofencingEvent(
             transition = Geofence.GEOFENCE_TRANSITION_ENTER,
@@ -1101,12 +1115,9 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             val mockIntent = mockk<Intent>(relaxed = true)
             locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
 
-            // Capture the API observer that was registered
-            val observerSlot = slot<ApiObserver>()
-            verify { mockApiClient.onApiRequest(true, capture(observerSlot)) }
-
-            // Simulate the observer being called with the completed request
-            observerSlot.captured(completableRequest)
+            // Capture and invoke the API observer with completed request
+            val observer = captureApiObserver()
+            observer(createApiRequest(eventUuid, 200))
 
             // Verify pendingResult.finish() was called
             verify(exactly = 1) { mockPendingResult.finish() }
@@ -1114,11 +1125,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             // Advance clock 10s, the standard max execution time for broadcast receiver
             staticClock.execute(10_000L)
 
-            // Verify pendingResult.finish() was not called again
-            verify(exactly = 1) { mockPendingResult.finish() }
-
-            // Verify observer was unregistered
-            verify { mockApiClient.offApiRequest(any()) }
+            // Verify pendingResult.finish() was not called again and observer was cleaned up
+            verifyRequestObserverLifecycle()
         }
     }
 
@@ -1129,12 +1137,6 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         val failedEvent = createEventWithUuid(eventUuid)
         setupMockStateWithApiKey(failedEvent)
 
-        // Create mock request that will be observed
-        val failedRequest = mockk<ApiRequest>(relaxed = true).apply {
-            every { uuid } returns eventUuid
-            every { responseCode } returns 500
-        }
-
         val geofence = mockGeofence("$API_KEY:geo1")
         val mockEvent = mockGeofencingEvent(
             transition = Geofence.GEOFENCE_TRANSITION_ENTER,
@@ -1145,12 +1147,9 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             val mockIntent = mockk<Intent>(relaxed = true)
             locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
 
-            // Capture the API observer that was registered
-            val observerSlot = slot<ApiObserver>()
-            verify { mockApiClient.onApiRequest(true, capture(observerSlot)) }
-
-            // Simulate the observer being called with the failed request
-            observerSlot.captured(failedRequest)
+            // Capture and invoke the API observer with failed request
+            val observer = captureApiObserver()
+            observer(createApiRequest(eventUuid, 500))
 
             // Verify pendingResult.finish() was called
             verify(exactly = 1) { mockPendingResult.finish() }
@@ -1158,11 +1157,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             // Advance clock 10s, the standard max execution time for broadcast receiver
             staticClock.execute(10_000L)
 
-            // Verify pendingResult.finish() was not called again
-            verify(exactly = 1) { mockPendingResult.finish() }
-
-            // Verify observer was unregistered
-            verify { mockApiClient.offApiRequest(any()) }
+            // Verify pendingResult.finish() was not called again and observer was cleaned up
+            verifyRequestObserverLifecycle()
         }
     }
 
@@ -1213,16 +1209,6 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         every { mockState.createEvent(any(), any()) } returnsMany listOf(event1, event2)
         Registry.register<State> { mockState }
 
-        // Create mock requests that will be observed
-        val request1 = mockk<ApiRequest>(relaxed = true).apply {
-            every { uuid } returns event1Uuid
-            every { responseCode } returns 200
-        }
-        val request2 = mockk<ApiRequest>(relaxed = true).apply {
-            every { uuid } returns event2Uuid
-            every { responseCode } returns 200
-        }
-
         val geofence1 = mockGeofence("$apiKey:geo1")
         val geofence2 = mockGeofence("$apiKey:geo2")
         val mockEvent = mockGeofencingEvent(
@@ -1235,17 +1221,16 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
 
             // Capture the API observer that was registered
-            val observerSlot = slot<ApiObserver>()
-            verify { mockApiClient.onApiRequest(true, capture(observerSlot)) }
+            val observer = captureApiObserver()
 
             // Simulate only the first request completing
-            observerSlot.captured(request1)
+            observer(createApiRequest(event1Uuid, 200))
 
             // Verify finish() was NOT called yet (waiting for second request)
             verify(exactly = 0) { mockPendingResult.finish() }
 
             // Simulate the second request completing
-            observerSlot.captured(request2)
+            observer(createApiRequest(event2Uuid, 200))
 
             // Verify pendingResult.finish() was called
             verify(exactly = 1) { mockPendingResult.finish() }
@@ -1253,11 +1238,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             // Advance clock 10s, the standard max execution time for broadcast receiver
             staticClock.execute(10_000L)
 
-            // Verify pendingResult.finish() was not called again
-            verify(exactly = 1) { mockPendingResult.finish() }
-
-            // Verify observer was unregistered
-            verify { mockApiClient.offApiRequest(any()) }
+            // Verify pendingResult.finish() was not called again and observer was cleaned up
+            verifyRequestObserverLifecycle()
         }
     }
 
@@ -1338,4 +1320,6 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             assertEquals(TIME + 9500L, scheduledTask.time)
         }
     }
+
+    //endregion
 }

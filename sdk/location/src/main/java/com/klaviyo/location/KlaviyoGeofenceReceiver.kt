@@ -7,10 +7,14 @@ import com.klaviyo.core.Registry
 
 class KlaviyoGeofenceReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        Registry.locationManager.handleGeofenceIntent(
-            context.applicationContext,
-            intent,
-            goAsync()
-        )
+        try {
+            Registry.locationManager.handleGeofenceIntent(
+                context.applicationContext,
+                intent,
+                goAsync()
+            )
+        } catch (e: Throwable) {
+            Registry.log.error("Unexpected error handling geofence transition intent", e)
+        }
     }
 }
