@@ -9,9 +9,12 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.json.JSONException
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -77,12 +80,15 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     override fun setup() {
         super.setup()
 
+        Dispatchers.setMain(dispatcher)
+
         // Register the mocked ApiClient in the Registry
         Registry.register<ApiClient> { mockApiClient }
     }
 
     @After
     override fun cleanup() {
+        Dispatchers.resetMain()
         super.cleanup()
     }
 
