@@ -12,6 +12,7 @@
 - Avoid wildcard imports
 - Avoid fully qualified names inline
 - Avoid lateinit unless absolutely necessary
+- Do not use `!!` to get around nullability checks
 - Extract duplicated logic into shared utilities
 - Proper exception handling in public API surfaces
 - Verify log statements use the correct severity level per AGENTS.md guidelines

@@ -137,17 +137,16 @@ The Klaviyo Android SDK is organized into multiple modules, each with specific r
 
 ### CI/CD Pipeline
 
-The project uses GitHub Actions for CI/CD, particularly for running tests and link checks on pull
-requests.
-Ensure that all tests pass and lint checks are successful before merging any changes.
+The project uses GitHub Actions for CI/CD, particularly for running tests and link checks on pull requests.
+Ensure that all tests pass and lint checks are successful before committing any changes.
+Do not use --no-verify as a way to work around pre-commit checks unless prompted.
 
 ### Testing Approach
 
 As with production code, when writing tests be DRY. Find common setup, verify, and teardown code
-that can be reused across tests.
+that can be reused across tests. Highly reusable test fixtures can also be moved to the `fixtures` project.
 
-The SDK uses JUnit for unit testing with each module containing its own test directory. Tests follow
-this pattern:
+The SDK uses JUnit for unit testing with each module containing its own test directory. Tests follow this pattern:
 
 - `ClassNameTest.kt` for each implementation class
 - Typically inherit from `BaseTest.kt` for common mocking utilities and other setup code
@@ -171,8 +170,7 @@ Other style guidelines:
 - Avoid `lateinit` unless absolutely necessary.
 - Avoid `!!` (force unwrapping/null assertion operator) - use safe calls (`?.`), elvis operator (`?:`), or proper null checks instead.
 - Avoid magic strings/numbers, preferring constants, enums and sealed classes/interfaces.
-- Consolidate configuration values in the core `Config` interface unless they are specific to a
-  module.
+- Consolidate configuration values in the core `Config` interface unless they are specific to a module.
 
 ### Integration Points
 
@@ -198,4 +196,4 @@ Logging should use `Registry.log` with these severity levels:
 
 By default, we only log warning+ in debug builds, and error+ in production.
 The developer can add a manifest property to view more verbose logging in their debug builds.
-During code reviews or pre-commit checks, check whether the appropriate log levels are e 
+During code reviews or pre-commit checks, check we're using appropriate levels for any new logs.
