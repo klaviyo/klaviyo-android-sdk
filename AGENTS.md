@@ -64,7 +64,6 @@ before running the commands below.
 ./gradlew :sdk:analytics:testDebugUnitTest
 ./gradlew :sdk:forms:testDebugUnitTest
 ./gradlew :sdk:push-fcm:testDebugUnitTest
-./gradlew :sdk:location:testDebugUnitTest
 
 # Run a specific unit test with "--tests" flag
 ./gradlew :sdk:core:testDebugUnitTest --tests "com.klaviyo.core.KLogTest"
@@ -170,6 +169,7 @@ Other style guidelines:
 - Extract common logic into extensions or utility classes. Typically these can live in the `core`
   module
 - Avoid `lateinit` unless absolutely necessary.
+- Avoid `!!` (force unwrapping/null assertion operator) - use safe calls (`?.`), elvis operator (`?:`), or proper null checks instead.
 - Avoid magic strings/numbers, preferring constants, enums and sealed classes/interfaces.
 - Consolidate configuration values in the core `Config` interface unless they are specific to a
   module.
