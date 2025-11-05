@@ -12,14 +12,14 @@ internal class FetchedGeofenceTest : BaseTest() {
     @Test
     fun `creates FetchedGeofence with correct values`() {
         val geofence = FetchedGeofence(
-            companyId = "aPiKeY",
+            companyId = API_KEY,
             id = "test-id",
             latitude = 40.7128,
             longitude = -74.006,
             radius = 100.0
         )
 
-        assertEquals("aPiKeY", geofence.companyId)
+        assertEquals(API_KEY, geofence.companyId)
         assertEquals("test-id", geofence.id)
         assertEquals(40.7128, geofence.latitude, 0.0001)
         assertEquals(-74.006, geofence.longitude, 0.0001)
@@ -42,10 +42,10 @@ internal class FetchedGeofenceTest : BaseTest() {
         """
         )
 
-        val geofence = json.toFetchedGeofence("aPiKeY")
+        val geofence = json.toFetchedGeofence(API_KEY)
 
         assertNotNull(geofence)
-        assertEquals("aPiKeY", geofence!!.companyId)
+        assertEquals(API_KEY, geofence!!.companyId)
         assertEquals("8db4effa-44f1-45e6-a88d-8e7d50516a0f", geofence.id)
         assertEquals(40.7128, geofence.latitude, 0.0001)
         assertEquals(-74.006, geofence.longitude, 0.0001)
@@ -68,10 +68,10 @@ internal class FetchedGeofenceTest : BaseTest() {
         """
         )
 
-        val geofence = json.toFetchedGeofence("aPiKeY")
+        val geofence = json.toFetchedGeofence(API_KEY)
 
         assertNotNull(geofence)
-        assertEquals("aPiKeY", geofence!!.companyId)
+        assertEquals(API_KEY, geofence!!.companyId)
         assertEquals("test-id", geofence.id)
         assertEquals(-33.8688, geofence.latitude, 0.0001)
         assertEquals(151.2093, geofence.longitude, 0.0001)
@@ -94,10 +94,10 @@ internal class FetchedGeofenceTest : BaseTest() {
         """
         )
 
-        val geofence = json.toFetchedGeofence("aPiKeY")
+        val geofence = json.toFetchedGeofence(API_KEY)
 
         assertNotNull(geofence)
-        assertEquals("aPiKeY", geofence!!.companyId)
+        assertEquals(API_KEY, geofence!!.companyId)
         assertEquals(0.0, geofence.latitude, 0.0001)
         assertEquals(0.0, geofence.longitude, 0.0001)
     }
@@ -129,12 +129,12 @@ internal class FetchedGeofenceTest : BaseTest() {
         """
         )
 
-        val geofences = jsonArray.toFetchedGeofences("aPiKeY")
+        val geofences = jsonArray.toFetchedGeofences(API_KEY)
 
         assertEquals(2, geofences.size)
-        assertEquals("aPiKeY", geofences[0].companyId)
+        assertEquals(API_KEY, geofences[0].companyId)
         assertEquals("id1", geofences[0].id)
-        assertEquals("aPiKeY", geofences[1].companyId)
+        assertEquals(API_KEY, geofences[1].companyId)
         assertEquals("id2", geofences[1].id)
     }
 
@@ -142,7 +142,7 @@ internal class FetchedGeofenceTest : BaseTest() {
     fun `toFetchedGeofences returns empty list for empty array`() {
         val jsonArray = JSONArray("[]")
 
-        val geofences = jsonArray.toFetchedGeofences("aPiKeY")
+        val geofences = jsonArray.toFetchedGeofences(API_KEY)
 
         assertEquals(0, geofences.size)
     }
@@ -178,21 +178,21 @@ internal class FetchedGeofenceTest : BaseTest() {
         """
         )
 
-        val geofences = jsonArray.toFetchedGeofences("aPiKeY")
+        val geofences = jsonArray.toFetchedGeofences(API_KEY)
 
         // Should only include valid entries
         assertEquals(2, geofences.size)
-        assertEquals("aPiKeY", geofences[0].companyId)
+        assertEquals(API_KEY, geofences[0].companyId)
         assertEquals("id1", geofences[0].id)
-        assertEquals("aPiKeY", geofences[1].companyId)
+        assertEquals(API_KEY, geofences[1].companyId)
         assertEquals("id3", geofences[1].id)
     }
 
     @Test
     fun `data class equality works correctly`() {
-        val geofence1 = FetchedGeofence("aPiKeY", "id", 40.7, -74.0, 100.0)
-        val geofence2 = FetchedGeofence("aPiKeY", "id", 40.7, -74.0, 100.0)
-        val geofence3 = FetchedGeofence("aPiKeY", "other-id", 40.7, -74.0, 100.0)
+        val geofence1 = FetchedGeofence(API_KEY, "id", 40.7, -74.0, 100.0)
+        val geofence2 = FetchedGeofence(API_KEY, "id", 40.7, -74.0, 100.0)
+        val geofence3 = FetchedGeofence(API_KEY, "other-id", 40.7, -74.0, 100.0)
 
         assertEquals(geofence1, geofence2)
         assert(geofence1 != geofence3)
@@ -200,10 +200,10 @@ internal class FetchedGeofenceTest : BaseTest() {
 
     @Test
     fun `data class toString works correctly`() {
-        val geofence = FetchedGeofence("aPiKeY", "test-id", 40.7128, -74.006, 100.5)
+        val geofence = FetchedGeofence(API_KEY, "test-id", 40.7128, -74.006, 100.5)
         val stringRep = geofence.toString()
 
-        assert(stringRep.contains("aPiKeY"))
+        assert(stringRep.contains(API_KEY))
         assert(stringRep.contains("test-id"))
         assert(stringRep.contains("40.7128"))
         assert(stringRep.contains("-74.006"))

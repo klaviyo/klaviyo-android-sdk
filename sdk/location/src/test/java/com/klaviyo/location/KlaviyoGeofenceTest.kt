@@ -14,7 +14,7 @@ import org.junit.Test
 internal class KlaviyoGeofenceTest : BaseTest() {
 
     companion object {
-        private const val TEST_ID = "aPiKeY:location456"
+        private const val TEST_ID = "$API_KEY:location456"
         private const val TEST_LATITUDE = 40.7128
         private const val TEST_LONGITUDE = -74.006
         private const val TEST_RADIUS = 100.0f
@@ -31,7 +31,7 @@ internal class KlaviyoGeofenceTest : BaseTest() {
     fun `parses company ID from composite ID`() {
         val geofence = createTestGeofence()
 
-        assertEquals("aPiKeY", geofence.companyId)
+        assertEquals(API_KEY, geofence.companyId)
     }
 
     @Test
@@ -71,13 +71,13 @@ internal class KlaviyoGeofenceTest : BaseTest() {
     @Test
     fun `converts Geofence to KlaviyoGeofence`() {
         val klaviyoGeofence = mockk<Geofence>().apply {
-            every { requestId } returns "aPiKeY:location123"
+            every { requestId } returns "$API_KEY:location123"
             every { latitude } returns TEST_LATITUDE
             every { longitude } returns TEST_LONGITUDE
             every { radius } returns TEST_RADIUS
         }.toKlaviyoGeofence()
 
-        assertEquals("aPiKeY:location123", klaviyoGeofence.id)
+        assertEquals("$API_KEY:location123", klaviyoGeofence.id)
         assertEquals(TEST_LATITUDE, klaviyoGeofence.latitude, 0.0001)
         assertEquals(TEST_LONGITUDE, klaviyoGeofence.longitude, 0.0001)
         assertEquals(TEST_RADIUS, klaviyoGeofence.radius)
@@ -87,7 +87,7 @@ internal class KlaviyoGeofenceTest : BaseTest() {
     fun `data class equality works correctly`() {
         val geofence1 = createTestGeofence()
         val geofence2 = createTestGeofence()
-        val geofence3 = createTestGeofence(id = "aPiKeY:other-id")
+        val geofence3 = createTestGeofence(id = "$API_KEY:other-id")
 
         assertEquals(geofence1, geofence2)
         assertNotEquals(geofence1, geofence3)
@@ -166,7 +166,7 @@ internal class KlaviyoGeofenceTest : BaseTest() {
     @Test
     fun `toKlaviyoGeofence handles negative coordinates`() {
         val json = JSONObject().apply {
-            put(KlaviyoGeofence.KEY_ID, "aPiKeY:test-id")
+            put(KlaviyoGeofence.KEY_ID, "$API_KEY:test-id")
             put(KlaviyoGeofence.KEY_LATITUDE, -40.7128)
             put(KlaviyoGeofence.KEY_LONGITUDE, 74.006)
             put(KlaviyoGeofence.KEY_RADIUS, 50.0)
@@ -174,7 +174,7 @@ internal class KlaviyoGeofenceTest : BaseTest() {
 
         val geofence = json.toKlaviyoGeofence()
 
-        assertEquals("aPiKeY:test-id", geofence!!.id)
+        assertEquals("$API_KEY:test-id", geofence!!.id)
         assertEquals(-40.7128, geofence.latitude, 0.0001)
         assertEquals(74.006, geofence.longitude, 0.0001)
         assertEquals(50.0f, geofence.radius)
@@ -182,9 +182,9 @@ internal class KlaviyoGeofenceTest : BaseTest() {
 
     @Test
     fun `handles locationId containing colons`() {
-        val geofence = createTestGeofence(id = "aPiKeY:loc:123:456")
+        val geofence = createTestGeofence(id = "$API_KEY:loc:123:456")
 
-        assertEquals("aPiKeY", geofence.companyId)
+        assertEquals(API_KEY, geofence.companyId)
         assertEquals("loc:123:456", geofence.locationId)
     }
 
@@ -209,9 +209,9 @@ internal class KlaviyoGeofenceTest : BaseTest() {
     @Test
     fun `logs warning when locationId is empty`() {
         // This should still create the geofence but log a warning
-        val geofence = createTestGeofence(id = "aPiKeY:")
+        val geofence = createTestGeofence(id = "$API_KEY:")
 
-        assertEquals("aPiKeY", geofence.companyId)
+        assertEquals(API_KEY, geofence.companyId)
         assertEquals("", geofence.locationId)
     }
 

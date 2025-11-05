@@ -5,8 +5,6 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkObject
-import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertNotNull
@@ -25,16 +23,12 @@ internal class GeofencingTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
-        mockkObject(KlaviyoLocationManager)
-        every { KlaviyoLocationManager.startGeofenceMonitoring() } returns Unit
-        every { KlaviyoLocationManager.stopGeofenceMonitoring() } returns Unit
     }
 
     @After
     override fun cleanup() {
         Registry.unregister<LocationManager>()
         Registry.unregister<PermissionMonitor>()
-        unmockkObject(KlaviyoLocationManager)
         super.cleanup()
     }
 
@@ -77,13 +71,12 @@ internal class GeofencingTest : BaseTest() {
     }
 
     @Test
-    fun `unregisterGeofencing calls startGeofenceMonitoring when LocationManager is registered`() {
+    fun `unregisterGeofencing calls stopGeofenceMonitoring when LocationManager is registered`() {
         Registry.register<LocationManager>(mockLocationManager)
 
         Klaviyo.unregisterGeofencing()
 
-        // BUG: Currently calls startGeofenceMonitoring instead of stopGeofenceMonitoring
-        verify { mockLocationManager.startGeofenceMonitoring() }
+        verify { mockLocationManager.stopGeofenceMonitoring() }
     }
 
     @Test

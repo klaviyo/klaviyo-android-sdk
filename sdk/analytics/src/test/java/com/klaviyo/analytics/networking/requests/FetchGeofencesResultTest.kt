@@ -10,8 +10,8 @@ internal class FetchGeofencesResultTest : BaseTest() {
     @Test
     fun `Success result contains geofence data`() {
         val geofences = listOf(
-            FetchedGeofence("aPiKeY", "id1", 40.7, -74.0, 100.0),
-            FetchedGeofence("aPiKeY", "id2", 50.1, -120.2, 200.0)
+            FetchedGeofence(API_KEY, "id1", 40.7, -74.0, 100.0),
+            FetchedGeofence(API_KEY, "id2", 50.1, -120.2, 200.0)
         )
         val result = FetchGeofencesResult.Success(geofences)
 
@@ -29,7 +29,7 @@ internal class FetchGeofencesResultTest : BaseTest() {
 
     @Test
     fun `Success result data is immutable list`() {
-        val geofences = listOf(FetchedGeofence("aPiKeY", "id1", 40.7, -74.0, 100.0))
+        val geofences = listOf(FetchedGeofence(API_KEY, "id1", 40.7, -74.0, 100.0))
         val result = FetchGeofencesResult.Success(geofences)
 
         // List should be the same reference
@@ -38,8 +38,8 @@ internal class FetchGeofencesResultTest : BaseTest() {
 
     @Test
     fun `Success result data access`() {
-        val geofence1 = FetchedGeofence("aPiKeY", "id1", 40.7, -74.0, 100.0)
-        val geofence2 = FetchedGeofence("aPiKeY", "id2", 50.1, -120.2, 200.0)
+        val geofence1 = FetchedGeofence(API_KEY, "id1", 40.7, -74.0, 100.0)
+        val geofence2 = FetchedGeofence(API_KEY, "id2", 50.1, -120.2, 200.0)
         val result = FetchGeofencesResult.Success(listOf(geofence1, geofence2))
 
         val data = result.data
@@ -50,7 +50,7 @@ internal class FetchGeofencesResultTest : BaseTest() {
     @Test
     fun `Success result maintains data ordering`() {
         val geofences = (1..10).map { i ->
-            FetchedGeofence("aPiKeY", "id$i", (40.0 + i), (-74.0 + i), (100.0 * i))
+            FetchedGeofence(API_KEY, "id$i", (40.0 + i), (-74.0 + i), (100.0 * i))
         }
         val result = FetchGeofencesResult.Success(geofences)
 
@@ -62,9 +62,9 @@ internal class FetchGeofencesResultTest : BaseTest() {
 
     @Test
     fun `Success equality based on data`() {
-        val geofences1 = listOf(FetchedGeofence("aPiKeY", "id1", 40.7, -74.0, 100.0))
-        val geofences2 = listOf(FetchedGeofence("aPiKeY", "id1", 40.7, -74.0, 100.0))
-        val geofences3 = listOf(FetchedGeofence("aPiKeY", "id2", 40.7, -74.0, 100.0))
+        val geofences1 = listOf(FetchedGeofence(API_KEY, "id1", 40.7, -74.0, 100.0))
+        val geofences2 = listOf(FetchedGeofence(API_KEY, "id1", 40.7, -74.0, 100.0))
+        val geofences3 = listOf(FetchedGeofence(API_KEY, "id2", 40.7, -74.0, 100.0))
 
         val success1 = FetchGeofencesResult.Success(geofences1)
         val success2 = FetchGeofencesResult.Success(geofences2)

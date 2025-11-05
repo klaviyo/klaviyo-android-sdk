@@ -7,12 +7,27 @@ import android.content.Context
 import android.content.Intent
 import androidx.annotation.RequiresPermission
 import com.google.android.gms.location.Geofence
+import com.google.android.gms.location.Geofence.NEVER_EXPIRE
 import com.google.android.gms.location.GeofenceStatusCodes
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
+import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.core.Registry
+import com.klaviyo.core.safeLaunch
+import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.CoroutineScope
+import org.json.JSONArray
+
+/**
+ * Extension property to access a shared [LocationManager] instance
+ */
+internal val Registry.locationManager: LocationManager
+    get() = getOrNull<LocationManager>() ?: KlaviyoLocationManager().also {
+        register<LocationManager>(it)
+    }
 
 /**
  * Coordinator for all geofencing operations
@@ -20,14 +35,21 @@ import com.klaviyo.core.Registry
  * - Fetches geofences from the Klaviyo backend
  * - Adds/removes geofences to/from the system geofencing APIs
  * - Handles geofence transition intents
- * - CHNL-25300 Handle boot receiver events to re-register geofences on device reboot
+ * - TODO CHNL-25300 Handle boot receiver events to re-register geofences on device reboot
  */
-internal object KlaviyoLocationManager : LocationManager {
+internal class KlaviyoLocationManager : LocationManager {
 
-    /**
-     * Arbitrary int for the pending intent request code
-     */
-    private const val INTENT_CODE = 23
+    companion object {
+        /**
+         * Arbitrary int for the pending intent request code
+         */
+        private const val INTENT_CODE = 23
+
+        /**
+         * Key for storing geofences in the persistent data store
+         */
+        private const val GEOFENCES_STORAGE_KEY = "klaviyo_geofences"
+    }
 
     /**
      * Lazy-loaded access to the system geofencing APIs
@@ -46,6 +68,25 @@ internal object KlaviyoLocationManager : LocationManager {
             Intent(Registry.config.applicationContext, KlaviyoGeofenceReceiver::class.java),
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+    }
+
+    /**
+     * Thread-safe list of observers for geofence fetch events
+     */
+    private val observers = CopyOnWriteArrayList<GeofenceObserver>()
+
+    override fun onGeofenceSync(callback: GeofenceObserver) {
+        observers += callback
+    }
+
+    override fun offGeofenceSync(callback: GeofenceObserver) {
+        observers -= callback
+    }
+
+    private fun notifyObservers(geofences: List<KlaviyoGeofence>) {
+        observers.forEach { observer ->
+            observer(geofences)
+        }
     }
 
     override fun startGeofenceMonitoring() {
@@ -73,9 +114,98 @@ internal object KlaviyoLocationManager : LocationManager {
         }
     }
 
+    /**
+     * Fetch geofences from the Klaviyo backend using an immediate API call via coroutines.
+     * This bypasses the API queue and makes the request right away.
+     * On success, parses the JSON response into KlaviyoGeofence objects and saves them locally.
+     */
+    fun fetchGeofences() {
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            val result = Registry.get<ApiClient>().fetchGeofences()
+            when (result) {
+                is FetchGeofencesResult.Success -> {
+                    result.data.map {
+                        it.toKlaviyoGeofence()
+                    }.let { geofences ->
+                        Registry.log.verbose("Successfully fetched ${geofences.size} geofences")
+                        storeGeofences(geofences)
+                    }
+                }
+
+                is FetchGeofencesResult.Unavailable -> {
+                    Registry.log.warning("Geofences are unavailable, device may be offline")
+                }
+
+                is FetchGeofencesResult.Failure -> {
+                    Registry.log.error("Failed to fetch geofences")
+                }
+            }
+        }
+    }
+
+    /**
+     * Save geofences to persistent storage
+     *
+     * @param geofences List of geofences to save
+     */
+    fun storeGeofences(geofences: List<KlaviyoGeofence>) {
+        try {
+            // Serialize geofences to JSON array
+            val jsonArray = JSONArray().apply {
+                geofences.forEach { geofence ->
+                    put(geofence.toJson())
+                }
+            }
+
+            // Store in dataStore
+            Registry.dataStore.store(GEOFENCES_STORAGE_KEY, jsonArray.toString())
+            Registry.log.verbose("Saved ${geofences.size} geofences to persistent storage")
+
+            // Notify observers that new geofences have been fetched and stored
+            notifyObservers(geofences)
+        } catch (e: Exception) {
+            Registry.log.error("Failed to save geofences to local storage", e)
+        }
+    }
+
+    /**
+     * Remove all geofences from persistent storage
+     */
+    fun clearStoredGeofences() {
+        try {
+            Registry.dataStore.clear(GEOFENCES_STORAGE_KEY)
+            notifyObservers(emptyList())
+            Registry.log.verbose("Cleared all geofences from persistent storage")
+        } catch (e: Exception) {
+            Registry.log.error("Failed to remove geofences from local storage", e)
+        }
+    }
+
+    /**
+     * Retrieve the list of geofences currently stored in persistent storage
+     *
+     * @return List of geofences, or empty list if none are stored or parsing fails
+     */
+    override fun getStoredGeofences(): List<KlaviyoGeofence> = try {
+        val geofences = Registry.dataStore.fetch(GEOFENCES_STORAGE_KEY)?.let {
+            JSONArray(it).toKlaviyoGeofences()
+        } ?: emptyList()
+
+        Registry.log.verbose("Retrieved ${geofences.size} geofences from persistent storage")
+        geofences
+    } catch (e: Exception) {
+        Registry.log.error("Failed to retrieve geofences from storage", e)
+        emptyList()
+    }
+
+    /**
+     * Register all currently stored geofences with the system geofencing APIs
+     */
+    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+    private fun monitorGeofences() = getStoredGeofences().forEach { addGeofence(it) }
+
     @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
     private fun addGeofence(geofence: KlaviyoGeofence) {
-        // TODO CHNL-25306 persist a record of all fences, since system doesn't do it for us
         val geofenceToAdd = Geofence.Builder()
             .setRequestId(geofence.id)
             .setCircularRegion(
@@ -83,7 +213,7 @@ internal object KlaviyoLocationManager : LocationManager {
                 geofence.longitude,
                 geofence.radius
             )
-            .setExpirationDuration(-1L)
+            .setExpirationDuration(NEVER_EXPIRE)
             .setTransitionTypes(
                 Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT
             )
@@ -108,27 +238,7 @@ internal object KlaviyoLocationManager : LocationManager {
         geofencingClient.removeGeofences(listOf(geofence.id))
     }
 
-    // Make the API request -- use coroutines to send it right away
-    // attach listener to await the result
-    // on success, parse the response into com.klaviyo.location.KlaviyoGeofence objects
-    // call saveGeofences with the list of geofences
-    override fun fetchGeofences() {
-        TODO("CHNL-24475 Fetch geofences from Klaviyo backend and save them locally")
-    }
-
-    fun saveGeofences(geofences: List<KlaviyoGeofence>) {
-        TODO("CHNL-24471 Save geofences locally and start monitoring them")
-    }
-
-    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
-    private fun monitorGeofences() = getCurrentGeofences().forEach { addGeofence(it) }
-
-    override fun getCurrentGeofences(): List<KlaviyoGeofence> {
-        // TODO CHNL-24475 return geofences currently monitored
-        return emptyList()
-    }
-
-    fun handleGeofenceIntent(context: Context?, intent: Intent?) {
+    override fun handleGeofenceIntent(context: Context?, intent: Intent?) {
         val geofencingEvent = intent?.let { GeofencingEvent.fromIntent(it) } ?: return
 
         if (geofencingEvent.hasError()) {
