@@ -21,8 +21,10 @@ import com.klaviyo.analytics.networking.ApiObserver
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Clock
 import com.klaviyo.core.safeLaunch
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import org.json.JSONArray
 
@@ -359,44 +361,53 @@ internal class KlaviyoLocationManager : LocationManager {
         requestUuids: List<String>,
         pendingResult: BroadcastReceiver.PendingResult
     ) {
+        val pendingRequests = requestUuids.toMutableSet()
+        val hasFinished = AtomicBoolean(false)
+        var observer: ApiObserver? = null
+        var timeout: Clock.Cancellable? = null
+
+        // Wrapped finish function, to ensure we can't call it twice (causes a crash)
+        fun finish(observer: ApiObserver? = null, timeout: Clock.Cancellable? = null) {
+            if (hasFinished.compareAndSet(false, true)) {
+                observer?.let { Registry.get<ApiClient>().offApiRequest(it) }
+                timeout?.cancel()
+                pendingResult.finish()
+            }
+        }
+
         // If no requests were created, finish immediately
-        if (requestUuids.isEmpty()) {
-            pendingResult.finish()
+        if (pendingRequests.isEmpty()) {
+            finish()
             return
         }
 
-        val pendingRequests = requestUuids.toMutableSet()
+        // Timeout - ensure we finish even if network calls don't complete in time
+        timeout = Registry.clock.schedule(BROADCAST_RECEIVER_TIMEOUT) {
+            val remaining = synchronized(pendingRequests) {
+                pendingRequests.size
+            }
+            if (remaining > 0) {
+                Registry.log.warning(
+                    "Timeout creating geofence transition events: $remaining remain in queue"
+                )
+            }
+            finish(observer, timeout)
+        }
 
-        // Observer to watch for request completion
-        lateinit var observer: ApiObserver
+        // As requests complete, remove from pending list, and call finish when all complete
         observer = { request ->
-            if (pendingRequests.contains(request.uuid) && request.responseCode is Int) {
-                synchronized(pendingRequests) {
+            if (request.responseCode is Int) {
+                val remaining = synchronized(pendingRequests) {
                     pendingRequests.remove(request.uuid)
-
-                    if (pendingRequests.isEmpty()) {
-                        Registry.get<ApiClient>().offApiRequest(observer)
-                        pendingResult.finish()
-                    }
+                    pendingRequests.size
+                }
+                if (remaining == 0) {
+                    finish(observer, timeout)
                 }
             }
         }
 
-        // Register observer
-        Registry.get<ApiClient>().onApiRequest(withHistory = false, observer)
-
-        // Safety timeout - ensure we call finish() even if observer doesn't trigger
-        Registry.clock.schedule(BROADCAST_RECEIVER_TIMEOUT) {
-            synchronized(pendingRequests) {
-                if (pendingRequests.isNotEmpty()) {
-                    Registry.log.warning(
-                        "Geofence requests timed out, ${pendingRequests.size} still pending"
-                    )
-                }
-            }
-            Registry.get<ApiClient>().offApiRequest(observer)
-            pendingResult.finish()
-        }
+        Registry.get<ApiClient>().onApiRequest(true, observer)
     }
 
     /**

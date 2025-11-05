@@ -1078,8 +1078,6 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         unmockkStatic(GeofencingEvent::class)
     }
 
-    // ========== goAsync() / waitForRequestCompletion Tests ==========
-
     @Test
     fun `handleGeofenceIntent calls pendingResult finish when request completes successfully`() {
         // Setup: Register State in Registry
@@ -1105,13 +1103,19 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
             // Capture the API observer that was registered
             val observerSlot = slot<ApiObserver>()
-            verify { mockApiClient.onApiRequest(false, capture(observerSlot)) }
+            verify { mockApiClient.onApiRequest(true, capture(observerSlot)) }
 
             // Simulate the observer being called with the completed request
             observerSlot.captured(completableRequest)
 
             // Verify pendingResult.finish() was called
-            verify { mockPendingResult.finish() }
+            verify(exactly = 1) { mockPendingResult.finish() }
+
+            // Advance clock 10s, the standard max execution time for broadcast receiver
+            staticClock.execute(10_000L)
+
+            // Verify pendingResult.finish() was not called again
+            verify(exactly = 1) { mockPendingResult.finish() }
 
             // Verify observer was unregistered
             verify { mockApiClient.offApiRequest(any()) }
@@ -1143,13 +1147,19 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
             // Capture the API observer that was registered
             val observerSlot = slot<ApiObserver>()
-            verify { mockApiClient.onApiRequest(false, capture(observerSlot)) }
+            verify { mockApiClient.onApiRequest(true, capture(observerSlot)) }
 
             // Simulate the observer being called with the failed request
             observerSlot.captured(failedRequest)
 
             // Verify pendingResult.finish() was called
-            verify { mockPendingResult.finish() }
+            verify(exactly = 1) { mockPendingResult.finish() }
+
+            // Advance clock 10s, the standard max execution time for broadcast receiver
+            staticClock.execute(10_000L)
+
+            // Verify pendingResult.finish() was not called again
+            verify(exactly = 1) { mockPendingResult.finish() }
 
             // Verify observer was unregistered
             verify { mockApiClient.offApiRequest(any()) }
@@ -1173,16 +1183,14 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             val mockIntent = mockk<Intent>(relaxed = true)
             locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
 
-            // Verify timeout was scheduled by checking the scheduled tasks
-            assertEquals(1, staticClock.scheduledTasks.size)
-            val scheduledTask = staticClock.scheduledTasks.first()
-            assertEquals(TIME + 9500L, scheduledTask.time)
+            // Verify pendingResult.finish() was not called
+            verify(exactly = 0) { mockPendingResult.finish() }
 
-            // Execute the timeout task
-            scheduledTask.task()
+            // Advance clock 10s, the standard max execution time for broadcast receiver
+            staticClock.execute(10_000L)
 
-            // Verify pendingResult.finish() was called by timeout
-            verify { mockPendingResult.finish() }
+            // Verify pendingResult.finish() was not called again
+            verify(exactly = 1) { mockPendingResult.finish() }
 
             // Verify observer was unregistered
             verify { mockApiClient.offApiRequest(any()) }
@@ -1228,7 +1236,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
             // Capture the API observer that was registered
             val observerSlot = slot<ApiObserver>()
-            verify { mockApiClient.onApiRequest(false, capture(observerSlot)) }
+            verify { mockApiClient.onApiRequest(true, capture(observerSlot)) }
 
             // Simulate only the first request completing
             observerSlot.captured(request1)
@@ -1239,7 +1247,13 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             // Simulate the second request completing
             observerSlot.captured(request2)
 
-            // Now verify finish() was called
+            // Verify pendingResult.finish() was called
+            verify(exactly = 1) { mockPendingResult.finish() }
+
+            // Advance clock 10s, the standard max execution time for broadcast receiver
+            staticClock.execute(10_000L)
+
+            // Verify pendingResult.finish() was not called again
             verify(exactly = 1) { mockPendingResult.finish() }
 
             // Verify observer was unregistered
