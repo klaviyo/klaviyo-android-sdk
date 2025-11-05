@@ -164,7 +164,7 @@ internal class KlaviyoLocationManager : LocationManager {
             // Notify observers that new geofences have been fetched and stored
             notifyObservers(geofences)
         } catch (e: Exception) {
-            Registry.log.error("Failed to save geofences", e)
+            Registry.log.error("Failed to save geofences to local storage", e)
         }
     }
 
@@ -177,7 +177,7 @@ internal class KlaviyoLocationManager : LocationManager {
             notifyObservers(emptyList())
             Registry.log.verbose("Cleared all geofences from persistent storage")
         } catch (e: Exception) {
-            Registry.log.error("Failed to remove geofences", e)
+            Registry.log.error("Failed to remove geofences from local storage", e)
         }
     }
 
