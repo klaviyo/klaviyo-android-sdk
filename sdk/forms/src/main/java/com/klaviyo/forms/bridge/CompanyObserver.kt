@@ -18,7 +18,7 @@ internal class CompanyObserver : JsBridgeObserver {
 
     private fun onStateChange(change: StateChange) = when (change) {
         is StateChange.ApiKey -> Klaviyo.reInitializeInAppForms().run {
-            Registry.log.info(
+            Registry.log.debug(
                 "In-app forms reinitialized: company ID changed from ${change.oldValue} to ${Registry.get<State>().apiKey}"
             )
         }

@@ -57,7 +57,7 @@ open class KlaviyoPushService : FirebaseMessagingService() {
                 )
             }
         } else {
-            Registry.log.info("Ignoring non-Klaviyo RemoteMessage")
+            Registry.log.verbose("Ignoring non-Klaviyo RemoteMessage")
         }
     }
 
