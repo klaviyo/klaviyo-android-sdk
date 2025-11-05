@@ -226,7 +226,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
         KlaviyoApiClient.enqueueUnregisterPushToken(
-            "apiKey",
+            API_KEY,
             PUSH_TOKEN,
             Profile().setAnonymousId(ANON_ID)
         )
@@ -928,8 +928,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Test
     fun `fetchGeofences returns Success when request succeeds`() = runTest {
         val expectedGeofences = listOf(
-            FetchedGeofence("aPiKeY", "id1", 40.7128, -74.006, 100.0),
-            FetchedGeofence("aPiKeY", "id2", 40.6892, -74.0445, 200.0)
+            FetchedGeofence(API_KEY, "id1", 40.7128, -74.006, 100.0),
+            FetchedGeofence(API_KEY, "id2", 40.6892, -74.0445, 200.0)
         )
         setupFetchGeofencesTest(KlaviyoApiRequest.Status.Complete, expectedGeofences)
 
@@ -978,8 +978,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Test
     fun `fetchGeofences legacy implementation invokes callback`() = runTest {
         val expectedGeofences = listOf(
-            FetchedGeofence("aPiKeY", "id1", 40.7128, -74.006, 100.0),
-            FetchedGeofence("aPiKeY", "id2", 40.6892, -74.0445, 200.0)
+            FetchedGeofence(API_KEY, "id1", 40.7128, -74.006, 100.0),
+            FetchedGeofence(API_KEY, "id2", 40.6892, -74.0445, 200.0)
         )
         setupFetchGeofencesTest(KlaviyoApiRequest.Status.Complete, expectedGeofences)
 

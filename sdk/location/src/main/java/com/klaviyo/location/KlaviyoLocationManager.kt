@@ -16,7 +16,9 @@ import com.google.android.gms.location.LocationServices
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.core.Registry
+import com.klaviyo.core.safeLaunch
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.CoroutineScope
 import org.json.JSONArray
 
 /**
@@ -118,10 +120,10 @@ internal class KlaviyoLocationManager : LocationManager {
      * On success, parses the JSON response into KlaviyoGeofence objects and saves them locally.
      */
     fun fetchGeofences() {
-        Registry.get<ApiClient>().fetchGeofences { result ->
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            val result = Registry.get<ApiClient>().fetchGeofences()
             when (result) {
                 is FetchGeofencesResult.Success -> {
-                    // Map FetchedGeofence to KlaviyoGeofence objects using extension function
                     result.data.map {
                         it.toKlaviyoGeofence()
                     }.let { geofences ->

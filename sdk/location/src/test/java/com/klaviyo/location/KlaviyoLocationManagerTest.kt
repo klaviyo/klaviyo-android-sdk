@@ -1,18 +1,23 @@
 package com.klaviyo.location
 
 import com.klaviyo.analytics.networking.ApiClient
-import com.klaviyo.analytics.networking.requests.ApiRequest
-import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.analytics.networking.requests.FetchedGeofence
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
-import io.mockk.every
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
+import org.json.JSONException
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -24,42 +29,49 @@ import org.junit.Test
  * Some internal state management (like adding/removing geofences) is tested indirectly
  * through integration points, as the module is still in development (WIP).
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 internal class KlaviyoLocationManagerTest : BaseTest() {
 
     companion object {
         // NYC coordinates
         const val NYC_LAT = 40.7128
-        const val NYC_LON = -74.006
+        const val NYC_LNG = -74.006
         const val NYC_RADIUS = 100f
 
         // London coordinates
         const val LONDON_LAT = 51.5074
-        const val LONDON_LON = -0.1278
+        const val LONDON_LNG = -0.1278
         const val LONDON_RADIUS = 200f
+
+        private val stubNYC: FetchedGeofence
+            get() = FetchedGeofence(
+                Registry.config.apiKey,
+                "NYC",
+                NYC_LAT,
+                NYC_LNG,
+                NYC_RADIUS.toDouble()
+            )
+
+        private val stubLondon: FetchedGeofence
+            get() = FetchedGeofence(
+                Registry.config.apiKey,
+                "LONDON",
+                LONDON_LAT,
+                LONDON_LNG,
+                LONDON_RADIUS.toDouble()
+            )
+
+        private fun FetchedGeofence.toJson() = this.toKlaviyoGeofence().toJson().toString()
+
+        // Helper to create JSON array of geofences
+        private fun geofencesJson(vararg geofences: String) = "[${geofences.joinToString(",")}]"
     }
 
-    // Use lazy initialization to access Registry.config.apiKey after setup
-    private val NYC: FetchedGeofence
-        get() = FetchedGeofence(
-            Registry.config.apiKey,
-            "location1",
-            NYC_LAT,
-            NYC_LON,
-            NYC_RADIUS.toDouble()
-        )
-
-    private val LONDON: FetchedGeofence
-        get() = FetchedGeofence(
-            Registry.config.apiKey,
-            "location2",
-            LONDON_LAT,
-            LONDON_LON,
-            LONDON_RADIUS.toDouble()
-        )
-
     private var mockApiClient: ApiClient = mockk(relaxed = true)
-    private var mockApiRequest: ApiRequest = mockk(relaxed = true)
-    private lateinit var locationManager: KlaviyoLocationManager
+
+    private var locationManager = KlaviyoLocationManager().also {
+        Registry.register<LocationManager>(it)
+    }
 
     @Before
     override fun setup() {
@@ -67,10 +79,6 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         // Register the mocked ApiClient in the Registry
         Registry.register<ApiClient> { mockApiClient }
-
-        // Create a real instance for testing
-        locationManager = KlaviyoLocationManager()
-        Registry.register<LocationManager> { locationManager }
     }
 
     @After
@@ -93,36 +101,44 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     // Helper method to mock successful geofence fetch
-    private fun mockSuccessfulFetch(vararg geofences: FetchedGeofence) {
-        val callbackSlot = slot<FetchGeofencesCallback>()
-        every { mockApiClient.fetchGeofences(capture(callbackSlot)) } answers {
-            callbackSlot.captured(FetchGeofencesResult.Success(geofences.toList()))
-            mockApiRequest
-        }
+    private fun mockFetchWithResult(result: FetchGeofencesResult) {
+        coEvery { mockApiClient.fetchGeofences() } returns result
+        locationManager.fetchGeofences()
+        dispatcher.scheduler.advanceUntilIdle()
     }
 
-    // Helper to create geofence JSON for storage tests
-    private fun geofenceJson(id: String, lat: Double, lon: Double, radius: Double) = """
-        {
-          "id": "$id",
-          "latitude": $lat,
-          "longitude": $lon,
-          "radius": $radius
-        }
-    """.trimIndent()
+    @Test
+    fun `locationManager registry extension returns existing instance`() {
+        // Pre-register a mock LocationManager
+        val mockManager = mockk<LocationManager>()
+        Registry.register<LocationManager> { mockManager }
 
-    // Helper to create JSON array of geofences
-    private fun geofencesJson(vararg geofences: String) = """
-        [
-          ${geofences.joinToString(",\n          ")}
-        ]
-    """.trimIndent()
+        // Access via registry extension
+        val result = Registry.locationManager
+
+        // Should return the existing mock
+        assertSame(mockManager, result)
+    }
+
+    @Test
+    fun `locationManager registry extension creates and registers new instance if none exists`() {
+        // Verify no instance exists
+        Registry.unregister<LocationManager>()
+        assertEquals(null, Registry.getOrNull<LocationManager>())
+
+        // Access via registry extension
+        val result = Registry.locationManager
+
+        // Should create and register a new instance
+        assertNotNull(result)
+        assertTrue(result is KlaviyoLocationManager)
+        assertSame(result, Registry.get<LocationManager>())
+    }
 
     @Test
     fun `onGeofencesSynced registers observer`() {
         var callbackInvoked = false
         var receivedGeofences: List<KlaviyoGeofence>? = null
-
         val observer: GeofenceObserver = { geofences ->
             callbackInvoked = true
             receivedGeofences = geofences
@@ -131,13 +147,12 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         locationManager.onGeofenceSync(observer)
 
         // Trigger a fetch that will notify observers
-        mockSuccessfulFetch(NYC)
-        locationManager.fetchGeofences()
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
 
         // Verify observer was called
         assertEquals(true, callbackInvoked)
         assertEquals(1, receivedGeofences?.size)
-        assertEquals("${Registry.config.apiKey}:location1", receivedGeofences?.get(0)?.id)
+        assertEquals("${Registry.config.apiKey}:NYC", receivedGeofences?.get(0)?.id)
         callbackInvoked = false
 
         locationManager.clearStoredGeofences()
@@ -148,7 +163,6 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     @Test
     fun `offGeofencesSynced unregisters observer`() {
         var callbackInvoked = false
-
         val observer: GeofenceObserver = {
             callbackInvoked = true
         }
@@ -158,8 +172,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         locationManager.offGeofenceSync(observer)
 
         // Trigger a fetch
-        mockSuccessfulFetch(NYC)
-        locationManager.fetchGeofences()
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
 
         // Verify observer was NOT called
         assertEquals(false, callbackInvoked)
@@ -169,7 +182,6 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     fun `multiple observers all receive notifications`() {
         var callback1Invoked = false
         var callback2Invoked = false
-
         val observer1: GeofenceObserver = { callback1Invoked = true }
         val observer2: GeofenceObserver = { callback2Invoked = true }
 
@@ -177,8 +189,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         locationManager.onGeofenceSync(observer2)
 
         // Trigger a fetch
-        mockSuccessfulFetch(NYC)
-        locationManager.fetchGeofences()
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
 
         // Verify both observers were called
         assertEquals(true, callback1Invoked)
@@ -186,20 +197,16 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `observers are not notified on fetch failure`() {
+    fun `observers are not notified on fetch failure`() = runTest {
         var callbackInvoked = false
-
         val observer: GeofenceObserver = { callbackInvoked = true }
+
         locationManager.onGeofenceSync(observer)
 
         // Trigger a fetch that fails
-        val callbackSlot = slot<FetchGeofencesCallback>()
-        every { mockApiClient.fetchGeofences(capture(callbackSlot)) } answers {
-            callbackSlot.captured(FetchGeofencesResult.Failure)
-            mockApiRequest
-        }
-
+        coEvery { mockApiClient.fetchGeofences() } returns FetchGeofencesResult.Failure
         locationManager.fetchGeofences()
+        advanceUntilIdle()
 
         // Verify observer was NOT called
         assertEquals(false, callbackInvoked)
@@ -209,16 +216,28 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     fun `getStoredGeofences retrieves persisted geofences from dataStore`() {
         // Manually save geofences to dataStore to test retrieval
         val json = geofencesJson(
-            geofenceJson("aPiKeY:geo1", NYC_LAT, NYC_LON, NYC_RADIUS.toDouble()),
-            geofenceJson("aPiKeY:geo2", LONDON_LAT, LONDON_LON, LONDON_RADIUS.toDouble())
+            stubNYC.toJson(),
+            stubLondon.toJson()
         )
         Registry.dataStore.store("klaviyo_geofences", json)
 
         // Retrieve and verify
         val retrieved = locationManager.getStoredGeofences()
         assertEquals(2, retrieved.size)
-        assertGeofenceEquals(retrieved[0], "aPiKeY:geo1", NYC_LAT, NYC_LON, NYC_RADIUS)
-        assertGeofenceEquals(retrieved[1], "aPiKeY:geo2", LONDON_LAT, LONDON_LON, LONDON_RADIUS)
+        assertGeofenceEquals(
+            retrieved[0],
+            "${Registry.config.apiKey}:NYC",
+            NYC_LAT,
+            NYC_LNG,
+            NYC_RADIUS
+        )
+        assertGeofenceEquals(
+            retrieved[1],
+            "${Registry.config.apiKey}:LONDON",
+            LONDON_LAT,
+            LONDON_LNG,
+            LONDON_RADIUS
+        )
     }
 
     @Test
@@ -236,16 +255,15 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         // Should return empty list, not crash
         val retrieved = locationManager.getStoredGeofences()
         assertEquals(0, retrieved.size)
+        verify { spyLog.error(any(), any<JSONException>()) }
     }
 
     @Test
     fun `getStoredGeofences skips invalid geofence objects`() {
         // Create JSON array with one valid and one invalid geofence
         val json = geofencesJson(
-            geofenceJson("valid", 40.0, -74.0, 100.0),
-            """
-               { "id": "invalid-missing-fields"}
-            """.trimIndent()
+            stubNYC.toJson(),
+            """{"id": "invalid-missing-fields"}"""
         )
 
         Registry.dataStore.store("klaviyo_geofences", json)
@@ -253,14 +271,15 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         // Should only return the valid geofence
         val retrieved = locationManager.getStoredGeofences()
         assertEquals(1, retrieved.size)
-        assertEquals("valid", retrieved[0].id)
+        assertEquals("${Registry.config.apiKey}:NYC", retrieved[0].id)
+        verify { spyLog.warning(any(), any<JSONException>()) }
     }
 
     @Test
     fun `storeGeofences saves geofences to dataStore`() {
         val geofences = listOf(
-            KlaviyoGeofence("geo1", NYC_LON, NYC_LAT, NYC_RADIUS),
-            KlaviyoGeofence("geo2", LONDON_LON, LONDON_LAT, LONDON_RADIUS)
+            stubNYC.toKlaviyoGeofence(),
+            stubLondon.toKlaviyoGeofence()
         )
 
         // Store geofences
@@ -269,79 +288,82 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         // Retrieve and verify they were stored correctly
         val retrieved = locationManager.getStoredGeofences()
         assertEquals(2, retrieved.size)
-        assertGeofenceEquals(retrieved[0], "geo1", NYC_LAT, NYC_LON, NYC_RADIUS)
-        assertGeofenceEquals(retrieved[1], "geo2", LONDON_LAT, LONDON_LON, LONDON_RADIUS)
+        assertGeofenceEquals(
+            retrieved[0],
+            "${Registry.config.apiKey}:NYC",
+            NYC_LAT,
+            NYC_LNG,
+            NYC_RADIUS
+        )
+        assertGeofenceEquals(
+            retrieved[1],
+            "${Registry.config.apiKey}:LONDON",
+            LONDON_LAT,
+            LONDON_LNG,
+            LONDON_RADIUS
+        )
     }
 
     @Test
-    fun `fetchGeofences successfully processes geofence results`() {
-        mockSuccessfulFetch(NYC, LONDON)
-
-        // Call fetchGeofences - should not crash
-        locationManager.fetchGeofences()
+    fun `fetchGeofences successfully processes geofence results`() = runTest {
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC, stubLondon)))
 
         // Verify the ApiClient was called
-        verify { mockApiClient.fetchGeofences(any()) }
+        coVerify { mockApiClient.fetchGeofences() }
 
         // Verify the geofences were persisted
         val stored = locationManager.getStoredGeofences()
         assertEquals(2, stored.size)
         assertGeofenceEquals(
             stored[0],
-            "${Registry.config.apiKey}:location1",
+            "${Registry.config.apiKey}:NYC",
             NYC_LAT,
-            NYC_LON,
+            NYC_LNG,
             NYC_RADIUS
         )
         assertGeofenceEquals(
             stored[1],
-            "${Registry.config.apiKey}:location2",
+            "${Registry.config.apiKey}:LONDON",
             LONDON_LAT,
-            LONDON_LON,
+            LONDON_LNG,
             LONDON_RADIUS
         )
     }
 
     @Test
-    fun `fetchGeofences handles unavailable result without crashing`() {
-        val callbackSlot = slot<FetchGeofencesCallback>()
-
-        every { mockApiClient.fetchGeofences(capture(callbackSlot)) } answers {
-            // Invoke the callback with Unavailable (offline scenario)
-            callbackSlot.captured(FetchGeofencesResult.Unavailable)
-            mockApiRequest
-        }
+    fun `fetchGeofences handles unavailable result without crashing`() = runTest {
+        coEvery { mockApiClient.fetchGeofences() } returns FetchGeofencesResult.Unavailable
 
         // Should not crash when offline
         locationManager.fetchGeofences()
+        advanceUntilIdle()
 
-        verify { mockApiClient.fetchGeofences(any()) }
-        assertEquals(true, callbackSlot.isCaptured)
+        coVerify { mockApiClient.fetchGeofences() }
     }
 
     @Test
-    fun `fetchGeofences handles failure result without crashing`() {
-        val callbackSlot = slot<FetchGeofencesCallback>()
-
-        every { mockApiClient.fetchGeofences(capture(callbackSlot)) } answers {
-            // Invoke the callback with Failure
-            callbackSlot.captured(FetchGeofencesResult.Failure)
-            mockApiRequest
-        }
+    fun `fetchGeofences handles failure result without crashing`() = runTest {
+        coEvery { mockApiClient.fetchGeofences() } returns FetchGeofencesResult.Failure
 
         // Should not crash on failure
         locationManager.fetchGeofences()
+        advanceUntilIdle()
 
-        verify { mockApiClient.fetchGeofences(any()) }
-        assertEquals(true, callbackSlot.isCaptured)
+        coVerify { mockApiClient.fetchGeofences() }
     }
 
     @Test
-    fun `clearStoredGeofences clears all geofences from dataStore`() {
+    fun `clearStoredGeofences clears all geofences from dataStore and notifies observers`() {
+        var callbackInvoked = false
+        var geofences: List<KlaviyoGeofence>? = null
+        val observer: GeofenceObserver = { receivedGeofences ->
+            callbackInvoked = true
+            geofences = receivedGeofences
+        }
+        locationManager.onGeofenceSync(observer)
+
         // First, store some geofences
-        val json = geofencesJson(
-            geofenceJson("geo1", 40.0, -74.0, 100.0)
-        )
+        val json = geofencesJson(stubLondon.toJson())
         Registry.dataStore.store("klaviyo_geofences", json)
 
         // Verify they're stored
@@ -352,5 +374,9 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         // Verify they're gone
         assertEquals(0, locationManager.getStoredGeofences().size)
+
+        // And the callback was invoked correctly
+        assertTrue(callbackInvoked)
+        assertEquals(0, geofences?.size)
     }
 }
