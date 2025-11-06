@@ -1528,4 +1528,206 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     // endregion
+
+    // region Dwell tests
+
+    @Test
+    fun `geofence with duration includes DWELL transition and sets loitering delay`() {
+        val geofenceWithDwell = FetchedGeofence(
+            API_KEY,
+            "dwell-fence",
+            NYC_LAT,
+            NYC_LNG,
+            NYC_RADIUS.toDouble(),
+            duration = 30
+        )
+
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(geofenceWithDwell)))
+        every { mockPermissionMonitor.permissionState } returns true
+
+        locationManager.startGeofenceMonitoring()
+
+        // Verify that addGeofences was called and capture the request
+        verify(exactly = 1) {
+            mockGeofencingClient.addGeofences(
+                match { request ->
+                    val geofence = request.geofences.firstOrNull()
+                    geofence != null &&
+                        geofence.transitionTypes and Geofence.GEOFENCE_TRANSITION_DWELL != 0 &&
+                        geofence.loiteringDelay == 30000 // 30 seconds in milliseconds
+                },
+                mockPendingIntent
+            )
+        }
+    }
+
+    @Test
+    fun `geofence without duration does not include DWELL transition`() {
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
+        every { mockPermissionMonitor.permissionState } returns true
+
+        locationManager.startGeofenceMonitoring()
+
+        // Verify that addGeofences was called and DWELL is not included
+        verify(exactly = 1) {
+            mockGeofencingClient.addGeofences(
+                match { request ->
+                    val geofence = request.geofences.firstOrNull()
+                    geofence != null &&
+                        geofence.transitionTypes and Geofence.GEOFENCE_TRANSITION_DWELL == 0
+                },
+                mockPendingIntent
+            )
+        }
+    }
+
+    @Test
+    fun `mixed geofences with and without duration are registered correctly`() {
+        val dwellFence = FetchedGeofence(
+            API_KEY,
+            "dwell",
+            NYC_LAT,
+            NYC_LNG,
+            NYC_RADIUS.toDouble(),
+            duration = 60
+        )
+        val normalFence = stubLondon
+
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(dwellFence, normalFence)))
+        every { mockPermissionMonitor.permissionState } returns true
+
+        locationManager.startGeofenceMonitoring()
+
+        // Verify both geofences are registered with correct transition types
+        verify(exactly = 1) {
+            mockGeofencingClient.addGeofences(
+                match { request ->
+                    request.geofences.size == 2 &&
+                        // First geofence has DWELL with loitering delay
+                        request.geofences[0].transitionTypes and Geofence.GEOFENCE_TRANSITION_DWELL != 0 &&
+                        request.geofences[0].loiteringDelay == 60000 &&
+                        // Second geofence does not have DWELL
+                        request.geofences[1].transitionTypes and Geofence.GEOFENCE_TRANSITION_DWELL == 0
+                },
+                mockPendingIntent
+            )
+        }
+    }
+
+    @Test
+    fun `dwell event includes duration property`() {
+        // Setup: Register State in Registry
+        setupMockStateWithApiKey()
+
+        // Store the geofence with duration first
+        val dwellFetchedGeofence = FetchedGeofence(
+            API_KEY,
+            "dwell-test",
+            NYC_LAT,
+            NYC_LNG,
+            NYC_RADIUS.toDouble(),
+            duration = 45
+        )
+        mockStoredFences(dwellFetchedGeofence)
+
+        // Mock geofence and event
+        val geofence = mockGeofence("$API_KEY:dwell-test")
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_DWELL,
+            geofences = listOf(geofence)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Verify event was created with correct metric and duration property
+            verify {
+                mockState.createEvent(
+                    match { event ->
+                        event.metric == GeofenceEventMetric.DWELL &&
+                            event[GeofenceEventProperty.GEOFENCE_ID] == "dwell-test" &&
+                            event[GeofenceEventProperty.DURATION] == 45
+                    },
+                    mockProfile
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `enter and exit events include duration property when geofence has duration`() {
+        // Setup: Register State in Registry
+        setupMockStateWithApiKey()
+
+        // Store the geofence with duration first
+        val dwellFetchedGeofence = FetchedGeofence(
+            API_KEY,
+            "dwell-test",
+            NYC_LAT,
+            NYC_LNG,
+            NYC_RADIUS.toDouble(),
+            duration = 30
+        )
+        mockStoredFences(dwellFetchedGeofence)
+
+        // Mock geofence and event for ENTER transition
+        val geofence = mockGeofence("$API_KEY:dwell-test")
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Verify ENTER event includes duration property
+            verify {
+                mockState.createEvent(
+                    match { event ->
+                        event.metric == GeofenceEventMetric.ENTER &&
+                            event[GeofenceEventProperty.GEOFENCE_ID] == "dwell-test" &&
+                            event[GeofenceEventProperty.DURATION] == 30
+                    },
+                    mockProfile
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `geofence events without duration do not include duration property`() {
+        // Setup: Register State in Registry
+        setupMockStateWithApiKey()
+
+        // Store a geofence WITHOUT duration
+        mockStoredFences(stubNYC)
+
+        // Mock geofence and event
+        val geofence = mockGeofence(stubNYC.toKlaviyoGeofence().id)
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Verify event does NOT include duration property
+            verify {
+                mockState.createEvent(
+                    match { event ->
+                        event.metric == GeofenceEventMetric.ENTER &&
+                            event[GeofenceEventProperty.GEOFENCE_ID] == stubNYC.toKlaviyoGeofence().locationId &&
+                            event[GeofenceEventProperty.DURATION] == null
+                    },
+                    mockProfile
+                )
+            }
+        }
+    }
+
+    // endregion
 }

@@ -26,11 +26,11 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.safeLaunch
+import kotlinx.coroutines.CoroutineScope
+import org.json.JSONArray
 import java.io.Serializable
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.coroutines.CoroutineScope
-import org.json.JSONArray
 
 /**
  * Extension property to access a shared [LocationManager] instance
@@ -360,10 +360,16 @@ internal class KlaviyoLocationManager : LocationManager {
             return
         }
 
+        // Get stored geofences to look up duration
+        val storedGeofences = getStoredGeofences()
+
         // Track the UUIDs of all the API requests we're creating (note, this is typically just 1 request, but can be a handful)
         val requestUuids = geofencingEvent.triggeringGeofences?.map { it.toKlaviyoGeofence() }
             ?.mapNotNull { kGeofence ->
-                if (Registry.getOrNull<State>()?.apiKey == null) {
+                val currentApiKey = Registry.getOrNull<State>()?.apiKey
+
+                // Initialize Klaviyo if not yet initialized
+                if (currentApiKey == null) {
                     Registry.log.info("Automatically initialized Klaviyo from geofence event")
                     Klaviyo.initialize(kGeofence.companyId, context.applicationContext)
                 }
@@ -379,11 +385,17 @@ internal class KlaviyoLocationManager : LocationManager {
                     return@mapNotNull null
                 }
 
-                Registry.log.info("Triggered geofence $geofenceTransition $kGeofence")
-
                 // Create the event and record the transition time
                 cooldownTracker.recordTransition(kGeofence.id, geofenceTransition)
-                createGeofenceEvent(geofenceTransition, kGeofence)
+
+                // Look up the stored geofence to get the duration
+                val modifiedGeofence = storedGeofences.find { it.id == kGeofence.id }?.let { storedGeofence ->
+                    kGeofence.copy(duration = storedGeofence.duration)
+                } ?: kGeofence
+
+                Registry.log.info("Triggered geofence $geofenceTransition $modifiedGeofence")
+
+                createGeofenceEvent(geofenceTransition, modifiedGeofence)
             } ?: emptyList()
 
         // Set up observer and timeout to monitor request completion
