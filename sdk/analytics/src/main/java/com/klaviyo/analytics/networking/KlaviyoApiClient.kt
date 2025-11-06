@@ -2,7 +2,6 @@ package com.klaviyo.analytics.networking
 
 import android.os.Handler
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
@@ -94,11 +93,11 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
     override fun enqueueEvent(event: Event, profile: Profile): ApiRequest =
-        EventApiRequest(event, profile).also {
+        EventApiRequest(event, profile).also { request ->
             Registry.log.verbose("Enqueuing ${event.metric.name} event")
-            enqueueRequest(it)
+            enqueueRequest(request, headOfLine = event.metric.isKlaviyoMetric)
 
-            if (event.metric == EventMetric.OPENED_PUSH) {
+            if (event.metric.isKlaviyoMetric) {
                 flushQueue()
             }
         }
@@ -170,22 +169,29 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Enqueues an [KlaviyoApiRequest] to run in the background
+     * Enqueues one or more [KlaviyoApiRequest]s to send on a background thread
      * These requests are sent to the Klaviyo asynchronous APIs
      *
      * This method will initialize the API queue and the batching thread
      * if this is the first request made since launch.
      */
-    fun enqueueRequest(vararg requests: KlaviyoApiRequest) {
+    fun enqueueRequest(vararg requests: KlaviyoApiRequest, headOfLine: Boolean = false) {
         if (apiQueue.isEmpty()) {
             initBatch()
         }
+
+        // Reverse the arg order if headOfLine is true, so that first arg winds up first in line
+        requests.takeIf { headOfLine }?.reverse()
 
         var addedRequest = false
         requests.forEach { request ->
             if (!apiQueue.contains(request)) {
                 Registry.dataStore.store(request.uuid, request.toString())
-                apiQueue.offer(request)
+                if (headOfLine) {
+                    apiQueue.offerFirst(request)
+                } else {
+                    apiQueue.offer(request)
+                }
                 broadcastApiRequest(request)
                 addedRequest = true
             }

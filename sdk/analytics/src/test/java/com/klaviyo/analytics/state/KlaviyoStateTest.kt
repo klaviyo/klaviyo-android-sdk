@@ -302,7 +302,7 @@ internal class KlaviyoStateTest : BaseTest() {
         val event = Event(EventMetric.CUSTOM("test_event"))
         val profile = Profile()
 
-        state.createEvent(event, profile)
+        val enrichedEvent = state.createEvent(event, profile)
 
         val bufferedEvents = GenericEventBuffer.getEvents()
         assertEquals(1, bufferedEvents.size)
@@ -317,5 +317,18 @@ internal class KlaviyoStateTest : BaseTest() {
             "TestDeviceId",
             bufferedEvents[0][EventKey.CUSTOM("Device ID")]
         )
+
+        // Verify the returned event is the same as the buffered event
+        assertEquals(enrichedEvent, bufferedEvents[0])
+
+        // Verify the original event was NOT mutated
+        assertNull(event.uniqueId)
+        assertNull(event[EventKey.TIME])
+        assertNull(event[EventKey.CUSTOM("Device ID")])
+
+        // Verify the returned event is a DIFFERENT object from the original
+        assert(enrichedEvent !== event) {
+            "createEvent should return a new event object, not mutate the original"
+        }
     }
 }
