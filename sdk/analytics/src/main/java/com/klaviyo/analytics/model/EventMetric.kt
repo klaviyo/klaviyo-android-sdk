@@ -14,5 +14,11 @@ sealed class EventMetric(name: String) : Keyword(name) {
     object ADDED_TO_CART : EventMetric("Added to Cart")
     object STARTED_CHECKOUT : EventMetric("Started Checkout")
 
-    class CUSTOM(name: String) : EventMetric(name)
+    open class CUSTOM(name: String) : EventMetric(name)
+
+    /**
+     * Key Klaviyo event metrics are prefixed with a '$' character, these may
+     * treated with higher priority and subjected to special validation.
+     */
+    internal val isKlaviyoMetric: Boolean = this.name.startsWith("$")
 }

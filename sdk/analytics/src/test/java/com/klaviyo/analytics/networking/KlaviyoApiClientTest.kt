@@ -276,17 +276,29 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Enqueueing an Opened Push event flushes the queue immediately`() {
+    fun `Enqueueing a dollar-prefixed metric flushes the queue immediately`() {
         mockkConstructor(EventApiRequest::class)
         every { anyConstructed<EventApiRequest>().send(any()) } returns KlaviyoApiRequest.Status.Complete
 
-        KlaviyoApiClient.enqueueEvent(
-            Event(EventMetric.OPENED_PUSH),
-            Profile().setAnonymousId(ANON_ID)
+        // Test with various internal metrics (those starting with $)
+        val internalMetrics = listOf(
+            EventMetric.OPENED_PUSH,
+            EventMetric.CUSTOM("\$geofence_enter"),
+            EventMetric.CUSTOM("\$geofence_exit"),
+            EventMetric.CUSTOM("\$any_internal_metric")
         )
 
-        verify { anyConstructed<EventApiRequest>().send(any()) }
-        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        internalMetrics.forEach { metric ->
+            KlaviyoApiClient.enqueueEvent(
+                Event(metric),
+                Profile().setAnonymousId(ANON_ID)
+            )
+
+            // Verify queue was flushed immediately for this internal metric
+            verify { anyConstructed<EventApiRequest>().send(any()) }
+            assertEquals(0, KlaviyoApiClient.getQueueSize())
+        }
+
         unmockkConstructor(EventApiRequest::class)
     }
 
@@ -403,6 +415,54 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         KlaviyoApiClient.enqueueRequest(*requests.toTypedArray())
         assertEquals(requests.size, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `enqueueRequest with headOfLine places request at front of queue`() {
+        // Enqueue some regular requests first
+        val regularRequests = (0..2).map { mockRequest("regular-$it") }
+        KlaviyoApiClient.enqueueRequest(*regularRequests.toTypedArray())
+        assertEquals(3, KlaviyoApiClient.getQueueSize())
+
+        // Now enqueue a priority request
+        val priorityRequest = mockRequest("priority-request")
+        KlaviyoApiClient.enqueueRequest(priorityRequest, headOfLine = true)
+
+        // Queue size should be 4
+        assertEquals(4, KlaviyoApiClient.getQueueSize())
+
+        // Force flush to verify the priority request is processed first
+        KlaviyoApiClient.flushQueue()
+
+        // Priority request should be sent first, then the regular requests
+        verify(exactly = 1) { priorityRequest.send(any()) }
+        regularRequests.forEach { request ->
+            verify(exactly = 1) { request.send(any()) }
+        }
+
+        // Queue should be empty after flush
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `enqueueRequest with headOfLine accepts multiple priority requests`() {
+        // Enqueue some regular requests
+        KlaviyoApiClient.enqueueRequest(mockRequest("regular-1"))
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        // Enqueue multiple priority requests
+        val priorityRequest1 = mockRequest("priority-1")
+        val priorityRequest2 = mockRequest("priority-2")
+        KlaviyoApiClient.enqueueRequest(priorityRequest1, priorityRequest2, headOfLine = true)
+
+        assertEquals(3, KlaviyoApiClient.getQueueSize())
+
+        // Flush and verify priority requests were processed
+        KlaviyoApiClient.flushQueue()
+
+        verify(exactly = 1) { priorityRequest1.send(any()) }
+        verify(exactly = 1) { priorityRequest2.send(any()) }
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
     }
 
     @Test
