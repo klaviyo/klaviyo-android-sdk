@@ -12,7 +12,12 @@ data class FetchedGeofence(
     val id: String,
     val latitude: Double,
     val longitude: Double,
-    val radius: Double
+    val radius: Double,
+    /**
+     * Optional duration in seconds for dwell events.
+     * If null, dwell events will not be reported for this geofence.
+     */
+    val duration: Int? = null
 )
 
 /**
@@ -26,7 +31,12 @@ internal fun JSONObject.toFetchedGeofence(companyId: String): FetchedGeofence? =
             id = getString("id"),
             latitude = attributes.getDouble("latitude"),
             longitude = attributes.getDouble("longitude"),
-            radius = attributes.getDouble("radius")
+            radius = attributes.getDouble("radius"),
+            duration = if (attributes.has("duration") && !attributes.isNull("duration")) {
+                attributes.getInt("duration")
+            } else {
+                null
+            }
         )
     }
 } catch (e: Exception) {

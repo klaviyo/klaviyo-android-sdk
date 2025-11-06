@@ -19,4 +19,5 @@ internal object GeofenceEventMetric {
  */
 internal object GeofenceEventProperty {
     object GEOFENCE_ID : EventKey.CUSTOM("\$geofence_id")
+    object DURATION : EventKey.CUSTOM("\$geofence_duration")
 }

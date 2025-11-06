@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.google.android.gms.location.Geofence
+import com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_DWELL
 import com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_ENTER
 import com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_EXIT
 import com.google.android.gms.location.Geofence.NEVER_EXPIRE
@@ -16,6 +17,7 @@ import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.ApiObserver
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
@@ -24,6 +26,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.safeLaunch
+import java.io.Serializable
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
@@ -58,9 +61,9 @@ internal class KlaviyoLocationManager : LocationManager {
         private const val GEOFENCES_STORAGE_KEY = "klaviyo_geofences"
 
         /**
-         * Geofence transition types to monitor (enter and exit)
+         * Geofence transition types to monitor (enter, exit, and dwell)
          */
-        private const val TRANSITIONS = GEOFENCE_TRANSITION_ENTER or GEOFENCE_TRANSITION_EXIT
+        private const val TRANSITIONS = GEOFENCE_TRANSITION_ENTER or GEOFENCE_TRANSITION_EXIT or GEOFENCE_TRANSITION_DWELL
 
         /**
          * Timeout for waiting for broadcast receiver processing to complete
@@ -287,7 +290,17 @@ internal class KlaviyoLocationManager : LocationManager {
                     geofence.radius
                 )
                 .setExpirationDuration(NEVER_EXPIRE)
-                .setTransitionTypes(TRANSITIONS)
+                .apply {
+                    // Set transition types: always include ENTER and EXIT
+                    // Only include DWELL if duration is specified (and set loitering delay)
+                    val transitions = if (geofence.duration != null) {
+                        setLoiteringDelay(geofence.duration * 1000)
+                        GEOFENCE_TRANSITION_ENTER or GEOFENCE_TRANSITION_EXIT or GEOFENCE_TRANSITION_DWELL
+                    } else {
+                        GEOFENCE_TRANSITION_ENTER or GEOFENCE_TRANSITION_EXIT
+                    }
+                    setTransitionTypes(transitions)
+                }
                 .build()
         }.let { geofencesToAdd ->
             GeofencingRequest.Builder().apply {
@@ -453,7 +466,12 @@ internal class KlaviyoLocationManager : LocationManager {
         KlaviyoGeofenceTransition.Exited -> GeofenceEventMetric.EXIT
         KlaviyoGeofenceTransition.Dwelt -> GeofenceEventMetric.DWELL
     }.let { metric ->
-        Event(metric, mapOf(GeofenceEventProperty.GEOFENCE_ID to geofence.locationId))
+        // Build properties map with geofence ID and optional duration
+        val properties = mutableMapOf<EventKey, Serializable>(
+            GeofenceEventProperty.GEOFENCE_ID to geofence.locationId
+        )
+        geofence.duration?.let { properties[GeofenceEventProperty.DURATION] = it }
+        Event(metric, properties)
     }.let { event ->
         Registry.log.debug(
             "Created geofence event: ${event.metric.name} for geofence ${geofence.id}"

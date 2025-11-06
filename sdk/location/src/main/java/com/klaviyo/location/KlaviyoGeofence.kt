@@ -28,7 +28,12 @@ data class KlaviyoGeofence(
     /**
      * The radius of the geofence in meters.
      */
-    val radius: Float
+    val radius: Float,
+    /**
+     * Optional duration in seconds for dwell events.
+     * If null, dwell events will not be reported for this geofence.
+     */
+    val duration: Int? = null
 ) {
     init {
         // Validate the geofence ID format: {6-char-companyId}:{non-empty-locationId}
@@ -72,6 +77,7 @@ data class KlaviyoGeofence(
         put(KEY_LATITUDE, latitude)
         put(KEY_LONGITUDE, longitude)
         put(KEY_RADIUS, radius)
+        duration?.let { put(KEY_DURATION, it) }
     }
 
     companion object {
@@ -79,6 +85,7 @@ data class KlaviyoGeofence(
         const val KEY_LATITUDE = "latitude"
         const val KEY_LONGITUDE = "longitude"
         const val KEY_RADIUS = "radius"
+        const val KEY_DURATION = "duration"
     }
 }
 
@@ -91,18 +98,21 @@ fun FetchedGeofence.toKlaviyoGeofence(): KlaviyoGeofence = KlaviyoGeofence(
     id = "$companyId:$id",
     latitude = latitude,
     longitude = longitude,
-    radius = radius.toFloat()
+    radius = radius.toFloat(),
+    duration = duration
 )
 
 /**
  * Extension function to convert a Google Geofence into a [KlaviyoGeofence].
- * Expected to already be using composite ID
+ * Expected to already be using composite ID.
+ * Note: Duration is not available from the Google Geofence API, so it defaults to null.
  */
 fun Geofence.toKlaviyoGeofence(): KlaviyoGeofence = KlaviyoGeofence(
     id = requestId,
     latitude = latitude,
     longitude = longitude,
-    radius = radius
+    radius = radius,
+    duration = null
 )
 
 /**
@@ -114,7 +124,12 @@ fun JSONObject.toKlaviyoGeofence(): KlaviyoGeofence? = try {
         id = getString(KlaviyoGeofence.KEY_ID),
         latitude = getDouble(KlaviyoGeofence.KEY_LATITUDE),
         longitude = getDouble(KlaviyoGeofence.KEY_LONGITUDE),
-        radius = getDouble(KlaviyoGeofence.KEY_RADIUS).toFloat()
+        radius = getDouble(KlaviyoGeofence.KEY_RADIUS).toFloat(),
+        duration = if (has(KlaviyoGeofence.KEY_DURATION) && !isNull(KlaviyoGeofence.KEY_DURATION)) {
+            getInt(KlaviyoGeofence.KEY_DURATION)
+        } else {
+            null
+        }
     )
 } catch (e: Exception) {
     Registry.log.warning("Failed to parse KlaviyoGeofence from $this", e)
