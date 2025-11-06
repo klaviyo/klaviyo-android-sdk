@@ -1,12 +1,13 @@
 package com.klaviyo.location
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import androidx.annotation.RequiresPermission
 import com.google.android.gms.location.Geofence
+import com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_ENTER
+import com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_EXIT
 import com.google.android.gms.location.Geofence.NEVER_EXPIRE
 import com.google.android.gms.location.GeofenceStatusCodes
 import com.google.android.gms.location.GeofencingClient
@@ -49,19 +50,30 @@ internal class KlaviyoLocationManager : LocationManager {
          * Key for storing geofences in the persistent data store
          */
         private const val GEOFENCES_STORAGE_KEY = "klaviyo_geofences"
+
+        /**
+         * Geofence transition types to monitor (enter and exit)
+         */
+        private const val TRANSITIONS = GEOFENCE_TRANSITION_ENTER or GEOFENCE_TRANSITION_EXIT
+
+        /**
+         * Timeout for waiting for broadcast receiver processing to complete
+         * We'll use 9.5 seconds (Android docs recommend ~10s)
+         */
+        private const val BROADCAST_RECEIVER_TIMEOUT = 9_500L
     }
 
     /**
      * Lazy-loaded access to the system geofencing APIs
      */
-    private val geofencingClient: GeofencingClient by lazy {
+    private val client: GeofencingClient by lazy {
         LocationServices.getGeofencingClient(Registry.config.applicationContext)
     }
 
     /**
      * Pending intent to be used for all our monitored geofences
      */
-    private val geofenceIntent by lazy {
+    private val intent by lazy {
         PendingIntent.getBroadcast(
             Registry.config.applicationContext,
             INTENT_CODE,
@@ -75,42 +87,74 @@ internal class KlaviyoLocationManager : LocationManager {
      */
     private val observers = CopyOnWriteArrayList<GeofenceObserver>()
 
-    override fun onGeofenceSync(callback: GeofenceObserver) {
-        observers += callback
+    /**
+     * Register an observer to be notified when geofences are synced
+     *
+     * @param unique If true, prevents registering the same observer multiple times.
+     *               Note this only works for references e.g. ::method, not lambdas
+     * @param callback The observer function to be called when geofences are synced
+     */
+    override fun onGeofenceSync(unique: Boolean, callback: GeofenceObserver) {
+        if (!unique || !observers.contains(callback)) {
+            observers += callback
+        }
     }
 
+    /**
+     * Unregister an observer previously added with [onGeofenceSync]
+     */
     override fun offGeofenceSync(callback: GeofenceObserver) {
         observers -= callback
     }
 
+    /**
+     * Notify observers when geofences have been updated from API
+     */
     private fun notifyObservers(geofences: List<KlaviyoGeofence>) {
         observers.forEach { observer ->
             observer(geofences)
         }
     }
 
+    /**
+     * Start Klaviyo's location monitoring service.
+     *
+     * If sufficient permission is already granted, then we will fetch geofence data and start
+     * monitoring with system's location services immediately
+     * If not, we will wait till proper permission is granted before fetching.
+     */
     override fun startGeofenceMonitoring() {
-        Registry.locationPermissionMonitor.apply {
-            onPermissionChanged(::onPermissionChanged)
-        }
+        updateSystemMonitoring(Registry.locationPermissionMonitor.permissionState)
+        onGeofenceSync(true, ::startSystemMonitoring)
+        Registry.locationPermissionMonitor.onPermissionChanged(true, ::updateSystemMonitoring)
     }
 
+    /**
+     * Stop Klaviyo's location monitoring service
+     * Remove all fences from LocationServices, and stop all listeners
+     */
     override fun stopGeofenceMonitoring() {
-        geofencingClient.removeGeofences(geofenceIntent)
-        Registry.locationPermissionMonitor.apply {
-            offPermissionChanged(::onPermissionChanged)
-        }
+        stopSystemMonitoring()
+        offGeofenceSync(::startSystemMonitoring)
+        Registry.locationPermissionMonitor.offPermissionChanged(::updateSystemMonitoring)
     }
 
-    @SuppressLint("MissingPermission")
-    private fun onPermissionChanged(hasPermissions: Boolean) {
+    /**
+     * Update our system monitoring state based on current permission status
+     */
+    private fun updateSystemMonitoring(hasPermissions: Boolean) {
         if (hasPermissions) {
-            // Start monitoring geofences
+            // Start monitoring currently stored geofences
+            getStoredGeofences().takeIf { geofences ->
+                geofences.isNotEmpty()
+            }?.let { geofences ->
+                startSystemMonitoring(geofences)
+            }
+
+            // Kick off fetch request to refresh geofences from API
             fetchGeofences()
-            monitorGeofences()
         } else {
-            // Stop monitoring geofences
-            stopGeofenceMonitoring()
+            stopSystemMonitoring()
         }
     }
 
@@ -199,57 +243,87 @@ internal class KlaviyoLocationManager : LocationManager {
     }
 
     /**
-     * Register all currently stored geofences with the system geofencing APIs
+     * Add the provided geofences with the to system location service's geofencing client.
      */
-    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
-    private fun monitorGeofences() = getStoredGeofences().forEach { addGeofence(it) }
+    @SuppressLint("MissingPermission")
+    private fun startSystemMonitoring(geofences: List<KlaviyoGeofence>) {
+        // Remove all current geofences from system client first
+        stopSystemMonitoring()
 
-    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
-    private fun addGeofence(geofence: KlaviyoGeofence) {
-        val geofenceToAdd = Geofence.Builder()
-            .setRequestId(geofence.id)
-            .setCircularRegion(
-                geofence.latitude,
-                geofence.longitude,
-                geofence.radius
-            )
-            .setExpirationDuration(NEVER_EXPIRE)
-            .setTransitionTypes(
-                Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT
-            )
-            .build()
-
-        val geofenceRequest = GeofencingRequest.Builder().apply {
-            setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
-            addGeofences(listOf(geofenceToAdd))
-        }.build()
-
-        geofencingClient.addGeofences(geofenceRequest, geofenceIntent).run {
-            addOnSuccessListener {
-                Registry.log.debug("Added geofence")
+        when {
+            geofences.isEmpty() -> {
+                Registry.log.debug("No geofences to monitor")
+                return
             }
-            addOnFailureListener {
-                Registry.log.error("Failed to add geofence $it")
+
+            !Registry.locationPermissionMonitor.permissionState -> {
+                Registry.log.warning("Insufficient location permission")
+                return
+            }
+        }
+
+        geofences.map { geofence ->
+            Geofence.Builder()
+                .setRequestId(geofence.id)
+                .setCircularRegion(
+                    geofence.latitude,
+                    geofence.longitude,
+                    geofence.radius
+                )
+                .setExpirationDuration(NEVER_EXPIRE)
+                .setTransitionTypes(TRANSITIONS)
+                .build()
+        }.let { geofencesToAdd ->
+            GeofencingRequest.Builder().apply {
+                setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+                addGeofences(geofencesToAdd)
+            }.build()
+        }.also { geofenceRequest ->
+            client.addGeofences(geofenceRequest, intent).run {
+                addOnSuccessListener {
+                    Registry.log.debug("Added geofence")
+                }
+                addOnFailureListener {
+                    Registry.log.error("Failed to add geofence $it")
+                }
             }
         }
     }
 
-    private fun removeGeofence(geofence: KlaviyoGeofence) {
-        geofencingClient.removeGeofences(listOf(geofence.id))
+    /**
+     * Stop monitoring all Klaviyo geofences
+     */
+    private fun stopSystemMonitoring() {
+        client.removeGeofences(intent)
     }
 
-    override fun handleGeofenceIntent(context: Context?, intent: Intent?) {
-        val geofencingEvent = intent?.let { GeofencingEvent.fromIntent(it) } ?: return
+    /**
+     * Handle an incoming geofence event intent from the system
+     *
+     * Note: Klaviyo may not be initialized yet when this is called, so we handle that case by
+     * parsing the company ID from the geofence and initializing Klaviyo automatically.
+     */
+    override fun handleGeofenceIntent(
+        context: Context,
+        intent: Intent,
+        pendingResult: BroadcastReceiver.PendingResult
+    ) {
+        val geofencingEvent = GeofencingEvent.fromIntent(intent) ?: run {
+            Registry.log.warning("Received invalid geofence intent")
+            pendingResult.finish()
+            return
+        }
 
         if (geofencingEvent.hasError()) {
             val errorMessage = GeofenceStatusCodes.getStatusCodeString(geofencingEvent.errorCode)
             Registry.log.error(errorMessage)
+            pendingResult.finish()
             return
         }
 
-        // Get the transition type.
         val geofenceTransition = geofencingEvent.toKlaviyoGeofenceEvent() ?: run {
             Registry.log.error("Unknown geofence transition ${geofencingEvent.geofenceTransition}")
+            pendingResult.finish()
             return
         }
 
@@ -260,5 +334,7 @@ internal class KlaviyoLocationManager : LocationManager {
                 // TODO what if the app was terminated, and the host app hasn't called `initialize` yet when we get this intent?
                 Registry.log.info("Triggered geofence $geofenceTransition $kGeofence")
             }
+
+        pendingResult.finish()
     }
 }

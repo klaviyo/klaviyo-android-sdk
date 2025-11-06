@@ -10,6 +10,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.TITLE_KEY
 import io.mockk.every
@@ -20,6 +21,7 @@ import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -83,21 +85,19 @@ class KlaviyoNotificationTest : BaseTest() {
         every { anyConstructed<NotificationCompat.Builder>().setAutoCancel(any()) } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().build() } returns mockk(relaxed = true)
 
-        mockkStatic(PendingIntent::class)
-        every {
-            PendingIntent.getActivity(
-                any(),
-                any(),
-                any(),
-                any()
-            )
-        } returns mockk(relaxed = true)
+        MockIntent.mockPendingIntent()
 
         with(DeepLinking) {
             mockkObject(DeepLinking)
             every { makeLaunchIntent(any()) } returns mockk(relaxed = true)
             every { makeDeepLinkIntent(any(), any()) } returns mockk(relaxed = true)
         }
+    }
+
+    @After
+    override fun cleanup() {
+        MockIntent.unmockPendingIntent()
+        super.cleanup()
     }
 
     @Test

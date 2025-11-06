@@ -1,13 +1,28 @@
 package com.klaviyo.location
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import com.google.android.gms.location.GeofencingClient
+import com.google.android.gms.location.GeofencingEvent
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.tasks.Task
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.analytics.networking.requests.FetchedGeofence
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.MockIntent
+import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.runs
+import io.mockk.slot
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -70,24 +85,51 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         private fun geofencesJson(vararg geofences: String) = "[${geofences.joinToString(",")}]"
     }
 
-    private var mockApiClient: ApiClient = mockk(relaxed = true)
+    private val mockApiClient = mockk<ApiClient>(relaxed = true)
 
-    private var locationManager = KlaviyoLocationManager().also {
-        Registry.register<LocationManager>(it)
+    private val mockAddGeofencesTask = mockk<Task<Void>>(relaxed = true).apply {
+        every { addOnSuccessListener(any()) } returns this
+        every { addOnFailureListener(any()) } returns this
     }
+
+    private val mockRemoveGeofencesTask = mockk<Task<Void>>(relaxed = true).apply {
+        every { addOnSuccessListener(any()) } returns this
+        every { addOnFailureListener(any()) } returns this
+    }
+
+    private val mockGeofencingClient = mockk<GeofencingClient>(relaxed = true).apply {
+        mockkStatic(LocationServices::class)
+        every { addGeofences(any(), mockPendingIntent) } returns mockAddGeofencesTask
+        every { removeGeofences(mockPendingIntent) } returns mockRemoveGeofencesTask
+        every { LocationServices.getGeofencingClient(any<Context>()) } returns this
+    }
+
+    private val mockPendingIntent = MockIntent.mockPendingIntent()
+
+    private val mockPermissionMonitor = mockk<PermissionMonitor>(relaxed = true).apply {
+        every { permissionState } returns false
+        every { onPermissionChanged(any(), any()) } just runs
+        every { offPermissionChanged(any()) } just runs
+    }
+
+    private var locationManager = KlaviyoLocationManager()
 
     @Before
     override fun setup() {
         super.setup()
-
         Dispatchers.setMain(dispatcher)
 
-        // Register the mocked ApiClient in the Registry
+        // Register mocks in the Registry
         Registry.register<ApiClient> { mockApiClient }
+        Registry.register<PermissionMonitor> { mockPermissionMonitor }
+        Registry.register<LocationManager> { locationManager }
     }
 
     @After
     override fun cleanup() {
+        unmockkStatic(GeofencingEvent::class)
+        unmockkStatic(LocationServices::class)
+        MockIntent.unmockPendingIntent()
         Dispatchers.resetMain()
         super.cleanup()
     }
@@ -106,11 +148,25 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         assertEquals(expectedRadius, geofence.radius)
     }
 
-    // Helper method to mock successful geofence fetch
+    // Helper method to mock successful geofence fetch using coroutines
     private fun mockFetchWithResult(result: FetchGeofencesResult) {
         coEvery { mockApiClient.fetchGeofences() } returns result
         locationManager.fetchGeofences()
         dispatcher.scheduler.advanceUntilIdle()
+    }
+
+    // Helper to capture and invoke permission observer
+    private fun capturePermissionObserver(): PermissionObserver {
+        val observerSlot = slot<PermissionObserver>()
+        verify { mockPermissionMonitor.onPermissionChanged(any(), capture(observerSlot)) }
+        return observerSlot.captured
+    }
+
+    // Helper to setup monitoring with permissions granted and clear previous geofencing calls
+    private fun setupMonitoringWithPermissions() {
+        every { mockPermissionMonitor.permissionState } returns true
+        locationManager.startGeofenceMonitoring()
+        clearMocks(mockGeofencingClient, answers = false)
     }
 
     @Test
@@ -142,7 +198,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `onGeofencesSynced registers observer`() {
+    fun `onGeofenceSynced registers observer`() {
         var callbackInvoked = false
         var receivedGeofences: List<KlaviyoGeofence>? = null
         val observer: GeofenceObserver = { geofences ->
@@ -150,7 +206,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             receivedGeofences = geofences
         }
 
-        locationManager.onGeofenceSync(observer)
+        locationManager.onGeofenceSync(callback = observer)
 
         // Trigger a fetch that will notify observers
         mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
@@ -167,6 +223,40 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
+    fun `onGeofenceSync with unique=false allows duplicate observers`() {
+        var callCount = 0
+        val observer: GeofenceObserver = { callCount++ }
+
+        // Register same observer multiple times with unique=false
+        locationManager.onGeofenceSync(false, observer)
+        locationManager.onGeofenceSync(false, observer)
+        locationManager.onGeofenceSync(false, observer)
+
+        // Trigger notification
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
+
+        // Should be called 3 times (once per registration)
+        assertEquals(3, callCount)
+    }
+
+    @Test
+    fun `onGeofenceSync with unique=true prevents duplicate observers`() {
+        var callCount = 0
+        val observer: GeofenceObserver = { callCount++ }
+
+        // Register same observer multiple times with unique=true
+        locationManager.onGeofenceSync(true, observer)
+        locationManager.onGeofenceSync(true, observer)
+        locationManager.onGeofenceSync(true, observer)
+
+        // Trigger notification
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
+
+        // Should be called only once (duplicates were prevented)
+        assertEquals(1, callCount)
+    }
+
+    @Test
     fun `offGeofencesSynced unregisters observer`() {
         var callbackInvoked = false
         val observer: GeofenceObserver = {
@@ -174,7 +264,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         }
 
         // Register then unregister
-        locationManager.onGeofenceSync(observer)
+        locationManager.onGeofenceSync(callback = observer)
         locationManager.offGeofenceSync(observer)
 
         // Trigger a fetch
@@ -191,8 +281,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         val observer1: GeofenceObserver = { callback1Invoked = true }
         val observer2: GeofenceObserver = { callback2Invoked = true }
 
-        locationManager.onGeofenceSync(observer1)
-        locationManager.onGeofenceSync(observer2)
+        locationManager.onGeofenceSync(callback = observer1)
+        locationManager.onGeofenceSync(callback = observer2)
 
         // Trigger a fetch
         mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
@@ -207,7 +297,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         var callbackInvoked = false
         val observer: GeofenceObserver = { callbackInvoked = true }
 
-        locationManager.onGeofenceSync(observer)
+        locationManager.onGeofenceSync(callback = observer)
 
         // Trigger a fetch that fails
         coEvery { mockApiClient.fetchGeofences() } returns FetchGeofencesResult.Failure
@@ -366,7 +456,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             callbackInvoked = true
             geofences = receivedGeofences
         }
-        locationManager.onGeofenceSync(observer)
+        locationManager.onGeofenceSync(callback = observer)
 
         // First, store some geofences
         val json = geofencesJson(stubLondon.toJson())
@@ -384,5 +474,339 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         // And the callback was invoked correctly
         assertTrue(callbackInvoked)
         assertEquals(0, geofences?.size)
+    }
+
+    @Test
+    fun `startGeofenceMonitoring evaluates initial permission state`() = runTest {
+        // Set permission monitor to return true (has permissions)
+        every { mockPermissionMonitor.permissionState } returns true
+
+        // Start monitoring
+        locationManager.startGeofenceMonitoring()
+        advanceUntilIdle()
+
+        // Verify permission state was checked and observer was registered
+        verify { mockPermissionMonitor.onPermissionChanged(true, any()) }
+        coVerify(exactly = 1) { mockApiClient.fetchGeofences() }
+    }
+
+    @Test
+    fun `startGeofenceMonitoring does not start monitoring when permissions are denied`() =
+        runTest {
+            // Set permission monitor to return false (no permissions)
+            every { mockPermissionMonitor.permissionState } returns false
+
+            // Start monitoring
+            locationManager.startGeofenceMonitoring()
+            advanceUntilIdle()
+
+            // Verify no geofences were added (since we have no permissions)
+            verify(inverse = true) { mockGeofencingClient.addGeofences(any(), any()) }
+            coVerify(inverse = true) { mockApiClient.fetchGeofences() }
+        }
+
+    @Test
+    fun `stopGeofenceMonitoring unregisters permission observer and removes geofences from location services`() {
+        // Start monitoring first
+        locationManager.startGeofenceMonitoring()
+
+        // Stop monitoring
+        locationManager.stopGeofenceMonitoring()
+
+        // Verify observer was unregistered
+        verify { mockPermissionMonitor.offPermissionChanged(any()) }
+
+        // Verify geofences were removed
+        verify { mockGeofencingClient.removeGeofences(mockPendingIntent) }
+    }
+
+    @Test
+    fun `permission change to granted triggers monitoring to start`() = runTest {
+        // Store some geofences first
+        locationManager.storeGeofences(
+            listOf(stubNYC.toKlaviyoGeofence())
+        )
+
+        // Start monitoring (permissions initially denied)
+        every { mockPermissionMonitor.permissionState } returns false
+        locationManager.startGeofenceMonitoring()
+        verify(exactly = 1) { mockGeofencingClient.removeGeofences(mockPendingIntent) }
+        coVerify(exactly = 0) { mockApiClient.fetchGeofences() }
+        verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
+
+        // Capture and invoke the observer with permission granted
+        val observer = capturePermissionObserver()
+
+        // Update permission state, and notify observer
+        every { mockPermissionMonitor.permissionState } returns true
+        observer(true)
+        advanceUntilIdle()
+
+        // Verify prior fences were removed, new ones synced, and added
+        verify(exactly = 2) { mockGeofencingClient.removeGeofences(mockPendingIntent) }
+        coVerify(exactly = 1) { mockApiClient.fetchGeofences() }
+        verify(exactly = 1) { mockGeofencingClient.addGeofences(any(), any()) }
+    }
+
+    @Test
+    fun `permission change to denied triggers monitoring to stop`() {
+        // Start monitoring (permissions initially granted)
+        every { mockPermissionMonitor.permissionState } returns true
+        locationManager.startGeofenceMonitoring()
+
+        // Capture and invoke the observer with permission denied
+        val observer = capturePermissionObserver()
+        observer(false)
+
+        // Verify geofences were removed
+        verify { mockGeofencingClient.removeGeofences(mockPendingIntent) }
+    }
+
+    @Test
+    fun `startMonitoring adds all stored geofences to GeofencingClient in one batch`() {
+        // Store multiple geofences
+        locationManager.storeGeofences(
+            listOf(
+                stubNYC.toKlaviyoGeofence(),
+                stubLondon.toKlaviyoGeofence()
+            )
+        )
+
+        // Start monitoring (permissions initially denied)
+        every { mockPermissionMonitor.permissionState } returns false
+        locationManager.startGeofenceMonitoring()
+
+        // Capture and invoke the observer with permission granted
+        val observer = capturePermissionObserver()
+
+        every { mockPermissionMonitor.permissionState } returns true
+        observer(true)
+
+        // Verify addGeofences was called once with a batch of all geofences
+        verify(exactly = 1) {
+            mockGeofencingClient.addGeofences(
+                match { it.geofences.size == 2 },
+                mockPendingIntent
+            )
+        }
+    }
+
+    @Test
+    fun `full lifecycle - start, permission change, stop`() = runTest {
+        // Store geofences
+        locationManager.storeGeofences(
+            listOf(
+                stubLondon.toKlaviyoGeofence()
+            )
+        )
+
+        // Start monitoring (no permissions initially)
+        every { mockPermissionMonitor.permissionState } returns false
+        locationManager.startGeofenceMonitoring()
+        val observer = capturePermissionObserver()
+
+        // Simulate permission granted
+        every { mockPermissionMonitor.permissionState } returns true
+        observer(true)
+        advanceUntilIdle()
+        verify(exactly = 1) { mockGeofencingClient.addGeofences(any(), mockPendingIntent) }
+        coVerify { mockApiClient.fetchGeofences() }
+
+        // Simulate permission revoked
+        observer(false)
+        advanceUntilIdle()
+        verify(exactly = 3) { mockGeofencingClient.removeGeofences(mockPendingIntent) }
+
+        // Stop monitoring
+        locationManager.stopGeofenceMonitoring()
+        verify { mockPermissionMonitor.offPermissionChanged(any()) }
+    }
+
+    @Test
+    fun `startGeofenceMonitoring is idempotent with observers`() = runTest {
+        // Setup: Store some geofences and grant permissions
+        locationManager.storeGeofences(listOf(stubNYC.toKlaviyoGeofence()))
+        every { mockPermissionMonitor.permissionState } returns true
+
+        // Call startGeofenceMonitoring multiple times
+        locationManager.startGeofenceMonitoring()
+        locationManager.startGeofenceMonitoring()
+        locationManager.startGeofenceMonitoring()
+        advanceUntilIdle()
+
+        // Verify that onPermissionChanged was called with unique=true each time
+        verify(exactly = 3) { mockPermissionMonitor.onPermissionChanged(true, any()) }
+
+        // Now test that observers don't duplicate by fetching new geofences
+        // and verifying system monitoring is updated exactly once
+        clearMocks(mockGeofencingClient, answers = false)
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubLondon)))
+
+        // Verify system monitoring was updated exactly once
+        // (If geofence sync observers were duplicated, these would be called multiple times)
+        verify(exactly = 1) { mockGeofencingClient.removeGeofences(mockPendingIntent) }
+        verify(exactly = 1) { mockGeofencingClient.addGeofences(any(), mockPendingIntent) }
+    }
+
+    @Test
+    fun `fetchGeofences success triggers system monitoring update`() = runTest {
+        // Setup: Start monitoring with permissions granted
+        setupMonitoringWithPermissions()
+
+        // Trigger fetch and simulate successful API response
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC, stubLondon)))
+
+        // Verify geofences were stored
+        val stored = locationManager.getStoredGeofences()
+        assertEquals(2, stored.size)
+
+        // Verify system monitoring was updated with new geofences
+        // Note: startMonitoring removes old fences first, then adds new ones
+        verify(atLeast = 1) { mockGeofencingClient.removeGeofences(mockPendingIntent) }
+        verify(atLeast = 1) { mockGeofencingClient.addGeofences(any(), mockPendingIntent) }
+    }
+
+    @Test
+    fun `permission change while fetching geofences is caught`() {
+        // Setup: Start monitoring with permissions granted
+        setupMonitoringWithPermissions()
+
+        // Mimic permission change while fetch was in background
+        every { mockPermissionMonitor.permissionState } returns false
+
+        // Trigger fetch and simulate successful API response
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC, stubLondon)))
+
+        // Verify permission-protected API was not touched
+        verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
+    }
+
+    @Test
+    fun `fetchGeofences replaces old geofences in system monitoring`() = runTest {
+        // Setup: Store initial geofences and start monitoring
+        locationManager.storeGeofences(
+            listOf(stubNYC.toKlaviyoGeofence())
+        )
+
+        every { mockPermissionMonitor.permissionState } returns true
+        locationManager.startGeofenceMonitoring()
+
+        // Should have added geofences initially
+        verify(atLeast = 1) { mockGeofencingClient.addGeofences(any(), mockPendingIntent) }
+
+        // Clear previous calls and trigger fetch
+        clearMocks(mockGeofencingClient, answers = false)
+        mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
+
+        // Verify stored geofences were replaced
+        val stored = locationManager.getStoredGeofences()
+        assertEquals(1, stored.size)
+
+        // Verify system monitoring was updated with new geofences
+        // Note: startMonitoring removes old fences first, then adds new ones
+        verify(atLeast = 1) {
+            mockGeofencingClient.addGeofences(
+                match {
+                    it.geofences.first().let { geofence ->
+                        geofence.latitude == NYC_LAT &&
+                            geofence.longitude == NYC_LNG &&
+                            geofence.radius == NYC_RADIUS
+                    } && it.geofences.size == 1
+                },
+                mockPendingIntent
+            )
+        }
+    }
+
+    @Test
+    fun `fetchGeofences failure does not trigger system monitoring update`() = runTest {
+        // Setup: Start monitoring with permissions granted
+        setupMonitoringWithPermissions()
+
+        // Trigger fetch and simulate API failure
+        mockFetchWithResult(FetchGeofencesResult.Failure)
+
+        // Verify system monitoring was NOT updated (no new addGeofences calls)
+        verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
+    }
+
+    @Test
+    fun `fetchGeofences unavailable does not trigger system monitoring update`() = runTest {
+        // Setup: Start monitoring with permissions granted
+        setupMonitoringWithPermissions()
+
+        // Trigger fetch and simulate API unavailable (offline)
+        mockFetchWithResult(FetchGeofencesResult.Unavailable)
+
+        // Verify system monitoring was NOT updated (no new addGeofences calls)
+        verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
+    }
+
+    @Test
+    fun `handleGeofenceIntent logs warning and finishes when GeofencingEvent is null`() {
+        // Mock GeofencingEvent.fromIntent to return null
+        mockkStatic(GeofencingEvent::class)
+        every { GeofencingEvent.fromIntent(any()) } returns null
+
+        val mockContext = mockk<Context>(relaxed = true)
+        val mockIntent = mockk<Intent>(relaxed = true)
+        val mockPendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
+
+        // Call handleGeofenceIntent
+        locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+        // Verify warning was logged
+        verify { spyLog.warning("Received invalid geofence intent") }
+
+        // Verify pending result was finished
+        verify { mockPendingResult.finish() }
+    }
+
+    @Test
+    fun `handleGeofenceIntent logs error and finishes when GeofencingEvent has error`() {
+        // Mock GeofencingEvent with error
+        val mockGeofencingEvent = mockk<GeofencingEvent>(relaxed = true)
+        every { mockGeofencingEvent.hasError() } returns true
+        every { mockGeofencingEvent.errorCode } returns 1000
+
+        mockkStatic(GeofencingEvent::class)
+        every { GeofencingEvent.fromIntent(any()) } returns mockGeofencingEvent
+
+        val mockContext = mockk<Context>(relaxed = true)
+        val mockIntent = mockk<Intent>(relaxed = true)
+        val mockPendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
+
+        // Call handleGeofenceIntent
+        locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+        // Verify error was logged (we can't easily verify the exact message from GeofenceStatusCodes)
+        verify { spyLog.error(any<String>()) }
+
+        // Verify pending result was finished
+        verify { mockPendingResult.finish() }
+    }
+
+    @Test
+    fun `handleGeofenceIntent logs error and finishes when geofence transition is unknown`() {
+        // Mock GeofencingEvent with unknown transition type
+        val mockGeofencingEvent = mockk<GeofencingEvent>(relaxed = true)
+        every { mockGeofencingEvent.hasError() } returns false
+        every { mockGeofencingEvent.geofenceTransition } returns 999 // Unknown transition
+
+        mockkStatic(GeofencingEvent::class)
+        every { GeofencingEvent.fromIntent(any()) } returns mockGeofencingEvent
+
+        val mockContext = mockk<Context>(relaxed = true)
+        val mockIntent = mockk<Intent>(relaxed = true)
+        val mockPendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
+
+        // Call handleGeofenceIntent
+        locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+        // Verify error was logged with the unknown transition code
+        verify { spyLog.error("Unknown geofence transition 999") }
+
+        // Verify pending result was finished
+        verify { mockPendingResult.finish() }
     }
 }
