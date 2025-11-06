@@ -30,26 +30,43 @@ internal class KlaviyoPermissionMonitor() : PermissionMonitor {
 
     /**
      * Cached permission state to enable change detection
+     * Evaluate on initialize, and updated when permission changes, detected on app resume
      */
-    private var cachedPermissionState: Boolean = try {
-        hasGeofencePermissions()
-    } catch (_: Exception) {
-        false
-    }
+    private var cachedPermissionState: Boolean = hasGeofencePermissions()
 
-    override val permissionState: Boolean get() = cachedPermissionState
+    /**
+     * Public getter to access current permission state on demand
+     */
+    override val permissionState: Boolean get() = hasGeofencePermissions()
 
+    /**
+     * Thread-safe list of observers for permission change events
+     */
     private val observers = CopyOnWriteArrayList<PermissionObserver>()
 
+    /**
+     * Register an observer to be notified when permission state changes
+     *
+     * @param unique If true, prevents registering the same observer multiple times.
+     *               Note this only works for references e.g. ::method, not lambdas
+     * @param callback The observer function to be called when permission state changes
+     */
     override fun onPermissionChanged(unique: Boolean, callback: PermissionObserver) {
         if (observers.isEmpty()) {
+            // For lower resource usage, monitor lifecycle only if we have a permission observer
+            // and make sure cached permission state is up to date when we attach
             Registry.lifecycleMonitor.onActivityEvent(::onActivityEvent)
+            cachedPermissionState = hasGeofencePermissions()
         }
+
         if (!unique || !observers.contains(callback)) {
             observers += callback
         }
     }
 
+    /**
+     * Unregister an observer previously added with [onPermissionChanged]
+     */
     override fun offPermissionChanged(callback: PermissionObserver) {
         observers -= callback
         if (observers.isEmpty()) {
@@ -57,20 +74,24 @@ internal class KlaviyoPermissionMonitor() : PermissionMonitor {
         }
     }
 
+    /**
+     * Broadcast a permission change to registered observers
+     */
     private fun notifyObservers(state: Boolean) {
         observers.forEach { it(state) }
     }
 
-    // Check permissions when app is resumed (user might have changed them in settings)
+    /**
+     * Update permission state when app is resumed, and notify observers if it changed
+     */
     private fun onActivityEvent(event: ActivityEvent) {
         if (event is ActivityEvent.Resumed) {
             val currentPermissionState = hasGeofencePermissions()
-            val previousState = cachedPermissionState
 
             // Only notify if permissions actually changed
-            if (previousState != currentPermissionState) {
+            if (cachedPermissionState != currentPermissionState) {
                 Registry.log.debug(
-                    "Permission state changed: $previousState -> $currentPermissionState"
+                    "Geofencing permission state changed: $cachedPermissionState -> $currentPermissionState"
                 )
                 cachedPermissionState = currentPermissionState
                 notifyObservers(currentPermissionState)
@@ -83,15 +104,25 @@ internal class KlaviyoPermissionMonitor() : PermissionMonitor {
          * Check if we have sufficient permissions for geofencing operations
          */
         @CheckResult
-        fun hasGeofencePermissions(context: Context = Registry.config.applicationContext): Boolean =
-            hasLocationPermission(context) && hasBackgroundLocationPermission(context)
+        fun hasGeofencePermissions(context: Context? = null): Boolean = try {
+            val appContext = (context ?: Registry.config.applicationContext)
+            hasLocationPermission(appContext) && hasBackgroundLocationPermission(appContext)
+        } catch (_: Exception) {
+            false
+        }
 
+        /**
+         * Base location permission [Manifest.permission.ACCESS_FINE_LOCATION] required for geofences
+         */
         private fun hasLocationPermission(context: Context): Boolean =
             ActivityCompat.checkSelfPermission(
                 context,
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) == PackageManager.PERMISSION_GRANTED
 
+        /**
+         * Background (i.e. "allow all the time") permission is also required on 29+
+         */
         private fun hasBackgroundLocationPermission(context: Context): Boolean =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 ActivityCompat.checkSelfPermission(

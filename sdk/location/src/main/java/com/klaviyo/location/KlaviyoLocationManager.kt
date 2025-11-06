@@ -90,16 +90,29 @@ internal class KlaviyoLocationManager(
      */
     private val observers = CopyOnWriteArrayList<GeofenceObserver>()
 
+    /**
+     * Register an observer to be notified when geofences are synced
+     *
+     * @param unique If true, prevents registering the same observer multiple times.
+     *               Note this only works for references e.g. ::method, not lambdas
+     * @param callback The observer function to be called when geofences are synced
+     */
     override fun onGeofenceSync(unique: Boolean, callback: GeofenceObserver) {
         if (!unique || !observers.contains(callback)) {
             observers += callback
         }
     }
 
+    /**
+     * Unregister an observer previously added with [onGeofenceSync]
+     */
     override fun offGeofenceSync(callback: GeofenceObserver) {
         observers -= callback
     }
 
+    /**
+     * Notify observers when geofences have been updated from API
+     */
     private fun notifyObservers(geofences: List<KlaviyoGeofence>) {
         observers.forEach { observer ->
             observer(geofences)
@@ -144,7 +157,6 @@ internal class KlaviyoLocationManager(
             // Kick off fetch request to refresh geofences from API
             fetchGeofences()
         } else {
-            // Only stop if we were previously monitoring
             stopSystemMonitoring()
         }
     }
