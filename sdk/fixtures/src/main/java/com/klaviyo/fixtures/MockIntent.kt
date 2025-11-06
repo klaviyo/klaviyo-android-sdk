@@ -88,7 +88,8 @@ data class MockIntent(
             return mockIntent
         }
 
-        fun mockPendingIntent() {
+        fun mockPendingIntent(): PendingIntent {
+            val mockPendingIntent: PendingIntent = mockk(relaxed = true)
             mockkStatic(PendingIntent::class)
             every {
                 PendingIntent.getActivity(
@@ -97,7 +98,7 @@ data class MockIntent(
                     any(),
                     any()
                 )
-            } returns mockk(relaxed = true)
+            } returns mockPendingIntent
             every {
                 PendingIntent.getBroadcast(
                     any(),
@@ -105,7 +106,9 @@ data class MockIntent(
                     any(),
                     any()
                 )
-            } returns mockk(relaxed = true)
+            } returns mockPendingIntent
+
+            return mockPendingIntent
         }
 
         fun unmockPendingIntent() {

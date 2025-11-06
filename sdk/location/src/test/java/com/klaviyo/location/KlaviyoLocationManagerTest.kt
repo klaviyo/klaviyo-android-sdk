@@ -1,17 +1,18 @@
 package com.klaviyo.location
 
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingEvent
+import com.google.android.gms.location.LocationServices
 import com.google.android.gms.tasks.Task
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.analytics.networking.requests.FetchedGeofence
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.MockIntent
 import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -97,11 +98,13 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     private val mockGeofencingClient = mockk<GeofencingClient>(relaxed = true).apply {
+        mockkStatic(LocationServices::class)
         every { addGeofences(any(), mockPendingIntent) } returns mockAddGeofencesTask
         every { removeGeofences(mockPendingIntent) } returns mockRemoveGeofencesTask
+        every { LocationServices.getGeofencingClient(any<Context>()) } returns this
     }
 
-    private val mockPendingIntent = mockk<PendingIntent>(relaxed = true)
+    private val mockPendingIntent = MockIntent.mockPendingIntent()
 
     private val mockPermissionMonitor = mockk<PermissionMonitor>(relaxed = true).apply {
         every { permissionState } returns false
@@ -109,7 +112,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         every { offPermissionChanged(any()) } just runs
     }
 
-    private val locationManager = KlaviyoLocationManager(mockGeofencingClient, mockPendingIntent)
+    private var locationManager = KlaviyoLocationManager()
 
     @Before
     override fun setup() {
@@ -125,6 +128,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     @After
     override fun cleanup() {
         unmockkStatic(GeofencingEvent::class)
+        unmockkStatic(LocationServices::class)
+        MockIntent.unmockPendingIntent()
         Dispatchers.resetMain()
         super.cleanup()
     }

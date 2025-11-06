@@ -38,10 +38,7 @@ internal val Registry.locationManager: LocationManager
  * - Handles geofence transition intents
  * - TODO CHNL-25300 Handle boot receiver events to re-register geofences on device reboot
  */
-internal class KlaviyoLocationManager(
-    private val geofencingClient: GeofencingClient? = null,
-    private val geofenceIntent: PendingIntent? = null
-) : LocationManager {
+internal class KlaviyoLocationManager : LocationManager {
 
     companion object {
         /**
@@ -70,14 +67,14 @@ internal class KlaviyoLocationManager(
      * Lazy-loaded access to the system geofencing APIs
      */
     private val client: GeofencingClient by lazy {
-        geofencingClient ?: LocationServices.getGeofencingClient(Registry.config.applicationContext)
+        LocationServices.getGeofencingClient(Registry.config.applicationContext)
     }
 
     /**
      * Pending intent to be used for all our monitored geofences
      */
     private val intent by lazy {
-        geofenceIntent ?: PendingIntent.getBroadcast(
+        PendingIntent.getBroadcast(
             Registry.config.applicationContext,
             INTENT_CODE,
             Intent(Registry.config.applicationContext, KlaviyoGeofenceReceiver::class.java),
