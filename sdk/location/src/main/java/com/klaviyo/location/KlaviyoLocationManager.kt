@@ -70,6 +70,11 @@ internal class KlaviyoLocationManager : LocationManager {
     }
 
     /**
+     * Tracker for managing geofence transition cooldown periods
+     */
+    private val cooldownTracker = GeofenceCooldownTracker()
+
+    /**
      * Lazy-loaded access to the system geofencing APIs
      */
     private val client: GeofencingClient by lazy {
@@ -355,7 +360,18 @@ internal class KlaviyoLocationManager : LocationManager {
                     return@mapNotNull null
                 }
 
+                // Check cooldown before creating event
+                if (!cooldownTracker.isAllowed(kGeofence.id, geofenceTransition)) {
+                    Registry.log.debug(
+                        "Skipping geofence $geofenceTransition due to cooldown period"
+                    )
+                    return@mapNotNull null
+                }
+
                 Registry.log.info("Triggered geofence $geofenceTransition $kGeofence")
+
+                // Create the event and record the transition time
+                cooldownTracker.recordTransition(kGeofence.id, geofenceTransition)
                 createGeofenceEvent(geofenceTransition, kGeofence)
             } ?: emptyList()
 
