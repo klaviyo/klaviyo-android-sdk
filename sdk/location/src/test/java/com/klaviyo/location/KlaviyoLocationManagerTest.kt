@@ -1656,7 +1656,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `enter and exit events include duration property when geofence has duration`() {
+    fun `enter and exit events do not include duration property even when geofence has duration`() {
         // Setup: Register State in Registry
         setupMockStateWithApiKey()
 
@@ -1682,13 +1682,13 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             val mockIntent = mockk<Intent>(relaxed = true)
             locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
 
-            // Verify ENTER event includes duration property
+            // Verify ENTER event does NOT include duration property (only DWELL events include it)
             verify {
                 mockState.createEvent(
                     match { event ->
                         event.metric == GeofenceEventMetric.ENTER &&
                             event[GeofenceEventProperty.GEOFENCE_ID] == "dwell-test" &&
-                            event[GeofenceEventProperty.DURATION] == 30
+                            event[GeofenceEventProperty.DURATION] == null
                     },
                     mockProfile
                 )

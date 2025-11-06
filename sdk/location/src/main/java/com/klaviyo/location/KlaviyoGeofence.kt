@@ -126,7 +126,7 @@ fun JSONObject.toKlaviyoGeofence(): KlaviyoGeofence? = try {
         longitude = getDouble(KlaviyoGeofence.KEY_LONGITUDE),
         radius = getDouble(KlaviyoGeofence.KEY_RADIUS).toFloat(),
         duration = if (has(KlaviyoGeofence.KEY_DURATION) && !isNull(KlaviyoGeofence.KEY_DURATION)) {
-            getInt(KlaviyoGeofence.KEY_DURATION)
+            optInt(KlaviyoGeofence.KEY_DURATION)
         } else {
             null
         }

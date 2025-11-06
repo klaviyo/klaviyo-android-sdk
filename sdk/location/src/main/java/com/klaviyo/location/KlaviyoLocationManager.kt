@@ -61,11 +61,6 @@ internal class KlaviyoLocationManager : LocationManager {
         private const val GEOFENCES_STORAGE_KEY = "klaviyo_geofences"
 
         /**
-         * Geofence transition types to monitor (enter, exit, and dwell)
-         */
-        private const val TRANSITIONS = GEOFENCE_TRANSITION_ENTER or GEOFENCE_TRANSITION_EXIT or GEOFENCE_TRANSITION_DWELL
-
-        /**
          * Timeout for waiting for broadcast receiver processing to complete
          * We'll use 9.5 seconds (Android docs recommend ~10s)
          */
@@ -478,11 +473,13 @@ internal class KlaviyoLocationManager : LocationManager {
         KlaviyoGeofenceTransition.Exited -> GeofenceEventMetric.EXIT
         KlaviyoGeofenceTransition.Dwelt -> GeofenceEventMetric.DWELL
     }.let { metric ->
-        // Build properties map with geofence ID and optional duration
+        // Build properties map with geofence ID and optional duration (for dwell events only)
         val properties = mutableMapOf<EventKey, Serializable>(
             GeofenceEventProperty.GEOFENCE_ID to geofence.locationId
         )
-        geofence.duration?.let { properties[GeofenceEventProperty.DURATION] = it }
+        if (transition == KlaviyoGeofenceTransition.Dwelt) {
+            geofence.duration?.let { properties[GeofenceEventProperty.DURATION] = it }
+        }
         Event(metric, properties)
     }.let { event ->
         Registry.log.debug(
