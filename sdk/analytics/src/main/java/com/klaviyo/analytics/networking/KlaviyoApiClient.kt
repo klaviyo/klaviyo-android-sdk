@@ -180,11 +180,15 @@ internal object KlaviyoApiClient : ApiClient {
             initBatch()
         }
 
-        // Reverse the arg order if headOfLine is true, so that first arg winds up first in line
-        requests.takeIf { headOfLine }?.reverse()
-
         var addedRequest = false
-        requests.forEach { request ->
+        requests.let {
+            // Reverse the arg order if headOfLine is true, so that first arg winds up first in line
+            if (headOfLine) {
+                requests.reversed()
+            } else {
+                requests.asList()
+            }
+        }.forEach { request ->
             if (!apiQueue.contains(request)) {
                 Registry.dataStore.store(request.uuid, request.toString())
                 if (headOfLine) {
