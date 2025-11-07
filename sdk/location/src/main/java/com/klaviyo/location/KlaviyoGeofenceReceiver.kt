@@ -13,7 +13,7 @@ class KlaviyoGeofenceReceiver : BroadcastReceiver() {
                 intent,
                 goAsync()
             )
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             Registry.log.error("Unexpected error handling geofence transition intent", e)
         }
     }
