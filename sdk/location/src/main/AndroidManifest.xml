@@ -5,6 +5,8 @@
 
     <application>
         <!-- Register Klaviyo service for receiving geofence broadcasts -->
-        <receiver android:name="com.klaviyo.location.KlaviyoGeofenceReceiver"/>
+        <receiver
+            android:name="com.klaviyo.location.KlaviyoGeofenceReceiver"
+            android:exported="false" />
     </application>
 </manifest>

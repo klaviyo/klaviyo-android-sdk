@@ -29,7 +29,7 @@ internal class PersistentObservableProfile(
                         profile[key] = deserializeValue(json.get(key))
                     }
                 }
-            } catch (e: Throwable) {
+            } catch (e: Exception) {
                 Registry.log.warning("Invalid stored JSON for $key", e)
                 null
             }
