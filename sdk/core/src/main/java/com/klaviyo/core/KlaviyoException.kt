@@ -43,7 +43,7 @@ fun <ReturnType> safeCall(
         Registry.log.error(e.message, e)
     }
     null
-} catch (e: Throwable) {
+} catch (e: Exception) {
     if (KlaviyoConfig.isDebugBuild) {
         // To avoid development blindness, re-throw uncaught exceptions in DEBUG builds
         throw e

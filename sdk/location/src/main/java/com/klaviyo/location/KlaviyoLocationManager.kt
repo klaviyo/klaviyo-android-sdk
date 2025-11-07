@@ -14,11 +14,17 @@ import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.ApiObserver
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Clock
 import com.klaviyo.core.safeLaunch
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import org.json.JSONArray
 
@@ -316,25 +322,124 @@ internal class KlaviyoLocationManager : LocationManager {
 
         if (geofencingEvent.hasError()) {
             val errorMessage = GeofenceStatusCodes.getStatusCodeString(geofencingEvent.errorCode)
-            Registry.log.error(errorMessage)
+            Registry.log.error("Received geofence error: $errorMessage")
             pendingResult.finish()
             return
         }
 
         val geofenceTransition = geofencingEvent.toKlaviyoGeofenceEvent() ?: run {
-            Registry.log.error("Unknown geofence transition ${geofencingEvent.geofenceTransition}")
+            Registry.log.error(
+                "Received unknown geofence transition ${geofencingEvent.geofenceTransition}"
+            )
             pendingResult.finish()
             return
         }
 
-        geofencingEvent.triggeringGeofences
-            ?.map { it.toKlaviyoGeofence() }
-            ?.forEach { kGeofence ->
-                // CHNL-25308 TODO enqueue API request for geofence event
-                // TODO what if the app was terminated, and the host app hasn't called `initialize` yet when we get this intent?
-                Registry.log.info("Triggered geofence $geofenceTransition $kGeofence")
-            }
+        // Track the UUIDs of all the API requests we're creating (note, this is typically just 1 request, but can be a handful)
+        val requestUuids = geofencingEvent.triggeringGeofences?.map { it.toKlaviyoGeofence() }
+            ?.mapNotNull { kGeofence ->
+                if (Registry.getOrNull<State>()?.apiKey == null) {
+                    Registry.log.info("Automatically initialized Klaviyo from geofence event")
+                    Klaviyo.initialize(kGeofence.companyId, context.applicationContext)
+                }
 
-        pendingResult.finish()
+                if (Registry.getOrNull<State>()?.apiKey != kGeofence.companyId) {
+                    // Safeguard against initialization error, or non-matching company ID (this should be impossible though)
+                    Registry.log.error("Skipping geofence event for non-matching company ID.")
+                    return@mapNotNull null
+                }
+
+                Registry.log.info("Triggered geofence $geofenceTransition $kGeofence")
+                createGeofenceEvent(geofenceTransition, kGeofence)
+            } ?: emptyList()
+
+        // Set up observer and timeout to monitor request completion
+        waitForRequestCompletion(requestUuids, pendingResult)
+    }
+
+    /**
+     * Wait for API requests to complete before finishing the broadcast receiver
+     * Uses the API observer pattern to monitor request status
+     * Includes timeout safety to ensure pendingResult.finish() is always called
+     */
+    private fun waitForRequestCompletion(
+        requestUuids: List<String>,
+        pendingResult: BroadcastReceiver.PendingResult
+    ) {
+        val pendingRequests = requestUuids.toMutableSet()
+        val hasFinished = AtomicBoolean(false)
+        var observer: ApiObserver? = null
+        var timeout: Clock.Cancellable? = null
+
+        // Wrapped finish function, to ensure we can't call it twice (which causes a crash)
+        fun finish(observer: ApiObserver? = null, timeout: Clock.Cancellable? = null) {
+            if (hasFinished.compareAndSet(false, true)) {
+                // Clean up observer/timer
+                observer?.let { Registry.get<ApiClient>().offApiRequest(it) }
+                timeout?.cancel()
+
+                // And tell broadcast receiver that we've finished
+                pendingResult.finish()
+            }
+        }
+
+        // If no requests were created, finish immediately
+        if (pendingRequests.isEmpty()) {
+            finish()
+            return
+        }
+
+        // Timeout - ensure we finish even if network calls don't complete in time
+        timeout = Registry.clock.schedule(BROADCAST_RECEIVER_TIMEOUT) {
+            val remaining = synchronized(pendingRequests) {
+                pendingRequests.size
+            }
+            if (remaining > 0) {
+                Registry.log.warning(
+                    "Timeout creating geofence transition events: $remaining remain in queue"
+                )
+            }
+            finish(observer, timeout)
+        }
+
+        // As requests complete, remove from pending list, and call finish when all complete
+        observer = { request ->
+            if (request.responseCode is Int) {
+                val remaining = synchronized(pendingRequests) {
+                    pendingRequests.remove(request.uuid)
+                    pendingRequests.size
+                }
+                if (remaining == 0) {
+                    finish(observer, timeout)
+                }
+            }
+        }
+
+        Registry.get<ApiClient>().onApiRequest(true, observer)
+    }
+
+    /**
+     * Creates and enqueues an event for a geofence transition
+     *
+     * @param transition The type of transition that occurred
+     * @param geofence The geofence that triggered the event
+     * @return The API request that was enqueued
+     */
+    private fun createGeofenceEvent(
+        transition: KlaviyoGeofenceTransition,
+        geofence: KlaviyoGeofence
+    ): String? = when (transition) {
+        KlaviyoGeofenceTransition.Entered -> GeofenceEventMetric.ENTER
+        KlaviyoGeofenceTransition.Exited -> GeofenceEventMetric.EXIT
+        KlaviyoGeofenceTransition.Dwelt -> GeofenceEventMetric.DWELL
+    }.let { metric ->
+        Event(metric, mapOf(GeofenceEventProperty.GEOFENCE_ID to geofence.locationId))
+    }.let { event ->
+        Registry.log.debug(
+            "Created geofence event: ${event.metric.name} for geofence ${geofence.id}"
+        )
+        Registry.get<State>().run {
+            createEvent(event, getAsProfile())
+        }.uniqueId
     }
 }
