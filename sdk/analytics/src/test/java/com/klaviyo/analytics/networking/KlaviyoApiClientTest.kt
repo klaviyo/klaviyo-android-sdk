@@ -40,6 +40,7 @@ import io.mockk.unmockkConstructor
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import io.mockk.verifyOrder
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
@@ -418,36 +419,10 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `enqueueRequest with headOfLine places request at front of queue`() {
-        // Enqueue some regular requests first
-        val regularRequests = (0..2).map { mockRequest("regular-$it") }
-        KlaviyoApiClient.enqueueRequest(*regularRequests.toTypedArray())
-        assertEquals(3, KlaviyoApiClient.getQueueSize())
-
-        // Now enqueue a priority request
-        val priorityRequest = mockRequest("priority-request")
-        KlaviyoApiClient.enqueueRequest(priorityRequest, headOfLine = true)
-
-        // Queue size should be 4
-        assertEquals(4, KlaviyoApiClient.getQueueSize())
-
-        // Force flush to verify the priority request is processed first
-        KlaviyoApiClient.flushQueue()
-
-        // Priority request should be sent first, then the regular requests
-        verify(exactly = 1) { priorityRequest.send(any()) }
-        regularRequests.forEach { request ->
-            verify(exactly = 1) { request.send(any()) }
-        }
-
-        // Queue should be empty after flush
-        assertEquals(0, KlaviyoApiClient.getQueueSize())
-    }
-
-    @Test
-    fun `enqueueRequest with headOfLine accepts multiple priority requests`() {
+    fun `enqueueRequest with headOfLine accepts multiple priority requests and enqueues them in expected order`() {
         // Enqueue some regular requests
-        KlaviyoApiClient.enqueueRequest(mockRequest("regular-1"))
+        val regularRequest = mockRequest("regular-1")
+        KlaviyoApiClient.enqueueRequest(regularRequest)
         assertEquals(1, KlaviyoApiClient.getQueueSize())
 
         // Enqueue multiple priority requests
@@ -457,11 +432,15 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         assertEquals(3, KlaviyoApiClient.getQueueSize())
 
-        // Flush and verify priority requests were processed
+        // Flush and verify priority requests were processed in correct order
         KlaviyoApiClient.flushQueue()
 
-        verify(exactly = 1) { priorityRequest1.send(any()) }
-        verify(exactly = 1) { priorityRequest2.send(any()) }
+        // Priority requests should be processed first, in the order they were passed
+        verifyOrder {
+            priorityRequest1.send(any())
+            priorityRequest2.send(any())
+            regularRequest.send(any())
+        }
         assertEquals(0, KlaviyoApiClient.getQueueSize())
     }
 
