@@ -17,6 +17,8 @@ import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.location.KlaviyoGeofence
 import com.klaviyo.location.LocationManager
+import com.klaviyo.location.registerGeofencing
+import com.klaviyo.location.unregisterGeofencing
 
 /**
  * ViewModel for the Sample App demonstrating Klaviyo SDK integration.
@@ -71,14 +73,17 @@ class SampleViewModel : ViewModel() {
     }
 
     // Profile actions
+    @UiThread
     fun updateExternalId(value: String) {
         externalId = value
     }
 
+    @UiThread
     fun updateEmail(value: String) {
         email = value
     }
 
+    @UiThread
     fun updatePhoneNumber(value: String) {
         phoneNumber = value
     }
@@ -102,6 +107,7 @@ class SampleViewModel : ViewModel() {
             .setPhoneNumber(phoneNumber)
     }
 
+    @UiThread
     fun resetProfile() {
         updateExternalId("")
         updateEmail("")
@@ -126,11 +132,13 @@ class SampleViewModel : ViewModel() {
     }
 
     // In-App Forms actions
+    @UiThread
     fun registerForInAppForms() {
         Klaviyo.registerForInAppForms()
         isFormsRegistered = true
     }
 
+    @UiThread
     fun unregisterFromInAppForms() {
         Klaviyo.unregisterFromInAppForms()
         isFormsRegistered = false
@@ -149,14 +157,27 @@ class SampleViewModel : ViewModel() {
         pushToken = token
     }
 
+    // Geofencing registration actions
+    @UiThread
+    fun registerForGeofencing() {
+        Klaviyo.registerGeofencing()
+        isGeofencingRegistered = true
+    }
+
+    @UiThread
+    fun unregisterFromGeofencing() {
+        Klaviyo.unregisterGeofencing()
+        isGeofencingRegistered = false
+    }
+
     // Location permission actions
     @UiThread
     fun updateLocationPermission(hasPermission: Boolean) {
         hasLocationPermission = hasPermission
 
         if (hasPermission) {
-            // Get current geofences from the location module, and then tap in to the internal
-            //  geofence sync events subscription to keep the view updated.
+            // Get current geofences from the location module, and then tap in to the internal geofence sync events subscription to keep the view updated.
+            // Note: this uses advanced APIs used for demonstration, not necessary for a typical integration
             Registry.getOrNull<LocationManager>()?.apply {
                 monitoredGeofences = getStoredGeofences()
                 onGeofenceSync(true, ::setGeofences)
@@ -171,17 +192,6 @@ class SampleViewModel : ViewModel() {
     @UiThread
     fun updateBackgroundLocationPermission(hasPermission: Boolean) {
         hasBackgroundLocationPermission = hasPermission
-    }
-
-    // Geofencing registration actions
-    fun registerForGeofencing() {
-        Registry.getOrNull<LocationManager>()?.startGeofenceMonitoring()
-        isGeofencingRegistered = true
-    }
-
-    fun unregisterFromGeofencing() {
-        Registry.getOrNull<LocationManager>()?.stopGeofenceMonitoring()
-        isGeofencingRegistered = false
     }
 
     /**
@@ -205,6 +215,7 @@ class SampleViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         // Clean up geofence sync subscription to prevent memory leak
+        // Note: this is an advanced API used for demonstration, not necessary for a typical integration
         Registry.getOrNull<LocationManager>()?.offGeofenceSync(::setGeofences)
     }
 }

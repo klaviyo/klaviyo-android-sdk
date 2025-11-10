@@ -140,7 +140,9 @@ class SampleActivity : ComponentActivity() {
                 )
             ) {
                 // Show educational UI
-                showToast("Please allow location access 'All the time' for geofence notifications")
+                showToast(
+                    "Please allow location access 'All the time' to enable geofencing features."
+                )
                 requestBackgroundLocationPermissionLauncher.launch(
                     Manifest.permission.ACCESS_BACKGROUND_LOCATION
                 )

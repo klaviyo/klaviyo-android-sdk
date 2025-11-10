@@ -99,7 +99,7 @@ fun LocationView(
         }
 
         if (!hasLocationPermission) {
-            // Request foreground location permission
+            // Button to request foreground location permission
             OutlinedButton(
                 shape = CircleShape,
                 onClick = onRequestLocationPermission,
