@@ -151,6 +151,7 @@ internal class KlaviyoLocationManager : LocationManager {
     private fun updateSystemMonitoring(hasPermissions: Boolean) {
         if (hasPermissions) {
             // Start monitoring currently stored geofences
+            Registry.log.info("Required location permissions granted, starting geofence monitoring")
             getStoredGeofences().takeIf { geofences ->
                 geofences.isNotEmpty()
             }?.let { geofences ->
@@ -160,6 +161,9 @@ internal class KlaviyoLocationManager : LocationManager {
             // Kick off fetch request to refresh geofences from API
             fetchGeofences()
         } else {
+            Registry.log.debug(
+                "Required location permissions not granted, stopping geofence monitoring"
+            )
             stopSystemMonitoring()
         }
     }
@@ -287,10 +291,12 @@ internal class KlaviyoLocationManager : LocationManager {
         }.also { geofenceRequest ->
             client.addGeofences(geofenceRequest, intent).run {
                 addOnSuccessListener {
-                    Registry.log.debug("Added geofence")
+                    Registry.log.debug(
+                        "Monitoring ${geofences.size} geofences with system geofencing client"
+                    )
                 }
                 addOnFailureListener {
-                    Registry.log.error("Failed to add geofence $it")
+                    Registry.log.error("Failed start geofence monitoring: $it")
                 }
             }
         }
