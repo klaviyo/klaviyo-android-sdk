@@ -1,5 +1,6 @@
 package com.klaviyo.location
 
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -18,6 +19,7 @@ import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.analytics.networking.requests.FetchedGeofence
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import io.mockk.clearMocks
@@ -71,23 +73,21 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         const val LONDON_LNG = -0.1278
         const val LONDON_RADIUS = 200f
 
-        private val stubNYC: FetchedGeofence
-            get() = FetchedGeofence(
-                Registry.config.apiKey,
-                "NYC",
-                NYC_LAT,
-                NYC_LNG,
-                NYC_RADIUS.toDouble()
-            )
+        private val stubNYC: FetchedGeofence = FetchedGeofence(
+            API_KEY,
+            "NYC",
+            NYC_LAT,
+            NYC_LNG,
+            NYC_RADIUS.toDouble()
+        )
 
-        private val stubLondon: FetchedGeofence
-            get() = FetchedGeofence(
-                Registry.config.apiKey,
-                "LONDON",
-                LONDON_LAT,
-                LONDON_LNG,
-                LONDON_RADIUS.toDouble()
-            )
+        private val stubLondon: FetchedGeofence = FetchedGeofence(
+            API_KEY,
+            "LONDON",
+            LONDON_LAT,
+            LONDON_LNG,
+            LONDON_RADIUS.toDouble()
+        )
 
         private fun FetchedGeofence.toJson() = this.toKlaviyoGeofence().toJson().toString()
 
@@ -146,6 +146,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         unmockkStatic(GeofencingEvent::class)
         unmockkStatic(LocationServices::class)
         MockIntent.unmockPendingIntent()
+        unmockkObject(KlaviyoPermissionMonitor.Companion)
+        unmockkObject(Klaviyo)
         Dispatchers.resetMain()
         super.cleanup()
     }
@@ -162,6 +164,14 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         assertEquals(expectedLatitude, geofence.latitude, 0.0001)
         assertEquals(expectedLongitude, geofence.longitude, 0.0001)
         assertEquals(expectedRadius, geofence.radius)
+    }
+
+    private fun mockStoredFences(vararg geofences: FetchedGeofence) {
+        // Seed the data store with some geofence JSON
+        // Note: this leverages json serialization logic that we test elsewhere!
+        locationManager.storeGeofences(
+            geofences.map { it.toKlaviyoGeofence() }
+        )
     }
 
     // Helper method to mock successful geofence fetch using coroutines
@@ -257,6 +267,18 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         every { latitude } returns lat
         every { longitude } returns lon
         every { getRadius() } returns radius
+    }
+
+    // Helper to setup boot event test mocks with permissions granted
+    private fun setupBootEventMocks(withPermission: Boolean = true) {
+        mockkObject(Klaviyo)
+        mockkObject(KlaviyoPermissionMonitor.Companion)
+        every { Klaviyo.registerForLifecycleCallbacks(any()) } answers {
+            Registry.register<Config> { mockConfig }
+            Klaviyo
+        }
+        every { KlaviyoPermissionMonitor.hasGeofencePermissions(any()) } returns withPermission
+        every { mockPermissionMonitor.permissionState } returns withPermission
     }
 
     //region Registry and Initialization Tests
@@ -473,13 +495,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     @Test
     fun `storeGeofences saves geofences to dataStore`() {
-        val geofences = listOf(
-            stubNYC.toKlaviyoGeofence(),
-            stubLondon.toKlaviyoGeofence()
-        )
-
         // Store geofences
-        locationManager.storeGeofences(geofences)
+        mockStoredFences(stubNYC, stubLondon)
 
         // Retrieve and verify they were stored correctly
         val retrieved = locationManager.getStoredGeofences()
@@ -631,9 +648,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     @Test
     fun `permission change to granted triggers monitoring to start`() = runTest {
         // Store some geofences first
-        locationManager.storeGeofences(
-            listOf(stubNYC.toKlaviyoGeofence())
-        )
+        mockStoredFences(stubNYC)
 
         // Start monitoring (permissions initially denied)
         every { mockPermissionMonitor.permissionState } returns false
@@ -673,12 +688,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     @Test
     fun `startMonitoring adds all stored geofences to GeofencingClient in one batch`() {
         // Store multiple geofences
-        locationManager.storeGeofences(
-            listOf(
-                stubNYC.toKlaviyoGeofence(),
-                stubLondon.toKlaviyoGeofence()
-            )
-        )
+        mockStoredFences(stubNYC, stubLondon)
 
         // Start monitoring (permissions initially denied)
         every { mockPermissionMonitor.permissionState } returns false
@@ -702,11 +712,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     @Test
     fun `full lifecycle - start, permission change, stop`() = runTest {
         // Store geofences
-        locationManager.storeGeofences(
-            listOf(
-                stubLondon.toKlaviyoGeofence()
-            )
-        )
+        mockStoredFences(stubNYC, stubLondon)
 
         // Start monitoring (no permissions initially)
         every { mockPermissionMonitor.permissionState } returns false
@@ -733,7 +739,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     @Test
     fun `startGeofenceMonitoring is idempotent with observers`() = runTest {
         // Setup: Store some geofences and grant permissions
-        locationManager.storeGeofences(listOf(stubNYC.toKlaviyoGeofence()))
+        mockStoredFences(stubNYC, stubLondon)
         every { mockPermissionMonitor.permissionState } returns true
 
         // Call startGeofenceMonitoring multiple times
@@ -792,9 +798,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     @Test
     fun `fetchGeofences replaces old geofences in system monitoring`() = runTest {
         // Setup: Store initial geofences and start monitoring
-        locationManager.storeGeofences(
-            listOf(stubNYC.toKlaviyoGeofence())
-        )
+        mockStoredFences(stubNYC)
 
         every { mockPermissionMonitor.permissionState } returns true
         locationManager.startGeofenceMonitoring()
@@ -1397,4 +1401,131 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     //endregion
+
+    // region Boot receiver tests
+
+    @Test
+    fun `handleBootEvent returns early when location permissions not granted`() {
+        setupBootEventMocks(false)
+
+        locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Verify no geofencing operations occurred
+        verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
+    }
+
+    @Test
+    fun `handleBootEvent returns early when no geofences are stored`() {
+        setupBootEventMocks()
+
+        // Ensure no geofences are stored
+        locationManager.clearStoredGeofences()
+
+        locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Verify no geofencing operations occurred
+        verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
+    }
+
+    @Test
+    fun `handleBootEvent successfully restores geofences when all conditions met`() {
+        mockStoredFences(stubNYC, stubLondon)
+        setupBootEventMocks()
+
+        locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Verify geofences were re-registered with the system
+        verify(exactly = 1) { mockGeofencingClient.addGeofences(any(), any()) }
+    }
+
+    @Test
+    fun `handleBootEvent restores correct number of geofences`() {
+        mockStoredFences(stubNYC, stubLondon)
+        setupBootEventMocks()
+
+        locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Verify all geofences were added in a single batch
+        verify(exactly = 1) {
+            mockGeofencingClient.addGeofences(
+                match { request ->
+                    request.geofences.size == 2
+                },
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun `handleBootEvent restores geofences with correct properties`() {
+        mockStoredFences(stubNYC)
+        setupBootEventMocks()
+
+        locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Verify geofence was added with correct properties
+        verify(exactly = 1) {
+            mockGeofencingClient.addGeofences(
+                match { request ->
+                    request.geofences.size == 1 &&
+                        request.geofences.first().requestId == "$API_KEY:${stubNYC.id}" &&
+                        request.geofences.first().latitude == NYC_LAT &&
+                        request.geofences.first().longitude == NYC_LNG &&
+                        request.geofences.first().radius == NYC_RADIUS
+                },
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun `handleBootEvent initializes SDK from cold launch when Config not registered`() {
+        // Seed the data store fixture with some mock fence JSON
+        mockStoredFences(stubNYC, stubLondon)
+
+        // Set up an environment where klaviyo is not yet initialized/configured
+        Registry.unregister<Config>()
+        setupBootEventMocks()
+        MockIntent.mockPendingIntent()
+
+        // Mock static methods that are called during lazy initialization
+        mockkStatic(LocationServices::class)
+        every { LocationServices.getGeofencingClient(any<Context>()) } returns mockGeofencingClient
+
+        // Create a fresh LocationManager instance without constructor injection
+        // This will trigger lazy initialization when geofences are restored
+        val coldLaunchManager = KlaviyoLocationManager()
+        coldLaunchManager.restoreGeofencesOnBoot(mockContext)
+
+        // Verify SDK initialization was called FIRST to set up Config
+        verify(exactly = 1) { Klaviyo.registerForLifecycleCallbacks(mockContext) }
+
+        // Verify lazy initialization accessed Registry.config.applicationContext AFTER initialization
+        verify(exactly = 1) { LocationServices.getGeofencingClient(mockContext) }
+        verify(exactly = 1) {
+            PendingIntent.getBroadcast(
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        }
+
+        // Verify geofences were still restored after initialization
+        verify(exactly = 1) {
+            mockGeofencingClient.addGeofences(
+                match { request ->
+                    request.geofences.size == 2
+                },
+                any()
+            )
+        }
+
+        // Cleanup static mocks
+        unmockkStatic(LocationServices::class)
+        unmockkStatic(PendingIntent::class)
+        unmockkStatic(Intent::class)
+    }
+
+    // endregion
 }
