@@ -363,9 +363,6 @@ internal class KlaviyoLocationManager : LocationManager {
 
                 // Check cooldown before creating event
                 if (!cooldownTracker.isAllowed(kGeofence.id, geofenceTransition)) {
-                    Registry.log.debug(
-                        "Skipping geofence $geofenceTransition due to cooldown period"
-                    )
                     return@mapNotNull null
                 }
 

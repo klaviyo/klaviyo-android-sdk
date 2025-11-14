@@ -50,12 +50,12 @@ internal class GeofenceCooldownTracker {
 
         return if (elapsedTime < GEOFENCE_TRANSITION_COOLDOWN) {
             val remainingTime = (GEOFENCE_TRANSITION_COOLDOWN - elapsedTime) / 1000
-            Registry.log.verbose(
+            Registry.log.debug(
                 "Suppressed geofence ${transition.name.lowercase()} event for $geofenceId - ${remainingTime}s remaining in cooldown"
             )
             false
         } else {
-            Registry.log.debug(
+            Registry.log.verbose(
                 "Allowing geofence ${transition.name.lowercase()} event for $geofenceId - ${elapsedTime / 1000}s since last event"
             )
             true

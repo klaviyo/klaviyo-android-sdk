@@ -1354,7 +1354,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
             // Verify verbose log was called for suppression
             verify {
-                spyLog.verbose(
+                spyLog.debug(
                     match { it.contains("Suppressed") && it.contains("30s remaining") }
                 )
             }
