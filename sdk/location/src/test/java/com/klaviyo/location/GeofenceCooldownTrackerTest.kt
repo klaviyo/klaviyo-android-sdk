@@ -108,23 +108,59 @@ class GeofenceCooldownTrackerTest : BaseTest() {
         }
         Registry.dataStore.store("geofence_cooldowns", cooldownMap.toString())
 
-        // Trigger a load by calling isAllowed
+        // Trigger a load by calling isAllowed - this should automatically clean and persist
         tracker.isAllowed(geofence1, KlaviyoGeofenceTransition.Entered)
 
-        // Record a new transition to save the cleaned map
-        tracker.recordTransition(geofence1, KlaviyoGeofenceTransition.Dwelt)
-
-        // Verify stale entry was removed
+        // Verify the cleaned map was automatically persisted to storage
         val storedJson = Registry.dataStore.fetch("geofence_cooldowns")
         assertNotNull(storedJson)
-        val updatedMap = JSONObject(storedJson)
+        val cleanedMap = JSONObject(storedJson)
 
-        // Recent entries should exist
-        assertTrue(updatedMap.has("$geofence1:Dwelt"))
-        assertTrue(updatedMap.has("$geofence3:Exited"))
+        // Recent entries should still exist
+        assertTrue(cleanedMap.has("$geofence1:Entered"))
+        assertTrue(cleanedMap.has("$geofence3:Exited"))
 
-        // Stale entry should be gone (filtered out during load)
-        assertFalse(updatedMap.has("$geofence2:Entered"))
+        // Stale entry should be gone and the cleaned map persisted
+        assertFalse(cleanedMap.has("$geofence2:Entered"))
+
+        // Verify we only have 2 entries now (the 2 recent ones)
+        assertEquals(2, cleanedMap.length())
+    }
+
+    @Test
+    fun `clean removes stale entries from storage`() {
+        val geofence1 = "geofence_1"
+        val geofence2 = "geofence_2"
+        val geofence3 = "geofence_3"
+        val geofence4 = "geofence_4"
+
+        // Store map with multiple stale entries and one recent entry
+        val cooldownMap = JSONObject().apply {
+            put("$geofence1:Entered", TIME - 90_000) // Stale (beyond 60s)
+            put("$geofence2:Exited", TIME - 120_000) // Very stale
+            put("$geofence3:Dwelt", TIME - 45_000) // Recent (within 60s)
+            put("$geofence4:Entered", TIME - 75_000) // Stale
+        }
+        Registry.dataStore.store("geofence_cooldowns", cooldownMap.toString())
+
+        // Call clean to trigger cleanup
+        tracker.clean()
+
+        // Verify only recent entries remain in storage
+        val storedJson = Registry.dataStore.fetch("geofence_cooldowns")
+        assertNotNull(storedJson)
+        val cleanedMap = JSONObject(storedJson)
+
+        // Only the recent entry should exist
+        assertTrue(cleanedMap.has("$geofence3:Dwelt"))
+
+        // All stale entries should be gone
+        assertFalse(cleanedMap.has("$geofence1:Entered"))
+        assertFalse(cleanedMap.has("$geofence2:Exited"))
+        assertFalse(cleanedMap.has("$geofence4:Entered"))
+
+        // Verify we only have 1 entry now
+        assertEquals(1, cleanedMap.length())
     }
 
     @Test

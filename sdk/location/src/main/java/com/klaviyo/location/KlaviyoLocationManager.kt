@@ -135,6 +135,7 @@ internal class KlaviyoLocationManager : LocationManager {
      * If not, we will wait till proper permission is granted before fetching.
      */
     override fun startGeofenceMonitoring() {
+        cooldownTracker.clean()
         updateSystemMonitoring(Registry.locationPermissionMonitor.permissionState)
         onGeofenceSync(true, ::startSystemMonitoring)
         Registry.locationPermissionMonitor.onPermissionChanged(true, ::updateSystemMonitoring)

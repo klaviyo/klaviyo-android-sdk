@@ -27,6 +27,13 @@ internal class GeofenceCooldownTracker {
     }
 
     /**
+     * Externally trigger the saved cooldown map to expire old keys
+     */
+    fun clean() {
+        loadCooldownMap()
+    }
+
+    /**
      * Check if a geofence transition is allowed (not in cooldown period)
      *
      * @param geofenceId The geofence ID to check
@@ -88,6 +95,11 @@ internal class GeofenceCooldownTracker {
                     .filterValues { timestamp ->
                         // Cleanup: keep only entries within cooldown period
                         currentTime - timestamp <= GEOFENCE_TRANSITION_COOLDOWN
+                    }.also { cleanedList ->
+                        // If we filtered out expired keys, commit the update back to disk
+                        if (cleanedList.size != json.length()) {
+                            saveCooldownMap(cleanedList)
+                        }
                     }
             }
         } catch (e: Exception) {
