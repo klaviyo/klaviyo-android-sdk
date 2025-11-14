@@ -40,6 +40,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.json.JSONException
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -1319,6 +1320,79 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
             assertEquals(1, staticClock.scheduledTasks.size)
             val scheduledTask = staticClock.scheduledTasks.first()
             assertEquals(TIME + 9500L, scheduledTask.time)
+        }
+    }
+
+    //endregion
+
+    @Test
+    fun `handleGeofenceIntent suppresses duplicate event within cooldown period`() {
+        // Setup: Register State in Registry
+        setupMockStateWithApiKey()
+
+        val geofenceId = "$API_KEY:geo1"
+        val geofence = mockGeofence(geofenceId)
+
+        // Store a recent transition timestamp (30 seconds ago) in the map
+        val cooldownMap = JSONObject().apply {
+            put("$geofenceId:Entered", TIME - 30_000)
+        }
+        Registry.dataStore.store("geofence_cooldowns", cooldownMap.toString())
+
+        // Mock geofence event (same geofence, same transition)
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Verify event was NOT created (within cooldown)
+            verify(exactly = 0) { mockState.createEvent(any(), any()) }
+
+            // Verify verbose log was called for suppression
+            verify {
+                spyLog.debug(
+                    match { it.contains("Suppressed") && it.contains("30s remaining") }
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `handleGeofenceIntent creates event after cooldown period expires`() {
+        // Setup: Register State in Registry
+        setupMockStateWithApiKey()
+
+        val geofenceId = "$API_KEY:geo1"
+        val geofence = mockGeofence(geofenceId)
+
+        // Store an old transition timestamp (70 seconds ago, beyond 60s cooldown)
+        val cooldownMap = JSONObject().apply {
+            put("$geofenceId:Entered", TIME - 70_000)
+        }
+        Registry.dataStore.store("geofence_cooldowns", cooldownMap.toString())
+
+        // Mock geofence event (same geofence, same transition)
+        val mockEvent = mockGeofencingEvent(
+            transition = Geofence.GEOFENCE_TRANSITION_ENTER,
+            geofences = listOf(geofence)
+        )
+
+        withMockedGeofencingEvent(mockEvent) {
+            val mockIntent = mockk<Intent>(relaxed = true)
+            locationManager.handleGeofenceIntent(mockContext, mockIntent, mockPendingResult)
+
+            // Verify event WAS created (cooldown expired)
+            verify { mockState.createEvent(any(), any()) }
+
+            // Verify new timestamp was stored
+            val storedJson = Registry.dataStore.fetch("geofence_cooldowns")
+            assertNotNull(storedJson)
+            val updatedMap = JSONObject(storedJson)
+            assertEquals(TIME, updatedMap.getLong("$geofenceId:Entered"))
         }
     }
 
