@@ -30,7 +30,8 @@ internal class GeofenceCooldownTracker {
      * Externally trigger the saved cooldown map to expire old keys
      */
     fun clean() {
-        loadCooldownMap()
+        val cooldownMap = loadCooldownMap()
+        saveCooldownMap(cooldownMap)
     }
 
     /**
@@ -80,9 +81,9 @@ internal class GeofenceCooldownTracker {
     }
 
     /**
-     * Load the cooldown map from DataStore and clean up stale entries
+     * Load the cooldown map from DataStore and filter out stale entries for in-memory use
      *
-     * @return Map of geofence+transition keys to timestamps
+     * @return Map of geofence+transition keys to timestamps (stale entries filtered out)
      */
     private fun loadCooldownMap(): Map<String, Long> {
         val storedJson = Registry.dataStore.fetch(GEOFENCE_COOLDOWNS_KEY) ?: return emptyMap()
@@ -93,13 +94,8 @@ internal class GeofenceCooldownTracker {
                 json.keys().asSequence()
                     .associateWith { json.getLong(it) }
                     .filterValues { timestamp ->
-                        // Cleanup: keep only entries within cooldown period
+                        // Filter: keep only entries within cooldown period for in-memory use
                         currentTime - timestamp <= GEOFENCE_TRANSITION_COOLDOWN
-                    }.also { cleanedList ->
-                        // If we filtered out expired keys, commit the update back to disk
-                        if (cleanedList.size != json.length()) {
-                            saveCooldownMap(cleanedList)
-                        }
                     }
             }
         } catch (e: Exception) {
@@ -109,13 +105,20 @@ internal class GeofenceCooldownTracker {
     }
 
     /**
-     * Save the cooldown map to DataStore
+     * Save the cooldown map to DataStore, filtering out stale entries before writing
      *
      * @param cooldownMap Map of geofence+transition keys to timestamps
      */
     private fun saveCooldownMap(cooldownMap: Map<String, Long>) {
         try {
-            val json = JSONObject(cooldownMap)
+            val currentTime = Registry.clock.currentTimeMillis()
+
+            // Filter out stale entries before saving to reduce storage size
+            val cleanedMap = cooldownMap.filterValues { timestamp ->
+                currentTime - timestamp <= GEOFENCE_TRANSITION_COOLDOWN
+            }
+
+            val json = JSONObject(cleanedMap)
             Registry.dataStore.store(GEOFENCE_COOLDOWNS_KEY, json.toString())
         } catch (e: Exception) {
             Registry.log.error("Failed to save geofence cooldowns", e)

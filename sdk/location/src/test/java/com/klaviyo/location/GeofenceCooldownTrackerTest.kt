@@ -95,7 +95,7 @@ class GeofenceCooldownTrackerTest : BaseTest() {
     }
 
     @Test
-    fun `loadCooldownMap cleans up stale entries automatically`() {
+    fun `loadCooldownMap filters stale entries from memory but persists on save only`() {
         val geofence1 = "geofence_1"
         val geofence2 = "geofence_2"
         val geofence3 = "geofence_3"
@@ -108,23 +108,27 @@ class GeofenceCooldownTrackerTest : BaseTest() {
         }
         Registry.dataStore.store("geofence_cooldowns", cooldownMap.toString())
 
-        // Trigger a load by calling isAllowed - this should automatically clean and persist
+        // Trigger a load by calling isAllowed - this only reads, doesn't save
         tracker.isAllowed(geofence1, KlaviyoGeofenceTransition.Entered)
 
-        // Verify the cleaned map was automatically persisted to storage
-        val storedJson = Registry.dataStore.fetch("geofence_cooldowns")
-        assertNotNull(storedJson)
-        val cleanedMap = JSONObject(storedJson)
+        // Verify stale entries are still in storage (load doesn't persist)
+        val storedAfterLoad = JSONObject(Registry.dataStore.fetch("geofence_cooldowns")!!)
+        assertEquals(3, storedAfterLoad.length())
+        assertTrue(storedAfterLoad.has("$geofence2:Entered"))
 
-        // Recent entries should still exist
-        assertTrue(cleanedMap.has("$geofence1:Entered"))
-        assertTrue(cleanedMap.has("$geofence3:Exited"))
+        // Now record a transition which triggers a save
+        tracker.recordTransition(geofence1, KlaviyoGeofenceTransition.Dwelt)
 
-        // Stale entry should be gone and the cleaned map persisted
-        assertFalse(cleanedMap.has("$geofence2:Entered"))
+        // Verify stale entries are now cleaned from storage
+        val storedAfterSave = JSONObject(Registry.dataStore.fetch("geofence_cooldowns")!!)
 
-        // Verify we only have 2 entries now (the 2 recent ones)
-        assertEquals(2, cleanedMap.length())
+        // Recent entries should exist
+        assertTrue(storedAfterSave.has("$geofence1:Dwelt"))
+        assertTrue(storedAfterSave.has("$geofence1:Entered"))
+        assertTrue(storedAfterSave.has("$geofence3:Exited"))
+
+        // Stale entry should be gone after save
+        assertFalse(storedAfterSave.has("$geofence2:Entered"))
     }
 
     @Test
