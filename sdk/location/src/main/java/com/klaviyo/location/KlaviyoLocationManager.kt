@@ -292,6 +292,7 @@ internal class KlaviyoLocationManager : LocationManager {
         }.let { geofencesToAdd ->
             GeofencingRequest.Builder().apply {
                 addGeofences(geofencesToAdd)
+                setInitialTrigger(0) // To match iOS behavior, we will NOT treat initial occupancy of a geofence as a triggering event.
             }.build()
         }.also { geofenceRequest ->
             client.addGeofences(geofenceRequest, intent).run {
