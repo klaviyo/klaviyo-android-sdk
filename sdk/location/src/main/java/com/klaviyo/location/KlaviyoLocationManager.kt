@@ -291,7 +291,6 @@ internal class KlaviyoLocationManager : LocationManager {
                 .build()
         }.let { geofencesToAdd ->
             GeofencingRequest.Builder().apply {
-                setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
                 addGeofences(geofencesToAdd)
             }.build()
         }.also { geofenceRequest ->
