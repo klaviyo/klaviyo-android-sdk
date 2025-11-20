@@ -99,6 +99,11 @@ internal class KlaviyoLocationManager : LocationManager {
     private val observers = CopyOnWriteArrayList<GeofenceObserver>()
 
     /**
+     * Observer for company ID changes to refresh geofences
+     */
+    private val companyObserver by lazy { CompanyObserver() }
+
+    /**
      * Register an observer to be notified when geofences are synced
      *
      * @param unique If true, prevents registering the same observer multiple times.
@@ -147,6 +152,7 @@ internal class KlaviyoLocationManager : LocationManager {
      */
     override fun stopGeofenceMonitoring() {
         stopSystemMonitoring()
+        companyObserver.stopObserver()
         offGeofenceSync(::startSystemMonitoring)
         Registry.locationPermissionMonitor.offPermissionChanged(::updateSystemMonitoring)
     }
@@ -164,6 +170,9 @@ internal class KlaviyoLocationManager : LocationManager {
                 startSystemMonitoring(geofences)
             }
 
+            // Start observing company ID changes
+            companyObserver.startObserver()
+
             // Kick off fetch request to refresh geofences from API
             fetchGeofences()
         } else {
@@ -171,6 +180,7 @@ internal class KlaviyoLocationManager : LocationManager {
                 "Required location permissions not granted, stopping geofence monitoring"
             )
             stopSystemMonitoring()
+            companyObserver.stopObserver()
         }
     }
 
