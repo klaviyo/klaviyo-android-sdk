@@ -14,11 +14,14 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.net.toUri
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.activityResolved
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
@@ -66,7 +69,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val NOTIFICATION_COUNT_KEY = "notification_count"
         internal const val NOTIFICATION_PRIORITY = "notification_priority"
         internal const val NOTIFICATION_TAG = "notification_tag"
-        internal const val KEY_VALUE_PAIRS_KEY = Constants.KEY_VALUE_PAIRS
+        internal const val KEY_VALUE_PAIRS_KEY = "key_value_pairs"
+        internal const val ACTION_BUTTONS_KEY = "action_buttons"
         private const val DOWNLOAD_TIMEOUT_MS = 5_000
 
         /**
@@ -158,6 +162,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
+            .also { builder -> addActionButtons(context, builder) }
 
     private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
         val executor = Executors.newCachedThreadPool()
@@ -231,5 +236,58 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             // Else, just launch the app
             else -> DeepLinking.makeLaunchIntent(context)
         }?.appendKlaviyoExtras(message)
+    }
+
+    /**
+     * Parse action buttons from message data and add them to the notification
+     *
+     * Expected format (iOS-aligned):
+     * [{"id":"...", "label":"...", "action":"deep_link|open_app", "url":"..."}]
+     *
+     * Supported action types:
+     * - "deep_link" (default): Opens app with deep link or URL
+     * - "open_app": Opens app (alias for deep_link)
+     *
+     * Note: Icons are not supported on Android (iOS only).
+     */
+    private fun addActionButtons(context: Context, builder: NotificationCompat.Builder) {
+        val actionButtons = message.actionButtons ?: return
+
+        actionButtons.take(3).forEachIndexed { index, button ->
+            if (button.label.isBlank() || button.url.isBlank()) {
+                Registry.log.warning("Action button $index has blank label or url")
+                return@forEachIndexed
+            }
+
+            builder.addAction(createDeepLinkAction(context, index, button))
+            Registry.log.verbose("Added action button $index: '${button.label}' -> ${button.url}")
+        }
+    }
+
+    /**
+     * Create a deep link action that opens the app
+     */
+    private fun createDeepLinkAction(
+        context: Context,
+        index: Int,
+        button: ActionButton
+    ): NotificationCompat.Action {
+        val uri = button.url.toUri()
+        val intent = DeepLinking.makeDeepLinkIntent(uri, context).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+        }.appendKlaviyoExtras(message)
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            1000 + index,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return NotificationCompat.Action(
+            0, // No icon (icons not supported on Android)
+            button.label,
+            pendingIntent
+        )
     }
 }

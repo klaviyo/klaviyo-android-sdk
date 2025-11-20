@@ -21,6 +21,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
 import java.net.URL
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -155,6 +156,56 @@ object KlaviyoRemoteMessage {
                 null
             }
         }
+
+    /**
+     * Parse action buttons from the iOS-aligned format
+     *
+     * Expected structure:
+     * [{"id":"...", "label":"...", "action":"deep_link|open_app", "url":"..."}]
+     */
+    val RemoteMessage.actionButtons: List<ActionButton>?
+        get() = this.data[KlaviyoNotification.ACTION_BUTTONS_KEY]?.let { jsonString ->
+            Registry.log.verbose("Parsing action_buttons from: $jsonString")
+            try {
+                val jsonArray = JSONArray(jsonString)
+                val buttons = mutableListOf<ActionButton>()
+                Registry.log.verbose("JSON array has ${jsonArray.length()} buttons")
+                for (i in 0 until jsonArray.length()) {
+                    val jsonObject = jsonArray.getJSONObject(i)
+                    val button = ActionButton(
+                        id = jsonObject.optString("id"),
+                        label = jsonObject.optString("label"),
+                        action = jsonObject.optString("action", "deep_link"),
+                        url = jsonObject.optString("url")
+                    )
+                    Registry.log.verbose("Parsed button $i: $button")
+                    buttons.add(button)
+                }
+                Registry.log.verbose("Successfully parsed ${buttons.size} action buttons")
+                buttons
+            } catch (e: Exception) {
+                Registry.log.warning(
+                    "Klaviyo SDK failed to parse action_buttons JSON: $jsonString",
+                    e
+                )
+                null
+            }
+        }
+
+    /**
+     * Data class representing an action button
+     *
+     * @property id Unique identifier for the button
+     * @property label Text displayed on the button
+     * @property action Action type: "deep_link" or "open_app"
+     * @property url Destination URL or deep link
+     */
+    data class ActionButton(
+        val id: String,
+        val label: String,
+        val action: String, // "deep_link" or "open_app"
+        val url: String
+    )
 
     /**
      * Determine the resource ID of the small icon from provided context
