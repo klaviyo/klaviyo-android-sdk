@@ -14,6 +14,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.net.toUri
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.Registry
@@ -157,6 +158,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
+            .also { builder -> addActionButtons(context, builder) }
 
     private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
         val executor = Executors.newCachedThreadPool()
@@ -230,5 +232,55 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             // Else, just launch the app
             else -> DeepLinking.makeLaunchIntent(context)
         }?.appendKlaviyoExtras(message)
+    }
+
+    /**
+     * Parse action buttons from message data and add them to the notification
+     *
+     * Expected format in key-value pairs:
+     * - action_1_text: "Button 1 Label"
+     * - action_1_url: "klaviyotest://events" (or any deep link)
+     * - action_2_text: "Button 2 Label"
+     * - action_2_url: "klaviyotest://settings"
+     * - action_3_text: "Button 3 Label"
+     * - action_3_url: "klaviyotest://forms"
+     */
+    private fun addActionButtons(context: Context, builder: NotificationCompat.Builder) {
+        // First check message.data for action buttons
+        val messageData = message.data
+
+        // Also check key_value_pairs for action buttons
+        val kvPairs = with(KlaviyoRemoteMessage) { message.keyValuePairs }
+
+        // Parse up to 3 actions - check both message.data and keyValuePairs
+        for (i in 1..3) {
+            val text = messageData["action_${i}_text"] ?: kvPairs?.get("action_${i}_text")
+            val url = messageData["action_${i}_url"] ?: kvPairs?.get("action_${i}_url")
+
+            if (!text.isNullOrBlank() && !url.isNullOrBlank()) {
+                try {
+                    val uri = url.toUri()
+                    val intent = DeepLinking.makeDeepLinkIntent(uri, context).apply {
+                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                    }.appendKlaviyoExtras(message)
+
+                    val pendingIntent = PendingIntent.getActivity(
+                        context,
+                        1000 + i, // Unique request code for each action
+                        intent,
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
+
+                    // Use a default icon for actions
+                    builder.addAction(
+                        android.R.drawable.ic_menu_send,
+                        text,
+                        pendingIntent
+                    )
+                } catch (e: Exception) {
+                    Registry.log.warning("Failed to add notification action button $i", e)
+                }
+            }
+        }
     }
 }
