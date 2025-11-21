@@ -1,2 +1,2 @@
 # Keep only class names for stack traces, allow member obfuscation
--keepnames class com.klaviyo.forms.**
+-keepnames class com.klaviyo.core.**
