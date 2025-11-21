@@ -21,6 +21,8 @@ import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.networking.QueueScheduler
+import com.klaviyo.core.networking.WorkManagerQueueScheduler
 import com.klaviyo.core.safeLaunch
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
@@ -59,6 +61,11 @@ internal object KlaviyoApiClient : ApiClient {
         Registry.networkMonitor.onNetworkChange(::onNetworkChange)
 
         if (!queueInitialized) {
+            // Initialize and register WorkManager-based queue scheduler
+            Registry.registerOnce<QueueScheduler> {
+                WorkManagerQueueScheduler(Registry.config.applicationContext)
+            }
+
             // We only need to restore queue from persistent store once
             restoreQueue()
             queueInitialized = true
@@ -98,7 +105,9 @@ internal object KlaviyoApiClient : ApiClient {
             enqueueRequest(request, headOfLine = event.metric.isKlaviyoMetric)
 
             if (event.metric.isKlaviyoMetric) {
-                flushQueue()
+                // Use WorkManager to schedule flush for priority Klaviyo events
+                // This ensures delivery even during Doze mode
+                Registry.get<QueueScheduler>().scheduleFlush()
             }
         }
 
