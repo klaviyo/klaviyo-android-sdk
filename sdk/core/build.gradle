@@ -18,8 +18,10 @@ android {
 dependencies {
     implementation KotlinX.coroutines.core
     implementation KotlinX.coroutines.android
+    implementation "androidx.work:work-runtime-ktx:2.9.0"
 
     testImplementation project(":sdk:fixtures")
+    testImplementation "androidx.work:work-testing:2.9.0"
 }
 
 afterEvaluate {
