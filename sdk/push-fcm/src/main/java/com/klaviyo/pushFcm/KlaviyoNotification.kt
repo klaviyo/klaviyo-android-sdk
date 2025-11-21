@@ -238,49 +238,156 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * Parse action buttons from message data and add them to the notification
      *
      * Expected format in key-value pairs:
-     * - action_1_text: "Button 1 Label"
-     * - action_1_url: "klaviyotest://events" (or any deep link)
-     * - action_2_text: "Button 2 Label"
-     * - action_2_url: "klaviyotest://settings"
-     * - action_3_text: "Button 3 Label"
-     * - action_3_url: "klaviyotest://forms"
+     * - __ACTION_BUTTON_0: {"text":"Button Label","action":"klaviyotest://events"}
+     * - __ACTION_BUTTON_1: {"text":"Button Label","action":"klaviyotest://settings","type":"reply"}
+     * - __ACTION_BUTTON_2: {"text":"Button Label","action":"data_payload","type":"background"}
+     *
+     * Supported types:
+     * - "deep_link" (default): Opens app with deep link or URL
+     * - "reply": Shows inline text input, doesn't open app
+     * - "background": Sends data without opening app
      */
     private fun addActionButtons(context: Context, builder: NotificationCompat.Builder) {
-        // First check message.data for action buttons
-        val messageData = message.data
-
-        // Also check key_value_pairs for action buttons
+        // Check key_value_pairs for action buttons
         val kvPairs = with(KlaviyoRemoteMessage) { message.keyValuePairs }
 
-        // Parse up to 3 actions - check both message.data and keyValuePairs
-        for (i in 1..3) {
-            val text = messageData["action_${i}_text"] ?: kvPairs?.get("action_${i}_text")
-            val url = messageData["action_${i}_url"] ?: kvPairs?.get("action_${i}_url")
+        // Parse up to 3 actions (zero-indexed: 0, 1, 2)
+        for (i in 0..2) {
+            val actionKey = "__ACTION_BUTTON_$i"
+            val actionJson = kvPairs?.get(actionKey)
 
-            if (!text.isNullOrBlank() && !url.isNullOrBlank()) {
-                try {
-                    val uri = url.toUri()
-                    val intent = DeepLinking.makeDeepLinkIntent(uri, context).apply {
-                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                    }.appendKlaviyoExtras(message)
+            if (actionJson.isNullOrBlank()) {
+                continue
+            }
 
-                    val pendingIntent = PendingIntent.getActivity(
-                        context,
-                        1000 + i, // Unique request code for each action
-                        intent,
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                    )
+            try {
+                // Parse the JSON object: {"text":"Label","action":"url","type":"reply"}
+                val jsonObject = org.json.JSONObject(actionJson)
+                val text = jsonObject.optString("text")
+                val action = jsonObject.optString("action")
+                val type = jsonObject.optString("type", "deep_link")
 
-                    // Use a default icon for actions
-                    builder.addAction(
-                        android.R.drawable.ic_menu_send,
-                        text,
-                        pendingIntent
-                    )
-                } catch (e: Exception) {
-                    Registry.log.warning("Failed to add notification action button $i", e)
+                if (text.isBlank() || action.isBlank()) {
+                    Registry.log.warning("Action button $i has blank text or action")
+                    continue
                 }
+
+                when (type) {
+                    "reply" -> {
+                        builder.addAction(createReplyAction(context, i, text, action))
+                        Registry.log.verbose("Added reply action button $i: '$text'")
+                    }
+                    "background" -> {
+                        builder.addAction(createBackgroundAction(context, i, text, action))
+                        Registry.log.verbose(
+                            "Added background action button $i: '$text' -> $action"
+                        )
+                    }
+                    else -> { // "deep_link" or any other value defaults to deep link
+                        builder.addAction(createDeepLinkAction(context, i, text, action))
+                        Registry.log.verbose("Added deep link action button $i: '$text' -> $action")
+                    }
+                }
+            } catch (e: Exception) {
+                Registry.log.warning("Failed to parse action button $i from: $actionJson", e)
             }
         }
+    }
+
+    /**
+     * Create a reply action with inline text input
+     */
+    private fun createReplyAction(
+        context: Context,
+        index: Int,
+        text: String,
+        action: String
+    ): NotificationCompat.Action {
+        val remoteInput = androidx.core.app.RemoteInput.Builder(
+            NotificationActionReceiver.KEY_REPLY_TEXT
+        )
+            .setLabel(action.ifBlank { "Type your reply..." })
+            .build()
+
+        val intent = android.content.Intent(context, NotificationActionReceiver::class.java).apply {
+            this.action = NotificationActionReceiver.ACTION_REPLY
+            putExtra(NotificationActionReceiver.EXTRA_NOTIFICATION_TAG, message.notificationTag)
+            putExtra(NotificationActionReceiver.EXTRA_NOTIFICATION_ID, 0)
+            putExtra(NotificationActionReceiver.EXTRA_BUTTON_INDEX, index)
+            putExtra(NotificationActionReceiver.EXTRA_BUTTON_TEXT, text)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            1000 + index,
+            intent,
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return NotificationCompat.Action.Builder(
+            android.R.drawable.ic_menu_send,
+            text,
+            pendingIntent
+        ).addRemoteInput(remoteInput).build()
+    }
+
+    /**
+     * Create a background data action that doesn't open the app
+     */
+    private fun createBackgroundAction(
+        context: Context,
+        index: Int,
+        text: String,
+        action: String
+    ): NotificationCompat.Action {
+        val intent = android.content.Intent(context, NotificationActionReceiver::class.java).apply {
+            this.action = NotificationActionReceiver.ACTION_SEND_DATA
+            putExtra(NotificationActionReceiver.EXTRA_NOTIFICATION_TAG, message.notificationTag)
+            putExtra(NotificationActionReceiver.EXTRA_NOTIFICATION_ID, 0)
+            putExtra(NotificationActionReceiver.EXTRA_DATA_PAYLOAD, action)
+            putExtra(NotificationActionReceiver.EXTRA_BUTTON_INDEX, index)
+            putExtra(NotificationActionReceiver.EXTRA_BUTTON_TEXT, text)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            1000 + index,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return NotificationCompat.Action(
+            android.R.drawable.ic_menu_upload,
+            text,
+            pendingIntent
+        )
+    }
+
+    /**
+     * Create a deep link action that opens the app
+     */
+    private fun createDeepLinkAction(
+        context: Context,
+        index: Int,
+        text: String,
+        action: String
+    ): NotificationCompat.Action {
+        val uri = action.toUri()
+        val intent = DeepLinking.makeDeepLinkIntent(uri, context).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+        }.appendKlaviyoExtras(message)
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            1000 + index,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return NotificationCompat.Action(
+            android.R.drawable.ic_menu_view,
+            text,
+            pendingIntent
+        )
     }
 }

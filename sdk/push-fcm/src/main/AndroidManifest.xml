@@ -9,5 +9,14 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <receiver
+            android:name="com.klaviyo.pushFcm.NotificationActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.klaviyo.push.ACTION_SEND_DATA" />
+                <action android:name="com.klaviyo.push.ACTION_REPLY" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
