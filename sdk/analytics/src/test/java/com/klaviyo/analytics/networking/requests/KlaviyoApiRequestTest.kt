@@ -8,13 +8,17 @@ import io.mockk.spyk
 import io.mockk.unmockkObject
 import io.mockk.verify
 import java.io.ByteArrayInputStream
+import java.io.EOFException
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.HttpURLConnection
+import java.net.ProtocolException
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.UnknownHostException
 import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLException
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -595,9 +599,9 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     @Test
-    fun `IOException with network keyword returns PendingRetry when under max attempts`() {
+    fun `InterruptedIOException returns PendingRetry when under max attempts`() {
         val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.connect() } throws IOException("Network error occurred")
+        every { connectionMock.connect() } throws InterruptedIOException("Operation interrupted")
 
         val request = makeTestRequest()
         assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
@@ -605,9 +609,39 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     @Test
+    fun `EOFException returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.connect() } throws EOFException("Connection dropped")
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `SSLException returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.connect() } throws SSLException("SSL handshake failed")
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `ProtocolException returns Failed immediately`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.connect() } throws ProtocolException("Invalid HTTP protocol")
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
     fun `Network IOException after max attempts returns Failed`() {
         val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.connect() } throws SocketTimeoutException("Connection timed out")
+        every { connectionMock.connect() } throws SocketException("Connection reset")
 
         val request = makeTestRequest()
 
@@ -621,13 +655,69 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     @Test
-    fun `Non-network IOException returns Failed immediately`() {
+    fun `Generic IOException returns Failed immediately`() {
         val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.connect() } throws IOException("File not found")
+        every { connectionMock.connect() } throws IOException("Some unexpected I/O error")
 
         val request = makeTestRequest()
         assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
         assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `IOException with retryable cause returns PendingRetry`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        // IOException wrapping a SocketTimeoutException
+        val timeoutException = SocketTimeoutException("Connection timed out")
+        val wrappedException = IOException("Network error", timeoutException)
+        every { connectionMock.connect() } throws wrappedException
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `IOException with nested retryable cause returns PendingRetry`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        // IOException -> IOException -> SocketException (deeply nested)
+        val socketException = SocketException("Connection reset")
+        val middleException = IOException("Connection failed", socketException)
+        val outerException = IOException("Request failed", middleException)
+        every { connectionMock.connect() } throws outerException
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `IOException with non-retryable cause returns Failed`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        // IOException wrapping a ProtocolException
+        val protocolException = ProtocolException("Invalid HTTP method")
+        val wrappedException = IOException("Request error", protocolException)
+        every { connectionMock.connect() } throws wrappedException
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `SSLException after max attempts returns Failed`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.connect() } throws SSLException("SSL handshake failed")
+
+        val request = makeTestRequest()
+
+        repeat(mockConfig.networkMaxAttempts - 1) {
+            assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        }
+
+        // Final attempt should return Failed
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(mockConfig.networkMaxAttempts, request.attempts)
     }
 
     @Test
