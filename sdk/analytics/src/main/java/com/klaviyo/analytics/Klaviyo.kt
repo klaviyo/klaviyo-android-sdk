@@ -21,6 +21,7 @@ import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
+import com.klaviyo.core.networking.BaseApiClient
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.takeIf
@@ -60,6 +61,8 @@ object Klaviyo {
         }
 
         // Some APIs (such as deep linking) work without an API key, so we can register the core service now
+        // Register as both BaseApiClient (for core infrastructure) and ApiClient (for analytics operations)
+        Registry.registerOnce<BaseApiClient> { KlaviyoApiClient }
         Registry.registerOnce<ApiClient> { KlaviyoApiClient }
 
         // Register lifecycle callbacks to monitor app foreground/background state

@@ -8,34 +8,18 @@ import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
 import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
+import com.klaviyo.core.networking.BaseApiClient
 
 typealias ApiObserver = (request: ApiRequest) -> Unit
 
 /**
  * Defines public API of the network coordinator service
+ *
+ * Extends BaseApiClient for generic queue operations and adds
+ * analytics-specific functionality for events, profiles, and other
+ * Klaviyo-specific operations.
  */
-interface ApiClient {
-
-    /**
-     * Launch the API client service
-     * Should be idempotent in case of re-initialization
-     */
-    fun startService()
-
-    /**
-     * Tell the client to write its queue to the persistent store
-     */
-    fun persistQueue()
-
-    /**
-     * Tell the client to restore its queue from the persistent store engine
-     */
-    fun restoreQueue()
-
-    /**
-     * Tell the client to attempt to flush network request queue now
-     */
-    fun flushQueue()
+interface ApiClient : BaseApiClient {
 
     /**
      * Queue an API request to save [Profile] data to Klaviyo
