@@ -122,17 +122,39 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     @Test
-    fun `Invokes pre-send callback when inflight`() {
+    fun `Invokes callback on status changes for success`() {
         withConnectionMock(URL(expectedFullUrl))
         val request = makeTestRequest()
 
-        var called = false
+        var callCount = 0
         request.send {
-            called = true
-            assertEquals(KlaviyoApiRequest.Status.Inflight.name, request.state)
+            callCount++
+            when (callCount) {
+                1 -> assertEquals(KlaviyoApiRequest.Status.Inflight.name, request.state)
+                2 -> assertEquals(KlaviyoApiRequest.Status.Complete.name, request.state)
+                else -> throw AssertionError("Callback called too many times")
+            }
         }
 
-        assert(called)
+        assertEquals(2, callCount)
+    }
+
+    @Test
+    fun `Invokes callback on status change for failure`() {
+        withErrorConnectionMock(URL(expectedFullUrl), "")
+        val request = makeTestRequest()
+
+        var callCount = 0
+        request.send {
+            callCount++
+            when (callCount) {
+                1 -> assertEquals(KlaviyoApiRequest.Status.Inflight.name, request.state)
+                2 -> assertEquals(KlaviyoApiRequest.Status.Failed.name, request.state)
+                else -> throw AssertionError("Callback called too many times")
+            }
+        }
+
+        assertEquals(2, callCount)
     }
 
     @Test

@@ -84,7 +84,7 @@ before running the commands below.
 
 ```bash
 # Update the SDK version
-./gradlew bumpVersion --nextVersion=x.y.z
+./bump-version.sh x.y.z
 ```
 
 ## Architecture Overview
