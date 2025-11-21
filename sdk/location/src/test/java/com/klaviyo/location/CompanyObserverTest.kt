@@ -10,6 +10,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -44,7 +45,7 @@ class CompanyObserverTest : BaseTest() {
     }
 
     @Test
-    fun `observer stops then restarts geofence monitoring when company ID changes`() {
+    fun `observer stops clears and restarts geofence monitoring when company ID changes`() {
         val observer = CompanyObserver()
         observer.startObserver()
 
@@ -52,7 +53,23 @@ class CompanyObserverTest : BaseTest() {
         observerSlot.captured.invoke(StateChange.ApiKey("old_company_id"))
 
         verify(exactly = 1) { mockLocationManager.stopGeofenceMonitoring() }
+        verify(exactly = 1) { mockLocationManager.clearStoredGeofences() }
         verify(exactly = 1) { mockLocationManager.startGeofenceMonitoring() }
+    }
+
+    @Test
+    fun `observer calls geofence methods in correct order when company ID changes`() {
+        val observer = CompanyObserver()
+        observer.startObserver()
+
+        assert(observerSlot.isCaptured)
+        observerSlot.captured.invoke(StateChange.ApiKey("old_company_id"))
+
+        verifyOrder {
+            mockLocationManager.stopGeofenceMonitoring()
+            mockLocationManager.clearStoredGeofences()
+            mockLocationManager.startGeofenceMonitoring()
+        }
     }
 
     @Test
@@ -66,6 +83,7 @@ class CompanyObserverTest : BaseTest() {
         )
 
         verify(inverse = true) { mockLocationManager.stopGeofenceMonitoring() }
+        verify(inverse = true) { mockLocationManager.clearStoredGeofences() }
         verify(inverse = true) { mockLocationManager.startGeofenceMonitoring() }
     }
 

@@ -241,7 +241,7 @@ internal class KlaviyoLocationManager : LocationManager {
     /**
      * Remove all geofences from persistent storage
      */
-    fun clearStoredGeofences() {
+    override fun clearStoredGeofences() {
         try {
             Registry.dataStore.clear(GEOFENCES_STORAGE_KEY)
             notifyObservers(emptyList())

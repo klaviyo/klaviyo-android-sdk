@@ -37,6 +37,11 @@ interface LocationManager {
     fun getStoredGeofences(): List<KlaviyoGeofence>
 
     /**
+     * Clear all stored geofences from persistent storage
+     */
+    fun clearStoredGeofences()
+
+    /**
      * Handle an incoming geofence intent from the system
      *
      * @param context The application context

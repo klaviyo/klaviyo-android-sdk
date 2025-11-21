@@ -41,6 +41,7 @@ internal class CompanyObserver() : StateChangeObserver {
                 // Stop old geofences immediately, then restart monitoring with new company
                 Registry.getOrNull<LocationManager>()?.run {
                     stopGeofenceMonitoring()
+                    clearStoredGeofences()
                     startGeofenceMonitoring()
                 }
             }
