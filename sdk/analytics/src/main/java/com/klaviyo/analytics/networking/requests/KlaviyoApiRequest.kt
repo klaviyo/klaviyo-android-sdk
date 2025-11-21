@@ -6,7 +6,10 @@ import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
+import java.net.SocketException
+import java.net.SocketTimeoutException
 import java.net.URL
+import java.net.UnknownHostException
 import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
 import kotlin.math.max
@@ -326,8 +329,19 @@ internal open class KlaviyoApiRequest(
                 connection.disconnect()
             }
         } catch (ex: IOException) {
-            Registry.log.error(ex.message ?: "", ex)
-            status = Status.Failed
+            // Network-related IOExceptions during Doze/background restrictions should be retried
+            val isNetworkError = ex is SocketTimeoutException ||
+                ex is SocketException ||
+                ex is UnknownHostException ||
+                ex.message?.contains("network", ignoreCase = true) == true
+
+            status = if (isNetworkError && attempts < Registry.config.networkMaxAttempts) {
+                Registry.log.warning("Network error on attempt $attempts, will retry", ex)
+                Status.PendingRetry
+            } else {
+                Registry.log.error("Request failed with IOException", ex)
+                Status.Failed
+            }
             status
         } finally {
             // Post-flight status change notification
@@ -383,8 +397,15 @@ internal open class KlaviyoApiRequest(
                     Status.Failed
                 }
             }
-            // TODO - Special handling of unauthorized i.e. 401 and 403?
-            // TODO - Special handling of server error 500?
+            in 500..599 -> {
+                // All 5xx server errors are retryable (temporary server issues)
+                if (attempts < Registry.config.networkMaxAttempts) {
+                    Status.PendingRetry
+                } else {
+                    Status.Failed
+                }
+            }
+            // 4xx client errors are not retryable (bad request, auth, etc)
             else -> Status.Failed
         }
 

@@ -10,7 +10,10 @@ import io.mockk.verify
 import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.SocketException
+import java.net.SocketTimeoutException
 import java.net.URL
+import java.net.UnknownHostException
 import javax.net.ssl.HttpsURLConnection
 import org.json.JSONObject
 import org.junit.After
@@ -280,9 +283,9 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     @Test
-    fun `Failed GET request returns failure status`() {
+    fun `Failed GET request with 4xx returns failure status`() {
         val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.responseCode } returns 500
+        every { connectionMock.responseCode } returns 400
 
         val request = makeTestRequest()
 
@@ -559,5 +562,167 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         request.send()
 
         assertEquals(request.errorBody, expectedErrorBody)
+    }
+
+    @Test
+    fun `SocketTimeoutException returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.connect() } throws SocketTimeoutException("Connection timed out")
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `SocketException returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.connect() } throws SocketException("Network is unreachable")
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `UnknownHostException returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.connect() } throws UnknownHostException("Unable to resolve host")
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `IOException with network keyword returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.connect() } throws IOException("Network error occurred")
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `Network IOException after max attempts returns Failed`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.connect() } throws SocketTimeoutException("Connection timed out")
+
+        val request = makeTestRequest()
+
+        repeat(mockConfig.networkMaxAttempts - 1) {
+            assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        }
+
+        // Final attempt should return Failed
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(mockConfig.networkMaxAttempts, request.attempts)
+    }
+
+    @Test
+    fun `Non-network IOException returns Failed immediately`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.connect() } throws IOException("File not found")
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `500 response code returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 500
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `502 response code returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 502
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `503 response code returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 503
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `504 response code returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 504
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `5xx response code after max attempts returns Failed`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 500
+
+        val request = makeTestRequest()
+
+        repeat(mockConfig.networkMaxAttempts - 1) {
+            assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        }
+
+        // Final attempt should return Failed
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(mockConfig.networkMaxAttempts, request.attempts)
+    }
+
+    @Test
+    fun `400 response code returns Failed immediately`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 400
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `401 response code returns Failed immediately`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 401
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `403 response code returns Failed immediately`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 403
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `404 response code returns Failed immediately`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 404
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(1, request.attempts)
     }
 }
