@@ -209,4 +209,162 @@ internal class FetchedGeofenceTest : BaseTest() {
         assert(stringRep.contains("-74.006"))
         assert(stringRep.contains("100.5"))
     }
+
+    @Test
+    fun `creates FetchedGeofence with duration`() {
+        val geofence = FetchedGeofence(
+            companyId = API_KEY,
+            id = "test-id",
+            latitude = 40.7128,
+            longitude = -74.006,
+            radius = 100.0,
+            duration = 60
+        )
+
+        assertEquals(API_KEY, geofence.companyId)
+        assertEquals("test-id", geofence.id)
+        assertEquals(40.7128, geofence.latitude, 0.0001)
+        assertEquals(-74.006, geofence.longitude, 0.0001)
+        assertEquals(100.0, geofence.radius, 0.0001)
+        assertEquals(60, geofence.duration)
+    }
+
+    @Test
+    fun `creates FetchedGeofence without duration defaults to null`() {
+        val geofence = FetchedGeofence(
+            companyId = API_KEY,
+            id = "test-id",
+            latitude = 40.7128,
+            longitude = -74.006,
+            radius = 100.0
+        )
+
+        assertEquals(null, geofence.duration)
+    }
+
+    @Test
+    fun `toFetchedGeofence parses duration when present`() {
+        val json = JSONObject(
+            """
+            {
+                "type": "geofence",
+                "id": "dwell-id",
+                "attributes": {
+                    "latitude": 40.7128,
+                    "longitude": -74.006,
+                    "radius": 100.5,
+                    "duration": 30
+                }
+            }
+        """
+        )
+
+        val geofence = json.toFetchedGeofence(API_KEY)
+
+        assertNotNull(geofence)
+        assertEquals(30, geofence!!.duration)
+    }
+
+    @Test
+    fun `toFetchedGeofence handles missing duration as null`() {
+        val json = JSONObject(
+            """
+            {
+                "type": "geofence",
+                "id": "no-dwell-id",
+                "attributes": {
+                    "latitude": 40.7128,
+                    "longitude": -74.006,
+                    "radius": 100.5
+                }
+            }
+        """
+        )
+
+        val geofence = json.toFetchedGeofence(API_KEY)
+
+        assertNotNull(geofence)
+        assertEquals(null, geofence!!.duration)
+    }
+
+    @Test
+    fun `toFetchedGeofence handles explicit null duration`() {
+        val json = JSONObject(
+            """
+            {
+                "type": "geofence",
+                "id": "explicit-null-id",
+                "attributes": {
+                    "latitude": 40.7128,
+                    "longitude": -74.006,
+                    "radius": 100.5,
+                    "duration": null
+                }
+            }
+        """
+        )
+
+        val geofence = json.toFetchedGeofence(API_KEY)
+
+        assertNotNull(geofence)
+        assertEquals(null, geofence!!.duration)
+    }
+
+    @Test
+    fun `toFetchedGeofences handles mixed duration values`() {
+        val jsonArray = JSONArray(
+            """
+            [
+                {
+                    "type": "geofence",
+                    "id": "id1",
+                    "attributes": {
+                        "latitude": 40.7,
+                        "longitude": -74.0,
+                        "radius": 100.0,
+                        "duration": 60
+                    }
+                },
+                {
+                    "type": "geofence",
+                    "id": "id2",
+                    "attributes": {
+                        "latitude": 50.1,
+                        "longitude": -120.2,
+                        "radius": 200.0
+                    }
+                },
+                {
+                    "type": "geofence",
+                    "id": "id3",
+                    "attributes": {
+                        "latitude": 35.5,
+                        "longitude": -100.0,
+                        "radius": 150.0,
+                        "duration": 120
+                    }
+                }
+            ]
+        """
+        )
+
+        val geofences = jsonArray.toFetchedGeofences(API_KEY)
+
+        assertEquals(3, geofences.size)
+        assertEquals(60, geofences[0].duration)
+        assertEquals(null, geofences[1].duration)
+        assertEquals(120, geofences[2].duration)
+    }
+
+    @Test
+    fun `data class equality considers duration`() {
+        val geofence1 = FetchedGeofence(API_KEY, "id", 40.7, -74.0, 100.0, duration = 60)
+        val geofence2 = FetchedGeofence(API_KEY, "id", 40.7, -74.0, 100.0, duration = 60)
+        val geofence3 = FetchedGeofence(API_KEY, "id", 40.7, -74.0, 100.0, duration = null)
+        val geofence4 = FetchedGeofence(API_KEY, "id", 40.7, -74.0, 100.0, duration = 120)
+
+        assertEquals(geofence1, geofence2)
+        assert(geofence1 != geofence3)
+        assert(geofence1 != geofence4)
+    }
 }

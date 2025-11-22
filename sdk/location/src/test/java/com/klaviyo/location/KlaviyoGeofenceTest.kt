@@ -24,8 +24,15 @@ internal class KlaviyoGeofenceTest : BaseTest() {
         id: String = TEST_ID,
         latitude: Double = TEST_LATITUDE,
         longitude: Double = TEST_LONGITUDE,
-        radius: Float = TEST_RADIUS
-    ) = KlaviyoGeofence(id = id, latitude = latitude, longitude = longitude, radius = radius)
+        radius: Float = TEST_RADIUS,
+        duration: Int? = null
+    ) = KlaviyoGeofence(
+        id = id,
+        latitude = latitude,
+        longitude = longitude,
+        radius = radius,
+        duration = duration
+    )
 
     @Test
     fun `parses company ID from composite ID`() {
@@ -221,5 +228,166 @@ internal class KlaviyoGeofenceTest : BaseTest() {
 
         assertEquals("aBcDeF", geofence.companyId)
         assertEquals("loc123", geofence.locationId)
+    }
+
+    @Test
+    fun `creates KlaviyoGeofence with duration`() {
+        val geofence = createTestGeofence(duration = 60)
+
+        assertEquals(TEST_ID, geofence.id)
+        assertEquals(TEST_LATITUDE, geofence.latitude, 0.0001)
+        assertEquals(TEST_LONGITUDE, geofence.longitude, 0.0001)
+        assertEquals(TEST_RADIUS, geofence.radius)
+        assertEquals(60, geofence.duration)
+    }
+
+    @Test
+    fun `creates KlaviyoGeofence without duration defaults to null`() {
+        val geofence = createTestGeofence()
+
+        assertNull(geofence.duration)
+    }
+
+    @Test
+    fun `toJson serializes duration when present`() {
+        val geofence = createTestGeofence(duration = 30)
+        val json = geofence.toJson()
+
+        assertEquals(TEST_ID, json.getString("id"))
+        assertEquals(TEST_LATITUDE, json.getDouble("latitude"), 0.0001)
+        assertEquals(TEST_LONGITUDE, json.getDouble("longitude"), 0.0001)
+        assertEquals(TEST_RADIUS.toDouble(), json.getDouble("radius"), 0.0001)
+        assertEquals(30, json.getInt("duration"))
+    }
+
+    @Test
+    fun `toJson omits duration when null`() {
+        val geofence = createTestGeofence(duration = null)
+        val json = geofence.toJson()
+
+        assertEquals(TEST_ID, json.getString("id"))
+        assertEquals(TEST_LATITUDE, json.getDouble("latitude"), 0.0001)
+        assertEquals(TEST_LONGITUDE, json.getDouble("longitude"), 0.0001)
+        assertEquals(TEST_RADIUS.toDouble(), json.getDouble("radius"), 0.0001)
+        assert(!json.has("duration"))
+    }
+
+    @Test
+    fun `converts FetchedGeofence with duration to KlaviyoGeofence`() {
+        val klaviyoGeofence = FetchedGeofence(
+            companyId = mockConfig.apiKey,
+            id = "location123",
+            latitude = TEST_LATITUDE,
+            longitude = TEST_LONGITUDE,
+            radius = TEST_RADIUS.toDouble(),
+            duration = 90
+        ).toKlaviyoGeofence()
+
+        assertEquals(mockConfig.apiKey + ":location123", klaviyoGeofence.id)
+        assertEquals(TEST_LATITUDE, klaviyoGeofence.latitude, 0.0001)
+        assertEquals(TEST_LONGITUDE, klaviyoGeofence.longitude, 0.0001)
+        assertEquals(TEST_RADIUS, klaviyoGeofence.radius)
+        assertEquals(90, klaviyoGeofence.duration)
+    }
+
+    @Test
+    fun `converts Geofence to KlaviyoGeofence has null duration`() {
+        val klaviyoGeofence = mockk<Geofence>().apply {
+            every { requestId } returns "$API_KEY:location123"
+            every { latitude } returns TEST_LATITUDE
+            every { longitude } returns TEST_LONGITUDE
+            every { radius } returns TEST_RADIUS
+        }.toKlaviyoGeofence()
+
+        assertEquals("$API_KEY:location123", klaviyoGeofence.id)
+        assertEquals(TEST_LATITUDE, klaviyoGeofence.latitude, 0.0001)
+        assertEquals(TEST_LONGITUDE, klaviyoGeofence.longitude, 0.0001)
+        assertEquals(TEST_RADIUS, klaviyoGeofence.radius)
+        assertNull(klaviyoGeofence.duration)
+    }
+
+    @Test
+    fun `JSONObject toKlaviyoGeofence deserializes duration when present`() {
+        val json = JSONObject().apply {
+            put(KlaviyoGeofence.KEY_ID, TEST_ID)
+            put(KlaviyoGeofence.KEY_LATITUDE, TEST_LATITUDE)
+            put(KlaviyoGeofence.KEY_LONGITUDE, TEST_LONGITUDE)
+            put(KlaviyoGeofence.KEY_RADIUS, TEST_RADIUS.toDouble())
+            put(KlaviyoGeofence.KEY_DURATION, 45)
+        }
+
+        val geofence = json.toKlaviyoGeofence()
+
+        assertEquals(TEST_ID, geofence!!.id)
+        assertEquals(TEST_LATITUDE, geofence.latitude, 0.0001)
+        assertEquals(TEST_LONGITUDE, geofence.longitude, 0.0001)
+        assertEquals(TEST_RADIUS, geofence.radius)
+        assertEquals(45, geofence.duration)
+    }
+
+    @Test
+    fun `JSONObject toKlaviyoGeofence handles missing duration as null`() {
+        val json = JSONObject().apply {
+            put(KlaviyoGeofence.KEY_ID, TEST_ID)
+            put(KlaviyoGeofence.KEY_LATITUDE, TEST_LATITUDE)
+            put(KlaviyoGeofence.KEY_LONGITUDE, TEST_LONGITUDE)
+            put(KlaviyoGeofence.KEY_RADIUS, TEST_RADIUS.toDouble())
+        }
+
+        val geofence = json.toKlaviyoGeofence()
+
+        assertEquals(TEST_ID, geofence!!.id)
+        assertNull(geofence.duration)
+    }
+
+    @Test
+    fun `JSONObject toKlaviyoGeofence handles explicit null duration`() {
+        val json = JSONObject().apply {
+            put(KlaviyoGeofence.KEY_ID, TEST_ID)
+            put(KlaviyoGeofence.KEY_LATITUDE, TEST_LATITUDE)
+            put(KlaviyoGeofence.KEY_LONGITUDE, TEST_LONGITUDE)
+            put(KlaviyoGeofence.KEY_RADIUS, TEST_RADIUS.toDouble())
+            put(KlaviyoGeofence.KEY_DURATION, JSONObject.NULL)
+        }
+
+        val geofence = json.toKlaviyoGeofence()
+
+        assertEquals(TEST_ID, geofence!!.id)
+        assertNull(geofence.duration)
+    }
+
+    @Test
+    fun `round-trip serialization preserves duration`() {
+        val originalGeofence = createTestGeofence(duration = 120)
+        val json = originalGeofence.toJson()
+        val deserializedGeofence = json.toKlaviyoGeofence()
+
+        assertEquals(originalGeofence.id, deserializedGeofence!!.id)
+        assertEquals(originalGeofence.latitude, deserializedGeofence.latitude, 0.0001)
+        assertEquals(originalGeofence.longitude, deserializedGeofence.longitude, 0.0001)
+        assertEquals(originalGeofence.radius, deserializedGeofence.radius)
+        assertEquals(originalGeofence.duration, deserializedGeofence.duration)
+    }
+
+    @Test
+    fun `round-trip serialization preserves null duration`() {
+        val originalGeofence = createTestGeofence(duration = null)
+        val json = originalGeofence.toJson()
+        val deserializedGeofence = json.toKlaviyoGeofence()
+
+        assertEquals(originalGeofence.id, deserializedGeofence!!.id)
+        assertNull(deserializedGeofence.duration)
+    }
+
+    @Test
+    fun `data class equality considers duration`() {
+        val geofence1 = createTestGeofence(duration = 60)
+        val geofence2 = createTestGeofence(duration = 60)
+        val geofence3 = createTestGeofence(duration = null)
+        val geofence4 = createTestGeofence(duration = 120)
+
+        assertEquals(geofence1, geofence2)
+        assertNotEquals(geofence1, geofence3)
+        assertNotEquals(geofence1, geofence4)
     }
 }
