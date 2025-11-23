@@ -355,12 +355,21 @@ fun PackageManager.getApplicationInfoCompat(
 }
 
 /**
- * Extension method to get an integer value from the manifest metadata
+ * Extension method to pull the manifest metadata as a [Bundle]
  */
-fun Context.getManifestInt(key: String, defaultValue: Int): Int {
-    val pkgName = packageName
-    val pkgManager = packageManager
-    val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
-    val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
-    return manifestMetadata.getInt(key, defaultValue)
-}
+fun Context.getManifestBundle(): Bundle = packageManager.getApplicationInfoCompat(
+    packageName,
+    PackageManager.GET_META_DATA
+)?.metaData ?: Bundle.EMPTY
+
+/**
+ * Extension method to get an [Int] value from the manifest metadata
+ */
+fun Context.getManifestInt(key: String, defaultValue: Int) =
+    getManifestBundle().getInt(key, defaultValue)
+
+/**
+ * Extension method to get a [Boolean] value from the manifest metadata
+ */
+fun Context.getManifestBoolean(key: String, defaultValue: Boolean) =
+    getManifestBundle().getBoolean(key, defaultValue)
