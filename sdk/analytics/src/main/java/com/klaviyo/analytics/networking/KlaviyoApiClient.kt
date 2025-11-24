@@ -49,6 +49,11 @@ internal object KlaviyoApiClient : ApiClient {
     private val apiObservers = CopyOnWriteArrayList<ApiObserver>()
 
     /**
+     * Queue scheduler for managing flush operations
+     */
+    private var queueScheduler: QueueScheduler? = null
+
+    /**
      * Initialize logic including lifecycle observers and reviving the queue from persistent store
      */
     override fun startService() {
@@ -59,6 +64,9 @@ internal object KlaviyoApiClient : ApiClient {
         Registry.networkMonitor.onNetworkChange(::onNetworkChange)
 
         if (!queueInitialized) {
+            // Initialize WorkManager-based queue scheduler
+            queueScheduler = WorkManagerQueueScheduler(Registry.config.applicationContext)
+
             // We only need to restore queue from persistent store once
             restoreQueue()
             queueInitialized = true
@@ -98,7 +106,9 @@ internal object KlaviyoApiClient : ApiClient {
             enqueueRequest(request, headOfLine = event.metric.isKlaviyoMetric)
 
             if (event.metric.isKlaviyoMetric) {
-                flushQueue()
+                // Use WorkManager to schedule flush for priority Klaviyo events
+                // This ensures delivery even during Doze mode
+                queueScheduler?.scheduleFlush() ?: flushQueue()
             }
         }
 
