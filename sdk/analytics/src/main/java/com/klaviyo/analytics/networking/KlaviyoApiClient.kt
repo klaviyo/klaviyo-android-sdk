@@ -173,7 +173,7 @@ internal object KlaviyoApiClient : ApiClient {
             Status.Unsent -> Registry.log.verbose("${request.type} Request enqueued")
             Status.Inflight -> Registry.log.verbose("${request.type} Request inflight")
             Status.PendingRetry -> {
-                val attemptsRemaining = Registry.config.networkMaxAttempts - request.attempts
+                val attemptsRemaining = request.maxAttempts - request.attempts
                 Registry.log.warning(
                     "${request.type} Request failed with code ${request.responseCode}, and will be retried up to $attemptsRemaining more times."
                 )
