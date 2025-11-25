@@ -293,12 +293,13 @@ private fun MapContent(
                 Marker(
                     state = markerState,
                     title = "Geofence",
-                    snippet = """
-                        ID: ${geofence.locationId}
-                        Latitude: ${geofence.latitude}
-                        Longitude: ${geofence.longitude}
-                        Radius: ${geofence.radius} meters
-                    """.trimIndent(),
+                    snippet = buildString {
+                        appendLine("ID: ${geofence.locationId}")
+                        appendLine("Latitude: ${geofence.latitude}")
+                        appendLine("Longitude: ${geofence.longitude}")
+                        appendLine("Radius: ${geofence.radius} meters")
+                        geofence.duration?.let { appendLine("Dwell Duration: $it seconds") }
+                    }.trim(),
                     onClick = {
                         onUserInteraction()
                         false // Return false to show default info window
