@@ -3,12 +3,18 @@ package com.klaviyo.analytics.networking.requests
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import java.io.BufferedReader
+import java.io.EOFException
 import java.io.IOException
 import java.io.InputStreamReader
+import java.io.InterruptedIOException
 import java.net.HttpURLConnection
+import java.net.ProtocolException
+import java.net.SocketException
 import java.net.URL
+import java.net.UnknownHostException
 import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLException
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -62,7 +68,6 @@ internal open class KlaviyoApiRequest(
         const val HTTP_ACCEPTED = HttpURLConnection.HTTP_ACCEPTED
         const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
         const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
-        const val HTTP_UNAVAILABLE = HttpURLConnection.HTTP_UNAVAILABLE
         const val HTTP_BAD_REQUEST = HttpURLConnection.HTTP_BAD_REQUEST
 
         // JSON keys for persistence
@@ -176,6 +181,9 @@ internal open class KlaviyoApiRequest(
 
     /**
      * HTTP request headers
+     * Note: Uses Registry.config.networkMaxAttempts directly during initialization
+     * to avoid calling overridden maxAttempts before child class is fully initialized,
+     * but this will be properly set whenever [attempts] is mutated pre-flight
      */
     override val headers: MutableMap<String, String> = mutableMapOf(
         HEADER_CONTENT to TYPE_JSON,
@@ -299,6 +307,42 @@ internal open class KlaviyoApiRequest(
     override fun hashCode(): Int = uuid.hashCode()
 
     /**
+     * Determines if an IOException (or any exception in its cause chain) is retryable.
+     * Based on patterns from Google's java-core library, we check both the immediate
+     * exception type and traverse the cause chain for wrapped retryable exceptions.
+     *
+     * @param exception The exception to check
+     * @param depth Current recursion depth to prevent infinite loops (max 10 levels)
+     * @return true if the exception or any of its causes are retryable network errors
+     */
+    private fun isRetryableIOException(exception: Throwable?, depth: Int = 0): Boolean {
+        if (exception == null || depth > 10) return false
+
+        return when (exception) {
+            // Network timeout and interruption - always retryable
+            is InterruptedIOException -> true // Includes SocketTimeoutException
+
+            // Socket-level errors - always retryable
+            is SocketException -> true // Includes ConnectException, NoRouteToHostException
+
+            // DNS failures - always retryable
+            is UnknownHostException -> true
+
+            // Connection dropped - always retryable
+            is EOFException -> true
+
+            // SSL/TLS errors - retryable (often transient during network switches)
+            is SSLException -> true
+
+            // Protocol violations - NOT retryable (programming errors)
+            is ProtocolException -> false
+
+            // Check the cause chain for wrapped retryable exceptions
+            else -> isRetryableIOException(exception.cause, depth + 1)
+        }
+    }
+
+    /**
      * Builds and sends a network request to Klaviyo and then parses and handles the response
      * This is a blocking call, should only be used from a background thread or coroutine
      *
@@ -326,8 +370,20 @@ internal open class KlaviyoApiRequest(
                 connection.disconnect()
             }
         } catch (ex: IOException) {
-            Registry.log.error(ex.message ?: "", ex)
-            status = Status.Failed
+            // Check if this IOException or any of its causes are retryable
+            val isRetryable = isRetryableIOException(ex)
+
+            status = if (isRetryable && attempts < maxAttempts) {
+                Registry.log.warning(
+                    "Retryable I/O error on attempt $attempts: ${ex.javaClass.simpleName}",
+                    ex
+                )
+                Status.PendingRetry
+            } else {
+                val reason = if (!isRetryable) "non-retryable" else "max attempts reached"
+                Registry.log.error("Request failed ($reason): ${ex.javaClass.simpleName}", ex)
+                Status.Failed
+            }
             status
         } finally {
             // Post-flight status change notification
@@ -376,15 +432,15 @@ internal open class KlaviyoApiRequest(
 
         status = when (responseCode) {
             in successCodes -> Status.Complete
-            HTTP_RETRY, HTTP_UNAVAILABLE -> {
-                if (attempts < Registry.config.networkMaxAttempts) {
+            // 429 rate limit, and all 5xx server errors are treated as retryable
+            HTTP_RETRY, in 500..599 -> {
+                if (attempts < maxAttempts) {
                     Status.PendingRetry
                 } else {
                     Status.Failed
                 }
             }
-            // TODO - Special handling of unauthorized i.e. 401 and 403?
-            // TODO - Special handling of server error 500?
+            // 4xx client errors are not retryable (bad request, auth, etc)
             else -> Status.Failed
         }
 
