@@ -154,23 +154,37 @@ class FileLogger(
 
     /**
      * Date formatter for timestamps in log messages
+     * Thread-safe via ThreadLocal to avoid concurrent access issues
      */
-    private val timestampFormat = SimpleDateFormat(TIMESTAMP_PATTERN, Locale.US)
+    private val timestampFormat = ThreadLocal.withInitial {
+        SimpleDateFormat(TIMESTAMP_PATTERN, Locale.US)
+    }
 
     /**
      * Date formatter for log file names
+     * Thread-safe via ThreadLocal to avoid concurrent access issues
      */
-    private val fileNameFormat = SimpleDateFormat(FILENAME_PATTERN, Locale.US)
+    private val fileNameFormat = ThreadLocal.withInitial {
+        SimpleDateFormat(FILENAME_PATTERN, Locale.US)
+    }
 
     /**
      * Current active log file. Lazily initialized on first access.
+     * Volatile ensures visibility across threads when file rotates.
      */
+    @Volatile
     private var currentFile: File? = null
 
     /**
      * In-memory buffer for log messages (reduces I/O)
      */
     private val buffer = StringBuilder()
+
+    /**
+     * Tracks whether this FileLogger is currently attached to prevent duplicate registrations
+     */
+    @Volatile
+    private var isAttached: Boolean = false
 
     /**
      * Stores the previous uncaught exception handler so we can chain to it
@@ -195,6 +209,8 @@ class FileLogger(
      * - Register a lifecycle observer to flush logs when app backgrounds
      * - Install an uncaught exception handler to flush logs on crashes
      *
+     * This method is idempotent - calling it multiple times has no effect after the first call.
+     *
      * Example usage:
      * ```
      * val fileLogger = FileLogger(context)
@@ -205,6 +221,17 @@ class FileLogger(
      * ```
      */
     fun attach() {
+        // Prevent duplicate attachments
+        if (isAttached) {
+            Log.Level.Warning.log(
+                TAG,
+                "FileLogger is already attached, ignoring duplicate attach() call"
+            )
+            return
+        }
+
+        isAttached = true
+
         // Register with KLog
         Registry.log.addInterceptor(this)
 
@@ -222,9 +249,15 @@ class FileLogger(
 
     /**
      * Detach this FileLogger from the logging service
-     * After calling detach(), this instance cannot be used again
+     * This method is idempotent - calling it multiple times is safe.
      */
     fun detach() {
+        if (!isAttached) {
+            return
+        }
+
+        isAttached = false
+
         // Remove from KLog
         Registry.log.removeInterceptor(this)
 
@@ -266,7 +299,7 @@ class FileLogger(
 
         coroutineScope.safeLaunch {
             try {
-                val timestamp = timestampFormat.format(Date())
+                val timestamp = timestampFormat.get().format(Date())
                 val levelName = level.name.padEnd(LEVEL_NAME_PADDING) // Align columns
                 val throwableStr = throwable?.stackTraceToString()?.let { "\n$it" } ?: ""
                 val logLine = "[$timestamp] $levelName $tag: $message$throwableStr\n"
@@ -298,7 +331,9 @@ class FileLogger(
                 val file = getCurrentFile()
 
                 // Check if we need to rotate files
-                if (file.length() + buffer.length >= maxFileSize) {
+                // Calculate actual byte size (not character count) for UTF-8 compatibility
+                val bufferBytes = buffer.toString().toByteArray(Charsets.UTF_8).size
+                if (file.length() + bufferBytes >= maxFileSize) {
                     rotateFiles()
                 }
 
@@ -341,7 +376,7 @@ class FileLogger(
      */
     @WorkerThread
     private fun createNewLogFile(): File {
-        val timestamp = fileNameFormat.format(Date())
+        val timestamp = fileNameFormat.get().format(Date())
         return File(logDirectory, "$FILE_PREFIX$timestamp.$LOG_FILE_EXTENSION")
     }
 
@@ -474,7 +509,7 @@ class FileLogger(
             val cacheDir = File(context.cacheDir, directoryName)
             cacheDir.mkdirs()
 
-            val timestamp = fileNameFormat.format(Date())
+            val timestamp = fileNameFormat.get().format(Date())
             val zipFile = File(cacheDir, "$FILE_PREFIX$timestamp.$ZIP_FILE_EXTENSION")
 
             ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zip ->
@@ -568,7 +603,7 @@ class FileLogger(
      * @return Intent for ACTION_CREATE_DOCUMENT
      */
     fun createSaveLogsIntent(): Intent {
-        val timestamp = fileNameFormat.format(Date())
+        val timestamp = fileNameFormat.get().format(Date())
         val filename = "$FILE_PREFIX$timestamp.$ZIP_FILE_EXTENSION"
 
         return Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
