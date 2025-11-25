@@ -182,6 +182,9 @@ internal open class KlaviyoApiRequest(
 
     /**
      * HTTP request headers
+     * Note: Uses Registry.config.networkMaxAttempts directly during initialization
+     * to avoid calling overridden maxAttempts before child class is fully initialized,
+     * but this will be properly set whenever [attempts] is mutated pre-flight
      */
     override val headers: MutableMap<String, String> = mutableMapOf(
         HEADER_CONTENT to TYPE_JSON,
@@ -371,7 +374,7 @@ internal open class KlaviyoApiRequest(
             // Check if this IOException or any of its causes are retryable
             val isRetryable = isRetryableIOException(ex)
 
-            status = if (isRetryable && attempts < Registry.config.networkMaxAttempts) {
+            status = if (isRetryable && attempts < maxAttempts) {
                 Registry.log.warning(
                     "Retryable I/O error on attempt $attempts: ${ex.javaClass.simpleName}",
                     ex
@@ -431,7 +434,7 @@ internal open class KlaviyoApiRequest(
         status = when (responseCode) {
             in successCodes -> Status.Complete
             HTTP_RETRY, HTTP_UNAVAILABLE -> {
-                if (attempts < Registry.config.networkMaxAttempts) {
+                if (attempts < maxAttempts) {
                     Status.PendingRetry
                 } else {
                     Status.Failed
@@ -439,7 +442,7 @@ internal open class KlaviyoApiRequest(
             }
             in 500..599 -> {
                 // All 5xx server errors are retryable (temporary server issues)
-                if (attempts < Registry.config.networkMaxAttempts) {
+                if (attempts < maxAttempts) {
                     Status.PendingRetry
                 } else {
                     Status.Failed
