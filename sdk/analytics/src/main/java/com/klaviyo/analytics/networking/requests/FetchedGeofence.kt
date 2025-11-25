@@ -32,11 +32,7 @@ internal fun JSONObject.toFetchedGeofence(companyId: String): FetchedGeofence? =
             latitude = attributes.getDouble("latitude"),
             longitude = attributes.getDouble("longitude"),
             radius = attributes.getDouble("radius"),
-            duration = if (attributes.has("duration") && !attributes.isNull("duration")) {
-                attributes.getInt("duration")
-            } else {
-                null
-            }
+            duration = attributes.optInt("duration").takeIf { it > 0 }
         )
     }
 } catch (e: Exception) {

@@ -125,11 +125,7 @@ fun JSONObject.toKlaviyoGeofence(): KlaviyoGeofence? = try {
         latitude = getDouble(KlaviyoGeofence.KEY_LATITUDE),
         longitude = getDouble(KlaviyoGeofence.KEY_LONGITUDE),
         radius = getDouble(KlaviyoGeofence.KEY_RADIUS).toFloat(),
-        duration = if (has(KlaviyoGeofence.KEY_DURATION) && !isNull(KlaviyoGeofence.KEY_DURATION)) {
-            getInt(KlaviyoGeofence.KEY_DURATION)
-        } else {
-            null
-        }
+        duration = optInt(KlaviyoGeofence.KEY_DURATION).takeIf { it > 0 }
     )
 } catch (e: Exception) {
     Registry.log.warning("Failed to parse KlaviyoGeofence from $this", e)
