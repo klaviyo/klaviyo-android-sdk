@@ -68,7 +68,6 @@ internal open class KlaviyoApiRequest(
         const val HTTP_ACCEPTED = HttpURLConnection.HTTP_ACCEPTED
         const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
         const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
-        const val HTTP_UNAVAILABLE = HttpURLConnection.HTTP_UNAVAILABLE
         const val HTTP_BAD_REQUEST = HttpURLConnection.HTTP_BAD_REQUEST
 
         // JSON keys for persistence
@@ -433,15 +432,8 @@ internal open class KlaviyoApiRequest(
 
         status = when (responseCode) {
             in successCodes -> Status.Complete
-            HTTP_RETRY, HTTP_UNAVAILABLE -> {
-                if (attempts < maxAttempts) {
-                    Status.PendingRetry
-                } else {
-                    Status.Failed
-                }
-            }
-            in 500..599 -> {
-                // All 5xx server errors are retryable (temporary server issues)
+            // 429 rate limit, and all 5xx server errors are treated as retryable
+            HTTP_RETRY, in 500..599 -> {
                 if (attempts < maxAttempts) {
                     Status.PendingRetry
                 } else {
