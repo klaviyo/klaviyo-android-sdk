@@ -1,6 +1,5 @@
 package com.klaviyo.analytics.networking
 
-import android.content.Context
 import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import com.klaviyo.fixtures.BaseTest
@@ -19,14 +18,11 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class QueueFlushWorkerTest : BaseTest() {
 
-    private lateinit var context: Context
-    private lateinit var workerParams: WorkerParameters
+    private val workerParams = mockk<WorkerParameters>(relaxed = true)
 
     @Before
     override fun setup() {
         super.setup()
-        context = mockk(relaxed = true)
-        workerParams = mockk(relaxed = true)
 
         // Mock KlaviyoApiClient since getOrNull is an inline reified function
         // and cannot be easily mocked. The worker falls back to KlaviyoApiClient
@@ -45,7 +41,7 @@ internal class QueueFlushWorkerTest : BaseTest() {
     @Test
     fun `Worker flushes queue successfully`() = runTest {
         // Build the worker
-        val worker = QueueFlushWorker(context, workerParams)
+        val worker = QueueFlushWorker(mockContext, workerParams)
 
         // Execute the work
         val result = worker.doWork()
@@ -63,7 +59,7 @@ internal class QueueFlushWorkerTest : BaseTest() {
         every { KlaviyoApiClient.flushQueue() } throws RuntimeException("Test exception")
 
         // Build the worker
-        val worker = QueueFlushWorker(context, workerParams)
+        val worker = QueueFlushWorker(mockContext, workerParams)
 
         // Execute the work
         val result = worker.doWork()

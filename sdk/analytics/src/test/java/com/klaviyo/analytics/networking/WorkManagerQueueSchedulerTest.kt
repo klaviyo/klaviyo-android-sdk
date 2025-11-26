@@ -1,6 +1,5 @@
 package com.klaviyo.analytics.networking
 
-import android.content.Context
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
@@ -21,25 +20,21 @@ import org.junit.Test
 
 internal class WorkManagerQueueSchedulerTest : BaseTest() {
 
-    private lateinit var mockAppContext: Context
-    private lateinit var mockWorkManager: WorkManager
-    private lateinit var scheduler: WorkManagerQueueScheduler
+    private val mockWorkManager = mockk<WorkManager>(relaxed = true)
     private val workRequestSlot = slot<OneTimeWorkRequest>()
     private val workNameSlot = slot<String>()
     private val policySlot = slot<ExistingWorkPolicy>()
+
+    private lateinit var scheduler: WorkManagerQueueScheduler
 
     @Before
     override fun setup() {
         super.setup()
 
-        mockAppContext = mockk(relaxed = true)
-        mockWorkManager = mockk(relaxed = true)
-
         mockkStatic(WorkManager::class)
-        // Use any() matcher for context since WorkManager.getInstance may be called with different contexts
         every { WorkManager.getInstance(any()) } returns mockWorkManager
 
-        scheduler = WorkManagerQueueScheduler(mockAppContext)
+        scheduler = WorkManagerQueueScheduler(mockContext)
     }
 
     @After
