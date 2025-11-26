@@ -25,17 +25,15 @@ internal class WorkManagerQueueSchedulerTest : BaseTest() {
     private val workNameSlot = slot<String>()
     private val policySlot = slot<ExistingWorkPolicy>()
 
-    private lateinit var scheduler: WorkManagerQueueScheduler
-
     @Before
     override fun setup() {
         super.setup()
 
         mockkStatic(WorkManager::class)
         every { WorkManager.getInstance(any()) } returns mockWorkManager
-
-        scheduler = WorkManagerQueueScheduler(mockContext)
     }
+
+    private fun createScheduler() = WorkManagerQueueScheduler(mockContext)
 
     @After
     override fun cleanup() {
@@ -55,7 +53,7 @@ internal class WorkManagerQueueSchedulerTest : BaseTest() {
         } returns mockk()
 
         // Act
-        scheduler.scheduleFlush()
+        createScheduler().scheduleFlush()
 
         // Assert
         verify(exactly = 1) {
@@ -90,7 +88,7 @@ internal class WorkManagerQueueSchedulerTest : BaseTest() {
     @Test
     fun `Cancel scheduled flush cancels work by name`() {
         // Act
-        scheduler.cancelScheduledFlush()
+        createScheduler().cancelScheduledFlush()
 
         // Assert
         verify(exactly = 1) { mockWorkManager.cancelUniqueWork("klaviyo_queue_flush") }
@@ -108,6 +106,7 @@ internal class WorkManagerQueueSchedulerTest : BaseTest() {
         } returns mockk()
 
         // Act - schedule multiple times
+        val scheduler = createScheduler()
         scheduler.scheduleFlush()
         scheduler.scheduleFlush()
         scheduler.scheduleFlush()

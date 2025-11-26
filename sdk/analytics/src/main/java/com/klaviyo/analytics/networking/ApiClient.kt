@@ -33,7 +33,7 @@ interface ApiClient {
      * @param forceRestore If true, always restore from persistent store.
      *                     If false, only restore if not already initialized.
      */
-    fun restoreQueue(forceRestore: Boolean = true)
+    fun restoreQueue(forceRestore: Boolean)
 
     /**
      * Tell the client to attempt to flush network request queue now

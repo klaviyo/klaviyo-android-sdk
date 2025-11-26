@@ -44,7 +44,7 @@ internal class QueueFlushWorker(
 
             // Restore queue from persistent store, if needed, and flush immediately
             KlaviyoApiClient.run {
-                restoreQueue()
+                restoreQueue(forceRestore = false)
                 flushQueue()
             }
         } catch (e: Exception) {

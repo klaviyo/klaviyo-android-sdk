@@ -49,13 +49,6 @@ internal object KlaviyoApiClient : ApiClient {
     private val apiObservers = CopyOnWriteArrayList<ApiObserver>()
 
     /**
-     * Create a queue scheduler for managing flush operations
-     * Creates a new instance each time - WorkManager's KEEP policy prevents duplicate scheduling
-     */
-    private fun createQueueScheduler(): QueueScheduler =
-        WorkManagerQueueScheduler(Registry.config.applicationContext)
-
-    /**
      * Initialize logic including lifecycle observers and reviving the queue from persistent store
      */
     override fun startService() {
@@ -107,7 +100,7 @@ internal object KlaviyoApiClient : ApiClient {
             if (event.metric.isKlaviyoMetric) {
                 // Use WorkManager to schedule flush for priority Klaviyo events
                 // This ensures delivery even during Doze mode
-                createQueueScheduler().scheduleFlush()
+                WorkManagerQueueScheduler(Registry.config.applicationContext).scheduleFlush()
             }
         }
 

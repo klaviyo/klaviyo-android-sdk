@@ -127,7 +127,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         Dispatchers.resetMain()
 
         spyDataStore.clear(KlaviyoApiClient.QUEUE_KEY)
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         assertEquals(0, KlaviyoApiClient.getQueueSize())
         super.cleanup()
         unmockkObject(KlaviyoApiClient)
@@ -746,7 +746,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         spyDataStore.store("mock_uuid1", mockRequest("mock_uuid1").toString())
         spyDataStore.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(2, KlaviyoApiClient.getQueueSize())
@@ -757,7 +757,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     fun `Handles bad JSON queue gracefully`() {
         spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, "{}") // Bad JSON, isn't an array as expected
 
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
@@ -777,7 +777,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         spyDataStore.store("mock_uuid1", "{/}") // bad JSON!
         spyDataStore.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
