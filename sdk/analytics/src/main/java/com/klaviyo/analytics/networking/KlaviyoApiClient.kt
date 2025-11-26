@@ -65,10 +65,10 @@ internal object KlaviyoApiClient : ApiClient {
         Registry.networkMonitor.offNetworkChange(::onNetworkChange)
         Registry.networkMonitor.onNetworkChange(::onNetworkChange)
 
-        if (!queueInitialized) {
-            // We only need to restore queue from persistent store once
-            restoreQueue()
-            queueInitialized = true
+        restoreQueue(forceRestore = false)
+
+        if (apiQueue.isNotEmpty()) {
+            initBatch()
         }
     }
 
@@ -284,8 +284,15 @@ internal object KlaviyoApiClient : ApiClient {
 
     /**
      * Reset the in-memory queue to the queue from data store
+     *
+     * @param forceRestore If true, always restore from persistent store.
+     *                     If false, only restore if not already initialized.
      */
-    override fun restoreQueue() {
+    override fun restoreQueue(forceRestore: Boolean) {
+        if (!forceRestore && queueInitialized) {
+            return
+        }
+
         apiQueue.clear()
 
         // Keep track if there's any errors restoring from persistent store
@@ -325,9 +332,11 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
         // If errors were encountered, update persistent store with corrected queue
-        if (wasMutated) persistQueue()
+        if (wasMutated) {
+            persistQueue()
+        }
 
-        if (apiQueue.isNotEmpty()) initBatch()
+        queueInitialized = true
     }
 
     /**

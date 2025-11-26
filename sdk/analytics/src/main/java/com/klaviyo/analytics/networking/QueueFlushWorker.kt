@@ -3,7 +3,9 @@ package com.klaviyo.analytics.networking
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Config
 
 /**
  * WorkManager worker that triggers API queue flush
@@ -18,7 +20,7 @@ import com.klaviyo.core.Registry
  * Using CoroutineWorker for consistency with future coroutine migration plans.
  */
 internal class QueueFlushWorker(
-    context: Context,
+    val context: Context,
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
 
@@ -35,20 +37,16 @@ internal class QueueFlushWorker(
         Registry.log.info("WorkManager triggered queue flush")
 
         try {
-            // Access KlaviyoApiClient directly - we know it's in the same module
-            // If not initialized, we can initialize it since we're in analytics module
-            val apiClient = Registry.getOrNull<ApiClient>()
-                ?: run {
-                    // If ApiClient not registered, ensure it's initialized
-                    // This can happen after process death
-                    if (!Registry.isRegistered<ApiClient>()) {
-                        Registry.register<ApiClient>(KlaviyoApiClient)
-                        KlaviyoApiClient.startService()
-                    }
-                    KlaviyoApiClient
-                }
+            if (!Registry.isRegistered<Config>()) {
+                // Initialize Klaviyo with config to access dataStore
+                Klaviyo.registerForLifecycleCallbacks(context)
+            }
 
-            apiClient.flushQueue()
+            // Restore queue from persistent store, if needed, and flush immediately
+            KlaviyoApiClient.run {
+                restoreQueue()
+                flushQueue()
+            }
         } catch (e: Exception) {
             Registry.log.error("WorkManager queue flush failed", e)
             // Return success anyway - we don't want WorkManager to retry

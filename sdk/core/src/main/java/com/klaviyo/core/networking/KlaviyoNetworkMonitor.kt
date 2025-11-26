@@ -80,7 +80,7 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      */
     override fun isNetworkConnected(): Boolean = connectivityManager
         .getNetworkCapabilities(connectivityManager.activeNetwork)
-        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ?: false
+        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ?: false
 
     /**
      * Check what type of network connection is currently servicing the device

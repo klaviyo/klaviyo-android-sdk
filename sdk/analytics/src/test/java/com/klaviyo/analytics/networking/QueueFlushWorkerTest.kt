@@ -2,6 +2,7 @@ package com.klaviyo.analytics.networking
 
 import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
@@ -24,10 +25,15 @@ internal class QueueFlushWorkerTest : BaseTest() {
     override fun setup() {
         super.setup()
 
+        // Mock Klaviyo to prevent initialization attempts
+        mockkObject(Klaviyo)
+        every { Klaviyo.registerForLifecycleCallbacks(any()) } returns Klaviyo
+
         // Mock KlaviyoApiClient since getOrNull is an inline reified function
         // and cannot be easily mocked. The worker falls back to KlaviyoApiClient
         // when getOrNull returns null.
         mockkObject(KlaviyoApiClient)
+        every { KlaviyoApiClient.restoreQueue(any()) } returns Unit
         every { KlaviyoApiClient.flushQueue() } returns Unit
         every { KlaviyoApiClient.startService() } returns Unit
     }
@@ -35,6 +41,7 @@ internal class QueueFlushWorkerTest : BaseTest() {
     @After
     override fun cleanup() {
         unmockkObject(KlaviyoApiClient)
+        unmockkObject(Klaviyo)
         super.cleanup()
     }
 
