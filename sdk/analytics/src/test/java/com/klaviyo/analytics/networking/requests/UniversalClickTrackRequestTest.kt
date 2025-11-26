@@ -151,33 +151,4 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
         assertEquals(0, request.attempts)
         assertEquals(50, request.maxAttempts)
     }
-
-    /**
-     * Use reflection to set the protected responseBody field with invalid JSON
-     */
-    private fun UniversalClickTrackRequest.setResponseBody(body: String) = apply {
-        // Use reflection to set the protected responseBody field
-        KlaviyoApiRequest::class.java.getDeclaredField("responseBody").also {
-            it.isAccessible = true
-            it.set(this, body)
-        }
-    }
-
-    /**
-     * Use reflection to set the private status/code fields
-     */
-    private fun UniversalClickTrackRequest.setStatus(
-        status: KlaviyoApiRequest.Status,
-        code: Int? = null
-    ) = apply {
-        // Use reflection to set the protected status field
-        KlaviyoApiRequest::class.java.getDeclaredField("status").also {
-            it.isAccessible = true
-            it.set(this, status)
-        }
-        KlaviyoApiRequest::class.java.getDeclaredField("responseCode").also {
-            it.isAccessible = true
-            it.set(this, code)
-        }
-    }
 }

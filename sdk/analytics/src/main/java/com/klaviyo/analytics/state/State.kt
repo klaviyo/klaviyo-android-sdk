@@ -58,7 +58,12 @@ interface State {
      */
     fun resetAttributes()
 
-    fun createEvent(event: Event, profile: Profile)
+    /**
+     * Create new profile-related event, buffer it in memory, and enqueue API request
+     *
+     * @return The enriched Event that was enqueued
+     */
+    fun createEvent(event: Event, profile: Profile): Event
 
     /**
      * Register an observer to be notified when a profile event is sent
