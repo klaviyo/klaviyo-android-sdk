@@ -814,8 +814,9 @@ may not work in an emulator running older versions of Android.
 
 #### Proguard / R8 Issues
 
-If you notice issues in the release build of your apps, you can try to manually add a couple rules
-to your `proguard-rules.pro` to prevent obfuscation:
+If you notice issues in the release build of your apps, try using more conservative configuration 
+in your `proguard-rules.pro` to prevent obfuscation. Note that each of our packages already contain
+`consumer-rules.pro` that should cover necessary functionality. 
 ```
 -keep class com.klaviyo.analytics.** { *; }
 -keep class com.klaviyo.core.** { *; }
