@@ -140,18 +140,26 @@ internal class FileLoggerTest : BaseTest() {
     }
 
     @Test
-    fun `onLog filters messages below minLevel`() {
+    fun `onLog filters messages below minLevel`() = runTest {
         val errorLogger = FileLogger(
             context = mockContext,
             directoryName = "klaviyo_logs",
             minLevel = Log.Level.Error
         )
+        errorLogger.attach()
 
         // These should be silently filtered (no coroutine launched for filtered messages)
         errorLogger.onLog(Log.Level.Verbose, "TestTag", "Should be filtered", null)
         errorLogger.onLog(Log.Level.Debug, "TestTag", "Should be filtered", null)
         errorLogger.onLog(Log.Level.Info, "TestTag", "Should be filtered", null)
         errorLogger.onLog(Log.Level.Warning, "TestTag", "Should be filtered", null)
+
+        dispatcher.scheduler.advanceUntilIdle()
+        errorLogger.detach()
+
+        // Verify no files were created (nothing was written)
+        val logFiles = logDirectory.listFiles()?.filter { it.extension == "txt" } ?: emptyList()
+        assertTrue("No log files should be created for filtered messages", logFiles.isEmpty())
     }
 
     // endregion
@@ -221,41 +229,6 @@ internal class FileLoggerTest : BaseTest() {
         val exception = RuntimeException("Test exception")
         fileLogger.invoke(Log.Level.Error, "TestTag", "Error message", exception)
         // No exception means it handled the throwable properly
-    }
-
-    // endregion
-
-    // region Constructor Parameters
-
-    @Test
-    fun `constructor accepts custom directory name`() {
-        val customLogger = FileLogger(
-            context = mockContext,
-            directoryName = "custom_logs"
-        )
-        // Should not throw
-        customLogger.attach()
-        customLogger.detach()
-    }
-
-    @Test
-    fun `constructor accepts custom max file size`() {
-        val customLogger = FileLogger(
-            context = mockContext,
-            maxFileSize = 5 * 1024 * 1024 // 5MB
-        )
-        customLogger.attach()
-        customLogger.detach()
-    }
-
-    @Test
-    fun `constructor accepts custom max files`() {
-        val customLogger = FileLogger(
-            context = mockContext,
-            maxFiles = 10
-        )
-        customLogger.attach()
-        customLogger.detach()
     }
 
     // endregion

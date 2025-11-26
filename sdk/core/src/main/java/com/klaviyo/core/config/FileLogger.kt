@@ -101,11 +101,16 @@ import kotlinx.coroutines.withContext
 @AdvancedAPI
 class FileLogger(
     context: Context,
-    private val directoryName: String = DEFAULT_DIRECTORY_NAME,
-    private val maxFileSize: Long = DEFAULT_MAX_FILE_SIZE,
-    private val maxFiles: Int = DEFAULT_MAX_FILES,
+    directoryName: String = DEFAULT_DIRECTORY_NAME,
+    maxFileSize: Long = DEFAULT_MAX_FILE_SIZE,
+    maxFiles: Int = DEFAULT_MAX_FILES,
     private val minLevel: Log.Level = Log.Level.Verbose
 ) : LogInterceptor {
+
+    // Validate parameters and fallback to defaults if invalid
+    private val directoryName = directoryName.takeIf { it.isNotBlank() } ?: DEFAULT_DIRECTORY_NAME
+    private val maxFileSize = maxFileSize.takeIf { it > 0 } ?: DEFAULT_MAX_FILE_SIZE
+    private val maxFiles = maxFiles.takeIf { it > 0 } ?: DEFAULT_MAX_FILES
 
     private companion object {
         const val MAX_BUFFER_SIZE = 5 * 1024 // 5KB
@@ -305,8 +310,9 @@ class FileLogger(
                 synchronized(buffer) {
                     buffer.append(logLine)
 
-                    // Flush buffer if it's getting large (compare byte size, not character count)
-                    if (buffer.toString().toByteArray(Charsets.UTF_8).size >= MAX_BUFFER_SIZE) {
+                    // Flush buffer if it's getting large
+                    // Use char count as byte size approximation (accurate for ASCII, which covers most log content)
+                    if (buffer.length >= MAX_BUFFER_SIZE) {
                         flushBuffer()
                     }
                 }
