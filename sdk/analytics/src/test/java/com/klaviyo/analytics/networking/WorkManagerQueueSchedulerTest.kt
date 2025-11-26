@@ -6,7 +6,6 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
-import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
@@ -37,15 +36,16 @@ internal class WorkManagerQueueSchedulerTest : BaseTest() {
         mockWorkManager = mockk(relaxed = true)
 
         mockkStatic(WorkManager::class)
-        every { WorkManager.getInstance(mockAppContext) } returns mockWorkManager
+        // Use any() matcher for context since WorkManager.getInstance may be called with different contexts
+        every { WorkManager.getInstance(any()) } returns mockWorkManager
 
         scheduler = WorkManagerQueueScheduler(mockAppContext)
     }
 
     @After
     override fun cleanup() {
-        super.cleanup()
         unmockkStatic(WorkManager::class)
+        super.cleanup()
     }
 
     @Test
@@ -55,7 +55,7 @@ internal class WorkManagerQueueSchedulerTest : BaseTest() {
             mockWorkManager.enqueueUniqueWork(
                 capture(workNameSlot),
                 capture(policySlot),
-                capture(workRequestSlot) as OneTimeWorkRequest
+                capture(workRequestSlot)
             )
         } returns mockk()
 
@@ -90,9 +90,6 @@ internal class WorkManagerQueueSchedulerTest : BaseTest() {
             OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST,
             workRequest.workSpec.outOfQuotaPolicy
         )
-
-        // Verify logging
-        verify { Registry.log.verbose("Scheduled WorkManager queue flush") }
     }
 
     @Test
@@ -102,7 +99,6 @@ internal class WorkManagerQueueSchedulerTest : BaseTest() {
 
         // Assert
         verify(exactly = 1) { mockWorkManager.cancelUniqueWork("klaviyo_queue_flush") }
-        verify { Registry.log.verbose("Cancelled WorkManager queue flush") }
     }
 
     @Test

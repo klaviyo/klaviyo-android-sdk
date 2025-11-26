@@ -1,7 +1,7 @@
 package com.klaviyo.analytics.networking
 
 import android.net.Uri
-import android.os.Handler
+import androidx.work.WorkManager
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
@@ -109,6 +109,15 @@ internal class KlaviyoApiClientTest : BaseTest() {
             true
         }
 
+        // Mock WorkManager statically to prevent actual WorkManager initialization
+        mockkStatic(WorkManager::class)
+        every { WorkManager.getInstance(any()) } returns mockk(relaxed = true)
+
+        // Mock WorkManagerQueueScheduler to prevent actual WorkManager operations
+        mockkConstructor(WorkManagerQueueScheduler::class)
+        every { anyConstructed<WorkManagerQueueScheduler>().scheduleFlush() } just runs
+        every { anyConstructed<WorkManagerQueueScheduler>().cancelScheduledFlush() } just runs
+
         KlaviyoApiClient.startService()
     }
 
@@ -125,6 +134,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
         unmockkObject(KlaviyoApiRequestDecoder)
         unmockDeviceProperties()
         unmockkStatic(DeviceProperties::buildEventMetaData)
+        unmockkStatic(WorkManager::class)
+        unmockkConstructor(WorkManagerQueueScheduler::class)
     }
 
     private fun mockRequest(
@@ -279,10 +290,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Enqueueing a dollar-prefixed metric flushes the queue immediately`() {
-        mockkConstructor(EventApiRequest::class)
-        every { anyConstructed<EventApiRequest>().send(any()) } returns KlaviyoApiRequest.Status.Complete
-
+    fun `Enqueueing a dollar-prefixed metric schedules queue flush via WorkManager`() {
         // Test with various internal metrics (those starting with $)
         val internalMetrics = listOf(
             EventMetric.OPENED_PUSH,
@@ -291,18 +299,17 @@ internal class KlaviyoApiClientTest : BaseTest() {
             EventMetric.CUSTOM("\$any_internal_metric")
         )
 
-        internalMetrics.forEach { metric ->
+        internalMetrics.forEachIndexed { index, metric ->
             KlaviyoApiClient.enqueueEvent(
                 Event(metric),
                 Profile().setAnonymousId(ANON_ID)
             )
 
-            // Verify queue was flushed immediately for this internal metric
-            verify { anyConstructed<EventApiRequest>().send(any()) }
-            assertEquals(0, KlaviyoApiClient.getQueueSize())
+            // Verify scheduleFlush was called for each Klaviyo metric event
+            verify(exactly = index + 1) {
+                anyConstructed<WorkManagerQueueScheduler>().scheduleFlush()
+            }
         }
-
-        unmockkConstructor(EventApiRequest::class)
     }
 
     @Test
@@ -1058,13 +1065,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Klaviyo metric events trigger WorkManager queue flush`() {
-        // Setup a mock WorkManager queue scheduler
-        val mockQueueScheduler = mockk<QueueScheduler>(relaxed = true)
-
-        // Use reflection to set the queueScheduler field
-        val queueSchedulerField = KlaviyoApiClient::class.java.getDeclaredField("queueScheduler")
-        queueSchedulerField.isAccessible = true
-        queueSchedulerField.set(KlaviyoApiClient, mockQueueScheduler)
+        // WorkManagerQueueScheduler is already mocked in setup()
 
         // Create a Klaviyo metric event (starts with $)
         val klaviyoEvent = Event(EventMetric.OPENED_PUSH, mapOf())
@@ -1074,7 +1075,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueEvent(klaviyoEvent, profile)
 
         // Verify that scheduleFlush was called for the Klaviyo metric
-        verify(exactly = 1) { mockQueueScheduler.scheduleFlush() }
+        verify(exactly = 1) { anyConstructed<WorkManagerQueueScheduler>().scheduleFlush() }
 
         // Now test with a non-Klaviyo metric event
         val customEvent = Event(EventMetric.CUSTOM("CustomEvent"), mapOf())
@@ -1083,67 +1084,21 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueEvent(customEvent, profile)
 
         // Verify that scheduleFlush was NOT called again (still just once from the Klaviyo metric)
-        verify(exactly = 1) { mockQueueScheduler.scheduleFlush() }
-
-        // Clean up
-        queueSchedulerField.set(KlaviyoApiClient, null)
+        verify(exactly = 1) { anyConstructed<WorkManagerQueueScheduler>().scheduleFlush() }
     }
 
     @Test
-    fun `WorkManager initialization happens during startService`() {
-        // Clear the queueScheduler to test initialization
-        val queueSchedulerField = KlaviyoApiClient::class.java.getDeclaredField("queueScheduler")
-        queueSchedulerField.isAccessible = true
-        queueSchedulerField.set(KlaviyoApiClient, null)
+    fun `Custom events do not trigger WorkManager queue flush`() {
+        // WorkManagerQueueScheduler is already mocked in setup()
 
-        // Also reset queueInitialized flag
-        val queueInitializedField = KlaviyoApiClient::class.java.getDeclaredField(
-            "queueInitialized"
-        )
-        queueInitializedField.isAccessible = true
-        queueInitializedField.set(KlaviyoApiClient, false)
-
-        // Mock the applicationContext
-        every { mockConfig.applicationContext } returns mockk(relaxed = true)
-
-        // Call startService
-        KlaviyoApiClient.startService()
-
-        // Verify that queueScheduler was initialized
-        val queueScheduler = queueSchedulerField.get(KlaviyoApiClient)
-        assertNotNull("QueueScheduler should be initialized", queueScheduler)
-        assert(queueScheduler is WorkManagerQueueScheduler)
-
-        // Clean up
-        queueSchedulerField.set(KlaviyoApiClient, null)
-        queueInitializedField.set(KlaviyoApiClient, false)
-    }
-
-    @Test
-    fun `Fallback to direct flush when queueScheduler is null`() {
-        // Clear the queueScheduler to test fallback behavior
-        val queueSchedulerField = KlaviyoApiClient::class.java.getDeclaredField("queueScheduler")
-        queueSchedulerField.isAccessible = true
-        queueSchedulerField.set(KlaviyoApiClient, null)
-
-        // Mock the handler to capture flushQueue calls
-        val handlerField = KlaviyoApiClient::class.java.getDeclaredField("handler")
-        handlerField.isAccessible = true
-        val mockHandler = mockk<Handler>(relaxed = true)
-        handlerField.set(KlaviyoApiClient, mockHandler)
-
-        // Create a Klaviyo metric event
-        val klaviyoEvent = Event(EventMetric.OPENED_PUSH, mapOf())
+        // Create a custom event (does not start with $)
+        val customEvent = Event(EventMetric.CUSTOM("CustomEvent"), mapOf())
         val profile = Profile(mapOf(ProfileKey.EMAIL to "test@example.com"))
 
-        // Enqueue the event - should fall back to flushQueue() since queueScheduler is null
-        KlaviyoApiClient.enqueueEvent(klaviyoEvent, profile)
+        // Enqueue the custom event
+        KlaviyoApiClient.enqueueEvent(customEvent, profile)
 
-        // Verify that a flush was triggered via handler.post
-        verify(atLeast = 1) { mockHandler.post(any<Runnable>()) }
-
-        // Clean up
-        queueSchedulerField.set(KlaviyoApiClient, null)
-        handlerField.set(KlaviyoApiClient, null)
+        // Verify that scheduleFlush was NOT called for custom events
+        verify(exactly = 0) { anyConstructed<WorkManagerQueueScheduler>().scheduleFlush() }
     }
 }
