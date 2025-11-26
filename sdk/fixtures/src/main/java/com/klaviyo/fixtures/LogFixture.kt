@@ -11,11 +11,22 @@ import com.klaviyo.core.utils.AdvancedAPI
 class LogFixture : Log {
     override var logLevel: Level = Level.Assert
 
-    @AdvancedAPI
-    override fun addInterceptor(interceptor: LogInterceptor) { }
+    private val _interceptors = mutableListOf<LogInterceptor>()
+
+    /**
+     * List of currently registered interceptors for test verification
+     */
+    val interceptors: List<LogInterceptor> get() = _interceptors.toList()
 
     @AdvancedAPI
-    override fun removeInterceptor(interceptor: LogInterceptor) { }
+    override fun addInterceptor(interceptor: LogInterceptor) {
+        _interceptors.add(interceptor)
+    }
+
+    @AdvancedAPI
+    override fun removeInterceptor(interceptor: LogInterceptor) {
+        _interceptors.remove(interceptor)
+    }
 
     override fun verbose(message: String, ex: Throwable?) = println(message)
 

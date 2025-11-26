@@ -21,7 +21,6 @@ import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
@@ -143,7 +142,7 @@ class FileLogger(
     /**
      * Coroutine scope for async file operations
      */
-    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val coroutineScope = CoroutineScope(Registry.dispatcher + SupervisorJob())
 
     /**
      * Directory where log files are stored
@@ -153,20 +152,16 @@ class FileLogger(
     }
 
     /**
-     * Date formatter for timestamps in log messages
-     * Thread-safe via ThreadLocal to avoid concurrent access issues
+     * Create a new timestamp formatter for log messages.
+     * Creates a fresh instance each time to avoid thread-safety issues with SimpleDateFormat.
      */
-    private val timestampFormat = ThreadLocal.withInitial {
-        SimpleDateFormat(TIMESTAMP_PATTERN, Locale.US)
-    }
+    private val timestampFormat get() = SimpleDateFormat(TIMESTAMP_PATTERN, Locale.US)
 
     /**
-     * Date formatter for log file names
-     * Thread-safe via ThreadLocal to avoid concurrent access issues
+     * Create a new filename formatter.
+     * Creates a fresh instance each time to avoid thread-safety issues with SimpleDateFormat.
      */
-    private val fileNameFormat = ThreadLocal.withInitial {
-        SimpleDateFormat(FILENAME_PATTERN, Locale.US)
-    }
+    private val fileNameFormat get() = SimpleDateFormat(FILENAME_PATTERN, Locale.US)
 
     /**
      * Current active log file. Lazily initialized on first access.
@@ -235,12 +230,15 @@ class FileLogger(
         // Register with KLog
         Registry.log.addInterceptor(this)
 
-        // Install crash handler
+        // Install crash handler to flush logs before app terminates
         previousExceptionHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            // Chain to original handler (Firebase Crashlytics, etc)
-            previousExceptionHandler?.uncaughtException(thread, throwable)
+            // Capture reference before detach() nulls it
+            val chainHandler = previousExceptionHandler
+            // Detach first to flush logs before chaining - the previous handler may terminate the app
             detach()
+            // Chain to original handler (Firebase Crashlytics, etc)
+            chainHandler?.uncaughtException(thread, throwable)
         }
 
         // Register lifecycle observer to flush on background
@@ -299,7 +297,7 @@ class FileLogger(
 
         coroutineScope.safeLaunch {
             try {
-                val timestamp = timestampFormat.get().format(Date())
+                val timestamp = timestampFormat.format(Date())
                 val levelName = level.name.padEnd(LEVEL_NAME_PADDING) // Align columns
                 val throwableStr = throwable?.stackTraceToString()?.let { "\n$it" } ?: ""
                 val logLine = "[$timestamp] $levelName $tag: $message$throwableStr\n"
@@ -307,8 +305,8 @@ class FileLogger(
                 synchronized(buffer) {
                     buffer.append(logLine)
 
-                    // Flush buffer if it's getting large
-                    if (buffer.length >= MAX_BUFFER_SIZE) {
+                    // Flush buffer if it's getting large (compare byte size, not character count)
+                    if (buffer.toString().toByteArray(Charsets.UTF_8).size >= MAX_BUFFER_SIZE) {
                         flushBuffer()
                     }
                 }
@@ -376,7 +374,7 @@ class FileLogger(
      */
     @WorkerThread
     private fun createNewLogFile(): File {
-        val timestamp = fileNameFormat.get().format(Date())
+        val timestamp = fileNameFormat.format(Date())
         return File(logDirectory, "$FILE_PREFIX$timestamp.$LOG_FILE_EXTENSION")
     }
 
@@ -509,7 +507,7 @@ class FileLogger(
             val cacheDir = File(context.cacheDir, directoryName)
             cacheDir.mkdirs()
 
-            val timestamp = fileNameFormat.get().format(Date())
+            val timestamp = fileNameFormat.format(Date())
             val zipFile = File(cacheDir, "$FILE_PREFIX$timestamp.$ZIP_FILE_EXTENSION")
 
             ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zip ->
@@ -603,7 +601,7 @@ class FileLogger(
      * @return Intent for ACTION_CREATE_DOCUMENT
      */
     fun createSaveLogsIntent(): Intent {
-        val timestamp = fileNameFormat.get().format(Date())
+        val timestamp = fileNameFormat.format(Date())
         val filename = "$FILE_PREFIX$timestamp.$ZIP_FILE_EXTENSION"
 
         return Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
