@@ -4,6 +4,9 @@ import android.os.Build
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.Log
 import com.klaviyo.core.config.Log.Level
+import com.klaviyo.core.config.LogInterceptor
+import com.klaviyo.core.utils.AdvancedAPI
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.regex.Pattern
 
 object KLog : Log {
@@ -25,6 +28,31 @@ object KLog : Log {
         Level.Warning
     } else {
         Level.Error
+    }
+
+    /**
+     * Thread-safe list of log interceptors that are notified of all log calls
+     */
+    private val interceptors = CopyOnWriteArrayList<LogInterceptor>()
+
+    /**
+     * Register a log interceptor to be notified of all log calls (regardless of level).
+     *
+     * @param interceptor The interceptor to be invoked for every log event
+     */
+    @AdvancedAPI
+    override fun addInterceptor(interceptor: LogInterceptor) {
+        interceptors.add(interceptor)
+    }
+
+    /**
+     * Unregister a previously registered log interceptor
+     *
+     * @param interceptor The interceptor to remove
+     */
+    @AdvancedAPI
+    override fun removeInterceptor(interceptor: LogInterceptor) {
+        interceptors.remove(interceptor)
     }
 
     private var _logLevel: Level? = null
@@ -62,8 +90,21 @@ object KLog : Log {
     fun log(msg: String, level: Level, ex: Throwable? = null) {
         if (logLevel == Level.None) return
 
-        if (level.ordinal >= logLevel.ordinal) {
-            level.log(makeTag(), msg, ex)
+        if (level >= logLevel || interceptors.isNotEmpty()) {
+            val tag = makeTag()
+
+            level.takeIf { it >= logLevel }?.log(tag, msg, ex)
+
+            // Notify all interceptors
+            interceptors.forEach { interceptor ->
+                try {
+                    interceptor(level, tag, msg, ex)
+                } catch (e: Exception) {
+                    // Don't let interceptor failures break logging
+                    // Error.log directly to avoid recursion
+                    Level.Error.log("KLog", "Interceptor failed", e)
+                }
+            }
         }
     }
 
@@ -97,7 +138,7 @@ object KLog : Log {
             tag = if (tag.length <= MAX_TAG_LENGTH || Build.VERSION.SDK_INT >= 26) {
                 tag
             } else {
-                tag.substring(0, MAX_TAG_LENGTH)
+                tag.take(MAX_TAG_LENGTH)
             }
 
             return tag
