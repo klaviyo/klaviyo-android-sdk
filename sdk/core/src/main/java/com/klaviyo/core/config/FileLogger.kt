@@ -147,7 +147,13 @@ class FileLogger(
     /**
      * Coroutine scope for async file operations
      */
-    private val coroutineScope = CoroutineScope(Registry.dispatcher + SupervisorJob())
+    private var _coroutineScope: CoroutineScope? = null
+    private val coroutineScope: CoroutineScope
+        get() = _coroutineScope?.takeIf { it.isActive } ?: run {
+            CoroutineScope(Registry.dispatcher + SupervisorJob()).also { newScope ->
+                _coroutineScope = newScope
+            }
+        }
 
     /**
      * Directory where log files are stored
@@ -629,12 +635,18 @@ class FileLogger(
         Registry.dispatcher
     ) {
         try {
-            val zipFile = exportLogsAsZip(context) ?: return@withContext false
+            val zipFile = exportLogsAsZip(context) ?: run {
+                Log.Level.Error.log(TAG, "Failed to save logs to URI, failed to export ZIP")
+                return@withContext false
+            }
 
             context.contentResolver.openOutputStream(uri)?.use { output ->
                 zipFile.inputStream().use { input ->
                     input.copyTo(output)
                 }
+            } ?: run {
+                Log.Level.Error.log(TAG, "Failed to save logs to URI, could not open output stream")
+                return@withContext false
             }
 
             Log.Level.Info.log(TAG, "Logs saved successfully to $uri")
