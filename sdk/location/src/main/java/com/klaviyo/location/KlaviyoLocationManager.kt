@@ -27,6 +27,7 @@ import com.klaviyo.core.safeLaunch
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 
 /**
@@ -181,6 +182,48 @@ internal class KlaviyoLocationManager : LocationManager {
             )
             stopSystemMonitoring()
             companyObserver.stopObserver()
+        }
+    }
+
+    /**
+     * Get the user's current location, anonymized for privacy.
+     * Returns null if location is unavailable or permissions are not granted.
+     *
+     * The location is anonymized by rounding coordinates to 2 decimal places (~1.1km precision).
+     * This is done to protect user privacy while still allowing backend filtering.
+     *
+     * @return AnonymizedLocation or null if unavailable
+     */
+    private suspend fun getCurrentAnonymizedLocation(): AnonymizedLocation? {
+        return try {
+            // Check if we have location permissions
+            if (!Registry.locationPermissionMonitor.permissionState) {
+                Registry.log.debug("Location permissions not granted, skipping location fetch")
+                return null
+            }
+
+            // Get FusedLocationProviderClient
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(
+                Registry.config.applicationContext
+            )
+
+            // Get last known location
+            @SuppressLint("MissingPermission")
+            val location = fusedLocationClient.lastLocation.await()
+
+            location?.let {
+                val anonymized = AnonymizedLocation.fromLocation(location)
+                Registry.log.verbose(
+                    "Got anonymized location: lat=${anonymized.latitude}, lng=${anonymized.longitude}"
+                )
+                anonymized
+            } ?: run {
+                Registry.log.debug("Last known location unavailable")
+                null
+            }
+        } catch (e: Exception) {
+            Registry.log.warning("Failed to get current location", e)
+            null
         }
     }
 
