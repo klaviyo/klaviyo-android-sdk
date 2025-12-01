@@ -1,7 +1,6 @@
 package com.klaviyo.analytics.networking
 
 import android.net.Uri
-import androidx.work.WorkManager
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
@@ -71,6 +70,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private val flushIntervalOffline = 30_000L
     private val queueDepth = 10
     private var postedJob: KlaviyoApiClient.NetworkRunnable? = null
+    private val mockQueueScheduler = mockk<QueueScheduler>(relaxed = true)
 
     private companion object {
         private val slotOnActivityEvent = slot<ActivityObserver>()
@@ -109,14 +109,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
             true
         }
 
-        // Mock WorkManager statically to prevent actual WorkManager initialization
-        mockkStatic(WorkManager::class)
-        every { WorkManager.getInstance(any()) } returns mockk(relaxed = true)
-
-        // Mock WorkManagerQueueScheduler to prevent actual WorkManager operations
-        mockkConstructor(WorkManagerQueueScheduler::class)
-        every { anyConstructed<WorkManagerQueueScheduler>().scheduleFlush() } just runs
-        every { anyConstructed<WorkManagerQueueScheduler>().cancelScheduledFlush() } just runs
+        // Register mock QueueScheduler to prevent actual WorkManager operations
+        Registry.register<QueueScheduler>(mockQueueScheduler)
 
         KlaviyoApiClient.startService()
     }
@@ -134,8 +128,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         unmockkObject(KlaviyoApiRequestDecoder)
         unmockDeviceProperties()
         unmockkStatic(DeviceProperties::buildEventMetaData)
-        unmockkStatic(WorkManager::class)
-        unmockkConstructor(WorkManagerQueueScheduler::class)
+        Registry.unregister<QueueScheduler>()
     }
 
     private fun mockRequest(
@@ -306,9 +299,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
             )
 
             // Verify scheduleFlush was called for each Klaviyo metric event
-            verify(exactly = index + 1) {
-                anyConstructed<WorkManagerQueueScheduler>().scheduleFlush()
-            }
+            verify(exactly = index + 1) { mockQueueScheduler.scheduleFlush() }
         }
     }
 
@@ -1065,8 +1056,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `Klaviyo metric events trigger WorkManager queue flush`() {
-        // WorkManagerQueueScheduler is already mocked in setup()
-
         // Create a Klaviyo metric event (starts with $)
         val klaviyoEvent = Event(EventMetric.OPENED_PUSH, mapOf())
         val profile = Profile(mapOf(ProfileKey.EMAIL to "test@example.com"))
@@ -1075,7 +1064,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueEvent(klaviyoEvent, profile)
 
         // Verify that scheduleFlush was called for the Klaviyo metric
-        verify(exactly = 1) { anyConstructed<WorkManagerQueueScheduler>().scheduleFlush() }
+        verify(exactly = 1) { mockQueueScheduler.scheduleFlush() }
 
         // Now test with a non-Klaviyo metric event
         val customEvent = Event(EventMetric.CUSTOM("CustomEvent"), mapOf())
@@ -1084,13 +1073,11 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueEvent(customEvent, profile)
 
         // Verify that scheduleFlush was NOT called again (still just once from the Klaviyo metric)
-        verify(exactly = 1) { anyConstructed<WorkManagerQueueScheduler>().scheduleFlush() }
+        verify(exactly = 1) { mockQueueScheduler.scheduleFlush() }
     }
 
     @Test
     fun `Custom events do not trigger WorkManager queue flush`() {
-        // WorkManagerQueueScheduler is already mocked in setup()
-
         // Create a custom event (does not start with $)
         val customEvent = Event(EventMetric.CUSTOM("CustomEvent"), mapOf())
         val profile = Profile(mapOf(ProfileKey.EMAIL to "test@example.com"))
@@ -1099,6 +1086,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueEvent(customEvent, profile)
 
         // Verify that scheduleFlush was NOT called for custom events
-        verify(exactly = 0) { anyConstructed<WorkManagerQueueScheduler>().scheduleFlush() }
+        verify(exactly = 0) { mockQueueScheduler.scheduleFlush() }
     }
 }

@@ -43,6 +43,11 @@ internal object KlaviyoApiClient : ApiClient {
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
     private var queueInitialized = false
 
+    private val scheduler get() = Registry.getOrNull<QueueScheduler>()
+        ?: WorkManagerQueueScheduler(Registry.config.applicationContext).also {
+            Registry.register<QueueScheduler>(it)
+        }
+
     /**
      * List of registered API observers
      */
@@ -99,8 +104,8 @@ internal object KlaviyoApiClient : ApiClient {
 
             if (event.metric.isKlaviyoMetric) {
                 // Use WorkManager to schedule flush for priority Klaviyo events
-                // This ensures delivery even during Doze mode
-                WorkManagerQueueScheduler(Registry.config.applicationContext).scheduleFlush()
+                // This ensures ASAP delivery even during doze mode, app standby etc.
+                scheduler.scheduleFlush()
             }
         }
 

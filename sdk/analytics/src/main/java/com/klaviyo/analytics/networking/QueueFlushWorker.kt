@@ -35,7 +35,7 @@ internal class QueueFlushWorker(
      */
     override suspend fun doWork(): Result {
         try {
-            Registry.log.info("WorkManager triggered queue flush")
+            Registry.log.verbose("WorkManager triggered queue flush")
 
             if (!Registry.isRegistered<Config>() || !Registry.isRegistered<ApiClient>()) {
                 // Initializes dependencies for access to data store and API Client
