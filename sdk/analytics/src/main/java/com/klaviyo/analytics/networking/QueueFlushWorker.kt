@@ -34,23 +34,24 @@ internal class QueueFlushWorker(
      * @return Result.success() to indicate work completed successfully
      */
     override suspend fun doWork(): Result {
-        Registry.log.info("WorkManager triggered queue flush")
-
         try {
-            if (!Registry.isRegistered<Config>()) {
-                // Initialize Klaviyo with config to access dataStore
+            Registry.log.info("WorkManager triggered queue flush")
+
+            if (!Registry.isRegistered<Config>() || !Registry.isRegistered<ApiClient>()) {
+                // Initializes dependencies for access to data store and API Client
                 Klaviyo.registerForLifecycleCallbacks(context)
             }
 
-            // Restore queue from persistent store, if needed, and flush immediately
-            KlaviyoApiClient.run {
-                restoreQueue(forceRestore = false)
+            Registry.get<ApiClient>().run {
+                // Restore queue from disk, if it hasn't already been
+                startService()
+
+                // Flush queue will start sending queued requests immediately
                 flushQueue()
             }
         } catch (e: Exception) {
+            // Return success - we don't want to repeatedly retry, just wait till next opportunity
             Registry.log.error("WorkManager queue flush failed", e)
-            // Return success anyway - we don't want WorkManager to retry
-            // The queue will be flushed on next opportunity
         }
 
         return Result.success()
