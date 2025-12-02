@@ -1,6 +1,5 @@
 package com.klaviyo.location
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 
@@ -46,12 +45,10 @@ interface LocationManager {
      *
      * @param context The application context
      * @param intent The geofence intent from the system
-     * @param pendingResult The pending result from goAsync() to be finished when processing completes
      */
     fun handleGeofenceIntent(
         context: Context,
-        intent: Intent,
-        pendingResult: BroadcastReceiver.PendingResult
+        intent: Intent
     )
 
     /**
