@@ -6,6 +6,8 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -22,8 +24,8 @@ import org.junit.Test
 internal class QueueFlushWorkerTest : BaseTest() {
 
     private val mockApiClient = mockk<ApiClient>(relaxed = true).apply {
-        every { startService() } returns Unit
-        every { flushQueue() } returns Unit
+        every { restoreQueue() } returns Unit
+        coEvery { awaitFlushQueueOutcome() } returns FlushOutcome.Complete
     }
     private val workerParams = mockk<WorkerParameters>(relaxed = true)
 
@@ -58,8 +60,8 @@ internal class QueueFlushWorkerTest : BaseTest() {
 
         // Verify queue was flushed
         verify(exactly = 1) { Klaviyo.registerForLifecycleCallbacks(mockContext) }
-        verify(exactly = 1) { mockApiClient.startService() }
-        verify(exactly = 1) { mockApiClient.flushQueue() }
+        verify(exactly = 1) { mockApiClient.restoreQueue() }
+        coVerify(exactly = 1) { mockApiClient.awaitFlushQueueOutcome() }
     }
 
     @Test
@@ -76,20 +78,20 @@ internal class QueueFlushWorkerTest : BaseTest() {
 
         // Verify queue was flushed, and didn't need to configure dependencies
         verify(inverse = true) { Klaviyo.registerForLifecycleCallbacks(mockContext) }
-        verify(exactly = 1) { mockApiClient.startService() }
-        verify(exactly = 1) { mockApiClient.flushQueue() }
+        verify(exactly = 1) { mockApiClient.restoreQueue() }
+        coVerify(exactly = 1) { mockApiClient.awaitFlushQueueOutcome() }
     }
 
     @Test
     fun `Worker returns success even when exception occurs`() = runTest {
         // Setup ApiClient to throw an exception
-        every { mockApiClient.startService() } throws RuntimeException("Test exception")
+        every { mockApiClient.restoreQueue() } throws RuntimeException("Test exception")
 
         val result = doWork()
 
         // Should still return success to prevent WorkManager retries, but flush wasn't called
         assertEquals(ListenableWorker.Result.success(), result)
-        verify(exactly = 1) { mockApiClient.startService() }
-        verify(inverse = true) { mockApiClient.flushQueue() }
+        verify(exactly = 1) { mockApiClient.restoreQueue() }
+        coVerify(inverse = true) { mockApiClient.awaitFlushQueueOutcome() }
     }
 }

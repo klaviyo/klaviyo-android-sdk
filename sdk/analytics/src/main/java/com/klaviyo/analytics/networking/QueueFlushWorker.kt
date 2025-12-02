@@ -44,10 +44,11 @@ internal class QueueFlushWorker(
 
             Registry.get<ApiClient>().run {
                 // Restore queue from disk, if it hasn't already been
-                startService()
+                restoreQueue()
 
-                // Flush queue will start sending queued requests immediately
-                flushQueue()
+                // Flush queue and await outcome of all requests
+                val outcome = awaitFlushQueueOutcome()
+                Registry.log.debug("WorkManager queue flush $outcome")
             }
         } catch (e: Exception) {
             // Return success - we don't want to repeatedly retry, just wait till next opportunity

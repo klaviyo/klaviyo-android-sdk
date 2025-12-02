@@ -1,6 +1,7 @@
 package com.klaviyo.analytics.networking
 
 import android.os.Handler
+import androidx.annotation.WorkerThread
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
@@ -22,6 +23,7 @@ import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.safeLaunch
+import com.klaviyo.core.utils.takeIf
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
@@ -349,9 +351,20 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Start
+     * Tell the client to attempt to flush network request queue now
      */
-    override fun flushQueue() = startBatch(true)
+    override fun flushQueue() {
+        startBatch(true)
+    }
+
+    /**
+     * Flushes the queue in a background context
+     *
+     * @returns Boolean to indicate whether requests remain in the queue
+     */
+    override suspend fun awaitFlushQueueOutcome() = withContext(Registry.dispatcher) {
+        sendQueueSerially()
+    }
 
     /**
      * Start a network batch to process the request queue
@@ -399,8 +412,61 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
+     * Send API requests in the queue serially
+     * Note: this is a blocking method! It must be run from a background thread/context
+     */
+    @WorkerThread
+    private fun sendQueueSerially(): FlushOutcome {
+        Registry.log.verbose("Starting network batch")
+
+        var retryAfter: Long? = null
+
+        while (apiQueue.isNotEmpty()) {
+            val request = apiQueue.poll()
+
+            when (request?.sendAndBroadcast()) {
+                Status.Unsent -> {
+                    // Incomplete state: put it back on the queue and break out of serial queue
+                    apiQueue.offerFirst(request)
+                    break
+                }
+
+                Status.Complete, Status.Failed -> {
+                    // On success or absolute failure, remove from queue and persistent store
+                    Registry.dataStore.clear(request.uuid)
+                }
+
+                Status.PendingRetry -> {
+                    // Encountered a retryable error
+                    // Put this back on top of the queue, and we'll try again with backoff
+                    apiQueue.offerFirst(request)
+                    retryAfter = request.computeRetryInterval()
+                    break
+                }
+
+                // These should not strictly be possible...
+                Status.Inflight -> Registry.log.wtf(
+                    "Request state was not updated from Inflight"
+                )
+
+                null -> Registry.log.wtf("Queue contains an empty request")
+            }
+        }
+
+        persistQueue()
+
+        return if (apiQueue.isEmpty()) {
+            Registry.log.verbose("Emptied network queue")
+            FlushOutcome.Complete
+        } else {
+            Registry.log.verbose("Incomplete send: ${apiQueue.size} requests remain")
+            FlushOutcome.Incomplete(retryAfter)
+        }
+    }
+
+    /**
      * Runnable which flushes the API queue in batches for efficiency.
-     * As long as there are items in the queue, the thread will loop.
+     * As long as there are items in the queue, the thread will loop and send serially.
      * When the queue is cleared the thread will not loop itself and will terminate.
      *
      * @property force Boolean that will force the queue to flush now
@@ -430,47 +496,13 @@ internal object KlaviyoApiClient : ApiClient {
                 return requeue()
             }
 
-            Registry.log.verbose("Starting network batch")
+            val outcome = sendQueueSerially()
 
-            while (apiQueue.isNotEmpty()) {
-                val request = apiQueue.poll()
-
-                when (request?.sendAndBroadcast()) {
-                    Status.Unsent -> {
-                        // Incomplete state: put it back on the queue and break out of serial queue
-                        apiQueue.offerFirst(request)
-                        break
-                    }
-
-                    Status.Complete, Status.Failed -> {
-                        // On success or absolute failure, remove from queue and persistent store
-                        Registry.dataStore.clear(request.uuid)
-                        // Reset the flush interval, in case we had done any exp backoff
-                        flushInterval = Registry.config.networkFlushIntervals[networkType]
-                    }
-
-                    Status.PendingRetry -> {
-                        // Encountered a retryable error
-                        // Put this back on top of the queue, and we'll try again with backoff
-                        apiQueue.offerFirst(request)
-                        flushInterval = request.computeRetryInterval()
-                        break
-                    }
-                    // These should not strictly be possible...
-                    Status.Inflight -> Registry.log.wtf(
-                        "Request state was not updated from Inflight"
-                    )
-
-                    null -> Registry.log.wtf("Queue contains an empty request")
-                }
-            }
-
-            persistQueue()
+            flushInterval = outcome.takeIf<FlushOutcome.Incomplete>()?.retryAfter
+                ?: Registry.config.networkFlushIntervals[networkType]
 
             if (!apiQueue.isEmpty()) {
                 requeue()
-            } else {
-                Registry.log.verbose("Emptied network queue")
             }
         }
 

@@ -25,6 +25,7 @@ import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
+import com.klaviyo.core.utils.takeIf
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -462,7 +463,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         KlaviyoApiClient.enqueueRequest(requestMock)
 
-        staticClock.execute(flushIntervalWifi.toLong())
+        staticClock.execute(flushIntervalWifi)
 
         postedJob!!.run()
 
@@ -491,6 +492,43 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.flushQueue()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Flush queue with outcome reports Complete if all requests send`() = runTest {
+        // Enqueue a request that will complete successfully
+        val request = mockRequest(
+            "complete-uuid",
+            KlaviyoApiRequest.Status.Complete
+        )
+        KlaviyoApiClient.enqueueRequest(request)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+
+        assert(outcome is FlushOutcome.Complete)
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        assertNull(spyDataStore.fetch("complete-uuid"))
+    }
+
+    @Test
+    fun `Flush queue with outcome reports Incomplete when rate limit is hit`() = runTest {
+        // Enqueue a request that will complete successfully
+        val request = mockRequest(
+            "incomplete-uuid",
+            KlaviyoApiRequest.Status.PendingRetry
+        )
+        every { request.computeRetryInterval() } returns 1234
+
+        KlaviyoApiClient.enqueueRequest(request)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+
+        assert(outcome is FlushOutcome.Incomplete)
+        assertEquals(1234L, outcome.takeIf<FlushOutcome.Incomplete>()?.retryAfter)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(request.toJson().toString(), spyDataStore.fetch("incomplete-uuid"))
     }
 
     @Test
