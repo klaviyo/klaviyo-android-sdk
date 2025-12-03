@@ -590,7 +590,6 @@ class YourApplication : Application() {
 ```
 
 ### Handling Universal Links
->  ℹ️ Support for Deep Linking from Email is currently available for early access to select Klaviyo customers. Please contact your CSM to be enrolled.
 >  Full trackable universal links support is available in Klaviyo Android SDK version 4.1.0 and higher.
 
 Klaviyo supports embedding universal links with click tracking in email messages. To ensure these links are properly tracked as 
