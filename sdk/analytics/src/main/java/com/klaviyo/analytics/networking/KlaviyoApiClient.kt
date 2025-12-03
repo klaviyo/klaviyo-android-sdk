@@ -432,8 +432,10 @@ internal object KlaviyoApiClient : ApiClient {
                 }
 
                 Status.Complete, Status.Failed -> {
-                    // On success or absolute failure, remove from queue and persistent store
+                    // On success or final failure, remove from queue and persistent store
+                    // reset backoff timer in case we encounter a failure after this
                     Registry.dataStore.clear(request.uuid)
+                    retryAfter = defaultFlushInterval
                 }
 
                 Status.PendingRetry -> {
@@ -464,6 +466,10 @@ internal object KlaviyoApiClient : ApiClient {
         }
     }
 
+    private val currentNetworkType get() = Registry.networkMonitor.getNetworkType().position
+
+    internal val defaultFlushInterval get() = Registry.config.networkFlushIntervals[currentNetworkType]
+
     /**
      * Runnable which flushes the API queue in batches for efficiency.
      * As long as there are items in the queue, the thread will loop and send serially.
@@ -478,9 +484,7 @@ internal object KlaviyoApiClient : ApiClient {
 
         private var enqueuedTime = Registry.clock.currentTimeMillis()
 
-        private var networkType: Int = Registry.networkMonitor.getNetworkType().position
-
-        private var flushInterval: Long = Registry.config.networkFlushIntervals[networkType]
+        private var flushInterval: Long = defaultFlushInterval
 
         private val flushDepth: Int = Registry.config.networkFlushDepth
 
@@ -498,8 +502,9 @@ internal object KlaviyoApiClient : ApiClient {
 
             val outcome = sendQueueSerially()
 
-            flushInterval = outcome.takeIf<FlushOutcome.Incomplete>()?.retryAfter
-                ?: Registry.config.networkFlushIntervals[networkType]
+            outcome.takeIf<FlushOutcome.Incomplete>()?.retryAfter?.let { retryAfter ->
+                flushInterval = retryAfter
+            }
 
             if (!apiQueue.isEmpty()) {
                 requeue()
