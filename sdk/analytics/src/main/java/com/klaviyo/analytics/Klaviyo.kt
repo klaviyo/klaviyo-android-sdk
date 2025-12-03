@@ -27,6 +27,7 @@ import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
+import org.json.JSONObject
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -308,7 +309,27 @@ object Klaviyo {
             extras?.keySet()?.forEach { key ->
                 if (key.contains("com.klaviyo")) {
                     val eventKey = EventKey.CUSTOM(key.replace("com.klaviyo.", ""))
-                    event[eventKey] = extras.getString(key, "")
+                    val rawValue = extras.getString(key, "")
+
+                    // Special handling for key_value_pairs: decode JSON string into a map
+                    if (eventKey.name == "key_value_pairs") {
+                        try {
+                            val jsonObject = JSONObject(rawValue)
+                            val map = HashMap<String, String>()
+                            jsonObject.keys().forEach { jsonKey ->
+                                map[jsonKey] = jsonObject.getString(jsonKey)
+                            }
+                            event[eventKey] = map
+                        } catch (e: Exception) {
+                            Registry.log.warning(
+                                "Failed to parse key_value_pairs JSON: $rawValue",
+                                e
+                            )
+                            event[eventKey] = rawValue
+                        }
+                    } else {
+                        event[eventKey] = rawValue
+                    }
                 }
             }
 
