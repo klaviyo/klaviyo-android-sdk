@@ -745,7 +745,12 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(invalidJson, keyValuePairs)
 
         // Verify warning was logged
-        verify { spyLog.warning(match { it.contains("Failed to parse key_value_pairs JSON") }, any()) }
+        verify {
+            spyLog.warning(
+                match { it.contains("Failed to parse key_value_pairs JSON") },
+                any()
+            )
+        }
     }
 
     @Test
