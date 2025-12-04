@@ -304,34 +304,7 @@ object Klaviyo {
         ?.safeApply(preInitQueue) {
             // Create and enqueue an $opened_push
             val event = Event(EventMetric.OPENED_PUSH)
-            val extras = intent?.extras
-
-            extras?.keySet()?.forEach { key ->
-                if (key.contains("com.klaviyo")) {
-                    val eventKey = EventKey.CUSTOM(key.replace("com.klaviyo.", ""))
-                    val rawValue = extras.getString(key, "")
-
-                    // Special handling for key_value_pairs: decode JSON string into a map
-                    if (eventKey.name == "key_value_pairs") {
-                        try {
-                            val jsonObject = JSONObject(rawValue)
-                            val map = HashMap<String, String>()
-                            jsonObject.keys().forEach { jsonKey ->
-                                map[jsonKey] = jsonObject.getString(jsonKey)
-                            }
-                            event[eventKey] = map
-                        } catch (e: Exception) {
-                            Registry.log.warning(
-                                "Failed to parse key_value_pairs JSON: $rawValue",
-                                e
-                            )
-                            event[eventKey] = rawValue
-                        }
-                    } else {
-                        event[eventKey] = rawValue
-                    }
-                }
-            }
+            event.appendKlaviyoExtras(intent)
 
             Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
 
@@ -378,6 +351,40 @@ object Klaviyo {
             DeepLinking.handleUniversalTrackingLink(uri)
         }
     } ?: intent.isKlaviyoUniversalTrackingIntent
+
+    /**
+     * Appends Klaviyo extras from an intent to this event, parsing special fields as needed
+     */
+    internal fun Event.appendKlaviyoExtras(intent: Intent?) {
+        intent?.extras?.keySet()?.forEach { key ->
+            if (key.contains("com.klaviyo")) {
+                val eventKey = EventKey.CUSTOM(key.replace("com.klaviyo.", ""))
+                val rawValue = intent.extras?.getString(key, "") ?: ""
+
+                val parsedValue = when (eventKey.name) {
+                    "key_value_pairs" -> {
+                        try {
+                            val jsonObject = JSONObject(rawValue)
+                            val map = HashMap<String, String>()
+                            jsonObject.keys().forEach { jsonKey ->
+                                map[jsonKey] = jsonObject.getString(jsonKey)
+                            }
+                            map
+                        } catch (e: Exception) {
+                            Registry.log.warning(
+                                "Failed to parse key_value_pairs JSON: $rawValue",
+                                e
+                            )
+                            rawValue
+                        }
+                    }
+                    else -> rawValue
+                }
+
+                this[eventKey] = parsedValue
+            }
+        }
+    }
 
     /**
      * Checks whether a notification intent originated from Klaviyo
