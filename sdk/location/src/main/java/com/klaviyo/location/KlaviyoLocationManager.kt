@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.location.Location
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_ENTER
 import com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_EXIT
@@ -22,7 +23,10 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.safeLaunch
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 
 /**
@@ -171,6 +175,72 @@ internal class KlaviyoLocationManager : LocationManager {
             )
             stopSystemMonitoring()
             companyObserver.stopObserver()
+        }
+    }
+
+    /**
+     * Get the user's current precise location for local geofence sorting.
+     * Returns null if location is unavailable or permissions are not granted.
+     *
+     * This provides the full precision location needed for accurate distance calculations
+     * when filtering geofences to the nearest 20.
+     *
+     * @return Location or null if unavailable
+     */
+    internal suspend fun getCurrentLocation(): Location? {
+        return try {
+            // Check if we have location permissions
+            if (!Registry.locationPermissionMonitor.permissionState) {
+                Registry.log.debug("Location permissions not granted, skipping location fetch")
+                return null
+            }
+
+            // Get FusedLocationProviderClient
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(
+                Registry.config.applicationContext
+            )
+
+            // Get last known location
+            @SuppressLint("MissingPermission")
+            val location = fusedLocationClient.lastLocation.await()
+
+            location?.let {
+                Registry.log.verbose(
+                    "Got precise location: lat=${it.latitude}, lng=${it.longitude}"
+                )
+                it
+            } ?: run {
+                Registry.log.debug("Last known location unavailable")
+                null
+            }
+        } catch (e: CancellationException) {
+            // Re-throw to preserve coroutine cancellation
+            throw e
+        } catch (e: SecurityException) {
+            Registry.log.error("Security exception getting location", e)
+            null
+        } catch (e: Exception) {
+            Registry.log.error("Failed to get current location", e)
+            null
+        }
+    }
+
+    /**
+     * Get the user's current location, anonymized for privacy.
+     * Returns null if location is unavailable or permissions are not granted.
+     *
+     * The location is anonymized by rounding coordinates to the nearest 0.145 degrees (~10 mile precision).
+     * This is done to protect user privacy while still allowing backend filtering.
+     *
+     * @return AnonymizedLocation or null if unavailable
+     */
+    private suspend fun getCurrentAnonymizedLocation(): AnonymizedLocation? {
+        return getCurrentLocation()?.let { location ->
+            val anonymized = AnonymizedLocation.fromLocation(location)
+            Registry.log.verbose(
+                "Got anonymized location: lat=${anonymized.latitude}, lng=${anonymized.longitude}"
+            )
+            anonymized
         }
     }
 
