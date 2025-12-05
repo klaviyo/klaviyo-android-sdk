@@ -19,6 +19,7 @@ dependencies {
     implementation project(":sdk:analytics")
 
     implementation Google.android.playServices.location
+    implementation KotlinX.coroutines.playServices
 
     testImplementation project(":sdk:fixtures")
 }
