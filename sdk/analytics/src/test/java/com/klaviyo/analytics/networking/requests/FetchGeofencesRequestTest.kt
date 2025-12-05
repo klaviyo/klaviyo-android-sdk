@@ -11,6 +11,11 @@ internal class FetchGeofencesRequestTest : BaseApiRequestTest<FetchGeofencesRequ
 
     override val expectedQuery = mapOf("company_id" to API_KEY)
 
+    override val expectedHeaders: Map<String, String>
+        get() = super.expectedHeaders.toMutableMap() + mapOf(
+            "Revision" to "2025-10-15.pre"
+        )
+
     override fun makeTestRequest(): FetchGeofencesRequest = FetchGeofencesRequest()
 
     @Test

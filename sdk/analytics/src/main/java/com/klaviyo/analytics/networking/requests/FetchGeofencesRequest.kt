@@ -15,6 +15,11 @@ internal class FetchGeofencesRequest(
         private const val PATH = "client/geofences"
     }
 
+    init {
+        // Override the API revision for geofence fetching to use pre-release version
+        headers[HEADER_REVISION] = "2025-10-15.pre"
+    }
+
     override val type: String = "Fetch Geofences"
 
     override var query: Map<String, String> = mapOf(
