@@ -819,7 +819,9 @@ to your `proguard-rules.pro` to prevent obfuscation:
 ```
 -keep class com.klaviyo.analytics.** { *; }
 -keep class com.klaviyo.core.** { *; }
--keep class com.klaviyo.push-fcm.** { *; }
+-keep class com.klaviyo.forms.** { *; }
+-keep class com.klaviyo.location.** { *; }
+-keep class com.klaviyo.pushFcm.** { *; }
 ```
 
 
