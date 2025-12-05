@@ -560,8 +560,9 @@ Note that after unregistering, the next call to `registerForInAppForms()` will b
 ## Geofencing
 
 Geofencing allows you to trigger events when users enter or exit geographic regions defined in your Klaviyo account.
-The SDK handles fetching geofence data from Klaviyo, registering them with the Android system, and creating events
-when transitions occur. These events can be used to trigger flows, update profiles, and drive location-based marketing.
+The SDK monitors permission, syncs geofence data from Klaviyo, registers them with device location services, 
+and creates events when transitions occur. These events can be used to trigger flows, segment profiles, 
+and drive location-based marketing.
 
 ### Setup
 To begin, call `Klaviyo.registerGeofencing()` after initializing the SDK with your public API key.
@@ -579,17 +580,6 @@ Klaviyo
 // ... or any time thereafter
 Klaviyo.registerGeofencing()
 ```
-
-Once registered, the SDK will:
-1. Monitor for required location permissions to be granted
-2. Fetch geofence data from your Klaviyo account once permission is granted
-3. Register geofences with Android's location services
-4. Automatically create events when users enter or exit geofences
-5. Restore geofences after device reboot (if permissions are still granted)
-
-> ℹ️ **Note**: The SDK automatically handles geofence synchronization with your Klaviyo account. 
-> When you add, update, or remove geofences in Klaviyo, the SDK will automatically sync these 
-> changes on the next app launch or when the API key changes.
 
 ### Requesting Permissions
 
