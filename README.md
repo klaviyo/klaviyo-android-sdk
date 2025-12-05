@@ -37,6 +37,11 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [Setup](#setup-1)
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+- [Geofencing](#geofencing)
+  - [Prerequisites](#prerequisites-2)
+  - [Setup](#setup-2)
+  - [Requesting Permissions](#requesting-permissions)
+  - [Unregistering from Geofencing](#unregistering-from-geofencing)
 - [Deep Linking](#deep-linking)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
@@ -52,6 +57,7 @@ demonstrates all the key features of the Klaviyo Android SDK, including:
 - Profile identification and event tracking
 - Push notification setup and handling
 - In-App Forms integration
+- Geofencing integration
 - Deep linking (custom URI schemes and universal tracking links)
 - UI for testing SDK functionality
 
@@ -101,6 +107,7 @@ The sample app serves as both a reference implementation and a testing tool for 
           implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.2.0")
           implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.2.0")
           implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.2.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.2.0")
       }
       ```
    </details>
@@ -114,6 +121,7 @@ The sample app serves as both a reference implementation and a testing tool for 
            implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.2.0"
            implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.2.0"
            implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.2.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.2.0"
        }
       ```
    </details>
@@ -549,6 +557,68 @@ Klaviyo.unregisterFromInAppForms()
 ```
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+## Geofencing
+
+Geofencing allows you to trigger events when users enter or exit geographic regions defined in your Klaviyo account.
+The SDK handles fetching geofence data from Klaviyo, registering them with the Android system, and creating events
+when transitions occur. These events can be used to trigger flows, update profiles, and drive location-based marketing.
+
+### Setup
+To begin, call `Klaviyo.registerGeofencing()` after initializing the SDK with your public API key.
+We recommend calling this as early as possible in your application lifecycle, ideally at app launch.
+User permission is not required prior to registering. The SDK will monitor for permission changes 
+and automatically start or stop geofence monitoring as needed.
+
+```kotlin
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.location.registerGeofencing
+
+// You can register as soon as you've initialized
+Klaviyo
+    .initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+    .registerGeofencing()
+
+// ... or any time thereafter
+Klaviyo.registerGeofencing()
+```
+
+Once registered, the SDK will:
+1. Monitor for required location permissions to be granted
+2. Fetch geofence data from your Klaviyo account once permission is granted
+3. Register geofences with Android's location services
+4. Automatically create events when users enter or exit geofences
+5. Restore geofences after device reboot (if permissions are still granted)
+
+### Requesting Permissions
+Geofencing requires both foreground and background location permissions. The SDK automatically adds the following
+permissions to your manifest:
+- `ACCESS_FINE_LOCATION` - Required for precise geofence detection
+- `ACCESS_COARSE_LOCATION` - Fallback location permission
+- `ACCESS_BACKGROUND_LOCATION` - Required on Android 10+ for geofences to work when the app is in the background
+- `RECEIVE_BOOT_COMPLETED` - Allows the SDK to restore geofences after device reboot
+
+You are responsible for requesting these permissions from users at runtime according to
+[Android best practices](https://developer.android.com/develop/sensors-and-location/location/permissions).
+The SDK will automatically start monitoring geofences once sufficient permissions are granted, and will stop
+monitoring if permissions are revoked.
+
+> **Note:** Background location permission (`ACCESS_BACKGROUND_LOCATION`) requires a separate permission request
+> on Android 10+. Users must select "Allow all the time" for geofences to function when the app is not in use.
+> See [Android documentation](https://developer.android.com/develop/sensors-and-location/location/permissions#background)
+> for guidance on requesting background location permission.
+
+### Unregistering from Geofencing
+If you need to stop monitoring geofences, you may call:
+
+```kotlin
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.location.unregisterGeofencing
+
+Klaviyo.unregisterGeofencing()
+```
+
+This removes all geofences from Android's location services and stops monitoring for permission changes.
 
 ## Deep Linking
 Klaviyo [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a
