@@ -4,6 +4,7 @@ import android.net.Uri
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
@@ -24,6 +25,7 @@ import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
+import com.klaviyo.core.utils.takeIf
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -69,6 +71,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private val flushIntervalOffline = 30_000L
     private val queueDepth = 10
     private var postedJob: KlaviyoApiClient.NetworkRunnable? = null
+    private val mockQueueScheduler = mockk<QueueScheduler>(relaxed = true)
 
     private companion object {
         private val slotOnActivityEvent = slot<ActivityObserver>()
@@ -107,6 +110,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
             true
         }
 
+        // Register mock QueueScheduler to prevent actual WorkManager operations
+        Registry.register<QueueScheduler>(mockQueueScheduler)
+
         KlaviyoApiClient.startService()
     }
 
@@ -116,13 +122,14 @@ internal class KlaviyoApiClientTest : BaseTest() {
         Dispatchers.resetMain()
 
         spyDataStore.clear(KlaviyoApiClient.QUEUE_KEY)
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         assertEquals(0, KlaviyoApiClient.getQueueSize())
         super.cleanup()
         unmockkObject(KlaviyoApiClient)
         unmockkObject(KlaviyoApiRequestDecoder)
         unmockDeviceProperties()
         unmockkStatic(DeviceProperties::buildEventMetaData)
+        Registry.unregister<QueueScheduler>()
     }
 
     private fun mockRequest(
@@ -277,10 +284,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Enqueueing a dollar-prefixed metric flushes the queue immediately`() {
-        mockkConstructor(EventApiRequest::class)
-        every { anyConstructed<EventApiRequest>().send(any()) } returns KlaviyoApiRequest.Status.Complete
-
+    fun `Enqueueing a dollar-prefixed metric schedules queue flush via WorkManager`() {
         // Test with various internal metrics (those starting with $)
         val internalMetrics = listOf(
             EventMetric.OPENED_PUSH,
@@ -289,18 +293,15 @@ internal class KlaviyoApiClientTest : BaseTest() {
             EventMetric.CUSTOM("\$any_internal_metric")
         )
 
-        internalMetrics.forEach { metric ->
+        internalMetrics.forEachIndexed { index, metric ->
             KlaviyoApiClient.enqueueEvent(
                 Event(metric),
                 Profile().setAnonymousId(ANON_ID)
             )
 
-            // Verify queue was flushed immediately for this internal metric
-            verify { anyConstructed<EventApiRequest>().send(any()) }
-            assertEquals(0, KlaviyoApiClient.getQueueSize())
+            // Verify scheduleFlush was called for each Klaviyo metric event
+            verify(exactly = index + 1) { mockQueueScheduler.scheduleFlush() }
         }
-
-        unmockkConstructor(EventApiRequest::class)
     }
 
     @Test
@@ -462,7 +463,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         KlaviyoApiClient.enqueueRequest(requestMock)
 
-        staticClock.execute(flushIntervalWifi.toLong())
+        staticClock.execute(flushIntervalWifi)
 
         postedJob!!.run()
 
@@ -491,6 +492,43 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.flushQueue()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Flush queue with outcome reports Complete if all requests send`() = runTest {
+        // Enqueue a request that will complete successfully
+        val request = mockRequest(
+            "complete-uuid",
+            KlaviyoApiRequest.Status.Complete
+        )
+        KlaviyoApiClient.enqueueRequest(request)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+
+        assert(outcome is FlushOutcome.Complete)
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        assertNull(spyDataStore.fetch("complete-uuid"))
+    }
+
+    @Test
+    fun `Flush queue with outcome reports Incomplete when rate limit is hit`() = runTest {
+        // Enqueue a request that will complete successfully
+        val request = mockRequest(
+            "incomplete-uuid",
+            KlaviyoApiRequest.Status.PendingRetry
+        )
+        every { request.computeRetryInterval() } returns 1234
+
+        KlaviyoApiClient.enqueueRequest(request)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+
+        assert(outcome is FlushOutcome.Incomplete)
+        assertEquals(1234L, outcome.takeIf<FlushOutcome.Incomplete>()?.retryAfter)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(request.toJson().toString(), spyDataStore.fetch("incomplete-uuid"))
     }
 
     @Test
@@ -737,7 +775,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         spyDataStore.store("mock_uuid1", mockRequest("mock_uuid1").toString())
         spyDataStore.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(2, KlaviyoApiClient.getQueueSize())
@@ -748,7 +786,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     fun `Handles bad JSON queue gracefully`() {
         spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, "{}") // Bad JSON, isn't an array as expected
 
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
@@ -768,7 +806,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         spyDataStore.store("mock_uuid1", "{/}") // bad JSON!
         spyDataStore.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
@@ -1052,5 +1090,40 @@ internal class KlaviyoApiClientTest : BaseTest() {
             else -> FetchGeofencesResult.Failure
         }
         every { anyConstructed<FetchGeofencesRequest>().uuid } returns "mock_fetch_geofences_uuid"
+    }
+
+    @Test
+    fun `Klaviyo metric events trigger WorkManager queue flush`() {
+        // Create a Klaviyo metric event (starts with $)
+        val klaviyoEvent = Event(EventMetric.OPENED_PUSH, mapOf())
+        val profile = Profile(mapOf(ProfileKey.EMAIL to "test@example.com"))
+
+        // Enqueue the Klaviyo metric event
+        KlaviyoApiClient.enqueueEvent(klaviyoEvent, profile)
+
+        // Verify that scheduleFlush was called for the Klaviyo metric
+        verify(exactly = 1) { mockQueueScheduler.scheduleFlush() }
+
+        // Now test with a non-Klaviyo metric event
+        val customEvent = Event(EventMetric.CUSTOM("CustomEvent"), mapOf())
+
+        // Enqueue the custom event
+        KlaviyoApiClient.enqueueEvent(customEvent, profile)
+
+        // Verify that scheduleFlush was NOT called again (still just once from the Klaviyo metric)
+        verify(exactly = 1) { mockQueueScheduler.scheduleFlush() }
+    }
+
+    @Test
+    fun `Custom events do not trigger WorkManager queue flush`() {
+        // Create a custom event (does not start with $)
+        val customEvent = Event(EventMetric.CUSTOM("CustomEvent"), mapOf())
+        val profile = Profile(mapOf(ProfileKey.EMAIL to "test@example.com"))
+
+        // Enqueue the custom event
+        KlaviyoApiClient.enqueueEvent(customEvent, profile)
+
+        // Verify that scheduleFlush was NOT called for custom events
+        verify(exactly = 0) { mockQueueScheduler.scheduleFlush() }
     }
 }

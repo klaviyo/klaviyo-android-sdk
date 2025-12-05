@@ -45,6 +45,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         every { connectivityManagerMock.activeNetwork } returns networkMock
         every { connectivityManagerMock.getNetworkCapabilities(null) } returns null
         every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns true
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
 
         mockkConstructor(NetworkRequest.Builder::class)
@@ -102,7 +103,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
 
     @Test
     fun `Network offline if connectivityManager's active network is offline`() {
-        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false
         assert(!KlaviyoNetworkMonitor.isNetworkConnected())
     }
 
@@ -131,20 +132,20 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         assert(netCallbackSlot.isCaptured) // attaching a listener should have initialized the network callback
 
         expectedNetworkConnection = true
-        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns true
         netCallbackSlot.captured.onAvailable(mockk())
 
         expectedNetworkConnection = false
-        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false
         netCallbackSlot.captured.onLost(mockk())
         netCallbackSlot.captured.onUnavailable()
 
         expectedNetworkConnection = true
-        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns true
         netCallbackSlot.captured.onLinkPropertiesChanged(mockk(), mockk())
 
         expectedNetworkConnection = false
-        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false
         netCallbackSlot.captured.onLost(mockk())
 
         assertEquals(5, callCount)
@@ -156,11 +157,11 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         KlaviyoNetworkMonitor // Initialize, which would normally just happen when app launches
         assert(netCallbackSlot.isCaptured)
 
-        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns true
         netCallbackSlot.captured.onAvailable(mockk())
         verify { spyLog.verbose(any()) }
 
-        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns false
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false
         netCallbackSlot.captured.onUnavailable()
         verify { spyLog.verbose(any()) }
     }

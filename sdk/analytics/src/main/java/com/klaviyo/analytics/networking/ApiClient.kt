@@ -12,6 +12,22 @@ import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 typealias ApiObserver = (request: ApiRequest) -> Unit
 
 /**
+ * Reports the outcome of a queue flush operation
+ */
+sealed class FlushOutcome() {
+    /**
+     * No requests remain in queue
+     */
+    object Complete : FlushOutcome()
+
+    /**
+     * Items remain in the queue
+     * Optional [retryAfter] parameter indicates how long to wait to re-attempt
+     */
+    class Incomplete(val retryAfter: Long?) : FlushOutcome()
+}
+
+/**
  * Defines public API of the network coordinator service
  */
 interface ApiClient {
@@ -29,13 +45,21 @@ interface ApiClient {
 
     /**
      * Tell the client to restore its queue from the persistent store engine
+     *
+     * @param forceRestore If true, always restore from persistent store.
+     *                     If false, only restore if not already initialized.
      */
-    fun restoreQueue()
+    fun restoreQueue(forceRestore: Boolean = false)
 
     /**
-     * Tell the client to attempt to flush network request queue now
+     * Tell the client to attempt to flush network request queue in a background thread
      */
     fun flushQueue()
+
+    /**
+     * Flush the queue of API requests and return a status when complete
+     */
+    suspend fun awaitFlushQueueOutcome(): FlushOutcome
 
     /**
      * Queue an API request to save [Profile] data to Klaviyo
