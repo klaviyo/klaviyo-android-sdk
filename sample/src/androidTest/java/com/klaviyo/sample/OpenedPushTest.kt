@@ -14,7 +14,7 @@ import org.junit.Test
 class OpenedPushTest : BaseInstrumentedTest() {
 
     @Test
-    fun `handlePush enqueues Event request for valid Klaviyo intent`() {
+    fun handlePushEnqueuesEventRequestForValidKlaviyoIntent() {
         // Given: A Klaviyo notification intent
         val intent = createKlaviyoNotificationIntent()
 
@@ -27,7 +27,7 @@ class OpenedPushTest : BaseInstrumentedTest() {
     }
 
     @Test
-    fun `handlePush includes opened_push metric in request body`() {
+    fun handlePushIncludesOpenedPushMetricInRequestBody() {
         // Given: A Klaviyo notification intent
         val intent = createKlaviyoNotificationIntent()
 
@@ -48,7 +48,7 @@ class OpenedPushTest : BaseInstrumentedTest() {
     }
 
     @Test
-    fun `handlePush ignores non-Klaviyo intents`() {
+    fun handlePushIgnoresNonKlaviyoIntents() {
         // Given: A non-Klaviyo intent (missing com.klaviyo._k)
         val intent = createNonKlaviyoIntent()
 
@@ -69,7 +69,7 @@ class OpenedPushTest : BaseInstrumentedTest() {
     }
 
     @Test
-    fun `handlePush ignores null intents`() {
+    fun handlePushIgnoresNullIntents() {
         // Given: A null intent
 
         // When: handlePush is called with null
@@ -87,7 +87,7 @@ class OpenedPushTest : BaseInstrumentedTest() {
     }
 
     @Test
-    fun `handlePush includes Klaviyo extras in request`() {
+    fun handlePushIncludesKlaviyoExtrasInRequest() {
         // Given: A Klaviyo notification intent with custom extras
         val customExtras = mapOf(
             "com.klaviyo._k" to """{"m": "CUSTOM_MESSAGE_ID", "c": "CUSTOM_CAMPAIGN"}""",
