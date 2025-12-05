@@ -10,8 +10,7 @@ class KlaviyoGeofenceReceiver : BroadcastReceiver() {
         try {
             Registry.locationManager.handleGeofenceIntent(
                 context.applicationContext,
-                intent,
-                goAsync()
+                intent
             )
         } catch (e: Exception) {
             Registry.log.error("Unexpected error handling geofence transition intent", e)
