@@ -422,9 +422,9 @@ internal object KlaviyoApiClient : ApiClient {
         var retryAfter: Long? = null
 
         while (apiQueue.isNotEmpty()) {
-            val request = apiQueue.poll()
+            val request = apiQueue.poll() ?: continue
 
-            when (request?.sendAndBroadcast()) {
+            when (request.sendAndBroadcast()) {
                 Status.Unsent -> {
                     // Incomplete state: put it back on the queue and break out of serial queue
                     apiQueue.offerFirst(request)
@@ -446,12 +446,10 @@ internal object KlaviyoApiClient : ApiClient {
                     break
                 }
 
-                // These should not strictly be possible...
+                // This should not be possible
                 Status.Inflight -> Registry.log.wtf(
                     "Request state was not updated from Inflight"
                 )
-
-                null -> Registry.log.wtf("Queue contains an empty request")
             }
         }
 
