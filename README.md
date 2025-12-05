@@ -38,7 +38,6 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
 - [Geofencing](#geofencing)
-  - [Prerequisites](#prerequisites-2)
   - [Setup](#setup-2)
   - [Requesting Permissions](#requesting-permissions)
   - [Unregistering from Geofencing](#unregistering-from-geofencing)
@@ -567,8 +566,6 @@ when transitions occur. These events can be used to trigger flows, update profil
 ### Setup
 To begin, call `Klaviyo.registerGeofencing()` after initializing the SDK with your public API key.
 We recommend calling this as early as possible in your application lifecycle, ideally at app launch.
-User permission is not required prior to registering. The SDK will monitor for permission changes 
-and automatically start or stop geofence monitoring as needed.
 
 ```kotlin
 import com.klaviyo.analytics.Klaviyo
@@ -590,21 +587,25 @@ Once registered, the SDK will:
 4. Automatically create events when users enter or exit geofences
 5. Restore geofences after device reboot (if permissions are still granted)
 
+> ℹ️ **Note**: The SDK automatically handles geofence synchronization with your Klaviyo account. 
+> When you add, update, or remove geofences in Klaviyo, the SDK will automatically sync these 
+> changes on the next app launch or when the API key changes.
+
 ### Requesting Permissions
-Geofencing requires both foreground and background location permissions. The SDK automatically adds the following
-permissions to your manifest:
+
+The SDK automatically adds the following manifest permissions:
 - `ACCESS_FINE_LOCATION` - Required for precise geofence detection
-- `ACCESS_COARSE_LOCATION` - Fallback location permission
+- `ACCESS_COARSE_LOCATION` - Required by Android, but the user must grant "Precise" location for geofencing to work.
 - `ACCESS_BACKGROUND_LOCATION` - Required on Android 10+ for geofences to work when the app is in the background
 - `RECEIVE_BOOT_COMPLETED` - Allows the SDK to restore geofences after device reboot
 
-You are responsible for requesting these permissions from users at runtime according to
+You are responsible for requesting runtime permission from users according to
 [Android best practices](https://developer.android.com/develop/sensors-and-location/location/permissions).
-The SDK will automatically start monitoring geofences once sufficient permissions are granted, and will stop
-monitoring if permissions are revoked.
 
-> **Note:** Background location permission (`ACCESS_BACKGROUND_LOCATION`) requires a separate permission request
-> on Android 10+. Users must select "Allow all the time" for geofences to function when the app is not in use.
+> ⚠️ **Important**: Geofencing requires "Allow all the time" and "Precise" location authorization.
+> If the user only grants "Allow only while using the app" or "coarse" permissions, geofencing will not be active.
+> 
+> Background location permission requires a separate permission request on Android 10+.
 > See [Android documentation](https://developer.android.com/develop/sensors-and-location/location/permissions#background)
 > for guidance on requesting background location permission.
 
