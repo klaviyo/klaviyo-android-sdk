@@ -27,7 +27,7 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.core.safeLaunch
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
@@ -356,7 +356,6 @@ internal class KlaviyoLocationManager : LocationManager {
      * @param geofences Full list of geofences (already stored in dataStore)
      */
     @SuppressLint("MissingPermission")
-    // todo suspend for when we fetch the current location
     private suspend fun startSystemMonitoring(geofences: List<KlaviyoGeofence>) {
         // Remove all current geofences from system client first
         stopSystemMonitoring()
@@ -374,13 +373,37 @@ internal class KlaviyoLocationManager : LocationManager {
         }
 
         // Filter to nearest 20 if we have more than 20 geofences
-        // TODO: In Phase 3, integrate with getCurrentLocation() from PR #371 to get precise location
         val geofencesToMonitor = if (geofences.size > 20) {
-            Registry.log.warning(
-                "More than 20 geofences (${geofences.size}), but location-based filtering not yet implemented. " +
-                    "Monitoring first 20 geofences. This will be integrated in Phase 3."
-            )
-            geofences.take(20)
+            // Try to get user location for accurate filtering
+            @SuppressLint("MissingPermission")
+            val location = try {
+                LocationServices.getFusedLocationProviderClient(Registry.config.applicationContext)
+                    .lastLocation
+                    .await()
+            } catch (e: CancellationException) {
+                // Re-throw to preserve coroutine cancellation
+                throw e
+            } catch (e: Exception) {
+                Registry.log.warning("Failed to get location for filtering", e)
+                null
+            }
+
+            if (location != null) {
+                Registry.log.debug(
+                    "Filtering ${geofences.size} geofences to nearest 20 based on location"
+                )
+                GeofenceDistanceCalculator.filterToNearest(
+                    geofences,
+                    location.latitude,
+                    location.longitude,
+                    limit = 20
+                )
+            } else {
+                Registry.log.warning(
+                    "Location unavailable, monitoring first 20 of ${geofences.size} geofences"
+                )
+                geofences.take(20)
+            }
         } else {
             geofences
         }

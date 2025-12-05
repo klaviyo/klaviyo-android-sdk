@@ -74,6 +74,7 @@ object GeofenceDistanceCalculator {
             return emptyList()
         }
 
+        // If we have fewer geofences than the limit, still sort them but skip the take() call
         // Calculate distance for each geofence and sort by distance
         return geofences
             .map { geofence ->
@@ -86,7 +87,9 @@ object GeofenceDistanceCalculator {
                 geofence to distance
             }
             .sortedBy { (_, distance) -> distance }
-            .take(limit)
+            .let { sorted ->
+                if (sorted.size <= limit) sorted else sorted.take(limit)
+            }
             .map { (geofence, _) -> geofence }
     }
 }

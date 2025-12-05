@@ -686,7 +686,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `startMonitoring adds all stored geofences to GeofencingClient in one batch`() {
+    fun `startMonitoring adds all stored geofences to GeofencingClient in one batch`() = runTest {
         // Store multiple geofences
         mockStoredFences(stubNYC, stubLondon)
 
@@ -699,6 +699,9 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         every { mockPermissionMonitor.permissionState } returns true
         observer(true)
+
+        // Wait for coroutines to complete
+        advanceUntilIdle()
 
         // Verify addGeofences was called once with a batch of all geofences
         verify(exactly = 1) {
@@ -803,12 +806,18 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         every { mockPermissionMonitor.permissionState } returns true
         locationManager.startGeofenceMonitoring()
 
+        // Wait for initial monitoring to complete
+        advanceUntilIdle()
+
         // Should have added geofences initially
         verify(atLeast = 1) { mockGeofencingClient.addGeofences(any(), mockPendingIntent) }
 
         // Clear previous calls and trigger fetch
         clearMocks(mockGeofencingClient, answers = false)
         mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
+
+        // Wait for fetch and re-monitoring to complete
+        advanceUntilIdle()
 
         // Verify stored geofences were replaced
         val stored = locationManager.getStoredGeofences()
@@ -1428,22 +1437,28 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `handleBootEvent successfully restores geofences when all conditions met`() {
+    fun `handleBootEvent successfully restores geofences when all conditions met`() = runTest {
         mockStoredFences(stubNYC, stubLondon)
         setupBootEventMocks()
 
         locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Wait for coroutines to complete
+        advanceUntilIdle()
 
         // Verify geofences were re-registered with the system
         verify(exactly = 1) { mockGeofencingClient.addGeofences(any(), any()) }
     }
 
     @Test
-    fun `handleBootEvent restores correct number of geofences`() {
+    fun `handleBootEvent restores correct number of geofences`() = runTest {
         mockStoredFences(stubNYC, stubLondon)
         setupBootEventMocks()
 
         locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Wait for coroutines to complete
+        advanceUntilIdle()
 
         // Verify all geofences were added in a single batch
         verify(exactly = 1) {
@@ -1457,11 +1472,14 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `handleBootEvent restores geofences with correct properties`() {
+    fun `handleBootEvent restores geofences with correct properties`() = runTest {
         mockStoredFences(stubNYC)
         setupBootEventMocks()
 
         locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Wait for coroutines to complete
+        advanceUntilIdle()
 
         // Verify geofence was added with correct properties
         verify(exactly = 1) {
@@ -1479,7 +1497,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `handleBootEvent initializes SDK from cold launch when Config not registered`() {
+    fun `handleBootEvent initializes SDK from cold launch when Config not registered`() = runTest {
         // Seed the data store fixture with some mock fence JSON
         mockStoredFences(stubNYC, stubLondon)
 
@@ -1496,6 +1514,9 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         // This will trigger lazy initialization when geofences are restored
         val coldLaunchManager = KlaviyoLocationManager()
         coldLaunchManager.restoreGeofencesOnBoot(mockContext)
+
+        // Wait for coroutines to complete
+        advanceUntilIdle()
 
         // Verify SDK initialization was called FIRST to set up Config
         verify(exactly = 1) { Klaviyo.registerForLifecycleCallbacks(mockContext) }
