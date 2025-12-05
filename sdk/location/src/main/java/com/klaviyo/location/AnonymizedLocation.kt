@@ -26,31 +26,45 @@ data class AnonymizedLocation(
         private const val ROUNDING_INCREMENT = 0.145
 
         /**
+         * Valid range for latitude coordinates.
+         */
+        private const val MIN_LATITUDE = -90.0
+        private const val MAX_LATITUDE = 90.0
+
+        /**
+         * Valid range for longitude coordinates.
+         */
+        private const val MIN_LONGITUDE = -180.0
+        private const val MAX_LONGITUDE = 180.0
+
+        /**
          * Create an anonymized location from an Android Location object.
          * Rounds latitude and longitude to nearest 0.145 degrees (~10 mile precision).
+         * Clamps coordinates to valid geographic ranges.
          *
          * @param location The precise location to anonymize
-         * @return AnonymizedLocation with rounded coordinates
+         * @return AnonymizedLocation with rounded and clamped coordinates
          */
         fun fromLocation(location: Location): AnonymizedLocation {
             return AnonymizedLocation(
-                latitude = roundToIncrement(location.latitude),
-                longitude = roundToIncrement(location.longitude)
+                latitude = clampLatitude(roundToIncrement(location.latitude)),
+                longitude = clampLongitude(roundToIncrement(location.longitude))
             )
         }
 
         /**
          * Create an anonymized location from raw coordinates.
          * Rounds latitude and longitude to nearest 0.145 degrees (~10 mile precision).
+         * Clamps coordinates to valid geographic ranges.
          *
          * @param latitude The precise latitude
          * @param longitude The precise longitude
-         * @return AnonymizedLocation with rounded coordinates
+         * @return AnonymizedLocation with rounded and clamped coordinates
          */
         fun fromCoordinates(latitude: Double, longitude: Double): AnonymizedLocation {
             return AnonymizedLocation(
-                latitude = roundToIncrement(latitude),
-                longitude = roundToIncrement(longitude)
+                latitude = clampLatitude(roundToIncrement(latitude)),
+                longitude = clampLongitude(roundToIncrement(longitude))
             )
         }
 
@@ -65,6 +79,28 @@ data class AnonymizedLocation(
          */
         private fun roundToIncrement(value: Double): Double {
             return (value / ROUNDING_INCREMENT).roundToInt() * ROUNDING_INCREMENT
+        }
+
+        /**
+         * Clamp latitude to valid geographic range [-90.0, 90.0].
+         * Prevents invalid coordinates at geographic poles where rounding can exceed bounds.
+         *
+         * @param latitude The latitude value to clamp
+         * @return Latitude clamped to valid range
+         */
+        private fun clampLatitude(latitude: Double): Double {
+            return latitude.coerceIn(MIN_LATITUDE, MAX_LATITUDE)
+        }
+
+        /**
+         * Clamp longitude to valid geographic range [-180.0, 180.0].
+         * Prevents invalid coordinates where rounding can exceed bounds.
+         *
+         * @param longitude The longitude value to clamp
+         * @return Longitude clamped to valid range
+         */
+        private fun clampLongitude(longitude: Double): Double {
+            return longitude.coerceIn(MIN_LONGITUDE, MAX_LONGITUDE)
         }
     }
 }

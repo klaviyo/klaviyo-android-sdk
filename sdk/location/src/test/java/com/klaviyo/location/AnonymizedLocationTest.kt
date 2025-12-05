@@ -107,20 +107,22 @@ class AnonymizedLocationTest {
     }
 
     @Test
-    fun `handles coordinates at poles`() {
+    fun `handles coordinates at poles with clamping`() {
         // 90.0 / 0.145 = 620.69, rounds to 621, 621 * 0.145 = 90.045
-        // -90.0 / 0.145 = -620.69, rounds to -621, -621 * 0.145 = -90.045
+        // BUT 90.045 exceeds valid latitude range, so it's clamped to 90.0
+        // Same for south pole: -90.045 clamped to -90.0
         val northPole = AnonymizedLocation.fromCoordinates(90.0, 0.0)
         val southPole = AnonymizedLocation.fromCoordinates(-90.0, 0.0)
 
-        assertEquals(90.045, northPole.latitude, 0.01)
-        assertEquals(-90.045, southPole.latitude, 0.01)
+        assertEquals(90.0, northPole.latitude, 0.01)
+        assertEquals(-90.0, southPole.latitude, 0.01)
     }
 
     @Test
-    fun `handles coordinates at international date line`() {
+    fun `handles coordinates at international date line with clamping`() {
         // 180.0 / 0.145 = 1241.38, rounds to 1241, 1241 * 0.145 = 179.945
         // -180.0 / 0.145 = -1241.38, rounds to -1241, -1241 * 0.145 = -179.945
+        // Both remain within valid longitude range [-180, 180] so no clamping needed
         val east = AnonymizedLocation.fromCoordinates(0.0, 180.0)
         val west = AnonymizedLocation.fromCoordinates(0.0, -180.0)
 
