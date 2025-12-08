@@ -138,7 +138,26 @@ jobs:
             echo "Running instrumented tests on API ${{ matrix.api-level }}"
             adb install apks/sample-debug.apk
             adb install -t apks/sample-debug-androidTest.apk
-            adb shell am instrument -w -e class com.klaviyo.sample.OpenedPushTest com.klaviyo.sample.test/androidx.test.runner.AndroidJUnitRunner
+
+            # Create directory for test results
+            mkdir -p test-results
+
+            # Run tests and capture output
+            # -r flag gives raw output, -e log true enables logging
+            adb shell am instrument -w -r \
+              -e class com.klaviyo.sample.OpenedPushTest \
+              com.klaviyo.sample.test/androidx.test.runner.AndroidJUnitRunner \
+              2>&1 | tee test-results/test-output.txt
+
+            # Check for test failures in output
+            if grep -q "FAILURES\!" test-results/test-output.txt || grep -q "Error" test-results/test-output.txt; then
+              echo "::error::Tests failed! See output above."
+              exit 1
+            fi
+
+            # Also pull any on-device test results if available
+            adb pull /sdcard/Android/data/com.klaviyo.sample.test/files/ test-results/ 2>/dev/null || true
+
             echo "Instrumented tests completed"
 
       - name: Upload test results
@@ -146,8 +165,7 @@ jobs:
         if: always()
         with:
           name: test-results-api-${{ matrix.api-level }}-${{ matrix.arch }}
-          path: |
-            apks/
+          path: test-results/
           retention-days: 7
 
       - name: Send Slack notification on push failure
