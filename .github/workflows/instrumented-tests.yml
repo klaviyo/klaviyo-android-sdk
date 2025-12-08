@@ -143,15 +143,106 @@ jobs:
             mkdir -p test-results
 
             # Run tests and capture output
-            adb shell am instrument -w -r -e class com.klaviyo.sample.OpenedPushTest com.klaviyo.sample.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tee test-results/test-output.txt
-
-            # Check for test failures in output (FAILURES! indicates test failures)
-            if grep -q "FAILURES" test-results/test-output.txt; then echo "::error::Tests failed! See output above."; exit 1; fi
+            adb shell am instrument -w -r -e class com.klaviyo.sample.OpenedPushTest com.klaviyo.sample.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tee test-results/raw-output.txt
 
             # Also pull any on-device test results if available
             adb pull /sdcard/Android/data/com.klaviyo.sample.test/files/ test-results/ 2>/dev/null || true
 
             echo "Instrumented tests completed"
+
+      - name: Parse test results
+        if: always()
+        run: |
+          # Parse raw instrumentation output into human-readable format
+          python3 << 'PARSER'
+          import os
+          import re
+          import sys
+
+          raw_file = "test-results/raw-output.txt"
+          summary_file = "test-results/test-summary.txt"
+          api_level = "${{ matrix.api-level }}"
+          github_summary_file = os.environ.get('GITHUB_STEP_SUMMARY', '')
+
+          try:
+              with open(raw_file, 'r') as f:
+                  raw_output = f.read()
+          except FileNotFoundError:
+              print("No test output found")
+              sys.exit(0)
+
+          # Parse test results from raw output
+          tests = []
+          current_test = {}
+
+          for line in raw_output.split('\n'):
+              if 'INSTRUMENTATION_STATUS: test=' in line:
+                  current_test['name'] = line.split('=', 1)[1].strip()
+              elif 'INSTRUMENTATION_STATUS: class=' in line:
+                  current_test['class'] = line.split('=', 1)[1].strip()
+              elif 'INSTRUMENTATION_STATUS_CODE:' in line:
+                  code = line.split(':')[1].strip()
+                  if current_test.get('name'):
+                      # Code 1 = test starting, 0 = passed, -1/-2 = failed/error
+                      if code == '0':
+                          current_test['status'] = 'PASSED'
+                          tests.append(current_test.copy())
+                      elif code not in ['1']:  # 1 is "test starting"
+                          current_test['status'] = 'FAILED'
+                          tests.append(current_test.copy())
+                      current_test = {}
+              elif 'INSTRUMENTATION_STATUS: stack=' in line:
+                  current_test['error'] = line.split('=', 1)[1].strip()
+
+          # Count results
+          passed = sum(1 for t in tests if t.get('status') == 'PASSED')
+          failed = sum(1 for t in tests if t.get('status') == 'FAILED')
+          total = passed + failed
+
+          # Generate summary
+          summary_lines = []
+          summary_lines.append(f"Test Results - API {api_level}")
+          summary_lines.append("=" * 40)
+          summary_lines.append(f"Total: {total} | Passed: {passed} | Failed: {failed}")
+          summary_lines.append("")
+
+          for test in tests:
+              status_icon = "✓" if test.get('status') == 'PASSED' else "✗"
+              class_name = test.get('class', '').split('.')[-1]
+              summary_lines.append(f"  {status_icon} {class_name}.{test.get('name', 'unknown')}")
+              if test.get('error'):
+                  summary_lines.append(f"      Error: {test['error'][:100]}...")
+
+          summary_lines.append("")
+          summary_lines.append("=" * 40)
+          summary_lines.append("PASSED" if failed == 0 else "FAILED")
+
+          summary = '\n'.join(summary_lines)
+          print(summary)
+
+          # Write summary file
+          with open(summary_file, 'w') as f:
+              f.write(summary)
+
+          # Write GitHub job summary
+          if github_summary_file:
+              with open(github_summary_file, 'a') as f:
+                  f.write(f"## Instrumented Tests - API {api_level}\n\n")
+                  if failed == 0:
+                      f.write(f"✅ **All {total} tests passed**\n\n")
+                  else:
+                      f.write(f"❌ **{failed} of {total} tests failed**\n\n")
+                  f.write("| Status | Test |\n")
+                  f.write("|--------|------|\n")
+                  for test in tests:
+                      status = "✅" if test.get('status') == 'PASSED' else "❌"
+                      class_name = test.get('class', '').split('.')[-1]
+                      f.write(f"| {status} | `{class_name}.{test.get('name', 'unknown')}` |\n")
+                  f.write("\n")
+
+          # Exit with failure if any tests failed
+          sys.exit(1 if failed > 0 else 0)
+          PARSER
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
