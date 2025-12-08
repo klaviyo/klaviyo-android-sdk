@@ -75,7 +75,8 @@ jobs:
       matrix:
         include:
           # TODO: API 23 disabled due to WorkManager CoroutineWorker.getForegroundInfo crash
-          # See: https://github.com/klaviyo/klaviyo-android-sdk/pull/370
+          # The SDK's KlaviyoWorker extends CoroutineWorker which requires getForegroundInfo()
+          # implementation for expedited work on API < 31. This needs SDK changes to support.
           # - api-level: 23
           #   arch: x86
           - api-level: 36
@@ -156,7 +157,6 @@ jobs:
           # Parse raw instrumentation output into human-readable format
           python3 << 'PARSER'
           import os
-          import re
           import sys
 
           raw_file = "test-results/raw-output.txt"
@@ -168,14 +168,22 @@ jobs:
               with open(raw_file, 'r') as f:
                   raw_output = f.read()
           except FileNotFoundError:
-              print("No test output found")
-              sys.exit(0)
+              print("::error::No test output found - tests may not have run")
+              sys.exit(1)
 
           # Parse test results from raw output
           tests = []
           current_test = {}
+          in_stack_trace = False
+          stack_lines = []
 
           for line in raw_output.split('\n'):
+              # End stack trace capture when we see a new INSTRUMENTATION_STATUS
+              if in_stack_trace and 'INSTRUMENTATION_STATUS' in line:
+                  current_test['error'] = '\n'.join(stack_lines)
+                  in_stack_trace = False
+                  stack_lines = []
+
               if 'INSTRUMENTATION_STATUS: test=' in line:
                   current_test['name'] = line.split('=', 1)[1].strip()
               elif 'INSTRUMENTATION_STATUS: class=' in line:
@@ -192,12 +200,22 @@ jobs:
                           tests.append(current_test.copy())
                       current_test = {}
               elif 'INSTRUMENTATION_STATUS: stack=' in line:
-                  current_test['error'] = line.split('=', 1)[1].strip()
+                  in_stack_trace = True
+                  stack_lines = [line.split('=', 1)[1].strip()]
+              elif in_stack_trace:
+                  stack_lines.append(line)
 
           # Count results
           passed = sum(1 for t in tests if t.get('status') == 'PASSED')
           failed = sum(1 for t in tests if t.get('status') == 'FAILED')
           total = passed + failed
+
+          # Fail if no tests were parsed (indicates parsing error or malformed output)
+          if total == 0:
+              print("::error::No tests were parsed from output - check raw-output.txt for issues")
+              print("Raw output preview:")
+              print(raw_output[:500] if len(raw_output) > 500 else raw_output)
+              sys.exit(1)
 
           # Generate summary
           summary_lines = []
@@ -211,7 +229,10 @@ jobs:
               class_name = test.get('class', '').split('.')[-1]
               summary_lines.append(f"  {status_icon} {class_name}.{test.get('name', 'unknown')}")
               if test.get('error'):
-                  summary_lines.append(f"      Error: {test['error'][:100]}...")
+                  error_first_line = test['error'].split('\n')[0]
+                  if len(error_first_line) > 100:
+                      error_first_line = error_first_line[:100] + "..."
+                  summary_lines.append(f"      Error: {error_first_line}")
 
           summary_lines.append("")
           summary_lines.append("=" * 40)
