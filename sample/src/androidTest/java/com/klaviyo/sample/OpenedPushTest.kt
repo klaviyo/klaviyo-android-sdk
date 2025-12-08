@@ -1,6 +1,7 @@
 package com.klaviyo.sample
 
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,9 +15,32 @@ import org.junit.Test
 class OpenedPushTest : BaseInstrumentedTest() {
 
     @Test
+    fun intentIsRecognizedAsKlaviyoNotification() {
+        // Given: A Klaviyo notification intent
+        val intent = createKlaviyoNotificationIntent()
+
+        // Then: The SDK should recognize this as a Klaviyo notification
+        assertTrue(
+            "Intent should be recognized as Klaviyo notification",
+            intent.isKlaviyoNotificationIntent
+        )
+
+        // Verify the extra is accessible
+        val kExtra = intent.getStringExtra("com.klaviyo._k")
+        assertNotNull("com.klaviyo._k extra should be present", kExtra)
+        assertTrue("com.klaviyo._k extra should not be empty", kExtra?.isNotEmpty() == true)
+    }
+
+    @Test
     fun handlePushEnqueuesEventRequestForValidKlaviyoIntent() {
         // Given: A Klaviyo notification intent
         val intent = createKlaviyoNotificationIntent()
+
+        // Verify the intent is recognized first
+        assertTrue(
+            "Intent should be recognized as Klaviyo notification",
+            intent.isKlaviyoNotificationIntent
+        )
 
         // When: handlePush is called
         Klaviyo.handlePush(intent)
