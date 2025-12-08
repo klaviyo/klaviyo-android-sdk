@@ -52,14 +52,16 @@ jobs:
       - name: Build APKs
         run: |
           ./gradlew :sample:assembleDebug :sample:assembleDebugAndroidTest --no-daemon
+          # Copy APKs to a flat directory for easier artifact handling
+          mkdir -p apks
+          cp sample/build/outputs/apk/debug/sample-debug.apk apks/
+          cp sample/build/outputs/apk/androidTest/debug/sample-debug-androidTest.apk apks/
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: apks
-          path: |
-            sample/build/outputs/apk/debug/sample-debug.apk
-            sample/build/outputs/apk/androidTest/debug/sample-debug-androidTest.apk
+          path: apks/
           retention-days: 1
 
   # Test job - runs on multiple API levels in parallel
