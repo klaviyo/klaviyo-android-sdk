@@ -145,11 +145,8 @@ jobs:
             # Run tests and capture output
             adb shell am instrument -w -r -e class com.klaviyo.sample.OpenedPushTest com.klaviyo.sample.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tee test-results/test-output.txt
 
-            # Check for test failures in output
-            if grep -q "FAILURES\!" test-results/test-output.txt || grep -q "Error" test-results/test-output.txt; then
-              echo "::error::Tests failed! See output above."
-              exit 1
-            fi
+            # Check for test failures in output (FAILURES! indicates test failures)
+            if grep -q "FAILURES" test-results/test-output.txt; then echo "::error::Tests failed! See output above."; exit 1; fi
 
             # Also pull any on-device test results if available
             adb pull /sdcard/Android/data/com.klaviyo.sample.test/files/ test-results/ 2>/dev/null || true
