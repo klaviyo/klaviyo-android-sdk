@@ -42,18 +42,30 @@ class OpenedPushTest : BaseInstrumentedTest() {
             intent.isKlaviyoNotificationIntent
         )
 
+        // Snapshot UUIDs before to verify a NEW request is created
+        val uuidsBefore = getOpenedPushRequestUuids()
+
         // When: handlePush is called
         Klaviyo.handlePush(intent)
 
-        // Then: An Event request should be enqueued
+        // Then: A NEW Event request should be enqueued
         val eventRequest = waitForRequest(EVENT_REQUEST_TYPE)
         assertNotNull("Expected an Event request to be enqueued", eventRequest)
+
+        val newUuids = getOpenedPushRequestUuids() - uuidsBefore
+        assertTrue(
+            "handlePush should create a new opened_push request (found ${newUuids.size} new)",
+            newUuids.isNotEmpty()
+        )
     }
 
     @Test
     fun handlePushIncludesOpenedPushMetricInRequestBody() {
         // Given: A Klaviyo notification intent
         val intent = createKlaviyoNotificationIntent()
+
+        // Snapshot UUIDs before to verify a NEW request is created
+        val uuidsBefore = getOpenedPushRequestUuids()
 
         // When: handlePush is called
         Klaviyo.handlePush(intent)
@@ -68,6 +80,13 @@ class OpenedPushTest : BaseInstrumentedTest() {
         assertTrue(
             "Request body should contain \$opened_push metric",
             requestBody.contains("\$opened_push")
+        )
+
+        // Verify this was a NEW request
+        val newUuids = getOpenedPushRequestUuids() - uuidsBefore
+        assertTrue(
+            "handlePush should create a new opened_push request",
+            newUuids.isNotEmpty()
         )
     }
 
@@ -131,6 +150,9 @@ class OpenedPushTest : BaseInstrumentedTest() {
         )
         val intent = createKlaviyoNotificationIntent(customExtras)
 
+        // Snapshot UUIDs before to verify a NEW request is created
+        val uuidsBefore = getOpenedPushRequestUuids()
+
         // When: handlePush is called
         Klaviyo.handlePush(intent)
 
@@ -147,6 +169,13 @@ class OpenedPushTest : BaseInstrumentedTest() {
         assertTrue(
             "Request should contain _k tracking data",
             requestBody.contains("_k")
+        )
+
+        // Verify this was a NEW request
+        val newUuids = getOpenedPushRequestUuids() - uuidsBefore
+        assertTrue(
+            "handlePush should create a new opened_push request",
+            newUuids.isNotEmpty()
         )
     }
 
