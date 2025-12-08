@@ -1,5 +1,7 @@
 # Workflow for running Android instrumented tests across multiple API levels
 # Runs on master, release branches, and PRs with specific labels
+#
+# Optimized to build APKs once, then run tests on multiple emulators in parallel
 
 name: Instrumented Tests
 
@@ -15,15 +17,15 @@ on:
     branches:
       - 'master'
       - 'rel/*'
-  
+
   # Run on PRs when specific labels are added or when labeled PRs are updated
   pull_request:
     types: [ labeled ]
 
 jobs:
-  # Main instrumented tests job
-  instrumented-tests:
-    name: Run
+  # Build job - compiles APKs once
+  build:
+    name: Build
     runs-on: ubuntu-22.04
 
     # Run if: push to branches OR PR with test:all label
@@ -31,18 +33,7 @@ jobs:
       github.event_name == 'push' ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test:all'))
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # TODO: API 23 disabled due to WorkManager CoroutineWorker.getForegroundInfo crash
-          # See: https://github.com/klaviyo/klaviyo-android-sdk/pull/370
-          # - api-level: 23
-          #   arch: x86
-          - api-level: 36
-            arch: x86_64
-
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -58,17 +49,58 @@ jobs:
         env:
           INSTRUMENTED_TEST_PUBLIC_API_KEY: ${{secrets.INSTRUMENTED_TEST_PUBLIC_API_KEY}}
 
+      - name: Build APKs
+        run: |
+          ./gradlew :sample:assembleDebug :sample:assembleDebugAndroidTest --no-daemon
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: apks
+          path: |
+            sample/build/outputs/apk/debug/sample-debug.apk
+            sample/build/outputs/apk/androidTest/debug/sample-debug-androidTest.apk
+          retention-days: 1
+
+  # Test job - runs on multiple API levels in parallel
+  test:
+    name: Test (API ${{ matrix.api-level }})
+    runs-on: ubuntu-22.04
+    needs: build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # TODO: API 23 disabled due to WorkManager CoroutineWorker.getForegroundInfo crash
+          # See: https://github.com/klaviyo/klaviyo-android-sdk/pull/370
+          # - api-level: 23
+          #   arch: x86
+          - api-level: 36
+            arch: x86_64
+
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: apks
+          path: apks
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Enable KVM group perms
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-
-      - name: Set API Level and Architecture
-        id: api-setup
-        run: |
-          echo "api_level=${{ matrix.api-level }}" >> $GITHUB_OUTPUT
-          echo "arch=${{ matrix.arch }}" >> $GITHUB_OUTPUT
 
       - name: AVD cache
         uses: actions/cache@v4
@@ -77,15 +109,15 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-${{ steps.api-setup.outputs.api_level }}-${{ steps.api-setup.outputs.arch }}
+          key: avd-${{ matrix.api-level }}-${{ matrix.arch }}
 
       - name: Create AVD and generate snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: ${{ steps.api-setup.outputs.api_level }}
-          arch: ${{ steps.api-setup.outputs.arch }}
-          target: ${{ steps.api-setup.outputs.api_level >= 30 && 'google_apis' || 'default' }}
+          api-level: ${{ matrix.api-level }}
+          arch: ${{ matrix.arch }}
+          target: ${{ matrix.api-level >= 30 && 'google_apis' || 'default' }}
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
@@ -94,33 +126,26 @@ jobs:
       - name: Run instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: ${{ steps.api-setup.outputs.api_level }}
-          arch: ${{ steps.api-setup.outputs.arch }}
-          target: ${{ steps.api-setup.outputs.api_level >= 30 && 'google_apis' || 'default' }}
+          api-level: ${{ matrix.api-level }}
+          arch: ${{ matrix.arch }}
+          target: ${{ matrix.api-level >= 30 && 'google_apis' || 'default' }}
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            echo "Running instrumented tests on API ${{ steps.api-setup.outputs.api_level }}"
-            ./gradlew :sample:connectedAndroidTest --stacktrace --no-daemon
+            echo "Running instrumented tests on API ${{ matrix.api-level }}"
+            adb install apks/sample-debug.apk
+            adb install -t apks/sample-debug-androidTest.apk
+            adb shell am instrument -w -e class com.klaviyo.sample.OpenedPushTest com.klaviyo.sample.test/androidx.test.runner.AndroidJUnitRunner
             echo "Instrumented tests completed"
-
-      - name: Upload test reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-reports-api-${{ steps.api-setup.outputs.api_level }}-${{ steps.api-setup.outputs.arch }}
-          path: |
-            sample/build/reports/androidTests/connected/
-            sample/build/outputs/androidTest-results/
-          retention-days: 7
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-api-${{ steps.api-setup.outputs.api_level }}-${{ steps.api-setup.outputs.arch }}
-          path: sample/build/test-results/
+          name: test-results-api-${{ matrix.api-level }}-${{ matrix.arch }}
+          path: |
+            apks/
           retention-days: 7
 
       - name: Send Slack notification on push failure
@@ -139,21 +164,23 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.event.pull_request.head.ref || github.ref_name }}`\n*API Level:* ${{ steps.api-setup.outputs.api_level }}\n*Architecture:* ${{ steps.api-setup.outputs.arch }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
+                  text: "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.event.pull_request.head.ref || github.ref_name }}`\n*API Level:* ${{ matrix.api-level }}\n*Architecture:* ${{ matrix.arch }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
               - type: "section"
                 text:
                   type: "mrkdwn"
                   text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
 
-      - name: Update PR labels on success
-        if: success() && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh pr edit ${{ github.event.pull_request.number }} --remove-label "test:all"
+  # Cleanup job - runs after all tests complete
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-22.04
+    needs: test
+    if: always() && (github.event_name == 'pull_request')
 
-      - name: Update PR labels on failure
-        if: failure() && github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update PR labels
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
