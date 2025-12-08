@@ -116,9 +116,14 @@ interface ApiClient {
      *
      * Makes an immediate network request to fetch the list of geofences configured for this company.
      *
+     * @param latitude Optional latitude for proximity-based filtering on the backend
+     * @param longitude Optional longitude for proximity-based filtering on the backend
      * @return FetchGeofencesResult containing the list of geofences or error
      */
-    suspend fun fetchGeofences(): FetchGeofencesResult
+    suspend fun fetchGeofences(
+        latitude: Double? = null,
+        longitude: Double? = null
+    ): FetchGeofencesResult
 
     /**
      * Fetch geofences from the Klaviyo backend
@@ -126,9 +131,13 @@ interface ApiClient {
      * Makes an immediate network request to fetch the list of geofences configured for this company.
      * This callback-based implementation is provided for legacy support and Java interoperability
      *
+     * @param latitude Optional latitude for proximity-based filtering on the backend
+     * @param longitude Optional longitude for proximity-based filtering on the backend
      * @param callback Listener to receive success or failure callbacks with raw JSON data, invoked on main thread
      */
     fun fetchGeofences(
+        latitude: Double? = null,
+        longitude: Double? = null,
         callback: FetchGeofencesCallback
     ): ApiRequest
 

@@ -154,4 +154,44 @@ internal class FetchGeofencesRequestTest : BaseApiRequestTest<FetchGeofencesRequ
 
         assert(request.getResult() is FetchGeofencesResult.Failure)
     }
+
+    @Test
+    fun `includes latitude and longitude in query when provided`() {
+        val request = FetchGeofencesRequest(latitude = 40.7128, longitude = -74.006)
+
+        assertEquals("40.7128", request.query["lat"])
+        assertEquals("-74.006", request.query["lng"])
+        assertEquals(API_KEY, request.query["company_id"])
+    }
+
+    @Test
+    fun `excludes latitude and longitude from query when not provided`() {
+        val request = FetchGeofencesRequest()
+
+        assert(!request.query.containsKey("lat"))
+        assert(!request.query.containsKey("lng"))
+        assertEquals(API_KEY, request.query["company_id"])
+    }
+
+    @Test
+    fun `includes only latitude when longitude not provided`() {
+        val request = FetchGeofencesRequest(latitude = 40.7128, longitude = null)
+
+        assertEquals("40.7128", request.query["lat"])
+        assert(!request.query.containsKey("lng"))
+    }
+
+    @Test
+    fun `includes only longitude when latitude not provided`() {
+        val request = FetchGeofencesRequest(latitude = null, longitude = -74.006)
+
+        assert(!request.query.containsKey("lat"))
+        assertEquals("-74.006", request.query["lng"])
+    }
+
+    @Test
+    fun `jSON interoperability with lat lng`() {
+        val requestWithLocation = FetchGeofencesRequest(latitude = 40.7128, longitude = -74.006)
+        testJsonInterop(requestWithLocation)
+    }
 }

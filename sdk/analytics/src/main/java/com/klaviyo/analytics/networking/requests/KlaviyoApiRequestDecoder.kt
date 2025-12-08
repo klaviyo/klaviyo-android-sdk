@@ -32,7 +32,13 @@ internal object KlaviyoApiRequestDecoder {
             )
             AggregateEventApiRequest::class.simpleName -> AggregateEventApiRequest(time, uuid)
             UniversalClickTrackRequest::class.simpleName -> UniversalClickTrackRequest(time, uuid)
-            FetchGeofencesRequest::class.simpleName -> FetchGeofencesRequest(time, uuid)
+            FetchGeofencesRequest::class.simpleName -> {
+                // Extract lat/lng from query if present
+                val queryObj = json.optJSONObject(KlaviyoApiRequest.QUERY_JSON_KEY)
+                val latitude = queryObj?.optString("lat")?.takeIf { it.isNotEmpty() }?.toDoubleOrNull()
+                val longitude = queryObj?.optString("lng")?.takeIf { it.isNotEmpty() }?.toDoubleOrNull()
+                FetchGeofencesRequest(latitude, longitude, time, uuid)
+            }
             else -> KlaviyoApiRequest(urlPath, method, time, uuid)
         }.apply {
             baseUrl = json.optString(URL_JSON_KEY, Registry.config.baseUrl)

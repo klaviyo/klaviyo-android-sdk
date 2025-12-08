@@ -259,10 +259,23 @@ internal class KlaviyoLocationManager : LocationManager {
      * Fetch geofences from the Klaviyo backend using an immediate API call via coroutines.
      * This bypasses the API queue and makes the request right away.
      * On success, parses the JSON response into KlaviyoGeofence objects and saves them locally.
+     *
+     * Includes the user's anonymized location (if available) to enable backend proximity filtering.
      */
     fun fetchGeofences() {
         CoroutineScope(Registry.dispatcher).safeLaunch {
-            val result = Registry.get<ApiClient>().fetchGeofences()
+            // Get anonymized location for backend filtering
+            val anonymizedLocation = getCurrentAnonymizedLocation()
+            anonymizedLocation?.let {
+                Registry.log.debug(
+                    "Fetching geofences with location: lat=${it.latitude}, lng=${it.longitude}"
+                )
+            } ?: Registry.log.debug("Fetching geofences without location data")
+
+            val result = Registry.get<ApiClient>().fetchGeofences(
+                latitude = anonymizedLocation?.latitude,
+                longitude = anonymizedLocation?.longitude
+            )
             when (result) {
                 is FetchGeofencesResult.Success -> {
                     result.data.map {

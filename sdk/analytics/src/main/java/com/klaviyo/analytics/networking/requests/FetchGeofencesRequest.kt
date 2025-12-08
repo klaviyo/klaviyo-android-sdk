@@ -5,21 +5,32 @@ import org.json.JSONObject
 
 /**
  * Makes an HTTP request to fetch geofences from the Klaviyo backend
+ *
+ * @param latitude Optional latitude for proximity-based filtering on the backend
+ * @param longitude Optional longitude for proximity-based filtering on the backend
+ * @param queuedTime Timestamp when the request was queued (for persistence)
+ * @param uuid Unique identifier for the request (for persistence)
  */
 internal class FetchGeofencesRequest(
+    private val latitude: Double? = null,
+    private val longitude: Double? = null,
     queuedTime: Long? = null,
     uuid: String? = null
 ) : KlaviyoApiRequest(PATH, RequestMethod.GET, queuedTime, uuid) {
 
     companion object {
         private const val PATH = "client/geofences"
+        private const val LAT = "lat"
+        private const val LNG = "lng"
     }
 
     override val type: String = "Fetch Geofences"
 
-    override var query: Map<String, String> = mapOf(
-        COMPANY_ID to Registry.config.apiKey
-    )
+    override var query: Map<String, String> = buildMap {
+        put(COMPANY_ID, Registry.config.apiKey)
+        latitude?.let { put(LAT, it.toString()) }
+        longitude?.let { put(LNG, it.toString()) }
+    }
 
     /**
      * Only attempt initial request once, no retries
