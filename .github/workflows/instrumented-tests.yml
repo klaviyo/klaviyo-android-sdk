@@ -35,8 +35,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - api-level: 23
-            arch: x86
+          # TODO: API 23 disabled due to WorkManager CoroutineWorker.getForegroundInfo crash
+          # See: https://github.com/klaviyo/klaviyo-android-sdk/pull/370
+          # - api-level: 23
+          #   arch: x86
           - api-level: 36
             arch: x86_64
 

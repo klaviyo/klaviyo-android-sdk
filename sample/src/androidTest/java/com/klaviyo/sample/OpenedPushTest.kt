@@ -76,39 +76,48 @@ class OpenedPushTest : BaseInstrumentedTest() {
         // Given: A non-Klaviyo intent (missing com.klaviyo._k)
         val intent = createNonKlaviyoIntent()
 
+        // Record count before - events from previous tests may still be in the queue
+        val countBefore = countOpenedPushRequests()
+
         // When: handlePush is called
         Klaviyo.handlePush(intent)
 
-        // Then: No Event request should be enqueued for this specific call
+        // Then: No NEW Event request should be enqueued for this specific call
         // Note: We use a short timeout since we expect no request
         waitForRequest(EVENT_REQUEST_TYPE, timeoutMs = 1000L)
 
-        // We check that we didn't add new opened_push event requests after our call
-        val openedPushRequests = getCapturedRequests(EVENT_REQUEST_TYPE)
-            .filter { it.requestBody?.contains("\$opened_push") == true }
+        val countAfter = countOpenedPushRequests()
         assertTrue(
-            "Non-Klaviyo intent should not enqueue an opened_push Event request",
-            openedPushRequests.isEmpty()
+            "Non-Klaviyo intent should not enqueue an opened_push Event request (before: $countBefore, after: $countAfter)",
+            countAfter == countBefore
         )
     }
 
     @Test
     fun handlePushIgnoresNullIntents() {
-        // Given: A null intent
+        // Record count before - events from previous tests may still be in the queue
+        val countBefore = countOpenedPushRequests()
 
         // When: handlePush is called with null
         Klaviyo.handlePush(null)
 
-        // Then: No Event request should be enqueued
+        // Then: No NEW Event request should be enqueued
         waitForRequest(EVENT_REQUEST_TYPE, timeoutMs = 1000L)
-        val openedPushRequests = getCapturedRequests(EVENT_REQUEST_TYPE)
-            .filter { it.requestBody?.contains("\$opened_push") == true }
 
+        val countAfter = countOpenedPushRequests()
         assertTrue(
-            "Null intent should not enqueue an opened_push Event request",
-            openedPushRequests.isEmpty()
+            "Null intent should not enqueue an opened_push Event request (before: $countBefore, after: $countAfter)",
+            countAfter == countBefore
         )
     }
+
+    /**
+     * Counts the number of opened_push Event requests currently captured.
+     * Used to verify that no NEW requests were added during a test.
+     */
+    private fun countOpenedPushRequests(): Int =
+        getCapturedRequests(EVENT_REQUEST_TYPE)
+            .count { it.requestBody?.contains("\$opened_push") == true }
 
     @Test
     fun handlePushIncludesKlaviyoExtrasInRequest() {
