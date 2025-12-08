@@ -143,11 +143,7 @@ jobs:
             mkdir -p test-results
 
             # Run tests and capture output
-            # -r flag gives raw output, -e log true enables logging
-            adb shell am instrument -w -r \
-              -e class com.klaviyo.sample.OpenedPushTest \
-              com.klaviyo.sample.test/androidx.test.runner.AndroidJUnitRunner \
-              2>&1 | tee test-results/test-output.txt
+            adb shell am instrument -w -r -e class com.klaviyo.sample.OpenedPushTest com.klaviyo.sample.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tee test-results/test-output.txt
 
             # Check for test failures in output
             if grep -q "FAILURES\!" test-results/test-output.txt || grep -q "Error" test-results/test-output.txt; then
