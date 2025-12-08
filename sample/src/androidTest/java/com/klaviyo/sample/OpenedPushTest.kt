@@ -46,7 +46,7 @@ class OpenedPushTest : BaseInstrumentedTest() {
         Klaviyo.handlePush(intent)
 
         // Then: An Event request should be enqueued
-        val eventRequest = waitForRequest("Event")
+        val eventRequest = waitForRequest(EVENT_REQUEST_TYPE)
         assertNotNull("Expected an Event request to be enqueued", eventRequest)
     }
 
@@ -59,7 +59,7 @@ class OpenedPushTest : BaseInstrumentedTest() {
         Klaviyo.handlePush(intent)
 
         // Then: The request body should contain the $opened_push metric
-        val eventRequest = requireNotNull(waitForRequest("Event")) {
+        val eventRequest = requireNotNull(waitForRequest(EVENT_REQUEST_TYPE)) {
             "Expected an Event request to be enqueued"
         }
         val requestBody = requireNotNull(eventRequest.requestBody) {
@@ -81,10 +81,10 @@ class OpenedPushTest : BaseInstrumentedTest() {
 
         // Then: No Event request should be enqueued for this specific call
         // Note: We use a short timeout since we expect no request
-        waitForRequest("Event", timeoutMs = 1000L)
+        waitForRequest(EVENT_REQUEST_TYPE, timeoutMs = 1000L)
 
         // We check that we didn't add new opened_push event requests after our call
-        val openedPushRequests = getCapturedRequests("Event")
+        val openedPushRequests = getCapturedRequests(EVENT_REQUEST_TYPE)
             .filter { it.requestBody?.contains("\$opened_push") == true }
         assertTrue(
             "Non-Klaviyo intent should not enqueue an opened_push Event request",
@@ -100,8 +100,8 @@ class OpenedPushTest : BaseInstrumentedTest() {
         Klaviyo.handlePush(null)
 
         // Then: No Event request should be enqueued
-        waitForRequest("Event", timeoutMs = 1000L)
-        val openedPushRequests = getCapturedRequests("Event")
+        waitForRequest(EVENT_REQUEST_TYPE, timeoutMs = 1000L)
+        val openedPushRequests = getCapturedRequests(EVENT_REQUEST_TYPE)
             .filter { it.requestBody?.contains("\$opened_push") == true }
 
         assertTrue(
@@ -124,7 +124,7 @@ class OpenedPushTest : BaseInstrumentedTest() {
         Klaviyo.handlePush(intent)
 
         // Then: The request should contain the Klaviyo extras
-        val eventRequest = requireNotNull(waitForRequest("Event")) {
+        val eventRequest = requireNotNull(waitForRequest(EVENT_REQUEST_TYPE)) {
             "Expected an Event request to be enqueued"
         }
         val requestBody = requireNotNull(eventRequest.requestBody) {
@@ -137,5 +137,13 @@ class OpenedPushTest : BaseInstrumentedTest() {
             "Request should contain _k tracking data",
             requestBody.contains("_k")
         )
+    }
+
+    companion object {
+        /**
+         * The request type string for Event API requests.
+         * This matches the `type` property in [EventApiRequest].
+         */
+        private const val EVENT_REQUEST_TYPE = "Create Event"
     }
 }
