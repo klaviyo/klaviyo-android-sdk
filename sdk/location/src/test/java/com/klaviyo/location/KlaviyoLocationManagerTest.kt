@@ -4,6 +4,8 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.location.Location
+import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingEvent
@@ -912,19 +914,19 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         mockkStatic("kotlinx.coroutines.tasks.TasksKt")
 
         // Create a mock Location to return
-        val mockLocation = mockk<android.location.Location>(relaxed = true).apply {
+        val mockLocation = mockk<Location>(relaxed = true).apply {
             every { latitude } returns NYC_LAT
             every { longitude } returns NYC_LNG
         }
 
         // Create mock FusedLocationProviderClient and Task
-        val mockLocationClient = mockk<com.google.android.gms.location.FusedLocationProviderClient>()
-        val mockLocationTask = mockk<Task<android.location.Location>>(relaxed = true)
+        val mockLocationClient = mockk<FusedLocationProviderClient>()
+        val mockLocationTask = mockk<Task<Location>>(relaxed = true)
         every { mockLocationClient.lastLocation } returns mockLocationTask
 
         // Mock the await() extension function on Task to return the location
         coEvery {
-            any<Task<android.location.Location>>().await()
+            any<Task<Location>>().await()
         } returns mockLocation
 
         // Mock LocationServices to return our mock client
@@ -985,13 +987,13 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         mockkStatic("kotlinx.coroutines.tasks.TasksKt")
 
         // Create mock FusedLocationProviderClient that throws exception (location unavailable)
-        val mockLocationClient = mockk<com.google.android.gms.location.FusedLocationProviderClient>()
-        val mockLocationTask = mockk<Task<android.location.Location>>(relaxed = true)
+        val mockLocationClient = mockk<FusedLocationProviderClient>()
+        val mockLocationTask = mockk<Task<Location>>(relaxed = true)
         every { mockLocationClient.lastLocation } returns mockLocationTask
 
         // Mock await() to throw exception (simulating location unavailable)
         coEvery {
-            any<Task<android.location.Location>>().await()
+            any<Task<Location>>().await()
         } throws Exception("Location unavailable")
 
         // Mock LocationServices to return our mock client
