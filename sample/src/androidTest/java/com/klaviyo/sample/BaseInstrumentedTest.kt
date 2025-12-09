@@ -77,10 +77,11 @@ abstract class BaseInstrumentedTest {
         }
 
         // Register observer to capture API requests
-        apiObserver = { request: ApiRequest ->
+        val observer: ApiObserver = { request: ApiRequest ->
             capturedRequests.add(request)
         }
-        Registry.get<ApiClient>().onApiRequest(observer = apiObserver!!)
+        apiObserver = observer
+        Registry.get<ApiClient>().onApiRequest(observer = observer)
     }
 
     @After
