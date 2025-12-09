@@ -24,7 +24,7 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.core.safeLaunch
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
@@ -136,7 +136,7 @@ internal class KlaviyoLocationManager : LocationManager {
     override fun startGeofenceMonitoring() {
         cooldownTracker.clean()
         updateSystemMonitoring(Registry.locationPermissionMonitor.permissionState)
-        onGeofenceSync(true, ::startSystemMonitoring)
+        onGeofenceSync(true, ::startSystemMonitoringCallback)
         Registry.locationPermissionMonitor.onPermissionChanged(true, ::updateSystemMonitoring)
     }
 
@@ -147,7 +147,7 @@ internal class KlaviyoLocationManager : LocationManager {
     override fun stopGeofenceMonitoring() {
         stopSystemMonitoring()
         companyObserver.stopObserver()
-        offGeofenceSync(::startSystemMonitoring)
+        offGeofenceSync(::startSystemMonitoringCallback)
         Registry.locationPermissionMonitor.offPermissionChanged(::updateSystemMonitoring)
     }
 
@@ -161,7 +161,9 @@ internal class KlaviyoLocationManager : LocationManager {
             getStoredGeofences().takeIf { geofences ->
                 geofences.isNotEmpty()
             }?.let { geofences ->
-                startSystemMonitoring(geofences)
+                CoroutineScope(Registry.dispatcher).safeLaunch {
+                    startSystemMonitoring(geofences)
+                }
             }
 
             // Start observing company ID changes
@@ -329,10 +331,23 @@ internal class KlaviyoLocationManager : LocationManager {
     }
 
     /**
-     * Add the provided geofences with the to system location service's geofencing client.
+     * Wrapper for startSystemMonitoring that can be used as a callback.
+     * Launches a coroutine to call the suspend function.
+     */
+    private fun startSystemMonitoringCallback(geofences: List<KlaviyoGeofence>) {
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            startSystemMonitoring(geofences)
+        }
+    }
+
+    /**
+     * Add the provided geofences to the system location service's geofencing client.
+     * If there are more than 20 geofences, filters to the nearest 20 based on user's current location.
+     *
+     * @param geofences Full list of geofences (already stored in dataStore)
      */
     @SuppressLint("MissingPermission")
-    private fun startSystemMonitoring(geofences: List<KlaviyoGeofence>) {
+    private suspend fun startSystemMonitoring(geofences: List<KlaviyoGeofence>) {
         // Remove all current geofences from system client first
         stopSystemMonitoring()
 
@@ -348,7 +363,43 @@ internal class KlaviyoLocationManager : LocationManager {
             }
         }
 
-        geofences.map { geofence ->
+        // Filter to nearest 20 if we have more than 20 geofences
+        val geofencesToMonitor = if (geofences.size > 20) {
+            // Try to get user location for accurate filtering
+            @SuppressLint("MissingPermission")
+            val location = try {
+                LocationServices.getFusedLocationProviderClient(Registry.config.applicationContext)
+                    .lastLocation
+                    .await()
+            } catch (e: CancellationException) {
+                // Re-throw to preserve coroutine cancellation
+                throw e
+            } catch (e: Exception) {
+                Registry.log.warning("Failed to get location for filtering", e)
+                null
+            }
+
+            if (location != null) {
+                Registry.log.debug(
+                    "Filtering ${geofences.size} geofences to nearest 20 based on location"
+                )
+                GeofenceDistanceCalculator.filterToNearest(
+                    geofences,
+                    location.latitude,
+                    location.longitude,
+                    limit = 20
+                )
+            } else {
+                Registry.log.warning(
+                    "Location unavailable, monitoring first 20 of ${geofences.size} geofences"
+                )
+                geofences.take(20)
+            }
+        } else {
+            geofences
+        }
+
+        geofencesToMonitor.map { geofence ->
             Geofence.Builder()
                 .setRequestId(geofence.id)
                 .setCircularRegion(
@@ -368,7 +419,12 @@ internal class KlaviyoLocationManager : LocationManager {
             client.addGeofences(geofenceRequest, intent).run {
                 addOnSuccessListener {
                     Registry.log.debug(
-                        "Monitoring ${geofences.size} geofences with system geofencing client"
+                        "Monitoring ${geofencesToMonitor.size} geofences with system geofencing client" +
+                            if (geofences.size > geofencesToMonitor.size) {
+                                " (filtered from ${geofences.size} total)"
+                            } else {
+                                ""
+                            }
                     )
                 }
                 addOnFailureListener {
@@ -490,7 +546,9 @@ internal class KlaviyoLocationManager : LocationManager {
             .takeIf { !it.isEmpty() }
             ?.let { storedGeofences ->
                 Registry.log.info("Restoring ${storedGeofences.size} geofences after boot")
-                startSystemMonitoring(storedGeofences)
+                CoroutineScope(Registry.dispatcher).safeLaunch {
+                    startSystemMonitoring(storedGeofences)
+                }
             }
             ?: run {
                 Registry.log.info("No stored geofences to restore after boot")
