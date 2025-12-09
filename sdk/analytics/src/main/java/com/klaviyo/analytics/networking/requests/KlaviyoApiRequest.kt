@@ -426,8 +426,8 @@ internal open class KlaviyoApiRequest(
 
         status = when (responseCode) {
             in successCodes -> Status.Complete
-            // 429 rate limit, and all 5xx server errors are treated as retryable
-            HTTP_RETRY, in 500..599 -> {
+            // 429 rate limit, and 502-504 gateway errors are treated as retryable
+            HTTP_RETRY, in 502..504 -> {
                 if (attempts < maxAttempts) {
                     Status.PendingRetry
                 } else {

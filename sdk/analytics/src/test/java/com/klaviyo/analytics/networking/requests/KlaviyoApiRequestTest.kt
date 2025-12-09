@@ -699,12 +699,12 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     @Test
-    fun `500 response code returns PendingRetry when under max attempts`() {
+    fun `500 response code returns Failed immediately`() {
         val connectionMock = withConnectionMock(URL(expectedFullUrl))
         every { connectionMock.responseCode } returns 500
 
         val request = makeTestRequest()
-        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
         assertEquals(1, request.attempts)
     }
 
@@ -741,7 +741,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     @Test
     fun `5xx response code after max attempts returns Failed`() {
         val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.responseCode } returns 500
+        every { connectionMock.responseCode } returns 502
 
         val request = makeTestRequest()
 
