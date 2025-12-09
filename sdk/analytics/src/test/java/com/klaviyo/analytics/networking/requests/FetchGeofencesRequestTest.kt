@@ -9,7 +9,10 @@ internal class FetchGeofencesRequestTest : BaseApiRequestTest<FetchGeofencesRequ
 
     override val expectedMethod = RequestMethod.GET
 
-    override val expectedQuery = mapOf("company_id" to API_KEY)
+    override val expectedQuery = mapOf(
+        "company_id" to API_KEY,
+        "page_size" to "20"
+    )
 
     override fun makeTestRequest(): FetchGeofencesRequest = FetchGeofencesRequest()
 

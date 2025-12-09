@@ -22,12 +22,15 @@ internal class FetchGeofencesRequest(
         private const val PATH = "client/geofences"
         private const val LAT = "lat"
         private const val LNG = "lng"
+        private const val PAGE_SIZE = "page_size"
+        private const val DEFAULT_PAGE_SIZE = 30
     }
 
     override val type: String = "Fetch Geofences"
 
     override var query: Map<String, String> = buildMap {
         put(COMPANY_ID, Registry.config.apiKey)
+        put(PAGE_SIZE, DEFAULT_PAGE_SIZE.toString())
         latitude?.let { put(LAT, it.toString()) }
         longitude?.let { put(LNG, it.toString()) }
     }
