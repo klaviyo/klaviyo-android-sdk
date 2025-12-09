@@ -54,8 +54,6 @@ analytics, push notifications, and in-app messaging (aka forms).
 
 Most of our tests require JAVA 17, and 21 will cause breaking issues because of some of our static
 field overrides via reflection.
-Activate java 17 in terminal, e.g. ~/Library/Java/JavaVirtualMachines/temurin-17.0.15/Contents/Home,
-before running the commands below.
 
 ```bash
 # Run all tests in the project
