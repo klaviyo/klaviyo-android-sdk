@@ -4,6 +4,8 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.location.Location
+import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingEvent
@@ -37,6 +39,7 @@ import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -686,7 +689,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `startMonitoring adds all stored geofences to GeofencingClient in one batch`() {
+    fun `startMonitoring adds all stored geofences to GeofencingClient in one batch`() = runTest {
         // Store multiple geofences
         mockStoredFences(stubNYC, stubLondon)
 
@@ -699,6 +702,9 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         every { mockPermissionMonitor.permissionState } returns true
         observer(true)
+
+        // Wait for coroutines to complete
+        advanceUntilIdle()
 
         // Verify addGeofences was called once with a batch of all geofences
         verify(exactly = 1) {
@@ -803,12 +809,18 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         every { mockPermissionMonitor.permissionState } returns true
         locationManager.startGeofenceMonitoring()
 
+        // Wait for initial monitoring to complete
+        advanceUntilIdle()
+
         // Should have added geofences initially
         verify(atLeast = 1) { mockGeofencingClient.addGeofences(any(), mockPendingIntent) }
 
         // Clear previous calls and trigger fetch
         clearMocks(mockGeofencingClient, answers = false)
         mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC)))
+
+        // Wait for fetch and re-monitoring to complete
+        advanceUntilIdle()
 
         // Verify stored geofences were replaced
         val stored = locationManager.getStoredGeofences()
@@ -852,6 +864,174 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         // Verify system monitoring was NOT updated (no new addGeofences calls)
         verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
+    }
+
+    @Test
+    fun `startMonitoring with under 20 geofences does not call GeofenceDistanceCalculator`() = runTest {
+        // Mock GeofenceDistanceCalculator to verify it's NOT called
+        mockkObject(GeofenceDistanceCalculator)
+
+        try {
+            // Store 10 geofences (under the 20 limit)
+            val geofences = (1..10).map {
+                FetchedGeofence(
+                    API_KEY,
+                    "fence-$it",
+                    NYC_LAT + it * 0.01,
+                    NYC_LNG + it * 0.01,
+                    100.0
+                )
+            }
+            mockStoredFences(*geofences.toTypedArray())
+
+            // Setup: Start monitoring with permissions granted
+            setupMonitoringWithPermissions()
+            advanceUntilIdle()
+
+            // Verify GeofenceDistanceCalculator.filterToNearest was NOT called
+            verify(exactly = 0) {
+                GeofenceDistanceCalculator.filterToNearest(any(), any(), any(), any())
+            }
+
+            // Verify all 10 geofences were added (no filtering occurred)
+            verify(exactly = 1) {
+                mockGeofencingClient.addGeofences(
+                    match { it.geofences.size == 10 },
+                    mockPendingIntent
+                )
+            }
+        } finally {
+            unmockkObject(GeofenceDistanceCalculator)
+        }
+    }
+
+    @Test
+    fun `startMonitoring with over 20 geofences and location calls GeofenceDistanceCalculator`() = runTest {
+        // Mock GeofenceDistanceCalculator to return filtered list
+        mockkObject(GeofenceDistanceCalculator)
+
+        // Mock the await extension function
+        mockkStatic("kotlinx.coroutines.tasks.TasksKt")
+
+        // Create a mock Location to return
+        val mockLocation = mockk<Location>(relaxed = true).apply {
+            every { latitude } returns NYC_LAT
+            every { longitude } returns NYC_LNG
+        }
+
+        // Create mock FusedLocationProviderClient and Task
+        val mockLocationClient = mockk<FusedLocationProviderClient>()
+        val mockLocationTask = mockk<Task<Location>>(relaxed = true)
+        every { mockLocationClient.lastLocation } returns mockLocationTask
+
+        // Mock the await() extension function on Task to return the location
+        coEvery {
+            any<Task<Location>>().await()
+        } returns mockLocation
+
+        // Mock LocationServices to return our mock client
+        every { LocationServices.getFusedLocationProviderClient(any<Context>()) } returns mockLocationClient
+
+        try {
+            // Store 25 geofences (over the 20 limit)
+            val geofences = (1..25).map {
+                FetchedGeofence(
+                    API_KEY,
+                    "fence-$it",
+                    NYC_LAT + it * 0.01,
+                    NYC_LNG + it * 0.01,
+                    100.0
+                )
+            }
+            mockStoredFences(*geofences.toTypedArray())
+
+            // Setup the calculator to return the first 20 (simulating nearest 20)
+            val filteredGeofences = geofences.take(20).map { it.toKlaviyoGeofence() }
+            every {
+                GeofenceDistanceCalculator.filterToNearest(any(), NYC_LAT, NYC_LNG, 20)
+            } returns filteredGeofences
+
+            // Setup: Start monitoring with permissions granted
+            setupMonitoringWithPermissions()
+            advanceUntilIdle()
+
+            // Verify GeofenceDistanceCalculator.filterToNearest WAS called
+            verify(exactly = 1) {
+                GeofenceDistanceCalculator.filterToNearest(
+                    match { it.size == 25 },
+                    NYC_LAT,
+                    NYC_LNG,
+                    20
+                )
+            }
+
+            // Verify exactly 20 geofences were added (filtered list)
+            verify(exactly = 1) {
+                mockGeofencingClient.addGeofences(
+                    match { it.geofences.size == 20 },
+                    mockPendingIntent
+                )
+            }
+        } finally {
+            unmockkStatic("kotlinx.coroutines.tasks.TasksKt")
+            unmockkObject(GeofenceDistanceCalculator)
+        }
+    }
+
+    @Test
+    fun `startMonitoring with over 20 geofences and no location falls back to take(20)`() = runTest {
+        // Mock GeofenceDistanceCalculator to verify it's NOT called
+        mockkObject(GeofenceDistanceCalculator)
+
+        // Mock the await extension function
+        mockkStatic("kotlinx.coroutines.tasks.TasksKt")
+
+        // Create mock FusedLocationProviderClient that throws exception (location unavailable)
+        val mockLocationClient = mockk<FusedLocationProviderClient>()
+        val mockLocationTask = mockk<Task<Location>>(relaxed = true)
+        every { mockLocationClient.lastLocation } returns mockLocationTask
+
+        // Mock await() to throw exception (simulating location unavailable)
+        coEvery {
+            any<Task<Location>>().await()
+        } throws Exception("Location unavailable")
+
+        // Mock LocationServices to return our mock client
+        every { LocationServices.getFusedLocationProviderClient(any<Context>()) } returns mockLocationClient
+
+        try {
+            // Store 25 geofences (over the 20 limit)
+            val geofences = (1..25).map {
+                FetchedGeofence(
+                    API_KEY,
+                    "fence-$it",
+                    NYC_LAT + it * 0.01,
+                    NYC_LNG + it * 0.01,
+                    100.0
+                )
+            }
+            mockStoredFences(*geofences.toTypedArray())
+
+            // Setup: Start monitoring with permissions granted
+            setupMonitoringWithPermissions()
+            advanceUntilIdle()
+
+            // Verify GeofenceDistanceCalculator.filterToNearest was NOT called
+            verify(exactly = 0) {
+                GeofenceDistanceCalculator.filterToNearest(any(), any(), any(), any())
+            }
+
+            // Verify exactly 20 geofences were added (first 20, not filtered)
+            verify(exactly = 1) {
+                mockGeofencingClient.addGeofences(
+                    match { it.geofences.size == 20 },
+                    mockPendingIntent
+                )
+            }
+        } finally {
+            unmockkStatic("kotlinx.coroutines.tasks.TasksKt")
+            unmockkObject(GeofenceDistanceCalculator)
+        }
     }
 
     //endregion
@@ -1428,22 +1608,28 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `handleBootEvent successfully restores geofences when all conditions met`() {
+    fun `handleBootEvent successfully restores geofences when all conditions met`() = runTest {
         mockStoredFences(stubNYC, stubLondon)
         setupBootEventMocks()
 
         locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Wait for coroutines to complete
+        advanceUntilIdle()
 
         // Verify geofences were re-registered with the system
         verify(exactly = 1) { mockGeofencingClient.addGeofences(any(), any()) }
     }
 
     @Test
-    fun `handleBootEvent restores correct number of geofences`() {
+    fun `handleBootEvent restores correct number of geofences`() = runTest {
         mockStoredFences(stubNYC, stubLondon)
         setupBootEventMocks()
 
         locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Wait for coroutines to complete
+        advanceUntilIdle()
 
         // Verify all geofences were added in a single batch
         verify(exactly = 1) {
@@ -1457,11 +1643,14 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `handleBootEvent restores geofences with correct properties`() {
+    fun `handleBootEvent restores geofences with correct properties`() = runTest {
         mockStoredFences(stubNYC)
         setupBootEventMocks()
 
         locationManager.restoreGeofencesOnBoot(mockContext)
+
+        // Wait for coroutines to complete
+        advanceUntilIdle()
 
         // Verify geofence was added with correct properties
         verify(exactly = 1) {
@@ -1479,7 +1668,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `handleBootEvent initializes SDK from cold launch when Config not registered`() {
+    fun `handleBootEvent initializes SDK from cold launch when Config not registered`() = runTest {
         // Seed the data store fixture with some mock fence JSON
         mockStoredFences(stubNYC, stubLondon)
 
@@ -1496,6 +1685,9 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         // This will trigger lazy initialization when geofences are restored
         val coldLaunchManager = KlaviyoLocationManager()
         coldLaunchManager.restoreGeofencesOnBoot(mockContext)
+
+        // Wait for coroutines to complete
+        advanceUntilIdle()
 
         // Verify SDK initialization was called FIRST to set up Config
         verify(exactly = 1) { Klaviyo.registerForLifecycleCallbacks(mockContext) }
