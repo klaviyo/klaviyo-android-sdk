@@ -17,6 +17,8 @@ The experience of 3rd party developers integrating the SDK should be smooth, int
 as possible.
 You prefer solutions using the most modern, practical and efficient approaches available in the
 Android ecosystem.
+When creating pull requests, you should typically start in Draft unless prompted otherwise, and
+fill in the repository's PR template with concise details in the appropriate sections.
 
 ## Intro
 
