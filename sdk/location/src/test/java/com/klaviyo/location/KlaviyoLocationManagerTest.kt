@@ -10,6 +10,7 @@ import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.tasks.OnSuccessListener
 import com.google.android.gms.tasks.Task
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
@@ -110,11 +111,31 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         every { addOnFailureListener(any()) } returns this
     }
 
+    private val mockLocationTask = mockk<Task<Location>>(relaxed = true).apply {
+        every { addOnSuccessListener(any()) } answers {
+            // Immediately invoke the success listener with null (no location available)
+            val listener = firstArg<com.google.android.gms.tasks.OnSuccessListener<Location>>()
+            listener.onSuccess(null)
+            this@apply
+        }
+        every { addOnFailureListener(any()) } returns this
+        every { isComplete } returns true
+        every { isSuccessful } returns true
+        every { result } returns null
+    }
+
+    private val mockFusedLocationClient = mockk<com.google.android.gms.location.FusedLocationProviderClient>(
+        relaxed = true
+    ).apply {
+        every { lastLocation } returns mockLocationTask
+    }
+
     private val mockGeofencingClient = mockk<GeofencingClient>(relaxed = true).apply {
         mockkStatic(LocationServices::class)
         every { addGeofences(any(), mockPendingIntent) } returns mockAddGeofencesTask
         every { removeGeofences(mockPendingIntent) } returns mockRemoveGeofencesTask
         every { LocationServices.getGeofencingClient(any<Context>()) } returns this
+        every { LocationServices.getFusedLocationProviderClient(any<Context>()) } returns mockFusedLocationClient
     }
 
     private val mockPendingIntent = MockIntent.mockPendingIntent()
@@ -179,7 +200,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     // Helper method to mock successful geofence fetch using coroutines
     private fun mockFetchWithResult(result: FetchGeofencesResult) {
-        coEvery { mockApiClient.fetchGeofences() } returns result
+        coEvery { mockApiClient.fetchGeofences(any(), any()) } returns result
         locationManager.fetchGeofences()
         dispatcher.scheduler.advanceUntilIdle()
     }
@@ -421,7 +442,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         locationManager.onGeofenceSync(callback = observer)
 
         // Trigger a fetch that fails
-        coEvery { mockApiClient.fetchGeofences() } returns FetchGeofencesResult.Failure
+        coEvery { mockApiClient.fetchGeofences(any(), any()) } returns FetchGeofencesResult.Failure
         locationManager.fetchGeofences()
         advanceUntilIdle()
 
@@ -529,7 +550,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         mockFetchWithResult(FetchGeofencesResult.Success(listOf(stubNYC, stubLondon)))
 
         // Verify the ApiClient was called
-        coVerify { mockApiClient.fetchGeofences() }
+        coVerify { mockApiClient.fetchGeofences(any(), any()) }
 
         // Verify the geofences were persisted
         val stored = locationManager.getStoredGeofences()
@@ -552,24 +573,24 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     @Test
     fun `fetchGeofences handles unavailable result without crashing`() = runTest {
-        coEvery { mockApiClient.fetchGeofences() } returns FetchGeofencesResult.Unavailable
+        coEvery { mockApiClient.fetchGeofences(any(), any()) } returns FetchGeofencesResult.Unavailable
 
         // Should not crash when offline
         locationManager.fetchGeofences()
         advanceUntilIdle()
 
-        coVerify { mockApiClient.fetchGeofences() }
+        coVerify { mockApiClient.fetchGeofences(any(), any()) }
     }
 
     @Test
     fun `fetchGeofences handles failure result without crashing`() = runTest {
-        coEvery { mockApiClient.fetchGeofences() } returns FetchGeofencesResult.Failure
+        coEvery { mockApiClient.fetchGeofences(any(), any()) } returns FetchGeofencesResult.Failure
 
         // Should not crash on failure
         locationManager.fetchGeofences()
         advanceUntilIdle()
 
-        coVerify { mockApiClient.fetchGeofences() }
+        coVerify { mockApiClient.fetchGeofences(any(), any()) }
     }
 
     @Test
@@ -615,7 +636,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         // Verify permission state was checked and observer was registered
         verify { mockPermissionMonitor.onPermissionChanged(true, any()) }
-        coVerify(exactly = 1) { mockApiClient.fetchGeofences() }
+        coVerify(exactly = 1) { mockApiClient.fetchGeofences(any(), any()) }
     }
 
     @Test
@@ -630,7 +651,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
             // Verify no geofences were added (since we have no permissions)
             verify(inverse = true) { mockGeofencingClient.addGeofences(any(), any()) }
-            coVerify(inverse = true) { mockApiClient.fetchGeofences() }
+            coVerify(inverse = true) { mockApiClient.fetchGeofences(any(), any()) }
         }
 
     @Test
@@ -657,7 +678,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         every { mockPermissionMonitor.permissionState } returns false
         locationManager.startGeofenceMonitoring()
         verify(exactly = 1) { mockGeofencingClient.removeGeofences(mockPendingIntent) }
-        coVerify(exactly = 0) { mockApiClient.fetchGeofences() }
+        coVerify(exactly = 0) { mockApiClient.fetchGeofences(any(), any()) }
         verify(exactly = 0) { mockGeofencingClient.addGeofences(any(), any()) }
 
         // Capture and invoke the observer with permission granted
@@ -670,7 +691,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         // Verify prior fences were removed, new ones synced, and added
         verify(exactly = 2) { mockGeofencingClient.removeGeofences(mockPendingIntent) }
-        coVerify(exactly = 1) { mockApiClient.fetchGeofences() }
+        coVerify(exactly = 1) { mockApiClient.fetchGeofences(any(), any()) }
         verify(exactly = 1) { mockGeofencingClient.addGeofences(any(), any()) }
     }
 
@@ -730,7 +751,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         observer(true)
         advanceUntilIdle()
         verify(exactly = 1) { mockGeofencingClient.addGeofences(any(), mockPendingIntent) }
-        coVerify { mockApiClient.fetchGeofences() }
+        coVerify { mockApiClient.fetchGeofences(any(), any()) }
 
         // Simulate permission revoked
         observer(false)
