@@ -31,13 +31,17 @@ internal object JSONUtil {
 
     /**
      * Converts a JSON value to [Serializable] in a typesafe manner
+     *
+     * Note: JSONObject.NULL, JSONObject, and JSONArray checks must come before
+     * the generic Serializable check to ensure proper type handling, even though
+     * in Android's implementation JSONObject.NULL is not Serializable.
      */
     private fun Any?.jsonValueToSerializable(): Serializable? = when (this) {
         null -> null
-        is Serializable -> this
         JSONObject.NULL -> null
         is JSONObject -> toHashMap()
         is JSONArray -> toArray()
+        is Serializable -> this
         else -> toString()
     }
 }

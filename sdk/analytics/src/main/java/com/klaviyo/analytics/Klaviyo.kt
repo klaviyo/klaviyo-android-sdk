@@ -18,6 +18,7 @@ import com.klaviyo.analytics.networking.requests.JSONUtil.toHashMap
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
@@ -37,7 +38,6 @@ import org.json.JSONObject
  */
 object Klaviyo {
 
-    private const val KLAVIYO_PACKAGE_PREFIX = "com.klaviyo"
     private const val KEY_VALUE_PAIRS = "key_value_pairs"
 
     /**
@@ -361,8 +361,8 @@ object Klaviyo {
      */
     internal fun Event.appendKlaviyoExtras(intent: Intent?) {
         intent?.extras?.keySet()?.forEach { key ->
-            if (key.contains(KLAVIYO_PACKAGE_PREFIX)) {
-                val eventKey = EventKey.CUSTOM(key.replace("$KLAVIYO_PACKAGE_PREFIX.", ""))
+            if (key.contains(Constants.PACKAGE_PREFIX)) {
+                val eventKey = EventKey.CUSTOM(key.replace("${Constants.PACKAGE_PREFIX}.", ""))
                 val rawValue = intent.extras?.getString(key, "") ?: ""
 
                 val parsedValue = when (eventKey.name) {
