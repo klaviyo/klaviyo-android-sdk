@@ -15,6 +15,7 @@ import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
@@ -36,7 +37,7 @@ object KlaviyoRemoteMessage {
     fun Intent.appendKlaviyoExtras(message: RemoteMessage) = apply {
         if (message.isKlaviyoMessage) {
             message.data.forEach {
-                this.putExtra("com.klaviyo.${it.key}", it.value)
+                this.putExtra("${Constants.PACKAGE_PREFIX}.${it.key}", it.value)
             }
         }
     }

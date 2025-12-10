@@ -14,9 +14,11 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
+import com.klaviyo.analytics.networking.requests.JSONUtil.toHashMap
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
@@ -27,6 +29,7 @@ import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
+import org.json.JSONObject
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -34,6 +37,8 @@ import java.util.Queue
  * to be processed and sent to the Klaviyo backend
  */
 object Klaviyo {
+
+    private const val KEY_VALUE_PAIRS = "key_value_pairs"
 
     /**
      * Queue of failed operations attempted prior to [initialize]
@@ -303,14 +308,7 @@ object Klaviyo {
         ?.safeApply(preInitQueue) {
             // Create and enqueue an $opened_push
             val event = Event(EventMetric.OPENED_PUSH)
-            val extras = intent?.extras
-
-            extras?.keySet()?.forEach { key ->
-                if (key.contains("com.klaviyo")) {
-                    val eventKey = EventKey.CUSTOM(key.replace("com.klaviyo.", ""))
-                    event[eventKey] = extras.getString(key, "")
-                }
-            }
+            event.appendKlaviyoExtras(intent)
 
             Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
 
@@ -357,6 +355,35 @@ object Klaviyo {
             DeepLinking.handleUniversalTrackingLink(uri)
         }
     } ?: intent.isKlaviyoUniversalTrackingIntent
+
+    /**
+     * Appends Klaviyo extras from an intent to this event, parsing special fields as needed
+     */
+    internal fun Event.appendKlaviyoExtras(intent: Intent?) {
+        intent?.extras?.keySet()?.forEach { key ->
+            if (key.contains(Constants.PACKAGE_PREFIX)) {
+                val eventKey = EventKey.CUSTOM(key.replace("${Constants.PACKAGE_PREFIX}.", ""))
+                val rawValue = intent.extras?.getString(key, "") ?: ""
+
+                val parsedValue = when (eventKey.name) {
+                    KEY_VALUE_PAIRS -> {
+                        try {
+                            JSONObject(rawValue).toHashMap()
+                        } catch (e: Exception) {
+                            Registry.log.warning(
+                                "Failed to parse $KEY_VALUE_PAIRS JSON: $rawValue",
+                                e
+                            )
+                            rawValue
+                        }
+                    }
+                    else -> rawValue
+                }
+
+                this[eventKey] = parsedValue
+            }
+        }
+    }
 
     /**
      * Checks whether a notification intent originated from Klaviyo
