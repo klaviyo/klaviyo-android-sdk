@@ -2,6 +2,7 @@ package com.klaviyo.sample
 
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
+import com.klaviyo.analytics.networking.requests.ApiRequest
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -95,44 +96,60 @@ class OpenedPushTest : BaseInstrumentedTest() {
         // Given: A non-Klaviyo intent (missing com.klaviyo._k)
         val intent = createNonKlaviyoIntent()
 
-        // Snapshot UUIDs before - requests from previous tests may be re-broadcast
-        val uuidsBefore = getOpenedPushRequestUuids()
-
         // When: handlePush is called
         Klaviyo.handlePush(intent)
 
-        // Then: No NEW Event request should be enqueued for this specific call
-        // Note: We use a short timeout since we expect no request
+        // Then: No Event request should be created from THIS call
+        // Wait briefly and check that any captured requests have known tracking data
+        // (meaning they're rebroadcasts from previous tests, not from this invalid intent)
         waitForRequest(EVENT_REQUEST_TYPE, timeoutMs = 1000L)
 
-        val newUuids = getOpenedPushRequestUuids() - uuidsBefore
+        val unexpectedRequests = getOpenedPushRequestsWithoutKnownTrackingData()
         assertTrue(
-            "Non-Klaviyo intent should not enqueue an opened_push Event request (new UUIDs: $newUuids)",
-            newUuids.isEmpty()
+            "Non-Klaviyo intent should not create a request. Found ${unexpectedRequests.size} " +
+                "request(s) without known tracking data: ${unexpectedRequests.mapNotNull { it.uuid }}",
+            unexpectedRequests.isEmpty()
         )
     }
 
     @Test
     fun handlePushIgnoresNullIntents() {
-        // Snapshot UUIDs before - requests from previous tests may be re-broadcast
-        val uuidsBefore = getOpenedPushRequestUuids()
-
         // When: handlePush is called with null
         Klaviyo.handlePush(null)
 
-        // Then: No NEW Event request should be enqueued
+        // Then: No Event request should be created from THIS call
+        // Wait briefly and check that any captured requests have known tracking data
+        // (meaning they're rebroadcasts from previous tests, not from this null intent)
         waitForRequest(EVENT_REQUEST_TYPE, timeoutMs = 1000L)
 
-        val newUuids = getOpenedPushRequestUuids() - uuidsBefore
+        val unexpectedRequests = getOpenedPushRequestsWithoutKnownTrackingData()
         assertTrue(
-            "Null intent should not enqueue an opened_push Event request (new UUIDs: $newUuids)",
-            newUuids.isEmpty()
+            "Null intent should not create a request. Found ${unexpectedRequests.size} " +
+                "request(s) without known tracking data: ${unexpectedRequests.mapNotNull { it.uuid }}",
+            unexpectedRequests.isEmpty()
         )
     }
 
     /**
+     * Gets opened_push requests that do NOT contain known tracking data from test intents.
+     * Requests with known tracking data (TEST_MESSAGE_ID, CUSTOM_MESSAGE_ID) came from
+     * previous positive tests and can be ignored. Requests WITHOUT this data would indicate
+     * a request was created from a null/invalid intent (which would be a bug).
+     */
+    private fun getOpenedPushRequestsWithoutKnownTrackingData(): List<ApiRequest> =
+        getCapturedRequests(EVENT_REQUEST_TYPE)
+            .filter { it.requestBody?.contains("\$opened_push") == true }
+            .filter { request ->
+                val body = request.requestBody ?: return@filter true
+                // If request has known tracking data, it's from a previous positive test
+                val hasKnownTrackingData = body.contains("TEST_MESSAGE_ID") ||
+                    body.contains("CUSTOM_MESSAGE_ID")
+                !hasKnownTrackingData
+            }
+
+    /**
      * Gets the UUIDs of all opened_push Event requests currently captured.
-     * Used to identify truly NEW requests vs re-broadcasts of existing ones.
+     * Used to verify positive tests created new requests.
      */
     private fun getOpenedPushRequestUuids(): Set<String> =
         getCapturedRequests(EVENT_REQUEST_TYPE)
