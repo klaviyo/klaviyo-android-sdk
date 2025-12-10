@@ -14,6 +14,7 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
+import com.klaviyo.analytics.networking.requests.JSONUtil.toHashMap
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
@@ -35,6 +36,9 @@ import org.json.JSONObject
  * to be processed and sent to the Klaviyo backend
  */
 object Klaviyo {
+
+    private const val KLAVIYO_PACKAGE_PREFIX = "com.klaviyo"
+    private const val KEY_VALUE_PAIRS = "key_value_pairs"
 
     /**
      * Queue of failed operations attempted prior to [initialize]
@@ -357,22 +361,17 @@ object Klaviyo {
      */
     internal fun Event.appendKlaviyoExtras(intent: Intent?) {
         intent?.extras?.keySet()?.forEach { key ->
-            if (key.contains("com.klaviyo")) {
-                val eventKey = EventKey.CUSTOM(key.replace("com.klaviyo.", ""))
+            if (key.contains(KLAVIYO_PACKAGE_PREFIX)) {
+                val eventKey = EventKey.CUSTOM(key.replace("$KLAVIYO_PACKAGE_PREFIX.", ""))
                 val rawValue = intent.extras?.getString(key, "") ?: ""
 
                 val parsedValue = when (eventKey.name) {
-                    "key_value_pairs" -> {
+                    KEY_VALUE_PAIRS -> {
                         try {
-                            val jsonObject = JSONObject(rawValue)
-                            val map = HashMap<String, String>()
-                            jsonObject.keys().forEach { jsonKey ->
-                                map[jsonKey] = jsonObject.getString(jsonKey)
-                            }
-                            map
+                            JSONObject(rawValue).toHashMap()
                         } catch (e: Exception) {
                             Registry.log.warning(
-                                "Failed to parse key_value_pairs JSON: $rawValue",
+                                "Failed to parse $KEY_VALUE_PAIRS JSON: $rawValue",
                                 e
                             )
                             rawValue
