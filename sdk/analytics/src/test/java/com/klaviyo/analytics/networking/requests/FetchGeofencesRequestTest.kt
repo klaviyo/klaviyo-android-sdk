@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
+import java.net.URL
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -11,8 +12,11 @@ internal class FetchGeofencesRequestTest : BaseApiRequestTest<FetchGeofencesRequ
 
     override val expectedQuery = mapOf(
         "company_id" to API_KEY,
-        "page_size" to "20"
+        "page_size" to "30"
     )
+
+    override val expectedUrl: URL
+        get() = URL("${mockConfig.baseUrl}/$expectedPath?company_id=$API_KEY&page_size=30")
 
     override fun makeTestRequest(): FetchGeofencesRequest = FetchGeofencesRequest()
 
