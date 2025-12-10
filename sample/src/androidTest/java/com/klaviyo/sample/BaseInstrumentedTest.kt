@@ -82,12 +82,6 @@ abstract class BaseInstrumentedTest {
         }
         apiObserver = observer
         Registry.get<ApiClient>().onApiRequest(observer = observer)
-
-        // Wait for any pending broadcasts from previous tests to be captured,
-        // then clear them so each test starts with a clean slate.
-        // The SDK's internal queue may retry/rebroadcast requests with delay.
-        Thread.sleep(1500)
-        capturedRequests.clear()
     }
 
     @After
