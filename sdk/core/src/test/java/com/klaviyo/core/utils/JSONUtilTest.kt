@@ -1,12 +1,11 @@
-package com.klaviyo.analytics.networking.requests
+package com.klaviyo.core.utils
 
-import com.klaviyo.analytics.networking.requests.JSONUtil.toArray
-import com.klaviyo.analytics.networking.requests.JSONUtil.toHashMap
+import com.klaviyo.core.utils.JSONUtil.toArray
+import com.klaviyo.core.utils.JSONUtil.toHashMap
+import kotlin.collections.get
 import org.json.JSONArray
 import org.json.JSONObject
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
+import org.junit.Assert
 import org.junit.Test
 
 class JSONUtilTest {
@@ -16,9 +15,9 @@ class JSONUtilTest {
         val json = JSONObject("""{"key1":"value1","key2":"value2"}""")
         val map = json.toHashMap()
 
-        assertEquals(2, map.size)
-        assertEquals("value1", map["key1"])
-        assertEquals("value2", map["key2"])
+        Assert.assertEquals(2, map.size)
+        Assert.assertEquals("value1", map["key1"])
+        Assert.assertEquals("value2", map["key2"])
     }
 
     @Test
@@ -32,11 +31,11 @@ class JSONUtilTest {
 
         val map = json.toHashMap()
 
-        assertEquals("test", map["stringValue"])
-        assertEquals(42, map["intValue"])
-        assertEquals(3.14, map["doubleValue"])
-        assertEquals(true, map["boolValue"])
-        assertNull(map["nullValue"])
+        Assert.assertEquals("test", map["stringValue"])
+        Assert.assertEquals(42, map["intValue"])
+        Assert.assertEquals(3.14, map["doubleValue"])
+        Assert.assertEquals(true, map["boolValue"])
+        Assert.assertNull(map["nullValue"])
     }
 
     @Test
@@ -44,9 +43,9 @@ class JSONUtilTest {
         val json = JSONObject("""{"nested":{"innerKey":"innerValue"}}""")
         val map = json.toHashMap()
 
-        assertTrue(map["nested"] is HashMap<*, *>)
+        Assert.assertTrue(map["nested"] is HashMap<*, *>)
         val nestedMap = map["nested"] as HashMap<*, *>
-        assertEquals("innerValue", nestedMap["innerKey"])
+        Assert.assertEquals("innerValue", nestedMap["innerKey"])
     }
 
     @Test
@@ -54,12 +53,12 @@ class JSONUtilTest {
         val json = JSONObject("""{"array":[1,2,3]}""")
         val map = json.toHashMap()
 
-        assertTrue(map["array"] is Array<*>)
+        Assert.assertTrue(map["array"] is Array<*>)
         val array = map["array"] as Array<*>
-        assertEquals(3, array.size)
-        assertEquals(1, array[0])
-        assertEquals(2, array[1])
-        assertEquals(3, array[2])
+        Assert.assertEquals(3, array.size)
+        Assert.assertEquals(1, array[0])
+        Assert.assertEquals(2, array[1])
+        Assert.assertEquals(3, array[2])
     }
 
     @Test
@@ -67,12 +66,12 @@ class JSONUtilTest {
         val jsonArray = JSONArray("""[1,2,3,"test",true]""")
         val array = jsonArray.toArray()
 
-        assertEquals(5, array.size)
-        assertEquals(1, array[0])
-        assertEquals(2, array[1])
-        assertEquals(3, array[2])
-        assertEquals("test", array[3])
-        assertEquals(true, array[4])
+        Assert.assertEquals(5, array.size)
+        Assert.assertEquals(1, array[0])
+        Assert.assertEquals(2, array[1])
+        Assert.assertEquals(3, array[2])
+        Assert.assertEquals("test", array[3])
+        Assert.assertEquals(true, array[4])
     }
 
     @Test
@@ -80,17 +79,17 @@ class JSONUtilTest {
         val jsonArray = JSONArray("""[[1,2],[3,4]]""")
         val array = jsonArray.toArray()
 
-        assertEquals(2, array.size)
-        assertTrue(array[0] is Array<*>)
-        assertTrue(array[1] is Array<*>)
+        Assert.assertEquals(2, array.size)
+        Assert.assertTrue(array[0] is Array<*>)
+        Assert.assertTrue(array[1] is Array<*>)
 
         val first = array[0] as Array<*>
         val second = array[1] as Array<*>
 
-        assertEquals(1, first[0])
-        assertEquals(2, first[1])
-        assertEquals(3, second[0])
-        assertEquals(4, second[1])
+        Assert.assertEquals(1, first[0])
+        Assert.assertEquals(2, first[1])
+        Assert.assertEquals(3, second[0])
+        Assert.assertEquals(4, second[1])
     }
 
     @Test
@@ -98,11 +97,11 @@ class JSONUtilTest {
         val jsonArray = JSONArray("""[{"key":"value"}]""")
         val array = jsonArray.toArray()
 
-        assertEquals(1, array.size)
-        assertTrue(array[0] is HashMap<*, *>)
+        Assert.assertEquals(1, array.size)
+        Assert.assertTrue(array[0] is HashMap<*, *>)
 
         val obj = array[0] as HashMap<*, *>
-        assertEquals("value", obj["key"])
+        Assert.assertEquals("value", obj["key"])
     }
 
     @Test
@@ -118,20 +117,20 @@ class JSONUtilTest {
         )
         val map = json.toHashMap()
 
-        assertEquals("value", map["string"])
-        assertEquals(123, map["number"])
+        Assert.assertEquals("value", map["string"])
+        Assert.assertEquals(123, map["number"])
 
-        assertTrue(map["nested"] is HashMap<*, *>)
+        Assert.assertTrue(map["nested"] is HashMap<*, *>)
         val nested = map["nested"] as HashMap<*, *>
 
-        assertTrue(nested["array"] is Array<*>)
+        Assert.assertTrue(nested["array"] is Array<*>)
         val array = nested["array"] as Array<*>
-        assertEquals(3, array.size)
-        assertEquals(1, array[0])
-        assertEquals(2, array[1])
+        Assert.assertEquals(3, array.size)
+        Assert.assertEquals(1, array[0])
+        Assert.assertEquals(2, array[1])
 
-        assertTrue(array[2] is HashMap<*, *>)
+        Assert.assertTrue(array[2] is HashMap<*, *>)
         val innerObj = array[2] as HashMap<*, *>
-        assertEquals("innerValue", innerObj["innerKey"])
+        Assert.assertEquals("innerValue", innerObj["innerKey"])
     }
 }

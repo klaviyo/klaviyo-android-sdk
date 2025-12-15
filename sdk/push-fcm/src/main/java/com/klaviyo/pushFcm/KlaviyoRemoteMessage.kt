@@ -15,7 +15,8 @@ import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.core.Constants
+import com.klaviyo.core.Constants.PACKAGE_PREFIX
+import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
@@ -37,7 +38,7 @@ object KlaviyoRemoteMessage {
     fun Intent.appendKlaviyoExtras(message: RemoteMessage) = apply {
         if (message.isKlaviyoMessage) {
             message.data.forEach {
-                this.putExtra("${Constants.PACKAGE_PREFIX}.${it.key}", it.value)
+                this.putExtra(PACKAGE_PREFIX + it.key, it.value)
             }
         }
     }
@@ -83,7 +84,7 @@ object KlaviyoRemoteMessage {
     /**
      * Determine if the message originated from Klaviyo from the tracking params
      */
-    val RemoteMessage.isKlaviyoMessage: Boolean get() = this.data.containsKey("_k")
+    val RemoteMessage.isKlaviyoMessage: Boolean get() = this.data.containsKey(TRACKING_PARAMETER)
 
     /**
      * Determine if the message is a notification from Klaviyo (as opposed to a silent push)
