@@ -14,17 +14,19 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
-import com.klaviyo.analytics.networking.requests.JSONUtil.toHashMap
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
-import com.klaviyo.core.Constants
+import com.klaviyo.core.Constants.KEY_VALUE_PAIRS
+import com.klaviyo.core.Constants.PACKAGE_PREFIX
+import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import com.klaviyo.core.utils.JSONUtil.toHashMap
 import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
 import java.util.LinkedList
@@ -37,8 +39,6 @@ import org.json.JSONObject
  * to be processed and sent to the Klaviyo backend
  */
 object Klaviyo {
-
-    private const val KEY_VALUE_PAIRS = "key_value_pairs"
 
     /**
      * Queue of failed operations attempted prior to [initialize]
@@ -361,10 +361,9 @@ object Klaviyo {
      */
     internal fun Event.appendKlaviyoExtras(intent: Intent?) {
         intent?.extras?.keySet()?.forEach { key ->
-            if (key.contains(Constants.PACKAGE_PREFIX)) {
-                val eventKey = EventKey.CUSTOM(key.replace("${Constants.PACKAGE_PREFIX}.", ""))
+            if (key.contains(PACKAGE_PREFIX)) {
+                val eventKey = EventKey.CUSTOM(key.replace(PACKAGE_PREFIX, ""))
                 val rawValue = intent.extras?.getString(key, "") ?: ""
-
                 val parsedValue = when (eventKey.name) {
                     KEY_VALUE_PAIRS -> {
                         try {
@@ -377,6 +376,7 @@ object Klaviyo {
                             rawValue
                         }
                     }
+
                     else -> rawValue
                 }
 
@@ -397,9 +397,8 @@ object Klaviyo {
     /**
      * Checks whether a notification intent originated from Klaviyo
      */
-    @Suppress("MemberVisibilityCanBePrivate")
     val Intent?.isKlaviyoNotificationIntent: Boolean
-        get() = this?.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
+        get() = this?.getStringExtra(PACKAGE_PREFIX + TRACKING_PARAMETER)?.isNotEmpty() ?: false
 
     /**
      * Determine if an intent is a Klaviyo click-tracking universal/app link

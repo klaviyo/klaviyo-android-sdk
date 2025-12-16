@@ -1,7 +1,8 @@
-package com.klaviyo.analytics.networking.requests
+package com.klaviyo.core.utils
 
-import com.klaviyo.analytics.networking.requests.JSONUtil.toArray
-import com.klaviyo.analytics.networking.requests.JSONUtil.toHashMap
+import com.klaviyo.core.utils.JSONUtil.toArray
+import com.klaviyo.core.utils.JSONUtil.toHashMap
+import kotlin.collections.get
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals

@@ -1,10 +1,10 @@
-package com.klaviyo.analytics.networking.requests
+package com.klaviyo.core.utils
 
 import java.io.Serializable
 import org.json.JSONArray
 import org.json.JSONObject
 
-internal object JSONUtil {
+object JSONUtil {
 
     /**
      * Using this util since built-in optString gets scared with a null default value
