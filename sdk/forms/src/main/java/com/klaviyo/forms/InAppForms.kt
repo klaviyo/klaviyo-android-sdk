@@ -93,3 +93,41 @@ private fun Registry.inAppIsRegistered(): Boolean = listOf(
     getOrNull<JsBridge>(),
     getOrNull<NativeBridge>()
 ).all { it != null }
+
+/**
+ * Java-friendly static methods for In-App Forms.
+ * Kotlin users should use the extension functions on [Klaviyo] instead.
+ */
+object InAppFormsApi {
+    /**
+     * Start an In-App Forms session with the default configuration.
+     * Java-friendly static method.
+     *
+     * @see Klaviyo.registerForInAppForms
+     */
+    @JvmStatic
+    @UiThread
+    fun registerForInAppForms(): Klaviyo = Klaviyo.registerForInAppForms()
+
+    /**
+     * Start an In-App Forms session with a custom configuration.
+     * Java-friendly static method.
+     *
+     * @param config see [InAppFormsConfig] for configuration options.
+     * @see Klaviyo.registerForInAppForms
+     */
+    @JvmStatic
+    @UiThread
+    fun registerForInAppForms(config: InAppFormsConfig): Klaviyo =
+        Klaviyo.registerForInAppForms(config)
+
+    /**
+     * Halt the In-App Forms services and observers.
+     * Java-friendly static method.
+     *
+     * @see Klaviyo.unregisterFromInAppForms
+     */
+    @JvmStatic
+    @UiThread
+    fun unregisterFromInAppForms(): Klaviyo = Klaviyo.unregisterFromInAppForms()
+}

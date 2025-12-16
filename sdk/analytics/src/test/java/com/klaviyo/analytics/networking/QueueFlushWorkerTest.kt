@@ -11,7 +11,9 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.unmockkObject
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -34,6 +36,8 @@ internal class QueueFlushWorkerTest : BaseTest() {
         super.setup()
 
         // Mock Klaviyo to prevent initialization attempts
+        // mockkStatic is required for @JvmStatic methods
+        mockkStatic(Klaviyo::class)
         mockkObject(Klaviyo)
         every { Klaviyo.registerForLifecycleCallbacks(any()) } answers {
             Registry.register<ApiClient>(mockApiClient)
@@ -44,6 +48,7 @@ internal class QueueFlushWorkerTest : BaseTest() {
     @After
     override fun cleanup() {
         unmockkObject(Klaviyo)
+        unmockkStatic(Klaviyo::class)
         Registry.unregister<ApiClient>()
         super.cleanup()
     }

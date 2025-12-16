@@ -20,6 +20,15 @@ data class InAppFormsConfig(
          * One hour - meaning we will destroy the forms connection after an hour of inactivity
          */
         val DEFAULT_SESSION_TIMEOUT = 1.hours
+
+        /**
+         * Java-friendly factory method.
+         * @param timeoutSeconds Session timeout in seconds.
+         * @return [InAppFormsConfig] with the specified timeout
+         */
+        @JvmStatic
+        fun withTimeoutSeconds(timeoutSeconds: Long): InAppFormsConfig =
+            InAppFormsConfig(timeoutSeconds.seconds)
     }
 
     /**

@@ -31,6 +31,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
     @Before
     override fun setup() {
         super.setup()
+        mockkStatic(Klaviyo::class)
         mockkObject(Klaviyo)
         every { Klaviyo.getPushToken() } returns PUSH_TOKEN
         mockDeviceProperties()
@@ -40,6 +41,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
     override fun cleanup() {
         super.cleanup()
         unmockkObject(Klaviyo)
+        unmockkStatic(Klaviyo::class)
         unmockDeviceProperties()
     }
 

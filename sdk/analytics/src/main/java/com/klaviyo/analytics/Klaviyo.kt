@@ -49,6 +49,7 @@ object Klaviyo {
      *
      * @param applicationContext
      */
+    @JvmStatic
     fun registerForLifecycleCallbacks(applicationContext: Context) = safeApply {
         if (!Registry.isRegistered<Config>()) {
             // Register a partial config, missing API Key, to allow lifecycle tracking and context access for partial functionality
@@ -78,6 +79,7 @@ object Klaviyo {
      * @param apiKey Your Klaviyo account's public API Key
      * @param applicationContext
      */
+    @JvmStatic
     fun initialize(apiKey: String, applicationContext: Context) = safeApply {
         Registry.register<Config>(
             Registry.configBuilder
@@ -118,6 +120,7 @@ object Klaviyo {
      * When registered, this takes the place of the default SDK behavior, which is to broadcast
      * an Intent with the deep link URL back to the host application.
      */
+    @JvmStatic
     fun registerDeepLinkHandler(handler: DeepLinkHandler) = safeApply {
         Registry.register<DeepLinkHandler>(handler)
     }
@@ -126,6 +129,7 @@ object Klaviyo {
      * Removes any registered [DeepLinkHandler], reverting to the default SDK behavior of
      * broadcasting an Intent with the deep link URL back to the host application.
      */
+    @JvmStatic
     fun unregisterDeepLinkHandler() = safeApply {
         Registry.unregister<DeepLinkHandler>()
     }
@@ -142,6 +146,7 @@ object Klaviyo {
      * @param profile A map-like object representing properties of the new user
      * @return Returns [Klaviyo] for call chaining
      */
+    @JvmStatic
     fun setProfile(profile: Profile): Klaviyo = safeApply {
         Registry.get<State>().setProfile(profile)
     }
@@ -162,11 +167,13 @@ object Klaviyo {
      * @param email Email address for active user
      * @return Returns [Klaviyo] for call chaining
      */
+    @JvmStatic
     fun setEmail(email: String): Klaviyo = this.setProfileAttribute(ProfileKey.EMAIL, email)
 
     /**
      * @return The email of the currently tracked profile, if set
      */
+    @JvmStatic
     fun getEmail(): String? = safeCall { Registry.get<State>().email }
 
     /**
@@ -188,12 +195,14 @@ object Klaviyo {
      * @param phoneNumber Phone number for active user
      * @return Returns [Klaviyo] for call chaining
      */
+    @JvmStatic
     fun setPhoneNumber(phoneNumber: String): Klaviyo =
         this.setProfileAttribute(ProfileKey.PHONE_NUMBER, phoneNumber)
 
     /**
      * @return The phone number of the currently tracked profile, if set
      */
+    @JvmStatic
     fun getPhoneNumber(): String? = safeCall { Registry.get<State>().phoneNumber }
 
     /**
@@ -216,12 +225,14 @@ object Klaviyo {
      * @param externalId Unique identifier from external system
      * @return Returns [Klaviyo] for call chaining
      */
+    @JvmStatic
     fun setExternalId(externalId: String): Klaviyo =
         this.setProfileAttribute(ProfileKey.EXTERNAL_ID, externalId)
 
     /**
      * @return The external ID of the currently tracked profile, if set
      */
+    @JvmStatic
     fun getExternalId(): String? = safeCall { Registry.get<State>().externalId }
 
     /**
@@ -234,11 +245,13 @@ object Klaviyo {
      *
      * @param pushToken The push token provided by the device push service
      */
+    @JvmStatic
     fun setPushToken(pushToken: String) = safeApply { Registry.get<State>().pushToken = pushToken }
 
     /**
      * @return The device push token, if one has been assigned to currently tracked profile
      */
+    @JvmStatic
     fun getPushToken(): String? = safeCall { Registry.get<State>().pushToken }
 
     /**
@@ -254,6 +267,7 @@ object Klaviyo {
      * @param value
      * @return Returns [Klaviyo] for call chaining
      */
+    @JvmStatic
     fun setProfileAttribute(propertyKey: ProfileKey, value: Serializable): Klaviyo = safeApply {
         Registry.get<State>().setAttribute(propertyKey, value)
     }
@@ -264,6 +278,7 @@ object Klaviyo {
      * This should be called whenever an active user in your app is removed
      * (e.g. after a logout)
      */
+    @JvmStatic
     fun resetProfile() = safeApply { Registry.get<State>().reset() }
 
     /**
@@ -272,6 +287,7 @@ object Klaviyo {
      * @param event A map-like object representing the event attributes
      * @return Returns [Klaviyo] for call chaining
      */
+    @JvmStatic
     fun createEvent(event: Event): Klaviyo = safeApply {
         Registry.get<State>().createEvent(event, Registry.get<State>().getAsProfile())
     }
@@ -285,6 +301,8 @@ object Klaviyo {
      * @param value [Double?] value to assign the event
      * @return Returns [Klaviyo] for call chaining
      */
+    @JvmStatic
+    @JvmOverloads
     fun createEvent(metric: EventMetric, value: Double? = null): Klaviyo =
         createEvent(Event(metric).setValue(value))
 
@@ -298,6 +316,7 @@ object Klaviyo {
      *
      * @param intent the [Intent] from opening a notification
      */
+    @JvmStatic
     fun handlePush(intent: Intent?): Klaviyo = this
         .takeIf { intent.isKlaviyoNotificationIntent }
         ?.safeApply(preInitQueue) {
@@ -336,6 +355,7 @@ object Klaviyo {
      * @return [Boolean] Indicating whether the url is a Klaviyo tracking link,
      *         and the destination url is being resolved asynchronously
      */
+    @JvmStatic
     fun handleUniversalTrackingLink(url: String): Boolean = safeCall {
         try {
             DeepLinking.handleUniversalTrackingLink(url.toUri())
@@ -352,6 +372,7 @@ object Klaviyo {
      * @return [Boolean] Indicating whether the url is a Klaviyo tracking link,
      *         and the destination url is being resolved asynchronously
      */
+    @JvmStatic
     fun handleUniversalTrackingLink(intent: Intent?): Boolean = safeCall {
         intent?.data?.let { uri ->
             DeepLinking.handleUniversalTrackingLink(uri)
@@ -365,23 +386,30 @@ object Klaviyo {
         "Use isKlaviyoNotificationIntent instead, will be removed in the next major version",
         ReplaceWith("isKlaviyoNotificationIntent")
     )
-    val Intent.isKlaviyoIntent: Boolean get() = this.isKlaviyoNotificationIntent
+    val Intent.isKlaviyoIntent: Boolean
+        get() = this.isKlaviyoNotificationIntent
 
     /**
-     * Checks whether a notification intent originated from Klaviyo
+     * Checks whether a notification intent originated from Klaviyo.
+     *
+     * Java usage: `Klaviyo.INSTANCE.isKlaviyoNotificationIntent(intent)`
      */
     @Suppress("MemberVisibilityCanBePrivate")
     val Intent?.isKlaviyoNotificationIntent: Boolean
         get() = this?.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
 
     /**
-     * Determine if an intent is a Klaviyo click-tracking universal/app link
+     * Determine if an intent is a Klaviyo click-tracking universal/app link.
+     *
+     * Java usage: `Klaviyo.INSTANCE.isKlaviyoUniversalTrackingIntent(intent)`
      */
     val Intent?.isKlaviyoUniversalTrackingIntent: Boolean
         get() = this?.data?.isKlaviyoUniversalTrackingUri == true
 
     /**
-     * Determine if a URI is a Klaviyo click-tracking universal/app link
+     * Determine if a URI is a Klaviyo click-tracking universal/app link.
+     *
+     * Java usage: `Klaviyo.INSTANCE.isKlaviyoUniversalTrackingUri(uri)`
      */
     val Uri.isKlaviyoUniversalTrackingUri: Boolean
         get() = DeepLinking.isUniversalTrackingUri(this)

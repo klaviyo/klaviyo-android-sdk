@@ -10,6 +10,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.spyk
 import io.mockk.verify
 import org.json.JSONObject
@@ -34,6 +35,8 @@ class KlaviyoPushServiceTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+        // mockkStatic is required for @JvmStatic methods
+        mockkStatic(Klaviyo::class)
         mockkObject(Klaviyo)
         every { Klaviyo.setPushToken(any()) } returns Klaviyo
 

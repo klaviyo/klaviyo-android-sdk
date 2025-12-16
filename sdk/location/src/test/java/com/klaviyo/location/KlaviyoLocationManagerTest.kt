@@ -141,6 +141,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     override fun cleanup() {
         unmockkStatic(GeofencingEvent::class)
         unmockkStatic(LocationServices::class)
+        unmockkStatic(Klaviyo::class)
         MockIntent.unmockPendingIntent()
         unmockkObject(KlaviyoPermissionMonitor.Companion)
         unmockkObject(Klaviyo)
@@ -242,6 +243,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     // Helper to setup boot event test mocks with permissions granted
     private fun setupBootEventMocks(withPermission: Boolean = true) {
+        // mockkStatic is required for @JvmStatic methods
+        mockkStatic(Klaviyo::class)
         mockkObject(Klaviyo)
         mockkObject(KlaviyoPermissionMonitor.Companion)
         every { Klaviyo.registerForLifecycleCallbacks(any()) } answers {
@@ -1002,6 +1005,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         every { mockState.createEvent(any(), any()) } returns mockEvent
 
         // Mock Klaviyo.initialize - need to register State when called
+        // mockkStatic is required for @JvmStatic methods
+        mockkStatic(Klaviyo::class)
         mockkObject(Klaviyo)
         every { Klaviyo.initialize(any(), any<Context>()) } answers {
             Registry.register<State> { mockState }
