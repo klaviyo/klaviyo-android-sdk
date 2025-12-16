@@ -717,6 +717,102 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `handlePush decodes valid key_value_pairs JSON into a map`() {
+        val eventSlot = captureOpenedPushEvent()
+        val keyValuePairsJson = """{"custom_key_1":"value1","custom_key_2":"value2"}"""
+        val extrasWithKeyValuePairs = mapOf(
+            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
+            "com.klaviyo.key_value_pairs" to keyValuePairsJson
+        )
+
+        Klaviyo.handlePush(mockIntent(extrasWithKeyValuePairs))
+
+        assertTrue(eventSlot.isCaptured)
+        val capturedEvent = eventSlot.captured
+        val keyValuePairs = capturedEvent[EventKey.CUSTOM("key_value_pairs")]
+
+        // Verify that the value is a map, not a string
+        assertTrue(keyValuePairs is Map<*, *>)
+        val map = keyValuePairs as Map<*, *>
+        assertEquals("value1", map["custom_key_1"])
+        assertEquals("value2", map["custom_key_2"])
+        assertEquals(2, map.size)
+    }
+
+    @Test
+    fun `handlePush falls back to raw string when key_value_pairs JSON is invalid`() {
+        val eventSlot = captureOpenedPushEvent()
+        val invalidJson = """{"invalid": "json"""
+        val extrasWithInvalidKeyValuePairs = mapOf(
+            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
+            "com.klaviyo.key_value_pairs" to invalidJson
+        )
+
+        Klaviyo.handlePush(mockIntent(extrasWithInvalidKeyValuePairs))
+
+        assertTrue(eventSlot.isCaptured)
+        val capturedEvent = eventSlot.captured
+        val keyValuePairs = capturedEvent[EventKey.CUSTOM("key_value_pairs")]
+
+        // Verify that the value falls back to the raw string
+        assertTrue(keyValuePairs is String)
+        assertEquals(invalidJson, keyValuePairs)
+
+        // Verify warning was logged
+        verify {
+            spyLog.warning(
+                match { it.contains("Failed to parse key_value_pairs JSON") },
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun `handlePush decodes empty key_value_pairs JSON into empty map`() {
+        val eventSlot = captureOpenedPushEvent()
+        val emptyJson = """{}"""
+        val extrasWithEmptyKeyValuePairs = mapOf(
+            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
+            "com.klaviyo.key_value_pairs" to emptyJson
+        )
+
+        Klaviyo.handlePush(mockIntent(extrasWithEmptyKeyValuePairs))
+
+        assertTrue(eventSlot.isCaptured)
+        val capturedEvent = eventSlot.captured
+        val keyValuePairs = capturedEvent[EventKey.CUSTOM("key_value_pairs")]
+
+        // Verify that the value is an empty map
+        assertTrue(keyValuePairs is Map<*, *>)
+        val map = keyValuePairs as Map<*, *>
+        assertTrue(map.isEmpty())
+    }
+
+    @Test
+    fun `handlePush still decodes other klaviyo extras as strings`() {
+        val eventSlot = captureOpenedPushEvent()
+        val extrasWithMultipleFields = mapOf(
+            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
+            "com.klaviyo.body" to "Test message",
+            "com.klaviyo.title" to "Test title"
+        )
+
+        Klaviyo.handlePush(mockIntent(extrasWithMultipleFields))
+
+        assertTrue(eventSlot.isCaptured)
+        val capturedEvent = eventSlot.captured
+
+        // Verify other fields are still strings
+        val body = capturedEvent[EventKey.CUSTOM("body")]
+        val title = capturedEvent[EventKey.CUSTOM("title")]
+
+        assertTrue(body is String)
+        assertTrue(title is String)
+        assertEquals("Test message", body)
+        assertEquals("Test title", title)
+    }
+
+    @Test
     fun `Enqueue an event API call`() {
         val stubEvent = Event(EventMetric.VIEWED_PRODUCT).also { it[EventKey.VALUE] = 1 }
         Klaviyo.createEvent(stubEvent)
