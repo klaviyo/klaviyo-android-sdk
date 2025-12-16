@@ -5,6 +5,7 @@ import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Utility class for mocking In-App Forms extension functions from Java tests.
@@ -21,6 +22,32 @@ object InAppFormsMock {
      */
     @JvmStatic
     fun createDefaultConfig(): InAppFormsConfig = InAppFormsConfig()
+
+    /**
+     * Creates an InAppFormsConfig with a custom session timeout in seconds.
+     * Helper for Java tests since kotlin.time.Duration is not easily created from Java.
+     *
+     * @param seconds Session timeout duration in seconds
+     */
+    @JvmStatic
+    fun createConfigWithTimeoutSeconds(timeoutSeconds: Long): InAppFormsConfig =
+        InAppFormsConfig(timeoutSeconds.seconds)
+
+    /**
+     * Creates an InAppFormsConfig with infinite session timeout (never times out).
+     * Helper for Java tests.
+     */
+    @JvmStatic
+    fun createConfigWithInfiniteTimeout(): InAppFormsConfig =
+        InAppFormsConfig(kotlin.time.Duration.INFINITE)
+
+    /**
+     * Creates an InAppFormsConfig with zero timeout (immediate timeout on background).
+     * Helper for Java tests.
+     */
+    @JvmStatic
+    fun createConfigWithZeroTimeout(): InAppFormsConfig =
+        InAppFormsConfig(kotlin.time.Duration.ZERO)
 
     /**
      * Sets up mocks for In-App Forms extension functions.

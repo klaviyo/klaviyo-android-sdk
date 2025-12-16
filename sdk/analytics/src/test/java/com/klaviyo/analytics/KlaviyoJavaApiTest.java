@@ -6,10 +6,14 @@ import android.net.Uri;
 
 import com.klaviyo.analytics.linking.DeepLinkHandler;
 import com.klaviyo.analytics.model.Event;
+import com.klaviyo.analytics.model.EventKey;
 import com.klaviyo.analytics.model.EventMetric;
 import com.klaviyo.analytics.model.Profile;
 import com.klaviyo.analytics.model.ProfileKey;
 import com.klaviyo.fixtures.KlaviyoMock;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import org.junit.After;
 import org.junit.Before;
@@ -398,6 +402,59 @@ public class KlaviyoJavaApiTest {
     }
 
     /**
+     * Test Profile constructor with properties map from Java.
+     * Demonstrates the awkward syntax required without @JvmOverloads.
+     */
+    @Test
+    public void testProfileConstructorWithPropertiesMap() {
+        // Create a properties map with ProfileKey
+        Map<ProfileKey, java.io.Serializable> properties = new HashMap<>();
+        properties.put(ProfileKey.FIRST_NAME.INSTANCE, "John");
+        properties.put(ProfileKey.LAST_NAME.INSTANCE, "Doe");
+        properties.put(new ProfileKey.CUSTOM("loyalty_points"), 100);
+
+        // Must pass all 4 params even when we just want properties
+        Profile profile = new Profile(null, null, null, properties);
+
+        assertNotNull("Profile with properties should be instantiable", profile);
+    }
+
+    /**
+     * Test Profile setters work from Java.
+     *
+     * IMPORTANT: Profile has ambiguous setter methods (setEmail, setPhoneNumber, setExternalId)
+     * due to Kotlin generating both property setters (void return) and fluent setters (Profile return).
+     * Java cannot resolve which method to call, so these setters CANNOT be used from Java.
+     *
+     * Workarounds:
+     * 1. Use the constructor with parameters: new Profile("ext-123", "email@test.com", "+1555", null)
+     * 2. Use setProperty with ProfileKey: profile.setProperty(ProfileKey.EMAIL, "email@test.com")
+     *
+     * This is a known Java interop issue that could be fixed by renaming the fluent methods
+     * (e.g., withEmail instead of setEmail) in a future SDK version.
+     */
+    @Test
+    public void testProfileSettersAmbiguity() {
+        // These would fail to compile due to ambiguous method resolution:
+        // profile.setEmail("test@example.com");     // DOES NOT COMPILE
+        // profile.setPhoneNumber("+15555555555");   // DOES NOT COMPILE
+        // profile.setExternalId("ext-123");         // DOES NOT COMPILE
+
+        // Workaround 1: Use the constructor
+        Profile profile1 = new Profile("ext-123", "test@example.com", "+15555555555", null);
+        assertEquals("test@example.com", profile1.getEmail());
+
+        // Workaround 2: Use setProperty with ProfileKey (no ambiguity)
+        // Note: identifiers like email/phone/externalId use internal ProfileKeys,
+        // so for those, use the constructor. For other properties:
+        Profile profile2 = new Profile(null, null, null, null);
+        profile2.setProperty(ProfileKey.FIRST_NAME.INSTANCE, "John")
+                .setProperty("custom_field", "custom_value");
+
+        assertNotNull("Profile with setProperty should work", profile2);
+    }
+
+    /**
      * Test Event class is usable from Java.
      */
     @Test
@@ -409,5 +466,163 @@ public class KlaviyoJavaApiTest {
         // Custom metric
         Event customEvent = new Event(new EventMetric.CUSTOM("Custom Event"));
         assertNotNull("Event with custom metric should be instantiable", customEvent);
+    }
+
+    /**
+     * Test Event constructor with properties map from Java.
+     */
+    @Test
+    public void testEventConstructorWithPropertiesMap() {
+        Map<EventKey, java.io.Serializable> properties = new HashMap<>();
+        properties.put(EventKey.VALUE.INSTANCE, 19.99);
+        properties.put(new EventKey.CUSTOM("product_id"), "SKU-123");
+
+        // Event with metric and properties
+        Event event = new Event(EventMetric.ADDED_TO_CART.INSTANCE, properties);
+
+        assertNotNull("Event with properties should be instantiable", event);
+    }
+
+    /**
+     * Test Event with string metric name from Java.
+     */
+    @Test
+    public void testEventWithStringMetric() {
+        // Event can be created with a string metric name
+        Event event = new Event("My Custom Event");
+        assertNotNull("Event with string metric should be instantiable", event);
+
+        // With properties
+        Map<EventKey, java.io.Serializable> properties = new HashMap<>();
+        properties.put(new EventKey.CUSTOM("item"), "Widget");
+        Event eventWithProps = new Event("Purchase", properties);
+        assertNotNull("Event with string metric and properties should be instantiable", eventWithProps);
+    }
+
+    /**
+     * Test Event setters work from Java.
+     *
+     * IMPORTANT: Similar to Profile, Event has ambiguous setter methods (setValue, setUniqueId)
+     * due to Kotlin generating both property setters (void) and fluent setters (Event).
+     * Java cannot resolve which method to call.
+     *
+     * Workarounds:
+     * 1. Use setProperty with EventKey: event.setProperty(EventKey.VALUE.INSTANCE, 99.99)
+     * 2. Use the constructor with properties map
+     *
+     * This is a known Java interop issue.
+     */
+    @Test
+    public void testEventSettersAmbiguity() {
+        // These would fail to compile due to ambiguous method resolution:
+        // event.setValue(99.99);          // DOES NOT COMPILE
+        // event.setUniqueId("order-123"); // DOES NOT COMPILE
+
+        Event event = new Event(EventMetric.STARTED_CHECKOUT.INSTANCE);
+
+        // Workaround: Use setProperty with EventKey (no ambiguity)
+        event.setProperty(EventKey.VALUE.INSTANCE, 99.99)
+             .setProperty(EventKey.EVENT_ID.INSTANCE, "order-123")
+             .setProperty(new EventKey.CUSTOM("items_count"), 3);
+
+        assertNotNull("Event with setProperty should work", event);
+        // getValue() still works for reading
+        assertEquals(Double.valueOf(99.99), event.getValue());
+    }
+
+    // ==========================================
+    // Sealed Class .INSTANCE Access Tests
+    // ==========================================
+
+    /**
+     * Test ProfileKey sealed class object members require .INSTANCE from Java.
+     * This is the expected behavior for Kotlin sealed class objects in Java.
+     */
+    @Test
+    public void testProfileKeyObjectMembersRequireInstance() {
+        // Built-in ProfileKey objects - Java must use .INSTANCE
+        ProfileKey firstName = ProfileKey.FIRST_NAME.INSTANCE;
+        ProfileKey lastName = ProfileKey.LAST_NAME.INSTANCE;
+        ProfileKey organization = ProfileKey.ORGANIZATION.INSTANCE;
+        ProfileKey title = ProfileKey.TITLE.INSTANCE;
+        ProfileKey image = ProfileKey.IMAGE.INSTANCE;
+        ProfileKey address1 = ProfileKey.ADDRESS1.INSTANCE;
+        ProfileKey address2 = ProfileKey.ADDRESS2.INSTANCE;
+        ProfileKey city = ProfileKey.CITY.INSTANCE;
+        ProfileKey country = ProfileKey.COUNTRY.INSTANCE;
+        ProfileKey latitude = ProfileKey.LATITUDE.INSTANCE;
+        ProfileKey longitude = ProfileKey.LONGITUDE.INSTANCE;
+        ProfileKey region = ProfileKey.REGION.INSTANCE;
+        ProfileKey zip = ProfileKey.ZIP.INSTANCE;
+        ProfileKey timezone = ProfileKey.TIMEZONE.INSTANCE;
+
+        assertNotNull("ProfileKey.FIRST_NAME.INSTANCE should be accessible", firstName);
+        assertNotNull("ProfileKey.LAST_NAME.INSTANCE should be accessible", lastName);
+        assertNotNull("ProfileKey.ORGANIZATION.INSTANCE should be accessible", organization);
+        assertNotNull("ProfileKey.TITLE.INSTANCE should be accessible", title);
+        assertNotNull("ProfileKey.IMAGE.INSTANCE should be accessible", image);
+        assertNotNull("ProfileKey.ADDRESS1.INSTANCE should be accessible", address1);
+        assertNotNull("ProfileKey.ADDRESS2.INSTANCE should be accessible", address2);
+        assertNotNull("ProfileKey.CITY.INSTANCE should be accessible", city);
+        assertNotNull("ProfileKey.COUNTRY.INSTANCE should be accessible", country);
+        assertNotNull("ProfileKey.LATITUDE.INSTANCE should be accessible", latitude);
+        assertNotNull("ProfileKey.LONGITUDE.INSTANCE should be accessible", longitude);
+        assertNotNull("ProfileKey.REGION.INSTANCE should be accessible", region);
+        assertNotNull("ProfileKey.ZIP.INSTANCE should be accessible", zip);
+        assertNotNull("ProfileKey.TIMEZONE.INSTANCE should be accessible", timezone);
+
+        // Custom ProfileKey - no .INSTANCE needed (it's a class, not object)
+        ProfileKey customKey = new ProfileKey.CUSTOM("my_custom_field");
+        assertNotNull("ProfileKey.CUSTOM should be instantiable", customKey);
+    }
+
+    /**
+     * Test EventMetric sealed class object members require .INSTANCE from Java.
+     */
+    @Test
+    public void testEventMetricObjectMembersRequireInstance() {
+        // Built-in EventMetric objects - Java must use .INSTANCE
+        EventMetric openedApp = EventMetric.OPENED_APP.INSTANCE;
+        EventMetric viewedProduct = EventMetric.VIEWED_PRODUCT.INSTANCE;
+        EventMetric addedToCart = EventMetric.ADDED_TO_CART.INSTANCE;
+        EventMetric startedCheckout = EventMetric.STARTED_CHECKOUT.INSTANCE;
+
+        assertNotNull("EventMetric.OPENED_APP.INSTANCE should be accessible", openedApp);
+        assertNotNull("EventMetric.VIEWED_PRODUCT.INSTANCE should be accessible", viewedProduct);
+        assertNotNull("EventMetric.ADDED_TO_CART.INSTANCE should be accessible", addedToCart);
+        assertNotNull("EventMetric.STARTED_CHECKOUT.INSTANCE should be accessible", startedCheckout);
+
+        // Custom EventMetric - no .INSTANCE needed (it's a class, not object)
+        EventMetric customMetric = new EventMetric.CUSTOM("My Custom Metric");
+        assertNotNull("EventMetric.CUSTOM should be instantiable", customMetric);
+    }
+
+    /**
+     * Test EventKey sealed class object members require .INSTANCE from Java.
+     */
+    @Test
+    public void testEventKeyObjectMembersRequireInstance() {
+        // Built-in EventKey objects - Java must use .INSTANCE
+        EventKey eventId = EventKey.EVENT_ID.INSTANCE;
+        EventKey value = EventKey.VALUE.INSTANCE;
+
+        assertNotNull("EventKey.EVENT_ID.INSTANCE should be accessible", eventId);
+        assertNotNull("EventKey.VALUE.INSTANCE should be accessible", value);
+
+        // Custom EventKey - no .INSTANCE needed (it's a class, not object)
+        EventKey customKey = new EventKey.CUSTOM("my_custom_key");
+        assertNotNull("EventKey.CUSTOM should be instantiable", customKey);
+    }
+
+    /**
+     * Test ProfileKey.Companion is accessible from Java.
+     */
+    @Test
+    public void testProfileKeyCompanionAccessible() {
+        // Companion object is accessible
+        assertNotNull("ProfileKey.Companion should be accessible", ProfileKey.Companion);
+
+        // IDENTIFIERS set should be accessible
+        assertNotNull("ProfileKey.IDENTIFIERS should be accessible", ProfileKey.Companion.getIDENTIFIERS());
     }
 }

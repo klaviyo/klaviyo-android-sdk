@@ -77,6 +77,66 @@ public class InAppFormsJavaApiTest {
     }
 
     /**
+     * Test InAppFormsConfig with custom timeout using Kotlin helper.
+     * Demonstrates the workaround for Java not being able to create Duration values.
+     *
+     * IMPORTANT: kotlin.time.Duration is an inline/value class, which means:
+     * - Java CANNOT directly call methods that accept or return Duration
+     * - The constructor InAppFormsConfig(Duration) is not callable from Java
+     * - Methods like getSessionTimeoutDuration() are mangled and inaccessible
+     *
+     * Use the Kotlin helper methods in InAppFormsMock to create configs from Java.
+     */
+    @Test
+    public void testInAppFormsConfigWithCustomTimeout() {
+        // Create config with 30 minute timeout (1800 seconds)
+        InAppFormsConfig config = InAppFormsMock.createConfigWithTimeoutSeconds(1800);
+        assertNotNull("InAppFormsConfig with custom timeout should be instantiable", config);
+
+        // Note: We cannot call config.getSessionTimeoutDuration() from Java
+        // because Duration is an inline class and the method name is mangled
+    }
+
+    /**
+     * Test InAppFormsConfig with infinite timeout.
+     * Use this when you never want the forms session to timeout.
+     */
+    @Test
+    public void testInAppFormsConfigWithInfiniteTimeout() {
+        InAppFormsConfig config = InAppFormsMock.createConfigWithInfiniteTimeout();
+        assertNotNull("InAppFormsConfig with infinite timeout should be instantiable", config);
+    }
+
+    /**
+     * Test InAppFormsConfig with zero timeout.
+     * Use this when you want forms to timeout immediately on app background.
+     */
+    @Test
+    public void testInAppFormsConfigWithZeroTimeout() {
+        InAppFormsConfig config = InAppFormsMock.createConfigWithZeroTimeout();
+        assertNotNull("InAppFormsConfig with zero timeout should be instantiable", config);
+    }
+
+    /**
+     * Test that Companion object is accessible but Duration methods are not.
+     *
+     * IMPORTANT: DEFAULT_SESSION_TIMEOUT returns kotlin.time.Duration (inline class),
+     * so getDEFAULT_SESSION_TIMEOUT() is NOT callable from Java - the method name is mangled.
+     *
+     * This is a known limitation of Kotlin inline/value classes in Java interop.
+     */
+    @Test
+    public void testCompanionAccessibleButDurationMethodsAreNot() {
+        // Companion object is accessible
+        assertNotNull("InAppFormsConfig.Companion should be accessible",
+            InAppFormsConfig.Companion);
+
+        // But we CANNOT call getDEFAULT_SESSION_TIMEOUT() from Java:
+        // InAppFormsConfig.Companion.getDEFAULT_SESSION_TIMEOUT() // DOES NOT COMPILE
+        // The actual method is mangled to: getDEFAULT_SESSION_TIMEOUT-UwyO8pc()
+    }
+
+    /**
      * Verify that Klaviyo.INSTANCE is accessible for use with extension functions.
      */
     @Test
