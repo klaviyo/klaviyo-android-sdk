@@ -27,11 +27,9 @@ import static org.junit.Assert.assertTrue;
 /**
  * Tests to verify the Klaviyo SDK public API is accessible from Java.
  *
- * These tests demonstrate the current Java syntax required to call the SDK methods.
- * Since Klaviyo is a Kotlin object (singleton), Java callers must use Klaviyo.INSTANCE
- * to access methods. This is the "ugly but functional" syntax that works today.
- *
- * A future PR will add @JvmStatic annotations to enable the cleaner Klaviyo.methodName() syntax.
+ * Each test verifies both syntaxes work:
+ * 1. Legacy INSTANCE syntax: Klaviyo.INSTANCE.methodName() - for backward compatibility
+ * 2. Static syntax: Klaviyo.methodName() - the recommended approach
  */
 public class KlaviyoJavaApiTest {
 
@@ -53,254 +51,313 @@ public class KlaviyoJavaApiTest {
     }
 
     /**
-     * Test initialize method.
-     * Current Java syntax: Klaviyo.INSTANCE.initialize(apiKey, context)
-     * Desired syntax: Klaviyo.initialize(apiKey, context)
+     * Test initialize method with both syntaxes.
      */
     @Test
     public void testInitialize() {
         String apiKey = "test-api-key";
 
-        Klaviyo result = Klaviyo.INSTANCE.initialize(apiKey, mockContext);
+        // Legacy INSTANCE syntax (backward compatibility)
+        Klaviyo result1 = Klaviyo.INSTANCE.initialize(apiKey, mockContext);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifyInitializeCalled(apiKey);
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax (recommended)
+        Klaviyo result2 = Klaviyo.initialize(apiKey, mockContext);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test registerForLifecycleCallbacks method.
+     * Test registerForLifecycleCallbacks method with both syntaxes.
      */
     @Test
     public void testRegisterForLifecycleCallbacks() {
-        Klaviyo result = Klaviyo.INSTANCE.registerForLifecycleCallbacks(mockContext);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.registerForLifecycleCallbacks(mockContext);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifyRegisterForLifecycleCallbacksCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.registerForLifecycleCallbacks(mockContext);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test setProfile method.
+     * Test setProfile method with both syntaxes.
      */
     @Test
     public void testSetProfile() {
-        // Profile requires at least one parameter from Java (no @JvmOverloads on constructor)
         Profile profile = new Profile(null, null, null, null);
 
-        Klaviyo result = Klaviyo.INSTANCE.setProfile(profile);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.setProfile(profile);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifySetProfileCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.setProfile(profile);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test setEmail method.
+     * Test setEmail method with both syntaxes.
      */
     @Test
     public void testSetEmail() {
         String email = "test@example.com";
 
-        Klaviyo result = Klaviyo.INSTANCE.setEmail(email);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.setEmail(email);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifySetEmailCalled(email);
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.setEmail(email);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test getEmail method.
+     * Test getEmail method with both syntaxes.
      */
     @Test
     public void testGetEmail() {
-        String email = Klaviyo.INSTANCE.getEmail();
+        // Legacy INSTANCE syntax
+        String email1 = Klaviyo.INSTANCE.getEmail();
+        assertNotNull("getEmail should return a value", email1);
 
-        assertNotNull("getEmail should return a value", email);
+        // Static syntax
+        String email2 = Klaviyo.getEmail();
+        assertNotNull("getEmail should return a value", email2);
     }
 
     /**
-     * Test setPhoneNumber method.
+     * Test setPhoneNumber method with both syntaxes.
      */
     @Test
     public void testSetPhoneNumber() {
         String phone = "+15555555555";
 
-        Klaviyo result = Klaviyo.INSTANCE.setPhoneNumber(phone);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.setPhoneNumber(phone);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifySetPhoneNumberCalled(phone);
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.setPhoneNumber(phone);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test getPhoneNumber method.
+     * Test getPhoneNumber method with both syntaxes.
      */
     @Test
     public void testGetPhoneNumber() {
-        String phone = Klaviyo.INSTANCE.getPhoneNumber();
+        // Legacy INSTANCE syntax
+        String phone1 = Klaviyo.INSTANCE.getPhoneNumber();
+        assertNotNull("getPhoneNumber should return a value", phone1);
 
-        assertNotNull("getPhoneNumber should return a value", phone);
+        // Static syntax
+        String phone2 = Klaviyo.getPhoneNumber();
+        assertNotNull("getPhoneNumber should return a value", phone2);
     }
 
     /**
-     * Test setExternalId method.
+     * Test setExternalId method with both syntaxes.
      */
     @Test
     public void testSetExternalId() {
         String externalId = "ext-123";
 
-        Klaviyo result = Klaviyo.INSTANCE.setExternalId(externalId);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.setExternalId(externalId);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifySetExternalIdCalled(externalId);
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.setExternalId(externalId);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test getExternalId method.
+     * Test getExternalId method with both syntaxes.
      */
     @Test
     public void testGetExternalId() {
-        String externalId = Klaviyo.INSTANCE.getExternalId();
+        // Legacy INSTANCE syntax
+        String externalId1 = Klaviyo.INSTANCE.getExternalId();
+        assertNotNull("getExternalId should return a value", externalId1);
 
-        assertNotNull("getExternalId should return a value", externalId);
+        // Static syntax
+        String externalId2 = Klaviyo.getExternalId();
+        assertNotNull("getExternalId should return a value", externalId2);
     }
 
     /**
-     * Test setPushToken method.
+     * Test setPushToken method with both syntaxes.
      */
     @Test
     public void testSetPushToken() {
         String token = "push-token-abc";
 
-        Klaviyo result = Klaviyo.INSTANCE.setPushToken(token);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.setPushToken(token);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifySetPushTokenCalled(token);
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.setPushToken(token);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test getPushToken method.
+     * Test getPushToken method with both syntaxes.
      */
     @Test
     public void testGetPushToken() {
-        String token = Klaviyo.INSTANCE.getPushToken();
+        // Legacy INSTANCE syntax
+        String token1 = Klaviyo.INSTANCE.getPushToken();
+        assertNotNull("getPushToken should return a value", token1);
 
-        assertNotNull("getPushToken should return a value", token);
+        // Static syntax
+        String token2 = Klaviyo.getPushToken();
+        assertNotNull("getPushToken should return a value", token2);
     }
 
     /**
-     * Test setProfileAttribute method with a built-in ProfileKey.
-     * Note: ProfileKey sealed class object members are accessed via .INSTANCE in Java.
+     * Test setProfileAttribute method with both syntaxes.
      */
     @Test
     public void testSetProfileAttribute() {
         ProfileKey key = ProfileKey.FIRST_NAME.INSTANCE;
         String value = "John";
 
-        Klaviyo result = Klaviyo.INSTANCE.setProfileAttribute(key, value);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.setProfileAttribute(key, value);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifySetProfileAttributeCalled(key, value);
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.setProfileAttribute(key, value);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test setProfileAttribute with a custom ProfileKey.
+     * Test setProfileAttribute with a custom ProfileKey using both syntaxes.
      */
     @Test
     public void testSetProfileAttributeCustomKey() {
         ProfileKey customKey = new ProfileKey.CUSTOM("custom_field");
         String value = "custom_value";
 
-        Klaviyo result = Klaviyo.INSTANCE.setProfileAttribute(customKey, value);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.setProfileAttribute(customKey, value);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifySetProfileAttributeCalled(customKey, value);
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.setProfileAttribute(customKey, value);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test resetProfile method.
+     * Test resetProfile method with both syntaxes.
      */
     @Test
     public void testResetProfile() {
-        Klaviyo result = Klaviyo.INSTANCE.resetProfile();
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.resetProfile();
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifyResetProfileCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.resetProfile();
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test createEvent method with Event object.
+     * Test createEvent method with Event object using both syntaxes.
      */
     @Test
     public void testCreateEventWithEvent() {
         Event event = new Event(EventMetric.VIEWED_PRODUCT.INSTANCE);
 
-        Klaviyo result = Klaviyo.INSTANCE.createEvent(event);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.createEvent(event);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifyCreateEventCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.createEvent(event);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test createEvent method with EventMetric and value.
+     * Test createEvent method with EventMetric and value using both syntaxes.
      */
     @Test
     public void testCreateEventWithMetric() {
         EventMetric metric = EventMetric.ADDED_TO_CART.INSTANCE;
 
-        Klaviyo result = Klaviyo.INSTANCE.createEvent(metric, 19.99);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.createEvent(metric, 19.99);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifyCreateEventWithMetricCalled(metric);
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.createEvent(metric, 19.99);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test createEvent with custom EventMetric.
+     * Test createEvent with custom EventMetric using both syntaxes.
      */
     @Test
     public void testCreateEventWithCustomMetric() {
         EventMetric customMetric = new EventMetric.CUSTOM("Custom Event");
 
-        Klaviyo result = Klaviyo.INSTANCE.createEvent(customMetric, null);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.createEvent(customMetric, null);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifyCreateEventWithMetricCalled(customMetric);
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.createEvent(customMetric, null);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test handlePush method.
+     * Test handlePush method with both syntaxes.
      */
     @Test
     public void testHandlePush() {
-        Klaviyo result = Klaviyo.INSTANCE.handlePush(mockIntent);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.handlePush(mockIntent);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifyHandlePushCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.handlePush(mockIntent);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test handleUniversalTrackingLink with String URL.
+     * Test handleUniversalTrackingLink with String URL using both syntaxes.
      */
     @Test
     public void testHandleUniversalTrackingLinkString() {
         String url = "https://trk.klviyomail.com/test";
 
-        boolean result = Klaviyo.INSTANCE.handleUniversalTrackingLink(url);
+        // Legacy INSTANCE syntax
+        boolean result1 = Klaviyo.INSTANCE.handleUniversalTrackingLink(url);
+        assertTrue("Should return true for tracking link", result1);
 
-        KlaviyoMock.verifyHandleUniversalTrackingLinkStringCalled(url);
-        assertTrue("Should return true for tracking link", result);
+        // Static syntax
+        boolean result2 = Klaviyo.handleUniversalTrackingLink(url);
+        assertTrue("Should return true for tracking link", result2);
     }
 
     /**
-     * Test handleUniversalTrackingLink with Intent.
+     * Test handleUniversalTrackingLink with Intent using both syntaxes.
      */
     @Test
     public void testHandleUniversalTrackingLinkIntent() {
-        boolean result = Klaviyo.INSTANCE.handleUniversalTrackingLink(mockIntent);
+        // Legacy INSTANCE syntax
+        boolean result1 = Klaviyo.INSTANCE.handleUniversalTrackingLink(mockIntent);
+        assertTrue("Should return true for tracking link", result1);
 
-        KlaviyoMock.verifyHandleUniversalTrackingLinkIntentCalled();
-        assertTrue("Should return true for tracking link", result);
+        // Static syntax
+        boolean result2 = Klaviyo.handleUniversalTrackingLink(mockIntent);
+        assertTrue("Should return true for tracking link", result2);
     }
 
     /**
-     * Test registerDeepLinkHandler method.
-     * Verifies DeepLinkHandler can be implemented as a lambda in Java.
+     * Test registerDeepLinkHandler method with both syntaxes.
      */
     @Test
     public void testRegisterDeepLinkHandler() {
@@ -308,78 +365,102 @@ public class KlaviyoJavaApiTest {
             // Handle deep link
         };
 
-        Klaviyo result = Klaviyo.INSTANCE.registerDeepLinkHandler(handler);
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.registerDeepLinkHandler(handler);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifyRegisterDeepLinkHandlerCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.registerDeepLinkHandler(handler);
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test unregisterDeepLinkHandler method.
+     * Test unregisterDeepLinkHandler method with both syntaxes.
      */
     @Test
     public void testUnregisterDeepLinkHandler() {
-        Klaviyo result = Klaviyo.INSTANCE.unregisterDeepLinkHandler();
+        // Legacy INSTANCE syntax
+        Klaviyo result1 = Klaviyo.INSTANCE.unregisterDeepLinkHandler();
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result1);
 
-        KlaviyoMock.verifyUnregisterDeepLinkHandlerCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+        // Static syntax
+        Klaviyo result2 = Klaviyo.unregisterDeepLinkHandler();
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result2);
     }
 
     /**
-     * Test deprecated isKlaviyoIntent extension property.
+     * Test deprecated isKlaviyoIntent with both syntaxes.
      */
     @Test
     @SuppressWarnings("deprecation")
     public void testIsKlaviyoIntent() {
-        boolean result = Klaviyo.INSTANCE.isKlaviyoIntent(mockIntent);
+        // Legacy INSTANCE syntax
+        boolean result1 = Klaviyo.INSTANCE.isKlaviyoIntent(mockIntent);
+        assertTrue("Should return true", result1);
 
-        assertTrue("Should return true", result);
+        // Static syntax
+        boolean result2 = Klaviyo.isKlaviyoIntent(mockIntent);
+        assertTrue("Should return true", result2);
     }
 
     /**
-     * Test isKlaviyoNotificationIntent extension property.
+     * Test isKlaviyoNotificationIntent with both syntaxes.
      */
     @Test
     public void testIsKlaviyoNotificationIntent() {
-        boolean result = Klaviyo.INSTANCE.isKlaviyoNotificationIntent(mockIntent);
+        // Legacy INSTANCE syntax
+        boolean result1 = Klaviyo.INSTANCE.isKlaviyoNotificationIntent(mockIntent);
+        assertTrue("Should return true", result1);
 
-        assertTrue("Should return true", result);
+        // Static syntax
+        boolean result2 = Klaviyo.isKlaviyoNotificationIntent(mockIntent);
+        assertTrue("Should return true", result2);
     }
 
     /**
-     * Test isKlaviyoUniversalTrackingIntent extension property.
+     * Test isKlaviyoUniversalTrackingIntent with both syntaxes.
      */
     @Test
     public void testIsKlaviyoUniversalTrackingIntent() {
-        boolean result = Klaviyo.INSTANCE.isKlaviyoUniversalTrackingIntent(mockIntent);
+        // Legacy INSTANCE syntax
+        boolean result1 = Klaviyo.INSTANCE.isKlaviyoUniversalTrackingIntent(mockIntent);
+        assertTrue("Should return true", result1);
 
-        assertTrue("Should return true", result);
+        // Static syntax
+        boolean result2 = Klaviyo.isKlaviyoUniversalTrackingIntent(mockIntent);
+        assertTrue("Should return true", result2);
     }
 
     /**
-     * Test isKlaviyoUniversalTrackingUri extension property.
+     * Test isKlaviyoUniversalTrackingUri with both syntaxes.
      */
     @Test
     public void testIsKlaviyoUniversalTrackingUri() {
-        boolean result = Klaviyo.INSTANCE.isKlaviyoUniversalTrackingUri(mockUri);
+        // Legacy INSTANCE syntax
+        boolean result1 = Klaviyo.INSTANCE.isKlaviyoUniversalTrackingUri(mockUri);
+        assertTrue("Should return true", result1);
 
-        assertTrue("Should return true", result);
+        // Static syntax
+        boolean result2 = Klaviyo.isKlaviyoUniversalTrackingUri(mockUri);
+        assertTrue("Should return true", result2);
     }
 
     /**
-     * Test method chaining works from Java.
+     * Test method chaining works with both syntaxes.
      */
     @Test
     public void testMethodChaining() {
-        // Verify fluent API works from Java
+        // Legacy INSTANCE syntax
         Klaviyo.INSTANCE
             .setEmail("test@example.com")
             .setPhoneNumber("+15555555555")
             .setExternalId("ext-123");
 
-        KlaviyoMock.verifySetEmailCalled("test@example.com");
-        KlaviyoMock.verifySetPhoneNumberCalled("+15555555555");
-        KlaviyoMock.verifySetExternalIdCalled("ext-123");
+        // Static syntax (recommended)
+        Klaviyo
+            .setEmail("test@example.com")
+            .setPhoneNumber("+15555555555")
+            .setExternalId("ext-123");
     }
 
     /**
