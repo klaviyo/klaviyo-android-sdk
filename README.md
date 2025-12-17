@@ -689,14 +689,14 @@ splash screen or loading animations have completed. Depending on your app's arch
 
    ```java
    import com.klaviyo.analytics.Klaviyo;
-   import com.klaviyo.forms.InAppFormsApi;
+   import com.klaviyo.forms.KlaviyoForms;
 
    // You can register as soon as you've initialized
    Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", getApplicationContext());
-   InAppFormsApi.registerForInAppForms();
+   KlaviyoForms.registerForInAppForms();
 
    // ... or any time thereafter
-   InAppFormsApi.registerForInAppForms();
+   KlaviyoForms.registerForInAppForms();
    ```
 </details>
 
@@ -732,13 +732,13 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
    <summary>Java</summary>
 
    ```java
-   import com.klaviyo.forms.InAppFormsApi;
+   import com.klaviyo.forms.KlaviyoForms;
    import com.klaviyo.forms.InAppFormsConfig;
 
    // e.g. to configure a session timeout of 30 minutes (1800 seconds)
    InAppFormsConfig config = InAppFormsConfig.withTimeoutSeconds(1800L);
 
-   InAppFormsApi.registerForInAppForms(config);
+   KlaviyoForms.registerForInAppForms(config);
    ```
 </details>
 
@@ -760,9 +760,9 @@ If at any point you need to prevent the SDK from displaying In-App Forms, e.g. w
    <summary>Java</summary>
 
    ```java
-   import com.klaviyo.forms.InAppFormsApi;
+   import com.klaviyo.forms.KlaviyoForms;
 
-   InAppFormsApi.unregisterFromInAppForms();
+   KlaviyoForms.unregisterFromInAppForms();
    ```
 </details>
 
@@ -801,14 +801,14 @@ We recommend calling this as early as possible in your application lifecycle, id
 
    ```java
    import com.klaviyo.analytics.Klaviyo;
-   import com.klaviyo.location.GeofencingApi;
+   import com.klaviyo.location.KlaviyoLocation;
 
    // You can register as soon as you've initialized
    Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", getApplicationContext());
-   GeofencingApi.registerGeofencing();
+   KlaviyoLocation.registerGeofencing();
 
    // ... or any time thereafter
-   GeofencingApi.registerGeofencing();
+   KlaviyoLocation.registerGeofencing();
    ```
 </details>
 
@@ -848,9 +848,9 @@ If you need to stop monitoring geofences, you may call:
    <summary>Java</summary>
 
    ```java
-   import com.klaviyo.location.GeofencingApi;
+   import com.klaviyo.location.KlaviyoLocation;
 
-   GeofencingApi.unregisterGeofencing();
+   KlaviyoLocation.unregisterGeofencing();
    ```
 </details>
 
