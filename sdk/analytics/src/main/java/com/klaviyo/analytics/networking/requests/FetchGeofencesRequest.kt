@@ -20,10 +20,16 @@ internal class FetchGeofencesRequest(
 
     companion object {
         private const val PATH = "client/geofences"
-        private const val LAT = "lat"
-        private const val LNG = "lng"
+        private const val FILTER = "filter"
         private const val PAGE_SIZE = "page_size"
         private const val DEFAULT_PAGE_SIZE = 30
+
+        /**
+         * Build filter expression for lat/lng using filter syntax:
+         * filter=and(equals(lat,40.7128),equals(lng,-74.0060))
+         */
+        private fun buildLocationFilter(lat: Double, lng: Double): String =
+            "and(equals(lat,$lat),equals(lng,$lng))"
     }
 
     override val type: String = "Fetch Geofences"
@@ -31,8 +37,9 @@ internal class FetchGeofencesRequest(
     override var query: Map<String, String> = buildMap {
         put(COMPANY_ID, Registry.config.apiKey)
         put(PAGE_SIZE, DEFAULT_PAGE_SIZE.toString())
-        latitude?.let { put(LAT, it.toString()) }
-        longitude?.let { put(LNG, it.toString()) }
+        if (latitude != null && longitude != null) {
+            put(FILTER, buildLocationFilter(latitude, longitude))
+        }
     }
 
     /**

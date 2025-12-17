@@ -32,7 +32,7 @@ internal object KlaviyoApiRequestDecoder {
             )
             AggregateEventApiRequest::class.simpleName -> AggregateEventApiRequest(time, uuid)
             UniversalClickTrackRequest::class.simpleName -> UniversalClickTrackRequest(time, uuid)
-            // Lat/lng will be restored from query map in .apply block below
+            // Query map (with filter param) is restored in .apply block below
             FetchGeofencesRequest::class.simpleName -> FetchGeofencesRequest(null, null, time, uuid)
             else -> KlaviyoApiRequest(urlPath, method, time, uuid)
         }.apply {

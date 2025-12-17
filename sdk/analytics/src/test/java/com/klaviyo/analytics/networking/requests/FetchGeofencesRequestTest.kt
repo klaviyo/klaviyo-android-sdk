@@ -163,37 +163,35 @@ internal class FetchGeofencesRequestTest : BaseApiRequestTest<FetchGeofencesRequ
     }
 
     @Test
-    fun `includes latitude and longitude in query when provided`() {
+    fun `includes filter with latitude and longitude when both provided`() {
         val request = FetchGeofencesRequest(latitude = 40.7128, longitude = -74.006)
 
-        assertEquals("40.7128", request.query["lat"])
-        assertEquals("-74.006", request.query["lng"])
+        assertEquals("and(equals(lat,40.7128),equals(lng,-74.006))", request.query["filter"])
         assertEquals(API_KEY, request.query["company_id"])
     }
 
     @Test
-    fun `excludes latitude and longitude from query when not provided`() {
+    fun `excludes filter when neither latitude nor longitude provided`() {
         val request = FetchGeofencesRequest()
 
-        assert(!request.query.containsKey("lat"))
-        assert(!request.query.containsKey("lng"))
+        assert(!request.query.containsKey("filter"))
         assertEquals(API_KEY, request.query["company_id"])
     }
 
     @Test
-    fun `includes only latitude when longitude not provided`() {
+    fun `excludes filter when only latitude provided`() {
         val request = FetchGeofencesRequest(latitude = 40.7128, longitude = null)
 
-        assertEquals("40.7128", request.query["lat"])
-        assert(!request.query.containsKey("lng"))
+        assert(!request.query.containsKey("filter"))
+        assertEquals(API_KEY, request.query["company_id"])
     }
 
     @Test
-    fun `includes only longitude when latitude not provided`() {
+    fun `excludes filter when only longitude provided`() {
         val request = FetchGeofencesRequest(latitude = null, longitude = -74.006)
 
-        assert(!request.query.containsKey("lat"))
-        assertEquals("-74.006", request.query["lng"])
+        assert(!request.query.containsKey("filter"))
+        assertEquals(API_KEY, request.query["company_id"])
     }
 
     @Test
