@@ -18,7 +18,6 @@ class Event(val metric: EventMetric, properties: Map<EventKey, Serializable>?) :
 
     constructor(metric: String) : this(metric, null)
 
-    @JvmName("withValue")
     fun setValue(value: Double?) = apply { this.value = value }
     var value: Double?
         get() = when (val value = this[EventKey.VALUE]) {
@@ -30,14 +29,17 @@ class Event(val metric: EventMetric, properties: Map<EventKey, Serializable>?) :
                 null
             }
         }
+
+        @JvmSynthetic
         set(value) {
             this[EventKey.VALUE] = value
         }
 
-    @JvmName("withUniqueId")
     fun setUniqueId(uniqueId: String?) = apply { this.uniqueId = uniqueId }
     var uniqueId: String?
         get() = this[EventKey.EVENT_ID]?.toString()
+
+        @JvmSynthetic
         set(value) {
             this[EventKey.EVENT_ID] = value
         }

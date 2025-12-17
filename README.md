@@ -355,7 +355,7 @@ Additional event properties can be specified as part of the `Event` object:
 
    Event event = new Event(EventMetric.VIEWED_PRODUCT.INSTANCE)
        .setProperty(new EventKey.CUSTOM("Product"), "Coffee Mug")
-       .withValue(10.0);  // Use withValue for fluent chaining in Java
+       .setValue(10.0);
    Klaviyo.createEvent(event);
    ```
 </details>

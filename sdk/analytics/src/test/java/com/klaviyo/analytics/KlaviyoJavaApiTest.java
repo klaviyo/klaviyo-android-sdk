@@ -421,38 +421,33 @@ public class KlaviyoJavaApiTest {
     }
 
     /**
-     * Test Profile setters work from Java.
+     * Test Profile fluent setters work from Java.
      *
-     * IMPORTANT: Profile has ambiguous setter methods (setEmail, setPhoneNumber, setExternalId)
-     * due to Kotlin generating both property setters (void return) and fluent setters (Profile return).
-     * Java cannot resolve which method to call, so these setters CANNOT be used from Java.
-     *
-     * Workarounds:
-     * 1. Use the constructor with parameters: new Profile("ext-123", "email@test.com", "+1555", null)
-     * 2. Use setProperty with ProfileKey: profile.setProperty(ProfileKey.EMAIL, "email@test.com")
-     *
-     * This is a known Java interop issue that could be fixed by renaming the fluent methods
-     * (e.g., withEmail instead of setEmail) in a future SDK version.
+     * The SDK uses @JvmSynthetic on property setters to hide them from Java,
+     * leaving only the fluent setters (which return Profile for chaining).
      */
     @Test
-    public void testProfileSettersAmbiguity() {
-        // These would fail to compile due to ambiguous method resolution:
-        // profile.setEmail("test@example.com");     // DOES NOT COMPILE
-        // profile.setPhoneNumber("+15555555555");   // DOES NOT COMPILE
-        // profile.setExternalId("ext-123");         // DOES NOT COMPILE
+    public void testProfileSetters() {
+        // Fluent setters work and allow chaining
+        Profile profile = new Profile()
+            .setEmail("test@example.com")
+            .setPhoneNumber("+15555555555")
+            .setExternalId("ext-123");
 
-        // Workaround 1: Use the constructor
-        Profile profile1 = new Profile("ext-123", "test@example.com", "+15555555555", null);
-        assertEquals("test@example.com", profile1.getEmail());
+        assertEquals("test@example.com", profile.getEmail());
+        assertEquals("+15555555555", profile.getPhoneNumber());
+        assertEquals("ext-123", profile.getExternalId());
 
-        // Workaround 2: Use setProperty with ProfileKey (no ambiguity)
-        // Note: identifiers like email/phone/externalId use internal ProfileKeys,
-        // so for those, use the constructor. For other properties:
-        Profile profile2 = new Profile(null, null, null, null);
-        profile2.setProperty(ProfileKey.FIRST_NAME.INSTANCE, "John")
-                .setProperty("custom_field", "custom_value");
+        // Constructor with parameters still works
+        Profile profile2 = new Profile("ext-456", "other@example.com", "+16666666666", null);
+        assertEquals("other@example.com", profile2.getEmail());
 
-        assertNotNull("Profile with setProperty should work", profile2);
+        // setProperty also works for custom properties
+        Profile profile3 = new Profile()
+            .setProperty(ProfileKey.FIRST_NAME.INSTANCE, "John")
+            .setProperty("custom_field", "custom_value");
+
+        assertNotNull("Profile with setProperty should work", profile3);
     }
 
     /**
@@ -501,34 +496,22 @@ public class KlaviyoJavaApiTest {
     }
 
     /**
-     * Test Event setters work from Java.
+     * Test Event fluent setters work from Java.
      *
-     * IMPORTANT: Similar to Profile, Event has ambiguous setter methods (setValue, setUniqueId)
-     * due to Kotlin generating both property setters (void) and fluent setters (Event).
-     * Java cannot resolve which method to call.
-     *
-     * Workarounds:
-     * 1. Use setProperty with EventKey: event.setProperty(EventKey.VALUE.INSTANCE, 99.99)
-     * 2. Use the constructor with properties map
-     *
-     * This is a known Java interop issue.
+     * The SDK uses @JvmSynthetic on property setters to hide them from Java,
+     * leaving only the fluent setters (which return Event for chaining).
      */
     @Test
-    public void testEventSettersAmbiguity() {
-        // These would fail to compile due to ambiguous method resolution:
-        // event.setValue(99.99);          // DOES NOT COMPILE
-        // event.setUniqueId("order-123"); // DOES NOT COMPILE
+    public void testEventSetters() {
+        // Fluent setters work and allow chaining
+        Event event = new Event(EventMetric.STARTED_CHECKOUT.INSTANCE)
+            .setValue(99.99)
+            .setUniqueId("order-123")
+            .setProperty(new EventKey.CUSTOM("items_count"), 3);
 
-        Event event = new Event(EventMetric.STARTED_CHECKOUT.INSTANCE);
-
-        // Workaround: Use setProperty with EventKey (no ambiguity)
-        event.setProperty(EventKey.VALUE.INSTANCE, 99.99)
-             .setProperty(EventKey.EVENT_ID.INSTANCE, "order-123")
-             .setProperty(new EventKey.CUSTOM("items_count"), 3);
-
-        assertNotNull("Event with setProperty should work", event);
-        // getValue() still works for reading
         assertEquals(Double.valueOf(99.99), event.getValue());
+        assertEquals("order-123", event.getUniqueId());
+        assertNotNull("Event with fluent setters should work", event);
     }
 
     // ==========================================
