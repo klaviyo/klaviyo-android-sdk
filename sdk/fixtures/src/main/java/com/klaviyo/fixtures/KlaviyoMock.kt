@@ -85,6 +85,12 @@ object KlaviyoMock {
         every { Klaviyo.run { any<Intent>().isKlaviyoUniversalTrackingIntent } } returns true
         every { Klaviyo.run { any<Uri>().isKlaviyoUniversalTrackingUri } } returns true
 
+        // Static wrapper methods for the extension properties (Java-friendly)
+        every { Klaviyo.isKlaviyoIntent(any()) } returns true
+        every { Klaviyo.isKlaviyoNotificationIntent(any()) } returns true
+        every { Klaviyo.isKlaviyoUniversalTrackingIntent(any()) } returns true
+        every { Klaviyo.isKlaviyoUniversalTrackingUri(any()) } returns true
+
         // Mock createEvent with single param (thanks to @JvmOverloads)
         every { Klaviyo.createEvent(any<EventMetric>()) } returns Klaviyo
     }

@@ -380,6 +380,17 @@ object Klaviyo {
     } ?: intent.isKlaviyoUniversalTrackingIntent
 
     /**
+     * Checks whether a notification intent originated from Klaviyo.
+     * Java-friendly static method.
+     */
+    @JvmStatic
+    @Deprecated(
+        "Use isKlaviyoNotificationIntent instead, will be removed in the next major version",
+        ReplaceWith("isKlaviyoNotificationIntent")
+    )
+    fun isKlaviyoIntent(intent: Intent): Boolean = intent.isKlaviyoNotificationIntent
+
+    /**
      * Checks whether a notification intent originated from Klaviyo
      */
     @Deprecated(
@@ -387,30 +398,52 @@ object Klaviyo {
         ReplaceWith("isKlaviyoNotificationIntent")
     )
     val Intent.isKlaviyoIntent: Boolean
+        @JvmName("_isKlaviyoIntent")
         get() = this.isKlaviyoNotificationIntent
 
     /**
      * Checks whether a notification intent originated from Klaviyo.
-     *
-     * Java usage: `Klaviyo.INSTANCE.isKlaviyoNotificationIntent(intent)`
+     * Java-friendly static method.
+     */
+    @JvmStatic
+    fun isKlaviyoNotificationIntent(intent: Intent?): Boolean =
+        intent?.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
+
+    /**
+     * Checks whether a notification intent originated from Klaviyo
      */
     @Suppress("MemberVisibilityCanBePrivate")
     val Intent?.isKlaviyoNotificationIntent: Boolean
+        @JvmName("_isKlaviyoNotificationIntent")
         get() = this?.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
 
     /**
      * Determine if an intent is a Klaviyo click-tracking universal/app link.
-     *
-     * Java usage: `Klaviyo.INSTANCE.isKlaviyoUniversalTrackingIntent(intent)`
+     * Java-friendly static method.
+     */
+    @JvmStatic
+    fun isKlaviyoUniversalTrackingIntent(intent: Intent?): Boolean =
+        intent?.data?.isKlaviyoUniversalTrackingUri == true
+
+    /**
+     * Determine if an intent is a Klaviyo click-tracking universal/app link
      */
     val Intent?.isKlaviyoUniversalTrackingIntent: Boolean
+        @JvmName("_isKlaviyoUniversalTrackingIntent")
         get() = this?.data?.isKlaviyoUniversalTrackingUri == true
 
     /**
      * Determine if a URI is a Klaviyo click-tracking universal/app link.
-     *
-     * Java usage: `Klaviyo.INSTANCE.isKlaviyoUniversalTrackingUri(uri)`
+     * Java-friendly static method.
+     */
+    @JvmStatic
+    fun isKlaviyoUniversalTrackingUri(uri: Uri): Boolean =
+        DeepLinking.isUniversalTrackingUri(uri)
+
+    /**
+     * Determine if a URI is a Klaviyo click-tracking universal/app link
      */
     val Uri.isKlaviyoUniversalTrackingUri: Boolean
+        @JvmName("_isKlaviyoUniversalTrackingUri")
         get() = DeepLinking.isUniversalTrackingUri(this)
 }

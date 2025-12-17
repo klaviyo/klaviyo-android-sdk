@@ -1062,7 +1062,7 @@ and [Verified App Links](https://developer.android.com/training/app-links).
               return;
           }
 
-          if (Klaviyo.INSTANCE.isKlaviyoNotificationIntent(intent)) {
+          if (Klaviyo.isKlaviyoNotificationIntent(intent)) {
               // Klaviyo SDK will track an Opened Push event. If it contains a link, this will also invoke your deep link handler if registered (you may need to return early to avoid duplicate navigation)
               Klaviyo.handlePush(intent);
           }
