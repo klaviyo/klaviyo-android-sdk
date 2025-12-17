@@ -2,7 +2,9 @@ package com.klaviyo.forms
 
 import com.klaviyo.analytics.Klaviyo
 import io.mockk.every
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
+import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlin.time.Duration
@@ -51,7 +53,7 @@ object InAppFormsMock {
         InAppFormsConfig(Duration.ZERO)
 
     /**
-     * Sets up mocks for In-App Forms extension functions.
+     * Sets up mocks for In-App Forms extension functions and KlaviyoForms static API.
      * Call this in @Before setup methods.
      */
     @JvmStatic
@@ -62,6 +64,14 @@ object InAppFormsMock {
 
         every { any<Klaviyo>().registerForInAppForms(any()) } returns Klaviyo
         every { any<Klaviyo>().unregisterFromInAppForms() } returns Klaviyo
+
+        // Mock KlaviyoForms static API
+        mockkStatic(KlaviyoForms::class)
+        mockkObject(KlaviyoForms)
+
+        every { KlaviyoForms.registerForInAppForms(any()) } returns Klaviyo
+        every { KlaviyoForms.registerForInAppForms() } returns Klaviyo
+        every { KlaviyoForms.unregisterFromInAppForms() } returns Klaviyo
     }
 
     /**
@@ -72,6 +82,8 @@ object InAppFormsMock {
     fun teardown() {
         unmockkStatic(Klaviyo::registerForInAppForms)
         unmockkStatic(Klaviyo::unregisterFromInAppForms)
+        unmockkObject(KlaviyoForms)
+        unmockkStatic(KlaviyoForms::class)
     }
 
     @JvmStatic
@@ -82,5 +94,20 @@ object InAppFormsMock {
     @JvmStatic
     fun verifyUnregisterFromInAppFormsCalled() {
         verify { any<Klaviyo>().unregisterFromInAppForms() }
+    }
+
+    @JvmStatic
+    fun verifyKlaviyoFormsRegisterCalled() {
+        verify { KlaviyoForms.registerForInAppForms(any()) }
+    }
+
+    @JvmStatic
+    fun verifyKlaviyoFormsRegisterCalledNoArg() {
+        verify { KlaviyoForms.registerForInAppForms() }
+    }
+
+    @JvmStatic
+    fun verifyKlaviyoFormsUnregisterCalled() {
+        verify { KlaviyoForms.unregisterFromInAppForms() }
     }
 }

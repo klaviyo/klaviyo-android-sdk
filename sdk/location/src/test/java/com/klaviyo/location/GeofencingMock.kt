@@ -2,7 +2,9 @@ package com.klaviyo.location
 
 import com.klaviyo.analytics.Klaviyo
 import io.mockk.every
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
+import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
 
@@ -16,7 +18,7 @@ import io.mockk.verify
 object GeofencingMock {
 
     /**
-     * Sets up mocks for Geofencing extension functions.
+     * Sets up mocks for Geofencing extension functions and KlaviyoLocation static API.
      * Call this in @Before setup methods.
      */
     @JvmStatic
@@ -27,6 +29,13 @@ object GeofencingMock {
 
         every { any<Klaviyo>().registerGeofencing() } returns Klaviyo
         every { any<Klaviyo>().unregisterGeofencing() } returns Klaviyo
+
+        // Mock KlaviyoLocation static API
+        mockkStatic(KlaviyoLocation::class)
+        mockkObject(KlaviyoLocation)
+
+        every { KlaviyoLocation.registerGeofencing() } returns Klaviyo
+        every { KlaviyoLocation.unregisterGeofencing() } returns Klaviyo
     }
 
     /**
@@ -37,6 +46,8 @@ object GeofencingMock {
     fun teardown() {
         unmockkStatic(Klaviyo::registerGeofencing)
         unmockkStatic(Klaviyo::unregisterGeofencing)
+        unmockkObject(KlaviyoLocation)
+        unmockkStatic(KlaviyoLocation::class)
     }
 
     @JvmStatic
@@ -47,5 +58,15 @@ object GeofencingMock {
     @JvmStatic
     fun verifyUnregisterGeofencingCalled() {
         verify { any<Klaviyo>().unregisterGeofencing() }
+    }
+
+    @JvmStatic
+    fun verifyKlaviyoLocationRegisterCalled() {
+        verify { KlaviyoLocation.registerGeofencing() }
+    }
+
+    @JvmStatic
+    fun verifyKlaviyoLocationUnregisterCalled() {
+        verify { KlaviyoLocation.unregisterGeofencing() }
     }
 }

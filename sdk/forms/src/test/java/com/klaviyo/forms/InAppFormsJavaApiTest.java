@@ -12,12 +12,11 @@ import static org.junit.Assert.assertNotNull;
 /**
  * Tests to verify the In-App Forms API is accessible from Java.
  *
- * These tests demonstrate the current Java syntax required to call the SDK methods.
- * Since registerForInAppForms and unregisterFromInAppForms are Kotlin extension functions
- * on the Klaviyo object, Java callers must use InAppFormsKt.methodName(Klaviyo.INSTANCE, ...)
- * to access methods. This is the "ugly but functional" syntax that works today.
+ * This file contains tests for both:
+ * 1. The legacy extension function syntax: InAppFormsKt.methodName(Klaviyo.INSTANCE, ...)
+ * 2. The new static API syntax: KlaviyoForms.methodName(...)
  *
- * A future PR will add static wrapper methods to enable the cleaner Klaviyo.methodName() syntax.
+ * The KlaviyoForms static API is the recommended approach for Java developers.
  */
 public class InAppFormsJavaApiTest {
 
@@ -142,5 +141,46 @@ public class InAppFormsJavaApiTest {
     @Test
     public void testKlaviyoInstanceAccessibleForExtensions() {
         assertNotNull("Klaviyo.INSTANCE should be accessible", Klaviyo.INSTANCE);
+    }
+
+    // ==================== KlaviyoForms Static API Tests ====================
+    // These tests demonstrate the recommended Java syntax using KlaviyoForms
+
+    /**
+     * Test KlaviyoForms.registerForInAppForms() with default config.
+     * This is the recommended Java syntax.
+     */
+    @Test
+    public void testKlaviyoFormsRegisterDefault() {
+        Klaviyo result = KlaviyoForms.registerForInAppForms();
+
+        InAppFormsMock.verifyKlaviyoFormsRegisterCalledNoArg();
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+    }
+
+    /**
+     * Test KlaviyoForms.registerForInAppForms(config) with custom config.
+     * This is the recommended Java syntax.
+     */
+    @Test
+    public void testKlaviyoFormsRegisterWithConfig() {
+        InAppFormsConfig config = InAppFormsMock.createDefaultConfig();
+
+        Klaviyo result = KlaviyoForms.registerForInAppForms(config);
+
+        InAppFormsMock.verifyKlaviyoFormsRegisterCalled();
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+    }
+
+    /**
+     * Test KlaviyoForms.unregisterFromInAppForms().
+     * This is the recommended Java syntax.
+     */
+    @Test
+    public void testKlaviyoFormsUnregister() {
+        Klaviyo result = KlaviyoForms.unregisterFromInAppForms();
+
+        InAppFormsMock.verifyKlaviyoFormsUnregisterCalled();
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
     }
 }

@@ -12,12 +12,11 @@ import static org.junit.Assert.assertNotNull;
 /**
  * Tests to verify the Geofencing API is accessible from Java.
  *
- * These tests demonstrate the current Java syntax required to call the SDK methods.
- * Since registerGeofencing and unregisterGeofencing are Kotlin extension functions
- * on the Klaviyo object, Java callers must use GeofencingKt.methodName(Klaviyo.INSTANCE)
- * to access methods. This is the "ugly but functional" syntax that works today.
+ * This file contains tests for both:
+ * 1. The legacy extension function syntax: GeofencingKt.methodName(Klaviyo.INSTANCE)
+ * 2. The new static API syntax: KlaviyoLocation.methodName()
  *
- * A future PR will add static wrapper methods to enable the cleaner Klaviyo.methodName() syntax.
+ * The KlaviyoLocation static API is the recommended approach for Java developers.
  */
 public class GeofencingJavaApiTest {
 
@@ -63,5 +62,32 @@ public class GeofencingJavaApiTest {
     @Test
     public void testKlaviyoInstanceAccessibleForExtensions() {
         assertNotNull("Klaviyo.INSTANCE should be accessible", Klaviyo.INSTANCE);
+    }
+
+    // ==================== KlaviyoLocation Static API Tests ====================
+    // These tests demonstrate the recommended Java syntax using KlaviyoLocation
+
+    /**
+     * Test KlaviyoLocation.registerGeofencing().
+     * This is the recommended Java syntax.
+     */
+    @Test
+    public void testKlaviyoLocationRegister() {
+        Klaviyo result = KlaviyoLocation.registerGeofencing();
+
+        GeofencingMock.verifyKlaviyoLocationRegisterCalled();
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
+    }
+
+    /**
+     * Test KlaviyoLocation.unregisterGeofencing().
+     * This is the recommended Java syntax.
+     */
+    @Test
+    public void testKlaviyoLocationUnregister() {
+        Klaviyo result = KlaviyoLocation.unregisterGeofencing();
+
+        GeofencingMock.verifyKlaviyoLocationUnregisterCalled();
+        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
     }
 }

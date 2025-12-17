@@ -98,27 +98,18 @@ private fun Registry.inAppIsRegistered(): Boolean = listOf(
  * Java-friendly static methods for In-App Forms.
  * Kotlin users should use the extension functions on [Klaviyo] instead.
  */
-object InAppFormsApi {
+object KlaviyoForms {
     /**
-     * Start an In-App Forms session with the default configuration.
-     * Java-friendly static method.
-     *
-     * @see Klaviyo.registerForInAppForms
-     */
-    @JvmStatic
-    @UiThread
-    fun registerForInAppForms(): Klaviyo = Klaviyo.registerForInAppForms()
-
-    /**
-     * Start an In-App Forms session with a custom configuration.
+     * Start an In-App Forms session.
      * Java-friendly static method.
      *
      * @param config see [InAppFormsConfig] for configuration options.
      * @see Klaviyo.registerForInAppForms
      */
     @JvmStatic
+    @JvmOverloads
     @UiThread
-    fun registerForInAppForms(config: InAppFormsConfig): Klaviyo =
+    fun registerForInAppForms(config: InAppFormsConfig = InAppFormsConfig()): Klaviyo =
         Klaviyo.registerForInAppForms(config)
 
     /**

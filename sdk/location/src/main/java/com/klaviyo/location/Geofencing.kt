@@ -36,7 +36,7 @@ fun Klaviyo.unregisterGeofencing(): Klaviyo = safeApply {
  * Java-friendly static methods for Geofencing.
  * Kotlin users should use the extension functions on [Klaviyo] instead.
  */
-object GeofencingApi {
+object KlaviyoLocation {
     /**
      * Start geofence monitoring.
      * Java-friendly static method.
