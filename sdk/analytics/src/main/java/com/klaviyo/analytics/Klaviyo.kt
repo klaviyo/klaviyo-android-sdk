@@ -398,6 +398,7 @@ object Klaviyo {
         ReplaceWith("isKlaviyoNotificationIntent")
     )
     val Intent.isKlaviyoIntent: Boolean
+        @JvmSynthetic
         @JvmName("_isKlaviyoIntent")
         get() = this.isKlaviyoNotificationIntent
 
@@ -414,6 +415,7 @@ object Klaviyo {
      */
     @Suppress("MemberVisibilityCanBePrivate")
     val Intent?.isKlaviyoNotificationIntent: Boolean
+        @JvmSynthetic
         @JvmName("_isKlaviyoNotificationIntent")
         get() = this?.getStringExtra("com.klaviyo._k")?.isNotEmpty() ?: false
 
@@ -429,6 +431,7 @@ object Klaviyo {
      * Determine if an intent is a Klaviyo click-tracking universal/app link
      */
     val Intent?.isKlaviyoUniversalTrackingIntent: Boolean
+        @JvmSynthetic
         @JvmName("_isKlaviyoUniversalTrackingIntent")
         get() = this?.data?.isKlaviyoUniversalTrackingUri == true
 
@@ -444,6 +447,7 @@ object Klaviyo {
      * Determine if a URI is a Klaviyo click-tracking universal/app link
      */
     val Uri.isKlaviyoUniversalTrackingUri: Boolean
+        @JvmSynthetic
         @JvmName("_isKlaviyoUniversalTrackingUri")
         get() = DeepLinking.isUniversalTrackingUri(this)
 }
