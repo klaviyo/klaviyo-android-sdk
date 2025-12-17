@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking.requests
 
+import java.net.URL
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -9,7 +10,13 @@ internal class FetchGeofencesRequestTest : BaseApiRequestTest<FetchGeofencesRequ
 
     override val expectedMethod = RequestMethod.GET
 
-    override val expectedQuery = mapOf("company_id" to API_KEY)
+    override val expectedQuery = mapOf(
+        "company_id" to API_KEY,
+        "page_size" to "30"
+    )
+
+    override val expectedUrl: URL
+        get() = URL("${mockConfig.baseUrl}/$expectedPath?company_id=$API_KEY&page_size=30")
 
     override val expectedHeaders: Map<String, String>
         get() = super.expectedHeaders.toMutableMap() + mapOf(
@@ -158,5 +165,43 @@ internal class FetchGeofencesRequestTest : BaseApiRequestTest<FetchGeofencesRequ
             .setStatus(KlaviyoApiRequest.Status.Failed, code)
 
         assert(request.getResult() is FetchGeofencesResult.Failure)
+    }
+
+    @Test
+    fun `includes filter with latitude and longitude when both provided`() {
+        val request = FetchGeofencesRequest(latitude = 40.7128, longitude = -74.006)
+
+        assertEquals("and(equals(lat,40.7128),equals(lng,-74.006))", request.query["filter"])
+        assertEquals(API_KEY, request.query["company_id"])
+    }
+
+    @Test
+    fun `excludes filter when neither latitude nor longitude provided`() {
+        val request = FetchGeofencesRequest()
+
+        assert(!request.query.containsKey("filter"))
+        assertEquals(API_KEY, request.query["company_id"])
+    }
+
+    @Test
+    fun `excludes filter when only latitude provided`() {
+        val request = FetchGeofencesRequest(latitude = 40.7128, longitude = null)
+
+        assert(!request.query.containsKey("filter"))
+        assertEquals(API_KEY, request.query["company_id"])
+    }
+
+    @Test
+    fun `excludes filter when only longitude provided`() {
+        val request = FetchGeofencesRequest(latitude = null, longitude = -74.006)
+
+        assert(!request.query.containsKey("filter"))
+        assertEquals(API_KEY, request.query["company_id"])
+    }
+
+    @Test
+    fun `jSON interoperability with lat lng`() {
+        val requestWithLocation = FetchGeofencesRequest(latitude = 40.7128, longitude = -74.006)
+        testJsonInterop(requestWithLocation)
     }
 }
