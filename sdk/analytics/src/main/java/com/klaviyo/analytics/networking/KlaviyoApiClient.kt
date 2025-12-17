@@ -157,8 +157,11 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Fetch geofences from the Klaviyo API
      */
-    override suspend fun fetchGeofences(): FetchGeofencesResult = withContext(Registry.dispatcher) {
-        FetchGeofencesRequest().apply {
+    override suspend fun fetchGeofences(
+        latitude: Double?,
+        longitude: Double?
+    ): FetchGeofencesResult = withContext(Registry.dispatcher) {
+        FetchGeofencesRequest(latitude, longitude).apply {
             sendAndBroadcast()
         }.getResult()
     }
@@ -169,8 +172,10 @@ internal object KlaviyoApiClient : ApiClient {
      * Note: callback-based implementation for Java interop, Kotlin devs are encouraged to use suspend implementation
      */
     override fun fetchGeofences(
+        latitude: Double?,
+        longitude: Double?,
         callback: FetchGeofencesCallback
-    ): ApiRequest = FetchGeofencesRequest().apply {
+    ): ApiRequest = FetchGeofencesRequest(latitude, longitude).apply {
         CoroutineScope(Registry.dispatcher).safeLaunch {
             sendAndBroadcast()
             callback(getResult())

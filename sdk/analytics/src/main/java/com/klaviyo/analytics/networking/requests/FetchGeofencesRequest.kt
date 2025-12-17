@@ -5,14 +5,31 @@ import org.json.JSONObject
 
 /**
  * Makes an HTTP request to fetch geofences from the Klaviyo backend
+ *
+ * @param latitude Optional latitude for proximity-based filtering on the backend
+ * @param longitude Optional longitude for proximity-based filtering on the backend
+ * @param queuedTime Timestamp when the request was queued (for persistence)
+ * @param uuid Unique identifier for the request (for persistence)
  */
 internal class FetchGeofencesRequest(
+    private val latitude: Double? = null,
+    private val longitude: Double? = null,
     queuedTime: Long? = null,
     uuid: String? = null
 ) : KlaviyoApiRequest(PATH, RequestMethod.GET, queuedTime, uuid) {
 
     companion object {
         private const val PATH = "client/geofences"
+        private const val FILTER = "filter"
+        private const val PAGE_SIZE = "page_size"
+        private const val DEFAULT_PAGE_SIZE = 30
+
+        /**
+         * Build filter expression for lat/lng using filter syntax:
+         * filter=and(equals(lat,40.7128),equals(lng,-74.0060))
+         */
+        private fun buildLocationFilter(lat: Double, lng: Double): String =
+            "and(equals(lat,$lat),equals(lng,$lng))"
     }
 
     init {
@@ -22,9 +39,13 @@ internal class FetchGeofencesRequest(
 
     override val type: String = "Fetch Geofences"
 
-    override var query: Map<String, String> = mapOf(
-        COMPANY_ID to Registry.config.apiKey
-    )
+    override var query: Map<String, String> = buildMap {
+        put(COMPANY_ID, Registry.config.apiKey)
+        put(PAGE_SIZE, DEFAULT_PAGE_SIZE.toString())
+        if (latitude != null && longitude != null) {
+            put(FILTER, buildLocationFilter(latitude, longitude))
+        }
+    }
 
     /**
      * Only attempt initial request once, no retries
