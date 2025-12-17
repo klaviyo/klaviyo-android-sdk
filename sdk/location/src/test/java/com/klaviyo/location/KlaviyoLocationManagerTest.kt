@@ -114,7 +114,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     private val mockLocationTask = mockk<Task<Location>>(relaxed = true).apply {
         every { addOnSuccessListener(any()) } answers {
             // Immediately invoke the success listener with null (no location available)
-            val listener = firstArg<com.google.android.gms.tasks.OnSuccessListener<Location>>()
+            val listener = firstArg<OnSuccessListener<Location>>()
             listener.onSuccess(null)
             this@apply
         }
@@ -124,7 +124,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         every { result } returns null
     }
 
-    private val mockFusedLocationClient = mockk<com.google.android.gms.location.FusedLocationProviderClient>(
+    private val mockFusedLocationClient = mockk<FusedLocationProviderClient>(
         relaxed = true
     ).apply {
         every { lastLocation } returns mockLocationTask
