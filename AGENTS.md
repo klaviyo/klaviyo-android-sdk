@@ -188,7 +188,6 @@ When adding or modifying public APIs, verify they are callable from Java in a cl
 - Be aware of Kotlin-only types that don't bridge nicely to Java
 - Use `@JvmStatic` or wrapper methods for object methods and extensions e.g. in the `Klaviyo` public API facade.
 - Use `@JvmOverloads` to generate overloaded methods e.g. for default arguments.
-- Avoid ambiguous setters, e.g. use `@JvmName` to set distinct method names like `withX` for fluent builder methods.
 
 Add Java interop tests for new public APIs (see existing `*JavaApiTest.java` tests) to confirm the Java API surface.
 
