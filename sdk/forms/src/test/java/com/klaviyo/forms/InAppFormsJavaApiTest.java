@@ -26,7 +26,7 @@ public class InAppFormsJavaApiTest {
 
     @Test
     public void testRegisterForInAppFormsWithConfig() {
-        InAppFormsConfig config = InAppFormsMock.createDefaultConfig();
+        InAppFormsConfig config = new InAppFormsConfig();
 
         Klaviyo result = InAppFormsKt.registerForInAppForms(Klaviyo.INSTANCE, config);
 
@@ -43,18 +43,20 @@ public class InAppFormsJavaApiTest {
     }
 
     @Test
-    public void testInAppFormsConfigWithTimeoutSeconds() {
-        // Java-friendly factory method via @JvmStatic
-        InAppFormsConfig config = InAppFormsConfig.withTimeoutSeconds(1800);
-        assertNotNull(config);
+    public void testInAppFormsConfigConstructors() {
+        // No-arg constructor uses default 1 hour timeout
+        InAppFormsConfig defaultConfig = new InAppFormsConfig();
+        assertNotNull(defaultConfig);
+
+        // Int constructor for custom timeout in seconds
+        InAppFormsConfig customConfig = new InAppFormsConfig(1800);
+        assertNotNull(customConfig);
     }
 
     @Test
     public void testKlaviyoInstanceAccessibleForExtensions() {
         assertNotNull(Klaviyo.INSTANCE);
     }
-
-    // ==================== KlaviyoForms Static API Tests ====================
 
     @Test
     public void testKlaviyoFormsRegisterDefault() {
@@ -64,7 +66,7 @@ public class InAppFormsJavaApiTest {
 
     @Test
     public void testKlaviyoFormsRegisterWithConfig() {
-        InAppFormsConfig config = InAppFormsMock.createDefaultConfig();
+        InAppFormsConfig config = new InAppFormsConfig(1800);
         KlaviyoForms.registerForInAppForms(config);
         InAppFormsMock.verifyKlaviyoFormsRegisterCalled();
     }

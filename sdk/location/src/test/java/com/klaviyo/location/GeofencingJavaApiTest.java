@@ -45,8 +45,6 @@ public class GeofencingJavaApiTest {
         assertNotNull(Klaviyo.INSTANCE);
     }
 
-    // ==================== KlaviyoLocation Static API Tests ====================
-
     @Test
     public void testKlaviyoLocationRegister() {
         KlaviyoLocation.registerGeofencing();
