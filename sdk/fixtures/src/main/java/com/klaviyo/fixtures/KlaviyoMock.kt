@@ -25,16 +25,13 @@ object KlaviyoMock {
 
     // Mock objects exposed for Java tests to use
     @JvmStatic
-    lateinit var mockContext: Context
-        private set
+    val mockContext: Context = mockk(relaxed = true)
 
     @JvmStatic
-    lateinit var mockIntent: Intent
-        private set
+    val mockIntent: Intent = mockk(relaxed = true)
 
     @JvmStatic
-    lateinit var mockUri: Uri
-        private set
+    val mockUri: Uri = mockk(relaxed = true)
 
     /**
      * Sets up mocks for all Klaviyo public API methods.
@@ -42,11 +39,6 @@ object KlaviyoMock {
      */
     @JvmStatic
     fun setup() {
-        // Create mock objects
-        mockContext = mockk(relaxed = true)
-        mockIntent = mockk(relaxed = true)
-        mockUri = mockk(relaxed = true)
-
         mockkObject(Klaviyo)
 
         // Mock all public methods to return Klaviyo for chaining
