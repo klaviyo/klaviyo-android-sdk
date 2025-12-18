@@ -1,5 +1,6 @@
 package com.klaviyo.fixtures
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -21,6 +22,7 @@ import java.io.Serializable
  * mockkObject function, which is only available in Kotlin. This class provides a bridge
  * for Java tests to mock and verify Klaviyo method calls.
  */
+@SuppressLint("StaticFieldLeak")
 object KlaviyoMock {
 
     // Mock objects exposed for Java tests to use
