@@ -11,12 +11,6 @@ import static org.junit.Assert.assertNotNull;
 
 /**
  * Tests to verify the Geofencing API is accessible from Java.
- *
- * This file contains tests for both:
- * 1. The legacy extension function syntax: GeofencingKt.methodName(Klaviyo.INSTANCE)
- * 2. The new static API syntax: KlaviyoLocation.methodName()
- *
- * The KlaviyoLocation static API is the recommended approach for Java developers.
  */
 public class GeofencingJavaApiTest {
 
@@ -30,38 +24,25 @@ public class GeofencingJavaApiTest {
         GeofencingMock.teardown();
     }
 
-    /**
-     * Test registerGeofencing method.
-     * Current Java syntax: GeofencingKt.registerGeofencing(Klaviyo.INSTANCE)
-     * Desired syntax: Klaviyo.registerGeofencing()
-     */
     @Test
     public void testRegisterGeofencing() {
         Klaviyo result = GeofencingKt.registerGeofencing(Klaviyo.INSTANCE);
 
+        assertEquals(Klaviyo.INSTANCE, result);
         GeofencingMock.verifyRegisterGeofencingCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
     }
 
-    /**
-     * Test unregisterGeofencing method.
-     * Current Java syntax: GeofencingKt.unregisterGeofencing(Klaviyo.INSTANCE)
-     * Desired syntax: Klaviyo.unregisterGeofencing()
-     */
     @Test
     public void testUnregisterGeofencing() {
         Klaviyo result = GeofencingKt.unregisterGeofencing(Klaviyo.INSTANCE);
 
+        assertEquals(Klaviyo.INSTANCE, result);
         GeofencingMock.verifyUnregisterGeofencingCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
     }
 
-    /**
-     * Verify that Klaviyo.INSTANCE is accessible for use with extension functions.
-     */
     @Test
     public void testKlaviyoInstanceAccessibleForExtensions() {
-        assertNotNull("Klaviyo.INSTANCE should be accessible", Klaviyo.INSTANCE);
+        assertNotNull(Klaviyo.INSTANCE);
     }
 
     // ==================== KlaviyoLocation Static API Tests ====================

@@ -89,27 +89,32 @@ object InAppFormsMock {
     }
 
     @JvmStatic
-    fun verifyRegisterForInAppFormsCalled() {
-        verify { any<Klaviyo>().registerForInAppForms(any()) }
+    @JvmOverloads
+    fun verifyRegisterForInAppFormsCalled(count: Int = 1) {
+        verify(exactly = count) { any<Klaviyo>().registerForInAppForms(any()) }
     }
 
     @JvmStatic
-    fun verifyUnregisterFromInAppFormsCalled() {
-        verify { any<Klaviyo>().unregisterFromInAppForms() }
+    @JvmOverloads
+    fun verifyUnregisterFromInAppFormsCalled(count: Int = 1) {
+        verify(exactly = count) { any<Klaviyo>().unregisterFromInAppForms() }
     }
 
     @JvmStatic
-    fun verifyKlaviyoFormsRegisterCalled() {
-        verify { KlaviyoForms.registerForInAppForms(any()) }
+    @JvmOverloads
+    fun verifyKlaviyoFormsRegisterCalled(count: Int = 1) {
+        verify(exactly = count) { KlaviyoForms.registerForInAppForms(any()) }
     }
 
     @JvmStatic
-    fun verifyKlaviyoFormsRegisterCalledNoArg() {
-        verify { KlaviyoForms.registerForInAppForms() }
+    @JvmOverloads
+    fun verifyKlaviyoFormsRegisterCalledNoArg(count: Int = 1) {
+        verify(exactly = count) { KlaviyoForms.registerForInAppForms() }
     }
 
     @JvmStatic
-    fun verifyKlaviyoFormsUnregisterCalled() {
-        verify { KlaviyoForms.unregisterFromInAppForms() }
+    @JvmOverloads
+    fun verifyKlaviyoFormsUnregisterCalled(count: Int = 1) {
+        verify(exactly = count) { KlaviyoForms.unregisterFromInAppForms() }
     }
 }

@@ -72,7 +72,7 @@ public class KlaviyoJavaApiTest {
 
     @Test
     public void testSetProfile() {
-        Profile profile = new Profile(null, null, null, null);
+        Profile profile = new Profile();
 
         Klaviyo result1 = Klaviyo.INSTANCE.setProfile(profile);
         assertEquals(Klaviyo.INSTANCE, result1);
@@ -286,7 +286,8 @@ public class KlaviyoJavaApiTest {
 
     @Test
     public void testRegisterDeepLinkHandler() {
-        DeepLinkHandler handler = uri -> { };
+        DeepLinkHandler handler = uri -> {
+        };
 
         Klaviyo result1 = Klaviyo.INSTANCE.registerDeepLinkHandler(handler);
         assertEquals(Klaviyo.INSTANCE, result1);
@@ -356,14 +357,14 @@ public class KlaviyoJavaApiTest {
     @Test
     public void testMethodChaining() {
         Klaviyo.INSTANCE
-            .setEmail("test@example.com")
-            .setPhoneNumber("+15555555555")
-            .setExternalId("ext-123");
+                .setEmail("test@example.com")
+                .setPhoneNumber("+15555555555")
+                .setExternalId("ext-123");
 
         Klaviyo
-            .setEmail("test@example.com")
-            .setPhoneNumber("+15555555555")
-            .setExternalId("ext-123");
+                .setEmail("test@example.com")
+                .setPhoneNumber("+15555555555")
+                .setExternalId("ext-123");
 
         KlaviyoMock.verifySetEmailCalled("test@example.com", 2);
         KlaviyoMock.verifySetPhoneNumberCalled("+15555555555", 2);
@@ -372,14 +373,13 @@ public class KlaviyoJavaApiTest {
 
     @Test
     public void testProfileClassUsableFromJava() {
-        Profile profile = new Profile(null, null, null, null);
+        Profile profile = new Profile();
         assertNotNull(profile);
 
         Profile profileWithParams = new Profile(
-            "test@example.com",
-            "+15555555555",
-            "ext-123",
-            null
+                "test@example.com",
+                "+15555555555",
+                "ext-123"
         );
         assertNotNull(profileWithParams);
     }
@@ -391,27 +391,27 @@ public class KlaviyoJavaApiTest {
         properties.put(ProfileKey.LAST_NAME.INSTANCE, "Doe");
         properties.put(new ProfileKey.CUSTOM("loyalty_points"), 100);
 
-        Profile profile = new Profile(null, null, null, properties);
+        Profile profile = new Profile(properties);
         assertNotNull(profile);
     }
 
     @Test
     public void testProfileSetters() {
         Profile profile = new Profile()
-            .setEmail("test@example.com")
-            .setPhoneNumber("+15555555555")
-            .setExternalId("ext-123");
+                .setEmail("test@example.com")
+                .setPhoneNumber("+15555555555")
+                .setExternalId("ext-123");
 
         assertEquals("test@example.com", profile.getEmail());
         assertEquals("+15555555555", profile.getPhoneNumber());
         assertEquals("ext-123", profile.getExternalId());
 
-        Profile profile2 = new Profile("ext-456", "other@example.com", "+16666666666", null);
+        Profile profile2 = new Profile("ext-456", "other@example.com", "+16666666666");
         assertEquals("other@example.com", profile2.getEmail());
 
         Profile profile3 = new Profile()
-            .setProperty(ProfileKey.FIRST_NAME.INSTANCE, "John")
-            .setProperty("custom_field", "custom_value");
+                .setProperty(ProfileKey.FIRST_NAME.INSTANCE, "John")
+                .setProperty("custom_field", "custom_value");
         assertNotNull(profile3);
     }
 
@@ -448,9 +448,9 @@ public class KlaviyoJavaApiTest {
     @Test
     public void testEventSetters() {
         Event event = new Event(EventMetric.STARTED_CHECKOUT.INSTANCE)
-            .setValue(99.99)
-            .setUniqueId("order-123")
-            .setProperty(new EventKey.CUSTOM("items_count"), 3);
+                .setValue(99.99)
+                .setUniqueId("order-123")
+                .setProperty(new EventKey.CUSTOM("items_count"), 3);
 
         assertEquals(Double.valueOf(99.99), event.getValue());
         assertEquals("order-123", event.getUniqueId());
@@ -519,11 +519,5 @@ public class KlaviyoJavaApiTest {
 
         EventKey customKey = new EventKey.CUSTOM("my_custom_key");
         assertNotNull(customKey);
-    }
-
-    @Test
-    public void testProfileKeyCompanionAccessible() {
-        assertNotNull(ProfileKey.Companion);
-        assertNotNull(ProfileKey.Companion.getIDENTIFIERS());
     }
 }

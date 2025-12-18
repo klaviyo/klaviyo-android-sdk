@@ -53,22 +53,26 @@ object GeofencingMock {
     }
 
     @JvmStatic
-    fun verifyRegisterGeofencingCalled() {
-        verify { any<Klaviyo>().registerGeofencing() }
+    @JvmOverloads
+    fun verifyRegisterGeofencingCalled(count: Int = 1) {
+        verify(exactly = count) { any<Klaviyo>().registerGeofencing() }
     }
 
     @JvmStatic
-    fun verifyUnregisterGeofencingCalled() {
-        verify { any<Klaviyo>().unregisterGeofencing() }
+    @JvmOverloads
+    fun verifyUnregisterGeofencingCalled(count: Int = 1) {
+        verify(exactly = count) { any<Klaviyo>().unregisterGeofencing() }
     }
 
     @JvmStatic
-    fun verifyKlaviyoLocationRegisterCalled() {
-        verify { KlaviyoLocation.registerGeofencing() }
+    @JvmOverloads
+    fun verifyKlaviyoLocationRegisterCalled(count: Int = 1) {
+        verify(exactly = count) { KlaviyoLocation.registerGeofencing() }
     }
 
     @JvmStatic
-    fun verifyKlaviyoLocationUnregisterCalled() {
-        verify { KlaviyoLocation.unregisterGeofencing() }
+    @JvmOverloads
+    fun verifyKlaviyoLocationUnregisterCalled(count: Int = 1) {
+        verify(exactly = count) { KlaviyoLocation.unregisterGeofencing() }
     }
 }
