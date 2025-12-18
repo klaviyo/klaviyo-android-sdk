@@ -23,11 +23,6 @@ import java.io.Serializable
  * Since Klaviyo is a Kotlin object (singleton), it can only be mocked using MockK's
  * mockkObject function, which is only available in Kotlin. This class provides a bridge
  * for Java tests to mock and verify Klaviyo method calls.
- *
- * Note: With @JvmStatic annotations on Klaviyo methods, MockK's stub recording behavior
- * changes. When recording stubs like `every { Klaviyo.methodName() }`, MockK may execute
- * the actual static method. We use `recordPrivateCalls = true` to help MockK intercept
- * properly, and `answers {}` blocks for methods that access external state.
  */
 @SuppressLint("StaticFieldLeak")
 object KlaviyoMock {
