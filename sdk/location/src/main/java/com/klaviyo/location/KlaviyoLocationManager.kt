@@ -23,7 +23,6 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.safeLaunch
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.tasks.await
