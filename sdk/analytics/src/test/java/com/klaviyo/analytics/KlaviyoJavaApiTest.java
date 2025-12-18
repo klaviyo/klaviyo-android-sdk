@@ -12,6 +12,7 @@ import com.klaviyo.analytics.model.Profile;
 import com.klaviyo.analytics.model.ProfileKey;
 import com.klaviyo.fixtures.KlaviyoMock;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -408,7 +409,7 @@ public class KlaviyoJavaApiTest {
     @Test
     public void testProfileConstructorWithPropertiesMap() {
         // Create a properties map with ProfileKey
-        Map<ProfileKey, java.io.Serializable> properties = new HashMap<>();
+        Map<ProfileKey, Serializable> properties = new HashMap<>();
         properties.put(ProfileKey.FIRST_NAME.INSTANCE, "John");
         properties.put(ProfileKey.LAST_NAME.INSTANCE, "Doe");
         properties.put(new ProfileKey.CUSTOM("loyalty_points"), 100);
@@ -473,7 +474,7 @@ public class KlaviyoJavaApiTest {
      */
     @Test
     public void testEventConstructorWithPropertiesMap() {
-        Map<EventKey, java.io.Serializable> properties = new HashMap<>();
+        Map<EventKey, Serializable> properties = new HashMap<>();
         properties.put(EventKey.VALUE.INSTANCE, 19.99);
         properties.put(new EventKey.CUSTOM("product_id"), "SKU-123");
 
@@ -493,7 +494,7 @@ public class KlaviyoJavaApiTest {
         assertNotNull("Event with string metric should be instantiable", event);
 
         // With properties
-        Map<EventKey, java.io.Serializable> properties = new HashMap<>();
+        Map<EventKey, Serializable> properties = new HashMap<>();
         properties.put(new EventKey.CUSTOM("item"), "Widget");
         Event eventWithProps = new Event("Purchase", properties);
         assertNotNull("Event with string metric and properties should be instantiable", eventWithProps);
