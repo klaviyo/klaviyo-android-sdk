@@ -8,8 +8,8 @@ import org.json.JSONObject
  *
  * @param latitude Optional latitude for proximity-based filtering on the backend
  * @param longitude Optional longitude for proximity-based filtering on the backend
- * @param queuedTime Timestamp when the request was queued (for persistence)
- * @param uuid Unique identifier for the request (for persistence)
+ * @param queuedTime Optional Timestamp when the request was queued (for persistence)
+ * @param uuid Optional Unique identifier for the request (for persistence)
  */
 internal class FetchGeofencesRequest(
     private val latitude: Double? = null,

@@ -258,7 +258,7 @@ internal class KlaviyoLocationManager : LocationManager {
             val anonymizedLocation = getCurrentAnonymizedLocation()
             anonymizedLocation?.let {
                 Registry.log.debug(
-                    "Fetching geofences with location: lat=${it.latitude}, lng=${it.longitude}"
+                    "Fetching geofences with anonymized location: lat=${it.latitude}, lng=${it.longitude}"
                 )
             } ?: Registry.log.debug("Fetching geofences without location data")
 
