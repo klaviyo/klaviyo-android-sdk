@@ -207,6 +207,10 @@ Profile identifiers and other attributes can be set all at once using the `Profi
    <summary>Kotlin</summary>
 
    ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.analytics.model.Profile
+   import com.klaviyo.analytics.model.ProfileKey
+
    val profile = Profile(
        externalId = "USER_IDENTIFIER",
        email = "kermit@klaviyo-demo.com",
@@ -228,10 +232,11 @@ Profile identifiers and other attributes can be set all at once using the `Profi
    import com.klaviyo.analytics.Klaviyo;
    import com.klaviyo.analytics.model.Profile;
    import com.klaviyo.analytics.model.ProfileKey;
+   import java.io.Serializable;
    import java.util.HashMap;
    import java.util.Map;
 
-   Map<ProfileKey, String> properties = new HashMap<>();
+   Map<ProfileKey, Serializable> properties = new HashMap<>();
    properties.put(ProfileKey.FIRST_NAME.INSTANCE, "Kermit");
    properties.put(new ProfileKey.CUSTOM("instrument"), "banjo");
 
@@ -252,6 +257,9 @@ Or individually with additive fluent setters:
    <summary>Kotlin</summary>
 
    ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.analytics.model.ProfileKey
+
    Klaviyo.setExternalId("USER_IDENTIFIER")
        .setEmail("kermit@klaviyo-demo.com")
        .setPhoneNumber("+12223334444")
@@ -286,6 +294,9 @@ to overwrite it with a new profile object.
    <summary>Kotlin</summary>
 
    ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.analytics.model.ProfileKey
+
    // Start a profile for Kermit
    Klaviyo.setEmail("kermit@klaviyo-demo.com")
        .setPhoneNumber("+12223334444")
@@ -343,6 +354,11 @@ Additional event properties can be specified as part of the `Event` object:
    <summary>Kotlin</summary>
 
    ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.analytics.model.Event
+   import com.klaviyo.analytics.model.EventKey
+   import com.klaviyo.analytics.model.EventMetric
+
    val event = Event(EventMetric.VIEWED_PRODUCT)
        .setProperty(EventKey.CUSTOM("Product"), "Coffee Mug")
        .setValue(10.0)
@@ -408,6 +424,9 @@ Add the following to your application or main activity's `.onCreate()` method:
    <summary>Kotlin</summary>
 
    ```kotlin
+   import com.google.firebase.messaging.FirebaseMessaging
+   import com.klaviyo.analytics.Klaviyo
+
    // Fetches the current push token and registers with Push SDK
    FirebaseMessaging.getInstance().token.addOnSuccessListener { pushToken ->
        Klaviyo.setPushToken(pushToken)
@@ -469,6 +488,10 @@ This method will check if the app was opened from a notification originating fro
    <summary>Kotlin</summary>
 
    ```kotlin
+   import android.content.Intent
+   import android.os.Bundle
+   import com.klaviyo.analytics.Klaviyo
+
    // Main Activity
 
    override fun onCreate(savedInstanceState: Bundle?) {
@@ -686,6 +709,7 @@ splash screen or loading animations have completed. Depending on your app's arch
    ```kotlin
    import com.klaviyo.analytics.Klaviyo
    import com.klaviyo.forms.registerForInAppForms
+   import com.klaviyo.forms.unregisterFromInAppForms
 
    // You can register as soon as you've initialized
    Klaviyo
@@ -694,6 +718,9 @@ splash screen or loading animations have completed. Depending on your app's arch
 
    // ... or any time thereafter
    Klaviyo.registerForInAppForms()
+
+   // ... Unregister later, if appropriate (e.g. on logout)
+   Klaviyo.unregisterFromInAppForms()
    ```
 </details>
 
@@ -710,6 +737,9 @@ splash screen or loading animations have completed. Depending on your app's arch
 
    // ... or any time thereafter
    KlaviyoForms.registerForInAppForms();
+
+   // ... Unregister later, if appropriate (e.g. on logout)
+   KlaviyoForms.unregisterFromInAppForms();
    ```
 </details>
 
@@ -755,18 +785,7 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
    ```
 </details>
 
-#### Unregistering from In-App Forms
-If at any point you need to prevent the SDK from displaying In-App Forms, e.g. when the user logs out, you may call:
-
-```kotlin
-// Kotlin
-Klaviyo.unregisterFromInAppForms()
-
-// Java
-KlaviyoForms.unregisterFromInAppForms();
-```
-
-Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+**Note:** After unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
 ## Geofencing
 
@@ -785,6 +804,7 @@ We recommend calling this as early as possible in your application lifecycle, id
    ```kotlin
    import com.klaviyo.analytics.Klaviyo
    import com.klaviyo.location.registerGeofencing
+   import com.klaviyo.location.unregisterGeofencing
 
    // You can register as soon as you've initialized
    Klaviyo
@@ -793,6 +813,9 @@ We recommend calling this as early as possible in your application lifecycle, id
 
    // ... or any time thereafter
    Klaviyo.registerGeofencing()
+
+   // ... Unregister later, if appropriate
+   Klaviyo.unregisterGeofencing()
    ```
 </details>
 
@@ -809,6 +832,9 @@ We recommend calling this as early as possible in your application lifecycle, id
 
    // ... or any time thereafter
    KlaviyoLocation.registerGeofencing();
+
+   // ... Unregister later, if appropriate
+   KlaviyoLocation.unregisterGeofencing();
    ```
 </details>
 
@@ -830,18 +856,7 @@ You are responsible for requesting runtime permission from users according to
 > See [Android documentation](https://developer.android.com/develop/sensors-and-location/location/permissions#background)
 > for guidance on requesting background location permission.
 
-### Unregistering from Geofencing
-If you need to stop monitoring geofences, you may call:
-
-```kotlin
-// Kotlin
-Klaviyo.unregisterGeofencing()
-
-// Java
-KlaviyoLocation.unregisterGeofencing();
-```
-
-This removes all geofences from Android's location services and stops monitoring for permission changes.
+**Note:** Unregistering removes all geofences from Android's location services and stops monitoring for permission changes.
 
 ## Deep Linking
 Klaviyo [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a
@@ -863,6 +878,10 @@ the application lifecycle to handle any link that launches the app from a termin
    <summary>Kotlin</summary>
 
    ```kotlin
+   import android.app.Application
+   import android.net.Uri
+   import com.klaviyo.analytics.Klaviyo
+
    // Application subclass
    class YourApplication : Application() {
        override fun onCreate() {
@@ -890,6 +909,10 @@ the application lifecycle to handle any link that launches the app from a termin
    <summary>Java</summary>
 
    ```java
+   import android.app.Application;
+   import android.net.Uri;
+   import com.klaviyo.analytics.Klaviyo;
+
    // Application subclass
    public class YourApplication extends Application {
        @Override
@@ -1000,6 +1023,12 @@ and [Verified App Links](https://developer.android.com/training/app-links).
       <summary>Kotlin</summary>
 
       ```kotlin
+      import android.content.Intent
+      import android.net.Uri
+      import android.os.Bundle
+      import com.klaviyo.analytics.Klaviyo
+      import com.klaviyo.analytics.isKlaviyoNotificationIntent
+
       // Main Activity
       override fun onCreate(savedInstanceState: Bundle?) {
           /* ... */
