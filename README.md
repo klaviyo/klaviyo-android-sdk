@@ -264,6 +264,9 @@ Or individually with additive fluent setters:
    <summary>Java</summary>
 
    ```java
+   import com.klaviyo.analytics.Klaviyo;
+   import com.klaviyo.analytics.model.ProfileKey;
+
    Klaviyo.setExternalId("USER_IDENTIFIER")
        .setEmail("kermit@klaviyo-demo.com")
        .setPhoneNumber("+12223334444")
@@ -302,6 +305,9 @@ to overwrite it with a new profile object.
    <summary>Java</summary>
 
    ```java
+   import com.klaviyo.analytics.Klaviyo;
+   import com.klaviyo.analytics.model.ProfileKey;
+
    // Start a profile for Kermit
    Klaviyo.setEmail("kermit@klaviyo-demo.com")
        .setPhoneNumber("+12223334444")
@@ -413,6 +419,9 @@ Add the following to your application or main activity's `.onCreate()` method:
    <summary>Java</summary>
 
    ```java
+   import com.google.firebase.messaging.FirebaseMessaging;
+   import com.klaviyo.analytics.Klaviyo;
+
    // Fetches the current push token and registers with Push SDK
    FirebaseMessaging.getInstance().getToken().addOnSuccessListener(pushToken -> {
        Klaviyo.setPushToken(pushToken);
@@ -481,6 +490,10 @@ This method will check if the app was opened from a notification originating fro
    <summary>Java</summary>
 
    ```java
+   import android.content.Intent;
+   import android.os.Bundle;
+   import com.klaviyo.analytics.Klaviyo;
+
    // Main Activity
 
    @Override
@@ -736,7 +749,7 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
    import com.klaviyo.forms.InAppFormsConfig;
 
    // e.g. to configure a session timeout of 30 minutes (1800 seconds)
-   InAppFormsConfig config = InAppFormsConfig.withTimeoutSeconds(1800L);
+   InAppFormsConfig config = new InAppFormsConfig(1800);
 
    KlaviyoForms.registerForInAppForms(config);
    ```
@@ -745,26 +758,13 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 #### Unregistering from In-App Forms
 If at any point you need to prevent the SDK from displaying In-App Forms, e.g. when the user logs out, you may call:
 
-<details open>
-   <summary>Kotlin</summary>
+```kotlin
+// Kotlin
+Klaviyo.unregisterFromInAppForms()
 
-   ```kotlin
-   import com.klaviyo.analytics.Klaviyo
-   import com.klaviyo.forms.unregisterFromInAppForms
-
-   Klaviyo.unregisterFromInAppForms()
-   ```
-</details>
-
-<details>
-   <summary>Java</summary>
-
-   ```java
-   import com.klaviyo.forms.KlaviyoForms;
-
-   KlaviyoForms.unregisterFromInAppForms();
-   ```
-</details>
+// Java
+KlaviyoForms.unregisterFromInAppForms();
+```
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
@@ -833,26 +833,13 @@ You are responsible for requesting runtime permission from users according to
 ### Unregistering from Geofencing
 If you need to stop monitoring geofences, you may call:
 
-<details open>
-   <summary>Kotlin</summary>
+```kotlin
+// Kotlin
+Klaviyo.unregisterGeofencing()
 
-   ```kotlin
-   import com.klaviyo.analytics.Klaviyo
-   import com.klaviyo.location.unregisterGeofencing
-
-   Klaviyo.unregisterGeofencing()
-   ```
-</details>
-
-<details>
-   <summary>Java</summary>
-
-   ```java
-   import com.klaviyo.location.KlaviyoLocation;
-
-   KlaviyoLocation.unregisterGeofencing();
-   ```
-</details>
+// Java
+KlaviyoLocation.unregisterGeofencing();
+```
 
 This removes all geofences from Android's location services and stops monitoring for permission changes.
 
@@ -1045,6 +1032,11 @@ and [Verified App Links](https://developer.android.com/training/app-links).
       <summary>Java</summary>
 
       ```java
+      import android.content.Intent;
+      import android.net.Uri;
+      import android.os.Bundle;
+      import com.klaviyo.analytics.Klaviyo;
+
       // Main Activity
       @Override
       protected void onCreate(Bundle savedInstanceState) {
