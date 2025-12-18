@@ -43,28 +43,9 @@ public class InAppFormsJavaApiTest {
     }
 
     @Test
-    public void testInAppFormsConfigUsableFromJava() {
-        InAppFormsConfig config = InAppFormsMock.createDefaultConfig();
-        assertNotNull(config);
-
-        assertNotNull(InAppFormsConfig.Companion);
-    }
-
-    @Test
-    public void testInAppFormsConfigWithCustomTimeout() {
-        InAppFormsConfig config = InAppFormsMock.createConfigWithTimeoutSeconds(1800);
-        assertNotNull(config);
-    }
-
-    @Test
-    public void testInAppFormsConfigWithInfiniteTimeout() {
-        InAppFormsConfig config = InAppFormsMock.createConfigWithInfiniteTimeout();
-        assertNotNull(config);
-    }
-
-    @Test
-    public void testInAppFormsConfigWithZeroTimeout() {
-        InAppFormsConfig config = InAppFormsMock.createConfigWithZeroTimeout();
+    public void testInAppFormsConfigWithTimeoutSeconds() {
+        // Java-friendly factory method via @JvmStatic
+        InAppFormsConfig config = InAppFormsConfig.withTimeoutSeconds(1800);
         assertNotNull(config);
     }
 
