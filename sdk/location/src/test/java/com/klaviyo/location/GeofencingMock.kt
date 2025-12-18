@@ -1,7 +1,9 @@
 package com.klaviyo.location
 
 import com.klaviyo.analytics.Klaviyo
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkObject
@@ -30,12 +32,12 @@ object GeofencingMock {
         every { any<Klaviyo>().registerGeofencing() } returns Klaviyo
         every { any<Klaviyo>().unregisterGeofencing() } returns Klaviyo
 
-        // Mock KlaviyoLocation static API
+        // Mock KlaviyoLocation static API (returns Unit)
         mockkStatic(KlaviyoLocation::class)
         mockkObject(KlaviyoLocation)
 
-        every { KlaviyoLocation.registerGeofencing() } returns Klaviyo
-        every { KlaviyoLocation.unregisterGeofencing() } returns Klaviyo
+        every { KlaviyoLocation.registerGeofencing() } just Runs
+        every { KlaviyoLocation.unregisterGeofencing() } just Runs
     }
 
     /**

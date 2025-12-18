@@ -65,29 +65,16 @@ public class GeofencingJavaApiTest {
     }
 
     // ==================== KlaviyoLocation Static API Tests ====================
-    // These tests demonstrate the recommended Java syntax using KlaviyoLocation
 
-    /**
-     * Test KlaviyoLocation.registerGeofencing().
-     * This is the recommended Java syntax.
-     */
     @Test
     public void testKlaviyoLocationRegister() {
-        Klaviyo result = KlaviyoLocation.registerGeofencing();
-
+        KlaviyoLocation.registerGeofencing();
         GeofencingMock.verifyKlaviyoLocationRegisterCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
     }
 
-    /**
-     * Test KlaviyoLocation.unregisterGeofencing().
-     * This is the recommended Java syntax.
-     */
     @Test
     public void testKlaviyoLocationUnregister() {
-        Klaviyo result = KlaviyoLocation.unregisterGeofencing();
-
+        KlaviyoLocation.unregisterGeofencing();
         GeofencingMock.verifyKlaviyoLocationUnregisterCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
     }
 }

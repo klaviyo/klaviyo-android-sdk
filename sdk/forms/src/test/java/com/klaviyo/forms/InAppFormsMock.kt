@@ -1,7 +1,9 @@
 package com.klaviyo.forms
 
 import com.klaviyo.analytics.Klaviyo
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkObject
@@ -65,13 +67,13 @@ object InAppFormsMock {
         every { any<Klaviyo>().registerForInAppForms(any()) } returns Klaviyo
         every { any<Klaviyo>().unregisterFromInAppForms() } returns Klaviyo
 
-        // Mock KlaviyoForms static API
+        // Mock KlaviyoForms static API (returns Unit)
         mockkStatic(KlaviyoForms::class)
         mockkObject(KlaviyoForms)
 
-        every { KlaviyoForms.registerForInAppForms(any()) } returns Klaviyo
-        every { KlaviyoForms.registerForInAppForms() } returns Klaviyo
-        every { KlaviyoForms.unregisterFromInAppForms() } returns Klaviyo
+        every { KlaviyoForms.registerForInAppForms(any()) } just Runs
+        every { KlaviyoForms.registerForInAppForms() } just Runs
+        every { KlaviyoForms.unregisterFromInAppForms() } just Runs
     }
 
     /**

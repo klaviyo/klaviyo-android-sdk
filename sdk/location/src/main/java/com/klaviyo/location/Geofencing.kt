@@ -44,7 +44,9 @@ object KlaviyoLocation {
      * @see Klaviyo.registerGeofencing
      */
     @JvmStatic
-    fun registerGeofencing(): Klaviyo = Klaviyo.registerGeofencing()
+    fun registerGeofencing() {
+        Klaviyo.registerGeofencing()
+    }
 
     /**
      * Stop geofence monitoring.
@@ -53,5 +55,7 @@ object KlaviyoLocation {
      * @see Klaviyo.unregisterGeofencing
      */
     @JvmStatic
-    fun unregisterGeofencing(): Klaviyo = Klaviyo.unregisterGeofencing()
+    fun unregisterGeofencing() {
+        Klaviyo.unregisterGeofencing()
+    }
 }

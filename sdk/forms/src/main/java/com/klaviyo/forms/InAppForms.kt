@@ -109,8 +109,9 @@ object KlaviyoForms {
     @JvmStatic
     @JvmOverloads
     @UiThread
-    fun registerForInAppForms(config: InAppFormsConfig = InAppFormsConfig()): Klaviyo =
+    fun registerForInAppForms(config: InAppFormsConfig = InAppFormsConfig()) {
         Klaviyo.registerForInAppForms(config)
+    }
 
     /**
      * Halt the In-App Forms services and observers.
@@ -120,5 +121,7 @@ object KlaviyoForms {
      */
     @JvmStatic
     @UiThread
-    fun unregisterFromInAppForms(): Klaviyo = Klaviyo.unregisterFromInAppForms()
+    fun unregisterFromInAppForms() {
+        Klaviyo.unregisterFromInAppForms()
+    }
 }

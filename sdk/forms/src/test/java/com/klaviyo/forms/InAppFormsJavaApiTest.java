@@ -144,43 +144,23 @@ public class InAppFormsJavaApiTest {
     }
 
     // ==================== KlaviyoForms Static API Tests ====================
-    // These tests demonstrate the recommended Java syntax using KlaviyoForms
 
-    /**
-     * Test KlaviyoForms.registerForInAppForms() with default config.
-     * This is the recommended Java syntax.
-     */
     @Test
     public void testKlaviyoFormsRegisterDefault() {
-        Klaviyo result = KlaviyoForms.registerForInAppForms();
-
+        KlaviyoForms.registerForInAppForms();
         InAppFormsMock.verifyKlaviyoFormsRegisterCalledNoArg();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
     }
 
-    /**
-     * Test KlaviyoForms.registerForInAppForms(config) with custom config.
-     * This is the recommended Java syntax.
-     */
     @Test
     public void testKlaviyoFormsRegisterWithConfig() {
         InAppFormsConfig config = InAppFormsMock.createDefaultConfig();
-
-        Klaviyo result = KlaviyoForms.registerForInAppForms(config);
-
+        KlaviyoForms.registerForInAppForms(config);
         InAppFormsMock.verifyKlaviyoFormsRegisterCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
     }
 
-    /**
-     * Test KlaviyoForms.unregisterFromInAppForms().
-     * This is the recommended Java syntax.
-     */
     @Test
     public void testKlaviyoFormsUnregister() {
-        Klaviyo result = KlaviyoForms.unregisterFromInAppForms();
-
+        KlaviyoForms.unregisterFromInAppForms();
         InAppFormsMock.verifyKlaviyoFormsUnregisterCalled();
-        assertEquals("Should return Klaviyo for chaining", Klaviyo.INSTANCE, result);
     }
 }
