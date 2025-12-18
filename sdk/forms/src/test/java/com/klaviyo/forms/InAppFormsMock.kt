@@ -5,6 +5,7 @@ import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -39,7 +40,7 @@ object InAppFormsMock {
      */
     @JvmStatic
     fun createConfigWithInfiniteTimeout(): InAppFormsConfig =
-        InAppFormsConfig(kotlin.time.Duration.INFINITE)
+        InAppFormsConfig(Duration.INFINITE)
 
     /**
      * Creates an InAppFormsConfig with zero timeout (immediate timeout on background).
@@ -47,7 +48,7 @@ object InAppFormsMock {
      */
     @JvmStatic
     fun createConfigWithZeroTimeout(): InAppFormsConfig =
-        InAppFormsConfig(kotlin.time.Duration.ZERO)
+        InAppFormsConfig(Duration.ZERO)
 
     /**
      * Sets up mocks for In-App Forms extension functions.
