@@ -12,8 +12,10 @@ import io.mockk.mockkConstructor
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.spyk
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.json.JSONObject
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
@@ -43,6 +45,12 @@ class KlaviyoPushServiceTest : BaseTest() {
         mockkConstructor(KlaviyoNotification::class)
 
         every { anyConstructed<KlaviyoNotification>().displayNotification(any()) } returns true
+    }
+
+    @After
+    override fun cleanup() {
+        super.cleanup()
+        unmockkStatic(Klaviyo::class)
     }
 
     @Test
