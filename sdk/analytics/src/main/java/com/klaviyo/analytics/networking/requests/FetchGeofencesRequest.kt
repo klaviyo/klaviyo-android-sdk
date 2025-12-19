@@ -1,6 +1,7 @@
 package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.core.Registry
+import java.util.Locale
 import org.json.JSONObject
 
 /**
@@ -29,8 +30,11 @@ internal class FetchGeofencesRequest(
          * and(equals(lat,40.713),equals(lng,-74.006))
          * Coordinates are trimmed to 3 decimal places for consistency
          */
-        private fun buildLocationFilter(lat: Double, lng: Double): String =
-            "and(equals(lat,${"%.3f".format(lat)}),equals(lng,${"%.3f".format(lng)}))"
+        private fun buildLocationFilter(lat: Double, lng: Double): String {
+            val shortLat = "%.3f".format(Locale.ROOT, lat)
+            val shortLng = "%.3f".format(Locale.ROOT, lng)
+            return "and(equals(lat,$shortLat),equals(lng,$shortLng))"
+        }
     }
 
     init {
