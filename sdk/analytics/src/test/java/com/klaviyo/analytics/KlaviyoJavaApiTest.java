@@ -377,9 +377,9 @@ public class KlaviyoJavaApiTest {
         assertNotNull(profile);
 
         Profile profileWithParams = new Profile(
+                "ext-123",
                 "test@example.com",
-                "+15555555555",
-                "ext-123"
+                "+15555555555"
         );
         assertNotNull(profileWithParams);
     }
