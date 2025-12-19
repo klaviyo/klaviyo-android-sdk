@@ -20,32 +20,35 @@ internal class FetchGeofencesRequest(
 
     companion object {
         private const val PATH = "client/geofences"
-        private const val FILTER = "filter"
-        private const val PAGE_SIZE = "page_size"
+        private const val HEADER_FILTER = "X-Klaviyo-API-Filters"
+        private const val PAGE_SIZE = "page[size]"
         private const val DEFAULT_PAGE_SIZE = 30
 
         /**
          * Build filter expression for lat/lng using filter syntax:
-         * filter=and(equals(lat,40.7128),equals(lng,-74.0060))
+         * and(equals(lat,40.713),equals(lng,-74.006))
+         * Coordinates are trimmed to 3 decimal places for consistency
          */
         private fun buildLocationFilter(lat: Double, lng: Double): String =
-            "and(equals(lat,$lat),equals(lng,$lng))"
+            "and(equals(lat,${"%.3f".format(lat)}),equals(lng,${"%.3f".format(lng)}))"
     }
 
     init {
         // Override the API revision for geofence fetching to use pre-release version
         headers[HEADER_REVISION] = "2025-10-15.pre"
+
+        // Add location filter header if coordinates provided
+        if (latitude != null && longitude != null) {
+            headers[HEADER_FILTER] = buildLocationFilter(latitude, longitude)
+        }
     }
 
     override val type: String = "Fetch Geofences"
 
-    override var query: Map<String, String> = buildMap {
-        put(COMPANY_ID, Registry.config.apiKey)
-        put(PAGE_SIZE, DEFAULT_PAGE_SIZE.toString())
-        if (latitude != null && longitude != null) {
-            put(FILTER, buildLocationFilter(latitude, longitude))
-        }
-    }
+    override var query: Map<String, String> = mapOf(
+        COMPANY_ID to Registry.config.apiKey,
+        PAGE_SIZE to DEFAULT_PAGE_SIZE.toString()
+    )
 
     /**
      * Only attempt initial request once, no retries

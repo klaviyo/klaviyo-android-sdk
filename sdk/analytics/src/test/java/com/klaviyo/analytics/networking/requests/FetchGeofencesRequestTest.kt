@@ -12,11 +12,11 @@ internal class FetchGeofencesRequestTest : BaseApiRequestTest<FetchGeofencesRequ
 
     override val expectedQuery = mapOf(
         "company_id" to API_KEY,
-        "page_size" to "30"
+        "page[size]" to "30"
     )
 
     override val expectedUrl: URL
-        get() = URL("${mockConfig.baseUrl}/$expectedPath?company_id=$API_KEY&page_size=30")
+        get() = URL("${mockConfig.baseUrl}/$expectedPath?company_id=$API_KEY&page[size]=30")
 
     override val expectedHeaders: Map<String, String>
         get() = super.expectedHeaders.toMutableMap() + mapOf(
@@ -168,34 +168,37 @@ internal class FetchGeofencesRequestTest : BaseApiRequestTest<FetchGeofencesRequ
     }
 
     @Test
-    fun `includes filter with latitude and longitude when both provided`() {
+    fun `includes filter header with latitude and longitude when both provided`() {
         val request = FetchGeofencesRequest(latitude = 40.7128, longitude = -74.006)
 
-        assertEquals("and(equals(lat,40.7128),equals(lng,-74.006))", request.query["filter"])
+        assertEquals(
+            "and(equals(lat,40.713),equals(lng,-74.006))",
+            request.headers["X-Klaviyo-API-Filters"]
+        )
         assertEquals(API_KEY, request.query["company_id"])
     }
 
     @Test
-    fun `excludes filter when neither latitude nor longitude provided`() {
+    fun `excludes filter header when neither latitude nor longitude provided`() {
         val request = FetchGeofencesRequest()
 
-        assert(!request.query.containsKey("filter"))
+        assert(!request.headers.containsKey("X-Klaviyo-API-Filters"))
         assertEquals(API_KEY, request.query["company_id"])
     }
 
     @Test
-    fun `excludes filter when only latitude provided`() {
+    fun `excludes filter header when only latitude provided`() {
         val request = FetchGeofencesRequest(latitude = 40.7128, longitude = null)
 
-        assert(!request.query.containsKey("filter"))
+        assert(!request.headers.containsKey("X-Klaviyo-API-Filters"))
         assertEquals(API_KEY, request.query["company_id"])
     }
 
     @Test
-    fun `excludes filter when only longitude provided`() {
+    fun `excludes filter header when only longitude provided`() {
         val request = FetchGeofencesRequest(latitude = null, longitude = -74.006)
 
-        assert(!request.query.containsKey("filter"))
+        assert(!request.headers.containsKey("X-Klaviyo-API-Filters"))
         assertEquals(API_KEY, request.query["company_id"])
     }
 
