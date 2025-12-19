@@ -1,8 +1,12 @@
 package com.klaviyo.location
 
 import com.klaviyo.analytics.Klaviyo
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
+import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
 
@@ -16,7 +20,7 @@ import io.mockk.verify
 object GeofencingMock {
 
     /**
-     * Sets up mocks for Geofencing extension functions.
+     * Sets up mocks for Geofencing extension functions and KlaviyoLocation static API.
      * Call this in @Before setup methods.
      */
     @JvmStatic
@@ -27,6 +31,13 @@ object GeofencingMock {
 
         every { any<Klaviyo>().registerGeofencing() } returns Klaviyo
         every { any<Klaviyo>().unregisterGeofencing() } returns Klaviyo
+
+        // Mock KlaviyoLocation static API (returns Unit)
+        mockkStatic(KlaviyoLocation::class)
+        mockkObject(KlaviyoLocation)
+
+        every { KlaviyoLocation.registerGeofencing() } just Runs
+        every { KlaviyoLocation.unregisterGeofencing() } just Runs
     }
 
     /**
@@ -37,15 +48,31 @@ object GeofencingMock {
     fun teardown() {
         unmockkStatic(Klaviyo::registerGeofencing)
         unmockkStatic(Klaviyo::unregisterGeofencing)
+        unmockkObject(KlaviyoLocation)
+        unmockkStatic(KlaviyoLocation::class)
     }
 
     @JvmStatic
-    fun verifyRegisterGeofencingCalled() {
-        verify { any<Klaviyo>().registerGeofencing() }
+    @JvmOverloads
+    fun verifyRegisterGeofencingCalled(count: Int = 1) {
+        verify(exactly = count) { any<Klaviyo>().registerGeofencing() }
     }
 
     @JvmStatic
-    fun verifyUnregisterGeofencingCalled() {
-        verify { any<Klaviyo>().unregisterGeofencing() }
+    @JvmOverloads
+    fun verifyUnregisterGeofencingCalled(count: Int = 1) {
+        verify(exactly = count) { any<Klaviyo>().unregisterGeofencing() }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyKlaviyoLocationRegisterCalled(count: Int = 1) {
+        verify(exactly = count) { KlaviyoLocation.registerGeofencing() }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyKlaviyoLocationUnregisterCalled(count: Int = 1) {
+        verify(exactly = count) { KlaviyoLocation.unregisterGeofencing() }
     }
 }

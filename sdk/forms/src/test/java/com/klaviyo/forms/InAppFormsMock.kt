@@ -1,12 +1,14 @@
 package com.klaviyo.forms
 
 import com.klaviyo.analytics.Klaviyo
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
+import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Utility class for mocking In-App Forms extension functions from Java tests.
@@ -18,40 +20,7 @@ import kotlin.time.Duration.Companion.seconds
 object InAppFormsMock {
 
     /**
-     * Creates an InAppFormsConfig with default session timeout.
-     * Helper for Java tests since Duration parameters are awkward from Java.
-     */
-    @JvmStatic
-    fun createDefaultConfig(): InAppFormsConfig = InAppFormsConfig()
-
-    /**
-     * Creates an InAppFormsConfig with a custom session timeout in seconds.
-     * Helper for Java tests since kotlin.time.Duration is not easily created from Java.
-     *
-     * @param seconds Session timeout duration in seconds
-     */
-    @JvmStatic
-    fun createConfigWithTimeoutSeconds(timeoutSeconds: Long): InAppFormsConfig =
-        InAppFormsConfig(timeoutSeconds.seconds)
-
-    /**
-     * Creates an InAppFormsConfig with infinite session timeout (never times out).
-     * Helper for Java tests.
-     */
-    @JvmStatic
-    fun createConfigWithInfiniteTimeout(): InAppFormsConfig =
-        InAppFormsConfig(Duration.INFINITE)
-
-    /**
-     * Creates an InAppFormsConfig with zero timeout (immediate timeout on background).
-     * Helper for Java tests.
-     */
-    @JvmStatic
-    fun createConfigWithZeroTimeout(): InAppFormsConfig =
-        InAppFormsConfig(Duration.ZERO)
-
-    /**
-     * Sets up mocks for In-App Forms extension functions.
+     * Sets up mocks for In-App Forms extension functions and KlaviyoForms static API.
      * Call this in @Before setup methods.
      */
     @JvmStatic
@@ -62,6 +31,14 @@ object InAppFormsMock {
 
         every { any<Klaviyo>().registerForInAppForms(any()) } returns Klaviyo
         every { any<Klaviyo>().unregisterFromInAppForms() } returns Klaviyo
+
+        // Mock KlaviyoForms static API (returns Unit)
+        mockkStatic(KlaviyoForms::class)
+        mockkObject(KlaviyoForms)
+
+        every { KlaviyoForms.registerForInAppForms(any()) } just Runs
+        every { KlaviyoForms.registerForInAppForms() } just Runs
+        every { KlaviyoForms.unregisterFromInAppForms() } just Runs
     }
 
     /**
@@ -72,15 +49,37 @@ object InAppFormsMock {
     fun teardown() {
         unmockkStatic(Klaviyo::registerForInAppForms)
         unmockkStatic(Klaviyo::unregisterFromInAppForms)
+        unmockkObject(KlaviyoForms)
+        unmockkStatic(KlaviyoForms::class)
     }
 
     @JvmStatic
-    fun verifyRegisterForInAppFormsCalled() {
-        verify { any<Klaviyo>().registerForInAppForms(any()) }
+    @JvmOverloads
+    fun verifyRegisterForInAppFormsCalled(count: Int = 1) {
+        verify(exactly = count) { any<Klaviyo>().registerForInAppForms(any()) }
     }
 
     @JvmStatic
-    fun verifyUnregisterFromInAppFormsCalled() {
-        verify { any<Klaviyo>().unregisterFromInAppForms() }
+    @JvmOverloads
+    fun verifyUnregisterFromInAppFormsCalled(count: Int = 1) {
+        verify(exactly = count) { any<Klaviyo>().unregisterFromInAppForms() }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyKlaviyoFormsRegisterCalled(count: Int = 1) {
+        verify(exactly = count) { KlaviyoForms.registerForInAppForms(any()) }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyKlaviyoFormsRegisterCalledNoArg(count: Int = 1) {
+        verify(exactly = count) { KlaviyoForms.registerForInAppForms() }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyKlaviyoFormsUnregisterCalled(count: Int = 1) {
+        verify(exactly = count) { KlaviyoForms.unregisterFromInAppForms() }
     }
 }

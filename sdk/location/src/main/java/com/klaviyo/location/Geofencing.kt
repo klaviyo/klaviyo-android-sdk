@@ -31,3 +31,31 @@ fun Klaviyo.unregisterGeofencing(): Klaviyo = safeApply {
         log.warning("Cannot unregister geofencing, must be registered first.")
     }
 }
+
+/**
+ * Java-friendly static methods for Geofencing.
+ * Kotlin users should use the extension functions on [Klaviyo] instead.
+ */
+object KlaviyoLocation {
+    /**
+     * Start geofence monitoring.
+     * Java-friendly static method.
+     *
+     * @see Klaviyo.registerGeofencing
+     */
+    @JvmStatic
+    fun registerGeofencing() {
+        Klaviyo.registerGeofencing()
+    }
+
+    /**
+     * Stop geofence monitoring.
+     * Java-friendly static method.
+     *
+     * @see Klaviyo.unregisterGeofencing
+     */
+    @JvmStatic
+    fun unregisterGeofencing() {
+        Klaviyo.unregisterGeofencing()
+    }
+}
