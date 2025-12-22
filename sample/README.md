@@ -31,3 +31,22 @@ Follow these instructions to run the sample app on your own device or emulator.
 
 Verbose logging is enabled by default in the Sample's manifest. You can view the logs in Logcat in Android Studio.
 If using the Sample app to reproduce an issue, please include relevant log entries in your GitHub issue.
+
+## Geofence Testing
+The sample app includes a map view for visualizing geofences that are currently being monitored.
+This is useful for testing and debugging your geofence configuration. Please note this uses an
+in internal `@AdvancedApi` method to access the SDK's geofence data that is not currently intended for
+production use.
+
+The map view requires a Google Maps API key. To enable it:
+
+1. Create a Google Maps API key in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   - Enable the "Maps SDK for Android" API for your project
+   - Create an API key and optionally restrict it to your app's package name and SHA-1 fingerprint
+2. Add your API key to `./local.properties` in the root of the project:
+   ```properties
+   googleMapsApiKey=YOUR_GOOGLE_MAPS_API_KEY
+   ```
+3. Rebuild and run the sample app
+
+Without a valid API key, the map will not render, but the rest of the location/geofencing functionality will still work.

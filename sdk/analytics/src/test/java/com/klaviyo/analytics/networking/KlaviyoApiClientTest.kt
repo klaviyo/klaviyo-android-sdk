@@ -4,9 +4,13 @@ import android.net.Uri
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
+import com.klaviyo.analytics.networking.requests.FetchGeofencesRequest
+import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
+import com.klaviyo.analytics.networking.requests.FetchedGeofence
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
 import com.klaviyo.analytics.networking.requests.RequestMethod
@@ -21,7 +25,7 @@ import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
-import com.klaviyo.core.safeCall
+import com.klaviyo.core.utils.takeIf
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -38,6 +42,7 @@ import io.mockk.unmockkConstructor
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import io.mockk.verifyOrder
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +71,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private val flushIntervalOffline = 30_000L
     private val queueDepth = 10
     private var postedJob: KlaviyoApiClient.NetworkRunnable? = null
+    private val mockQueueScheduler = mockk<QueueScheduler>(relaxed = true)
 
     private companion object {
         private val slotOnActivityEvent = slot<ActivityObserver>()
@@ -104,6 +110,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
             true
         }
 
+        // Register mock QueueScheduler to prevent actual WorkManager operations
+        Registry.register<QueueScheduler>(mockQueueScheduler)
+
         KlaviyoApiClient.startService()
     }
 
@@ -113,13 +122,14 @@ internal class KlaviyoApiClientTest : BaseTest() {
         Dispatchers.resetMain()
 
         spyDataStore.clear(KlaviyoApiClient.QUEUE_KEY)
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         assertEquals(0, KlaviyoApiClient.getQueueSize())
         super.cleanup()
         unmockkObject(KlaviyoApiClient)
         unmockkObject(KlaviyoApiRequestDecoder)
         unmockDeviceProperties()
         unmockkStatic(DeviceProperties::buildEventMetaData)
+        Registry.unregister<QueueScheduler>()
     }
 
     private fun mockRequest(
@@ -224,7 +234,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
 
         KlaviyoApiClient.enqueueUnregisterPushToken(
-            "apiKey",
+            API_KEY,
             PUSH_TOKEN,
             Profile().setAnonymousId(ANON_ID)
         )
@@ -274,18 +284,24 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Enqueueing an Opened Push event flushes the queue immediately`() {
-        mockkConstructor(EventApiRequest::class)
-        every { anyConstructed<EventApiRequest>().send(any()) } returns KlaviyoApiRequest.Status.Complete
-
-        KlaviyoApiClient.enqueueEvent(
-            Event(EventMetric.OPENED_PUSH),
-            Profile().setAnonymousId(ANON_ID)
+    fun `Enqueueing a dollar-prefixed metric schedules queue flush via WorkManager`() {
+        // Test with various internal metrics (those starting with $)
+        val internalMetrics = listOf(
+            EventMetric.OPENED_PUSH,
+            EventMetric.CUSTOM("\$geofence_enter"),
+            EventMetric.CUSTOM("\$geofence_exit"),
+            EventMetric.CUSTOM("\$any_internal_metric")
         )
 
-        verify { anyConstructed<EventApiRequest>().send(any()) }
-        assertEquals(0, KlaviyoApiClient.getQueueSize())
-        unmockkConstructor(EventApiRequest::class)
+        internalMetrics.forEachIndexed { index, metric ->
+            KlaviyoApiClient.enqueueEvent(
+                Event(metric),
+                Profile().setAnonymousId(ANON_ID)
+            )
+
+            // Verify scheduleFlush was called for each Klaviyo metric event
+            verify(exactly = index + 1) { mockQueueScheduler.scheduleFlush() }
+        }
     }
 
     @Test
@@ -367,20 +383,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Invokes callback and logs when request sent`() {
-        every { mockConfig.networkFlushDepth } returns 1
-        val request = mockRequest()
-        KlaviyoApiClient.enqueueRequest(request)
-
-        var cbRequest: ApiRequest? = null
-        KlaviyoApiClient.onApiRequest { cbRequest = it }
-
-        postedJob!!.run()
-        assertEquals(request, cbRequest)
-        verify { spyLog.verbose(match { it.contains("succeed") }) }
-    }
-
-    @Test
     fun `Flushes queue immediately on all stopped`() {
         var callCount = 0
         KlaviyoApiClient.enqueueRequest(mockRequest())
@@ -418,6 +420,32 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `enqueueRequest with headOfLine accepts multiple priority requests and enqueues them in expected order`() {
+        // Enqueue some regular requests
+        val regularRequest = mockRequest("regular-1")
+        KlaviyoApiClient.enqueueRequest(regularRequest)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        // Enqueue multiple priority requests
+        val priorityRequest1 = mockRequest("priority-1")
+        val priorityRequest2 = mockRequest("priority-2")
+        KlaviyoApiClient.enqueueRequest(priorityRequest1, priorityRequest2, headOfLine = true)
+
+        assertEquals(3, KlaviyoApiClient.getQueueSize())
+
+        // Flush and verify priority requests were processed in correct order
+        KlaviyoApiClient.flushQueue()
+
+        // Priority requests should be processed first, in the order they were passed
+        verifyOrder {
+            priorityRequest1.send(any())
+            priorityRequest2.send(any())
+            regularRequest.send(any())
+        }
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
     fun `Flushes queue when configured size is reached`() {
         repeat(queueDepth) {
             KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
@@ -435,7 +463,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         KlaviyoApiClient.enqueueRequest(requestMock)
 
-        staticClock.execute(flushIntervalWifi.toLong())
+        staticClock.execute(flushIntervalWifi)
 
         postedJob!!.run()
 
@@ -464,6 +492,43 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.flushQueue()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Flush queue with outcome reports Complete if all requests send`() = runTest {
+        // Enqueue a request that will complete successfully
+        val request = mockRequest(
+            "complete-uuid",
+            KlaviyoApiRequest.Status.Complete
+        )
+        KlaviyoApiClient.enqueueRequest(request)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+
+        assert(outcome is FlushOutcome.Complete)
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        assertNull(spyDataStore.fetch("complete-uuid"))
+    }
+
+    @Test
+    fun `Flush queue with outcome reports Incomplete when rate limit is hit`() = runTest {
+        // Enqueue a request that will complete successfully
+        val request = mockRequest(
+            "incomplete-uuid",
+            KlaviyoApiRequest.Status.PendingRetry
+        )
+        every { request.computeRetryInterval() } returns 1234
+
+        KlaviyoApiClient.enqueueRequest(request)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+
+        assert(outcome is FlushOutcome.Incomplete)
+        assertEquals(1234L, outcome.takeIf<FlushOutcome.Incomplete>()?.retryAfter)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(request.toJson().toString(), spyDataStore.fetch("incomplete-uuid"))
     }
 
     @Test
@@ -710,7 +775,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         spyDataStore.store("mock_uuid1", mockRequest("mock_uuid1").toString())
         spyDataStore.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(2, KlaviyoApiClient.getQueueSize())
@@ -721,7 +786,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     fun `Handles bad JSON queue gracefully`() {
         spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, "{}") // Bad JSON, isn't an array as expected
 
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
@@ -741,7 +806,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         spyDataStore.store("mock_uuid1", "{/}") // bad JSON!
         spyDataStore.store("mock_uuid2", mockRequest("mock_uuid2").toString())
 
-        KlaviyoApiClient.restoreQueue()
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
         val actualQueue = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
@@ -839,13 +904,12 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `resolveDestinationUrl invokes callback with Success when request succeeds`() = runTest(
-        dispatcher
-    ) {
+    fun `resolveDestinationUrl returns Success when request succeeds`() = runTest {
         val destinationUrl = mockk<Uri>()
         setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Complete, destinationUrl)
 
-        val result = executeResolveDestinationUrl(testScheduler)
+        val result = KlaviyoApiClient.resolveDestinationUrl(trackingUrl, profile)
+
         assert(result is ResolveDestinationResult.Success)
         assertEquals(destinationUrl, (result as ResolveDestinationResult.Success).destinationUrl)
         verifyEnqueuedClickTrack(inverse = true)
@@ -854,25 +918,25 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `resolveDestinationUrl invokes callback with Unavailable and enqueues request when offline`() =
-        runTest(dispatcher) {
+    fun `resolveDestinationUrl returns Unavailable and enqueues request when offline`() =
+        runTest {
             setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Unsent)
 
-            assert(
-                executeResolveDestinationUrl(testScheduler) is ResolveDestinationResult.Unavailable
-            )
+            val result = KlaviyoApiClient.resolveDestinationUrl(trackingUrl, profile)
+
+            assert(result is ResolveDestinationResult.Unavailable)
             verifyEnqueuedClickTrack()
 
             unmockkConstructor(UniversalClickTrackRequest::class)
         }
 
     @Test
-    fun `resolveDestinationUrl invokes callback with Failure when request fails`() = runTest(
-        dispatcher
-    ) {
+    fun `resolveDestinationUrl returns Failure when request fails`() = runTest {
         setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed)
 
-        assert(executeResolveDestinationUrl(testScheduler) is ResolveDestinationResult.Failure)
+        val result = KlaviyoApiClient.resolveDestinationUrl(trackingUrl, profile)
+
+        assert(result is ResolveDestinationResult.Failure)
         verifyEnqueuedClickTrack(inverse = true)
 
         unmockkConstructor(UniversalClickTrackRequest::class)
@@ -883,6 +947,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         dispatcher
     ) {
         var called = false
+        var exceptionThrown = false
         setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed)
         every { anyConstructed<UniversalClickTrackRequest>().headers } answers {
             // Mock some part of the constructor failing due to missing config
@@ -891,8 +956,14 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
 
         // Verify that the config exception is catchable by the caller
-        assertNull(safeCall { executeResolveDestinationUrl(testScheduler) })
+        try {
+            KlaviyoApiClient.resolveDestinationUrl(trackingUrl, profile)
+        } catch (e: MissingConfig) {
+            exceptionThrown = true
+        }
+
         assert(called)
+        assert(exceptionThrown)
 
         verifyEnqueuedClickTrack(inverse = true)
 
@@ -901,9 +972,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
     @Test
     fun `resolveDestinationUrl creates UniversalClickTrackRequest with correct parameters`() =
-        runTest(
-            dispatcher
-        ) {
+        runTest {
             val mockHeaders = spyk<MutableMap<String, String>>()
             setupResolveDestinationUrlTest(
                 KlaviyoApiRequest.Status.Complete,
@@ -911,11 +980,150 @@ internal class KlaviyoApiClientTest : BaseTest() {
             )
             every { anyConstructed<UniversalClickTrackRequest>().headers } returns mockHeaders
 
-            executeResolveDestinationUrl(testScheduler)
+            KlaviyoApiClient.resolveDestinationUrl(trackingUrl, profile)
 
             verify { anyConstructed<UniversalClickTrackRequest>().baseUrl = trackingUrl }
             verify { mockHeaders.put(any(), any()) }
 
             unmockkConstructor(UniversalClickTrackRequest::class)
         }
+
+    @Test
+    fun `resolveDestinationUrl legacy implementation invokes callback`() = runTest(
+        dispatcher
+    ) {
+        val destinationUrl = mockk<Uri>()
+        setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Complete, destinationUrl)
+
+        val result = executeResolveDestinationUrl(testScheduler)
+        assert(result is ResolveDestinationResult.Success)
+        assertEquals(destinationUrl, (result as ResolveDestinationResult.Success).destinationUrl)
+
+        unmockkConstructor(UniversalClickTrackRequest::class)
+    }
+
+    @Test
+    fun `fetchGeofences returns Success when request succeeds`() = runTest {
+        val expectedGeofences = listOf(
+            FetchedGeofence(API_KEY, "id1", 40.7128, -74.006, 100.0),
+            FetchedGeofence(API_KEY, "id2", 40.6892, -74.0445, 200.0)
+        )
+        setupFetchGeofencesTest(KlaviyoApiRequest.Status.Complete, expectedGeofences)
+
+        val result = KlaviyoApiClient.fetchGeofences()
+
+        assert(result is FetchGeofencesResult.Success)
+        assertEquals(2, (result as FetchGeofencesResult.Success).data.size)
+
+        unmockkConstructor(FetchGeofencesRequest::class)
+    }
+
+    @Test
+    fun `fetchGeofences returns Unavailable when request is unsent`() = runTest {
+        setupFetchGeofencesTest(KlaviyoApiRequest.Status.Unsent)
+
+        val result = KlaviyoApiClient.fetchGeofences()
+
+        assert(result is FetchGeofencesResult.Unavailable)
+
+        unmockkConstructor(FetchGeofencesRequest::class)
+    }
+
+    @Test
+    fun `fetchGeofences returns Failure when request fails`() = runTest {
+        setupFetchGeofencesTest(KlaviyoApiRequest.Status.Failed)
+
+        val result = KlaviyoApiClient.fetchGeofences()
+
+        assert(result is FetchGeofencesResult.Failure)
+
+        unmockkConstructor(FetchGeofencesRequest::class)
+    }
+
+    @Test
+    fun `fetchGeofences with empty geofence list`() = runTest {
+        setupFetchGeofencesTest(KlaviyoApiRequest.Status.Complete, emptyList())
+
+        val result = KlaviyoApiClient.fetchGeofences()
+
+        assert(result is FetchGeofencesResult.Success)
+        assertEquals(0, (result as FetchGeofencesResult.Success).data.size)
+
+        unmockkConstructor(FetchGeofencesRequest::class)
+    }
+
+    @Test
+    fun `fetchGeofences legacy implementation invokes callback`() = runTest {
+        val expectedGeofences = listOf(
+            FetchedGeofence(API_KEY, "id1", 40.7128, -74.006, 100.0),
+            FetchedGeofence(API_KEY, "id2", 40.6892, -74.0445, 200.0)
+        )
+        setupFetchGeofencesTest(KlaviyoApiRequest.Status.Complete, expectedGeofences)
+
+        var callbackResult: FetchGeofencesResult? = null
+        KlaviyoApiClient.fetchGeofences { result ->
+            callbackResult = result
+        }
+
+        // Wait for coroutine to complete
+        testScheduler.advanceUntilIdle()
+
+        assert(callbackResult is FetchGeofencesResult.Success)
+        assertEquals(2, (callbackResult as FetchGeofencesResult.Success).data.size)
+
+        unmockkConstructor(FetchGeofencesRequest::class)
+    }
+
+    private fun setupFetchGeofencesTest(
+        requestStatus: KlaviyoApiRequest.Status,
+        geofences: List<FetchedGeofence> = emptyList()
+    ) {
+        mockkConstructor(FetchGeofencesRequest::class)
+        every { anyConstructed<FetchGeofencesRequest>().send(any()) } answers {
+            // Simulate network state for the request
+            this.firstArg<() -> Unit>().invoke()
+            requestStatus
+        }
+        every { anyConstructed<FetchGeofencesRequest>().getResult() } returns when (requestStatus) {
+            KlaviyoApiRequest.Status.Complete -> FetchGeofencesResult.Success(geofences)
+            KlaviyoApiRequest.Status.Unsent, KlaviyoApiRequest.Status.Inflight -> FetchGeofencesResult.Unavailable
+            else -> FetchGeofencesResult.Failure
+        }
+        every { anyConstructed<FetchGeofencesRequest>().uuid } returns "mock_fetch_geofences_uuid"
+    }
+
+    @Test
+    fun `Klaviyo metric events trigger WorkManager queue flush`() {
+        // Create a Klaviyo metric event (starts with $)
+        val klaviyoEvent = Event(EventMetric.OPENED_PUSH, mapOf())
+        val profile = Profile(mapOf(ProfileKey.EMAIL to "test@example.com"))
+
+        // Enqueue the Klaviyo metric event
+        KlaviyoApiClient.enqueueEvent(klaviyoEvent, profile)
+
+        // Verify that scheduleFlush was called for the Klaviyo metric
+        verify(exactly = 1) { mockQueueScheduler.scheduleFlush() }
+
+        // Now test with a non-Klaviyo metric event
+        val customEvent = Event(EventMetric.CUSTOM("CustomEvent"), mapOf())
+
+        // Enqueue the custom event
+        KlaviyoApiClient.enqueueEvent(customEvent, profile)
+
+        // Verify that scheduleFlush was NOT called again (still just once from the Klaviyo metric)
+        verify(exactly = 1) { mockQueueScheduler.scheduleFlush() }
+    }
+
+    @Test
+    fun `Custom events do not trigger WorkManager queue flush`() {
+        // Create a custom event (does not start with $)
+        val customEvent = Event(EventMetric.CUSTOM("CustomEvent"), mapOf())
+        val profile = Profile(mapOf(ProfileKey.EMAIL to "test@example.com"))
+
+        // Enqueue the custom event
+        KlaviyoApiClient.enqueueEvent(customEvent, profile)
+
+        // Verify that scheduleFlush was NOT called for custom events
+        verify(exactly = 0) { mockQueueScheduler.scheduleFlush() }
+    }
 }

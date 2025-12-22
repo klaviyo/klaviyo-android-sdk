@@ -3,10 +3,9 @@ package com.klaviyo.sample
 import android.app.Application
 import android.content.Context
 import android.widget.Toast
-import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.forms.registerForInAppForms
+import com.klaviyo.location.registerGeofencing
 
 class SampleApplication : Application() {
     override fun onCreate() {
@@ -17,6 +16,7 @@ class SampleApplication : Application() {
 
         Klaviyo.initialize(klaviyoPublicKey, applicationContext)
             .registerForInAppForms() // Register for In-App Forms immediately on app launch (this app has no splash screen)
+            .registerGeofencing() // Start geofencing monitoring
             .registerDeepLinkHandler { uri ->
                 // OPTIONAL SETUP NOTE: Register a callback to handle any deep links from Klaviyo notifications, in-app forms, or universal tracking links
                 // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
@@ -28,9 +28,15 @@ class SampleApplication : Application() {
 internal fun Context.showToast(message: String) = Toast.makeText(
     this,
     message,
-    Toast.LENGTH_SHORT
+    Toast.LENGTH_LONG
 ).show()
 
+/**
+ * Verify public key has been set to override the placeholder, and crash if it hasn't so that
+ * the developer is made aware, with instructions of how to fix it.
+ */
 @Suppress("SameParameterValue")
 private fun validatePublicKey(klaviyoPublicKey: String) = klaviyoPublicKey.takeIf { it.length == 6 }
-    ?: throw IllegalStateException("Invalid Klaviyo Public Key ${klaviyoPublicKey}. Set your key in local.properties, or hardcode in SampleApplication.kt")
+    ?: throw IllegalStateException(
+        "Invalid Klaviyo Public Key $klaviyoPublicKey. Set your key in local.properties, or hardcode in SampleApplication.kt"
+    )

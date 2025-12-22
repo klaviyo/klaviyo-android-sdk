@@ -71,7 +71,7 @@ static def readXmlValue(String filePath, String tagName, Project project) {
 }
 
 dokkaHtmlMultiModule {
-    def versionName = readXmlValue('sdk/core/src/main/res/values/strings.xml','klaviyo_sdk_version_override', project)
+    def versionName = readXmlValue('sdk/core/src/main/res/values/strings.xml', 'klaviyo_sdk_version_override', project)
     def oldVersionsDir = layout.buildDirectory.dir("../docs/")
     outputDirectory = layout.buildDirectory.dir("../docs/${versionName}")
     includes.from("README.md")
@@ -87,5 +87,3 @@ dokkaHtmlMultiModule {
         ["org.jetbrains.dokka.versioning.VersioningPlugin": versioningConfiguration]
     )
 }
-
-apply from: "versioning.gradle"
