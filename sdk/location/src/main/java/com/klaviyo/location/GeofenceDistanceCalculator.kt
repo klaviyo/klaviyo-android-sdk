@@ -1,5 +1,6 @@
 package com.klaviyo.location
 
+import com.klaviyo.location.LocationManager.Companion.MAX_CONCURRENT_GEOFENCES
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -61,14 +62,14 @@ object GeofenceDistanceCalculator {
      * @param geofences List of geofences to filter
      * @param userLatitude User's current latitude
      * @param userLongitude User's current longitude
-     * @param limit Maximum number of geofences to return (default 20)
+     * @param limit Maximum number of geofences to return
      * @return List of nearest geofences, sorted by distance (closest first)
      */
     fun filterToNearest(
         geofences: List<KlaviyoGeofence>,
         userLatitude: Double,
         userLongitude: Double,
-        limit: Int = 20
+        limit: Int = MAX_CONCURRENT_GEOFENCES
     ): List<KlaviyoGeofence> {
         if (geofences.isEmpty()) {
             return emptyList()

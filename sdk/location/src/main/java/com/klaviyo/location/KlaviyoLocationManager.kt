@@ -22,6 +22,7 @@ import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.safeLaunch
+import com.klaviyo.location.LocationManager.Companion.MAX_CONCURRENT_GEOFENCES
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -376,7 +377,7 @@ internal class KlaviyoLocationManager : LocationManager {
         }
 
         // Filter to nearest 20 if we have more than 20 geofences
-        val geofencesToMonitor = if (geofences.size > 20) {
+        val geofencesToMonitor = if (geofences.size > MAX_CONCURRENT_GEOFENCES) {
             // Try to get user location for accurate filtering
             @SuppressLint("MissingPermission")
             val location = try {
@@ -393,19 +394,19 @@ internal class KlaviyoLocationManager : LocationManager {
 
             if (location != null) {
                 Registry.log.debug(
-                    "Filtering ${geofences.size} geofences to nearest 20 based on location"
+                    "Filtering ${geofences.size} geofences to nearest $MAX_CONCURRENT_GEOFENCES based on location"
                 )
                 GeofenceDistanceCalculator.filterToNearest(
                     geofences,
                     location.latitude,
                     location.longitude,
-                    limit = 20
+                    limit = MAX_CONCURRENT_GEOFENCES
                 )
             } else {
                 Registry.log.warning(
-                    "Location unavailable, monitoring first 20 of ${geofences.size} geofences"
+                    "Location unavailable, monitoring first $MAX_CONCURRENT_GEOFENCES of ${geofences.size} geofences"
                 )
-                geofences.take(20)
+                geofences.take(MAX_CONCURRENT_GEOFENCES)
             }
         } else {
             geofences

@@ -6,6 +6,14 @@ import android.content.Intent
 typealias GeofenceObserver = (List<KlaviyoGeofence>) -> Unit
 
 interface LocationManager {
+
+    companion object {
+        /**
+         * Maximum geofences to monitor at once
+         */
+        internal const val MAX_CONCURRENT_GEOFENCES = 20
+    }
+
     /**
      * Register an observer to be notified when geofences are synced
      *
