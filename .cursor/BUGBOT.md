@@ -9,6 +9,7 @@
 - Testing best practices
 
 ## Additional Bugbot-Specific Rules
+- The pull request description should use the repository's PR template
 - Avoid wildcard imports
 - Avoid fully qualified names inline
 - Avoid lateinit unless absolutely necessary

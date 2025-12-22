@@ -940,8 +940,7 @@ the application lifecycle to handle any link that launches the app from a termin
 </details>
 
 ### Handling Universal Links
->  ℹ️ Support for Deep Linking from Email is currently available for early access to select Klaviyo customers. Please contact your CSM to be enrolled.
->  Full trackable universal links support is available in Klaviyo Android SDK version 4.1.0 and higher.
+>  ℹ️ Full trackable universal links support is available in Klaviyo Android SDK version 4.1.0 and higher.
 
 Klaviyo supports embedding universal links with click tracking in email messages. To ensure these links are properly tracked as 
 profile events *and* your app opens and processes the links correctly, you need to configure your app to handle them. At a high level, the process works like this:
