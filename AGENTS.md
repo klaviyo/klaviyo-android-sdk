@@ -52,8 +52,6 @@ analytics, push notifications, and in-app messaging (aka forms).
 
 Most of our tests require JAVA 17, and 21 will cause breaking issues because of some of our static
 field overrides via reflection.
-Activate java 17 in terminal, e.g. ~/Library/Java/JavaVirtualMachines/temurin-17.0.15/Contents/Home,
-before running the commands below.
 
 ```bash
 # Run all tests in the project
@@ -180,6 +178,16 @@ When making changes to the SDK, be aware of these important integration points:
 2. Version management in `strings.xml` and `versions.properties`
 3. Dependencies between modules
 4. Android lifecycle handling in `KlaviyoLifecycleMonitor.kt`
+
+### Java Interoperability
+
+When adding or modifying public APIs, verify they are callable from Java in a clean manner.
+
+- Be aware of Kotlin-only types that don't bridge nicely to Java
+- Use `@JvmStatic` or wrapper methods for object methods and extensions e.g. in the `Klaviyo` public API facade.
+- Use `@JvmOverloads` to generate overloaded methods e.g. for default arguments.
+
+Add Java interop tests for new public APIs (see existing `*JavaApiTest.java` tests) to confirm the Java API surface.
 
 ## Logging Guidelines
 

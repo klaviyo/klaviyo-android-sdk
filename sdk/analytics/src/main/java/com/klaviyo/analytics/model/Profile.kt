@@ -8,6 +8,7 @@ import java.io.Serializable
 class Profile(properties: Map<ProfileKey, Serializable>?) :
     BaseModel<ProfileKey, Profile>(properties), ImmutableProfile {
 
+    @JvmOverloads
     constructor(
         externalId: String? = null,
         email: String? = null,
@@ -22,6 +23,8 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
     fun setExternalId(identifier: String?) = apply { this.externalId = identifier }
     override var externalId: String?
         get() = (this[ProfileKey.EXTERNAL_ID])?.toString()
+
+        @JvmSynthetic
         set(value) {
             this[ProfileKey.EXTERNAL_ID] = value
         }
@@ -29,6 +32,8 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
     fun setEmail(email: String?) = apply { this.email = email }
     override var email: String?
         get() = (this[ProfileKey.EMAIL])?.toString()
+
+        @JvmSynthetic
         set(value) {
             this[ProfileKey.EMAIL] = value
         }
@@ -36,6 +41,8 @@ class Profile(properties: Map<ProfileKey, Serializable>?) :
     fun setPhoneNumber(phoneNumber: String?) = apply { this.phoneNumber = phoneNumber }
     override var phoneNumber: String?
         get() = (this[ProfileKey.PHONE_NUMBER])?.toString()
+
+        @JvmSynthetic
         set(value) {
             this[ProfileKey.PHONE_NUMBER] = value
         }

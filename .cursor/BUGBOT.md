@@ -17,3 +17,4 @@
 - Proper exception handling in public API surfaces
 - Verify log statements use the correct severity level per AGENTS.md guidelines
 - Tests should generally verify log level, not exact message strings to avoid brittle tests
+- Verify public APIs are callable from Java (see Java Interoperability section in AGENTS.md)

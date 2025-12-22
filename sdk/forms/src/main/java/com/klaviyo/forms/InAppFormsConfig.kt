@@ -13,7 +13,7 @@ import kotlin.time.Duration.Companion.seconds
  *  To disable session timeout altogether, use [Duration.INFINITE]
  */
 data class InAppFormsConfig(
-    private val sessionTimeoutDuration: Duration = DEFAULT_SESSION_TIMEOUT
+    private val sessionTimeoutDuration: Duration
 ) {
     companion object {
         /***
@@ -21,6 +21,16 @@ data class InAppFormsConfig(
          */
         val DEFAULT_SESSION_TIMEOUT = 1.hours
     }
+
+    /**
+     * Default config using 1 hour timeout
+     */
+    constructor() : this(DEFAULT_SESSION_TIMEOUT)
+
+    /**
+     * Secondary constructor allowing seconds as [Int] for Java compatibility
+     */
+    constructor(timeoutSeconds: Int) : this(timeoutSeconds.seconds)
 
     /**
      * Returns the session timeout duration in seconds.
