@@ -15,7 +15,7 @@ project.description = "Shared test fixtures for the Klaviyo SDK suite"
 evaluationDependsOn(":sdk")
 
 android {
-    namespace "${klaviyoGroupId}.fixtures"
+    namespace = "${klaviyoGroupId}.fixtures"
 }
 
 dependencies {

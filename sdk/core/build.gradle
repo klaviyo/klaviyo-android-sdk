@@ -5,7 +5,7 @@ evaluationDependsOn(":sdk")
 def ext = rootProject.ext
 
 android {
-    namespace "${klaviyoGroupId}.core"
+    namespace = "${klaviyoGroupId}.core"
 
     publishing {
         singleVariant(ext.publishBuildVariant) {
