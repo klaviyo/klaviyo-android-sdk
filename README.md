@@ -789,7 +789,7 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 
 ## Geofencing
 
-Geofencing allows you to trigger events when users enter or exit geographic regions defined in your Klaviyo account.
+[Geofencing](https://help.klaviyo.com/hc/en-us/articles/45194892526747) allows you to trigger events when users enter or exit geographic regions defined in your Klaviyo account.
 The SDK monitors permission, syncs geofence data from Klaviyo, registers them with device location services, 
 and creates events when transitions occur. These events can be used to trigger flows, segment profiles, 
 and drive location-based marketing.

@@ -39,7 +39,7 @@ internal class FetchGeofencesRequest(
 
     init {
         // Override the API revision for geofence fetching to use pre-release version
-        headers[HEADER_REVISION] = "2025-10-15.pre"
+        headers[HEADER_REVISION] = "2026-01-15.pre"
 
         // Add location filter header if coordinates provided
         if (latitude != null && longitude != null) {
