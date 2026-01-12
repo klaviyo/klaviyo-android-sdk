@@ -59,14 +59,20 @@ android {
 
         val klaviyoPublicApiKey = (localProperties["klaviyoPublicApiKey"] as String?) ?: "KLAVIYO_PUBLIC_API_KEY"
 
+        // Optional: register a Google Maps API key and set it in your local.properties file in the root directory e.g. googleMapsApiKey=ApiKey
+        // This just enables a little map UI element in the sample app for testing location features, and is not required for Klaviyo SDK functionality
+        val googleMapsApiKey = (localProperties["googleMapsApiKey"] as String?) ?: "GOOGLE_MAPS_API_KEY"
+
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "KLAVIYO_PUBLIC_KEY", "\"$klaviyoPublicApiKey\"")
+            manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
         }
         debug {
             isDebuggable = true
             buildConfigField("String", "KLAVIYO_PUBLIC_KEY", "\"$klaviyoPublicApiKey\"")
+            manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
         }
     }
 
@@ -98,11 +104,21 @@ dependencies {
     implementation(project(path = ":sdk:analytics"))
     implementation(project(path = ":sdk:forms"))
     implementation(project(path = ":sdk:push-fcm"))
+    implementation(project(path = ":sdk:location"))
+
+    // Note: Developers need not import the core package.
+    //  This is included in the sample app only to demonstrate some inner workings of the SDK
+    implementation(project(path = ":sdk:core"))
+
     // See https://splitties.github.io/refreshVersions/ for more info on refreshVersions syntax
 
     // Firebase dependencies for FCM integration
     implementation(platform(Firebase.bom))
     implementation(Firebase.cloudMessagingKtx)
+
+    // GoogleMaps dependency for map UI integration
+    implementation(Google.android.maps.compose)
+    implementation(Google.android.playServices.location)
 
     // Other app and testing dependencies (refreshVersions syntax)
     implementation(platform(AndroidX.compose.bom))

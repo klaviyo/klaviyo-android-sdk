@@ -1,15 +1,17 @@
-description = "Public analytics API functionality for the Klaviyo SDK suite"
+project.description = "Location functionality for the Klaviyo SDK suite"
 evaluationDependsOn(":sdk")
+
+// Get the readXmlValue function from root project
+val readXmlValue: (String, String, Project) -> String by rootProject.extra
 
 // Get extra properties from root project
 val publishBuildVariant: String by rootProject.extra
-val readXmlValue: (String, String, Project) -> String by rootProject.extra
 
 // Read properties from gradle.properties
 val klaviyoGroupId: String by project
 
 android {
-    namespace = "$klaviyoGroupId.analytics"
+    namespace = "$klaviyoGroupId.location"
 
     publishing {
         singleVariant(publishBuildVariant) {
@@ -21,9 +23,10 @@ android {
 
 dependencies {
     implementation(project(":sdk:core"))
-    implementation(KotlinX.coroutines.core)
-    implementation(KotlinX.coroutines.android)
-    implementation(AndroidX.work.runtimeKtx)
+    implementation(project(":sdk:analytics"))
+
+    implementation(Google.android.playServices.location)
+    implementation(KotlinX.coroutines.playServices)
 
     testImplementation(project(":sdk:fixtures"))
 }
@@ -32,10 +35,10 @@ afterEvaluate {
     publishing {
         publications {
             // Creates a Maven publication called "release".
-            create<MavenPublication>("release") {
+            register<MavenPublication>("release") {
                 from(components[publishBuildVariant])
                 groupId = klaviyoGroupId
-                artifactId = "analytics"
+                artifactId = "location"
                 version = readXmlValue(
                     "src/main/res/values/strings.xml",
                     "klaviyo_sdk_version_override",
