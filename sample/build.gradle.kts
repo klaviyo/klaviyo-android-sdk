@@ -8,6 +8,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
+    id("org.jlleitschuh.gradle.ktlint")
 }
 
 // Get extra properties from root project
@@ -41,7 +42,11 @@ android {
         compileSdk = versionFor("version.android.compileSdk").toInt()
 
         versionCode = versionFor("version.klaviyo.versionCode").toInt()
-        versionName = readXmlValue("src/main/res/values/strings.xml", "klaviyo_sdk_version_override", project(":sdk:core"))
+        versionName = readXmlValue(
+            "src/main/res/values/strings.xml",
+            "klaviyo_sdk_version_override",
+            project(":sdk:core")
+        )
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -65,7 +70,10 @@ android {
 
         release {
             isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             buildConfigField("String", "KLAVIYO_PUBLIC_KEY", "\"$klaviyoPublicApiKey\"")
             manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
         }
@@ -141,4 +149,19 @@ dependencies {
     androidTestImplementation(AndroidX.compose.ui.testJunit4)
     debugImplementation(AndroidX.compose.ui.tooling)
     debugImplementation(AndroidX.compose.ui.testManifest)
+}
+
+ktlint {
+    verbose.set(true)
+    android.set(true)
+    ignoreFailures.set(false)
+    outputToConsole.set(true)
+    outputColorName.set("RED")
+    @Suppress("DEPRECATION")
+    disabledRules.set(setOf("max-line-length"))
+    filter {
+        exclude("**/generated/**")
+        include("**/kotlin/**")
+        include("**/java/**")
+    }
 }
