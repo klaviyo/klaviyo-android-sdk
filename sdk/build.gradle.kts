@@ -40,9 +40,6 @@ subprojects {
             @Suppress("DEPRECATION")
             targetSdk = project.versionFor("version.android.targetSdk").toInt()
             testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-            aarMetadata {
-                minCompileSdk = project.versionFor("version.android.minSdk").toInt()
-            }
             consumerProguardFiles("consumer-rules.pro")
         }
 
@@ -104,7 +101,7 @@ subprojects {
     // Configure kotlinOptions
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaVersion.toString()))
         }
     }
 

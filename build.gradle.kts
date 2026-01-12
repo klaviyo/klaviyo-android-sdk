@@ -90,7 +90,7 @@ tasks.named<org.jetbrains.dokka.gradle.DokkaMultiModuleTask>("dokkaHtmlMultiModu
     val versioningConfiguration = """
         {
           "version": "$versionName",
-          "olderVersionsDir": "$oldVersionsDir"
+          "olderVersionsDir": "${oldVersionsDir.get().asFile.absolutePath}"
         }
     """.trimIndent()
 
