@@ -16,11 +16,11 @@ repositories {
     // Note: It is more typical to use dependencyResolutionManagement block in settings.gradle.
     // For the purposes of the sample app, we put it here so that important steps are in one place,
     // and the sample app dependencies do not affect the main SDK config.
-    maven { url "https://jitpack.io" }
+    maven { url = "https://jitpack.io" }
 }
 
 android {
-    namespace "${klaviyoGroupId}.sample"
+    namespace = "${klaviyoGroupId}.sample"
     buildToolsVersion=versionFor(project, "version.android.buildTools") as String
 
     defaultConfig {
@@ -28,16 +28,16 @@ android {
         applicationId "${klaviyoGroupId}.sample"
 
         // Klaviyo Android SDK minimum supported Android version is 23
-        minSdk versionFor(project, "version.android.minSdk") as Integer
-        targetSdk versionFor(project, "version.android.targetSdk") as Integer
-        compileSdk versionFor(project, "version.android.compileSdk") as Integer
+        minSdk = versionFor(project, "version.android.minSdk") as Integer
+        targetSdk = versionFor(project, "version.android.targetSdk") as Integer
+        compileSdk = versionFor(project, "version.android.compileSdk") as Integer
 
         versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
         versionName readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_version_override', project(":sdk:core"))
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
-            useSupportLibrary true
+            useSupportLibrary = true
         }
     }
 
@@ -76,8 +76,8 @@ android {
         jvmTarget = javaVersion.toString()
     }
     buildFeatures {
-        compose true
-        buildConfig true
+        compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = versionFor(project, AndroidX.compose.compiler)
