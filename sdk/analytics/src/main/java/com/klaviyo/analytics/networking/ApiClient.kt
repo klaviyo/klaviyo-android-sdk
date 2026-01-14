@@ -127,7 +127,7 @@ interface ApiClient {
      *
      * @param trackingUrl URL to the click tracking endpoint
      * @param profile Profile to include in the request
-     * @param callback Listener to receive success or failure callbacks, invoked on main thread
+     * @param callback Listener to receive success or failure callbacks
      */
     fun resolveDestinationUrl(
         trackingUrl: String,
@@ -157,7 +157,7 @@ interface ApiClient {
      *
      * @param latitude Optional latitude for proximity-based filtering on the backend
      * @param longitude Optional longitude for proximity-based filtering on the backend
-     * @param callback Listener to receive success or failure callbacks with raw JSON data, invoked on main thread
+     * @param callback Listener to receive success or failure callbacks with raw JSON data
      */
     fun fetchGeofences(
         latitude: Double? = null,
