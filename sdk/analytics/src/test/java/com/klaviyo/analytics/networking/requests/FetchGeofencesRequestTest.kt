@@ -20,7 +20,7 @@ internal class FetchGeofencesRequestTest : BaseApiRequestTest<FetchGeofencesRequ
 
     override val expectedHeaders: Map<String, String>
         get() = super.expectedHeaders.toMutableMap() + mapOf(
-            "Revision" to "2025-10-15.pre"
+            "Revision" to "2026-01-15.pre"
         )
 
     override fun makeTestRequest(): FetchGeofencesRequest = FetchGeofencesRequest()
