@@ -1,6 +1,5 @@
 package com.klaviyo.analytics.networking
 
-import android.R
 import android.app.Notification
 import android.content.Context
 import androidx.core.app.NotificationChannelCompat
@@ -11,6 +10,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.R
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 
@@ -85,7 +85,6 @@ internal class QueueFlushWorker(
          * Notification channel for SDK background operations
          */
         const val BG_SYNC_CHANNEL_ID = "klaviyo_sdk_background"
-        const val BG_SYNC_CHANNEL_NAME = "Background Sync"
         const val BG_SYNC_NOTIFICATION_ID = 1001
 
         /**
@@ -95,8 +94,8 @@ internal class QueueFlushWorker(
          */
         fun buildSyncNotification(context: Context): Notification = NotificationCompat
             .Builder(context, createNotificationChannel(context))
-            .setContentText("Syncing...")
-            .setSmallIcon(R.drawable.stat_sys_upload)
+            .setContentText(context.getString(R.string.klaviyo_bg_sync_notification_text))
+            .setSmallIcon(android.R.drawable.stat_sys_upload)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setAutoCancel(true)
@@ -110,8 +109,8 @@ internal class QueueFlushWorker(
             .from(context)
             .createNotificationChannel(
                 NotificationChannelCompat.Builder(BG_SYNC_CHANNEL_ID, IMPORTANCE_LOW)
-                    .setName(BG_SYNC_CHANNEL_NAME)
-                    .setDescription("SDK background synchronization")
+                    .setName(context.getString(R.string.klaviyo_bg_sync_channel_name))
+                    .setDescription(context.getString(R.string.klaviyo_bg_sync_channel_description))
                     .setShowBadge(false)
                     .build()
             ).let { BG_SYNC_CHANNEL_ID }
