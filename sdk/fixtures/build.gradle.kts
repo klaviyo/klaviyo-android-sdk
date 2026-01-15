@@ -11,26 +11,29 @@
  * using `java-test-fixtures` but this method does not yet work in android+kotlin projects,
  * according to my research and testing as of Feb 2023.
  */
-project.description = "Shared test fixtures for the Klaviyo SDK suite"
+description = "Shared test fixtures for the Klaviyo SDK suite"
 evaluationDependsOn(":sdk")
 
+// Read properties from gradle.properties
+val klaviyoGroupId: String by project
+
 android {
-    namespace = "${klaviyoGroupId}.fixtures"
+    namespace = "$klaviyoGroupId.fixtures"
 }
 
 dependencies {
-    //Depends upon core interfaces for mocking/fixtures
-    implementation project(":sdk:core")
-    implementation project(":sdk:analytics")
-    implementation KotlinX.coroutines.core
+    // Depends upon core interfaces for mocking/fixtures
+    implementation(project(":sdk:core"))
+    implementation(project(":sdk:analytics"))
+    implementation(KotlinX.coroutines.core)
 
     /***** Testing Dependencies *****/
-    api Testing.junit4
-    api AndroidX.test.runner
-    api AndroidX.test.rules
-    api KotlinX.coroutines.test
-    api Testing.mockK
+    api(Testing.junit4)
+    api(AndroidX.test.runner)
+    api(AndroidX.test.rules)
+    api(KotlinX.coroutines.test)
+    api(Testing.mockK)
 
     // JSON is bundled with the Android SDK so we need real objects to test against
-    api "org.json:json:_"
+    api("org.json:json:_")
 }
