@@ -1,0 +1,464 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>KlaviyoMock</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            klaviyo-android-sdk
+                    </a>            </div>
+            <div class="library-version">
+<dokka-template-command data="{&quot;@class&quot;:&quot;org.jetbrains.dokka.base.templating.ReplaceVersionsCommand&quot;,&quot;location&quot;:&quot;com.klaviyo.fixtures/-klaviyo-mock/index.html&quot;}">4.2.0</dokka-template-command>            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":sdk:fixtures:dokkaHtmlPartial/release">androidJvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="fixtures::com.klaviyo.fixtures/KlaviyoMock///PointingToDeclaration//-859095223">
+  <div class="breadcrumbs"><a href="../../index.html">fixtures</a><span class="delimiter">/</span><a href="../index.html">com.klaviyo.fixtures</a><span class="delimiter">/</span><span class="current">KlaviyoMock</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Klaviyo</span><wbr><span><span>Mock</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">object </span><a href="index.html">KlaviyoMock</a></div><p class="paragraph">Utility class for mocking Klaviyo singleton from Java tests.</p><p class="paragraph">Since Klaviyo is a Kotlin object (singleton), it can only be mocked using MockK's mockkObject function, which is only available in Kotlin. This class provides a bridge for Java tests to mock and verify Klaviyo method calls.</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="-1465190617%2FProperties%2F-859095223" anchor-label="mockContext" id="-1465190617%2FProperties%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="mock-context.html"><span>mock</span><wbr><span><span>Context</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1465190617%2FProperties%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div></div><span class="token keyword"></span><span class="token keyword">val </span><a href="mock-context.html">mockContext</a><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="770741064%2FProperties%2F-859095223" anchor-label="mockIntent" id="770741064%2FProperties%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="mock-intent.html"><span>mock</span><wbr><span><span>Intent</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="770741064%2FProperties%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div></div><span class="token keyword"></span><span class="token keyword">val </span><a href="mock-intent.html">mockIntent</a><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Intent.html">Intent</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1267750262%2FProperties%2F-859095223" anchor-label="mockUri" id="-1267750262%2FProperties%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="mock-uri.html"><span>mock</span><wbr><span><span>Uri</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1267750262%2FProperties%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div></div><span class="token keyword"></span><span class="token keyword">val </span><a href="mock-uri.html">mockUri</a><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/net/Uri.html">Uri</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-1641277521%2FFunctions%2F-859095223" anchor-label="setup" id="-1641277521%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="setup.html"><span><span>setup</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1641277521%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="setup.html"><span class="token function">setup</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Sets up mocks for all Klaviyo public API methods. Call this in @Before setup methods.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-482923510%2FFunctions%2F-859095223" anchor-label="teardown" id="-482923510%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="teardown.html"><span><span>teardown</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-482923510%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="teardown.html"><span class="token function">teardown</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Cleans up mocks. Call this in @After teardown methods.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-969947000%2FFunctions%2F-859095223" anchor-label="verifyCreateEventCalled" id="-969947000%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-create-event-called.html"><span>verify</span><wbr><span>Create</span><wbr><span>Event</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-969947000%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-create-event-called.html"><span class="token function">verifyCreateEventCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1155823610%2FFunctions%2F-859095223" anchor-label="verifyCreateEventWithMetricCalled" id="1155823610%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-create-event-with-metric-called.html"><span>verify</span><wbr><span>Create</span><wbr><span>Event</span><wbr><span>With</span><wbr><span>Metric</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1155823610%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-create-event-with-metric-called.html"><span class="token function">verifyCreateEventWithMetricCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">metric<span class="token operator">: </span><a href="../../../../sdk/analytics/com.klaviyo.analytics.model/-event-metric/index.html">EventMetric</a><span class="token punctuation">, </span></span><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1183423788%2FFunctions%2F-859095223" anchor-label="verifyHandlePushCalled" id="-1183423788%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-handle-push-called.html"><span>verify</span><wbr><span>Handle</span><wbr><span>Push</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1183423788%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-handle-push-called.html"><span class="token function">verifyHandlePushCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-949032426%2FFunctions%2F-859095223" anchor-label="verifyHandleUniversalTrackingLinkIntentCalled" id="-949032426%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-handle-universal-tracking-link-intent-called.html"><span>verify</span><wbr><span>Handle</span><wbr><span>Universal</span><wbr><span>Tracking</span><wbr><span>Link</span><wbr><span>Intent</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-949032426%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-handle-universal-tracking-link-intent-called.html"><span class="token function">verifyHandleUniversalTrackingLinkIntentCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1707681988%2FFunctions%2F-859095223" anchor-label="verifyHandleUniversalTrackingLinkStringCalled" id="-1707681988%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-handle-universal-tracking-link-string-called.html"><span>verify</span><wbr><span>Handle</span><wbr><span>Universal</span><wbr><span>Tracking</span><wbr><span>Link</span><wbr><span>String</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1707681988%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-handle-universal-tracking-link-string-called.html"><span class="token function">verifyHandleUniversalTrackingLinkStringCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">url<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1056189089%2FFunctions%2F-859095223" anchor-label="verifyInitializeCalled" id="1056189089%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-initialize-called.html"><span>verify</span><wbr><span>Initialize</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1056189089%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-initialize-called.html"><span class="token function">verifyInitializeCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">apiKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-166120181%2FFunctions%2F-859095223" anchor-label="verifyIsKlaviyoIntentCalled" id="-166120181%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-is-klaviyo-intent-called.html"><span>verify</span><wbr><span>Is</span><wbr><span>Klaviyo</span><wbr><span>Intent</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-166120181%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-is-klaviyo-intent-called.html"><span class="token function">verifyIsKlaviyoIntentCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2115049248%2FFunctions%2F-859095223" anchor-label="verifyIsKlaviyoNotificationIntentCalled" id="2115049248%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-is-klaviyo-notification-intent-called.html"><span>verify</span><wbr><span>Is</span><wbr><span>Klaviyo</span><wbr><span>Notification</span><wbr><span>Intent</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2115049248%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-is-klaviyo-notification-intent-called.html"><span class="token function">verifyIsKlaviyoNotificationIntentCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-989830633%2FFunctions%2F-859095223" anchor-label="verifyIsKlaviyoUniversalTrackingIntentCalled" id="-989830633%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-is-klaviyo-universal-tracking-intent-called.html"><span>verify</span><wbr><span>Is</span><wbr><span>Klaviyo</span><wbr><span>Universal</span><wbr><span>Tracking</span><wbr><span>Intent</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-989830633%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-is-klaviyo-universal-tracking-intent-called.html"><span class="token function">verifyIsKlaviyoUniversalTrackingIntentCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1661168573%2FFunctions%2F-859095223" anchor-label="verifyIsKlaviyoUniversalTrackingUriCalled" id="1661168573%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-is-klaviyo-universal-tracking-uri-called.html"><span>verify</span><wbr><span>Is</span><wbr><span>Klaviyo</span><wbr><span>Universal</span><wbr><span>Tracking</span><wbr><span>Uri</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1661168573%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-is-klaviyo-universal-tracking-uri-called.html"><span class="token function">verifyIsKlaviyoUniversalTrackingUriCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="711275173%2FFunctions%2F-859095223" anchor-label="verifyRegisterDeepLinkHandlerCalled" id="711275173%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-register-deep-link-handler-called.html"><span>verify</span><wbr><span>Register</span><wbr><span>Deep</span><wbr><span>Link</span><wbr><span>Handler</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="711275173%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-register-deep-link-handler-called.html"><span class="token function">verifyRegisterDeepLinkHandlerCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1337561924%2FFunctions%2F-859095223" anchor-label="verifyRegisterForLifecycleCallbacksCalled" id="-1337561924%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-register-for-lifecycle-callbacks-called.html"><span>verify</span><wbr><span>Register</span><wbr><span>For</span><wbr><span>Lifecycle</span><wbr><span>Callbacks</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1337561924%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-register-for-lifecycle-callbacks-called.html"><span class="token function">verifyRegisterForLifecycleCallbacksCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2078821412%2FFunctions%2F-859095223" anchor-label="verifyResetProfileCalled" id="-2078821412%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-reset-profile-called.html"><span>verify</span><wbr><span>Reset</span><wbr><span>Profile</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2078821412%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-reset-profile-called.html"><span class="token function">verifyResetProfileCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1899320471%2FFunctions%2F-859095223" anchor-label="verifySetEmailCalled" id="1899320471%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-set-email-called.html"><span>verify</span><wbr><span>Set</span><wbr><span>Email</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1899320471%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-set-email-called.html"><span class="token function">verifySetEmailCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">email<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1705345863%2FFunctions%2F-859095223" anchor-label="verifySetExternalIdCalled" id="-1705345863%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-set-external-id-called.html"><span>verify</span><wbr><span>Set</span><wbr><span>External</span><wbr><span>Id</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1705345863%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-set-external-id-called.html"><span class="token function">verifySetExternalIdCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">externalId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1946514428%2FFunctions%2F-859095223" anchor-label="verifySetPhoneNumberCalled" id="1946514428%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-set-phone-number-called.html"><span>verify</span><wbr><span>Set</span><wbr><span>Phone</span><wbr><span>Number</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1946514428%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-set-phone-number-called.html"><span class="token function">verifySetPhoneNumberCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">phone<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-250431497%2FFunctions%2F-859095223" anchor-label="verifySetProfileAttributeCalled" id="-250431497%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-set-profile-attribute-called.html"><span>verify</span><wbr><span>Set</span><wbr><span>Profile</span><wbr><span>Attribute</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-250431497%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-set-profile-attribute-called.html"><span class="token function">verifySetProfileAttributeCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">key<span class="token operator">: </span><a href="../../../../sdk/analytics/com.klaviyo.analytics.model/-profile-key/index.html">ProfileKey</a><span class="token punctuation">, </span></span><span class="parameter ">value<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/java/io/Serializable.html">Serializable</a><span class="token punctuation">, </span></span><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1413036305%2FFunctions%2F-859095223" anchor-label="verifySetProfileCalled" id="-1413036305%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-set-profile-called.html"><span>verify</span><wbr><span>Set</span><wbr><span>Profile</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1413036305%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-set-profile-called.html"><span class="token function">verifySetProfileCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="881538260%2FFunctions%2F-859095223" anchor-label="verifySetPushTokenCalled" id="881538260%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-set-push-token-called.html"><span>verify</span><wbr><span>Set</span><wbr><span>Push</span><wbr><span>Token</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="881538260%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-set-push-token-called.html"><span class="token function">verifySetPushTokenCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">token<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-560906434%2FFunctions%2F-859095223" anchor-label="verifyUnregisterDeepLinkHandlerCalled" id="-560906434%2FFunctions%2F-859095223" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:fixtures:dokkaHtmlPartial/release" data-filterable-set=":sdk:fixtures:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="verify-unregister-deep-link-handler-called.html"><span>verify</span><wbr><span>Unregister</span><wbr><span>Deep</span><wbr><span>Link</span><wbr><span>Handler</span><wbr><span><span>Called</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-560906434%2FFunctions%2F-859095223"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:fixtures:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-static/index.html"><span class="token annotation builtin">JvmStatic</span></a></div><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html"><span class="token annotation builtin">JvmOverloads</span></a></div></div><span class="token keyword"></span><span class="token keyword">fun </span><a href="verify-unregister-deep-link-handler-called.html"><span class="token function">verifyUnregisterDeepLinkHandlerCalled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">count<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

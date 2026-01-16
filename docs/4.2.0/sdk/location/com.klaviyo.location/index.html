@@ -1,0 +1,328 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>com.klaviyo.location</title>
+<link href="../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../styles/style.css" rel="Stylesheet">
+<link href="../../../styles/main.css" rel="Stylesheet">
+<link href="../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../index.html">
+                            klaviyo-android-sdk
+                    </a>            </div>
+            <div class="library-version">
+<dokka-template-command data="{&quot;@class&quot;:&quot;org.jetbrains.dokka.base.templating.ReplaceVersionsCommand&quot;,&quot;location&quot;:&quot;com.klaviyo.location/index.html&quot;}">4.2.0</dokka-template-command>            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":sdk:location:dokkaHtmlPartial/release">androidJvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="package" id="content" pageids="location::com.klaviyo.location////PointingToDeclaration//-1353904066">
+  <div class="breadcrumbs"><a href="../index.html">location</a><span class="delimiter">/</span><span class="current">com.klaviyo.location</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span><span>Package-level</span></span> <span><span>declarations</span></span></h1>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="TYPE">Types</button><button class="section-tab" data-togglable="FUNCTION,EXTENSION_FUNCTION">Functions</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="TYPE">
+        <h2 class="">Types</h2>
+        <div class="table"><a data-name="1188426756%2FClasslikes%2F-1353904066" anchor-label="AnonymizedLocation" id="1188426756%2FClasslikes%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-anonymized-location/index.html"><span>Anonymized</span><wbr><span><span>Location</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1188426756%2FClasslikes%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-anonymized-location/index.html">AnonymizedLocation</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>latitude<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>longitude<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Represents a user's location with coordinates anonymized by rounding to ~10 mile precision. This protects user privacy while still allowing backend filtering of geofences by proximity.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-896274414%2FClasslikes%2F-1353904066" anchor-label="GeofenceDistanceCalculator" id="-896274414%2FClasslikes%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-geofence-distance-calculator/index.html"><span>Geofence</span><wbr><span>Distance</span><wbr><span><span>Calculator</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-896274414%2FClasslikes%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">object </span><a href="-geofence-distance-calculator/index.html">GeofenceDistanceCalculator</a></div><div class="brief "><p class="paragraph">Utility for calculating distances between geographic coordinates and filtering geofences by proximity.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2117295347%2FClasslikes%2F-1353904066" anchor-label="GeofenceObserver" id="2117295347%2FClasslikes%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-geofence-observer/index.html"><span>Geofence</span><wbr><span><span>Observer</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2117295347%2FClasslikes%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">typealias </span><a href="-geofence-observer/index.html">GeofenceObserver</a><span class="token operator"> = </span><span class="token punctuation">(</span><span class="token keyword"></span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="-klaviyo-geofence/index.html">KlaviyoGeofence</a><span class="token operator">&gt;</span><span class="token punctuation">)</span><span class="token operator"> -&gt; </span><span class="token keyword"></span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-unit/index.html">Unit</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1011232784%2FClasslikes%2F-1353904066" anchor-label="KlaviyoGeofence" id="1011232784%2FClasslikes%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-klaviyo-geofence/index.html"><span>Klaviyo</span><wbr><span><span>Geofence</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1011232784%2FClasslikes%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-klaviyo-geofence/index.html">KlaviyoGeofence</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>id<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>longitude<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>latitude<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>radius<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-float/index.html">Float</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Primary representation of a geofence in the Klaviyo SDK. Here we combine the company ID and location ID to form a composite geofence ID.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1591528991%2FClasslikes%2F-1353904066" anchor-label="KlaviyoGeofenceReceiver" id="-1591528991%2FClasslikes%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-klaviyo-geofence-receiver/index.html"><span>Klaviyo</span><wbr><span>Geofence</span><wbr><span><span>Receiver</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1591528991%2FClasslikes%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">class </span><a href="-klaviyo-geofence-receiver/index.html">KlaviyoGeofenceReceiver</a> : <a href="https://developer.android.com/reference/kotlin/android/content/BroadcastReceiver.html">BroadcastReceiver</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-824411781%2FClasslikes%2F-1353904066" anchor-label="KlaviyoGeofenceTransition" id="-824411781%2FClasslikes%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-klaviyo-geofence-transition/index.html"><span>Klaviyo</span><wbr><span>Geofence</span><wbr><span><span>Transition</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-824411781%2FClasslikes%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">enum </span><a href="-klaviyo-geofence-transition/index.html">KlaviyoGeofenceTransition</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-enum/index.html">Enum</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="-klaviyo-geofence-transition/index.html">KlaviyoGeofenceTransition</a><span class="token operator">&gt; </span></div><div class="brief "><p class="paragraph">Represents the type of transition that occurred for a geofence event Makes life easier than dealing with the raw integers</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2099286395%2FClasslikes%2F-1353904066" anchor-label="KlaviyoLocation" id="2099286395%2FClasslikes%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-klaviyo-location/index.html"><span>Klaviyo</span><wbr><span><span>Location</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2099286395%2FClasslikes%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">object </span><a href="-klaviyo-location/index.html">KlaviyoLocation</a></div><div class="brief "><p class="paragraph">Java-friendly static methods for Geofencing. Kotlin users should use the extension functions on <a href="../../../sdk/analytics/com.klaviyo.analytics/-klaviyo/index.html">Klaviyo</a> instead.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="163004026%2FClasslikes%2F-1353904066" anchor-label="KlaviyoLocationBootReceiver" id="163004026%2FClasslikes%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-klaviyo-location-boot-receiver/index.html"><span>Klaviyo</span><wbr><span>Location</span><wbr><span>Boot</span><wbr><span><span>Receiver</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="163004026%2FClasslikes%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">class </span><a href="-klaviyo-location-boot-receiver/index.html">KlaviyoLocationBootReceiver</a> : <a href="https://developer.android.com/reference/kotlin/android/content/BroadcastReceiver.html">BroadcastReceiver</a></div><div class="brief "><p class="paragraph">BroadcastReceiver that handles device boot events to re-register geofences when the device reboots. System geofences are cleared on reboot, so we need to restore them from persistent storage.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1026161537%2FClasslikes%2F-1353904066" anchor-label="LocationManager" id="1026161537%2FClasslikes%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-location-manager/index.html"><span>Location</span><wbr><span><span>Manager</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1026161537%2FClasslikes%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-location-manager/index.html">LocationManager</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1206867598%2FClasslikes%2F-1353904066" anchor-label="PermissionMonitor" id="1206867598%2FClasslikes%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-permission-monitor/index.html"><span>Permission</span><wbr><span><span>Monitor</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1206867598%2FClasslikes%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-permission-monitor/index.html">PermissionMonitor</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2141492604%2FClasslikes%2F-1353904066" anchor-label="PermissionObserver" id="-2141492604%2FClasslikes%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-permission-observer/index.html"><span>Permission</span><wbr><span><span>Observer</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2141492604%2FClasslikes%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">typealias </span><a href="-permission-observer/index.html">PermissionObserver</a><span class="token operator"> = </span><span class="token punctuation">(</span><span class="token keyword"></span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token punctuation">)</span><span class="token operator"> -&gt; </span><span class="token keyword"></span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-unit/index.html">Unit</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="EXTENSION_FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="160879600%2FFunctions%2F-1353904066" anchor-label="distanceFrom" id="160879600%2FFunctions%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="distance-from.html"><span>distance</span><wbr><span><span>From</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="160879600%2FFunctions%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="-klaviyo-geofence/index.html">KlaviyoGeofence</a><span class="token punctuation">.</span><a href="distance-from.html"><span class="token function">distanceFrom</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">userLatitude<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a><span class="token punctuation">, </span></span><span class="parameter ">userLongitude<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a></div><div class="brief "><p class="paragraph">Extension function to calculate the distance from this geofence to a given location.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="530503861%2FFunctions%2F-1353904066" anchor-label="registerGeofencing" id="530503861%2FFunctions%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="register-geofencing.html"><span>register</span><wbr><span><span>Geofencing</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="530503861%2FFunctions%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="../../../sdk/analytics/com.klaviyo.analytics/-klaviyo/index.html">Klaviyo</a><span class="token punctuation">.</span><a href="register-geofencing.html"><span class="token function">registerGeofencing</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../../../sdk/analytics/com.klaviyo.analytics/-klaviyo/index.html">Klaviyo</a></div><div class="brief "><p class="paragraph">Entrypoint to start geofence monitoring You should call this as early as possible in your application lifecycle, ideally at app launch. Klaviyo will monitor for permission changes and start/stop geofence monitoring as needed.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1998919173%2FFunctions%2F-1353904066" anchor-label="toKlaviyoGeofence" id="-1998919173%2FFunctions%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="to-klaviyo-geofence.html"><span>to</span><wbr><span>Klaviyo</span><wbr><span><span>Geofence</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1998919173%2FFunctions%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><span data-unresolved-link="com.google.android.gms.location/Geofence///PointingToDeclaration/">Geofence</span><span class="token punctuation">.</span><a href="to-klaviyo-geofence.html"><span class="token function">toKlaviyoGeofence</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="-klaviyo-geofence/index.html">KlaviyoGeofence</a></div><div class="brief "><p class="paragraph">Extension function to convert a Google Geofence into a <a href="-klaviyo-geofence/index.html">KlaviyoGeofence</a>. Expected to already be using composite ID</p></div><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="../../../sdk/analytics/com.klaviyo.analytics.networking.requests/-fetched-geofence/index.html">FetchedGeofence</a><span class="token punctuation">.</span><a href="to-klaviyo-geofence.html"><span class="token function">toKlaviyoGeofence</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="-klaviyo-geofence/index.html">KlaviyoGeofence</a></div><div class="brief "><p class="paragraph">Create a <a href="-klaviyo-geofence/index.html">KlaviyoGeofence</a> from a <a href="../../../sdk/analytics/com.klaviyo.analytics.networking.requests/-fetched-geofence/index.html">FetchedGeofence</a> API response object.</p></div><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="https://developer.android.com/reference/kotlin/org/json/JSONObject.html">JSONObject</a><span class="token punctuation">.</span><a href="to-klaviyo-geofence.html"><span class="token function">toKlaviyoGeofence</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="-klaviyo-geofence/index.html">KlaviyoGeofence</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Parse a <a href="-klaviyo-geofence/index.html">KlaviyoGeofence</a> from a JSON object. Returns null if parsing fails.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="976050110%2FFunctions%2F-1353904066" anchor-label="toKlaviyoGeofenceEvent" id="976050110%2FFunctions%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="to-klaviyo-geofence-event.html"><span>to</span><wbr><span>Klaviyo</span><wbr><span>Geofence</span><wbr><span><span>Event</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="976050110%2FFunctions%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><span data-unresolved-link="com.google.android.gms.location/GeofencingEvent///PointingToDeclaration/">GeofencingEvent</span><span class="token punctuation">.</span><a href="to-klaviyo-geofence-event.html"><span class="token function">toKlaviyoGeofenceEvent</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="-klaviyo-geofence-transition/index.html">KlaviyoGeofenceTransition</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Extension function to convert a <span data-unresolved-link="com.google.android.gms.location/GeofencingEvent///PointingToDeclaration/">GeofencingEvent</span> to a <a href="-klaviyo-geofence-transition/index.html">KlaviyoGeofenceTransition</a></p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2018287758%2FFunctions%2F-1353904066" anchor-label="unregisterGeofencing" id="2018287758%2FFunctions%2F-1353904066" data-filterable-set=":sdk:location:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":sdk:location:dokkaHtmlPartial/release" data-filterable-set=":sdk:location:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="unregister-geofencing.html"><span>unregister</span><wbr><span><span>Geofencing</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2018287758%2FFunctions%2F-1353904066"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:location:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="../../../sdk/analytics/com.klaviyo.analytics/-klaviyo/index.html">Klaviyo</a><span class="token punctuation">.</span><a href="unregister-geofencing.html"><span class="token function">unregisterGeofencing</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../../../sdk/analytics/com.klaviyo.analytics/-klaviyo/index.html">Klaviyo</a></div><div class="brief "><p class="paragraph">Stops geofence monitoring You can call this if you want to stop monitoring geofences, but it's not usually necessary. Klaviyo will automatically stop monitoring if location permissions are revoked.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

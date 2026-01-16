@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>All modules</title>
+    <link href="images/logo-icon.svg" rel="icon" type="image/svg">
+    <script>var pathToRoot = "";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="scripts/sourceset_dependencies.js" async="async"></script>
+<link href="styles/style.css" rel="Stylesheet">
+<link href="styles/main.css" rel="Stylesheet">
+<link href="styles/prism.css" rel="Stylesheet">
+<link href="styles/logo-styles.css" rel="Stylesheet">
+<link href="styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="scripts/clipboard.js" async="async"></script>
+<script type="text/javascript" src="scripts/navigation-loader.js" async="async"></script>
+<script type="text/javascript" src="scripts/platform-content-handler.js" async="async"></script>
+<script type="text/javascript" src="scripts/main.js" defer="defer"></script>
+<script type="text/javascript" src="scripts/prism.js" async="async"></script>
+<script type="text/javascript" src="scripts/symbol-parameters-wrapper_deferred.js" defer="defer"></script>
+<link href="styles/multimodule.css" rel="Stylesheet">
+</head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+                    <a class="library-name--link" href="index.html">
+                            klaviyo-android-sdk
+                    </a>
+            </div>
+            <div class="library-version">
+<dokka-template-command data="{&quot;@class&quot;:&quot;org.jetbrains.dokka.base.templating.ReplaceVersionsCommand&quot;,&quot;location&quot;:&quot;index.html&quot;}">4.2.0</dokka-template-command>            </div>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" id="content" pageIds="klaviyo-android-sdk::.ext/allModules///PointingToDeclaration//0">
+  <div class="breadcrumbs"></div>
+  <div class="cover ">
+    <div class="cover ">
+      <h1 class="">klaviyo-android-sdk</h1>
+      <p class="paragraph"><a href="https://github.com/klaviyo/klaviyo-android-sdk/blob/master/LICENSE.md"></a> <a href="https://jitpack.io/#klaviyo/klaviyo-android-sdk"><img alt="Latest" src="https://jitpack.io/v/klaviyo/klaviyo-android-sdk.svg"></a> <a href="https://github.com/klaviyo/klaviyo-android-sdk/releases"></a> <a href="https://github.com/klaviyo/klaviyo-android-sdk/actions/workflows/android-master.yml"></a></p>
+      <p class="paragraph">The Klaviyo Android SDK allows developers to incorporate Klaviyo analytics and push notification functionality in their native Android applications. The SDK assists in identifying users and tracking user events via the  latest <a href="https://developers.klaviyo.com/en/reference/api_overview">Klaviyo Client APIs</a>. To reduce performance overhead, API requests are queued and sent in batches.  The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.</p>
+      <p class="paragraph">Once integrated, your marketing team will be able to better understand your app users' needs and send them timely push notifications via <a href="https://firebase.google.com/docs/cloud-messaging">FCM (Firebase Cloud Messaging)</a>.</p>
+      <h2 class=""> Contents</h2>
+      <ul>
+        <li>
+          <p class="paragraph">#sample-app</p>
+        </li>
+        <li>
+          <p class="paragraph">#requirements</p>
+        </li>
+        <li>
+          <p class="paragraph">#installation</p>
+        </li>
+        <li>
+          <p class="paragraph">#initialization</p>
+        </li>
+        <li>
+          <p class="paragraph">#profile-identification</p>
+        </li>
+        <li>
+          <p class="paragraph">#event-tracking</p>
+        </li>
+        <li>
+          <p class="paragraph">#push-notifications</p>
+        </li>
+        <ul>
+          <li>
+            <p class="paragraph">#prerequisites</p>
+          </li>
+          <li>
+            <p class="paragraph">#setup</p>
+          </li>
+          <li>
+            <p class="paragraph">#collecting-push-tokens</p>
+          </li>
+          <li>
+            <p class="paragraph">#receiving-push-notifications</p>
+          </li>
+          <ul>
+            <li>
+              <p class="paragraph">#rich-push</p>
+            </li>
+            <li>
+              <p class="paragraph">#tracking-open-events</p>
+            </li>
+            <li>
+              <p class="paragraph">#silent-push-notifications</p>
+            </li>
+            <li>
+              <p class="paragraph">#custom-data</p>
+            </li>
+          </ul>
+          <li>
+            <p class="paragraph">#advanced-setup</p>
+          </li>
+        </ul>
+        <li>
+          <p class="paragraph">#in-app-forms</p>
+        </li>
+        <ul>
+          <li>
+            <p class="paragraph">#prerequisites-1</p>
+          </li>
+          <li>
+            <p class="paragraph">#setup-1</p>
+          </li>
+          <li>
+            <p class="paragraph">#in-app-forms-session-configuration</p>
+          </li>
+          <li>
+            <p class="paragraph">#unregistering-from-in-app-forms</p>
+          </li>
+        </ul>
+        <li>
+          <p class="paragraph">#geofencing</p>
+        </li>
+        <ul>
+          <li>
+            <p class="paragraph">#setup-2</p>
+          </li>
+          <li>
+            <p class="paragraph">#requesting-permissions</p>
+          </li>
+          <li>
+            <p class="paragraph">#unregistering-from-geofencing</p>
+          </li>
+        </ul>
+        <li>
+          <p class="paragraph">#deep-linking</p>
+        </li>
+        <li>
+          <p class="paragraph">#troubleshooting</p>
+        </li>
+        <li>
+          <p class="paragraph">#contributing</p>
+        </li>
+        <li>
+          <p class="paragraph">#license</p>
+        </li>
+        <li>
+          <p class="paragraph">#code-documentation</p>
+        </li>
+      </ul>
+      <h2 class=""> Sample App</h2>
+      <p class="paragraph">Looking for a working example? Check out our ./sample/README.md which demonstrates all the key features of the Klaviyo Android SDK, including:</p>
+      <ul>
+        <li>
+          <p class="paragraph">SDK initialization and configuration</p>
+        </li>
+        <li>
+          <p class="paragraph">Profile identification and event tracking</p>
+        </li>
+        <li>
+          <p class="paragraph">Push notification setup and handling</p>
+        </li>
+        <li>
+          <p class="paragraph">In-App Forms integration</p>
+        </li>
+        <li>
+          <p class="paragraph">Geofencing integration</p>
+        </li>
+        <li>
+          <p class="paragraph">Deep linking (custom URI schemes and universal tracking links)</p>
+        </li>
+        <li>
+          <p class="paragraph">UI for testing SDK functionality</p>
+        </li>
+      </ul>
+      <p class="paragraph">The sample app serves as both a reference implementation and a testing tool for the SDK.</p>
+      <h2 class=""> Requirements</h2>
+      <ul>
+        <li>
+          <p class="paragraph">Kotlin <strong>1.8.0</strong> or later</p>
+        </li>
+        <li>
+          <p class="paragraph">Android API level <strong>23</strong> or later</p>
+        </li>
+      </ul>
+      <h2 class=""> Installation</h2>
+      <ol>
+        <li>
+          <p class="paragraph">Include the <a href="https://jitpack.io/#klaviyo/klaviyo-android-sdk">JitPack</a> repository in your project's build file</p>
+<details>
+      <summary>Kotlin DSL</summary>          <div class="sample-container">
+            <pre><code class="block lang-kotlin" theme="idea">   // settings.gradle.kts<br>   dependencyResolutionManagement {<br>       repositories {<br>           maven(url = &quot;https://jitpack.io&quot;)<br>       }<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+              <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+            </span></div>
+</details><details open>
+      <summary>Groovy</summary>          <div class="sample-container">
+            <pre><code class="block lang-groovy" theme="idea">   // settings.gradle<br>   dependencyResolutionManagement {<br>       repositories {<br>           maven { url &quot;https://jitpack.io&quot; }<br>       }<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+              <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+            </span></div>
+</details>        </li>
+        <li>
+          <p class="paragraph">Add the dependencies to your app's build file</p>
+<details>
+      <summary>Kotlin DSL</summary>          <div class="sample-container">
+            <pre><code class="block lang-kotlin" theme="idea">   // build.gradle.kts<br>   dependencies {<br>       implementation(&quot;com.github.klaviyo.klaviyo-android-sdk:analytics:4.2.0&quot;)<br>       implementation(&quot;com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.2.0&quot;)<br>       implementation(&quot;com.github.klaviyo.klaviyo-android-sdk:forms:4.2.0&quot;)<br>       implementation(&quot;com.github.klaviyo.klaviyo-android-sdk:location:4.2.0&quot;)<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+              <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+            </span></div>
+</details><details open>
+      <summary>Groovy</summary>          <div class="sample-container">
+            <pre><code class="block lang-groovy" theme="idea">    // build.gradle<br>    dependencies {<br>        implementation &quot;com.github.klaviyo.klaviyo-android-sdk:analytics:4.2.0&quot;<br>        implementation &quot;com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.2.0&quot;<br>        implementation &quot;com.github.klaviyo.klaviyo-android-sdk:forms:4.2.0&quot;<br>        implementation &quot;com.github.klaviyo.klaviyo-android-sdk:location:4.2.0&quot;<br>    }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+              <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+            </span></div>
+</details>        </li>
+      </ol>
+      <h2 class=""> Initialization</h2>
+      <p class="paragraph">The SDK must be initialized with the short alphanumeric <a href="https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1">public API key</a> for your Klaviyo account, also known as your Site ID. We require access to the <code class="lang-kotlin">applicationContext</code> so the SDK can be responsive to changes in application state and network conditions, and access <code class="lang-kotlin">SharedPreferences</code> to persist data. Upon initialize, the SDK registers listeners for your application's activity lifecycle callbacks, to gracefully manage background processes.</p>
+      <p class="paragraph"><code class="lang-kotlin">Klaviyo.initialize()</code> <strong>must</strong> be called before any other SDK methods can be invoked. We recommend initializing from the earliest point in your application code, the <code class="lang-kotlin">Application.onCreate()</code> method.</p>
+      <p class="paragraph"><strong>Note:</strong> If you are unable to call <code class="lang-kotlin">initialize</code> in <code class="lang-kotlin">Application.onCreate()</code> (e.g. if your API key is dynamic and not yet available) you <strong>must</strong> call <code class="lang-kotlin">Klaviyo.registerForLifecycleCallbacks(applicationContext)</code> and provide your API key via <code class="lang-kotlin">initialize</code> as early as it is available.</p>
+<details open>
+   <summary>Kotlin</summary>      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">   // Application subclass<br>   import android.app.Application<br>   import com.klaviyo.analytics.Klaviyo<br><br>   class YourApplication : Application() {<br>       override fun onCreate() {<br>           super.onCreate()<br><br>           /* ... */<br><br>           // Initialize is required before invoking any other Klaviyo SDK functionality<br>           Klaviyo.initialize(&quot;KLAVIYO_PUBLIC_API_KEY&quot;, applicationContext)<br><br>           // OR, If unable to call initialize, you must at least register lifecycle listeners<br>           Klaviyo.registerForLifecycleCallbacks(applicationContext)<br>       }<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details><details>
+   <summary>Java</summary>      <div class="sample-container">
+        <pre><code class="block lang-java" theme="idea">   // Application subclass<br>   import android.app.Application;<br>   import com.klaviyo.analytics.Klaviyo;<br><br>   public class YourApplication extends Application {<br>       @Override<br>       public void onCreate() {<br>           super.onCreate();<br><br>           /* ... */<br><br>           // Initialize is required before invoking any other Klaviyo SDK functionality<br>           Klaviyo.initialize(&quot;KLAVIYO_PUBLIC_API_KEY&quot;, getApplicationContext());<br><br>           // OR, If unable to call initialize, you must at least register lifecycle listeners<br>           Klaviyo.registerForLifecycleCallbacks(getApplicationContext());<br>       }<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details>      <h2 class=""> Profile Identification</h2>
+      <p class="paragraph">The SDK provides methods to identify profiles via the <a href="https://developers.klaviyo.com/en/reference/create_client_profile">Create Client Profile API</a>. A profile can be identified by any combination of the following:</p>
+      <ul>
+        <li>
+          <p class="paragraph">External ID: A unique identifier used by customers to associate Klaviyo profiles with profiles in an external system,   such as a point-of-sale system. Format varies based on the external system.</p>
+        </li>
+        <li>
+          <p class="paragraph">Individual's email address</p>
+        </li>
+        <li>
+          <p class="paragraph">Individual's phone number in <a href="https://help.klaviyo.com/hc/en-us/articles/360046055671#h_01HE5ZYJEAHZKY6WZW7BAD36BG">E.164 format</a></p>
+        </li>
+      </ul>
+      <p class="paragraph">Identifiers are persisted to local storage so that the SDK can keep track of the current profile.</p>
+      <p class="paragraph">Profile identifiers and other attributes can be set all at once using the <code class="lang-kotlin">Profile</code> data class:</p>
+<details open>
+   <summary>Kotlin</summary>      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">   import com.klaviyo.analytics.Klaviyo<br>   import com.klaviyo.analytics.model.Profile<br>   import com.klaviyo.analytics.model.ProfileKey<br><br>   val profile = Profile(<br>       externalId = &quot;USER_IDENTIFIER&quot;,<br>       email = &quot;kermit@klaviyo-demo.com&quot;,<br>       phoneNumber = &quot;+12223334444&quot;,<br>       properties = mapOf(<br>           ProfileKey.FIRST_NAME to &quot;Kermit&quot;,<br>           ProfileKey.CUSTOM(&quot;instrument&quot;) to &quot;banjo&quot;<br>       )<br>   )<br><br>   Klaviyo.setProfile(profile)</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details><details>
+   <summary>Java</summary>      <div class="sample-container">
+        <pre><code class="block lang-java" theme="idea">   import com.klaviyo.analytics.Klaviyo;<br>   import com.klaviyo.analytics.model.Profile;<br>   import com.klaviyo.analytics.model.ProfileKey;<br>   import java.io.Serializable;<br>   import java.util.HashMap;<br>   import java.util.Map;<br><br>   Map&lt;ProfileKey, Serializable&gt; properties = new HashMap&lt;&gt;();<br>   properties.put(ProfileKey.FIRST_NAME.INSTANCE, &quot;Kermit&quot;);<br>   properties.put(new ProfileKey.CUSTOM(&quot;instrument&quot;), &quot;banjo&quot;);<br><br>   Profile profile = new Profile(<br>       &quot;USER_IDENTIFIER&quot;,<br>       &quot;kermit@klaviyo-demo.com&quot;,<br>       &quot;+12223334444&quot;,<br>       properties<br>   );<br><br>   Klaviyo.setProfile(profile);</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details>      <p class="paragraph">Or individually with additive fluent setters:</p>
+<details open>
+   <summary>Kotlin</summary>      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">   import com.klaviyo.analytics.Klaviyo<br>   import com.klaviyo.analytics.model.ProfileKey<br><br>   Klaviyo.setExternalId(&quot;USER_IDENTIFIER&quot;)<br>       .setEmail(&quot;kermit@klaviyo-demo.com&quot;)<br>       .setPhoneNumber(&quot;+12223334444&quot;)<br>       .setProfileAttribute(ProfileKey.FIRST_NAME, &quot;Kermit&quot;)<br>       .setProfileAttribute(ProfileKey.CUSTOM(&quot;instrument&quot;), &quot;banjo&quot;)</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details><details>
+   <summary>Java</summary>      <div class="sample-container">
+        <pre><code class="block lang-java" theme="idea">   import com.klaviyo.analytics.Klaviyo;<br>   import com.klaviyo.analytics.model.ProfileKey;<br><br>   Klaviyo.setExternalId(&quot;USER_IDENTIFIER&quot;)<br>       .setEmail(&quot;kermit@klaviyo-demo.com&quot;)<br>       .setPhoneNumber(&quot;+12223334444&quot;)<br>       .setProfileAttribute(ProfileKey.FIRST_NAME.INSTANCE, &quot;Kermit&quot;)<br>       .setProfileAttribute(new ProfileKey.CUSTOM(&quot;instrument&quot;), &quot;banjo&quot;);</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details>      <p class="paragraph">Either way, the SDK will group and batch API calls to improve performance.</p>
+      <h3 class=""> Reset Profile</h3>
+      <p class="paragraph">To start a <i>new</i> profile (e.g. if a user logs out), either call <code class="lang-kotlin">Klaviyo.resetProfile()</code> to clear the currently tracked profile identifiers, or use <code class="lang-kotlin">Klaviyo.setProfile(profile)</code> to overwrite it with a new profile object.</p>
+<details open>
+   <summary>Kotlin</summary>      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">   import com.klaviyo.analytics.Klaviyo<br>   import com.klaviyo.analytics.model.ProfileKey<br><br>   // Start a profile for Kermit<br>   Klaviyo.setEmail(&quot;kermit@klaviyo-demo.com&quot;)<br>       .setPhoneNumber(&quot;+12223334444&quot;)<br>       .setProfileAttribute(ProfileKey.FIRST_NAME, &quot;Kermit&quot;)<br><br>   // Stop tracking Kermit<br>   Klaviyo.resetProfile()<br><br>   // Start a new profile for Robin<br>   Klaviyo.setEmail(&quot;robin@klaviyo-demo.com&quot;)<br>       .setPhoneNumber(&quot;+5556667777&quot;)<br>       .setProfileAttribute(ProfileKey.FIRST_NAME, &quot;Robin&quot;)</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details><details>
+   <summary>Java</summary>      <div class="sample-container">
+        <pre><code class="block lang-java" theme="idea">   import com.klaviyo.analytics.Klaviyo;<br>   import com.klaviyo.analytics.model.ProfileKey;<br><br>   // Start a profile for Kermit<br>   Klaviyo.setEmail(&quot;kermit@klaviyo-demo.com&quot;)<br>       .setPhoneNumber(&quot;+12223334444&quot;)<br>       .setProfileAttribute(ProfileKey.FIRST_NAME.INSTANCE, &quot;Kermit&quot;);<br><br>   // Stop tracking Kermit<br>   Klaviyo.resetProfile();<br><br>   // Start a new profile for Robin<br>   Klaviyo.setEmail(&quot;robin@klaviyo-demo.com&quot;)<br>       .setPhoneNumber(&quot;+5556667777&quot;)<br>       .setProfileAttribute(ProfileKey.FIRST_NAME.INSTANCE, &quot;Robin&quot;);</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details>      <p class="paragraph"><strong>Note:</strong> We trim leading and trailing whitespace off of identifier values.  Empty strings will be ignored with a logged warning. If you are trying to remove an identifier's value, use <code class="lang-kotlin">setProfile</code> or <code class="lang-kotlin">resetProfile</code>.</p>
+      <h3 class=""> Anonymous Tracking</h3>
+      <p class="paragraph">Klaviyo will track unidentified users with an autogenerated ID whenever a push token is set or an event is created. That way, you can collect push tokens and track events prior to collecting profile identifiers such as email or phone number. When an identifier is provided, Klaviyo will merge the anonymous user with an identified user.</p>
+      <h2 class=""> Event Tracking</h2>
+      <p class="paragraph">The SDK provides tools for tracking analytics events via the <a href="https://developers.klaviyo.com/en/reference/create_client_event">Create Client Event API</a>. A list of common Klaviyo-defined event metrics is provided in <code class="lang-kotlin">EventMetric</code>, or you can use <code class="lang-kotlin">EventMetric.CUSTOM(&quot;name&quot;)</code> for custom event metric names. Additional event properties can be specified as part of the <code class="lang-kotlin">Event</code> object:</p>
+<details open>
+   <summary>Kotlin</summary>      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">   import com.klaviyo.analytics.Klaviyo<br>   import com.klaviyo.analytics.model.Event<br>   import com.klaviyo.analytics.model.EventKey<br>   import com.klaviyo.analytics.model.EventMetric<br><br>   val event = Event(EventMetric.VIEWED_PRODUCT)<br>       .setProperty(EventKey.CUSTOM(&quot;Product&quot;), &quot;Coffee Mug&quot;)<br>       .setValue(10.0)<br>   Klaviyo.createEvent(event)</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details><details>
+   <summary>Java</summary>      <div class="sample-container">
+        <pre><code class="block lang-java" theme="idea">   import com.klaviyo.analytics.Klaviyo;<br>   import com.klaviyo.analytics.model.Event;<br>   import com.klaviyo.analytics.model.EventKey;<br>   import com.klaviyo.analytics.model.EventMetric;<br><br>   Event event = new Event(EventMetric.VIEWED_PRODUCT.INSTANCE)<br>       .setProperty(new EventKey.CUSTOM(&quot;Product&quot;), &quot;Coffee Mug&quot;)<br>       .setValue(10.0);<br>   Klaviyo.createEvent(event);</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details>      <h2 class=""> Push Notifications</h2>
+      <h3 class=""> Prerequisites</h3>
+      <ul>
+        <li>
+          <p class="paragraph">A <a href="https://firebase.google.com/docs/android/setup">Firebase account</a> for your Android app</p>
+        </li>
+        <li>
+          <p class="paragraph">Familiarity with <a href="https://firebase.google.com/docs/cloud-messaging/android/client">Firebase</a> documentation</p>
+        </li>
+        <li>
+          <p class="paragraph">Configure <a href="https://help.klaviyo.com/hc/en-us/articles/14750928993307">Android push</a> in your Klaviyo account settings</p>
+        </li>
+        <li>
+          <p class="paragraph">Klaviyo <code class="lang-kotlin">analytics</code> and <code class="lang-kotlin">push-fcm</code> packages</p>
+        </li>
+        <li>
+          <p class="paragraph">If you expect to use deep links in your push notifications, see the #deep-linking section below.</p>
+        </li>
+      </ul>
+      <h3 class=""> Setup</h3>
+      <p class="paragraph">To specify an icon and/or color for Klaviyo notifications, add the following optional metadata elements to the application component of <code class="lang-kotlin">AndroidManifest.xml</code>. Absent these keys, the firebase keys <code class="lang-kotlin">com.google.firebase.messaging.default_notification_icon</code> and <code class="lang-kotlin">com.google.firebase.messaging.default_notification_color</code>  will be used if present, else we fall back on the application's launcher icon, and omit setting a color.   </p>
+      <div class="sample-container">
+        <pre><code class="block lang-xml" theme="idea">&lt;!-- AndroidManifest.xml --&gt;<br>&lt;manifest&gt;<br>    &lt;!-- ... --&gt;<br>    &lt;application&gt;<br>        &lt;!-- ... --&gt;<br>        &lt;meta-data android:name=&quot;com.klaviyo.push.default_notification_icon&quot;<br>            android:resource=&quot;{YOUR_ICON_RESOURCE}&quot; /&gt;<br>        &lt;meta-data android:name=&quot;com.klaviyo.push.default_notification_color&quot;<br>            android:resource=&quot;{YOUR_COLOR}&quot; /&gt;<br>    &lt;/application&gt;<br>&lt;/manifest&gt;</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+      <h3 class=""> Collecting Push Tokens</h3>
+      <p class="paragraph">In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo. This is done via the <code class="lang-kotlin">Klaviyo.setPushToken</code> method, which registers the push token and current authorization state via the <a href="https://developers.klaviyo.com/en/reference/create_client_push_token">Create Client Push Token API</a>. The SDK's <code class="lang-kotlin">KlaviyoPushService</code> will automatically receive <i>new</i> push tokens via the <code class="lang-kotlin">onNewToken</code> method. We also recommend retrieving the latest token value on app startup and registering it with the Klaviyo SDK. Add the following to your application or main activity's <code class="lang-kotlin">.onCreate()</code> method:</p>
+<details open>
+   <summary>Kotlin</summary>      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">   import com.google.firebase.messaging.FirebaseMessaging<br>   import com.klaviyo.analytics.Klaviyo<br><br>   // Fetches the current push token and registers with Push SDK<br>   FirebaseMessaging.getInstance().token.addOnSuccessListener { pushToken -&gt;<br>       Klaviyo.setPushToken(pushToken)<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details><details>
+   <summary>Java</summary>      <div class="sample-container">
+        <pre><code class="block lang-java" theme="idea">   import com.google.firebase.messaging.FirebaseMessaging;<br>   import com.klaviyo.analytics.Klaviyo;<br><br>   // Fetches the current push token and registers with Push SDK<br>   FirebaseMessaging.getInstance().getToken().addOnSuccessListener(pushToken -&gt; {<br>       Klaviyo.setPushToken(pushToken);<br>   });</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details>      <p class="paragraph">After setting a push token, the Klaviyo SDK will automatically track changes to the user's notification permission whenever the application is opened or resumed from the background.</p>
+      <p class="paragraph"><strong>Reminder</strong>: <code class="lang-kotlin">Klaviyo.initialize</code> is required before using any other Klaviyo SDK functionality, even  if you are only using the SDK for push notifications and not analytics.</p>
+      <blockquote class="quotation">
+        <p class="paragraph">Android 13 introduced a new <a href="https://developer.android.com/develop/ui/views/notifications/notification-permission">runtime permission</a>  for displaying notifications. The Klaviyo SDK automatically adds the  <a href="https://developer.android.com/reference/android/Manifest.permission#POST_NOTIFICATIONS"><code class="lang-kotlin">POST_NOTIFICATIONS</code></a>  permission to the manifest, but you will need to request user permission according to   <a href="https://source.android.com/docs/core/display/notification-perm">Android best practices</a>  and the best user experience in the context of your application. The linked resources  provide code examples for requesting permission and handling the user's response.</p>
+      </blockquote>
+      <h4 class=""> Push tokens and multiple profiles</h4>
+      <p class="paragraph">Push tokens are automatically associated with new profiles when you call <code class="lang-kotlin">setProfile</code> or <code class="lang-kotlin">resetProfile</code>. No additional action is required. </p>
+      <h3 class=""> Receiving Push Notifications</h3>
+      <p class="paragraph"><code class="lang-kotlin">KlaviyoPushService</code> will handle displaying all notifications via the <code class="lang-kotlin">onMessageReceived</code> method regardless of whether the app is in the foreground or background. You can send test notifications to a specific token using the <a href="https://help.klaviyo.com/hc/en-us/articles/18011985278875">push notification preview</a> feature in order to test your integration. If you wish to customize how notifications are displayed, see #advanced-setup.</p>
+      <h4 class=""> Rich Push</h4>
+      <p class="paragraph"><a href="https://help.klaviyo.com/hc/en-us/articles/16917302437275">Rich Push</a> is the ability to add images to push notification messages. No additional setup is needed to support rich push. Downloading the image and attaching it to the notification is handled within <code class="lang-kotlin">KlaviyoPushService</code>. If an image fails to download (e.g. if the device has a poor network connection) the notification will be displayed without an image after the download times out.</p>
+      <h4 class=""> Tracking Open Events</h4>
+      <p class="paragraph">To track push notification opens, you must call <code class="lang-kotlin">Klaviyo.handlePush(intent)</code> when your app is launched from an intent. This method will check if the app was opened from a notification originating from Klaviyo and if so, create an  <code class="lang-kotlin">Opened Push</code> event with required message tracking parameters. For example:</p>
+<details open>
+   <summary>Kotlin</summary>      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">   import android.content.Intent<br>   import android.os.Bundle<br>   import com.klaviyo.analytics.Klaviyo<br><br>   // Main Activity<br><br>   override fun onCreate(savedInstanceState: Bundle?) {<br>       /* ... */<br><br>       onNewIntent(intent)<br>   }<br><br>   override fun onNewIntent(intent: Intent?) {<br>       /* ... */<br><br>       // Tracks when a system tray notification is opened<br>       Klaviyo.handlePush(intent)<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details><details>
+   <summary>Java</summary>      <div class="sample-container">
+        <pre><code class="block lang-java" theme="idea">   import android.content.Intent;<br>   import android.os.Bundle;<br>   import com.klaviyo.analytics.Klaviyo;<br><br>   // Main Activity<br><br>   @Override<br>   protected void onCreate(Bundle savedInstanceState) {<br>       /* ... */<br><br>       onNewIntent(getIntent());<br>   }<br><br>   @Override<br>   protected void onNewIntent(Intent intent) {<br>       /* ... */<br><br>       // Tracks when a system tray notification is opened<br>       Klaviyo.handlePush(intent);<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details>      <p class="paragraph"><strong>Note:</strong> Intent handling may differ depending on your app's architecture. By default, the Klaviyo SDK will use your app's launch intent for a tapped notification. Adjust this example to your use-case, ensuring that  <code class="lang-kotlin">Klaviyo.handlePush(intent)</code> is called whenever your app is opened from a notification.</p>
+      <h4 class=""> Silent Push Notifications</h4>
+      <p class="paragraph">Silent push notifications (also known as background pushes) allow your app to receive payloads from Klaviyo without  displaying a visible alert to the user. These are typically used to trigger background behavior, such as displaying  content, personalizing the app interface, or downloading new information from a server. Silent push notifications  are handled by utilizing the <code class="lang-kotlin">RemoteMessage.isKlaviyoMessage</code> and <code class="lang-kotlin">RemoteMessage.isKlaviyoNotification</code>  extension properties, where a Klaviyo message is a silent push if <code class="lang-kotlin">RemoteMessage.isKlaviyoMessage</code> is <code class="lang-kotlin">true</code> and <code class="lang-kotlin">RemoteMessage.isKlaviyoNotification</code> is <code class="lang-kotlin">false</code>. See <code class="lang-kotlin">Custom Data</code> and <code class="lang-kotlin">Advanced Setup</code> sections below for  additional information and setup examples.</p>
+      <h4 class=""> Custom Data</h4>
+      <p class="paragraph">Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the extension property <code class="lang-kotlin">RemoteMessage.keyValuePairs</code> and check for their presence with the boolean extension property <code class="lang-kotlin">RemoteMessage.hasKlaviyoKeyValuePairs</code>. This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.</p>
+      <h3 class=""> Advanced Setup</h3>
+      <p class="paragraph">If you'd prefer to have your own implementation of <code class="lang-kotlin">FirebaseMessagingService</code>, e.g. to handle push messages from multiple sources, follow the FCM setup docs including referencing your own service class in the manifest.  We include the default Klaviyo Push Service in our SDK Manifest (which will be merged into the final APK), but if you'd like to override this you can.</p>
+      <div class="sample-container">
+        <pre><code class="block lang-xml" theme="idea">&lt;!-- AndroidManifest.xml --&gt;<br>&lt;manifest&gt;<br>    &lt;!-- ... --&gt;<br>    &lt;application&gt;<br>        &lt;!-- ... --&gt;<br>        &lt;service android:name=&quot;your.package.name.YourPushService&quot; android:exported=&quot;false&quot;&gt;<br>            &lt;intent-filter&gt;<br>                &lt;action android:name=&quot;com.google.firebase.MESSAGING_EVENT&quot; /&gt;<br>            &lt;/intent-filter&gt;<br>        &lt;/service&gt;<br>    &lt;/application&gt;<br>&lt;/manifest&gt;</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+      <p class="paragraph">The <code class="lang-kotlin">Application</code> code snippets above for handling push tokens and intents are still required.</p>
+      <p class="paragraph">You may either subclass <code class="lang-kotlin">KlaviyoPushService</code> or invoke the necessary Klaviyo SDK methods in your service. <code class="lang-kotlin">KlaviyoPushService</code> is automatically added to your manifest by our SDK, if you prefer to use your own implementation it will take precedence over our implementation.</p>
+      <ol>
+        <li>
+          <p class="paragraph">Subclass <code class="lang-kotlin">KlaviyoPushService</code>:</p>
+          <div class="sample-container">
+            <pre><code class="block lang-kotlin" theme="idea"> import com.google.firebase.messaging.RemoteMessage<br> import com.klaviyo.pushFcm.KlaviyoPushService<br> import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification<br><br> class YourPushService : KlaviyoPushService() {<br>     override fun onNewToken(newToken: String) {<br>         // Invoking the super method will ensure Klaviyo SDK gets the new token<br>         super.onNewToken(newToken)<br>     }<br><br>     override fun onMessageReceived(message: RemoteMessage) {<br>         // Invoking the super method allows Klaviyo SDK to handle Klaviyo messages<br>         super.onMessageReceived(message)<br>     <br>         // This extension method allows you to distinguish Klaviyo from other sources<br>         if (!message.isKlaviyoMessage) {<br>             TODO(&quot;Handle non-Klaviyo messages&quot;)<br>         }<br>     }<br><br>     override fun onKlaviyoNotificationMessageReceived(message: RemoteMessage) {<br>         TODO(&quot;Customize standard notification handling here&quot;)<br>     }<br><br>     override fun onKlaviyoCustomDataMessageReceived(customData: Map&lt;String, String&gt;, message: RemoteMessage) {<br>         TODO(&quot;Customize handling of custom key-value data here&quot;)<br>     }<br> }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+              <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+            </span></div>
+        </li>
+        <li>
+          <p class="paragraph">Subclass <code class="lang-kotlin">FirebaseMessagingService</code> and invoke Klaviyo SDK methods directly</p>
+          <div class="sample-container">
+            <pre><code class="block lang-kotlin" theme="idea"> import com.google.firebase.messaging.FirebaseMessagingService<br> import com.google.firebase.messaging.RemoteMessage<br> import com.klaviyo.analytics.Klaviyo<br> import com.klaviyo.pushFcm.KlaviyoNotification<br> import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification<br><br> class YourPushService : FirebaseMessagingService() {<br><br>     override fun onNewToken(newToken: String) {<br>         super.onNewToken(newToken)<br>         Klaviyo.setPushToken(newToken)<br>     }<br><br>     override fun onMessageReceived(message: RemoteMessage) {<br>         super.onMessageReceived(message)<br><br>         // This extension method allows you to distinguish Klaviyo from other sources<br>         if (message.isKlaviyoMessage) {<br>              if (message.isKlaviyoNotification) {<br>                 // Handle displaying a notification from Klaviyo<br>                 KlaviyoNotification(message).displayNotification(this)<br>              }<br>              if (message.hasKlaviyoKeyValuePairs) {<br>                 TODO(&quot;Handle custom data in Klaviyo messages&quot;)<br>              }<br>         } else {<br>              TODO(&quot;Handle non-Klaviyo messages&quot;)<br>         }<br>     }<br> }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+              <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+            </span></div>
+        </li>
+      </ol>
+      <p class="paragraph"><strong>Note:</strong> Klaviyo uses <a href="https://firebase.google.com/docs/cloud-messaging/android/receive">data messages</a> to provide consistent notification formatting. As a result, all Klaviyo notifications are handled via <code class="lang-kotlin">onMessageReceived</code> regardless of the app being in the background or foreground. If you are working with multiple remote sources, you can check whether a message originated from Klaviyo with the extension method <code class="lang-kotlin">RemoteMessage.isKlaviyoMessage</code>.</p>
+      <h4 class=""> Custom Notification Handling</h4>
+      <p class="paragraph">In addition to the standard notification processing, the Klaviyo Android SDK provides two open methods for advanced push handling:</p>
+      <ul>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">onKlaviyoNotificationMessageReceived(RemoteMessage message)</code>: Invoked when a standard Klaviyo push notification is   received. Override this method to customize how notifications are displayed or processed.</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">onKlaviyoCustomDataMessageReceived(Map&lt;String, String&gt; customData, RemoteMessage message)</code>: Invoked when a Klaviyo   message contains custom key-value pairs. Override this method to handle additional custom data (e.g., triggering   background tasks or logging analytics) that may accompany your push notifications.</p>
+        </li>
+      </ul>
+      <h4 class=""> Custom Notification Display</h4>
+      <p class="paragraph">If you wish to fully customize the display of notifications, we provide a set of <code class="lang-kotlin">RemoteMessage</code>  extensions such as <code class="lang-kotlin">import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body</code> to access all the properties sent from Klaviyo. We also provide an <code class="lang-kotlin">Intent.appendKlaviyoExtras(RemoteMessage)</code> extension method, which attaches the data to your notification intent that the Klaviyo SDK requires in order to track opens when you call <code class="lang-kotlin">Klaviyo.handlePush(intent)</code>.</p>
+      <h2 class=""> In-App Forms</h2>
+      <p class="paragraph"><a href="https://help.klaviyo.com/hc/en-us/articles/34567685177883">In-App Forms</a> are messages displayed to mobile app  users while they are actively using your app. You can create new In-App Forms in a drag-and-drop editor in the  Sign-Up Forms tab in Klaviyo. Follow the instructions in this section to integrate forms with your app. The SDK will display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.</p>
+      <p class="paragraph">In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, you can configure forms to target or  exclude specific segments of profiles and configure event-based triggers and delays. See the table below to understand available features by SDK version.</p>
+      <h3 class=""> Prerequisites</h3>
+      <ul>
+        <li>
+          <p class="paragraph">Klaviyo <code class="lang-kotlin">analytics</code> and <code class="lang-kotlin">forms</code> packages</p>
+        </li>
+        <li>
+          <p class="paragraph">If you expect to use deep links in forms, see the #deep-linking section below.</p>
+        </li>
+        <li>
+          <p class="paragraph">We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features.   The minimum SDK version supporting In-App Forms is <code class="lang-kotlin">3.2.0</code>, and a feature matrix is provided below. Forms that leverage   unsupported features will not appear in your app until you update to a version that supports those features.</p>
+        </li>
+        <li>
+          <p class="paragraph">Please read the MIGRATION_GUIDE.md whenever you upgrade, to understand changes to In-App Forms behavior.</p>
+        </li>
+      </ul>
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Minimum SDK Version</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Basic In-App Forms</td>
+            <td>3.2.0</td>
+          </tr>
+          <tr>
+            <td>Time Delay</td>
+            <td>4.0.0</td>
+          </tr>
+          <tr>
+            <td>Audience Targeting</td>
+            <td>4.0.0</td>
+          </tr>
+          <tr>
+            <td>Event Triggers</td>
+            <td>4.1.0</td>
+          </tr>
+        </tbody>
+      </table>
+      <h3 class=""> Setup</h3>
+      <p class="paragraph">To begin, call <code class="lang-kotlin">Klaviyo.registerForInAppForms()</code> after initializing the SDK with your public API key. Once registered, the SDK may launch an overlay Activity at any time to present a form according to its targeting and  behavior settings configured in your Klaviyo account. For the best user experience, we recommend registering after any splash screen or loading animations have completed. Depending on your app's architecture, this might be in your <code class="lang-kotlin">Application.onCreate()</code> method, or in the <code class="lang-kotlin">onCreate()</code> method of your main activity.</p>
+<details open>
+   <summary>Kotlin</summary>      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">   import com.klaviyo.analytics.Klaviyo<br>   import com.klaviyo.forms.registerForInAppForms<br>   import com.klaviyo.forms.unregisterFromInAppForms<br><br>   // You can register as soon as you've initialized<br>   Klaviyo<br>       .initialize(&quot;KLAVIYO_PUBLIC_API_KEY&quot;, applicationContext)<br>       .registerForInAppForms()<br><br>   // ... or any time thereafter<br>   Klaviyo.registerForInAppForms()<br><br>   // ... Unregister later, if appropriate (e.g. on logout)<br>   Klaviyo.unregisterFromInAppForms()</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details><details>
+   <summary>Java</summary>      <div class="sample-container">
+        <pre><code class="block lang-java" theme="idea">   import com.klaviyo.analytics.Klaviyo;<br>   import com.klaviyo.forms.KlaviyoForms;<br><br>   // You can register as soon as you've initialized<br>   Klaviyo.initialize(&quot;KLAVIYO_PUBLIC_API_KEY&quot;, getApplicationContext());<br>   KlaviyoForms.registerForInAppForms();<br><br>   // ... or any time thereafter<br>   KlaviyoForms.registerForInAppForms();<br><br>   // ... Unregister later, if appropriate (e.g. on logout)<br>   KlaviyoForms.unregisterFromInAppForms();</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details>      <h4 class=""> In-App Forms Session Configuration</h4>
+      <p class="paragraph">A &quot;session&quot; is considered to be a logical unit of user engagement with the app, defined as a series of foreground  interactions that occur within a continuous or near-continuous time window. This is an important concept for In-App Forms, as we want to ensure that a user will not see the same forms multiple times within a single session.</p>
+      <p class="paragraph">A session will time out after a specified period of inactivity. When a user launches the app, if the time between the previous interaction with the app and the current one exceeds the specified timeout, we will consider this a new session.</p>
+      <p class="paragraph">This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, pass an <code class="lang-kotlin">InAppFormsConfig</code> object to the <code class="lang-kotlin">registerForInAppForms()</code> method. For example, to set a session timeout of 30 minutes:</p>
+<details open>
+   <summary>Kotlin</summary>      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">   import com.klaviyo.forms.InAppFormsConfig<br>   import kotlin.time.Duration.Companion.minutes<br><br>   // e.g. to configure a session timeout of 30 minutes<br>   val config = InAppFormsConfig(<br>       sessionTimeoutDuration = 30.minutes,<br>   )<br><br>   Klaviyo.registerForInAppForms(config)</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details><details>
+   <summary>Java</summary>      <div class="sample-container">
+        <pre><code class="block lang-java" theme="idea">   import com.klaviyo.forms.KlaviyoForms;<br>   import com.klaviyo.forms.InAppFormsConfig;<br><br>   // e.g. to configure a session timeout of 30 minutes (1800 seconds)<br>   InAppFormsConfig config = new InAppFormsConfig(1800);<br><br>   KlaviyoForms.registerForInAppForms(config);</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details>      <p class="paragraph"><strong>Note:</strong> After unregistering, the next call to <code class="lang-kotlin">registerForInAppForms()</code> will be considered a new session by the SDK.</p>
+      <h2 class=""> Geofencing</h2>
+      <p class="paragraph"><a href="https://help.klaviyo.com/hc/en-us/articles/45194892526747">Geofencing</a> allows you to trigger events when users enter or exit geographic regions defined in your Klaviyo account. The SDK monitors permission, syncs geofence data from Klaviyo, registers them with device location services,  and creates events when transitions occur. These events can be used to trigger flows, segment profiles,  and drive location-based marketing.</p>
+      <h3 class=""> Setup</h3>
+      <p class="paragraph">To begin, call <code class="lang-kotlin">Klaviyo.registerGeofencing()</code> after initializing the SDK with your public API key. We recommend calling this as early as possible in your application lifecycle, ideally at app launch.</p>
+<details open>
+   <summary>Kotlin</summary>      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">   import com.klaviyo.analytics.Klaviyo<br>   import com.klaviyo.location.registerGeofencing<br>   import com.klaviyo.location.unregisterGeofencing<br><br>   // You can register as soon as you've initialized<br>   Klaviyo<br>       .initialize(&quot;KLAVIYO_PUBLIC_API_KEY&quot;, applicationContext)<br>       .registerGeofencing()<br><br>   // ... or any time thereafter<br>   Klaviyo.registerGeofencing()<br><br>   // ... Unregister later, if appropriate<br>   Klaviyo.unregisterGeofencing()</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details><details>
+   <summary>Java</summary>      <div class="sample-container">
+        <pre><code class="block lang-java" theme="idea">   import com.klaviyo.analytics.Klaviyo;<br>   import com.klaviyo.location.KlaviyoLocation;<br><br>   // You can register as soon as you've initialized<br>   Klaviyo.initialize(&quot;KLAVIYO_PUBLIC_API_KEY&quot;, getApplicationContext());<br>   KlaviyoLocation.registerGeofencing();<br><br>   // ... or any time thereafter<br>   KlaviyoLocation.registerGeofencing();<br><br>   // ... Unregister later, if appropriate<br>   KlaviyoLocation.unregisterGeofencing();</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details>      <h3 class=""> Requesting Permissions</h3>
+      <p class="paragraph">The SDK automatically adds the following manifest permissions:</p>
+      <ul>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">ACCESS_FINE_LOCATION</code> - Required for precise geofence detection</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">ACCESS_COARSE_LOCATION</code> - Required by Android, but the user must grant &quot;Precise&quot; location for geofencing to work.</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">ACCESS_BACKGROUND_LOCATION</code> - Required on Android 10+ for geofences to work when the app is in the background</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">RECEIVE_BOOT_COMPLETED</code> - Allows the SDK to restore geofences after device reboot</p>
+        </li>
+      </ul>
+      <p class="paragraph">You are responsible for requesting runtime permission from users according to <a href="https://developer.android.com/develop/sensors-and-location/location/permissions">Android best practices</a>.</p>
+      <blockquote class="quotation">
+        <p class="paragraph">⚠️ <strong>Important</strong>: Geofencing requires &quot;Allow all the time&quot; and &quot;Precise&quot; location authorization. If the user only grants &quot;Allow only while using the app&quot; or &quot;coarse&quot; permissions, geofencing will not be active.</p>
+        <p class="paragraph">Background location permission requires a separate permission request on Android 10+. See <a href="https://developer.android.com/develop/sensors-and-location/location/permissions#background">Android documentation</a> for guidance on requesting background location permission.</p>
+      </blockquote>
+      <p class="paragraph"><strong>Note:</strong> Unregistering removes all geofences from Android's location services and stops monitoring for permission changes.</p>
+      <h2 class=""> Deep Linking</h2>
+      <p class="paragraph">Klaviyo <a href="https://help.klaviyo.com/hc/en-us/articles/14750403974043">Deep Links</a> allow you to navigate to a particular page within your app in response to the user opening a push notification, tapping on a link in an In-App Form, or by tapping on a Universal Link (aka Verified App Link on Android) from outside of the app. The Klaviyo Android SDK supports deep linking via custom URI schemes or Universal Links.</p>
+      <h3 class=""> Adding link-handling logic</h3>
+      <p class="paragraph">We recommend that you create a helper method to contain the link handling logic. This may include parsing a URL into its components, using those components to navigate to the appropriate screen in the app. By encapsulating this logic within a helper method, you can centralize your logic and reduce duplication of code as you complete the rest of your deep linking setup.</p>
+      <p class="paragraph"><strong>Optional</strong>: register a deep link handler callback with <code class="lang-kotlin">Klaviyo.registerDeepLinkHandler()</code>. You should register this from your <code class="lang-kotlin">Application</code> or main <code class="lang-kotlin">Activity</code>'s <code class="lang-kotlin">.onCreate()</code> method, so that it is available early enough in the application lifecycle to handle any link that launches the app from a terminated state. This handler will be invoked for <i>any</i> deep link originating from the Klaviyo SDK, including push notifications, universal tracking links, or In-App Forms.</p>
+<details open>
+   <summary>Kotlin</summary>      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">   import android.app.Application<br>   import android.net.Uri<br>   import com.klaviyo.analytics.Klaviyo<br><br>   // Application subclass<br>   class YourApplication : Application() {<br>       override fun onCreate() {<br>           super.onCreate()<br><br>           Klaviyo.initialize(&quot;KLAVIYO_PUBLIC_API_KEY&quot;, applicationContext)<br>               .registerDeepLinkHandler(::handleDeepLink)<br>       }<br><br>       private fun handleDeepLink(uri: Uri) {<br>           // Parse the URI and navigate to the appropriate screen in your app<br>           // The SDK will call this for any deep link from push, forms, or universal tracking links<br>           // Example: parse path and query parameters to determine navigation<br>           when (uri.path) {<br>               &quot;/product&quot; -&gt; navigateToProduct(uri.getQueryParameter(&quot;id&quot;))<br>               &quot;/profile&quot; -&gt; navigateToProfile()<br>               else -&gt; navigateToHome()<br>           }<br>       }<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details><details>
+   <summary>Java</summary>      <div class="sample-container">
+        <pre><code class="block lang-java" theme="idea">   import android.app.Application;<br>   import android.net.Uri;<br>   import com.klaviyo.analytics.Klaviyo;<br><br>   // Application subclass<br>   public class YourApplication extends Application {<br>       @Override<br>       public void onCreate() {<br>           super.onCreate();<br><br>           Klaviyo.initialize(&quot;KLAVIYO_PUBLIC_API_KEY&quot;, getApplicationContext())<br>               .registerDeepLinkHandler(this::handleDeepLink);<br>       }<br><br>       private void handleDeepLink(Uri uri) {<br>           // Parse the URI and navigate to the appropriate screen in your app<br>           // The SDK will call this for any deep link from push, forms, or universal tracking links<br>           String path = uri.getPath();<br>           if (&quot;/product&quot;.equals(path)) {<br>               navigateToProduct(uri.getQueryParameter(&quot;id&quot;));<br>           } else if (&quot;/profile&quot;.equals(path)) {<br>               navigateToProfile();<br>           } else {<br>               navigateToHome();<br>           }<br>       }<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+</details>      <h3 class=""> Handling Universal Links</h3>
+      <blockquote class="quotation">
+        <p class="paragraph"> ℹ️ Full trackable universal links support is available in Klaviyo Android SDK version 4.1.0 and higher.</p>
+      </blockquote>
+      <p class="paragraph">Klaviyo supports embedding universal links with click tracking in email messages. To ensure these links are properly tracked as  profile events <i>and</i> your app opens and processes the links correctly, you need to configure your app to handle them. At a high level, the process works like this:</p>
+      <ol>
+        <li>
+          <p class="paragraph">A marketer includes a universal link in a Klaviyo email. Klaviyo automatically wraps it in a unique, trackable URL, which we call a <strong>universal tracking link</strong>.</p>
+        </li>
+        <li>
+          <p class="paragraph">When a user clicks the link on a device with your app installed, Android delivers the wrapped link to your application.</p>
+        </li>
+        <li>
+          <p class="paragraph">Your app passes this universal tracking link to the Klaviyo SDK by calling the <code class="lang-kotlin">handleUniversalTrackingLink()</code> method.</p>
+        </li>
+        <li>
+          <p class="paragraph">The SDK records a click event on the user's profile, and resolves the universal tracking link to its <i>original</i> universal link.</p>
+        </li>
+        <li>
+          <p class="paragraph">The SDK then processes the original link in one of two ways:</p>
+        </li>
+        <ul>
+          <li>
+            <p class="paragraph">It's passed to a custom deep link handler you register with the SDK. This gives you full control over the navigation logic.</p>
+          </li>
+          <li>
+            <p class="paragraph">If no custom handler is registered, the SDK will send an explicit intent to your application containing the original link, which you can handle in your activity as described above.</p>
+          </li>
+        </ul>
+      </ol>
+      <h4 class=""> Setup</h4>
+      <p class="paragraph">Follow these steps to configure your app to handle Klaviyo universal tracking links.</p>
+      <ol>
+        <li>
+          <p class="paragraph">Configure Universal Links in your Klaviyo account. Follow our guide on    <a href="https://help.klaviyo.com/hc/en-us/articles/41701832186523">setting up universal links</a> in your Klaviyo account dashboard.</p>
+        </li>
+        <li>
+          <p class="paragraph">Add an intent filter for your click tracking domain. Klaviyo's Universal Tracking Links are formatted <code class="lang-kotlin">https://&lt;trk.your.domain.com&gt;/u/linkId</code>    so your intent filter should only accept paths prefixed with <code class="lang-kotlin">/u/*</code>, see example below.</p>
+        </li>
+        <li>
+          <p class="paragraph">In your main activity, you will need to pass the <code class="lang-kotlin">Intent</code> from a Universal Tracking Link to the Klaviyo SDK by calling    our <code class="lang-kotlin">handleUniversalTrackingLink()</code> method. This method returns <code class="lang-kotlin">true</code> synchronously if the Intent is from opening a    valid Klaviyo universal tracking link. If it returns <code class="lang-kotlin">false</code>, you should handle the non-Klaviyo Intent as appropriate.    See code example in the next section.</p>
+        </li>
+        <li>
+          <p class="paragraph">Klaviyo will resolve the destination URL and pass it back to your app either by calling your registered deep link callback    or by dispatching an explicit <code class="lang-kotlin">ACTION_VIEW</code> intent to your app with the destination URI in its <code class="lang-kotlin">data</code> property. </p>
+        </li>
+      </ol>
+      <h3 class=""> Intent Filters</h3>
+      <p class="paragraph">To handle deep links of any kind, you must add intent filters to your app's manifest file declaring the schemes/domains that your app supports. Refer to Android developer documentation for additional resources on <a href="https://developer.android.com/training/app-links/deep-linking">Deep Links</a> and <a href="https://developer.android.com/training/app-links">Verified App Links</a>.</p>
+      <ol>
+        <li>
+          <p class="paragraph">Add an intent filter to the activity element of your <code class="lang-kotlin">AndroidManifest.xml</code> file    to declare the URI schemes or domains that your app supports.</p>
+          <div class="sample-container">
+            <pre><code class="block lang-xml" theme="idea"> &lt;!-- AndroidManifest.xml --&gt;<br> &lt;manifest&gt;<br>     &lt;application&gt;<br>         &lt;!-- Your Main Activity: --&gt;<br>         &lt;activity&gt;<br>             &lt;!-- Custom URI scheme: --&gt;<br>             &lt;intent-filter android:label=&quot;Your App Name&quot;&gt;<br>                 &lt;action android:name=&quot;android.intent.action.VIEW&quot; /&gt;<br>                 &lt;category android:name=&quot;android.intent.category.DEFAULT&quot; /&gt;<br>                 &lt;category android:name=&quot;android.intent.category.BROWSABLE&quot; /&gt;<br>                 &lt;!-- Accepts URIs formatted &quot;example://host.com” --&gt;<br>                 &lt;data android:scheme=&quot;example&quot; android:host=&quot;host.com&quot;/&gt;<br>             &lt;/intent-filter&gt;<br><br>             &lt;!-- Verified App Link: --&gt;<br>             &lt;intent-filter android:label=&quot;Your App Name&quot; android:autoVerify=&quot;true&quot;&gt;<br>                 &lt;action android:name=&quot;android.intent.action.VIEW&quot; /&gt;<br>                 &lt;category android:name=&quot;android.intent.category.DEFAULT&quot; /&gt;<br>                 &lt;category android:name=&quot;android.intent.category.BROWSABLE&quot; /&gt;<br>                 &lt;data android:scheme=&quot;http&quot; /&gt;<br>                 &lt;data android:scheme=&quot;https&quot; /&gt;<br>                 &lt;data android:host=&quot;your.domain.com&quot; /&gt;<br>             &lt;/intent-filter&gt;<br><br>             &lt;!-- Klaviyo Universal Click Tracking: --&gt;<br>             &lt;intent-filter android:label=&quot;Your App Name&quot; android:autoVerify=&quot;true&quot;&gt;<br>                 &lt;action android:name=&quot;android.intent.action.VIEW&quot; /&gt;<br>                 &lt;category android:name=&quot;android.intent.category.DEFAULT&quot; /&gt;<br>                 &lt;category android:name=&quot;android.intent.category.BROWSABLE&quot; /&gt;<br>                 &lt;data android:scheme=&quot;https&quot; /&gt;<br>                 &lt;data android:host=&quot;trk.your.domain.com&quot; /&gt;<br>                 &lt;data android:pathPrefix=&quot;/u/&quot; /&gt;<br>             &lt;/intent-filter&gt;<br>         &lt;/activity&gt;<br>     &lt;/application&gt;<br> &lt;/manifest&gt;</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+              <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+            </span></div>
+        </li>
+        <li>
+          <p class="paragraph">Read data from incoming intents:</p>
+          <p class="paragraph">When a user opens a link, your app will receive an <code class="lang-kotlin">ACTION_VIEW</code> intent containing that <code class="lang-kotlin">Uri</code> in the <code class="lang-kotlin">data</code> property.    You can parse the URI from the intent's data property and use it to navigate to the appropriate part of your app.</p>
+<details open>
+      <summary>Kotlin</summary>          <div class="sample-container">
+            <pre><code class="block lang-kotlin" theme="idea">   import android.content.Intent<br>   import android.net.Uri<br>   import android.os.Bundle<br>   import com.klaviyo.analytics.Klaviyo<br>   import com.klaviyo.analytics.isKlaviyoNotificationIntent<br><br>   // Main Activity<br>   override fun onCreate(savedInstanceState: Bundle?) {<br>       /* ... */<br><br>       onNewIntent(intent)<br>   }<br><br>   override fun onNewIntent(intent: Intent?) {<br>       super.onNewIntent(intent)<br><br>       if (Klaviyo.handleUniversalTrackingLink(intent)) {<br>         // Klaviyo SDK will handle the tracking link asynchronously and invoke your deep link handler if registered, else send a new intent to your app with the destination URI<br>         return<br>       }<br><br>       if (intent.isKlaviyoNotificationIntent) {<br>           // Klaviyo SDK will track an Opened Push event. If it contains a link, this will also invoke your deep link handler if registered (you may need to return early to avoid duplicate navigation)<br>           Klaviyo.handlePush(intent)<br>       }<br><br>       val deepLink: Uri? = intent?.data?.let { uri -&gt;<br>           // Read deep link data from intent and navigate to the appropriate part of your app<br>           handleDeepLink(uri)<br>       }<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+              <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+            </span></div>
+</details><details>
+      <summary>Java</summary>          <div class="sample-container">
+            <pre><code class="block lang-java" theme="idea">   import android.content.Intent;<br>   import android.net.Uri;<br>   import android.os.Bundle;<br>   import com.klaviyo.analytics.Klaviyo;<br><br>   // Main Activity<br>   @Override<br>   protected void onCreate(Bundle savedInstanceState) {<br>       /* ... */<br><br>       onNewIntent(getIntent());<br>   }<br><br>   @Override<br>   protected void onNewIntent(Intent intent) {<br>       super.onNewIntent(intent);<br><br>       if (Klaviyo.handleUniversalTrackingLink(intent)) {<br>           // Klaviyo SDK will handle the tracking link asynchronously and invoke your deep link handler if registered, else send a new intent to your app with the destination URI<br>           return;<br>       }<br><br>       if (Klaviyo.isKlaviyoNotificationIntent(intent)) {<br>           // Klaviyo SDK will track an Opened Push event. If it contains a link, this will also invoke your deep link handler if registered (you may need to return early to avoid duplicate navigation)<br>           Klaviyo.handlePush(intent);<br>       }<br><br>       if (intent != null &amp;&amp; intent.getData() != null) {<br>           Uri uri = intent.getData();<br>           // Read deep link data from intent and navigate to the appropriate part of your app<br>           handleDeepLink(uri);<br>       }<br>   }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+              <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+            </span></div>
+</details>        </li>
+        <li>
+          <p class="paragraph">Test your deep links</p>
+          <p class="paragraph">We strongly recommend testing your intent filters with the Android Studio &quot;App Link Assistant&quot; tool.    Alternatively, with <a href="https://developer.android.com/studio/command-line/adb">android debug bridge (adb)</a>,    run the following command to launch your app via an intent containing a deep link:</p>
+          <div class="sample-container">
+            <pre><code class="block lang-shell" theme="idea"> adb shell am start<br>     -W -a android.intent.action.VIEW<br>     -d &lt;URI&gt; &lt;PACKAGE&gt;</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+              <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+            </span></div>
+          <p class="paragraph">To perform integration testing:</p>
+        </li>
+      </ol>
+      <ul>
+        <li>
+          <p class="paragraph"><strong>Push</strong>: Send a <a href="https://help.klaviyo.com/hc/en-us/articles/18011985278875">preview push notification</a>    containing a deep link from the Klaviyo push editor.</p>
+        </li>
+        <li>
+          <p class="paragraph"><strong>Forms</strong>: Create an In-App Form that contains a &quot;Go to app screen&quot; action, use Audience Targeting with a test    segment or list to target only your testing profiles.</p>
+        </li>
+        <li>
+          <p class="paragraph"><strong>Universal Tracking Links</strong>: Send yourself a test email containing a universal tracking link. If necessary,   copy the tracking link URL (which should look like <code class="lang-kotlin">&lt;your.tracking.domain&gt;/u/linkId</code>) to open it on a device.</p>
+        </li>
+      </ul>
+      <h2 class=""> Troubleshooting</h2>
+      <p class="paragraph">The SDK contains logging at different levels from <code class="lang-kotlin">verbose</code> to <code class="lang-kotlin">assert</code>. By default, the SDK logs at the <code class="lang-kotlin">error</code> level in a production environment and at the <code class="lang-kotlin">warning</code> level in a debug environment. You can change the log level by adding  the following metadata tag to your manifest file. </p>
+      <ul>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">0</code> = disable logging entirely</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">1</code> = <code class="lang-kotlin">Verbose</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">2</code> = <code class="lang-kotlin">Debug</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">3</code> = <code class="lang-kotlin">Info</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">4</code> = <code class="lang-kotlin">Warning</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">5</code> = <code class="lang-kotlin">Error</code> and above</p>
+        </li>
+        <li>
+          <p class="paragraph"><code class="lang-kotlin">6</code> = <code class="lang-kotlin">Assert</code> only</p>
+        </li>
+      </ul>
+      <div class="sample-container">
+        <pre><code class="block lang-xml" theme="idea">&lt;!-- AndroidManifest.xml --&gt;    <br>&lt;manifest&gt;<br>    &lt;!-- ... --&gt;<br>    &lt;application&gt;<br>        &lt;!-- Enable SDK debug logging --&gt;<br>        &lt;meta-data<br>            android:name=&quot;com.klaviyo.core.log_level&quot;<br>            android:value=&quot;2&quot; /&gt;<br>    &lt;/application&gt;<br>&lt;/manifest&gt;</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+      <h4 class=""> WebViews Compatibility</h4>
+      <p class="paragraph">Klaviyo's In-App Forms are powered by <a href="https://developer.android.com/reference/android/webkit/WebView">WebViews</a>. At this time, we require a version of WebView compatible with JavaScript standard ES2015. Older versions will fail gracefully without displaying a form to the user.</p>
+      <p class="paragraph">WebView is a system app that updates independently of the OS (as of API level 21). Therefore, understanding backwards compatibility is more complicated than looking at Android version / API level. But in general, physical devices on  API level 23+ will be compatible. However, the WebView version installed emulators can be outdated, and so forms  may not work in an emulator running older versions of Android.</p>
+      <h4 class=""> Proguard / R8 Issues</h4>
+      <p class="paragraph">If you notice issues in the release build of your apps, try using more conservative configuration  in your <code class="lang-kotlin">proguard-rules.pro</code> to prevent obfuscation. Note that each of our packages already contain <code class="lang-kotlin">consumer-rules.pro</code> that should cover necessary functionality. </p>
+      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">-keep class com.klaviyo.analytics.** { *; }<br>-keep class com.klaviyo.core.** { *; }<br>-keep class com.klaviyo.forms.** { *; }<br>-keep class com.klaviyo.location.** { *; }<br>-keep class com.klaviyo.pushFcm.** { *; }</code></pre>
+<span class="top-right-position"><span class="copy-icon"></span>
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+        </span></div>
+      <h2 class=""> Contributing</h2>
+      <p class="paragraph">See the .github/CONTRIBUTING.md to learn how to contribute to the Klaviyo Android SDK. We welcome your feedback in the <a href="https://github.com/klaviyo/klaviyo-android-sdk/issues">issues</a> section of our public GitHub repository.</p>
+      <h2 class=""> License</h2>
+      <p class="paragraph">The Klaviyo Android SDK is available under the MIT license. See ./LICENSE.md for more info.</p>
+      <h2 class=""> Code Documentation</h2>
+      <p class="paragraph">Browse complete code documentation autogenerated with Dokka <a href="https://klaviyo.github.io/klaviyo-android-sdk/">here</a>.</p>
+    </div>
+    <h2 class="">All modules:</h2>
+    <div class="table"><a data-name="-242632249%2FMain%2F0" anchor-label="analytics" id="-242632249%2FMain%2F0" data-filterable-set=""></a>
+      <div class="table-row">
+        <div class="main-subrow ">
+          <div class="w-100"><span class="inline-flex">
+              <div><a href="sdk/analytics/index.html">analytics</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-242632249%2FMain%2F0"></span>
+                <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+              </span></span></div>
+          <div><span class="brief-comment"></span></div>
+        </div>
+      </div>
+<a data-name="-387464810%2FMain%2F0" anchor-label="core" id="-387464810%2FMain%2F0" data-filterable-set=""></a>
+      <div class="table-row">
+        <div class="main-subrow ">
+          <div class="w-100"><span class="inline-flex">
+              <div><a href="sdk/core/index.html">core</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-387464810%2FMain%2F0"></span>
+                <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+              </span></span></div>
+          <div><span class="brief-comment"></span></div>
+        </div>
+      </div>
+<a data-name="1811326475%2FMain%2F0" anchor-label="fixtures" id="1811326475%2FMain%2F0" data-filterable-set=""></a>
+      <div class="table-row">
+        <div class="main-subrow ">
+          <div class="w-100"><span class="inline-flex">
+              <div><a href="sdk/fixtures/index.html">fixtures</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1811326475%2FMain%2F0"></span>
+                <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+              </span></span></div>
+          <div><span class="brief-comment"></span></div>
+        </div>
+      </div>
+<a data-name="-70699202%2FMain%2F0" anchor-label="forms" id="-70699202%2FMain%2F0" data-filterable-set=""></a>
+      <div class="table-row">
+        <div class="main-subrow ">
+          <div class="w-100"><span class="inline-flex">
+              <div><a href="sdk/forms/index.html">forms</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-70699202%2FMain%2F0"></span>
+                <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+              </span></span></div>
+          <div><span class="brief-comment"></span></div>
+        </div>
+      </div>
+<a data-name="1602241600%2FMain%2F0" anchor-label="location" id="1602241600%2FMain%2F0" data-filterable-set=""></a>
+      <div class="table-row">
+        <div class="main-subrow ">
+          <div class="w-100"><span class="inline-flex">
+              <div><a href="sdk/location/index.html">location</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1602241600%2FMain%2F0"></span>
+                <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+              </span></span></div>
+          <div><span class="brief-comment"></span></div>
+        </div>
+      </div>
+<a data-name="-503032104%2FMain%2F0" anchor-label="push-fcm" id="-503032104%2FMain%2F0" data-filterable-set=""></a>
+      <div class="table-row">
+        <div class="main-subrow ">
+          <div class="w-100"><span class="inline-flex">
+              <div><a href="sdk/push-fcm/index.html">push-fcm</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-503032104%2FMain%2F0"></span>
+                <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+              </span></span></div>
+          <div><span class="brief-comment"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span
+                class="pull-right"><span>Generated by </span><a
+                href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

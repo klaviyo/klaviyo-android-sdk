@@ -1,0 +1,194 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>DeepLinking</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            klaviyo-android-sdk
+                    </a>            </div>
+            <div class="library-version">
+<dokka-template-command data="{&quot;@class&quot;:&quot;org.jetbrains.dokka.base.templating.ReplaceVersionsCommand&quot;,&quot;location&quot;:&quot;com.klaviyo.analytics.linking/-deep-linking/index.html&quot;}">4.2.0</dokka-template-command>            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":sdk:analytics:dokkaHtmlPartial/release">androidJvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="analytics::com.klaviyo.analytics.linking/DeepLinking///PointingToDeclaration//-874788449">
+  <div class="breadcrumbs"><a href="../../index.html">analytics</a><span class="delimiter">/</span><a href="../index.html">com.klaviyo.analytics.linking</a><span class="delimiter">/</span><span class="current">DeepLinking</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Deep</span><wbr><span><span>Linking</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">object </span><a href="index.html">DeepLinking</a></div><p class="paragraph">Utility for handling any deep links into the host application originating from Klaviyo</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="-1241150161%2FProperties%2F-874788449" anchor-label="isHandlerRegistered" id="-1241150161%2FProperties%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="is-handler-registered.html"><span>is</span><wbr><span>Handler</span><wbr><span><span>Registered</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1241150161%2FProperties%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="is-handler-registered.html">isHandlerRegistered</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Shortcut to check if the developer has registered a <a href="../-deep-link-handler/index.html">DeepLinkHandler</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="1565981003%2FFunctions%2F-874788449" anchor-label="handleDeepLink" id="1565981003%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="handle-deep-link.html"><span>handle</span><wbr><span>Deep</span><wbr><span><span>Link</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1565981003%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="handle-deep-link.html"><span class="token function">handleDeepLink</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">uri<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/net/Uri.html">Uri</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Handle a deep link by invoking a registered <a href="../-deep-link-handler/index.html">DeepLinkHandler</a> if available, otherwise broadcast it as an intent to be handled by the host app's activity.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1172306761%2FFunctions%2F-874788449" anchor-label="handleUniversalTrackingLink" id="1172306761%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="handle-universal-tracking-link.html"><span>handle</span><wbr><span>Universal</span><wbr><span>Tracking</span><wbr><span><span>Link</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1172306761%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="handle-universal-tracking-link.html"><span class="token function">handleUniversalTrackingLink</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">uri<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/net/Uri.html">Uri</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Handle a Klaviyo universal tracking link by resolving it to a destination URL asynchronously, and then passing that URL to <a href="handle-deep-link.html">handleDeepLink</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="949212721%2FFunctions%2F-874788449" anchor-label="isUniversalTrackingUri" id="949212721%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="is-universal-tracking-uri.html"><span>is</span><wbr><span>Universal</span><wbr><span>Tracking</span><wbr><span><span>Uri</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="949212721%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="is-universal-tracking-uri.html"><span class="token function">isUniversalTrackingUri</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">uri<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/net/Uri.html">Uri</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Check if a URI is a Klaviyo universal tracking link based on its scheme and path</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2763433%2FFunctions%2F-874788449" anchor-label="makeDeepLinkIntent" id="2763433%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="make-deep-link-intent.html"><span>make</span><wbr><span>Deep</span><wbr><span>Link</span><wbr><span><span>Intent</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2763433%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="make-deep-link-intent.html"><span class="token function">makeDeepLinkIntent</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">uri<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/net/Uri.html">Uri</a><span class="token punctuation">, </span></span><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">copyIntent<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Intent.html">Intent</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Intent.html">Intent</a></div><div class="brief "><p class="paragraph">Create an intent to view a deep link within the host application.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-185183886%2FFunctions%2F-874788449" anchor-label="makeLaunchIntent" id="-185183886%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="make-launch-intent.html"><span>make</span><wbr><span>Launch</span><wbr><span><span>Intent</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-185183886%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="make-launch-intent.html"><span class="token function">makeLaunchIntent</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">extras<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/os/Bundle.html">Bundle</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Intent.html">Intent</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Create an intent to launch the host application.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1612427416%2FFunctions%2F-874788449" anchor-label="sendLaunchIntent" id="1612427416%2FFunctions%2F-874788449" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:analytics:dokkaHtmlPartial/release" data-filterable-set=":sdk:analytics:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="send-launch-intent.html"><span>send</span><wbr><span>Launch</span><wbr><span><span>Intent</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1612427416%2FFunctions%2F-874788449"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:analytics:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="send-launch-intent.html"><span class="token function">sendLaunchIntent</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">extras<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/os/Bundle.html">Bundle</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Sends an intent to launch the host application.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

@@ -1,0 +1,284 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>FileLogger</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            klaviyo-android-sdk
+                    </a>            </div>
+            <div class="library-version">
+<dokka-template-command data="{&quot;@class&quot;:&quot;org.jetbrains.dokka.base.templating.ReplaceVersionsCommand&quot;,&quot;location&quot;:&quot;com.klaviyo.core.config/-file-logger/index.html&quot;}">4.2.0</dokka-template-command>            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":sdk:core:dokkaHtmlPartial/release">androidJvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="core::com.klaviyo.core.config/FileLogger///PointingToDeclaration//-1357061740">
+  <div class="breadcrumbs"><a href="../../index.html">core</a><span class="delimiter">/</span><a href="../index.html">com.klaviyo.core.config</a><span class="delimiter">/</span><span class="current">FileLogger</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>File</span><wbr><span><span>Logger</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">class </span><a href="index.html">FileLogger</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">directoryName<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator"> = </span>DEFAULT_DIRECTORY_NAME<span class="token punctuation">, </span></span><span class="parameter ">maxFileSize<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token operator"> = </span>DEFAULT_MAX_FILE_SIZE<span class="token punctuation">, </span></span><span class="parameter ">maxFiles<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>DEFAULT_MAX_FILES<span class="token punctuation">, </span></span><span class="parameter ">minLevel<span class="token operator">: </span><a href="../-log/-level/index.html">Log.Level</a><span class="token operator"> = </span>Log.Level.Verbose</span></span><span class="token punctuation">)</span> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-function4/index.html">Function4</a><span class="token operator">&lt;</span><span class="token keyword"></span>level<span class="token operator">: </span><a href="../-log/-level/index.html">Log.Level</a><span class="token punctuation">, </span><span class="token keyword"></span>tag<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span><span class="token keyword"></span>message<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span><span class="token keyword"></span>throwable<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-throwable/index.html">Throwable</a><span class="token operator">?</span><span class="token punctuation">, </span><span class="token keyword"></span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-unit/index.html">Unit</a><span class="token operator">&gt; </span></div><p class="paragraph">File-based log interceptor that writes SDK logs to persistent storage.</p><p class="paragraph">Features:</p><ul><li><p class="paragraph">Writes logs to app's private storage (no permissions required)</p></li><li><p class="paragraph">Automatic file rotation when size limit reached, limited number of log files</p></li><li><p class="paragraph">Buffered writes for performance</p></li><li><p class="paragraph">Open latest log file in browser</p></li><li><p class="paragraph">Export logs as ZIP file</p></li><li><p class="paragraph">Share logs ZIP via Android share sheet</p></li><li><p class="paragraph">Automatic crash detection and log flushing</p></li><li><p class="paragraph">Lifecycle-aware: flushes logs when app backgrounds</p></li><li><p class="paragraph">Simple attach/detach API for easy integration</p></li></ul><p class="paragraph">This is an OPT-IN feature for debugging and reporting purposes.</p><p class="paragraph">Setup: To enable file sharing capabilities (openLogInViewer, shareLogs), you need to add a FileProvider to your app's AndroidManifest.xml and create a file paths XML resource.</p><ol><li><p class="paragraph">Add to AndroidManifest.xml:</p></li></ol><div class="sample-container"><pre><code class="block lang-xml" theme="idea">&lt;application&gt;<br>    &lt;provider<br>        android:name="androidx.core.content.FileProvider"<br>        android:authorities="${applicationId}.klaviyo.fileprovider"<br>        android:exported="false"<br>        android:grantUriPermissions="true"&gt;<br>        &lt;meta-data<br>            android:name="android.support.FILE_PROVIDER_PATHS"<br>            android:resource="@xml/klaviyo_file_paths" /&gt;<br>    &lt;/provider&gt;<br>&lt;/application&gt;</code></pre><span class="top-right-position"><span class="copy-icon"></span><div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div></span></div><ol><li><p class="paragraph">Create res/xml/klaviyo_file_paths.xml (use the same directory name as passed to FileLogger):</p></li></ol><div class="sample-container"><pre><code class="block lang-xml" theme="idea">&lt;?xml version="1.0" encoding="utf-8"?&gt;<br>&lt;paths xmlns:android="http://schemas.android.com/apk/res/android"&gt;<br>    &lt;!-- files-path: Required for openLogInViewer() to share raw .txt log files --&gt;<br>    &lt;files-path name="klaviyo_logs" path="klaviyo_logs/" /&gt;<br>    &lt;!-- cache-path: Required for shareLogs() and saveLogsToUri() to share exported .zip files --&gt;<br>    &lt;cache-path name="klaviyo_log_cache" path="klaviyo_logs/" /&gt;<br>&lt;/paths&gt;</code></pre><span class="top-right-position"><span class="copy-icon"></span><div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div></span></div><p class="paragraph">Example usage:</p><div class="sample-container"><pre><code class="block lang-kotlin" theme="idea">// From Application.onCreate, start writing klaviyo logs to file<br>val fileLogger = FileLogger(context)<br>fileLogger.attach()<br><br>// There are a few options for accessing the log files<br>// Open in a text viewer app:<br>fileLogger.openLogInViewer(context)<br><br>// Create zip and share via sheet (e.g. email, slack etc)<br>fileLogger.shareLogs(context)<br><br>// Save zip file to a URI, you can use createSaveLogsIntent to prompt the user for a location<br>fileLogger.saveLogsToUri(context, uri)<br><br>// Optional, detach listener and disable logging to file<br>fileLogger.detach()</code></pre><span class="top-right-position"><span class="copy-icon"></span><div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div></span></div><h4 class="">Parameters</h4><div class="table"><div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><u><span><span>context</span></span></u></div></span></div><div><div class="title"><p class="paragraph">Application context</p></div></div></div></div><div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><u><span>directory</span><wbr><span><span>Name</span></span></u></div></span></div><div><div class="title"><p class="paragraph">Name of the directory to store logs in (default: "klaviyo_logs").     Must match the path specified in your FileProvider XML configuration.</p></div></div></div></div><div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><u><span>max</span><wbr><span>File</span><wbr><span><span>Size</span></span></u></div></span></div><div><div class="title"><p class="paragraph">Maximum size of each log file before rotation (default: 1MB)</p></div></div></div></div><div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><u><span>max</span><wbr><span><span>Files</span></span></u></div></span></div><div><div class="title"><p class="paragraph">Maximum number of log files to keep (default: 5)</p></div></div></div></div><div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><u><span>min</span><wbr><span><span>Level</span></span></u></div></span></div><div><div class="title"><p class="paragraph">Minimum log level to write to file (default: Verbose)</p></div></div></div></div></div></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="153847405%2FConstructors%2F-1357061740" anchor-label="FileLogger" id="153847405%2FConstructors%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-file-logger.html"><span>File</span><wbr><span><span>Logger</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="153847405%2FConstructors%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">directoryName<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator"> = </span>DEFAULT_DIRECTORY_NAME<span class="token punctuation">, </span></span><span class="parameter ">maxFileSize<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token operator"> = </span>DEFAULT_MAX_FILE_SIZE<span class="token punctuation">, </span></span><span class="parameter ">maxFiles<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>DEFAULT_MAX_FILES<span class="token punctuation">, </span></span><span class="parameter ">minLevel<span class="token operator">: </span><a href="../-log/-level/index.html">Log.Level</a><span class="token operator"> = </span>Log.Level.Verbose</span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="1957056293%2FFunctions%2F-1357061740" anchor-label="attach" id="1957056293%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="attach.html"><span><span>attach</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1957056293%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="attach.html"><span class="token function">attach</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Attach this FileLogger to Klaviyo's logging service</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1244393081%2FFunctions%2F-1357061740" anchor-label="clearAllLogs" id="-1244393081%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="clear-all-logs.html"><span>clear</span><wbr><span>All</span><wbr><span><span>Logs</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1244393081%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="clear-all-logs.html"><span class="token function">clearAllLogs</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Delete all log files</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1512974566%2FFunctions%2F-1357061740" anchor-label="createSaveLogsIntent" id="1512974566%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="create-save-logs-intent.html"><span>create</span><wbr><span>Save</span><wbr><span>Logs</span><wbr><span><span>Intent</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1512974566%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="create-save-logs-intent.html"><span class="token function">createSaveLogsIntent</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Intent.html">Intent</a></div><div class="brief "><p class="paragraph">Create an intent for Storage Access Framework (SAF) file picker. User will be able to choose where to save the logs (Downloads, Drive, etc.).</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1455253097%2FFunctions%2F-1357061740" anchor-label="detach" id="-1455253097%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="detach.html"><span><span>detach</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1455253097%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="detach.html"><span class="token function">detach</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Detach this FileLogger from the logging service This method is idempotent - calling it multiple times is safe.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-175806781%2FFunctions%2F-1357061740" anchor-label="exportLogsAsZip" id="-175806781%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="export-logs-as-zip.html"><span>export</span><wbr><span>Logs</span><wbr><span>As</span><wbr><span><span>Zip</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-175806781%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="export-logs-as-zip.html"><span class="token function">exportLogsAsZip</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/java/io/File.html">File</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Export all log files as a single ZIP file in the cache directory. Returns the ZIP file, or null if export failed.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1010297707%2FFunctions%2F-1357061740" anchor-label="getLogFileCount" id="1010297707%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="get-log-file-count.html"><span>get</span><wbr><span>Log</span><wbr><span>File</span><wbr><span><span>Count</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1010297707%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="get-log-file-count.html"><span class="token function">getLogFileCount</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></div><div class="brief "><p class="paragraph">Get total number of log files</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1489456071%2FFunctions%2F-1357061740" anchor-label="getTotalLogSize" id="-1489456071%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="get-total-log-size.html"><span>get</span><wbr><span>Total</span><wbr><span>Log</span><wbr><span><span>Size</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1489456071%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="get-total-log-size.html"><span class="token function">getTotalLogSize</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a></div><div class="brief "><p class="paragraph">Calculate total size of all log files in bytes</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1219336678%2FFunctions%2F-1357061740" anchor-label="invoke" id="1219336678%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="invoke.html"><span><span>invoke</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1219336678%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">operator override </span><span class="token keyword">fun </span><a href="invoke.html"><span class="token function">invoke</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">level<span class="token operator">: </span><a href="../-log/-level/index.html">Log.Level</a><span class="token punctuation">, </span></span><span class="parameter ">tag<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">message<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">exception<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-throwable/index.html">Throwable</a><span class="token operator">?</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Convenience invoke method so this class can be treated as a <a href="../-log-interceptor/index.html">LogInterceptor</a> directly</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1897008717%2FFunctions%2F-1357061740" anchor-label="onLog" id="1897008717%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-log.html"><span>on</span><wbr><span><span>Log</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1897008717%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="on-log.html"><span class="token function">onLog</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">level<span class="token operator">: </span><a href="../-log/-level/index.html">Log.Level</a><span class="token punctuation">, </span></span><span class="parameter ">tag<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">message<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">throwable<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-throwable/index.html">Throwable</a><span class="token operator">?</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Log interceptor function that can be registered with KLog.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="239302189%2FFunctions%2F-1357061740" anchor-label="openLogInViewer" id="239302189%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="open-log-in-viewer.html"><span>open</span><wbr><span>Log</span><wbr><span>In</span><wbr><span><span>Viewer</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="239302189%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="open-log-in-viewer.html"><span class="token function">openLogInViewer</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">authority<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator"> = </span><span class="token string">""</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Open the most recent log file in a text viewer app. Launches Android's chooser to let user pick which app to open the log with. Requires FileProvider setup (see class documentation).</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1615791325%2FFunctions%2F-1357061740" anchor-label="saveLogsToUri" id="-1615791325%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="save-logs-to-uri.html"><span>save</span><wbr><span>Logs</span><wbr><span>To</span><wbr><span><span>Uri</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1615791325%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="save-logs-to-uri.html"><span class="token function">saveLogsToUri</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">uri<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/net/Uri.html">Uri</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Save logs to a URI selected by user via Storage Access Framework. This is typically called after user picks a location via <a href="create-save-logs-intent.html">createSaveLogsIntent</a></p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1380281590%2FFunctions%2F-1357061740" anchor-label="shareLogs" id="-1380281590%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="share-logs.html"><span>share</span><wbr><span><span>Logs</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1380281590%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="share-logs.html"><span class="token function">shareLogs</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">authority<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator"> = </span><span class="token string">""</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Share logs via Android's share sheet (email, Slack, etc.). Requires FileProvider setup (see class documentation).</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

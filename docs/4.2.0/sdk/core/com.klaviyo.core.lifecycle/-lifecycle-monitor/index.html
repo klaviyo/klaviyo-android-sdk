@@ -1,0 +1,183 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>LifecycleMonitor</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            klaviyo-android-sdk
+                    </a>            </div>
+            <div class="library-version">
+<dokka-template-command data="{&quot;@class&quot;:&quot;org.jetbrains.dokka.base.templating.ReplaceVersionsCommand&quot;,&quot;location&quot;:&quot;com.klaviyo.core.lifecycle/-lifecycle-monitor/index.html&quot;}">4.2.0</dokka-template-command>            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":sdk:core:dokkaHtmlPartial/release">androidJvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="core::com.klaviyo.core.lifecycle/LifecycleMonitor///PointingToDeclaration//-1357061740">
+  <div class="breadcrumbs"><a href="../../index.html">core</a><span class="delimiter">/</span><a href="../index.html">com.klaviyo.core.lifecycle</a><span class="delimiter">/</span><span class="current">LifecycleMonitor</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Lifecycle</span><wbr><span><span>Monitor</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">interface </span><a href="index.html">LifecycleMonitor</a></div><p class="paragraph">Provides methods to react to changes in the application environment</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="TYPE">
+        <h2 class="">Types</h2>
+        <div class="table"><a data-name="1213688577%2FClasslikes%2F-1357061740" anchor-label="Companion" id="1213688577%2FClasslikes%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-companion/index.html"><span><span>Companion</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1213688577%2FClasslikes%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">object </span><a href="-companion/index.html">Companion</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="-1034237614%2FProperties%2F-1357061740" anchor-label="currentActivity" id="-1034237614%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="current-activity.html"><span>current</span><wbr><span><span>Activity</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1034237614%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">val </span><a href="current-activity.html">currentActivity</a><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/app/Activity.html">Activity</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Tracks the current activity of the host application.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="1387088326%2FFunctions%2F-1357061740" anchor-label="assignCurrentActivity" id="1387088326%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="assign-current-activity.html"><span>assign</span><wbr><span>Current</span><wbr><span><span>Activity</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1387088326%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="assign-current-activity.html"><span class="token function">assignCurrentActivity</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">activity<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/app/Activity.html">Activity</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Explicitly sets the current activity. Intended for use in advanced scenarios where <a href="index.html">LifecycleMonitor</a> cannot capture an activity's <a href="../-activity-event/-started/index.html">com.klaviyo.core.lifecycle.ActivityEvent.Started</a> event.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="255705893%2FFunctions%2F-1357061740" anchor-label="offActivityEvent" id="255705893%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="off-activity-event.html"><span>off</span><wbr><span>Activity</span><wbr><span><span>Event</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="255705893%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="off-activity-event.html"><span class="token function">offActivityEvent</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">observer<span class="token operator">: </span><a href="../-activity-observer/index.html">ActivityObserver</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">De-register an observer from <a href="on-activity-event.html">onActivityEvent</a></p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1828937967%2FFunctions%2F-1357061740" anchor-label="onActivityEvent" id="1828937967%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-activity-event.html"><span>on</span><wbr><span>Activity</span><wbr><span><span>Event</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1828937967%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="on-activity-event.html"><span class="token function">onActivityEvent</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">observer<span class="token operator">: </span><a href="../-activity-observer/index.html">ActivityObserver</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Register an observer to be notified when all application activities stopped</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-303250316%2FFunctions%2F-1357061740" anchor-label="runWithCurrentOrNextActivity" id="-303250316%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="run-with-current-or-next-activity.html"><span>run</span><wbr><span>With</span><wbr><span>Current</span><wbr><span>Or</span><wbr><span>Next</span><wbr><span><span>Activity</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-303250316%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="run-with-current-or-next-activity.html"><span class="token function">runWithCurrentOrNextActivity</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">timeout<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter ">job<span class="token operator">: </span><span class="token punctuation">(</span><span class="token keyword"></span>activity<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/app/Activity.html">Activity</a><span class="token punctuation">)</span><span class="token operator"> -&gt; </span><span class="token keyword"></span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-unit/index.html">Unit</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../../com.klaviyo.core.config/-clock/-cancellable/index.html">Clock.Cancellable</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Helper function to run a task immediately if there is a current activity, or wait for the next resumed activity if resumed within the optional timeout. Returns a token that can be used to cancel the pending task if needed.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
