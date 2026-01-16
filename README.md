@@ -3,7 +3,7 @@
 [![GitHub](https://img.shields.io/github/license/klaviyo/klaviyo-android-sdk)](https://github.com/klaviyo/klaviyo-android-sdk/blob/master/LICENSE.md)
 [![Latest](https://jitpack.io/v/klaviyo/klaviyo-android-sdk.svg)](https://jitpack.io/#klaviyo/klaviyo-android-sdk)
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/klaviyo/klaviyo-android-sdk)](https://github.com/klaviyo/klaviyo-android-sdk/releases)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/klaviyo/klaviyo-android-sdk/android-master.yml)](https://github.com/klaviyo/klaviyo-android-sdk/actions/workflows/android-master.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/klaviyo/klaviyo-android-sdk/ci.yml?branch=master)](https://github.com/klaviyo/klaviyo-android-sdk/actions/workflows/ci.yml?query=branch%3Amaster)
 
 The Klaviyo Android SDK allows developers to incorporate Klaviyo analytics and push notification functionality
 in their native Android applications. The SDK assists in identifying users and tracking user events via the 
