@@ -11,7 +11,9 @@ import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION_GRACE_PERIOD
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.startActivityIfResolved
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Callback type for handling a deep link. When registered, this callback is invoked with any
@@ -44,7 +46,13 @@ object DeepLinking {
      * @param uri The deep link URI to be handled by the host app
      */
     fun handleDeepLink(uri: Uri) {
-        Registry.getOrNull<DeepLinkHandler>()?.invoke(uri) ?: run {
+        Registry.getOrNull<DeepLinkHandler>()?.let { handler ->
+            // Invoke host app's deep link handler on UI thread
+            Registry.threadHelper.runOnUiThread {
+                handler.invoke(uri)
+            }
+        } ?: run {
+            // Sending an intent doesn't require main thread
             sendDeepLinkIntent(uri)
         }
     }
@@ -64,12 +72,12 @@ object DeepLinking {
         val profile = Registry.getOrNull<State>()?.getAsProfile() ?: Profile()
 
         // Resolve destination URL via async API call
-        Registry.get<ApiClient>().resolveDestinationUrl(uri.toString(), profile) { result ->
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            val result = Registry.get<ApiClient>().resolveDestinationUrl(uri.toString(), profile)
             when (result) {
-                is ResolveDestinationResult.Success -> handleDeepLink(
-                    result.destinationUrl
-                ).also {
+                is ResolveDestinationResult.Success -> {
                     Registry.log.verbose("Resolved destination URL: ${result.destinationUrl}")
+                    handleDeepLink(result.destinationUrl)
                 }
 
                 is ResolveDestinationResult.Unavailable -> Registry.log.warning(

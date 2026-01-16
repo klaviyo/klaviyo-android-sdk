@@ -75,6 +75,7 @@ internal class DeepLinkingTest : BaseTest() {
         DeepLinking.handleDeepLink(mockUri)
 
         assertEquals(mockUri, invokedUri)
+        verify(exactly = 1) { mockThreadHelper.runOnUiThread(any()) }
     }
 
     @Test
@@ -89,6 +90,7 @@ internal class DeepLinkingTest : BaseTest() {
         DeepLinking.handleDeepLink(mockUri)
 
         verify { testActivity.startActivity(any()) }
+        verify(exactly = 0) { mockThreadHelper.runOnUiThread(any()) }
     }
 
     @Test

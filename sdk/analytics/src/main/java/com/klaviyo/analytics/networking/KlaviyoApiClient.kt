@@ -1,13 +1,16 @@
 package com.klaviyo.analytics.networking
 
 import android.os.Handler
+import androidx.annotation.WorkerThread
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
+import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
+import com.klaviyo.analytics.networking.requests.FetchGeofencesRequest
+import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
@@ -19,11 +22,11 @@ import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.safeLaunch
+import com.klaviyo.core.utils.takeIf
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
@@ -42,6 +45,11 @@ internal object KlaviyoApiClient : ApiClient {
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
     private var queueInitialized = false
 
+    private val scheduler get() = Registry.getOrNull<QueueScheduler>()
+        ?: WorkManagerQueueScheduler(Registry.config.applicationContext).also {
+            Registry.register<QueueScheduler>(it)
+        }
+
     /**
      * List of registered API observers
      */
@@ -57,10 +65,10 @@ internal object KlaviyoApiClient : ApiClient {
         Registry.networkMonitor.offNetworkChange(::onNetworkChange)
         Registry.networkMonitor.onNetworkChange(::onNetworkChange)
 
-        if (!queueInitialized) {
-            // We only need to restore queue from persistent store once
-            restoreQueue()
-            queueInitialized = true
+        restoreQueue(forceRestore = false)
+
+        if (apiQueue.isNotEmpty()) {
+            initBatch()
         }
     }
 
@@ -92,61 +100,116 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
     override fun enqueueEvent(event: Event, profile: Profile): ApiRequest =
-        EventApiRequest(event, profile).also {
+        EventApiRequest(event, profile).also { request ->
             Registry.log.verbose("Enqueuing ${event.metric.name} event")
-            enqueueRequest(it)
+            enqueueRequest(request, headOfLine = event.metric.isKlaviyoMetric)
 
-            if (event.metric == EventMetric.OPENED_PUSH) {
-                flushQueue()
+            if (event.metric.isKlaviyoMetric) {
+                // Use WorkManager to schedule flush for priority Klaviyo events
+                // This ensures ASAP delivery even during doze mode, app standby etc.
+                scheduler.scheduleFlush()
             }
         }
 
     /**
-     * Resolve the destination URL for a click track request
+     * Resolve the destination URL for a universal click tracking link
+     * or enqueue a retry to record a click later if it fails.
+     */
+    override suspend fun resolveDestinationUrl(
+        trackingUrl: String,
+        profile: Profile
+    ): ResolveDestinationResult = withContext(Registry.dispatcher) {
+        UniversalClickTrackRequest(
+            trackingUrl,
+            profile
+        ).resolveOrEnqueue()
+    }
+
+    /**
+     * Resolve the destination URL for a universal click tracking link
+     * or enqueue a retry to record a click later if it fails.
+     *
+     * Note: callback-based implementation for Java interop, Kotlin devs are encouraged to use suspend implementation
      */
     override fun resolveDestinationUrl(
         trackingUrl: String,
         profile: Profile,
         callback: ResolveDestinationCallback
-    ): ApiRequest = UniversalClickTrackRequest(trackingUrl, profile).also { request ->
-        // Create request outside of coroutine, so initialization errors are raised to the caller
-        CoroutineScope(Registry.dispatcher).launch {
-            // Send the network request (and notify observers)
-            request.sendAndBroadcast()
+    ): ApiRequest = UniversalClickTrackRequest(trackingUrl, profile).apply {
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            callback(resolveOrEnqueue())
+        }
+    }
 
-            // Get the result of the request
-            val result = request.getResult()
-
-            // Invoke the callback with the result (and notify observers)
-            withContext(Dispatchers.Main) {
-                broadcastApiRequest(request)
-                callback(result)
-            }
-
-            // If the result is not successful, enqueue the request to be retried later
+    /**
+     * Blocking method to resolve the destination URL for a universal click tracking link
+     * or enqueue a retry to record a click later if it fails.
+     */
+    private fun UniversalClickTrackRequest.resolveOrEnqueue(): ResolveDestinationResult {
+        sendAndBroadcast()
+        return getResult().also { result ->
             if (result is ResolveDestinationResult.Unavailable) {
-                enqueueRequest(request.prepareToEnqueue())
+                enqueueRequest(prepareToEnqueue())
             }
         }
     }
 
     /**
-     * Enqueues an [KlaviyoApiRequest] to run in the background
+     * Fetch geofences from the Klaviyo API
+     */
+    override suspend fun fetchGeofences(
+        latitude: Double?,
+        longitude: Double?
+    ): FetchGeofencesResult = withContext(Registry.dispatcher) {
+        FetchGeofencesRequest(latitude, longitude).apply {
+            sendAndBroadcast()
+        }.getResult()
+    }
+
+    /**
+     * Fetch geofences from the Klaviyo API
+     *
+     * Note: callback-based implementation for Java interop, Kotlin devs are encouraged to use suspend implementation
+     */
+    override fun fetchGeofences(
+        latitude: Double?,
+        longitude: Double?,
+        callback: FetchGeofencesCallback
+    ): ApiRequest = FetchGeofencesRequest(latitude, longitude).apply {
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            sendAndBroadcast()
+            callback(getResult())
+        }
+    }
+
+    /**
+     * Enqueues one or more [KlaviyoApiRequest]s to send on a background thread
      * These requests are sent to the Klaviyo asynchronous APIs
      *
      * This method will initialize the API queue and the batching thread
      * if this is the first request made since launch.
      */
-    fun enqueueRequest(vararg requests: KlaviyoApiRequest) {
+    fun enqueueRequest(vararg requests: KlaviyoApiRequest, headOfLine: Boolean = false) {
         if (apiQueue.isEmpty()) {
             initBatch()
         }
 
         var addedRequest = false
-        requests.forEach { request ->
+        requests.let {
+            // Reverse the arg order if headOfLine is true, so that first arg winds up first in line
+            if (headOfLine) {
+                requests.reversed()
+            } else {
+                requests.asList()
+            }
+        }.forEach { request ->
             if (!apiQueue.contains(request)) {
                 Registry.dataStore.store(request.uuid, request.toString())
-                apiQueue.offer(request)
+                if (headOfLine) {
+                    apiQueue.offerFirst(request)
+                } else {
+                    apiQueue.offer(request)
+                }
                 broadcastApiRequest(request)
                 addedRequest = true
             }
@@ -173,7 +236,7 @@ internal object KlaviyoApiClient : ApiClient {
             Status.Unsent -> Registry.log.verbose("${request.type} Request enqueued")
             Status.Inflight -> Registry.log.verbose("${request.type} Request inflight")
             Status.PendingRetry -> {
-                val attemptsRemaining = Registry.config.networkMaxAttempts - request.attempts
+                val attemptsRemaining = request.maxAttempts - request.attempts
                 Registry.log.warning(
                     "${request.type} Request failed with code ${request.responseCode}, and will be retried up to $attemptsRemaining more times."
                 )
@@ -226,8 +289,15 @@ internal object KlaviyoApiClient : ApiClient {
 
     /**
      * Reset the in-memory queue to the queue from data store
+     *
+     * @param forceRestore If true, always restore from persistent store.
+     *                     If false, only restore if not already initialized.
      */
-    override fun restoreQueue() {
+    override fun restoreQueue(forceRestore: Boolean) {
+        if (!forceRestore && queueInitialized) {
+            return
+        }
+
         apiQueue.clear()
 
         // Keep track if there's any errors restoring from persistent store
@@ -267,9 +337,11 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
         // If errors were encountered, update persistent store with corrected queue
-        if (wasMutated) persistQueue()
+        if (wasMutated) {
+            persistQueue()
+        }
 
-        if (apiQueue.isNotEmpty()) initBatch()
+        queueInitialized = true
     }
 
     /**
@@ -284,9 +356,20 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Start
+     * Tell the client to attempt to flush network request queue now
      */
-    override fun flushQueue() = startBatch(true)
+    override fun flushQueue() {
+        startBatch(true)
+    }
+
+    /**
+     * Flushes the queue in a background context
+     *
+     * @returns Boolean to indicate whether requests remain in the queue
+     */
+    override suspend fun awaitFlushQueueOutcome() = withContext(Registry.dispatcher) {
+        sendQueueSerially()
+    }
 
     /**
      * Start a network batch to process the request queue
@@ -334,8 +417,65 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
+     * Send API requests in the queue serially
+     * Note: this is a blocking method! It must be run from a background thread/context
+     */
+    @WorkerThread
+    private fun sendQueueSerially(): FlushOutcome {
+        Registry.log.verbose("Starting network batch")
+
+        var retryAfter: Long? = null
+
+        while (apiQueue.isNotEmpty()) {
+            val request = apiQueue.poll() ?: continue
+
+            when (request.sendAndBroadcast()) {
+                Status.Unsent -> {
+                    // Incomplete state: put it back on the queue and break out of serial queue
+                    apiQueue.offerFirst(request)
+                    break
+                }
+
+                Status.Complete, Status.Failed -> {
+                    // On success or final failure, remove from queue and persistent store
+                    // reset backoff timer in case we encounter a failure after this
+                    Registry.dataStore.clear(request.uuid)
+                    retryAfter = defaultFlushInterval
+                }
+
+                Status.PendingRetry -> {
+                    // Encountered a retryable error
+                    // Put this back on top of the queue, and we'll try again with backoff
+                    apiQueue.offerFirst(request)
+                    retryAfter = request.computeRetryInterval()
+                    break
+                }
+
+                // This should not be possible
+                Status.Inflight -> Registry.log.wtf(
+                    "Request state was not updated from Inflight"
+                )
+            }
+        }
+
+        persistQueue()
+
+        return if (apiQueue.isEmpty()) {
+            Registry.log.verbose("Emptied network queue")
+            FlushOutcome.Complete
+        } else {
+            Registry.log.verbose("Incomplete send: ${apiQueue.size} requests remain")
+            FlushOutcome.Incomplete(retryAfter)
+        }
+    }
+
+    private val currentNetworkType get() = Registry.networkMonitor.getNetworkType().position
+
+    internal val defaultFlushInterval get() = Registry.config.networkFlushIntervals[currentNetworkType]
+
+    /**
      * Runnable which flushes the API queue in batches for efficiency.
-     * As long as there are items in the queue, the thread will loop.
+     * As long as there are items in the queue, the thread will loop and send serially.
      * When the queue is cleared the thread will not loop itself and will terminate.
      *
      * @property force Boolean that will force the queue to flush now
@@ -347,9 +487,7 @@ internal object KlaviyoApiClient : ApiClient {
 
         private var enqueuedTime = Registry.clock.currentTimeMillis()
 
-        private var networkType: Int = Registry.networkMonitor.getNetworkType().position
-
-        private var flushInterval: Long = Registry.config.networkFlushIntervals[networkType]
+        private var flushInterval: Long = defaultFlushInterval
 
         private val flushDepth: Int = Registry.config.networkFlushDepth
 
@@ -365,49 +503,14 @@ internal object KlaviyoApiClient : ApiClient {
                 return requeue()
             }
 
-            Registry.log.verbose("Starting network batch")
+            val outcome = sendQueueSerially()
 
-            while (apiQueue.isNotEmpty()) {
-                val request = apiQueue.poll()
-
-                when (request?.sendAndBroadcast()) {
-                    Status.Unsent -> {
-                        // Incomplete state: put it back on the queue and break out of serial queue
-                        apiQueue.offerFirst(request)
-                        break
-                    }
-
-                    Status.Complete, Status.Failed -> {
-                        // On success or absolute failure, remove from queue and persistent store
-                        Registry.dataStore.clear(request.uuid)
-                        // Reset the flush interval, in case we had done any exp backoff
-                        flushInterval = Registry.config.networkFlushIntervals[networkType]
-                        broadcastApiRequest(request)
-                    }
-
-                    Status.PendingRetry -> {
-                        // Encountered a retryable error
-                        // Put this back on top of the queue, and we'll try again with backoff
-                        apiQueue.offerFirst(request)
-                        flushInterval = request.computeRetryInterval()
-                        broadcastApiRequest(request)
-                        break
-                    }
-                    // These should not strictly be possible...
-                    Status.Inflight -> Registry.log.wtf(
-                        "Request state was not updated from Inflight"
-                    )
-
-                    null -> Registry.log.wtf("Queue contains an empty request")
-                }
+            outcome.takeIf<FlushOutcome.Incomplete>()?.retryAfter?.let { retryAfter ->
+                flushInterval = retryAfter
             }
-
-            persistQueue()
 
             if (!apiQueue.isEmpty()) {
                 requeue()
-            } else {
-                Registry.log.verbose("Emptied network queue")
             }
         }
 
@@ -422,6 +525,9 @@ internal object KlaviyoApiClient : ApiClient {
         }
     }
 
+    /**
+     * Blocking method to send an API request, notifying API observers on transition between states
+     */
     private fun KlaviyoApiRequest.sendAndBroadcast(): Status = send {
         broadcastApiRequest(this)
     }

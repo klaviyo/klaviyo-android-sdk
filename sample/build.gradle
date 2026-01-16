@@ -6,6 +6,7 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     id 'com.google.gms.google-services'
+    id 'org.jlleitschuh.gradle.ktlint'
 }
 
 repositories {
@@ -15,11 +16,11 @@ repositories {
     // Note: It is more typical to use dependencyResolutionManagement block in settings.gradle.
     // For the purposes of the sample app, we put it here so that important steps are in one place,
     // and the sample app dependencies do not affect the main SDK config.
-    maven { url "https://jitpack.io" }
+    maven { url = "https://jitpack.io" }
 }
 
 android {
-    namespace "${klaviyoGroupId}.sample"
+    namespace = "${klaviyoGroupId}.sample"
     buildToolsVersion=versionFor(project, "version.android.buildTools") as String
 
     defaultConfig {
@@ -27,16 +28,16 @@ android {
         applicationId "${klaviyoGroupId}.sample"
 
         // Klaviyo Android SDK minimum supported Android version is 23
-        minSdk versionFor(project, "version.android.minSdk") as Integer
-        targetSdk versionFor(project, "version.android.targetSdk") as Integer
-        compileSdk versionFor(project, "version.android.compileSdk") as Integer
+        minSdk = versionFor(project, "version.android.minSdk") as Integer
+        targetSdk = versionFor(project, "version.android.targetSdk") as Integer
+        compileSdk = versionFor(project, "version.android.compileSdk") as Integer
 
         versionCode versionFor(project, "version.klaviyo.versionCode") as Integer
         versionName readXmlValue('src/main/res/values/strings.xml','klaviyo_sdk_version_override', project(":sdk:core"))
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
-            useSupportLibrary true
+            useSupportLibrary = true
         }
     }
 
@@ -50,14 +51,20 @@ android {
 
         def klaviyoPublicApiKey = (localProperties["klaviyoPublicApiKey"] ?: "KLAVIYO_PUBLIC_API_KEY") as String
 
+        // Optional: register a Google Maps API key and set it in your local.properties file in the root directory e.g. googleMapsApiKey=ApiKey
+        // This just enables a little map UI element in the sample app for testing location features, and is not required for Klaviyo SDK functionality
+        def googleMapsApiKey = (localProperties["googleMapsApiKey"] ?: "GOOGLE_MAPS_API_KEY") as String
+
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             buildConfigField "String", "KLAVIYO_PUBLIC_KEY", "\"$klaviyoPublicApiKey\""
+            manifestPlaceholders = [googleMapsApiKey: googleMapsApiKey]
         }
         debug {
             debuggable = true
             buildConfigField "String", "KLAVIYO_PUBLIC_KEY", "\"$klaviyoPublicApiKey\""
+            manifestPlaceholders = [googleMapsApiKey: googleMapsApiKey]
         }
     }
 
@@ -69,8 +76,8 @@ android {
         jvmTarget = javaVersion.toString()
     }
     buildFeatures {
-        compose true
-        buildConfig true
+        compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = versionFor(project, AndroidX.compose.compiler)
@@ -89,12 +96,22 @@ dependencies {
     implementation project(path: ':sdk:analytics')
     implementation project(path: ':sdk:forms')
     implementation project(path: ':sdk:push-fcm')
-    // See https://splitties.github.io/refreshVersions/ for more info on refreshVersions syntax
+    implementation project(path: ':sdk:location')
+
+    // Note: Developers need not import the core package.
+    //  This is included in the sample app only to demonstrate some inner workings of the SDK
+    implementation project(path: ':sdk:core')
+
+    // See https://splitties.github.io/refreshVersions/ for more info on refreshVersions syntax:
 
     // Firebase dependencies for FCM integration 
     implementation platform(Firebase.bom)
     implementation Firebase.cloudMessagingKtx
-
+    
+    // GoogleMaps dependency for map UI integration
+    implementation Google.android.maps.compose
+    implementation Google.android.playServices.location
+    
     // Other app and testing dependencies (refreshVersions syntax)
     implementation platform(AndroidX.compose.bom)
     implementation AndroidX.core.ktx
@@ -116,4 +133,18 @@ dependencies {
     androidTestImplementation AndroidX.compose.ui.testJunit4
     debugImplementation AndroidX.compose.ui.tooling
     debugImplementation AndroidX.compose.ui.testManifest
+}
+
+ktlint {
+    verbose = true
+    android = true
+    ignoreFailures = false
+    outputToConsole = true
+    outputColorName = "RED"
+    disabledRules = ["max-line-length"]
+    filter {
+        exclude("**/generated/**")
+        include("**/kotlin/**")
+        include("**/java/**")
+    }
 }

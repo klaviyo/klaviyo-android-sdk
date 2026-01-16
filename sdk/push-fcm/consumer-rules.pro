@@ -1,2 +1,2 @@
--keep class com.klaviyo.core.** { *; }
--keep class com.klaviyo.analytics.** { *; }
+# Keep only class names for stack traces, allow member obfuscation
+-keepnames class com.klaviyo.pushFcm.**
