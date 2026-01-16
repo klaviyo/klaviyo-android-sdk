@@ -1,11 +1,14 @@
-name: Generate release docs and commit to documentation branch (which is published to github pages)
+# Generate release docs and commit to documentation branch (which is published to github pages)
+name: Documentation Bot
 
 on:
   release:
     types: [released]
+  workflow_dispatch:
 
 jobs:
   dokka:
+    name: Generate and Publish Documentation
     runs-on: ubuntu-22.04
     env:
       CI_COMMIT_MESSAGE: Generated docs for ${{ github.sha }}
@@ -35,6 +38,12 @@ jobs:
         run: |
           git merge origin/master --commit --no-edit --strategy-option theirs
 
+      - name: Add Google Services from Secrets
+        run: 'echo "$GOOGLE_SERVICES_JSON" > ./sample/google-services.json'
+        shell: bash
+        env:
+          GOOGLE_SERVICES_JSON: ${{secrets.GOOGLE_SERVICES_JSON}}
+
       - name: Generate Dokka documentation
         run: |
           ./gradlew dokkaHtmlMultiModule
@@ -46,6 +55,29 @@ jobs:
             echo "No documentation to change"
             exit 0
           fi
-          
+
           git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
           git push
+
+      # Send Slack notification on failure
+      - name: Send Slack notification on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🚨 Documentation Bot Workflow Failed"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "🚨 Documentation Bot Workflow Failed\n"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Repository:* ${{ github.repository }}\n*Ref:* `${{ github.ref_name }}`\n*Event:* ${{ github.event_name }}\n*Common Issue:* Check if GH_ACTION_ACCESS_TOKEN has expired"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"

@@ -1,0 +1,136 @@
+name: JitPack
+
+# Required permissions for label management
+permissions:
+  contents: read
+  pull-requests: write
+
+on:
+  release:
+    types: [ published ]
+  push:
+    branches:
+      - master
+      - rel/*
+      - feat/*
+  pull_request:
+    types: [ labeled ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Artifacts
+    runs-on: ubuntu-22.04
+    # Run on releases, pushes, workflow_dispatch, or PRs with the jitpack:build label
+    if: |
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'jitpack:build')
+    steps:
+      - name: Checkout repository
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+
+      - name: Determine Version Info
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+            echo "version_type=release" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "version=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
+            echo "version_type=pull_request" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "version_type=commit" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Artifacts on JitPack
+        run: |
+          # Poll JitPack until it builds artifacts for this commit/release
+          url="https://jitpack.io/com/github/klaviyo/klaviyo-android-sdk/${{ steps.version.outputs.version }}/build.log"
+          
+          output=""
+          max_runtime=900 # 15 minutes in seconds
+          interval=30 # Check every 30 seconds
+          elapsed_time=0
+          
+          echo "Waiting for JitPack to build artifacts at $url"
+          echo
+          
+          while [ $elapsed_time -lt $max_runtime ]; do
+            output=$(curl --silent "$url")
+          
+            if [[ $output == *"BUILD FAILED"* ]]; then
+              echo "Build Failed!"
+              echo
+              echo "$output" 
+              exit 1
+            elif [[ $output == *"BUILD SUCCESSFUL"* ]]; then
+              echo "Build Complete!"
+              echo
+              echo "$output" 
+              exit 0
+            else
+              echo "At $elapsed_time, build appears to be in progress..."
+              echo
+            fi
+          
+            sleep $interval
+            elapsed_time=$((elapsed_time + interval))
+          done
+          
+          echo "Build Timeout, last status:"
+          echo "$url"
+          echo
+          echo "$output"
+          exit 2
+
+      - name: Send Slack notification on success
+        if: success()
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "✅ JitPack Build Successful"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "✅ JitPack Artifacts Available for `${{ github.event.pull_request.head.ref || github.ref_name }}` `${{ steps.version.outputs.version }}`\n"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+
+      - name: Send Slack notification on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🚨 JitPack Build Failed"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "🚨 JitPack Build Failed for `${{ github.event.pull_request.head.ref || github.ref_name }}` `${{ steps.version.outputs.version }}`\n"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+
+      - name: Update PR labels on success
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "jitpack:build"
+
+      - name: Update PR labels on failure
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "jitpack:build"

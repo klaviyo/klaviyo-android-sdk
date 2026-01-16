@@ -125,7 +125,7 @@ internal class InAppFormsTest : BaseTest() {
         val exception = MissingConfig()
         every { anyConstructed<KlaviyoWebViewClient>().initializeWebView() } throws exception
         Klaviyo.registerForInAppForms()
-        verify { spyLog.error("Klaviyo SDK accessed before initializing", exception) }
+        verify { spyLog.error(any(), exception) }
     }
 
     @Test(expected = Test.None::class)

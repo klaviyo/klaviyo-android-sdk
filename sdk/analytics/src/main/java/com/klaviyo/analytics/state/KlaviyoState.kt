@@ -20,7 +20,6 @@ import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.AdvancedAPI
 import java.io.Serializable
-import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -67,16 +66,12 @@ internal class KlaviyoState : State {
     /**
      * List of registered state change observers
      */
-    private val stateChangeObservers = Collections.synchronizedList(
-        CopyOnWriteArrayList<StateChangeObserver>()
-    )
+    private val stateChangeObservers = CopyOnWriteArrayList<StateChangeObserver>()
 
     /**
      * List of registered profile event observers
      */
-    private val eventObserver = Collections.synchronizedList(
-        CopyOnWriteArrayList<ProfileEventObserver>()
-    )
+    private val eventObserver = CopyOnWriteArrayList<ProfileEventObserver>()
 
     /**
      * Register an observer to be notified when state changes
@@ -180,24 +175,24 @@ internal class KlaviyoState : State {
         attributes = null
     }
 
-    override fun createEvent(event: Event, profile: Profile) {
-        val apiRequest = Registry.get<ApiClient>().enqueueEvent(event, profile)
-        // Copy and enrich event with metadata and time (equivalent formating to the API request)
-        val shadowedEvent = event.copy().apply {
-            uniqueId = uniqueId ?: apiRequest.uuid
-            setProperty(EventKey.TIME, apiRequest.queuedTime)
-            DeviceProperties.buildEventMetaData().forEach { entry ->
-                setProperty(entry.key, entry.value)
+    override fun createEvent(event: Event, profile: Profile): Event = Registry.get<ApiClient>()
+        .enqueueEvent(event, profile)
+        .let { apiRequest ->
+            // Copy and enrich event with metadata and time (equivalent formating to the API request)
+            event.copy().apply {
+                uniqueId = uniqueId ?: apiRequest.uuid
+                setProperty(EventKey.TIME, apiRequest.queuedTime)
+                DeviceProperties.buildEventMetaData().forEach { entry ->
+                    setProperty(entry.key, entry.value)
+                }
             }
-        }
-        // Add enriched event to buffer for multi-consumer access
-        GenericEventBuffer.addEvent(shadowedEvent)
-        synchronized(eventObserver) {
+        }.also { enrichedEvent ->
+            // Add enriched event to buffer for multi-consumer access
+            GenericEventBuffer.addEvent(enrichedEvent)
             eventObserver.forEach {
-                it?.invoke(shadowedEvent)
+                it?.invoke(enrichedEvent)
             }
         }
-    }
 
     override fun onProfileEvent(observer: ProfileEventObserver) {
         eventObserver += observer
@@ -242,7 +237,7 @@ internal class KlaviyoState : State {
      *
      * @param change - the state change to broadcast
      */
-    private fun broadcastChange(change: StateChange) = synchronized(stateChangeObservers) {
+    private fun broadcastChange(change: StateChange) {
         stateChangeObservers.forEach { it(change) }
     }
 

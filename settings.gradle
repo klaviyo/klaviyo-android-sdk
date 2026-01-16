@@ -9,9 +9,18 @@ dependencyResolutionManagement {
     }
 }
 
-// sdk modules
+// SDK modules
 include ":sdk"
-include ":sdk:core", ":sdk:analytics", ":sdk:push-fcm", ":sdk:fixtures", ":sdk:forms"
+include ":sdk:analytics"
+include ":sdk:core"
+include ":sdk:fixtures"
+include ":sdk:forms"
+include ":sdk:location"
+include ":sdk:push-fcm"
+
+if (System.getenv("JITPACK") != "true") {
+    include ":sample"
+}
 
 refreshVersions {
     rejectVersionIf {

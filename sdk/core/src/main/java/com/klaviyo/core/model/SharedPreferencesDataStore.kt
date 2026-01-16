@@ -3,7 +3,6 @@ package com.klaviyo.core.model
 import android.content.Context
 import android.content.SharedPreferences
 import com.klaviyo.core.Registry
-import java.util.Collections
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -20,9 +19,7 @@ internal object SharedPreferencesDataStore : DataStore {
     /**
      * List of registered observers
      */
-    private val storeObservers = Collections.synchronizedList(
-        CopyOnWriteArrayList<StoreObserver>()
-    )
+    private val storeObservers = CopyOnWriteArrayList<StoreObserver>()
 
     override fun onStoreChange(observer: StoreObserver) {
         storeObservers += observer
@@ -34,9 +31,7 @@ internal object SharedPreferencesDataStore : DataStore {
 
     private fun broadcastStoreChange(key: String, value: String?) {
         Registry.log.verbose("$key=$value")
-        synchronized(storeObservers) {
-            storeObservers.forEach { it(key, value) }
-        }
+        storeObservers.forEach { it(key, value) }
     }
 
     /**

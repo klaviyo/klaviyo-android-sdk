@@ -35,7 +35,7 @@ import org.junit.Before
  */
 abstract class BaseTest {
     companion object {
-        const val API_KEY = "stub_public_api_key"
+        const val API_KEY = "aPiKeY"
         const val EMAIL = "test@domain.com"
         const val PHONE = "+12223334444"
         const val EXTERNAL_ID = "abcdefg"
@@ -138,6 +138,10 @@ abstract class BaseTest {
         }
     }
 
+    /**
+     * For tests that rely on coroutines, be sure to also use
+     * [kotlinx.coroutines.test.runTest] so that uncaught exceptions are detected
+     */
     val dispatcher = StandardTestDispatcher()
 
     @SuppressLint("NewApi")

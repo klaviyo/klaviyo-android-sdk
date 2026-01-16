@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Background sync notification strings -->
+    <string name="klaviyo_bg_sync_channel_name">Background Sync</string>
+    <string name="klaviyo_bg_sync_notification_text">Syncing…</string>
+    <string name="klaviyo_bg_sync_channel_description">Background synchronization</string>
+</resources>

@@ -16,6 +16,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
 
 ## Contents
 
+- [Sample App](#sample-app)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Initialization](#initialization)
@@ -36,11 +37,30 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [Setup](#setup-1)
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+- [Geofencing](#geofencing)
+  - [Setup](#setup-2)
+  - [Requesting Permissions](#requesting-permissions)
+  - [Unregistering from Geofencing](#unregistering-from-geofencing)
 - [Deep Linking](#deep-linking)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
 - [Code Documentation](#code-documentation)
+
+## Sample App
+
+Looking for a working example? Check out our [sample application](./sample/README.md) which
+demonstrates all the key features of the Klaviyo Android SDK, including:
+
+- SDK initialization and configuration
+- Profile identification and event tracking
+- Push notification setup and handling
+- In-App Forms integration
+- Geofencing integration
+- Deep linking (custom URI schemes and universal tracking links)
+- UI for testing SDK functionality
+
+The sample app serves as both a reference implementation and a testing tool for the SDK.
 
 ## Requirements
 
@@ -83,9 +103,10 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.1.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.1.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.1.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.2.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.2.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.2.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.2.0")
       }
       ```
    </details>
@@ -96,9 +117,10 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.1.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.1.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.1.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.2.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.2.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.2.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.2.0"
        }
       ```
    </details>
@@ -111,40 +133,61 @@ SDK can be responsive to changes in application state and network conditions, an
 persist data. Upon initialize, the SDK registers listeners for your application's activity lifecycle callbacks,
 to gracefully manage background processes.
 
-`Klaviyo.initialize()` **must** be called before any other SDK methods can be invoked. We recommend initializing from 
+`Klaviyo.initialize()` **must** be called before any other SDK methods can be invoked. We recommend initializing from
 the earliest point in your application code, the `Application.onCreate()` method.
 
-**Note:** If you are unable to `Application.onCreate()` (e.g. if your API key is dynamic and not yet available) you
+**Note:** If you are unable to call `initialize` in `Application.onCreate()` (e.g. if your API key is dynamic and not yet available) you
 **must** call `Klaviyo.registerForLifecycleCallbacks(applicationContext)` and provide your API key via `initialize`
 as early as it is available.
 
-```kotlin
-// Application subclass 
-import android.app.Application
-import com.klaviyo.analytics.Klaviyo
+<details open>
+   <summary>Kotlin</summary>
 
-class YourApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
+   ```kotlin
+   // Application subclass
+   import android.app.Application
+   import com.klaviyo.analytics.Klaviyo
 
-        /* ... */
-        
-        // Initialize is required before invoking any other Klaviyo SDK functionality 
-        Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
-            .registerDeepLinkHandler(::handleDeepLink)
-        
-        // OR, If unable to call initialize, you must at least register lifecycle listeners
-        Klaviyo.registerForLifecycleCallbacks(applicationContext)
-            .registerDeepLinkHandler(::handleDeepLink)
-    }
-    
-    private fun handleDeepLink(deepLink: Uri?) {
-        // Optional: deep link handler for links originating from Klaviyo. The SDK will call this if 
-        // registered, else fall back on sending standard ACTION_VIEW to your app.  
-        // Parse path and/or query out of a URI to navigate to the appropriate screen in the app
-    }
-}
-```
+   class YourApplication : Application() {
+       override fun onCreate() {
+           super.onCreate()
+
+           /* ... */
+
+           // Initialize is required before invoking any other Klaviyo SDK functionality
+           Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+
+           // OR, If unable to call initialize, you must at least register lifecycle listeners
+           Klaviyo.registerForLifecycleCallbacks(applicationContext)
+       }
+   }
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   // Application subclass
+   import android.app.Application;
+   import com.klaviyo.analytics.Klaviyo;
+
+   public class YourApplication extends Application {
+       @Override
+       public void onCreate() {
+           super.onCreate();
+
+           /* ... */
+
+           // Initialize is required before invoking any other Klaviyo SDK functionality
+           Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", getApplicationContext());
+
+           // OR, If unable to call initialize, you must at least register lifecycle listeners
+           Klaviyo.registerForLifecycleCallbacks(getApplicationContext());
+       }
+   }
+   ```
+</details>
 
 ## Profile Identification
 The SDK provides methods to identify profiles via the
@@ -160,51 +203,136 @@ Identifiers are persisted to local storage so that the SDK can keep track of the
 
 Profile identifiers and other attributes can be set all at once using the `Profile` data class:
 
-```kotlin
-val profile = Profile(
-    externalId = "USER_IDENTIFIER",
-    email = "kermit@klaviyo-demo.com",
-    phoneNumber = "+12223334444",
-    properties = mapOf(
-        ProfileKey.FIRST_NAME to "Kermit",
-        ProfileKey.CUSTOM("instrument") to "banjo"
-    )
-)
+<details open>
+   <summary>Kotlin</summary>
 
-Klaviyo.setProfile(profile)
-```
+   ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.analytics.model.Profile
+   import com.klaviyo.analytics.model.ProfileKey
+
+   val profile = Profile(
+       externalId = "USER_IDENTIFIER",
+       email = "kermit@klaviyo-demo.com",
+       phoneNumber = "+12223334444",
+       properties = mapOf(
+           ProfileKey.FIRST_NAME to "Kermit",
+           ProfileKey.CUSTOM("instrument") to "banjo"
+       )
+   )
+
+   Klaviyo.setProfile(profile)
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.klaviyo.analytics.Klaviyo;
+   import com.klaviyo.analytics.model.Profile;
+   import com.klaviyo.analytics.model.ProfileKey;
+   import java.io.Serializable;
+   import java.util.HashMap;
+   import java.util.Map;
+
+   Map<ProfileKey, Serializable> properties = new HashMap<>();
+   properties.put(ProfileKey.FIRST_NAME.INSTANCE, "Kermit");
+   properties.put(new ProfileKey.CUSTOM("instrument"), "banjo");
+
+   Profile profile = new Profile(
+       "USER_IDENTIFIER",
+       "kermit@klaviyo-demo.com",
+       "+12223334444",
+       properties
+   );
+
+   Klaviyo.setProfile(profile);
+   ```
+</details>
 
 Or individually with additive fluent setters:
 
-```kotlin
-Klaviyo.setExternalId("USER_IDENTIFIER")
-    .setEmail("kermit@klaviyo-demo.com")
-    .setPhoneNumber("+12223334444")
-    .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
-    .setProfileAttribute(ProfileKey.CUSTOM("instrument"), "banjo")
-```
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.analytics.model.ProfileKey
+
+   Klaviyo.setExternalId("USER_IDENTIFIER")
+       .setEmail("kermit@klaviyo-demo.com")
+       .setPhoneNumber("+12223334444")
+       .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
+       .setProfileAttribute(ProfileKey.CUSTOM("instrument"), "banjo")
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.klaviyo.analytics.Klaviyo;
+   import com.klaviyo.analytics.model.ProfileKey;
+
+   Klaviyo.setExternalId("USER_IDENTIFIER")
+       .setEmail("kermit@klaviyo-demo.com")
+       .setPhoneNumber("+12223334444")
+       .setProfileAttribute(ProfileKey.FIRST_NAME.INSTANCE, "Kermit")
+       .setProfileAttribute(new ProfileKey.CUSTOM("instrument"), "banjo");
+   ```
+</details>
 
 Either way, the SDK will group and batch API calls to improve performance.
 
 ### Reset Profile
-To start a _new_ profile altogether (e.g. if a user logs out) either call `Klaviyo.resetProfile()`
-to clear the currently tracked profile identifiers (e.g. on logout), or use `Klaviyo.setProfile(profile)`
+To start a _new_ profile (e.g. if a user logs out), either call `Klaviyo.resetProfile()`
+to clear the currently tracked profile identifiers, or use `Klaviyo.setProfile(profile)`
 to overwrite it with a new profile object.
 
-```kotlin
-// Start a profile for Kermit
-Klaviyo.setEmail("kermit@klaviyo-demo.com")
-    .setPhoneNumber("+12223334444")
-    .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
+<details open>
+   <summary>Kotlin</summary>
 
-// Stop tracking Kermit
-Klaviyo.resetProfile()
+   ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.analytics.model.ProfileKey
 
-// Start a new profile for Robin
-Klaviyo.setEmail("robin@klaviyo-demo.com")
-    .setPhoneNumber("+5556667777")
-    .setProfileAttribute(ProfileKey.FIRST_NAME, "Robin")
-```
+   // Start a profile for Kermit
+   Klaviyo.setEmail("kermit@klaviyo-demo.com")
+       .setPhoneNumber("+12223334444")
+       .setProfileAttribute(ProfileKey.FIRST_NAME, "Kermit")
+
+   // Stop tracking Kermit
+   Klaviyo.resetProfile()
+
+   // Start a new profile for Robin
+   Klaviyo.setEmail("robin@klaviyo-demo.com")
+       .setPhoneNumber("+5556667777")
+       .setProfileAttribute(ProfileKey.FIRST_NAME, "Robin")
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.klaviyo.analytics.Klaviyo;
+   import com.klaviyo.analytics.model.ProfileKey;
+
+   // Start a profile for Kermit
+   Klaviyo.setEmail("kermit@klaviyo-demo.com")
+       .setPhoneNumber("+12223334444")
+       .setProfileAttribute(ProfileKey.FIRST_NAME.INSTANCE, "Kermit");
+
+   // Stop tracking Kermit
+   Klaviyo.resetProfile();
+
+   // Start a new profile for Robin
+   Klaviyo.setEmail("robin@klaviyo-demo.com")
+       .setPhoneNumber("+5556667777")
+       .setProfileAttribute(ProfileKey.FIRST_NAME.INSTANCE, "Robin");
+   ```
+</details>
 
 **Note:** We trim leading and trailing whitespace off of identifier values. 
 Empty strings will be ignored with a logged warning. If you are trying to remove an identifier's value,
@@ -216,18 +344,43 @@ That way, you can collect push tokens and track events prior to collecting profi
 phone number. When an identifier is provided, Klaviyo will merge the anonymous user with an identified user.
 
 ## Event Tracking
-The SDK also provides tools for tracking analytics events via the
+The SDK provides tools for tracking analytics events via the
 [Create Client Event API](https://developers.klaviyo.com/en/reference/create_client_event).
 A list of common Klaviyo-defined event metrics is provided in `EventMetric`, or
 you can use `EventMetric.CUSTOM("name")` for custom event metric names.
-Additional event properties can be specified as part of `EventModel`
+Additional event properties can be specified as part of the `Event` object:
 
-```kotlin
-val event = Event(EventMetric.VIEWED_PRODUCT)
-    .setProperty(EventKey.CUSTOM("Product"), "Coffee Mug")
-    .setValue(10.0)
-Klaviyo.createEvent(event)
-```
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.analytics.model.Event
+   import com.klaviyo.analytics.model.EventKey
+   import com.klaviyo.analytics.model.EventMetric
+
+   val event = Event(EventMetric.VIEWED_PRODUCT)
+       .setProperty(EventKey.CUSTOM("Product"), "Coffee Mug")
+       .setValue(10.0)
+   Klaviyo.createEvent(event)
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.klaviyo.analytics.Klaviyo;
+   import com.klaviyo.analytics.model.Event;
+   import com.klaviyo.analytics.model.EventKey;
+   import com.klaviyo.analytics.model.EventMetric;
+
+   Event event = new Event(EventMetric.VIEWED_PRODUCT.INSTANCE)
+       .setProperty(new EventKey.CUSTOM("Product"), "Coffee Mug")
+       .setValue(10.0);
+   Klaviyo.createEvent(event);
+   ```
+</details>
 
 ## Push Notifications
 
@@ -261,24 +414,41 @@ will be used if present, else we fall back on the application's launcher icon, a
 
 ### Collecting Push Tokens
 In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo.
-This is done via the `Klaviyo.setPushToken` method, which registers push token and current authorization state
+This is done via the `Klaviyo.setPushToken` method, which registers the push token and current authorization state
 via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
-Once registered in your manifest, `KlaviyoPushService` will receive *new* push tokens via the `onNewToken` method.
-We also recommend retrieving the latest token value on app startup and registering it with Klaviyo SDK.
-Add the following to your `Application.onCreate` method. 
+The SDK's `KlaviyoPushService` will automatically receive *new* push tokens via the `onNewToken` method.
+We also recommend retrieving the latest token value on app startup and registering it with the Klaviyo SDK.
+Add the following to your application or main activity's `.onCreate()` method:
 
-```kotlin
-override fun onCreate(savedInstanceState: Bundle?) {
-    /* ... */
+<details open>
+   <summary>Kotlin</summary>
 
-    // Fetches the current push token and registers with Push SDK
-    FirebaseMessaging.getInstance().token.addOnSuccessListener { pushToken ->
-        Klaviyo.setPushToken(pushToken)
-    }
-}
-```
+   ```kotlin
+   import com.google.firebase.messaging.FirebaseMessaging
+   import com.klaviyo.analytics.Klaviyo
 
-*As of version 3.0.0*: After setting a push token, the Klaviyo SDK will automatically track changes to
+   // Fetches the current push token and registers with Push SDK
+   FirebaseMessaging.getInstance().token.addOnSuccessListener { pushToken ->
+       Klaviyo.setPushToken(pushToken)
+   }
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.google.firebase.messaging.FirebaseMessaging;
+   import com.klaviyo.analytics.Klaviyo;
+
+   // Fetches the current push token and registers with Push SDK
+   FirebaseMessaging.getInstance().getToken().addOnSuccessListener(pushToken -> {
+       Klaviyo.setPushToken(pushToken);
+   });
+   ```
+</details>
+
+After setting a push token, the Klaviyo SDK will automatically track changes to
 the user's notification permission whenever the application is opened or resumed from the background.
 
 **Reminder**: `Klaviyo.initialize` is required before using any other Klaviyo SDK functionality, even 
@@ -293,9 +463,8 @@ if you are only using the SDK for push notifications and not analytics.
  provide code examples for requesting permission and handling the user's response.
 
 #### Push tokens and multiple profiles
-If a new profile was set using `setProfile` or if `resetProfile` was called and a new anonymous 
-profile was created, the push token will be automatically associated with the new profile without 
-any additional action (like setting token again) required. This functionality was added in release `3.0.0`. 
+Push tokens are automatically associated with new profiles when you call `setProfile` or `resetProfile`.
+No additional action is required. 
 
 ### Receiving Push Notifications
 `KlaviyoPushService` will handle displaying all notifications via the `onMessageReceived` method regardless of
@@ -304,33 +473,68 @@ the [push notification preview](https://help.klaviyo.com/hc/en-us/articles/18011
 to test your integration. If you wish to customize how notifications are displayed, see [Advanced Setup](#advanced-setup).
 
 #### Rich Push
-[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to 
-push notification messages. This feature is supported in version 1.3.1 and up of the Klaviyo Android SDK.
-No additional setup is needed to support rich push. Downloading the image and attaching it to the notification
-is handled within `KlaviyoPushService`. If an image fails to download (e.g. if the device has a poor network 
-connection) the notification will be displayed without an image after the download times out.
+[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to
+push notification messages. No additional setup is needed to support rich push. Downloading the image and
+attaching it to the notification is handled within `KlaviyoPushService`. If an image fails to download
+(e.g. if the device has a poor network connection) the notification will be displayed without an image
+after the download times out.
 
 #### Tracking Open Events
 To track push notification opens, you must call `Klaviyo.handlePush(intent)` when your app is launched from an intent.
 This method will check if the app was opened from a notification originating from Klaviyo and if so, create an 
 `Opened Push` event with required message tracking parameters. For example:
 
-```kotlin
-// Main Activity
+<details open>
+   <summary>Kotlin</summary>
 
-override fun onCreate(savedInstanceState: Bundle?) {
-    /* ... */
+   ```kotlin
+   import android.content.Intent
+   import android.os.Bundle
+   import com.klaviyo.analytics.Klaviyo
 
-    onNewIntent(intent)
-}
+   // Main Activity
 
-override fun onNewIntent(intent: Intent?) {
-    /* ... */
+   override fun onCreate(savedInstanceState: Bundle?) {
+       /* ... */
 
-    // Tracks when a system tray notification is opened
-    Klaviyo.handlePush(intent)
-}
-```
+       onNewIntent(intent)
+   }
+
+   override fun onNewIntent(intent: Intent?) {
+       /* ... */
+
+       // Tracks when a system tray notification is opened
+       Klaviyo.handlePush(intent)
+   }
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import android.content.Intent;
+   import android.os.Bundle;
+   import com.klaviyo.analytics.Klaviyo;
+
+   // Main Activity
+
+   @Override
+   protected void onCreate(Bundle savedInstanceState) {
+       /* ... */
+
+       onNewIntent(getIntent());
+   }
+
+   @Override
+   protected void onNewIntent(Intent intent) {
+       /* ... */
+
+       // Tracks when a system tray notification is opened
+       Klaviyo.handlePush(intent);
+   }
+   ```
+</details>
 
 **Note:** Intent handling may differ depending on your app's architecture. By default, the Klaviyo SDK will use your
 app's launch intent for a tapped notification. Adjust this example to your use-case, ensuring that 
@@ -499,18 +703,45 @@ behavior settings configured in your Klaviyo account. For the best user experien
 splash screen or loading animations have completed. Depending on your app's architecture, this might be in your
 `Application.onCreate()` method, or in the `onCreate()` method of your main activity.
 
-```kotlin
-import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.forms.registerForInAppForms
+<details open>
+   <summary>Kotlin</summary>
 
-// You can register as soon as you've initialized
-Klaviyo
-    .initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
-    .registerForInAppForms()
+   ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.forms.registerForInAppForms
+   import com.klaviyo.forms.unregisterFromInAppForms
 
-// ... or any time thereafter
-Klaviyo.registerForInAppForms()
-```
+   // You can register as soon as you've initialized
+   Klaviyo
+       .initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+       .registerForInAppForms()
+
+   // ... or any time thereafter
+   Klaviyo.registerForInAppForms()
+
+   // ... Unregister later, if appropriate (e.g. on logout)
+   Klaviyo.unregisterFromInAppForms()
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.klaviyo.analytics.Klaviyo;
+   import com.klaviyo.forms.KlaviyoForms;
+
+   // You can register as soon as you've initialized
+   Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", getApplicationContext());
+   KlaviyoForms.registerForInAppForms();
+
+   // ... or any time thereafter
+   KlaviyoForms.registerForInAppForms();
+
+   // ... Unregister later, if appropriate (e.g. on logout)
+   KlaviyoForms.unregisterFromInAppForms();
+   ```
+</details>
 
 #### In-App Forms Session Configuration
 
@@ -524,29 +755,108 @@ the previous interaction with the app and the current one exceeds the specified 
 This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, pass an `InAppFormsConfig`
 object to the `registerForInAppForms()` method. For example, to set a session timeout of 30 minutes:
 
-```kotlin
-import com.klaviyo.forms.InAppFormsConfig
-import kotlin.time.Duration.Companion.minutes
+<details open>
+   <summary>Kotlin</summary>
 
-// e.g. to configure a session timeout of 30 minutes
-val config = InAppFormsConfig(
-    sessionTimeoutDuration = 30.minutes,
-)
+   ```kotlin
+   import com.klaviyo.forms.InAppFormsConfig
+   import kotlin.time.Duration.Companion.minutes
 
-Klaviyo.registerForInAppForms(config)
-```
+   // e.g. to configure a session timeout of 30 minutes
+   val config = InAppFormsConfig(
+       sessionTimeoutDuration = 30.minutes,
+   )
 
-#### Unregistering from In-App Forms
-If at any point you need to prevent the SDK from displaying In-App Forms, e.g. when the user logs out, you may call:
+   Klaviyo.registerForInAppForms(config)
+   ```
+</details>
 
-```kotlin
-import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.forms.unregisterFromInAppForms
+<details>
+   <summary>Java</summary>
 
-Klaviyo.unregisterFromInAppForms()
-```
+   ```java
+   import com.klaviyo.forms.KlaviyoForms;
+   import com.klaviyo.forms.InAppFormsConfig;
 
-Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+   // e.g. to configure a session timeout of 30 minutes (1800 seconds)
+   InAppFormsConfig config = new InAppFormsConfig(1800);
+
+   KlaviyoForms.registerForInAppForms(config);
+   ```
+</details>
+
+**Note:** After unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+## Geofencing
+
+[Geofencing](https://help.klaviyo.com/hc/en-us/articles/45194892526747) allows you to trigger events when users enter or exit geographic regions defined in your Klaviyo account.
+The SDK monitors permission, syncs geofence data from Klaviyo, registers them with device location services, 
+and creates events when transitions occur. These events can be used to trigger flows, segment profiles, 
+and drive location-based marketing.
+
+### Setup
+To begin, call `Klaviyo.registerGeofencing()` after initializing the SDK with your public API key.
+We recommend calling this as early as possible in your application lifecycle, ideally at app launch.
+
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.location.registerGeofencing
+   import com.klaviyo.location.unregisterGeofencing
+
+   // You can register as soon as you've initialized
+   Klaviyo
+       .initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+       .registerGeofencing()
+
+   // ... or any time thereafter
+   Klaviyo.registerGeofencing()
+
+   // ... Unregister later, if appropriate
+   Klaviyo.unregisterGeofencing()
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.klaviyo.analytics.Klaviyo;
+   import com.klaviyo.location.KlaviyoLocation;
+
+   // You can register as soon as you've initialized
+   Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", getApplicationContext());
+   KlaviyoLocation.registerGeofencing();
+
+   // ... or any time thereafter
+   KlaviyoLocation.registerGeofencing();
+
+   // ... Unregister later, if appropriate
+   KlaviyoLocation.unregisterGeofencing();
+   ```
+</details>
+
+### Requesting Permissions
+
+The SDK automatically adds the following manifest permissions:
+- `ACCESS_FINE_LOCATION` - Required for precise geofence detection
+- `ACCESS_COARSE_LOCATION` - Required by Android, but the user must grant "Precise" location for geofencing to work.
+- `ACCESS_BACKGROUND_LOCATION` - Required on Android 10+ for geofences to work when the app is in the background
+- `RECEIVE_BOOT_COMPLETED` - Allows the SDK to restore geofences after device reboot
+
+You are responsible for requesting runtime permission from users according to
+[Android best practices](https://developer.android.com/develop/sensors-and-location/location/permissions).
+
+> ⚠️ **Important**: Geofencing requires "Allow all the time" and "Precise" location authorization.
+> If the user only grants "Allow only while using the app" or "coarse" permissions, geofencing will not be active.
+> 
+> Background location permission requires a separate permission request on Android 10+.
+> See [Android documentation](https://developer.android.com/develop/sensors-and-location/location/permissions#background)
+> for guidance on requesting background location permission.
+
+**Note:** Unregistering removes all geofences from Android's location services and stops monitoring for permission changes.
 
 ## Deep Linking
 Klaviyo [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a
@@ -561,12 +871,76 @@ you can centralize your logic and reduce duplication of code as you complete the
 
 **Optional**: register a deep link handler callback with `Klaviyo.registerDeepLinkHandler()`.
 You should register this from your `Application` or main `Activity`'s `.onCreate()` method, so that it is available early enough in
-the application lifecycle to handle any link that launches the app from a terminated state. See code example in [Initialization Section](#Initialization).
-This handler will be invoked for *any* deep link originating from the Klaviyo SDK, including push notifications, universal tracking links, or In-App Forms.
+the application lifecycle to handle any link that launches the app from a terminated state. This handler will be invoked for
+*any* deep link originating from the Klaviyo SDK, including push notifications, universal tracking links, or In-App Forms.
+
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   import android.app.Application
+   import android.net.Uri
+   import com.klaviyo.analytics.Klaviyo
+
+   // Application subclass
+   class YourApplication : Application() {
+       override fun onCreate() {
+           super.onCreate()
+
+           Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", applicationContext)
+               .registerDeepLinkHandler(::handleDeepLink)
+       }
+
+       private fun handleDeepLink(uri: Uri) {
+           // Parse the URI and navigate to the appropriate screen in your app
+           // The SDK will call this for any deep link from push, forms, or universal tracking links
+           // Example: parse path and query parameters to determine navigation
+           when (uri.path) {
+               "/product" -> navigateToProduct(uri.getQueryParameter("id"))
+               "/profile" -> navigateToProfile()
+               else -> navigateToHome()
+           }
+       }
+   }
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import android.app.Application;
+   import android.net.Uri;
+   import com.klaviyo.analytics.Klaviyo;
+
+   // Application subclass
+   public class YourApplication extends Application {
+       @Override
+       public void onCreate() {
+           super.onCreate();
+
+           Klaviyo.initialize("KLAVIYO_PUBLIC_API_KEY", getApplicationContext())
+               .registerDeepLinkHandler(this::handleDeepLink);
+       }
+
+       private void handleDeepLink(Uri uri) {
+           // Parse the URI and navigate to the appropriate screen in your app
+           // The SDK will call this for any deep link from push, forms, or universal tracking links
+           String path = uri.getPath();
+           if ("/product".equals(path)) {
+               navigateToProduct(uri.getQueryParameter("id"));
+           } else if ("/profile".equals(path)) {
+               navigateToProfile();
+           } else {
+               navigateToHome();
+           }
+       }
+   }
+   ```
+</details>
 
 ### Handling Universal Links
->  ℹ️ Support for Deep Linking from Email is currently available for early access to select Klaviyo customers. Please contact your CSM to be enrolled.
->  Full trackable universal links support is available in Klaviyo Android SDK version 4.1.0 and higher.
+>  ℹ️ Full trackable universal links support is available in Klaviyo Android SDK version 4.1.0 and higher.
 
 Klaviyo supports embedding universal links with click tracking in email messages. To ensure these links are properly tracked as 
 profile events *and* your app opens and processes the links correctly, you need to configure your app to handle them. At a high level, the process works like this:
@@ -644,37 +1018,89 @@ and [Verified App Links](https://developer.android.com/training/app-links).
    When a user opens a link, your app will receive an `ACTION_VIEW` intent containing that `Uri` in the `data` property.
    You can parse the URI from the intent's data property and use it to navigate to the appropriate part of your app.
 
-    ```kotlin
-    // Main Activity
-    override fun onCreate(savedInstanceState: Bundle?) {
-        /* ... */
-        
-        onNewIntent(intent)
-    }
+   <details open>
+      <summary>Kotlin</summary>
 
-    override fun onNewIntent(intent: Intent?) {
-        if (Klaviyo.handleUniversalTrackingLink(intent)) {
-          // Klaviyo SDK will handle the tracking link asynchronously and invoke your deep link handler if registered, else send a new intent to your app with the destination URI
-          return
-        }
-   
-        if (intent.isKlaviyoNotificationIntent) {
-            // Klaviyo SDK will track an Opened Push event. If it contains a link, this will als invoke your deep link handler if registered (you may need to return early to avoid duplicate navigation)
-            Klaviyo.handlePush(intent)
-        } 
-    
-        val deepLink: Uri? = intent?.data?.let { uri ->
-            // Read deep link data from intent and navigate to the appropriate part of your app
-            handleDeepLink(uri) 
-        }    
-    }
-    ```
+      ```kotlin
+      import android.content.Intent
+      import android.net.Uri
+      import android.os.Bundle
+      import com.klaviyo.analytics.Klaviyo
+      import com.klaviyo.analytics.isKlaviyoNotificationIntent
+
+      // Main Activity
+      override fun onCreate(savedInstanceState: Bundle?) {
+          /* ... */
+
+          onNewIntent(intent)
+      }
+
+      override fun onNewIntent(intent: Intent?) {
+          super.onNewIntent(intent)
+
+          if (Klaviyo.handleUniversalTrackingLink(intent)) {
+            // Klaviyo SDK will handle the tracking link asynchronously and invoke your deep link handler if registered, else send a new intent to your app with the destination URI
+            return
+          }
+
+          if (intent.isKlaviyoNotificationIntent) {
+              // Klaviyo SDK will track an Opened Push event. If it contains a link, this will also invoke your deep link handler if registered (you may need to return early to avoid duplicate navigation)
+              Klaviyo.handlePush(intent)
+          }
+
+          val deepLink: Uri? = intent?.data?.let { uri ->
+              // Read deep link data from intent and navigate to the appropriate part of your app
+              handleDeepLink(uri)
+          }
+      }
+      ```
+   </details>
+
+   <details>
+      <summary>Java</summary>
+
+      ```java
+      import android.content.Intent;
+      import android.net.Uri;
+      import android.os.Bundle;
+      import com.klaviyo.analytics.Klaviyo;
+
+      // Main Activity
+      @Override
+      protected void onCreate(Bundle savedInstanceState) {
+          /* ... */
+
+          onNewIntent(getIntent());
+      }
+
+      @Override
+      protected void onNewIntent(Intent intent) {
+          super.onNewIntent(intent);
+
+          if (Klaviyo.handleUniversalTrackingLink(intent)) {
+              // Klaviyo SDK will handle the tracking link asynchronously and invoke your deep link handler if registered, else send a new intent to your app with the destination URI
+              return;
+          }
+
+          if (Klaviyo.isKlaviyoNotificationIntent(intent)) {
+              // Klaviyo SDK will track an Opened Push event. If it contains a link, this will also invoke your deep link handler if registered (you may need to return early to avoid duplicate navigation)
+              Klaviyo.handlePush(intent);
+          }
+
+          if (intent != null && intent.getData() != null) {
+              Uri uri = intent.getData();
+              // Read deep link data from intent and navigate to the appropriate part of your app
+              handleDeepLink(uri);
+          }
+      }
+      ```
+   </details>
 
 3. Test your deep links
 
    We strongly recommend testing your intent filters with the Android Studio "App Link Assistant" tool.
    Alternatively, with [android debug bridge (adb)](https://developer.android.com/studio/command-line/adb),
-   run the following command to launch your app via an intent containing a deep link:.
+   run the following command to launch your app via an intent containing a deep link:
     ```shell
     adb shell am start
         -W -a android.intent.action.VIEW
@@ -684,9 +1110,9 @@ and [Verified App Links](https://developer.android.com/training/app-links).
    To perform integration testing:
 * **Push**: Send a [preview push notification](https://help.klaviyo.com/hc/en-us/articles/18011985278875)
    containing a deep link from the Klaviyo push editor.
-* **Forms**: Create an In-App Form that contains a "Go to app screen" action, use Audience Targeting with a test 
-   segment or list to target only your testing profiles. 
-* **Universal Tracking Links** Send yourself a test email containing a universal tracking link. If necessary,
+* **Forms**: Create an In-App Form that contains a "Go to app screen" action, use Audience Targeting with a test
+   segment or list to target only your testing profiles.
+* **Universal Tracking Links**: Send yourself a test email containing a universal tracking link. If necessary,
   copy the tracking link URL (which should look like `<your.tracking.domain>/u/linkId`) to open it on a device.
 
 ## Troubleshooting
@@ -726,12 +1152,15 @@ may not work in an emulator running older versions of Android.
 
 #### Proguard / R8 Issues
 
-If you notice issues in the release build of your apps, you can try to manually add a couple rules
-to your `proguard-rules.pro` to prevent obfuscation:
+If you notice issues in the release build of your apps, try using more conservative configuration 
+in your `proguard-rules.pro` to prevent obfuscation. Note that each of our packages already contain
+`consumer-rules.pro` that should cover necessary functionality. 
 ```
 -keep class com.klaviyo.analytics.** { *; }
 -keep class com.klaviyo.core.** { *; }
--keep class com.klaviyo.push-fcm.** { *; }
+-keep class com.klaviyo.forms.** { *; }
+-keep class com.klaviyo.location.** { *; }
+-keep class com.klaviyo.pushFcm.** { *; }
 ```
 
 

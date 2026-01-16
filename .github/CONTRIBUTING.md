@@ -57,21 +57,23 @@ If you want to recommend a code fix for an existing issue, you are welcome to op
 1. Fork the repository and clone to your machine, open in Android Studio 
 2. Once the project has synced, run `./gradlew addKtlintFormatGitPreCommitHook` to install our
    pre-commit code formatting rules. 
-3. We recommend selecting the `productionDebug` build variant to make use of our debug logging.
+3. We recommend using the `debug` build variant to make use of our verbose logging.
 4. Make your changes to the SDK. While we encourage test-driven development, we will not require 
    unit tests to submit a PR. That said, tests are an easy way to verify your changes as you go. 
    We have a very high coverage rate, so there are plenty of examples to follow.
-5. We also encourage you to test your changes against your own app. First, add [mavenLocal](https://docs.gradle.org/current/userguide/declaring_repositories.html#sec:case-for-maven-local) 
-   as the first repository in your gradle file. Then run the following command to compile a local copy 
-   of the SDK for your app to consume. *Remember to remove `mavenLocal` when you're finished.*
-   ```
-   .gradlew publishToMavenLocal
-   ``` 
+5. We also encourage you to test your changes against the sample app included in this repo, or your
+   own app using maven local or a [composite build](https://docs.gradle.org/current/userguide/composite_builds.html).
+   a. To use maven Local: add [mavenLocal](https://docs.gradle.org/current/userguide/declaring_repositories.html#sec:case-for-maven-local) as the first repository in your gradle file.
+      Then run the following command to compile a local copy of the SDK for your app to consume. 
+      *Remember to remove `mavenLocal` when you're finished.*
+      ```
+      .gradlew publishToMavenLocal
+      ``` 
 6. Commit the changes once you are happy with them, please include a detailed commit message. 
 
 ### Pull Request
 
-When you're finished with the changes, create a pull request, also known as a PR.
+When you're finished with the changes, create a pull request (PR).
 - Fill the template so that we can review your PR. This template helps reviewers
   understand your changes and the purpose of your pull request.
 - Don't forget to [link the PR to an issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue) 

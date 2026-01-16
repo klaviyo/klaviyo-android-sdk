@@ -2,6 +2,10 @@
 
 buildscript {
     ext {
+        // Java version used for sourceCompatibility, targetCompatibility and kotlin.jvmTarget
+        javaVersion = JavaVersion.VERSION_11
+
+        // Variant of the SDK modules to be published to jitpack
         publishBuildVariant = "release"
     }
 
@@ -9,7 +13,7 @@ buildscript {
         google()
         mavenCentral()
         maven {
-            url "https://plugins.gradle.org/m2/"
+            url = "https://plugins.gradle.org/m2/"
         }
     }
     dependencies {
@@ -18,6 +22,10 @@ buildscript {
         // they belong in the individual module build.gradle files
         classpath Android.tools.build.gradlePlugin
         classpath Kotlin.gradlePlugin
+
+        // Needed (alongside the google-services.json) to connect to google services and use fcm logic in sample app
+        classpath Google.playServicesGradlePlugin
+
         classpath "org.jetbrains.dokka:dokka-gradle-plugin:_"
         classpath "org.jlleitschuh.gradle:ktlint-gradle:_"
     }
@@ -63,7 +71,7 @@ static def readXmlValue(String filePath, String tagName, Project project) {
 }
 
 dokkaHtmlMultiModule {
-    def versionName = readXmlValue('sdk/core/src/main/res/values/strings.xml','klaviyo_sdk_version_override', project)
+    def versionName = readXmlValue('sdk/core/src/main/res/values/strings.xml', 'klaviyo_sdk_version_override', project)
     def oldVersionsDir = layout.buildDirectory.dir("../docs/")
     outputDirectory = layout.buildDirectory.dir("../docs/${versionName}")
     includes.from("README.md")
@@ -79,5 +87,3 @@ dokkaHtmlMultiModule {
         ["org.jetbrains.dokka.versioning.VersioningPlugin": versioningConfiguration]
     )
 }
-
-apply from: "versioning.gradle"

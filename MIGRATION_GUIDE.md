@@ -2,7 +2,18 @@
 This document provides guidance on how to migrate from one version of the SDK to a newer version. 
 It will be updated as new versions are released including deprecations or breaking changes.
 
-# 5.1.0
+# 4.2.0
+
+## Java Interoperability
+We added a number of annotations to our Kotlin code to optimize the compiled Java code, resulting in some compatibility
+and code quality improvements, such as:
+- Used `@JvmStatic` to enable most of the API surface to be called statically, 
+  e.g. you can now call `Klaviyo.initialize` instead of `Klaviyo.INSTANCE.initialize`
+- Added static methods where we only had Kotlin extensions before,
+  e.g. you can now call `KlaviyoForms.registerForInAppForms()` instead of `InAppFormsKt.registerForInAppForms(Klaviyo.INSTANCE)`
+- Added `@JvmOverloads` to autogenerate overload methods for convenience.
+
+# 4.1.0
 
 ### Deprecations
 - The extension property `Intent.isKlaviyoIntent` has been replaced with `Intent.isKlaviyoNotificationIntent`
