@@ -32,7 +32,6 @@ internal class KlaviyoFormsOverlayActivity : AppCompatActivity() {
                     Registry.config.applicationContext.packageName,
                     KlaviyoFormsOverlayActivity::class.java.name
                 )
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
     }
 }
