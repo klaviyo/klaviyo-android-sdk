@@ -1,5 +1,5 @@
 plugins {
-    id "de.fayard.refreshVersions" version "0.60.5"
+    id("de.fayard.refreshVersions") version "0.60.5"
 }
 
 dependencyResolutionManagement {
@@ -10,16 +10,18 @@ dependencyResolutionManagement {
 }
 
 // SDK modules
-include ":sdk"
-include ":sdk:analytics"
-include ":sdk:core"
-include ":sdk:fixtures"
-include ":sdk:forms"
-include ":sdk:location"
-include ":sdk:push-fcm"
+include(":sdk")
+include(
+    ":sdk:core",
+    ":sdk:analytics",
+    ":sdk:push-fcm",
+    ":sdk:fixtures",
+    ":sdk:forms",
+    ":sdk:location"
+)
 
 if (System.getenv("JITPACK") != "true") {
-    include ":sample"
+    include(":sample")
 }
 
 refreshVersions {
