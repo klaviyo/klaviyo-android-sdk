@@ -1,6 +1,11 @@
+import com.android.build.gradle.LibraryExtension
 import de.fayard.refreshVersions.core.versionFor
 import java.io.FileInputStream
 import java.util.Properties
+import org.jetbrains.dokka.gradle.DokkaTaskPartial
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jlleitschuh.gradle.ktlint.KtlintExtension
 
 // Get the readXmlValue function from root project
 val readXmlValue: (String, String, Project) -> String by rootProject.extra
@@ -22,7 +27,7 @@ subprojects {
     apply(plugin = "org.jetbrains.dokka")
     apply(plugin = "maven-publish")
 
-    configure<com.android.build.gradle.LibraryExtension> {
+    configure<LibraryExtension> {
         compileSdk = project.versionFor("version.android.compileSdk").toInt()
         buildToolsVersion = project.versionFor("version.android.buildTools")
 
@@ -97,9 +102,9 @@ subprojects {
     }
 
     // Configure kotlinOptions
-    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    tasks.withType<KotlinCompile>().configureEach {
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaVersion.toString()))
+            jvmTarget.set(JvmTarget.fromTarget(javaVersion.toString()))
         }
     }
 
@@ -114,7 +119,7 @@ subprojects {
         "androidTestImplementation"(AndroidX.test.espresso.core)
     }
 
-    configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+    configure<KtlintExtension> {
         verbose.set(true)
         android.set(true)
         ignoreFailures.set(false)
@@ -129,7 +134,7 @@ subprojects {
         }
     }
 
-    tasks.withType<org.jetbrains.dokka.gradle.DokkaTaskPartial>().configureEach {
+    tasks.withType<DokkaTaskPartial>().configureEach {
         dokkaSourceSets.configureEach {
             includeNonPublic.set(false)
             reportUndocumented.set(true)
