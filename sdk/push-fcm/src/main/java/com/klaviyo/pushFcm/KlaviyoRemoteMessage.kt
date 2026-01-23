@@ -163,11 +163,11 @@ object KlaviyoRemoteMessage {
      */
     val RemoteMessage.actionButtons: List<ActionButton>?
         get() = this.data[KlaviyoNotification.ACTION_BUTTONS_KEY]?.let { jsonString ->
-            Registry.log.info("Parsing action_buttons from: $jsonString")
+            Registry.log.verbose("Parsing action_buttons from: $jsonString")
             try {
                 val jsonArray = JSONArray(jsonString)
                 val buttons = mutableListOf<ActionButton>()
-                Registry.log.info("JSON array has ${jsonArray.length()} buttons")
+                Registry.log.verbose("JSON array has ${jsonArray.length()} buttons")
                 for (i in 0 until jsonArray.length()) {
                     val jsonObject = jsonArray.getJSONObject(i)
                     val button = ActionButton(
@@ -176,10 +176,10 @@ object KlaviyoRemoteMessage {
                         action = jsonObject.optString("action", "deep_link"),
                         url = jsonObject.optString("url")
                     )
-                    Registry.log.info("Parsed button $i: $button")
+                    Registry.log.verbose("Parsed button $i: $button")
                     buttons.add(button)
                 }
-                Registry.log.info("Successfully parsed ${buttons.size} action buttons")
+                Registry.log.verbose("Successfully parsed ${buttons.size} action buttons")
                 buttons
             } catch (e: Exception) {
                 Registry.log.warning(
