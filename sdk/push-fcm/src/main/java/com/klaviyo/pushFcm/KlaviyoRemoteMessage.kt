@@ -19,6 +19,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
 import java.net.URL
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -164,7 +165,7 @@ object KlaviyoRemoteMessage {
         get() = this.data[KlaviyoNotification.ACTION_BUTTONS_KEY]?.let { jsonString ->
             Registry.log.info("Parsing action_buttons from: $jsonString")
             try {
-                val jsonArray = org.json.JSONArray(jsonString)
+                val jsonArray = JSONArray(jsonString)
                 val buttons = mutableListOf<ActionButton>()
                 Registry.log.info("JSON array has ${jsonArray.length()} buttons")
                 for (i in 0 until jsonArray.length()) {
