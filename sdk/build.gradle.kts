@@ -37,8 +37,6 @@ subprojects {
 
         defaultConfig {
             minSdk = project.versionFor("version.android.minSdk").toInt()
-            @Suppress("DEPRECATION")
-            targetSdk = project.versionFor("version.android.targetSdk").toInt()
             testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
             consumerProguardFiles("consumer-rules.pro")
         }
