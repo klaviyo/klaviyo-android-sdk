@@ -1,4 +1,5 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
+import org.jetbrains.dokka.gradle.DokkaMultiModuleTask
 import org.w3c.dom.Element
 import java.io.FileNotFoundException
 import javax.xml.parsers.DocumentBuilderFactory
@@ -77,7 +78,7 @@ fun readXmlValue(filePath: String, tagName: String, project: Project): String {
 // Make readXmlValue accessible to subprojects
 extra["readXmlValue"] = ::readXmlValue
 
-tasks.named<org.jetbrains.dokka.gradle.DokkaMultiModuleTask>("dokkaHtmlMultiModule") {
+tasks.named<DokkaMultiModuleTask>("dokkaHtmlMultiModule") {
     val versionName = readXmlValue(
         "sdk/core/src/main/res/values/strings.xml",
         "klaviyo_sdk_version_override",
