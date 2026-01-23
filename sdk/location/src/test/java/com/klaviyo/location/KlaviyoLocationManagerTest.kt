@@ -42,6 +42,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import org.junit.After
@@ -1481,6 +1482,141 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         unmockkStatic(LocationServices::class)
         unmockkStatic(PendingIntent::class)
         unmockkStatic(Intent::class)
+    }
+
+    // endregion
+
+    // region getCurrentGeofences Tests
+
+    /**
+     * Helper to retrieve tracked IDs directly from storage for test verification
+     */
+    private fun getTrackedIdsFromStorage(): Set<String> {
+        return Registry.dataStore.fetch("klaviyo_tracked_geofence_ids")?.let { json ->
+            JSONArray(json).let { array ->
+                (0 until array.length()).map { array.getString(it) }.toSet()
+            }
+        } ?: emptySet()
+    }
+
+    /**
+     * Helper to directly store tracked IDs for testing getCurrentGeofences
+     */
+    private fun storeTrackedIdsDirectly(ids: List<String>) {
+        val jsonArray = JSONArray(ids)
+        Registry.dataStore.store("klaviyo_tracked_geofence_ids", jsonArray.toString())
+    }
+
+    @Test
+    fun `getCurrentGeofences returns empty list when no geofences are tracked`() {
+        // No geofences stored or tracked
+        val result = locationManager.getCurrentGeofences()
+
+        assertEquals(0, result.size)
+    }
+
+    @Test
+    fun `getCurrentGeofences returns empty list when geofences are stored but not tracked`() {
+        // Store geofences without starting monitoring
+        mockStoredFences(stubNYC, stubLondon)
+
+        // Without starting monitoring, no IDs should be tracked
+        val result = locationManager.getCurrentGeofences()
+
+        assertEquals(0, result.size)
+    }
+
+    @Test
+    fun `getCurrentGeofences returns tracked geofences when tracked IDs are stored`() {
+        // Store geofences
+        mockStoredFences(stubNYC, stubLondon)
+
+        // Directly store tracked IDs (simulating successful addGeofences callback)
+        storeTrackedIdsDirectly(listOf("$API_KEY:NYC", "$API_KEY:LONDON"))
+
+        // Verify getCurrentGeofences returns the tracked geofences
+        val result = locationManager.getCurrentGeofences()
+        assertEquals(2, result.size)
+        assertGeofenceEquals(result[0], "$API_KEY:NYC", NYC_LAT, NYC_LNG, NYC_RADIUS)
+        assertGeofenceEquals(result[1], "$API_KEY:LONDON", LONDON_LAT, LONDON_LNG, LONDON_RADIUS)
+    }
+
+    @Test
+    fun `getCurrentGeofences returns only tracked geofences not all stored`() {
+        // Store multiple geofences
+        val allGeofences = (1..5).map {
+            FetchedGeofence(
+                API_KEY,
+                "fence-$it",
+                NYC_LAT + it * 0.01,
+                NYC_LNG + it * 0.01,
+                100.0
+            )
+        }
+        mockStoredFences(*allGeofences.toTypedArray())
+
+        // Only track 2 of the 5
+        storeTrackedIdsDirectly(listOf("$API_KEY:fence-1", "$API_KEY:fence-3"))
+
+        // Verify getCurrentGeofences returns only the tracked 2
+        val result = locationManager.getCurrentGeofences()
+        assertEquals(2, result.size)
+        assertEquals("$API_KEY:fence-1", result[0].id)
+        assertEquals("$API_KEY:fence-3", result[1].id)
+
+        // Verify stored geofences still has all 5
+        assertEquals(5, locationManager.getStoredGeofences().size)
+    }
+
+    @Test
+    fun `getCurrentGeofences returns empty list after stopGeofenceMonitoring clears tracked IDs`() {
+        // Store geofences
+        mockStoredFences(stubNYC, stubLondon)
+
+        // Directly store tracked IDs
+        storeTrackedIdsDirectly(listOf("$API_KEY:NYC", "$API_KEY:LONDON"))
+
+        // Verify geofences are tracked
+        assertEquals(2, locationManager.getCurrentGeofences().size)
+
+        // Stop monitoring - this should clear tracked IDs
+        locationManager.stopGeofenceMonitoring()
+
+        // Verify tracked IDs are cleared
+        assertEquals(0, getTrackedIdsFromStorage().size)
+        assertEquals(0, locationManager.getCurrentGeofences().size)
+    }
+
+    @Test
+    fun `tracked geofence IDs persist across LocationManager instances`() {
+        // Store geofences
+        mockStoredFences(stubNYC, stubLondon)
+
+        // Directly store tracked IDs
+        storeTrackedIdsDirectly(listOf("$API_KEY:NYC", "$API_KEY:LONDON"))
+
+        // Create a new LocationManager instance
+        val newLocationManager = KlaviyoLocationManager()
+
+        // Verify the new instance can read the tracked geofences
+        val result = newLocationManager.getCurrentGeofences()
+        assertEquals(2, result.size)
+        assertGeofenceEquals(result[0], "$API_KEY:NYC", NYC_LAT, NYC_LNG, NYC_RADIUS)
+        assertGeofenceEquals(result[1], "$API_KEY:LONDON", LONDON_LAT, LONDON_LNG, LONDON_RADIUS)
+    }
+
+    @Test
+    fun `getCurrentGeofences handles invalid tracked ID gracefully`() {
+        // Store geofences
+        mockStoredFences(stubNYC, stubLondon)
+
+        // Store tracked IDs with one invalid ID that doesn't exist in stored geofences
+        storeTrackedIdsDirectly(listOf("$API_KEY:NYC", "$API_KEY:NONEXISTENT"))
+
+        // Should only return the valid geofence
+        val result = locationManager.getCurrentGeofences()
+        assertEquals(1, result.size)
+        assertEquals("$API_KEY:NYC", result[0].id)
     }
 
     // endregion
