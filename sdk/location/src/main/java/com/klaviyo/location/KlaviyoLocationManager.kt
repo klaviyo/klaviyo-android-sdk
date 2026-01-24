@@ -515,8 +515,14 @@ internal class KlaviyoLocationManager : LocationManager {
      * Stop monitoring all Klaviyo geofences
      */
     private fun stopSystemMonitoring() {
-        client.removeGeofences(intent)
-        clearTrackedIds()
+        client.removeGeofences(intent).run {
+            addOnSuccessListener {
+                clearTrackedIds()
+            }
+            addOnFailureListener {
+                Registry.log.error("Failed to stop geofence monitoring", it)
+            }
+        }
     }
 
     /**
