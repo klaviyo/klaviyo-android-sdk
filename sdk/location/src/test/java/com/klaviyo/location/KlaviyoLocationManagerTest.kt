@@ -105,7 +105,12 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     }
 
     private val mockRemoveGeofencesTask = mockk<Task<Void>>(relaxed = true).apply {
-        every { addOnSuccessListener(any()) } returns this
+        every { addOnSuccessListener(any()) } answers {
+            // Immediately invoke the success listener
+            val listener = firstArg<OnSuccessListener<Void>>()
+            listener.onSuccess(null)
+            this@apply
+        }
         every { addOnFailureListener(any()) } returns this
     }
 
@@ -130,8 +135,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
     private val mockGeofencingClient = mockk<GeofencingClient>(relaxed = true).apply {
         mockkStatic(LocationServices::class)
-        every { addGeofences(any(), mockPendingIntent) } returns mockAddGeofencesTask
-        every { removeGeofences(mockPendingIntent) } returns mockRemoveGeofencesTask
+        every { addGeofences(any(), any()) } returns mockAddGeofencesTask
+        every { removeGeofences(any<PendingIntent>()) } returns mockRemoveGeofencesTask
         every { LocationServices.getGeofencingClient(any<Context>()) } returns this
         every { LocationServices.getFusedLocationProviderClient(any<Context>()) } returns mockFusedLocationClient
     }
@@ -1579,7 +1584,7 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         // Verify geofences are tracked
         assertEquals(2, locationManager.getCurrentGeofences().size)
 
-        // Stop monitoring - this should clear tracked IDs
+        // Stop monitoring - this should clear tracked IDs (mock auto-invokes success callback)
         locationManager.stopGeofenceMonitoring()
 
         // Verify tracked IDs are cleared
