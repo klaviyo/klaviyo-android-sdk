@@ -100,7 +100,12 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
     private val mockApiClient = mockk<ApiClient>(relaxed = true)
 
     private val mockAddGeofencesTask = mockk<Task<Void>>(relaxed = true).apply {
-        every { addOnSuccessListener(any()) } returns this
+        every { addOnSuccessListener(any()) } answers {
+            // Immediately invoke the success listener
+            val listener = firstArg<OnSuccessListener<Void>>()
+            listener.onSuccess(null)
+            this@apply
+        }
         every { addOnFailureListener(any()) } returns this
     }
 
@@ -133,16 +138,17 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
         every { lastLocation } returns mockLocationTask
     }
 
+    // Must be declared before mockGeofencingClient to ensure it's initialized when referenced
+    private val mockPendingIntent = MockIntent.mockPendingIntent()
+    private val mockIntent = mockk<Intent>(relaxed = true)
+
     private val mockGeofencingClient = mockk<GeofencingClient>(relaxed = true).apply {
         mockkStatic(LocationServices::class)
-        every { addGeofences(any(), any()) } returns mockAddGeofencesTask
-        every { removeGeofences(any<PendingIntent>()) } returns mockRemoveGeofencesTask
+        every { addGeofences(any(), mockPendingIntent) } returns mockAddGeofencesTask
+        every { removeGeofences(mockPendingIntent) } returns mockRemoveGeofencesTask
         every { LocationServices.getGeofencingClient(any<Context>()) } returns this
         every { LocationServices.getFusedLocationProviderClient(any<Context>()) } returns mockFusedLocationClient
     }
-
-    private val mockPendingIntent = MockIntent.mockPendingIntent()
-    private val mockIntent = mockk<Intent>(relaxed = true)
 
     private val mockPermissionMonitor = mockk<PermissionMonitor>(relaxed = true).apply {
         every { permissionState } returns false
@@ -1485,8 +1491,8 @@ internal class KlaviyoLocationManagerTest : BaseTest() {
 
         // Cleanup static mocks
         unmockkStatic(LocationServices::class)
-        unmockkStatic(PendingIntent::class)
         unmockkStatic(Intent::class)
+        MockIntent.unmockPendingIntent()
     }
 
     // endregion

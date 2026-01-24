@@ -515,7 +515,8 @@ internal class KlaviyoLocationManager : LocationManager {
      * Stop monitoring all Klaviyo geofences
      */
     private fun stopSystemMonitoring() {
-        client.removeGeofences(intent).run {
+        val task = client.removeGeofences(intent)
+        task.run {
             addOnSuccessListener {
                 clearTrackedIds()
             }
