@@ -86,7 +86,9 @@ class KlaviyoNotificationTest : BaseTest() {
         every { anyConstructed<NotificationCompat.Builder>().setNumber(any()) } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().setPriority(any()) } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().setAutoCancel(any()) } answers { self as NotificationCompat.Builder }
-        every { anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>()) } answers { self as NotificationCompat.Builder }
+        every {
+            anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>())
+        } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().build() } returns mockk(relaxed = true)
 
         MockIntent.mockPendingIntent()
