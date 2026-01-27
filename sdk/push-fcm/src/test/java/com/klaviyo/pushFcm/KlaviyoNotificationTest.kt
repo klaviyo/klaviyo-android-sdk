@@ -324,6 +324,75 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
+    fun `action buttons with unsupported deep links fall back to launch intent`() {
+        val mockDeepLinkIntent = mockk<Intent>(relaxed = true)
+        val mockLaunchIntent = mockk<Intent>(relaxed = true)
+        val intents = mutableListOf<Intent>()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton(
+                    id = "deep-link",
+                    label = "Open deep link",
+                    action = ButtonActionType.DEEP_LINK,
+                    url = "app://invalid"
+                ),
+                ActionButton(
+                    id = "open-app",
+                    label = "Open app",
+                    action = ButtonActionType.OPEN_APP,
+                    url = "app://invalid"
+                )
+            )
+        }
+
+        every { DeepLinking.makeDeepLinkIntent(any(), any()) } returns mockDeepLinkIntent
+        every { mockDeepLinkIntent.resolveActivity(any()) } returns null
+        every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
+
+        every {
+            PendingIntent.getActivity(any(), any(), capture(intents), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        assertEquals(3, intents.size)
+        assertEquals(mockLaunchIntent, intents[1])
+        assertEquals(mockLaunchIntent, intents[2])
+    }
+
+    @Test
+    fun `action button open app uses deep link intent when resolved`() {
+        val mockDeepLinkIntent = mockk<Intent>(relaxed = true)
+        val mockLaunchIntent = mockk<Intent>(relaxed = true)
+        val intents = mutableListOf<Intent>()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton(
+                    id = "open-app",
+                    label = "Open app",
+                    action = ButtonActionType.OPEN_APP,
+                    url = "app://valid"
+                )
+            )
+        }
+
+        every { DeepLinking.makeDeepLinkIntent(any(), any()) } returns mockDeepLinkIntent
+        every { mockDeepLinkIntent.resolveActivity(any()) } returns mockk()
+        every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
+
+        every {
+            PendingIntent.getActivity(any(), any(), capture(intents), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        assertEquals(2, intents.size)
+        assertEquals(mockDeepLinkIntent, intents.last())
+    }
+
+    @Test
     fun `pending intent created with correct flags`() {
         val flagsSlot = slot<Int>()
 

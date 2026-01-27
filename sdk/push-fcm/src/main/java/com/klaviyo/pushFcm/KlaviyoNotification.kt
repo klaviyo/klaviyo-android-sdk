@@ -292,13 +292,13 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                     Registry.log.warning("Action button $index has DEEP_LINK action but no URL")
                     openAppIntent(context)
                 } else {
-                    DeepLinking.makeDeepLinkIntent(url.toUri(), context)
+                    makeResolvedDeepLinkIntent(context, index, url)
                 }
             }
             ButtonActionType.OPEN_APP -> {
                 // Open app uses URL if provided, otherwise opens launcher activity
                 if (!url.isNullOrBlank()) {
-                    DeepLinking.makeDeepLinkIntent(url.toUri(), context)
+                    makeResolvedDeepLinkIntent(context, index, url)
                 } else {
                     openAppIntent(context)
                 }
@@ -326,6 +326,19 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             button.label,
             pendingIntent
         )
+    }
+
+    private fun makeResolvedDeepLinkIntent(
+        context: Context,
+        index: Int,
+        url: String
+    ): Intent? {
+        val uri = url.toUri()
+        return DeepLinking.makeDeepLinkIntent(uri, context)
+            .takeIf { it.activityResolved(context) }
+            ?: openAppIntent(context).also {
+                Registry.log.error("Action button $index contained unsupported deep link: $uri")
+            }
     }
 
     private fun openAppIntent(context: Context): Intent? {
