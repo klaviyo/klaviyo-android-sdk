@@ -267,7 +267,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 return@forEachIndexed
             }
 
-            builder.addAction(createButtonAction(context, index, button))
+            val action = createButtonAction(context, index, button) ?: return@forEachIndexed
+            builder.addAction(action)
             val destination = if (button.url != null) " -> ${button.url}" else ""
             Registry.log.verbose(
                 "Added action button $index: '${button.label}' (${button.action})$destination"
@@ -282,7 +283,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         context: Context,
         index: Int,
         button: ActionButton
-    ): NotificationCompat.Action {
+    ): NotificationCompat.Action? {
         val url = button.url
         val intent = when (button.action) {
             ButtonActionType.DEEP_LINK -> {
@@ -302,9 +303,16 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                     openAppIntent(context)
                 }
             }
-        }.apply {
+        }?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }.appendKlaviyoExtras(message)
+        }?.appendKlaviyoExtras(message)
+
+        if (intent == null) {
+            Registry.log.warning(
+                "Action button $index could not be created: no launch intent found for host app"
+            )
+            return null
+        }
 
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -320,8 +328,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         )
     }
 
-    private fun openAppIntent(context: Context): Intent {
-        return context.packageManager.getLaunchIntentForPackage(context.packageName)
-            ?: Intent(context, context::class.java)
+    private fun openAppIntent(context: Context): Intent? {
+        return DeepLinking.makeLaunchIntent(context)
     }
 }

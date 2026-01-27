@@ -13,6 +13,8 @@ import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.TITLE_KEY
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ButtonActionType
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -83,6 +85,7 @@ class KlaviyoNotificationTest : BaseTest() {
         every { anyConstructed<NotificationCompat.Builder>().setNumber(any()) } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().setPriority(any()) } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().setAutoCancel(any()) } answers { self as NotificationCompat.Builder }
+        every { anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>()) } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().build() } returns mockk(relaxed = true)
 
         MockIntent.mockPendingIntent()
@@ -355,5 +358,27 @@ class KlaviyoNotificationTest : BaseTest() {
         verify { anyConstructed<NotificationCompat.Builder>().setContentIntent(mockPendingIntent) }
         verify { intentSlot.captured.putExtra("com.klaviyo._k", "test_tracking_id") }
         verify { intentSlot.captured.putExtra("com.klaviyo.title", "Test Title") }
+    }
+
+    @Test
+    fun `action button without launch intent does not add action`() {
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton(
+                    id = "open",
+                    label = "Open",
+                    action = ButtonActionType.OPEN_APP,
+                    url = null
+                )
+            )
+        }
+
+        every { DeepLinking.makeLaunchIntent(any()) } returns null
+
+        notification.displayNotification(mockContext)
+
+        verify(exactly = 0) {
+            anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>())
+        }
     }
 }
