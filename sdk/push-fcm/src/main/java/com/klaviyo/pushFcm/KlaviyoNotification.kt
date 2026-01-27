@@ -283,20 +283,23 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         index: Int,
         button: ActionButton
     ): NotificationCompat.Action {
+        val url = button.url
         val intent = when (button.action) {
             ButtonActionType.DEEP_LINK -> {
                 // Deep link requires a URL
-                val uri = button.url!!.toUri()
-                DeepLinking.makeDeepLinkIntent(uri, context)
+                if (url.isNullOrBlank()) {
+                    Registry.log.warning("Action button $index has DEEP_LINK action but no URL")
+                    openAppIntent(context)
+                } else {
+                    DeepLinking.makeDeepLinkIntent(url.toUri(), context)
+                }
             }
             ButtonActionType.OPEN_APP -> {
                 // Open app uses URL if provided, otherwise opens launcher activity
-                if (!button.url.isNullOrBlank()) {
-                    val uri = button.url.toUri()
-                    DeepLinking.makeDeepLinkIntent(uri, context)
+                if (!url.isNullOrBlank()) {
+                    DeepLinking.makeDeepLinkIntent(url.toUri(), context)
                 } else {
-                    context.packageManager.getLaunchIntentForPackage(context.packageName)
-                        ?: Intent(context, context::class.java)
+                    openAppIntent(context)
                 }
             }
         }.apply {
@@ -315,5 +318,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             button.label,
             pendingIntent
         )
+    }
+
+    private fun openAppIntent(context: Context): Intent {
+        return context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?: Intent(context, context::class.java)
     }
 }
