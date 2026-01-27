@@ -22,6 +22,7 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.spyk
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -90,6 +91,9 @@ class KlaviyoNotificationTest : BaseTest() {
 
         MockIntent.mockPendingIntent()
 
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk(relaxed = true)
+
         with(DeepLinking) {
             mockkObject(DeepLinking)
             every { makeLaunchIntent(any()) } returns mockk(relaxed = true)
@@ -100,6 +104,7 @@ class KlaviyoNotificationTest : BaseTest() {
     @After
     override fun cleanup() {
         MockIntent.unmockPendingIntent()
+        unmockkStatic(Uri::class)
         super.cleanup()
     }
 
