@@ -297,13 +297,11 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         val url = button.url
         val intent = when (button.action) {
             ButtonActionType.DEEP_LINK -> {
-                // Deep link requires a URL
-                if (url.isNullOrBlank()) {
-                    Registry.log.warning("Action button $index has DEEP_LINK action but no URL")
-                    openAppIntent(context)
-                } else {
-                    makeResolvedDeepLinkIntent(context, index, url)
-                }
+                makeResolvedDeepLinkIntent(
+                    context,
+                    index,
+                    requireNotNull(url) { "DEEP_LINK action requires a URL." }
+                )
             }
             ButtonActionType.OPEN_APP -> {
                 // Open app uses URL if provided, otherwise opens launcher activity
