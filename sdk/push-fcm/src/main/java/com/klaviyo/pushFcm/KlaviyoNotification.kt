@@ -254,6 +254,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      */
     private fun addActionButtons(context: Context, builder: NotificationCompat.Builder) {
         val actionButtons = message.actionButtons ?: return
+        val requestCodeBase = generateId()
 
         actionButtons.take(3).forEachIndexed { index, button ->
             if (button.label.isBlank()) {
@@ -267,7 +268,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 return@forEachIndexed
             }
 
-            val action = createButtonAction(context, index, button) ?: return@forEachIndexed
+            val requestCode = requestCodeBase + index
+            val action = createButtonAction(context, index, requestCode, button) ?: return@forEachIndexed
             builder.addAction(action)
             val destination = if (button.url != null) " -> ${button.url}" else ""
             Registry.log.verbose(
@@ -282,6 +284,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
     private fun createButtonAction(
         context: Context,
         index: Int,
+        requestCode: Int,
         button: ActionButton
     ): NotificationCompat.Action? {
         val url = button.url
@@ -316,7 +319,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
         val pendingIntent = PendingIntent.getActivity(
             context,
-            1000 + index,
+            requestCode,
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )

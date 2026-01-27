@@ -15,6 +15,7 @@ import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.TITLE_KEY
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ButtonActionType
+import io.mockk.capture
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -449,5 +450,42 @@ class KlaviyoNotificationTest : BaseTest() {
         verify(exactly = 0) {
             anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>())
         }
+    }
+
+    @Test
+    fun `action buttons use unique request codes`() {
+        val requestCodes = mutableListOf<Int>()
+
+        every {
+            anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>())
+        } answers { self as NotificationCompat.Builder }
+
+        every {
+            PendingIntent.getActivity(any(), capture(requestCodes), any(), any())
+        } returns mockk(relaxed = true)
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton(
+                    id = "first",
+                    label = "First",
+                    action = ButtonActionType.DEEP_LINK,
+                    url = "https://example.com/first"
+                ),
+                ActionButton(
+                    id = "second",
+                    label = "Second",
+                    action = ButtonActionType.OPEN_APP,
+                    url = "https://example.com/second"
+                )
+            )
+        }
+
+        notification.displayNotification(mockContext)
+
+        val actionRequestCodes = requestCodes.drop(1)
+        assertEquals(2, actionRequestCodes.size)
+        assertEquals(actionRequestCodes.size, actionRequestCodes.distinct().size)
+        assertTrue(actionRequestCodes.none { it == 1000 || it == 1001 })
     }
 }
