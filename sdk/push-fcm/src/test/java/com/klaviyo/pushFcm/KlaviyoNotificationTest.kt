@@ -493,4 +493,32 @@ class KlaviyoNotificationTest : BaseTest() {
         assertEquals(actionRequestCodes.size, actionRequestCodes.distinct().size)
         assertTrue(actionRequestCodes.none { it == 1000 || it == 1001 })
     }
+
+    @Test
+    fun `content intent request code does not collide with action button`() {
+        val requestCodes = mutableListOf<Int>()
+        val mockLaunchIntent = mockk<Intent>(relaxed = true)
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton(
+                    id = "open",
+                    label = "Open app",
+                    action = ButtonActionType.OPEN_APP,
+                    url = null
+                )
+            )
+        }
+
+        every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
+
+        every {
+            PendingIntent.getActivity(any(), capture(requestCodes), any(), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        assertEquals(2, requestCodes.size)
+        assertTrue(requestCodes.first() != requestCodes.last())
+    }
 }

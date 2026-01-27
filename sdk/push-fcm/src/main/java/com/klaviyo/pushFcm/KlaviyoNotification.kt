@@ -74,6 +74,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val KEY_VALUE_PAIRS_KEY = Constants.KEY_VALUE_PAIRS
         internal const val ACTION_BUTTONS_KEY = "action_buttons"
         private const val DOWNLOAD_TIMEOUT_MS = 5_000
+        private const val ACTION_REQUEST_CODE_OFFSET = 1
 
         /**
          * Get an integer ID to associate with a notification or its pending intent
@@ -152,9 +153,11 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * @param context
      * @return [Notification.Builder] to display
      */
-    internal fun buildNotification(context: Context): NotificationCompat.Builder =
-        NotificationCompat.Builder(context, message.channel_id)
-            .setContentIntent(makePendingIntent(context))
+    internal fun buildNotification(context: Context): NotificationCompat.Builder {
+        val requestCodeBase = generateId()
+        val actionRequestCodeBase = requestCodeBase + ACTION_REQUEST_CODE_OFFSET
+        return NotificationCompat.Builder(context, message.channel_id)
+            .setContentIntent(makePendingIntent(context, requestCodeBase))
             .setSmallIcon(message.getSmallIcon(context))
             .also { message.getColor(context)?.let { color -> it.setColor(color) } }
             .setContentTitle(message.title)
@@ -164,7 +167,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
-            .also { builder -> addActionButtons(context, builder) }
+            .also { builder -> addActionButtons(context, builder, actionRequestCodeBase) }
+    }
 
     private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
         val executor = Executors.newCachedThreadPool()
@@ -214,10 +218,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      *
      * @return [PendingIntent]
      */
-    private fun makePendingIntent(context: Context) =
+    private fun makePendingIntent(context: Context, requestCode: Int) =
         PendingIntent.getActivity(
             context,
-            generateId(),
+            requestCode,
             makeOpenedIntent(context),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
         )
@@ -252,9 +256,12 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      *
      * Note: Icons are not supported on Android (iOS only).
      */
-    private fun addActionButtons(context: Context, builder: NotificationCompat.Builder) {
+    private fun addActionButtons(
+        context: Context,
+        builder: NotificationCompat.Builder,
+        requestCodeBase: Int
+    ) {
         val actionButtons = message.actionButtons ?: return
-        val requestCodeBase = generateId()
 
         actionButtons.take(3).forEachIndexed { index, button ->
             if (button.label.isBlank()) {
