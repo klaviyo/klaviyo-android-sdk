@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -20,6 +21,7 @@ import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ButtonActionType
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
@@ -244,8 +246,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * [{"id":"...", "label":"...", "action":"deep_link|open_app", "url":"..."}]
      *
      * Supported action types:
-     * - "deep_link" (default): Opens app with deep link or URL
-     * - "open_app": Opens app (alias for deep_link)
+     * - "deep_link": Opens app with deep link or URL
+     * - "open_app": Opens app
      *
      * Note: Icons are not supported on Android (iOS only).
      */
@@ -253,27 +255,51 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         val actionButtons = message.actionButtons ?: return
 
         actionButtons.take(3).forEachIndexed { index, button ->
-            if (button.label.isBlank() || button.url.isBlank()) {
-                Registry.log.warning("Action button $index has blank label or url")
+            if (button.label.isBlank()) {
+                Registry.log.warning("Action button $index has blank label")
                 return@forEachIndexed
             }
 
-            builder.addAction(createDeepLinkAction(context, index, button))
-            Registry.log.verbose("Added action button $index: '${button.label}' -> ${button.url}")
+            // Validate URL is present for DEEP_LINK actions
+            if (button.action == ButtonActionType.DEEP_LINK && button.url.isNullOrBlank()) {
+                Registry.log.warning("Action button $index has DEEP_LINK action but no URL")
+                return@forEachIndexed
+            }
+
+            builder.addAction(createButtonAction(context, index, button))
+            val destination = if (button.url != null) " -> ${button.url}" else ""
+            Registry.log.verbose(
+                "Added action button $index: '${button.label}' (${button.action})$destination"
+            )
         }
     }
 
     /**
-     * Create a deep link action that opens the app
+     * Create a notification action that either opens the app or navigates to a deep link
      */
-    private fun createDeepLinkAction(
+    private fun createButtonAction(
         context: Context,
         index: Int,
         button: ActionButton
     ): NotificationCompat.Action {
-        val uri = button.url.toUri()
-        val intent = DeepLinking.makeDeepLinkIntent(uri, context).apply {
-            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+        val intent = when (button.action) {
+            ButtonActionType.DEEP_LINK -> {
+                // Deep link requires a URL
+                val uri = button.url!!.toUri()
+                DeepLinking.makeDeepLinkIntent(uri, context)
+            }
+            ButtonActionType.OPEN_APP -> {
+                // Open app uses URL if provided, otherwise opens launcher activity
+                if (!button.url.isNullOrBlank()) {
+                    val uri = button.url.toUri()
+                    DeepLinking.makeDeepLinkIntent(uri, context)
+                } else {
+                    context.packageManager.getLaunchIntentForPackage(context.packageName)
+                        ?: Intent(context, context::class.java)
+                }
+            }
+        }.apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }.appendKlaviyoExtras(message)
 
         val pendingIntent = PendingIntent.getActivity(
