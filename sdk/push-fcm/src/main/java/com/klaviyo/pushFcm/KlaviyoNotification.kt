@@ -307,7 +307,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 }
             }
         }?.apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }?.appendKlaviyoExtras(message)
 
         if (intent == null) {
