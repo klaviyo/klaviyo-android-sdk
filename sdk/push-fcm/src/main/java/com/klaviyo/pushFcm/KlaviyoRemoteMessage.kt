@@ -172,25 +172,14 @@ object KlaviyoRemoteMessage {
                 Registry.log.verbose("JSON array has ${jsonArray.length()} buttons")
                 for (i in 0 until jsonArray.length()) {
                     val jsonObject = jsonArray.getJSONObject(i)
-                    val action = ButtonActionType.fromString(
-                        jsonObject.optString("action", "open_app")
-                    )
-                    val url = jsonObject.optString("url").takeIf { it.isNotBlank() }
-
                     val button = ActionButton(
                         id = jsonObject.optString("id"),
                         label = jsonObject.optString("label"),
-                        action = action,
-                        url = url
+                        action = ButtonActionType.fromString(
+                            jsonObject.optString("action", "open_app")
+                        ),
+                        url = jsonObject.optString("url").takeIf { it.isNotBlank() }
                     )
-
-                    // Log warning if DEEP_LINK action is used without a URL
-                    if (action == ButtonActionType.DEEP_LINK && url == null) {
-                        Registry.log.warning(
-                            "Action button $i has DEEP_LINK action but no URL specified"
-                        )
-                    }
-
                     Registry.log.verbose("Parsed button $i: $button")
                     buttons.add(button)
                 }
