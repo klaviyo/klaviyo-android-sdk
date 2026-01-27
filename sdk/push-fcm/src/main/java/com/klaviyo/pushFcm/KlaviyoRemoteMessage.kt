@@ -172,12 +172,25 @@ object KlaviyoRemoteMessage {
                 Registry.log.verbose("JSON array has ${jsonArray.length()} buttons")
                 for (i in 0 until jsonArray.length()) {
                     val jsonObject = jsonArray.getJSONObject(i)
+                    val action = ButtonActionType.fromString(
+                        jsonObject.optString("action", "open_app")
+                    )
+                    val url = jsonObject.optString("url").takeIf { it.isNotBlank() }
+
                     val button = ActionButton(
                         id = jsonObject.optString("id"),
                         label = jsonObject.optString("label"),
-                        action = jsonObject.optString("action", "deep_link"),
-                        url = jsonObject.optString("url")
+                        action = action,
+                        url = url
                     )
+
+                    // Log warning if DEEP_LINK action is used without a URL
+                    if (action == ButtonActionType.DEEP_LINK && url == null) {
+                        Registry.log.warning(
+                            "Action button $i has DEEP_LINK action but no URL specified"
+                        )
+                    }
+
                     Registry.log.verbose("Parsed button $i: $button")
                     buttons.add(button)
                 }
@@ -193,18 +206,37 @@ object KlaviyoRemoteMessage {
         }
 
     /**
+     * Enum representing the types of actions that can be triggered by a notification button
+     */
+    enum class ButtonActionType(val value: String) {
+        DEEP_LINK("deep_link"),
+        OPEN_APP("open_app");
+
+        companion object {
+            /**
+             * Parse a string value to a ButtonAction, with a fallback to OPEN_APP
+             *
+             * @param value The string representation of the action
+             * @return The corresponding ButtonAction, or OPEN_APP if not recognized
+             */
+            fun fromString(value: String): ButtonActionType =
+                entries.find { it.value.equals(value, ignoreCase = true) } ?: OPEN_APP
+        }
+    }
+
+    /**
      * Data class representing an action button
      *
      * @property id Unique identifier for the button
      * @property label Text displayed on the button
-     * @property action Action type: "deep_link" or "open_app"
-     * @property url Destination URL or deep link
+     * @property action Button action type (ie. open app, deep link)
+     * @property url Destination URL or deep link (optional for OPEN_APP, required for DEEP_LINK)
      */
     data class ActionButton(
         val id: String,
         val label: String,
-        val action: String, // "deep_link" or "open_app"
-        val url: String
+        val action: ButtonActionType,
+        val url: String?
     )
 
     /**
