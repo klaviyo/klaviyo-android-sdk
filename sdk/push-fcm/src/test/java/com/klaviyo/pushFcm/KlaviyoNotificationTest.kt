@@ -15,7 +15,6 @@ import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.TITLE_KEY
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ButtonActionType
-import io.mockk.capture
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -352,8 +351,11 @@ class KlaviyoNotificationTest : BaseTest() {
         every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
 
         every {
-            PendingIntent.getActivity(any(), any(), capture(intents), any())
-        } returns mockk(relaxed = true)
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } answers {
+            intents.add(invocation.args[2] as Intent)
+            mockk(relaxed = true)
+        }
 
         notification.displayNotification(mockContext)
 
@@ -384,8 +386,11 @@ class KlaviyoNotificationTest : BaseTest() {
         every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
 
         every {
-            PendingIntent.getActivity(any(), any(), capture(intents), any())
-        } returns mockk(relaxed = true)
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } answers {
+            intents.add(invocation.args[2] as Intent)
+            mockk(relaxed = true)
+        }
 
         notification.displayNotification(mockContext)
 
