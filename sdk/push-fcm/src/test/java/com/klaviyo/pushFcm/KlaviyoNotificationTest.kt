@@ -13,6 +13,8 @@ import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.TITLE_KEY
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ButtonActionType
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -20,6 +22,7 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.spyk
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -83,9 +86,15 @@ class KlaviyoNotificationTest : BaseTest() {
         every { anyConstructed<NotificationCompat.Builder>().setNumber(any()) } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().setPriority(any()) } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().setAutoCancel(any()) } answers { self as NotificationCompat.Builder }
+        every {
+            anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>())
+        } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().build() } returns mockk(relaxed = true)
 
         MockIntent.mockPendingIntent()
+
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk(relaxed = true)
 
         with(DeepLinking) {
             mockkObject(DeepLinking)
@@ -97,6 +106,7 @@ class KlaviyoNotificationTest : BaseTest() {
     @After
     override fun cleanup() {
         MockIntent.unmockPendingIntent()
+        unmockkStatic(Uri::class)
         super.cleanup()
     }
 
@@ -321,6 +331,81 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
+    fun `action buttons with unsupported deep links fall back to launch intent`() {
+        val mockDeepLinkIntent = mockk<Intent>(relaxed = true)
+        val mockLaunchIntent = mockk<Intent>(relaxed = true)
+        val intents = mutableListOf<Intent>()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton(
+                    id = "deep-link",
+                    label = "Open deep link",
+                    action = ButtonActionType.DEEP_LINK,
+                    url = "app://invalid"
+                ),
+                ActionButton(
+                    id = "open-app",
+                    label = "Open app",
+                    action = ButtonActionType.OPEN_APP,
+                    url = "app://invalid"
+                )
+            )
+        }
+
+        every { DeepLinking.makeDeepLinkIntent(any(), any()) } returns mockDeepLinkIntent
+        every { mockDeepLinkIntent.resolveActivity(any()) } returns null
+        every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
+
+        every {
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } answers {
+            intents.add(invocation.args[2] as Intent)
+            mockk(relaxed = true)
+        }
+
+        notification.displayNotification(mockContext)
+
+        assertEquals(3, intents.size)
+        assertEquals(mockLaunchIntent, intents[1])
+        assertEquals(mockLaunchIntent, intents[2])
+    }
+
+    @Test
+    fun `action button open app uses deep link intent when resolved`() {
+        val mockDeepLinkIntent = mockk<Intent>(relaxed = true)
+        val mockLaunchIntent = mockk<Intent>(relaxed = true)
+        val intents = mutableListOf<Intent>()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton(
+                    id = "open-app",
+                    label = "Open app",
+                    action = ButtonActionType.OPEN_APP,
+                    url = "app://valid"
+                )
+            )
+        }
+
+        every { DeepLinking.makeDeepLinkIntent(any(), any()) } returns mockDeepLinkIntent
+        every { mockDeepLinkIntent.resolveActivity(any()) } returns mockk()
+        every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
+
+        every {
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } answers {
+            intents.add(invocation.args[2] as Intent)
+            mockk(relaxed = true)
+        }
+
+        notification.displayNotification(mockContext)
+
+        assertEquals(2, intents.size)
+        assertEquals(mockDeepLinkIntent, intents.last())
+    }
+
+    @Test
     fun `pending intent created with correct flags`() {
         val flagsSlot = slot<Int>()
 
@@ -355,5 +440,92 @@ class KlaviyoNotificationTest : BaseTest() {
         verify { anyConstructed<NotificationCompat.Builder>().setContentIntent(mockPendingIntent) }
         verify { intentSlot.captured.putExtra("com.klaviyo._k", "test_tracking_id") }
         verify { intentSlot.captured.putExtra("com.klaviyo.title", "Test Title") }
+    }
+
+    @Test
+    fun `action button without launch intent does not add action`() {
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton(
+                    id = "open",
+                    label = "Open",
+                    action = ButtonActionType.OPEN_APP,
+                    url = null
+                )
+            )
+        }
+
+        every { DeepLinking.makeLaunchIntent(any()) } returns null
+
+        notification.displayNotification(mockContext)
+
+        verify(exactly = 0) {
+            anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>())
+        }
+    }
+
+    @Test
+    fun `action buttons use unique request codes`() {
+        val requestCodes = mutableListOf<Int>()
+
+        every {
+            anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>())
+        } answers { self as NotificationCompat.Builder }
+
+        every {
+            PendingIntent.getActivity(any(), capture(requestCodes), any(), any())
+        } returns mockk(relaxed = true)
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton(
+                    id = "first",
+                    label = "First",
+                    action = ButtonActionType.DEEP_LINK,
+                    url = "https://example.com/first"
+                ),
+                ActionButton(
+                    id = "second",
+                    label = "Second",
+                    action = ButtonActionType.OPEN_APP,
+                    url = "https://example.com/second"
+                )
+            )
+        }
+
+        notification.displayNotification(mockContext)
+
+        val actionRequestCodes = requestCodes.drop(1)
+        assertEquals(2, actionRequestCodes.size)
+        assertEquals(actionRequestCodes.size, actionRequestCodes.distinct().size)
+        assertTrue(actionRequestCodes.none { it == 1000 || it == 1001 })
+    }
+
+    @Test
+    fun `content intent request code does not collide with action button`() {
+        val requestCodes = mutableListOf<Int>()
+        val mockLaunchIntent = mockk<Intent>(relaxed = true)
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton(
+                    id = "open",
+                    label = "Open app",
+                    action = ButtonActionType.OPEN_APP,
+                    url = null
+                )
+            )
+        }
+
+        every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
+
+        every {
+            PendingIntent.getActivity(any(), capture(requestCodes), any(), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        assertEquals(2, requestCodes.size)
+        assertTrue(requestCodes.first() != requestCodes.last())
     }
 }

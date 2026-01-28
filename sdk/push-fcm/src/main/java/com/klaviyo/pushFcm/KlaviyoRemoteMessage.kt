@@ -21,6 +21,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
 import java.net.URL
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -155,6 +156,77 @@ object KlaviyoRemoteMessage {
                 null
             }
         }
+
+    /**
+     * Parse action buttons from the iOS-aligned format
+     *
+     * Expected structure:
+     * [{"id":"...", "label":"...", "action":"deep_link|open_app", "url":"..."}]
+     */
+    val RemoteMessage.actionButtons: List<ActionButton>?
+        get() = this.data[KlaviyoNotification.ACTION_BUTTONS_KEY]?.let { jsonString ->
+            Registry.log.verbose("Parsing action_buttons from: $jsonString")
+            try {
+                val jsonArray = JSONArray(jsonString)
+                val buttons = mutableListOf<ActionButton>()
+                Registry.log.verbose("JSON array has ${jsonArray.length()} buttons")
+                for (i in 0 until jsonArray.length()) {
+                    val jsonObject = jsonArray.getJSONObject(i)
+                    val button = ActionButton(
+                        id = jsonObject.optString("id"),
+                        label = jsonObject.optString("label"),
+                        action = ButtonActionType.fromString(
+                            jsonObject.optString("action", "open_app")
+                        ),
+                        url = jsonObject.optString("url").takeIf { it.isNotBlank() }
+                    )
+                    Registry.log.verbose("Parsed button $i: $button")
+                    buttons.add(button)
+                }
+                Registry.log.verbose("Successfully parsed ${buttons.size} action buttons")
+                buttons
+            } catch (e: Exception) {
+                Registry.log.warning(
+                    "Klaviyo SDK failed to parse action_buttons JSON: $jsonString",
+                    e
+                )
+                null
+            }
+        }
+
+    /**
+     * Enum representing the types of actions that can be triggered by a notification button
+     */
+    enum class ButtonActionType(val value: String) {
+        DEEP_LINK("deep_link"),
+        OPEN_APP("open_app");
+
+        companion object {
+            /**
+             * Parse a string value to a ButtonAction, with a fallback to OPEN_APP
+             *
+             * @param value The string representation of the action
+             * @return The corresponding ButtonAction, or OPEN_APP if not recognized
+             */
+            fun fromString(value: String): ButtonActionType =
+                entries.find { it.value.equals(value, ignoreCase = true) } ?: OPEN_APP
+        }
+    }
+
+    /**
+     * Data class representing an action button
+     *
+     * @property id Unique identifier for the button
+     * @property label Text displayed on the button
+     * @property action Button action type (ie. open app, deep link)
+     * @property url Destination URL or deep link (optional for OPEN_APP, required for DEEP_LINK)
+     */
+    data class ActionButton(
+        val id: String,
+        val label: String,
+        val action: ButtonActionType,
+        val url: String?
+    )
 
     /**
      * Determine the resource ID of the small icon from provided context
