@@ -75,6 +75,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val ACTION_BUTTONS_KEY = "action_buttons"
         private const val DOWNLOAD_TIMEOUT_MS = 5_000
         private const val ACTION_REQUEST_CODE_OFFSET = 1
+        private const val MAX_ACTION_BUTTONS = 3
 
         /**
          * Get an integer ID to associate with a notification or its pending intent
@@ -166,7 +167,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
-            .also { builder -> addActionButtons(context, builder, requestCodeBase) }
+            .addActionButtons(context, requestCodeBase)
     }
 
     private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
@@ -255,14 +256,13 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      *
      * Note: Icons are not supported on Android (iOS only).
      */
-    private fun addActionButtons(
+    private fun NotificationCompat.Builder.addActionButtons(
         context: Context,
-        builder: NotificationCompat.Builder,
         requestCodeBase: Int
-    ) {
-        val actionButtons = message.actionButtons ?: return
+    ): NotificationCompat.Builder {
+        val actionButtons = message.actionButtons ?: return this
 
-        actionButtons.take(3).forEachIndexed { index, button ->
+        actionButtons.take(MAX_ACTION_BUTTONS).forEachIndexed { index, button ->
             if (button.label.isBlank()) {
                 Registry.log.warning("Action button $index has blank label")
                 return@forEachIndexed
@@ -277,12 +277,13 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             // each action request code must be unique, add offset so base and index zero are different
             val requestCode = requestCodeBase + index + ACTION_REQUEST_CODE_OFFSET
             val action = createButtonAction(context, index, requestCode, button) ?: return@forEachIndexed
-            builder.addAction(action)
+            addAction(action)
             val destination = if (button.url != null) " -> ${button.url}" else ""
             Registry.log.verbose(
                 "Added action button $index: '${button.label}' (${button.action})$destination"
             )
         }
+        return this
     }
 
     /**
@@ -304,7 +305,12 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 )
             }
             ButtonActionType.OPEN_APP -> {
-                openAppIntent(context)
+                // If URL is provided, try to use it as a deep link
+                if (!url.isNullOrBlank()) {
+                    makeResolvedDeepLinkIntent(context, index, url)
+                } else {
+                    openAppIntent(context)
+                }
             }
         }?.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
