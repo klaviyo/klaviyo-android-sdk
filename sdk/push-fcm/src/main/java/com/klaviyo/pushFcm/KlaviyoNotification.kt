@@ -155,7 +155,6 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      */
     internal fun buildNotification(context: Context): NotificationCompat.Builder {
         val requestCodeBase = generateId()
-        val actionRequestCodeBase = requestCodeBase + ACTION_REQUEST_CODE_OFFSET
         return NotificationCompat.Builder(context, message.channel_id)
             .setContentIntent(makePendingIntent(context, requestCodeBase))
             .setSmallIcon(message.getSmallIcon(context))
@@ -167,7 +166,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
-            .also { builder -> addActionButtons(context, builder, actionRequestCodeBase) }
+            .also { builder -> addActionButtons(context, builder, requestCodeBase) }
     }
 
     private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
@@ -275,7 +274,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 return@forEachIndexed
             }
 
-            val requestCode = requestCodeBase + index
+            // each action request code must be unique, add offset so base and index zero are different
+            val requestCode = requestCodeBase + index + ACTION_REQUEST_CODE_OFFSET
             val action = createButtonAction(context, index, requestCode, button) ?: return@forEachIndexed
             builder.addAction(action)
             val destination = if (button.url != null) " -> ${button.url}" else ""
@@ -304,12 +304,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 )
             }
             ButtonActionType.OPEN_APP -> {
-                // Open app uses URL if provided, otherwise opens launcher activity
-                if (!url.isNullOrBlank()) {
-                    makeResolvedDeepLinkIntent(context, index, url)
-                } else {
-                    openAppIntent(context)
-                }
+                openAppIntent(context)
             }
         }?.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
