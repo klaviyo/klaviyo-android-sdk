@@ -57,11 +57,17 @@ object KlaviyoRemoteMessage {
      * @param button The action button that was clicked
      */
     fun Intent.appendActionButtonExtras(button: ActionButton) = apply {
-        putExtra(PACKAGE_PREFIX + "action_button_id", button.id)
-        putExtra(PACKAGE_PREFIX + "action_button_label", button.label)
-        putExtra(PACKAGE_PREFIX + "action_button_type", button.action.value)
+        putExtra(PACKAGE_PREFIX + "Button Id", button.id)
+        putExtra(PACKAGE_PREFIX + "Button Label", button.label)
+
+        val actionName = when (button.action) {
+            ButtonActionType.DEEP_LINK -> "Deep Link"
+            ButtonActionType.OPEN_APP -> "Open App"
+        }
+        putExtra(PACKAGE_PREFIX + "Button Action", actionName)
+
         if (button is ActionButton.DeepLink) {
-            putExtra(PACKAGE_PREFIX + "action_button_url", button.url)
+            putExtra(PACKAGE_PREFIX + "Button Link", button.url)
         }
     }
 

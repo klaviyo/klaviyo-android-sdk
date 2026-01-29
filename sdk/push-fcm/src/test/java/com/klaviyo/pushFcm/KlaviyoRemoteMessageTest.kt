@@ -334,10 +334,10 @@ class KlaviyoRemoteMessageTest : BaseTest() {
 
         intent.appendActionButtonExtras(button)
 
-        verify { intent.putExtra("com.klaviyo.action_button_id", "com.klaviyo.test.open") }
-        verify { intent.putExtra("com.klaviyo.action_button_label", "Open App") }
-        verify { intent.putExtra("com.klaviyo.action_button_type", "open_app") }
-        verify(exactly = 0) { intent.putExtra("com.klaviyo.action_button_url", any<String>()) }
+        verify { intent.putExtra("com.klaviyo.Button Id", "com.klaviyo.test.open") }
+        verify { intent.putExtra("com.klaviyo.Button Label", "Open App") }
+        verify { intent.putExtra("com.klaviyo.Button Action", "Open App") }
+        verify(exactly = 0) { intent.putExtra("com.klaviyo.Button Link", any<String>()) }
     }
 
     @Test
@@ -353,10 +353,10 @@ class KlaviyoRemoteMessageTest : BaseTest() {
 
         intent.appendActionButtonExtras(button)
 
-        verify { intent.putExtra("com.klaviyo.action_button_id", "com.klaviyo.test.deep") }
-        verify { intent.putExtra("com.klaviyo.action_button_label", "View Order") }
-        verify { intent.putExtra("com.klaviyo.action_button_type", "deep_link") }
-        verify { intent.putExtra("com.klaviyo.action_button_url", "klaviyotest://order/123") }
+        verify { intent.putExtra("com.klaviyo.Button Id", "com.klaviyo.test.deep") }
+        verify { intent.putExtra("com.klaviyo.Button Label", "View Order") }
+        verify { intent.putExtra("com.klaviyo.Button Action", "Deep Link") }
+        verify { intent.putExtra("com.klaviyo.Button Link", "klaviyotest://order/123") }
     }
 
     @Test

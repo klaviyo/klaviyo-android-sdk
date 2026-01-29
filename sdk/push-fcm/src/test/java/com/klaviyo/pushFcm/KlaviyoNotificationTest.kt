@@ -536,12 +536,12 @@ class KlaviyoNotificationTest : BaseTest() {
 
         notification.displayNotification(mockContext)
 
-        verify { mockLaunchIntent.putExtra("com.klaviyo.action_button_id", "com.klaviyo.test.open") }
-        verify { mockLaunchIntent.putExtra("com.klaviyo.action_button_label", "Open App") }
-        verify { mockLaunchIntent.putExtra("com.klaviyo.action_button_type", "open_app") }
+        verify { mockLaunchIntent.putExtra("com.klaviyo.Button Id", "com.klaviyo.test.open") }
+        verify { mockLaunchIntent.putExtra("com.klaviyo.Button Label", "Open App") }
+        verify { mockLaunchIntent.putExtra("com.klaviyo.Button Action", "Open App") }
         verify(exactly = 0) {
             mockLaunchIntent.putExtra(
-                "com.klaviyo.action_button_url",
+                "com.klaviyo.Button Link",
                 any<String>()
             )
         }
@@ -574,15 +574,15 @@ class KlaviyoNotificationTest : BaseTest() {
 
         verify {
             mockDeepLinkIntent.putExtra(
-                "com.klaviyo.action_button_id",
+                "com.klaviyo.Button Id",
                 "com.klaviyo.test.view"
             )
         }
-        verify { mockDeepLinkIntent.putExtra("com.klaviyo.action_button_label", "View Order") }
-        verify { mockDeepLinkIntent.putExtra("com.klaviyo.action_button_type", "deep_link") }
+        verify { mockDeepLinkIntent.putExtra("com.klaviyo.Button Label", "View Order") }
+        verify { mockDeepLinkIntent.putExtra("com.klaviyo.Button Action", "Deep Link") }
         verify {
             mockDeepLinkIntent.putExtra(
-                "com.klaviyo.action_button_url",
+                "com.klaviyo.Button Link",
                 "klaviyotest://order/123"
             )
         }
