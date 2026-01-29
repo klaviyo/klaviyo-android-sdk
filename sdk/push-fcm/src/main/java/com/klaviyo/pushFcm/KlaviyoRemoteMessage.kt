@@ -31,6 +31,11 @@ import org.json.JSONObject
 object KlaviyoRemoteMessage {
 
     /**
+     * Maximum number of action buttons supported per notification
+     */
+    private const val MAX_ACTION_BUTTONS = 3
+
+    /**
      * Append requisite data from a remote message to an intent
      * for displaying a notification
      *
@@ -160,6 +165,10 @@ object KlaviyoRemoteMessage {
     /**
      * Parse action buttons from the iOS-aligned format
      *
+     * Validates and filters buttons to ensure only valid instances are returned.
+     * Invalid buttons (missing required fields, invalid format) are skipped with warnings.
+     * Maximum of 3 buttons are supported - additional buttons beyond this limit are ignored.
+     *
      * Expected structure:
      * [{"id":"...", "label":"...", "action":"deep_link|open_app", "url":"..."}]
      */
@@ -169,22 +178,68 @@ object KlaviyoRemoteMessage {
             try {
                 val jsonArray = JSONArray(jsonString)
                 val buttons = mutableListOf<ActionButton>()
-                Registry.log.verbose("JSON array has ${jsonArray.length()} buttons")
-                for (i in 0 until jsonArray.length()) {
-                    val jsonObject = jsonArray.getJSONObject(i)
-                    val button = ActionButton(
-                        id = jsonObject.optString("id"),
-                        label = jsonObject.optString("label"),
-                        action = ButtonActionType.fromString(
-                            jsonObject.optString("action", "open_app")
-                        ),
-                        url = jsonObject.optString("url").takeIf { it.isNotBlank() }
+                val buttonCount = jsonArray.length()
+                Registry.log.verbose("JSON array has $buttonCount buttons")
+
+                if (buttonCount > MAX_ACTION_BUTTONS) {
+                    Registry.log.warning(
+                        "Received $buttonCount action buttons but only $MAX_ACTION_BUTTONS are supported. " +
+                            "Additional buttons will be ignored."
                     )
-                    Registry.log.verbose("Parsed button $i: $button")
-                    buttons.add(button)
                 }
-                Registry.log.verbose("Successfully parsed ${buttons.size} action buttons")
-                buttons
+
+                // Only process up to MAX_ACTION_BUTTONS
+                val buttonsToProcess = minOf(buttonCount, MAX_ACTION_BUTTONS)
+                for (i in 0 until buttonsToProcess) {
+                    val jsonObject = jsonArray.getJSONObject(i)
+                    val id = jsonObject.optString("id")
+                    val label = jsonObject.optString("label")
+
+                    // Validate common required fields
+                    if (id.isBlank() || label.isBlank()) {
+                        Registry.log.warning(
+                            "Skipping action button $i: missing required fields (id or label)"
+                        )
+                        continue
+                    }
+
+                    val actionType = ButtonActionType.fromString(
+                        jsonObject.optString("action", "open_app")
+                    )
+
+                    // Create appropriate sealed class instance based on action type
+                    val button = when (actionType) {
+                        ButtonActionType.DEEP_LINK -> {
+                            val url = jsonObject.optString("url").takeIf { it.isNotBlank() }
+                            if (url == null) {
+                                Registry.log.warning(
+                                    "Skipping DEEP_LINK action button $i: missing required url"
+                                )
+                                null
+                            } else {
+                                ActionButton.DeepLink(
+                                    id = id,
+                                    label = label,
+                                    url = url
+                                )
+                            }
+                        }
+                        ButtonActionType.OPEN_APP -> {
+                            ActionButton.OpenApp(
+                                id = id,
+                                label = label
+                            )
+                        }
+                    }
+
+                    button?.let {
+                        Registry.log.verbose("Parsed button $i: $it")
+                        buttons.add(it)
+                    }
+                }
+
+                Registry.log.verbose("Successfully parsed ${buttons.size} valid action buttons")
+                buttons.takeIf { it.isNotEmpty() }
             } catch (e: Exception) {
                 Registry.log.warning(
                     "Klaviyo SDK failed to parse action_buttons JSON: $jsonString",
@@ -221,12 +276,40 @@ object KlaviyoRemoteMessage {
      * @property action Button action type (ie. open app, deep link)
      * @property url Destination URL or deep link (optional for OPEN_APP, required for DEEP_LINK)
      */
-    data class ActionButton(
-        val id: String,
-        val label: String,
-        val action: ButtonActionType,
-        val url: String?
-    )
+//    data class ActionButton(
+//        val id: String,
+//        val label: String,
+//        val action: ButtonActionType,
+//        val url: String?
+//    )
+
+    /**
+     * Sealed class representing different types of notification action buttons
+     */
+    sealed class ActionButton {
+        abstract val id: String
+        abstract val label: String
+        abstract val action: ButtonActionType
+
+        /**
+         * Button that opens the app without navigating to a specific destination
+         */
+        data class OpenApp(
+            override val action: ButtonActionType = ButtonActionType.OPEN_APP,
+            override val id: String,
+            override val label: String
+        ) : ActionButton()
+
+        /**
+         * Button that opens the app and navigates to a deep link destination
+         */
+        data class DeepLink(
+            override val action: ButtonActionType = ButtonActionType.DEEP_LINK,
+            override val id: String,
+            override val label: String,
+            val url: String
+        ) : ActionButton()
+    }
 
     /**
      * Determine the resource ID of the small icon from provided context

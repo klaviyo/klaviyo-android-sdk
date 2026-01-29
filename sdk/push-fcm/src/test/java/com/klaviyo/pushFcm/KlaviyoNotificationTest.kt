@@ -14,7 +14,6 @@ import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.TITLE_KEY
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ButtonActionType
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -338,17 +337,14 @@ class KlaviyoNotificationTest : BaseTest() {
 
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
-                ActionButton(
+                ActionButton.DeepLink(
                     id = "deep-link",
                     label = "Open deep link",
-                    action = ButtonActionType.DEEP_LINK,
                     url = "app://invalid"
                 ),
-                ActionButton(
+                ActionButton.OpenApp(
                     id = "open-app",
-                    label = "Open app",
-                    action = ButtonActionType.OPEN_APP,
-                    url = "app://invalid"
+                    label = "Open app"
                 )
             )
         }
@@ -372,24 +368,19 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
-    fun `action button open app uses deep link intent when resolved`() {
-        val mockDeepLinkIntent = mockk<Intent>(relaxed = true)
+    fun `action button open app without url uses launch intent`() {
         val mockLaunchIntent = mockk<Intent>(relaxed = true)
         val intents = mutableListOf<Intent>()
 
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
-                ActionButton(
+                ActionButton.OpenApp(
                     id = "open-app",
-                    label = "Open app",
-                    action = ButtonActionType.OPEN_APP,
-                    url = "app://valid"
+                    label = "Open app"
                 )
             )
         }
 
-        every { DeepLinking.makeDeepLinkIntent(any(), any()) } returns mockDeepLinkIntent
-        every { mockDeepLinkIntent.resolveActivity(any()) } returns mockk()
         every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
 
         every {
@@ -402,7 +393,7 @@ class KlaviyoNotificationTest : BaseTest() {
         notification.displayNotification(mockContext)
 
         assertEquals(2, intents.size)
-        assertEquals(mockDeepLinkIntent, intents.last())
+        assertEquals(mockLaunchIntent, intents.last())
     }
 
     @Test
@@ -446,11 +437,9 @@ class KlaviyoNotificationTest : BaseTest() {
     fun `action button without launch intent does not add action`() {
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
-                ActionButton(
+                ActionButton.OpenApp(
                     id = "open",
-                    label = "Open",
-                    action = ButtonActionType.OPEN_APP,
-                    url = null
+                    label = "Open"
                 )
             )
         }
@@ -478,17 +467,14 @@ class KlaviyoNotificationTest : BaseTest() {
 
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
-                ActionButton(
+                ActionButton.DeepLink(
                     id = "first",
                     label = "First",
-                    action = ButtonActionType.DEEP_LINK,
                     url = "https://example.com/first"
                 ),
-                ActionButton(
+                ActionButton.OpenApp(
                     id = "second",
-                    label = "Second",
-                    action = ButtonActionType.OPEN_APP,
-                    url = "https://example.com/second"
+                    label = "Second"
                 )
             )
         }
@@ -508,11 +494,9 @@ class KlaviyoNotificationTest : BaseTest() {
 
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
-                ActionButton(
+                ActionButton.OpenApp(
                     id = "open",
-                    label = "Open app",
-                    action = ButtonActionType.OPEN_APP,
-                    url = null
+                    label = "Open app"
                 )
             )
         }
