@@ -59,9 +59,9 @@ object KlaviyoRemoteMessage {
     fun Intent.appendActionButtonExtras(button: ActionButton) = apply {
         putExtra(PACKAGE_PREFIX + "Button Label", button.label)
 
-        val actionName = when (button.action) {
-            ButtonActionType.DEEP_LINK -> "Deep Link"
-            ButtonActionType.OPEN_APP -> "Open App"
+        val actionName = when (button) {
+            is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK
+            is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP
         }
         putExtra(PACKAGE_PREFIX + "Button Action", actionName)
 
@@ -224,13 +224,11 @@ object KlaviyoRemoteMessage {
                         continue
                     }
 
-                    val actionType = ButtonActionType.fromString(
-                        jsonObject.optString("action", "open_app")
-                    )
+                    val actionType = jsonObject.optString("action", ActionButton.TYPE_OPEN_APP)
 
                     // Create appropriate sealed class instance based on action type
-                    val button = when (actionType) {
-                        ButtonActionType.DEEP_LINK -> {
+                    val button = when (actionType.lowercase()) {
+                        ActionButton.TYPE_DEEP_LINK -> {
                             val url = jsonObject.optString("url").takeIf { it.isNotBlank() }
                             if (url == null) {
                                 Registry.log.warning(
@@ -245,7 +243,8 @@ object KlaviyoRemoteMessage {
                                 )
                             }
                         }
-                        ButtonActionType.OPEN_APP -> {
+                        else -> {
+                            // Default to OPEN_APP for unknown or explicit open_app types
                             ActionButton.OpenApp(
                                 id = id,
                                 label = label
@@ -271,37 +270,16 @@ object KlaviyoRemoteMessage {
         }
 
     /**
-     * Enum representing the types of actions that can be triggered by a notification button
-     */
-    enum class ButtonActionType(val value: String) {
-        DEEP_LINK("deep_link"),
-        OPEN_APP("open_app");
-
-        companion object {
-            /**
-             * Parse a string value to a ButtonAction, with a fallback to OPEN_APP
-             *
-             * @param value The string representation of the action
-             * @return The corresponding ButtonAction, or OPEN_APP if not recognized
-             */
-            fun fromString(value: String): ButtonActionType =
-                entries.find { it.value.equals(value, ignoreCase = true) } ?: OPEN_APP
-        }
-    }
-
-    /**
      * Sealed class representing different types of notification action buttons
      */
     sealed class ActionButton {
         abstract val id: String
         abstract val label: String
-        abstract val action: ButtonActionType
 
         /**
          * Button that opens the app without navigating to a specific destination
          */
         data class OpenApp(
-            override val action: ButtonActionType = ButtonActionType.OPEN_APP,
             override val id: String,
             override val label: String
         ) : ActionButton()
@@ -310,11 +288,24 @@ object KlaviyoRemoteMessage {
          * Button that opens the app and navigates to a deep link destination
          */
         data class DeepLink(
-            override val action: ButtonActionType = ButtonActionType.DEEP_LINK,
             override val id: String,
             override val label: String,
             val url: String
         ) : ActionButton()
+
+        companion object {
+            /**
+             * Serialized type names used in remote message payload
+             */
+            const val TYPE_OPEN_APP = "open_app"
+            const val TYPE_DEEP_LINK = "deep_link"
+
+            /**
+             * Human-readable display names for analytics
+             */
+            const val DISPLAY_NAME_OPEN_APP = "Open App"
+            const val DISPLAY_NAME_DEEP_LINK = "Deep Link"
+        }
     }
 
     /**

@@ -267,12 +267,16 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             val action = createButtonAction(context, index, requestCode, button) ?: return@forEachIndexed
             addAction(action)
 
+            val actionType = when (button) {
+                is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK
+                is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP
+            }
             val destination = when (button) {
                 is ActionButton.DeepLink -> " -> ${button.url}"
                 is ActionButton.OpenApp -> ""
             }
             Registry.log.verbose(
-                "Added action button $index: '${button.label}' (${button.action})$destination"
+                "Added action button $index: '${button.label}' ($actionType)$destination"
             )
         }
         return this

@@ -8,7 +8,6 @@ import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.KEY_VALUE_PAIRS_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.TITLE_KEY
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ButtonActionType
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendActionButtonExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.hasKlaviyoKeyValuePairs
@@ -104,7 +103,6 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         assert(firstButton is ActionButton.DeepLink)
         assert(firstButton?.id == "com.klaviyo.test.view")
         assert(firstButton?.label == "View Order")
-        assert(firstButton?.action == ButtonActionType.DEEP_LINK)
         assert((firstButton as? ActionButton.DeepLink)?.url == "klaviyotest://view-order")
 
         // Second button is OpenApp type
@@ -112,7 +110,6 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         assert(secondButton is ActionButton.OpenApp)
         assert(secondButton?.id == "com.klaviyo.test.open")
         assert(secondButton?.label == "Open App")
-        assert(secondButton?.action == ButtonActionType.OPEN_APP)
     }
 
     @Test
@@ -124,20 +121,63 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
-    fun `Test ButtonAction fromString handles case insensitivity`() {
-        assert(ButtonActionType.fromString("DEEP_LINK") == ButtonActionType.DEEP_LINK)
-        assert(ButtonActionType.fromString("Deep_Link") == ButtonActionType.DEEP_LINK)
-        assert(ButtonActionType.fromString("deep_link") == ButtonActionType.DEEP_LINK)
-        assert(ButtonActionType.fromString("OPEN_APP") == ButtonActionType.OPEN_APP)
-        assert(ButtonActionType.fromString("Open_App") == ButtonActionType.OPEN_APP)
-        assert(ButtonActionType.fromString("open_app") == ButtonActionType.OPEN_APP)
+    fun `Test parser handles case insensitive action types`() {
+        val actionButtonsData = listOf(
+            mapOf(
+                "id" to "test1",
+                "label" to "Test 1",
+                "action" to "DEEP_LINK",
+                "url" to "test://url1"
+            ),
+            mapOf(
+                "id" to "test2",
+                "label" to "Test 2",
+                "action" to "Deep_Link",
+                "url" to "test://url2"
+            ),
+            mapOf(
+                "id" to "test3",
+                "label" to "Test 3",
+                "action" to "OPEN_APP"
+            )
+        )
+        val actionButtonsJson = JSONArray(actionButtonsData).toString()
+
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, actionButtonsJson)
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        val buttons = msg.actionButtons
+        assert(buttons != null)
+        assert(buttons?.size == 3)
+        assert(buttons?.get(0) is ActionButton.DeepLink)
+        assert(buttons?.get(1) is ActionButton.DeepLink)
+        assert(buttons?.get(2) is ActionButton.OpenApp)
     }
 
     @Test
-    fun `Test ButtonAction fromString defaults to OPEN_APP for unknown values`() {
-        assert(ButtonActionType.fromString("unknown_action") == ButtonActionType.OPEN_APP)
-        assert(ButtonActionType.fromString("") == ButtonActionType.OPEN_APP)
-        assert(ButtonActionType.fromString("invalid") == ButtonActionType.OPEN_APP)
+    fun `Test parser defaults to OpenApp for unknown action values`() {
+        val actionButtonsData = listOf(
+            mapOf("id" to "test1", "label" to "Test 1", "action" to "unknown_action"),
+            mapOf("id" to "test2", "label" to "Test 2", "action" to ""),
+            mapOf("id" to "test3", "label" to "Test 3", "action" to "invalid")
+        )
+        val actionButtonsJson = JSONArray(actionButtonsData).toString()
+
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, actionButtonsJson)
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        val buttons = msg.actionButtons
+        assert(buttons != null)
+        assert(buttons?.size == 3)
+        assert(buttons!!.all { it is ActionButton.OpenApp })
     }
 
     @Test
@@ -167,7 +207,6 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         assert(button is ActionButton.OpenApp)
         assert(button?.id == "com.klaviyo.test.open")
         assert(button?.label == "Open App")
-        assert(button?.action == ButtonActionType.OPEN_APP)
     }
 
     @Test
