@@ -536,7 +536,6 @@ class KlaviyoNotificationTest : BaseTest() {
 
         notification.displayNotification(mockContext)
 
-        verify { mockLaunchIntent.putExtra("com.klaviyo.Button Id", "com.klaviyo.test.open") }
         verify { mockLaunchIntent.putExtra("com.klaviyo.Button Label", "Open App") }
         verify { mockLaunchIntent.putExtra("com.klaviyo.Button Action", "Open App") }
         verify(exactly = 0) {
@@ -572,12 +571,6 @@ class KlaviyoNotificationTest : BaseTest() {
 
         notification.displayNotification(mockContext)
 
-        verify {
-            mockDeepLinkIntent.putExtra(
-                "com.klaviyo.Button Id",
-                "com.klaviyo.test.view"
-            )
-        }
         verify { mockDeepLinkIntent.putExtra("com.klaviyo.Button Label", "View Order") }
         verify { mockDeepLinkIntent.putExtra("com.klaviyo.Button Action", "Deep Link") }
         verify {

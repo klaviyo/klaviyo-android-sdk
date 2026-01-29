@@ -334,7 +334,6 @@ class KlaviyoRemoteMessageTest : BaseTest() {
 
         intent.appendActionButtonExtras(button)
 
-        verify { intent.putExtra("com.klaviyo.Button Id", "com.klaviyo.test.open") }
         verify { intent.putExtra("com.klaviyo.Button Label", "Open App") }
         verify { intent.putExtra("com.klaviyo.Button Action", "Open App") }
         verify(exactly = 0) { intent.putExtra("com.klaviyo.Button Link", any<String>()) }
@@ -353,7 +352,6 @@ class KlaviyoRemoteMessageTest : BaseTest() {
 
         intent.appendActionButtonExtras(button)
 
-        verify { intent.putExtra("com.klaviyo.Button Id", "com.klaviyo.test.deep") }
         verify { intent.putExtra("com.klaviyo.Button Label", "View Order") }
         verify { intent.putExtra("com.klaviyo.Button Action", "Deep Link") }
         verify { intent.putExtra("com.klaviyo.Button Link", "klaviyotest://order/123") }
