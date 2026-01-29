@@ -241,7 +241,7 @@ object KlaviyoRemoteMessage {
                 Registry.log.verbose("Successfully parsed ${buttons.size} valid action buttons")
                 buttons.takeIf { it.isNotEmpty() }
             } catch (e: Exception) {
-                Registry.log.warning(
+                Registry.log.error(
                     "Klaviyo SDK failed to parse action_buttons JSON: $jsonString",
                     e
                 )
