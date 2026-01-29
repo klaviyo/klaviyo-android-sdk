@@ -269,21 +269,6 @@ object KlaviyoRemoteMessage {
     }
 
     /**
-     * Data class representing an action button
-     *
-     * @property id Unique identifier for the button
-     * @property label Text displayed on the button
-     * @property action Button action type (ie. open app, deep link)
-     * @property url Destination URL or deep link (optional for OPEN_APP, required for DEEP_LINK)
-     */
-//    data class ActionButton(
-//        val id: String,
-//        val label: String,
-//        val action: ButtonActionType,
-//        val url: String?
-//    )
-
-    /**
      * Sealed class representing different types of notification action buttons
      */
     sealed class ActionButton {
