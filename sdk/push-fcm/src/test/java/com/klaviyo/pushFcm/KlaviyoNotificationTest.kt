@@ -512,4 +512,72 @@ class KlaviyoNotificationTest : BaseTest() {
         assertEquals(2, requestCodes.size)
         assertTrue(requestCodes.first() != requestCodes.last())
     }
+
+    @Test
+    fun `action button intent includes tracking extras for OpenApp button`() {
+        val mockLaunchIntent = spyk<Intent>()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.OpenApp(
+                    id = "com.klaviyo.test.open",
+                    label = "Open App"
+                )
+            )
+        }
+
+        every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
+        every { mockLaunchIntent.putExtra(any<String>(), any<String>()) } returns mockLaunchIntent
+        every { mockLaunchIntent.addFlags(any()) } returns mockLaunchIntent
+
+        every {
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        verify { mockLaunchIntent.putExtra("com.klaviyo.Button Label", "Open App") }
+        verify { mockLaunchIntent.putExtra("com.klaviyo.Button Action", "Open App") }
+        verify(exactly = 0) {
+            mockLaunchIntent.putExtra(
+                "com.klaviyo.Button Link",
+                any<String>()
+            )
+        }
+    }
+
+    @Test
+    fun `action button intent includes tracking extras for DeepLink button`() {
+        val mockDeepLinkIntent = spyk<Intent>()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.DeepLink(
+                    id = "com.klaviyo.test.view",
+                    label = "View Order",
+                    url = "klaviyotest://order/123"
+                )
+            )
+        }
+
+        every { DeepLinking.makeDeepLinkIntent(any(), any()) } returns mockDeepLinkIntent
+        every { mockDeepLinkIntent.resolveActivity(any()) } returns mockk()
+        every { mockDeepLinkIntent.putExtra(any<String>(), any<String>()) } returns mockDeepLinkIntent
+        every { mockDeepLinkIntent.addFlags(any()) } returns mockDeepLinkIntent
+
+        every {
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        verify { mockDeepLinkIntent.putExtra("com.klaviyo.Button Label", "View Order") }
+        verify { mockDeepLinkIntent.putExtra("com.klaviyo.Button Action", "Deep Link") }
+        verify {
+            mockDeepLinkIntent.putExtra(
+                "com.klaviyo.Button Link",
+                "klaviyotest://order/123"
+            )
+        }
+    }
 }
