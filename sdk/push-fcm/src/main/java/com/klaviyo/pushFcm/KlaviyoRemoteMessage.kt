@@ -50,6 +50,22 @@ object KlaviyoRemoteMessage {
     }
 
     /**
+     * Append action button tracking data to an intent for analytics
+     *
+     * This enables tracking which specific button was clicked in $opened_push events
+     *
+     * @param button The action button that was clicked
+     */
+    fun Intent.appendActionButtonExtras(button: ActionButton) = apply {
+        putExtra(PACKAGE_PREFIX + "action_button_id", button.id)
+        putExtra(PACKAGE_PREFIX + "action_button_label", button.label)
+        putExtra(PACKAGE_PREFIX + "action_button_type", button.action.value)
+        if (button is ActionButton.DeepLink) {
+            putExtra(PACKAGE_PREFIX + "action_button_url", button.url)
+        }
+    }
+
+    /**
      * Parse channel ID or fallback on default
      */
     val RemoteMessage.channel_id: String

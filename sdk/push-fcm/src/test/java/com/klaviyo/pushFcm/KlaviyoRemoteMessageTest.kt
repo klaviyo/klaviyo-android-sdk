@@ -1,5 +1,6 @@
 package com.klaviyo.pushFcm
 
+import android.content.Intent
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.ACTION_BUTTONS_KEY
@@ -9,12 +10,14 @@ import com.klaviyo.pushFcm.KlaviyoNotification.Companion.TITLE_KEY
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ButtonActionType
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendActionButtonExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.hasKlaviyoKeyValuePairs
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.keyValuePairs
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Test
@@ -317,6 +320,43 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         assert(buttons?.size == 1)
         assert(buttons?.get(0) is ActionButton.OpenApp)
         assert(buttons?.get(0)?.id == "com.klaviyo.test.valid")
+    }
+
+    @Test
+    fun `Test appendActionButtonExtras adds tracking data for OpenApp button`() {
+        val intent = mockk<Intent>(relaxed = true)
+        val button = ActionButton.OpenApp(
+            id = "com.klaviyo.test.open",
+            label = "Open App"
+        )
+
+        every { intent.putExtra(any<String>(), any<String>()) } returns intent
+
+        intent.appendActionButtonExtras(button)
+
+        verify { intent.putExtra("com.klaviyo.action_button_id", "com.klaviyo.test.open") }
+        verify { intent.putExtra("com.klaviyo.action_button_label", "Open App") }
+        verify { intent.putExtra("com.klaviyo.action_button_type", "open_app") }
+        verify(exactly = 0) { intent.putExtra("com.klaviyo.action_button_url", any<String>()) }
+    }
+
+    @Test
+    fun `Test appendActionButtonExtras adds tracking data for DeepLink button`() {
+        val intent = mockk<Intent>(relaxed = true)
+        val button = ActionButton.DeepLink(
+            id = "com.klaviyo.test.deep",
+            label = "View Order",
+            url = "klaviyotest://order/123"
+        )
+
+        every { intent.putExtra(any<String>(), any<String>()) } returns intent
+
+        intent.appendActionButtonExtras(button)
+
+        verify { intent.putExtra("com.klaviyo.action_button_id", "com.klaviyo.test.deep") }
+        verify { intent.putExtra("com.klaviyo.action_button_label", "View Order") }
+        verify { intent.putExtra("com.klaviyo.action_button_type", "deep_link") }
+        verify { intent.putExtra("com.klaviyo.action_button_url", "klaviyotest://order/123") }
     }
 
     @Test

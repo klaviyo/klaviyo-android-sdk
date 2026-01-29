@@ -23,6 +23,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendActionButtonExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
@@ -296,6 +297,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         }?.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }?.appendKlaviyoExtras(message)
+            ?.appendActionButtonExtras(button)
 
         if (intent == null) {
             Registry.log.warning(
