@@ -263,6 +263,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
         // Parser has already validated and limited buttons to MAX_ACTION_BUTTONS
         actionButtons.forEachIndexed { index, button ->
+            // request codes need to be unique, add index + offset to generate unique code
+            // offset required due to zero index, so body and first button have unique codes
             val requestCode = requestCodeBase + index + ACTION_REQUEST_CODE_OFFSET
             val action = createButtonAction(context, index, requestCode, button) ?: return@forEachIndexed
             addAction(action)
