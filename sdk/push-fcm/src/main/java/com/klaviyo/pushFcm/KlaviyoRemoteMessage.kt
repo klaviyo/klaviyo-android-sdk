@@ -192,11 +192,11 @@ object KlaviyoRemoteMessage {
                 val buttonsToProcess = minOf(buttonCount, MAX_ACTION_BUTTONS)
                 for (i in 0 until buttonsToProcess) {
                     val jsonObject = jsonArray.getJSONObject(i)
-                    val id = jsonObject.optString("id")
-                    val label = jsonObject.optString("label")
+                    val id = jsonObject.optString("id").takeIf { it.isNotBlank() }
+                    val label = jsonObject.optString("label").takeIf { it.isNotBlank() }
 
                     // Validate common required fields
-                    if (id.isBlank() || label.isBlank()) {
+                    if (id == null || label == null) {
                         Registry.log.warning(
                             "Skipping action button $i: missing required fields (id or label)"
                         )
