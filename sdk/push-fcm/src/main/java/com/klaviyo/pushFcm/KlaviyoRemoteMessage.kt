@@ -213,13 +213,12 @@ object KlaviyoRemoteMessage {
                 val buttonsToProcess = minOf(buttonCount, MAX_ACTION_BUTTONS)
                 for (i in 0 until buttonsToProcess) {
                     val jsonObject = jsonArray.getJSONObject(i)
-                    val id = jsonObject.optString("id").takeIf { it.isNotBlank() }
                     val label = jsonObject.optString("label").takeIf { it.isNotBlank() }
 
-                    // Validate common required fields
-                    if (id == null || label == null) {
+                    // Validate required label field
+                    if (label == null) {
                         Registry.log.warning(
-                            "Skipping action button $i: missing required fields (id or label)"
+                            "Skipping action button $i: missing required label"
                         )
                         continue
                     }
@@ -237,7 +236,6 @@ object KlaviyoRemoteMessage {
                                 null
                             } else {
                                 ActionButton.DeepLink(
-                                    id = id,
                                     label = label,
                                     url = url
                                 )
@@ -246,7 +244,6 @@ object KlaviyoRemoteMessage {
                         else -> {
                             // Default to OPEN_APP for unknown or explicit open_app types
                             ActionButton.OpenApp(
-                                id = id,
                                 label = label
                             )
                         }
@@ -273,14 +270,12 @@ object KlaviyoRemoteMessage {
      * Sealed class representing different types of notification action buttons
      */
     sealed class ActionButton {
-        abstract val id: String
         abstract val label: String
 
         /**
          * Button that opens the app without navigating to a specific destination
          */
         data class OpenApp(
-            override val id: String,
             override val label: String
         ) : ActionButton()
 
@@ -288,7 +283,6 @@ object KlaviyoRemoteMessage {
          * Button that opens the app and navigates to a deep link destination
          */
         data class DeepLink(
-            override val id: String,
             override val label: String,
             val url: String
         ) : ActionButton()
