@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -14,11 +15,15 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.net.toUri
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.activityResolved
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendActionButtonExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
@@ -67,7 +72,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val NOTIFICATION_PRIORITY = "notification_priority"
         internal const val NOTIFICATION_TAG = "notification_tag"
         internal const val KEY_VALUE_PAIRS_KEY = Constants.KEY_VALUE_PAIRS
+        internal const val ACTION_BUTTONS_KEY = "action_buttons"
         private const val DOWNLOAD_TIMEOUT_MS = 5_000
+        private const val ACTION_REQUEST_CODE_OFFSET = 1
 
         /**
          * Get an integer ID to associate with a notification or its pending intent
@@ -146,9 +153,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * @param context
      * @return [Notification.Builder] to display
      */
-    internal fun buildNotification(context: Context): NotificationCompat.Builder =
-        NotificationCompat.Builder(context, message.channel_id)
-            .setContentIntent(makePendingIntent(context))
+    internal fun buildNotification(context: Context): NotificationCompat.Builder {
+        val requestCodeBase = generateId()
+        return NotificationCompat.Builder(context, message.channel_id)
+            .setContentIntent(makePendingIntent(context, requestCodeBase))
             .setSmallIcon(message.getSmallIcon(context))
             .also { message.getColor(context)?.let { color -> it.setColor(color) } }
             .setContentTitle(message.title)
@@ -158,6 +166,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
+            .addActionButtons(context, requestCodeBase)
+    }
 
     private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
         val executor = Executors.newCachedThreadPool()
@@ -207,10 +217,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      *
      * @return [PendingIntent]
      */
-    private fun makePendingIntent(context: Context) =
+    private fun makePendingIntent(context: Context, requestCode: Int) =
         PendingIntent.getActivity(
             context,
-            generateId(),
+            requestCode,
             makeOpenedIntent(context),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
         )
@@ -231,5 +241,105 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             // Else, just launch the app
             else -> DeepLinking.makeLaunchIntent(context)
         }?.appendKlaviyoExtras(message)
+    }
+
+    /**
+     * Parse action buttons from message data and add them to the notification
+     *
+     * Expected format (iOS-aligned):
+     * [{"id":"...", "label":"...", "action":"deep_link|open_app", "url":"..."}]
+     *
+     * Supported action types:
+     * - "deep_link": Opens app with deep link or URL
+     * - "open_app": Opens app
+     *
+     * Note: Icons are not supported on Android (iOS only).
+     */
+    private fun NotificationCompat.Builder.addActionButtons(
+        context: Context,
+        requestCodeBase: Int
+    ): NotificationCompat.Builder {
+        val actionButtons = message.actionButtons ?: return this
+
+        // Parser has already validated and limited buttons to MAX_ACTION_BUTTONS
+        actionButtons.forEachIndexed { index, button ->
+            // request codes need to be unique, add index + offset to generate unique code
+            // offset required due to zero index, so body and first button have unique codes
+            val requestCode = requestCodeBase + index + ACTION_REQUEST_CODE_OFFSET
+            val action = createButtonAction(context, index, requestCode, button) ?: return@forEachIndexed
+            addAction(action)
+
+            val actionType = when (button) {
+                is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK
+                is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP
+            }
+            val destination = when (button) {
+                is ActionButton.DeepLink -> " -> ${button.url}"
+                is ActionButton.OpenApp -> ""
+            }
+            Registry.log.verbose(
+                "Added action button $index: '${button.label}' ($actionType)$destination"
+            )
+        }
+        return this
+    }
+
+    /**
+     * Create a notification action that either opens the app or navigates to a deep link
+     */
+    private fun createButtonAction(
+        context: Context,
+        index: Int,
+        requestCode: Int,
+        button: ActionButton
+    ): NotificationCompat.Action? {
+        val intent = when (button) {
+            is ActionButton.DeepLink -> {
+                makeResolvedDeepLinkIntent(context, index, button.url)
+            }
+            is ActionButton.OpenApp -> {
+                openAppIntent(context)
+            }
+        }?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }?.appendKlaviyoExtras(message)
+            ?.appendActionButtonExtras(button)
+
+        if (intent == null) {
+            Registry.log.warning(
+                "Action button $index could not be created: no launch intent found for host app"
+            )
+            return null
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return NotificationCompat.Action(
+            0, // No icon (icons not supported on Android)
+            button.label,
+            pendingIntent
+        )
+    }
+
+    private fun makeResolvedDeepLinkIntent(
+        context: Context,
+        index: Int,
+        url: String
+    ): Intent? {
+        val uri = url.toUri()
+        return DeepLinking.makeDeepLinkIntent(uri, context)
+            .takeIf { it.activityResolved(context) }
+            ?: openAppIntent(context).also {
+                Registry.log.warning("Action button $index contained unsupported deep link: $uri")
+            }
+    }
+
+    private fun openAppIntent(context: Context): Intent? {
+        return DeepLinking.makeLaunchIntent(context)
     }
 }
