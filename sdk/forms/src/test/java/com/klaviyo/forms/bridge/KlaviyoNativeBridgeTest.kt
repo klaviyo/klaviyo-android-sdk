@@ -114,7 +114,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockPresentationManager.present(null) }
+        verify { mockPresentationManager.present(null, any()) }
     }
 
     @Test
@@ -123,7 +123,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear", "data":{"formId":"64CjgW"}}""")
-        verify { mockPresentationManager.present("64CjgW") }
+        verify { mockPresentationManager.present("64CjgW", any()) }
     }
 
     @Test
