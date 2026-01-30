@@ -1,5 +1,6 @@
 package com.klaviyo.forms.presentation
 
+import android.app.Activity
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
@@ -9,6 +10,7 @@ import com.klaviyo.core.utils.takeIf
 import com.klaviyo.core.utils.takeIfNot
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.FormId
+import com.klaviyo.forms.bridge.FormLayout
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.presentation.PresentationState.Hidden
 import com.klaviyo.forms.presentation.PresentationState.Presented
@@ -17,6 +19,7 @@ import com.klaviyo.forms.webview.WebViewClient
 
 /**
  * Coordinates preloading klaviyo.js and presentation forms in an overlay activity
+ * or a floating window (WindowManager approach) depending on layout configuration.
  */
 internal class KlaviyoPresentationManager() : PresentationManager {
     /**
@@ -33,7 +36,20 @@ internal class KlaviyoPresentationManager() : PresentationManager {
 
     private var overlayActivity by WeakReferenceDelegate<KlaviyoFormsOverlayActivity>(null)
 
+    /**
+     * The floating form window used for non-fullscreen layouts (WindowManager approach)
+     */
+    private var floatingFormWindow: FloatingFormWindow? = null
+
+    /**
+     * Weak reference to the host activity for floating window presentation
+     */
+    private var hostActivity by WeakReferenceDelegate<Activity>(null)
+
     override var presentationState: PresentationState = Hidden
+        private set
+
+    override var currentLayout: FormLayout? = null
         private set
 
     /**
@@ -83,37 +99,100 @@ internal class KlaviyoPresentationManager() : PresentationManager {
 
     /**
      * Present the form now if the app is foregrounded,
-     * or else wait till next foregrounded unless session ends
+     * or else wait till next foregrounded unless session ends.
+     *
+     * For non-fullscreen layouts, uses FloatingFormWindow (WindowManager approach).
+     * For fullscreen or null layout, uses the Activity-based approach.
      */
-    override fun present(formId: FormId?) {
+    override fun present(formId: FormId?, layout: FormLayout?) {
         clearTimers()
+        currentLayout = layout
+
+        // Determine if we should use floating window (non-fullscreen) or Activity approach
+        val useFloatingWindow = layout != null && !layout.isFullscreen
+
         cancelPostponedPresent = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
             timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
-        ) {
+        ) { activity ->
             presentationState.takeIf<Hidden>()?.let {
-                presentationState = Presenting(formId)
-                Registry.log.debug("Presentation State: $presentationState")
-                Registry.config.applicationContext.startActivity(
-                    KlaviyoFormsOverlayActivity.launchIntent
-                )
+                if (useFloatingWindow) {
+                    presentFloatingWindow(activity, formId, layout!!)
+                } else {
+                    presentActivity(formId)
+                }
             } ?: run {
-                Registry.log.debug("Cannot present activity. Current state: $presentationState")
+                Registry.log.debug("Cannot present form. Current state: $presentationState")
             }
         }
     }
 
     /**
-     * Detach the webview from the overlay activity and finish it
+     * Present the form using the Activity-based approach (fullscreen)
      */
-    override fun dismiss() = overlayActivity?.let { activity ->
-        clearTimers()
-        Registry.get<WebViewClient>().detachWebView()
-        activity.finish()
-        presentationState = Hidden
-        overlayActivity = null
+    private fun presentActivity(formId: FormId?) {
+        presentationState = Presenting(formId)
+        Registry.log.debug("Presentation State: $presentationState (Activity approach)")
+        Registry.config.applicationContext.startActivity(
+            KlaviyoFormsOverlayActivity.launchIntent
+        )
+    }
+
+    /**
+     * Present the form using FloatingFormWindow (WindowManager approach)
+     */
+    private fun presentFloatingWindow(activity: Activity, formId: FormId?, layout: FormLayout) {
+        presentationState = Presenting(formId)
+        Registry.log.debug("Presentation State: $presentationState (WindowManager approach)")
+
+        hostActivity = activity
+
+        val webViewClient = Registry.get<WebViewClient>()
+        val webView = webViewClient.getWebView()
+
+        if (webView == null) {
+            Registry.log.error("Cannot present floating form - WebView is null")
+            presentationState = Hidden
+            return
+        }
+
+        floatingFormWindow = FloatingFormWindow(activity).also { window ->
+            window.show(activity, webView, layout)
+        }
+
+        presentationState = Presented(formId)
         Registry.log.debug("Presentation State: $presentationState")
-    } ?: clearTimers().also {
-        Registry.log.debug("No-op dismiss: overlay activity is not presented")
+    }
+
+    /**
+     * Detach the webview from the overlay activity or floating window and dismiss it
+     */
+    override fun dismiss() {
+        clearTimers()
+
+        // Try to dismiss floating window first
+        floatingFormWindow?.let { window ->
+            window.dismiss()
+            floatingFormWindow = null
+            hostActivity = null
+            currentLayout = null
+            presentationState = Hidden
+            Registry.log.debug(
+                "Presentation State: $presentationState (FloatingFormWindow dismissed)"
+            )
+            return
+        }
+
+        // Fall back to Activity-based dismissal
+        overlayActivity?.let { activity ->
+            Registry.get<WebViewClient>().detachWebView()
+            activity.finish()
+            presentationState = Hidden
+            overlayActivity = null
+            currentLayout = null
+            Registry.log.debug("Presentation State: $presentationState (Activity dismissed)")
+        } ?: run {
+            Registry.log.debug("No-op dismiss: nothing is currently presented")
+        }
     }
 
     /**
