@@ -226,7 +226,7 @@ object KlaviyoRemoteMessage {
                     val actionType = jsonObject.optString("action", ActionButton.TYPE_OPEN_APP)
 
                     // Create appropriate sealed class instance based on action type
-                    when (actionType.lowercase()) {
+                    when (actionType) {
                         ActionButton.TYPE_DEEP_LINK -> {
                             jsonObject.optString("url").takeIf { it.isNotBlank() }?.let { url ->
                                 ActionButton.DeepLink(
@@ -240,9 +240,15 @@ object KlaviyoRemoteMessage {
                                 null
                             }
                         }
-                        else -> {
-                            // Default to OPEN_APP for unknown or explicit open_app types
+                        ActionButton.TYPE_OPEN_APP -> {
                             ActionButton.OpenApp(label = label)
+                        }
+                        else -> {
+                            // Skip buttons with unsupported or malformed action types
+                            Registry.log.warning(
+                                "Skipping action button $i: unsupported action type '$actionType'"
+                            )
+                            null
                         }
                     }?.let { button ->
                         Registry.log.verbose("Parsed button $i: $button")
