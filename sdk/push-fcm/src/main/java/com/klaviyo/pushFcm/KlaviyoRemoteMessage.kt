@@ -58,7 +58,12 @@ object KlaviyoRemoteMessage {
      */
     fun Intent.appendActionButtonExtras(button: ActionButton) = apply {
         putExtra(PACKAGE_PREFIX + "Button Label", button.label)
-        putExtra(PACKAGE_PREFIX + "Button Action", button.displayName)
+
+        val actionName = when (button) {
+            is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK
+            is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP
+        }
+        putExtra(PACKAGE_PREFIX + "Button Action", actionName)
 
         if (button is ActionButton.DeepLink) {
             putExtra(PACKAGE_PREFIX + "Button Link", button.url)
@@ -274,16 +279,13 @@ object KlaviyoRemoteMessage {
      */
     sealed class ActionButton {
         abstract val label: String
-        abstract val displayName: String
 
         /**
          * Button that opens the app without navigating to a specific destination
          */
         data class OpenApp(
             override val label: String
-        ) : ActionButton() {
-            override val displayName: String = DISPLAY_NAME_OPEN_APP
-        }
+        ) : ActionButton()
 
         /**
          * Button that opens the app and navigates to a deep link destination
@@ -291,9 +293,7 @@ object KlaviyoRemoteMessage {
         data class DeepLink(
             override val label: String,
             val url: String
-        ) : ActionButton() {
-            override val displayName: String = DISPLAY_NAME_DEEP_LINK
-        }
+        ) : ActionButton()
 
         companion object {
             /**
