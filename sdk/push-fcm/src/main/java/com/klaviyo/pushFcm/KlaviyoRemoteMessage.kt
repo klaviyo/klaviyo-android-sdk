@@ -208,7 +208,13 @@ object KlaviyoRemoteMessage {
                         break
                     }
 
-                    val jsonObject = jsonArray.getJSONObject(i)
+                    val jsonObject = jsonArray.optJSONObject(i)
+                    if (jsonObject == null) {
+                        Registry.log.warning(
+                            "Skipping action button $i: invalid JSON object"
+                        )
+                        continue
+                    }
                     val label = jsonObject.optString("label").takeIf { it.isNotBlank() }
 
                     // Validate required label field
