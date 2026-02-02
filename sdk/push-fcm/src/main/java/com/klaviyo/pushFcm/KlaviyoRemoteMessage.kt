@@ -226,32 +226,27 @@ object KlaviyoRemoteMessage {
                     val actionType = jsonObject.optString("action", ActionButton.TYPE_OPEN_APP)
 
                     // Create appropriate sealed class instance based on action type
-                    val button = when (actionType.lowercase()) {
+                    when (actionType.lowercase()) {
                         ActionButton.TYPE_DEEP_LINK -> {
-                            val url = jsonObject.optString("url").takeIf { it.isNotBlank() }
-                            if (url == null) {
-                                Registry.log.warning(
-                                    "Skipping DEEP_LINK action button $i: missing required url"
-                                )
-                                null
-                            } else {
+                            jsonObject.optString("url").takeIf { it.isNotBlank() }?.let { url ->
                                 ActionButton.DeepLink(
                                     label = label,
                                     url = url
                                 )
+                            } ?: run {
+                                Registry.log.warning(
+                                    "Skipping DEEP_LINK action button $i: missing required url"
+                                )
+                                null
                             }
                         }
                         else -> {
                             // Default to OPEN_APP for unknown or explicit open_app types
-                            ActionButton.OpenApp(
-                                label = label
-                            )
+                            ActionButton.OpenApp(label = label)
                         }
-                    }
-
-                    button?.let {
-                        Registry.log.verbose("Parsed button $i: $it")
-                        buttons.add(it)
+                    }?.let { button ->
+                        Registry.log.verbose("Parsed button $i: $button")
+                        buttons.add(button)
                     }
                 }
 
