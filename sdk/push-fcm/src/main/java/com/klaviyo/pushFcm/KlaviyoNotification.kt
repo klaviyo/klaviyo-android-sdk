@@ -233,11 +233,11 @@ class KlaviyoNotification(private val message: RemoteMessage) {
     private fun makeOpenedIntent(context: Context) = message.deepLink.let { deepLink ->
         when {
             // If deep link is present, use an ACTION_VIEW intent
-            deepLink is Uri -> DeepLinking.makeDeepLinkIntent(deepLink, context)
-                .takeIf { it.activityResolved(context) }
-                ?: DeepLinking.makeLaunchIntent(context).also {
-                    Registry.log.error("Push message contained unsupported deep link: $deepLink")
-                }
+            deepLink is Uri -> makeResolvedDeepLinkIntent(
+                context,
+                deepLink,
+                "Push message contained unsupported deep link: $deepLink"
+            )
             // Else, just launch the app
             else -> DeepLinking.makeLaunchIntent(context)
         }?.appendKlaviyoExtras(message)
@@ -292,7 +292,12 @@ class KlaviyoNotification(private val message: RemoteMessage) {
     ): NotificationCompat.Action? {
         val intent = when (button) {
             is ActionButton.DeepLink -> {
-                makeResolvedDeepLinkIntent(context, index, button.url)
+                val uri = button.url.toUri()
+                makeResolvedDeepLinkIntent(
+                    context,
+                    uri,
+                    "Action button $index contained unsupported deep link: $uri"
+                )
             }
             is ActionButton.OpenApp -> {
                 DeepLinking.makeLaunchIntent(context)
@@ -325,14 +330,11 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
     private fun makeResolvedDeepLinkIntent(
         context: Context,
-        index: Int,
-        url: String
-    ): Intent? {
-        val uri = url.toUri()
-        return DeepLinking.makeDeepLinkIntent(uri, context)
-            .takeIf { it.activityResolved(context) }
-            ?: DeepLinking.makeLaunchIntent(context).also {
-                Registry.log.error("Action button $index contained unsupported deep link: $uri")
-            }
-    }
+        deepLink: Uri,
+        errorMessage: String
+    ): Intent? = DeepLinking.makeDeepLinkIntent(deepLink, context)
+        .takeIf { it.activityResolved(context) }
+        ?: DeepLinking.makeLaunchIntent(context).also {
+            Registry.log.error(errorMessage)
+        }
 }
