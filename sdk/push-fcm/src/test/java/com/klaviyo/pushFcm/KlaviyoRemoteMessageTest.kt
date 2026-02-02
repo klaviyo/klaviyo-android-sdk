@@ -295,6 +295,25 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
+    fun `Test Action Button with null label is skipped`() {
+        val actionButtonsJson = JSONArray().put(
+            JSONObject()
+                .put("label", JSONObject.NULL)
+                .put("action", "open_app")
+        ).toString()
+
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, actionButtonsJson)
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        val buttons = msg.actionButtons
+        assert(buttons == null)
+    }
+
+    @Test
     fun `Test DEEP_LINK Action Button without URL is skipped`() {
         val actionButtonsData = listOf(
             mapOf(
@@ -304,6 +323,26 @@ class KlaviyoRemoteMessageTest : BaseTest() {
             )
         )
         val actionButtonsJson = JSONArray(actionButtonsData).toString()
+
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, actionButtonsJson)
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        val buttons = msg.actionButtons
+        assert(buttons == null)
+    }
+
+    @Test
+    fun `Test DEEP_LINK Action Button with null URL is skipped`() {
+        val actionButtonsJson = JSONArray().put(
+            JSONObject()
+                .put("label", "Deep Link")
+                .put("action", "deep_link")
+                .put("url", JSONObject.NULL)
+        ).toString()
 
         val messageWithActions = stubMessage.toMutableMap().apply {
             put(ACTION_BUTTONS_KEY, actionButtonsJson)

@@ -144,6 +144,14 @@ object KlaviyoRemoteMessage {
         Registry.log.warning("Error converting string to URL", it)
     }.getOrNull()
 
+    private fun JSONObject.optNonBlankString(key: String): String? {
+        // JSONObject.optString returns the literal "null" for JSON null values.
+        if (isNull(key)) {
+            return null
+        }
+        return optString(key).takeIf { it.isNotBlank() }
+    }
+
     /**
      * Parse [Uri] to sound resource
      */
@@ -220,7 +228,7 @@ object KlaviyoRemoteMessage {
                         )
                         continue
                     }
-                    val label = jsonObject.optString("label").takeIf { it.isNotBlank() }
+                    val label = jsonObject.optNonBlankString("label")
 
                     // Validate required label field
                     if (label == null) {
@@ -235,7 +243,7 @@ object KlaviyoRemoteMessage {
                     // Create appropriate sealed class instance based on action type
                     when (actionType) {
                         ActionButton.TYPE_DEEP_LINK -> {
-                            jsonObject.optString("url").takeIf { it.isNotBlank() }?.let { url ->
+                            jsonObject.optNonBlankString("url")?.let { url ->
                                 ActionButton.DeepLink(
                                     label = label,
                                     url = url
