@@ -202,16 +202,17 @@ object KlaviyoRemoteMessage {
                 val buttonCount = jsonArray.length()
                 Registry.log.verbose("JSON array has $buttonCount buttons")
 
-                if (buttonCount > MAX_ACTION_BUTTONS) {
-                    Registry.log.warning(
-                        "Received $buttonCount action buttons but only $MAX_ACTION_BUTTONS are supported. " +
-                            "Additional buttons will be ignored."
-                    )
-                }
+                // Parse buttons until we have MAX_ACTION_BUTTONS valid buttons
+                for (i in 0 until buttonCount) {
+                    // Stop if we've already collected the maximum number of valid buttons
+                    if (buttons.size >= MAX_ACTION_BUTTONS) {
+                        Registry.log.warning(
+                            "Reached maximum of $MAX_ACTION_BUTTONS valid action buttons, " +
+                                "remaining ${buttonCount - i} button(s) will be ignored."
+                        )
+                        break
+                    }
 
-                // Only process up to MAX_ACTION_BUTTONS
-                val buttonsToProcess = minOf(buttonCount, MAX_ACTION_BUTTONS)
-                for (i in 0 until buttonsToProcess) {
                     val jsonObject = jsonArray.getJSONObject(i)
                     val label = jsonObject.optString("label").takeIf { it.isNotBlank() }
 

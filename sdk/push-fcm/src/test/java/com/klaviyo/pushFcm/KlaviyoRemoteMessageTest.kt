@@ -393,7 +393,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
-    fun `Test parser enforces maximum of 3 action buttons`() {
+    fun `Test parser enforces maximum of 3 valid action buttons`() {
         val actionButtonsData = listOf(
             mapOf("label" to "Button 1", "action" to "open_app"),
             mapOf("label" to "Button 2", "action" to "open_app"),
@@ -416,5 +416,33 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         assert(buttons?.get(0)?.label == "Button 1")
         assert(buttons?.get(1)?.label == "Button 2")
         assert(buttons?.get(2)?.label == "Button 3")
+    }
+
+    @Test
+    fun `Test parser continues past invalid buttons to reach 3 valid buttons`() {
+        val actionButtonsData = listOf(
+            mapOf("label" to "", "action" to "open_app"), // Invalid - no label
+            mapOf("label" to "Valid 1", "action" to "open_app"), // Valid
+            mapOf("label" to "Invalid", "action" to "OPEN_APP"), // Invalid - wrong case
+            mapOf("label" to "Valid 2", "action" to "deep_link", "url" to "test://2"), // Valid
+            mapOf("label" to "Invalid", "action" to "deep_link"), // Invalid - no url
+            mapOf("label" to "Valid 3", "action" to "open_app"), // Valid
+            mapOf("label" to "Valid 4", "action" to "open_app") // Should be ignored (>3 valid)
+        )
+        val actionButtonsJson = JSONArray(actionButtonsData).toString()
+
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, actionButtonsJson)
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        val buttons = msg.actionButtons
+        assert(buttons != null)
+        assert(buttons?.size == 3)
+        assert(buttons?.get(0)?.label == "Valid 1")
+        assert(buttons?.get(1)?.label == "Valid 2")
+        assert(buttons?.get(2)?.label == "Valid 3")
     }
 }
