@@ -332,7 +332,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         return DeepLinking.makeDeepLinkIntent(uri, context)
             .takeIf { it.activityResolved(context) }
             ?: openAppIntent(context).also {
-                Registry.log.warning("Action button $index contained unsupported deep link: $uri")
+                Registry.log.error("Action button $index contained unsupported deep link: $uri")
             }
     }
 
