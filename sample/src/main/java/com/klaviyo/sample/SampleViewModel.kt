@@ -75,6 +75,12 @@ class SampleViewModel : ViewModel() {
         )
     }
 
+    fun refreshGeofences() {
+        Registry.getOrNull<LocationManager>()?.let {
+            monitoredGeofences = it.getCurrentGeofences()
+        }
+    }
+
     // Profile actions
     @UiThread
     fun updateExternalId(value: String) {
