@@ -338,10 +338,12 @@ class KlaviyoNotificationTest : BaseTest() {
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
                 ActionButton.DeepLink(
+                    id = "deep-link",
                     label = "Open deep link",
                     url = "app://invalid"
                 ),
                 ActionButton.OpenApp(
+                    id = "open-app",
                     label = "Open app"
                 )
             )
@@ -373,6 +375,7 @@ class KlaviyoNotificationTest : BaseTest() {
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
                 ActionButton.OpenApp(
+                    id = "open-app",
                     label = "Open app"
                 )
             )
@@ -435,6 +438,7 @@ class KlaviyoNotificationTest : BaseTest() {
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
                 ActionButton.OpenApp(
+                    id = "open",
                     label = "Open"
                 )
             )
@@ -464,10 +468,12 @@ class KlaviyoNotificationTest : BaseTest() {
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
                 ActionButton.DeepLink(
+                    id = "first",
                     label = "First",
                     url = "https://example.com/first"
                 ),
                 ActionButton.OpenApp(
+                    id = "second",
                     label = "Second"
                 )
             )
@@ -489,6 +495,7 @@ class KlaviyoNotificationTest : BaseTest() {
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
                 ActionButton.OpenApp(
+                    id = "open",
                     label = "Open app"
                 )
             )
@@ -513,6 +520,7 @@ class KlaviyoNotificationTest : BaseTest() {
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
                 ActionButton.OpenApp(
+                    id = "com.klaviyo.test.open",
                     label = "Open App"
                 )
             )
@@ -545,6 +553,7 @@ class KlaviyoNotificationTest : BaseTest() {
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
                 ActionButton.DeepLink(
+                    id = "com.klaviyo.test.view",
                     label = "View Order",
                     url = "klaviyotest://order/123"
                 )

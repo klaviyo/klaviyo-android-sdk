@@ -74,11 +74,13 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test Action Buttons Deserialization`() {
         val actionButtonsData = listOf(
             mapOf(
+                "id" to "com.klaviyo.test.view",
                 "label" to "View Order",
                 "action" to "deep_link",
                 "url" to "klaviyotest://view-order"
             ),
             mapOf(
+                "id" to "com.klaviyo.test.open",
                 "label" to "Open App",
                 "action" to "open_app"
             )
@@ -99,12 +101,14 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         // First button is DeepLink type
         val firstButton = buttons?.get(0)
         assert(firstButton is ActionButton.DeepLink)
+        assert(firstButton?.id == "com.klaviyo.test.view")
         assert(firstButton?.label == "View Order")
         assert((firstButton as? ActionButton.DeepLink)?.url == "klaviyotest://view-order")
 
         // Second button is OpenApp type
         val secondButton = buttons?.get(1)
         assert(secondButton is ActionButton.OpenApp)
+        assert(secondButton?.id == "com.klaviyo.test.open")
         assert(secondButton?.label == "Open App")
     }
 
@@ -120,11 +124,13 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test parser correctly handles exact case-sensitive action types`() {
         val actionButtonsData = listOf(
             mapOf(
+                "id" to "deepLink",
                 "label" to "Deep Link Button",
                 "action" to "deep_link", // Correct case
                 "url" to "test://url"
             ),
             mapOf(
+                "id" to "openApp",
                 "label" to "Open App Button",
                 "action" to "open_app" // Correct case
             )
@@ -149,16 +155,19 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test parser is case-sensitive and skips incorrect casing`() {
         val actionButtonsData = listOf(
             mapOf(
+                "id" to "test1",
                 "label" to "Test 1",
                 "action" to "DEEP_LINK", // Wrong case
                 "url" to "test://url1"
             ),
             mapOf(
+                "id" to "test2",
                 "label" to "Test 2",
                 "action" to "Deep_Link", // Wrong case
                 "url" to "test://url2"
             ),
             mapOf(
+                "id" to "test3",
                 "label" to "Test 3",
                 "action" to "OPEN_APP" // Wrong case
             )
@@ -180,9 +189,9 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     @Test
     fun `Test parser skips buttons with unknown action types`() {
         val actionButtonsData = listOf(
-            mapOf("label" to "Test 1", "action" to "unknown_action"),
-            mapOf("label" to "Test 2", "action" to "invalid"),
-            mapOf("label" to "Test 3", "action" to "future_type")
+            mapOf("id" to "test1", "label" to "Test 1", "action" to "unknown_action"),
+            mapOf("id" to "test2", "label" to "Test 2", "action" to "invalid"),
+            mapOf("id" to "test3", "label" to "Test 3", "action" to "future_type")
         )
         val actionButtonsJson = JSONArray(actionButtonsData).toString()
 
@@ -202,6 +211,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test Action Button with OPEN_APP and no URL`() {
         val actionButtonsData = listOf(
             mapOf(
+                "id" to "com.klaviyo.test.open",
                 "label" to "Open App",
                 "action" to "open_app"
                 // No URL provided
@@ -222,6 +232,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
 
         val button = buttons?.get(0)
         assert(button is ActionButton.OpenApp)
+        assert(button?.id == "com.klaviyo.test.open")
         assert(button?.label == "Open App")
     }
 
@@ -229,6 +240,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test Action Button with empty URL creates OpenApp type`() {
         val actionButtonsData = listOf(
             mapOf(
+                "id" to "open.app",
                 "label" to "Open App",
                 "action" to "open_app",
                 "url" to ""
@@ -253,6 +265,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test Action Button with blank URL creates OpenApp type`() {
         val actionButtonsData = listOf(
             mapOf(
+                "id" to "open.app",
                 "label" to "Open App",
                 "action" to "open_app",
                 "url" to "   "
@@ -277,6 +290,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test Action Button with blank label is skipped`() {
         val actionButtonsData = listOf(
             mapOf(
+                "id" to "open.app",
                 "label" to "",
                 "action" to "open_app"
             )
@@ -298,6 +312,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test Action Button with null label is skipped`() {
         val actionButtonsJson = JSONArray().put(
             JSONObject()
+                .put("id", "open.app")
                 .put("label", JSONObject.NULL)
                 .put("action", "open_app")
         ).toString()
@@ -317,6 +332,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test DEEP_LINK Action Button without URL is skipped`() {
         val actionButtonsData = listOf(
             mapOf(
+                "id" to "deep.link",
                 "label" to "Deep Link",
                 "action" to "deep_link"
                 // No URL
@@ -339,6 +355,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test DEEP_LINK Action Button with null URL is skipped`() {
         val actionButtonsJson = JSONArray().put(
             JSONObject()
+                .put("id", "deep.link")
                 .put("label", "Deep Link")
                 .put("action", "deep_link")
                 .put("url", JSONObject.NULL)
@@ -359,23 +376,28 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test parser filters out invalid buttons but keeps valid ones`() {
         val actionButtonsData = listOf(
             mapOf(
+                "id" to "valid.deep.link",
                 "label" to "Valid Deep Link",
                 "action" to "deep_link",
                 "url" to "test://valid"
             ),
             mapOf(
+                "id" to "invalid.deep.link",
                 "label" to "Invalid - deep link no url",
                 "action" to "deep_link"
             ),
             mapOf(
+                "id" to "valid.button",
                 "label" to "Valid Button",
                 "action" to "open_app"
             ),
             mapOf(
+                "id" to "invalid.button",
                 "label" to "Invalid - wrong case",
                 "action" to "OPEN_APP"
             ),
             mapOf(
+                "id" to "",
                 "label" to "",
                 "action" to "open_app"
             )
@@ -402,6 +424,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test appendActionButtonExtras adds tracking data for OpenApp button`() {
         val intent = mockk<Intent>(relaxed = true)
         val button = ActionButton.OpenApp(
+            id = "open.app",
             label = "Open App"
         )
 
@@ -409,6 +432,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
 
         intent.appendActionButtonExtras(button)
 
+        verify { intent.putExtra("com.klaviyo.Button ID", "open.app") }
         verify { intent.putExtra("com.klaviyo.Button Label", "Open App") }
         verify { intent.putExtra("com.klaviyo.Button Action", "Open App") }
         verify(exactly = 0) { intent.putExtra("com.klaviyo.Button Link", any<String>()) }
@@ -418,6 +442,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     fun `Test appendActionButtonExtras adds tracking data for DeepLink button`() {
         val intent = mockk<Intent>(relaxed = true)
         val button = ActionButton.DeepLink(
+            id = "view.order",
             label = "View Order",
             url = "klaviyotest://order/123"
         )
@@ -426,6 +451,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
 
         intent.appendActionButtonExtras(button)
 
+        verify { intent.putExtra("com.klaviyo.Button ID", "view.order") }
         verify { intent.putExtra("com.klaviyo.Button Label", "View Order") }
         verify { intent.putExtra("com.klaviyo.Button Action", "Deep Link") }
         verify { intent.putExtra("com.klaviyo.Button Link", "klaviyotest://order/123") }
@@ -434,11 +460,11 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     @Test
     fun `Test parser enforces maximum of 3 valid action buttons`() {
         val actionButtonsData = listOf(
-            mapOf("label" to "Button 1", "action" to "open_app"),
-            mapOf("label" to "Button 2", "action" to "open_app"),
-            mapOf("label" to "Button 3", "action" to "open_app"),
-            mapOf("label" to "Button 4", "action" to "open_app"),
-            mapOf("label" to "Button 5", "action" to "open_app")
+            mapOf("id" to "button1", "label" to "Button 1", "action" to "open_app"),
+            mapOf("id" to "button2", "label" to "Button 2", "action" to "open_app"),
+            mapOf("id" to "button3", "label" to "Button 3", "action" to "open_app"),
+            mapOf("id" to "button4", "label" to "Button 4", "action" to "open_app"),
+            mapOf("id" to "button5", "label" to "Button 5", "action" to "open_app")
         )
         val actionButtonsJson = JSONArray(actionButtonsData).toString()
 
@@ -452,21 +478,29 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         val buttons = msg.actionButtons
         assert(buttons != null)
         assert(buttons?.size == 3)
+        assert(buttons?.get(0)?.id == "button1")
         assert(buttons?.get(0)?.label == "Button 1")
+        assert(buttons?.get(1)?.id == "button2")
         assert(buttons?.get(1)?.label == "Button 2")
+        assert(buttons?.get(2)?.id == "button3")
         assert(buttons?.get(2)?.label == "Button 3")
     }
 
     @Test
     fun `Test parser continues past invalid buttons to reach 3 valid buttons`() {
         val actionButtonsData = listOf(
-            mapOf("label" to "", "action" to "open_app"), // Invalid - no label
-            mapOf("label" to "Valid 1", "action" to "open_app"), // Valid
-            mapOf("label" to "Invalid", "action" to "OPEN_APP"), // Invalid - wrong case
-            mapOf("label" to "Valid 2", "action" to "deep_link", "url" to "test://2"), // Valid
-            mapOf("label" to "Invalid", "action" to "deep_link"), // Invalid - no url
-            mapOf("label" to "Valid 3", "action" to "open_app"), // Valid
-            mapOf("label" to "Valid 4", "action" to "open_app") // Should be ignored (>3 valid)
+            mapOf("id" to "", "label" to "", "action" to "open_app"), // Invalid - no id/label
+            mapOf("id" to "valid1", "label" to "Valid 1", "action" to "open_app"), // Valid
+            mapOf("id" to "invalid1", "label" to "Invalid", "action" to "OPEN_APP"), // Invalid - wrong case
+            mapOf(
+                "id" to "valid2",
+                "label" to "Valid 2",
+                "action" to "deep_link",
+                "url" to "test://2"
+            ), // Valid
+            mapOf("id" to "invalid2", "label" to "Invalid", "action" to "deep_link"), // Invalid - no url
+            mapOf("id" to "valid3", "label" to "Valid 3", "action" to "open_app"), // Valid
+            mapOf("id" to "valid4", "label" to "Valid 4", "action" to "open_app") // Should be ignored (>3 valid)
         )
         val actionButtonsJson = JSONArray(actionButtonsData).toString()
 
@@ -480,8 +514,11 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         val buttons = msg.actionButtons
         assert(buttons != null)
         assert(buttons?.size == 3)
+        assert(buttons?.get(0)?.id == "valid1")
         assert(buttons?.get(0)?.label == "Valid 1")
+        assert(buttons?.get(1)?.id == "valid2")
         assert(buttons?.get(1)?.label == "Valid 2")
+        assert(buttons?.get(2)?.id == "valid3")
         assert(buttons?.get(2)?.label == "Valid 3")
     }
 }
