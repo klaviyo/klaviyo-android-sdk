@@ -218,7 +218,7 @@ fun SampleView(
                     viewModel::unregisterFromGeofencing,
                     "Unregistered from geofencing"
                 ),
-                refreshGeofences = viewModel::refreshGeofences
+                refreshGeofences = viewModel::refreshCurrentGeofences
             )
         }
     }

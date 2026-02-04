@@ -1,5 +1,6 @@
 package com.klaviyo.sample
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -325,24 +326,24 @@ private fun MapContent(
         Surface(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 60.dp, end = 12.dp),
-            shape = RoundedCornerShape(4.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
-            shadowElevation = 4.dp
+                .padding(top = 60.dp, end = 12.dp)
+                .border(
+                    width = 0.5.dp,
+                    color = Color.Black.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(2.dp)
+                ),
+            shape = RoundedCornerShape(2.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
         ) {
             IconButton(
                 onClick = onToggleExpand,
-                modifier = Modifier
-                    .padding(0.dp)
-                    .size(38.dp)
+                modifier = Modifier.size(38.dp)
             ) {
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ZoomInMap else Icons.Default.ZoomOutMap,
                     contentDescription = if (isExpanded) "Collapse Map" else "Expand Map",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(0.dp)
-                        .size(25.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(25.dp)
                 )
             }
         }
@@ -351,24 +352,24 @@ private fun MapContent(
         Surface(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 106.dp, end = 12.dp),
-            shape = RoundedCornerShape(4.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
-            shadowElevation = 4.dp
+                .padding(top = 106.dp, end = 12.dp)
+                .border(
+                    width = 0.5.dp,
+                    color = Color.Black.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(2.dp)
+                ),
+            shape = RoundedCornerShape(2.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
         ) {
             IconButton(
                 onClick = onRefreshGeofences,
-                modifier = Modifier
-                    .padding(0.dp)
-                    .size(38.dp)
+                modifier = Modifier.size(38.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = "Refresh Geofences",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(0.dp)
-                        .size(25.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(25.dp)
                 )
             }
         }
