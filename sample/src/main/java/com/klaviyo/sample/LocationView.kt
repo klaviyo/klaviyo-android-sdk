@@ -1,5 +1,6 @@
 package com.klaviyo.sample
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ZoomInMap
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material3.Icon
@@ -67,7 +69,8 @@ fun LocationView(
     onRequestLocationPermission: () -> Unit,
     onRequestBackgroundLocationPermission: () -> Unit,
     onRegisterForGeofencing: () -> Unit,
-    onUnregisterFromGeofencing: () -> Unit
+    onUnregisterFromGeofencing: () -> Unit,
+    onRefreshGeofences: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -139,7 +142,8 @@ fun LocationView(
             // Show map once foreground location permission is granted
             LocationMapView(
                 monitoredGeofences = if (isGeofencingRegistered) monitoredGeofences else emptyList(),
-                userLocation = userLocation
+                userLocation = userLocation,
+                onRefreshGeofences = onRefreshGeofences
             )
         }
     }
@@ -148,7 +152,8 @@ fun LocationView(
 @Composable
 fun LocationMapView(
     monitoredGeofences: List<KlaviyoGeofence>,
-    userLocation: LatLng?
+    userLocation: LatLng?,
+    onRefreshGeofences: () -> Unit
 ) {
     var isExpanded by remember { mutableStateOf(false) }
 
@@ -182,6 +187,7 @@ fun LocationMapView(
         onPositionedForUserLocation = { hasPositionedForUserLocation = true },
         isExpanded = false,
         onToggleExpand = { isExpanded = true },
+        onRefreshGeofences = onRefreshGeofences,
         modifier = Modifier
             .fillMaxWidth()
             .height(400.dp)
@@ -206,6 +212,7 @@ fun LocationMapView(
                 onPositionedForUserLocation = { hasPositionedForUserLocation = true },
                 isExpanded = true,
                 onToggleExpand = { isExpanded = false },
+                onRefreshGeofences = onRefreshGeofences,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -226,6 +233,7 @@ private fun MapContent(
     onPositionedForUserLocation: () -> Unit,
     isExpanded: Boolean,
     onToggleExpand: () -> Unit,
+    onRefreshGeofences: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Create camera position state for this map instance
@@ -318,24 +326,50 @@ private fun MapContent(
         Surface(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 60.dp, end = 12.dp),
-            shape = RoundedCornerShape(4.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
-            shadowElevation = 4.dp
+                .padding(top = 60.dp, end = 12.dp)
+                .border(
+                    width = 0.5.dp,
+                    color = Color.Black.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(2.dp)
+                ),
+            shape = RoundedCornerShape(2.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
         ) {
             IconButton(
                 onClick = onToggleExpand,
-                modifier = Modifier
-                    .padding(0.dp)
-                    .size(38.dp)
+                modifier = Modifier.size(38.dp)
             ) {
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ZoomInMap else Icons.Default.ZoomOutMap,
                     contentDescription = if (isExpanded) "Collapse Map" else "Expand Map",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(0.dp)
-                        .size(25.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(25.dp)
+                )
+            }
+        }
+
+        // Floating refresh geofences button
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 106.dp, end = 12.dp)
+                .border(
+                    width = 0.5.dp,
+                    color = Color.Black.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(2.dp)
+                ),
+            shape = RoundedCornerShape(2.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
+        ) {
+            IconButton(
+                onClick = onRefreshGeofences,
+                modifier = Modifier.size(38.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Refresh Geofences",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(25.dp)
                 )
             }
         }

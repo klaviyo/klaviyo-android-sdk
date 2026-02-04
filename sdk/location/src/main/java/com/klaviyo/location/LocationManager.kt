@@ -63,4 +63,15 @@ interface LocationManager {
      * Handle device boot event to re-register geofences
      */
     fun restoreGeofencesOnBoot(context: Context)
+
+    /**
+     * Get the list of geofences currently being monitored by the system
+     *
+     * This returns only geofences that have been successfully registered with
+     * the system's GeofencingClient, which may be a subset of [getStoredGeofences]
+     * if filtering was applied (e.g., nearest 20 based on user location).
+     *
+     * @return List of geofences actively being monitored, or empty if none
+     */
+    fun getCurrentGeofences(): List<KlaviyoGeofence>
 }
