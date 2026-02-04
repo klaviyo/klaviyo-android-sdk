@@ -68,17 +68,21 @@ class SampleViewModel : ViewModel() {
     var userLocation by mutableStateOf<LatLng?>(null)
         private set
 
-    private fun syncGeofences(geofences: List<KlaviyoGeofence>) {
+    /**
+     * Refreshes the list of currently monitored geofences from the LocationManager.
+     */
+    fun refreshCurrentGeofences() {
         monitoredGeofences = Registry.get<LocationManager>().getCurrentGeofences()
-        Registry.log.verbose(
-            "Synced ${geofences.size} geofences from API, monitoring ${monitoredGeofences.size}"
-        )
+        Registry.log.verbose("${monitoredGeofences.size} currently being monitored")
     }
 
-    fun refreshGeofences() {
-        Registry.getOrNull<LocationManager>()?.let {
-            monitoredGeofences = it.getCurrentGeofences()
-        }
+    /**
+     * Refreshes the current geofences when a geofence sync event occurs.
+     * We don't want to show all those fences though, so we need to get just the currently monitored ones.
+     */
+    private fun refreshCurrentGeofencesOnSync(allGeofences: List<KlaviyoGeofence>) {
+        Registry.log.verbose("${allGeofences.size} Geofences fetched from Klaviyo API")
+        refreshCurrentGeofences()
     }
 
     // Profile actions
@@ -189,12 +193,12 @@ class SampleViewModel : ViewModel() {
             // Note: this uses advanced APIs used for demonstration, not necessary for a typical integration
             Registry.getOrNull<LocationManager>()?.apply {
                 monitoredGeofences = getCurrentGeofences()
-                onGeofenceSync(true, ::syncGeofences)
+                onGeofenceSync(true, ::refreshCurrentGeofencesOnSync)
             }
         } else {
             monitoredGeofences = emptyList()
             userLocation = null
-            Registry.getOrNull<LocationManager>()?.offGeofenceSync(::syncGeofences)
+            Registry.getOrNull<LocationManager>()?.offGeofenceSync(::refreshCurrentGeofencesOnSync)
         }
     }
 
@@ -225,6 +229,6 @@ class SampleViewModel : ViewModel() {
         super.onCleared()
         // Clean up geofence sync subscription to prevent memory leak
         // Note: this is an advanced API used for demonstration, not necessary for a typical integration
-        Registry.getOrNull<LocationManager>()?.offGeofenceSync(::syncGeofences)
+        Registry.getOrNull<LocationManager>()?.offGeofenceSync(::refreshCurrentGeofencesOnSync)
     }
 }
