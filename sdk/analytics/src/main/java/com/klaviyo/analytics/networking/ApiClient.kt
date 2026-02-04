@@ -2,6 +2,7 @@ package com.klaviyo.analytics.networking
 
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
@@ -104,6 +105,18 @@ interface ApiClient {
      * @return The API request that was enqueued
      */
     fun enqueueAggregateEvent(payload: AggregateEventPayload): ApiRequest
+
+    /**
+     * Queue an API request to create a subscription for a [Profile]
+     *
+     * Creates a subscription and consent record for email and/or SMS channels
+     * based on the provided profile identifiers.
+     *
+     * @param profile Profile containing email and/or phone_number to subscribe
+     * @param subscription Subscription details including list ID and channels
+     * @return The API request that was enqueued
+     */
+    fun enqueueClientSubscription(profile: Profile, subscription: Subscription): ApiRequest
 
     /**
      * Resolve a destination URL from a tracking URL

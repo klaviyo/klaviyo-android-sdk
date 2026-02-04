@@ -4,7 +4,9 @@ import android.os.Handler
 import androidx.annotation.WorkerThread
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
+import com.klaviyo.analytics.networking.requests.ClientSubscriptionApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
@@ -110,6 +112,14 @@ internal object KlaviyoApiClient : ApiClient {
                 scheduler.scheduleFlush()
             }
         }
+
+    override fun enqueueClientSubscription(
+        profile: Profile,
+        subscription: Subscription
+    ): ApiRequest = ClientSubscriptionApiRequest(profile, subscription).also {
+        Registry.log.verbose("Enqueuing Client Subscription request")
+        enqueueRequest(it)
+    }
 
     /**
      * Resolve the destination URL for a universal click tracking link

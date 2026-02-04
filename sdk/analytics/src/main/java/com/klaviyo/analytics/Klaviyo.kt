@@ -12,6 +12,7 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.analytics.state.KlaviyoState
@@ -310,6 +311,47 @@ object Klaviyo {
     @JvmOverloads
     fun createEvent(metric: EventMetric, value: Double? = null): Klaviyo =
         createEvent(Event(metric).setValue(value))
+
+    /**
+     * Creates a subscription and consent record for email and/or SMS channels.
+     *
+     * This method subscribes the currently tracked profile to the specified Klaviyo list.
+     * The profile must have at least an email address or phone number set.
+     *
+     * If no specific channels are specified in the [Subscription], the API will default to
+     * MARKETING consent for all available channels based on the profile identifiers
+     * (email for email channel, phone number for SMS channel).
+     *
+     * @param subscription [Subscription] containing the list ID and optional channel preferences
+     * @return Returns [Klaviyo] for call chaining
+     */
+    @JvmStatic
+    fun createClientSubscription(subscription: Subscription): Klaviyo = safeApply {
+        Registry.get<ApiClient>().enqueueClientSubscription(
+            Registry.get<State>().getAsProfile(),
+            subscription
+        )
+    }
+
+    /**
+     * Creates a subscription and consent record for email and/or SMS channels.
+     *
+     * This method subscribes a profile to the specified Klaviyo list.
+     * The profile must have at least an email address or phone number.
+     *
+     * If no specific channels are specified in the [Subscription], the API will default to
+     * MARKETING consent for all available channels based on the profile identifiers
+     * (email for email channel, phone number for SMS channel).
+     *
+     * @param profile [Profile] containing email and/or phone number to subscribe
+     * @param subscription [Subscription] containing the list ID and optional channel preferences
+     * @return Returns [Klaviyo] for call chaining
+     */
+    @JvmStatic
+    fun createClientSubscription(profile: Profile, subscription: Subscription): Klaviyo =
+        safeApply {
+            Registry.get<ApiClient>().enqueueClientSubscription(profile, subscription)
+        }
 
     /**
      * From an opened push Intent, creates an [EventMetric.OPENED_PUSH] [Event]
