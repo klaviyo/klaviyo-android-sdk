@@ -843,15 +843,25 @@ We recommend calling this as early as possible in your application lifecycle, id
 The SDK automatically adds the following manifest permissions:
 - `ACCESS_FINE_LOCATION` - Required for precise geofence detection
 - `ACCESS_COARSE_LOCATION` - Required by Android, but the user must grant "Precise" location for geofencing to work.
-- `ACCESS_BACKGROUND_LOCATION` - Required on Android 10+ for geofences to work when the app is in the background
 - `RECEIVE_BOOT_COMPLETED` - Allows the SDK to restore geofences after device reboot
+
+For geofencing to work when your app is in the background (Android 10+), you must add the background location permission
+to your app's manifest:
+
+```xml
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+```
+
+> ⚠️ **Important**: The SDK does not automatically include `ACCESS_BACKGROUND_LOCATION` because Google Play requires
+> apps to justify this permission during review. If your app uses geofencing and needs background location access,
+> you must add this permission yourself and be prepared to explain its usage during app review.
 
 You are responsible for requesting runtime permission from users according to
 [Android best practices](https://developer.android.com/develop/sensors-and-location/location/permissions).
 
 > ⚠️ **Important**: Geofencing requires "Allow all the time" and "Precise" location authorization.
 > If the user only grants "Allow only while using the app" or "coarse" permissions, geofencing will not be active.
-> 
+>
 > Background location permission requires a separate permission request on Android 10+.
 > See [Android documentation](https://developer.android.com/develop/sensors-and-location/location/permissions#background)
 > for guidance on requesting background location permission.
