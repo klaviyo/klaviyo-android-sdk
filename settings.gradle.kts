@@ -10,8 +10,8 @@ dependencyResolutionManagement {
 }
 
 // SDK modules
-include(":sdk")
 include(
+    ":sdk",
     ":sdk:core",
     ":sdk:analytics",
     ":sdk:push-fcm",

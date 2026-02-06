@@ -140,7 +140,7 @@ subprojects {
             reportUndocumented.set(true)
             skipEmptyPackages.set(true)
             suppressInheritedMembers.set(true)
-            jdkVersion.set(17)
+            jdkVersion.set(javaVersion.majorVersion.toInt())
         }
     }
 }

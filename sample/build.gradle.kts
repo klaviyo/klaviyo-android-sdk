@@ -1,5 +1,6 @@
-// We use refreshVersions to manage dependencies in this project -- https://splitties.github.io/refreshVersions/
+// We use refreshVersions to manage dependencies in this project
 // If you notice unusual dependency version syntax, it's from refreshVersions
+// see https://splitties.github.io/refreshVersions/
 import de.fayard.refreshVersions.core.versionFor
 import java.io.FileInputStream
 import java.util.Properties
@@ -62,11 +63,13 @@ android {
             localProperties.load(FileInputStream(localPropertiesFile))
         }
 
-        val klaviyoPublicApiKey = (localProperties["klaviyoPublicApiKey"] as String?) ?: "KLAVIYO_PUBLIC_API_KEY"
+        val klaviyoPublicApiKey = localProperties["klaviyoPublicApiKey"]?.toString()
+            ?: "KLAVIYO_PUBLIC_API_KEY"
 
         // Optional: register a Google Maps API key and set it in your local.properties file in the root directory e.g. googleMapsApiKey=ApiKey
         // This just enables a little map UI element in the sample app for testing location features, and is not required for Klaviyo SDK functionality
-        val googleMapsApiKey = (localProperties["googleMapsApiKey"] as String?) ?: "GOOGLE_MAPS_API_KEY"
+        val googleMapsApiKey = localProperties["googleMapsApiKey"]?.toString()
+            ?: "GOOGLE_MAPS_API_KEY"
 
         release {
             isMinifyEnabled = true

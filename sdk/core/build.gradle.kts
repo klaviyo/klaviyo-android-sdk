@@ -1,4 +1,4 @@
-description = "Core featureset of the Klaviyo SDK including SDK configuration, session tracking and analytics"
+description = "Core Klaviyo SDK: configuration, session tracking and analytics"
 evaluationDependsOn(":sdk")
 
 // Get extra properties from root project

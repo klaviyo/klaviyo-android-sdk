@@ -35,7 +35,7 @@ afterEvaluate {
     publishing {
         publications {
             // Creates a Maven publication called "release".
-            register<MavenPublication>("release") {
+            create<MavenPublication>("release") {
                 from(components[publishBuildVariant])
                 groupId = klaviyoGroupId
                 artifactId = "location"
