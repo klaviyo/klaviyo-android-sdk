@@ -7,15 +7,10 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jlleitschuh.gradle.ktlint.KtlintExtension
 
-// Get the readXmlValue function from root project
-val readXmlValue: (String, String, Project) -> String by rootProject.extra
-
 // Get extra properties from root project
 val javaVersion: JavaVersion by rootProject.extra
-val publishBuildVariant: String by rootProject.extra
 
 // Read properties from gradle.properties (available via project.properties)
-val klaviyoGroupId: String by project
 val klaviyoServerUrl: String by project
 val klaviyoCdnUrl: String by project
 val klaviyoApiRevision: String by project
