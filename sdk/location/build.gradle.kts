@@ -22,10 +22,7 @@ android {
     }
 
     publishing {
-        // Publish both flavor variants
-        multipleVariants {
-            includeBuildTypeValues("release")
-            includeFlavorDimensionAndValues("permissions", "default", "noPermissions")
+        singleVariant("defaultRelease") {
             withSourcesJar()
             withJavadocJar()
         }
