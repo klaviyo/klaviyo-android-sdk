@@ -479,6 +479,12 @@ attaching it to the notification is handled within `KlaviyoPushService`. If an i
 (e.g. if the device has a poor network connection) the notification will be displayed without an image
 after the download times out.
 
+#### Push Action Buttons
+[Push Action Buttons](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add clickable buttons to
+push notification messages. These buttons can show custom text, and, when clicked, deep link or open your app. 
+No additional setup is needed to support push action buttons. If a button is invalid, the notification will displayed without 
+the invalid button. Push notification messages can include a maximum of 3 valid buttons.
+
 #### Tracking Open Events
 To track push notification opens, you must call `Klaviyo.handlePush(intent)` when your app is launched from an intent.
 This method will check if the app was opened from a notification originating from Klaviyo and if so, create an 
