@@ -63,12 +63,21 @@ jobs:
             if [[ $output == *"BUILD FAILED"* ]]; then
               echo "Build Failed!"
               echo
-              echo "$output" 
+              echo "$output"
               exit 1
             elif [[ $output == *"BUILD SUCCESSFUL"* ]]; then
               echo "Build Complete!"
               echo
-              echo "$output" 
+              echo "$output"
+
+              # Verify location module noPermissions flavor was built
+              if [[ $output != *"noPermissions"* ]]; then
+                echo
+                echo "ERROR: noPermissions flavor not found in build output!"
+                exit 1
+              fi
+              echo
+              echo "Verified: noPermissions flavor was built"
               exit 0
             else
               echo "At $elapsed_time, build appears to be in progress..."
