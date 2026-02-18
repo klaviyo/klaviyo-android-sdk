@@ -26,6 +26,10 @@ android {
             withSourcesJar()
             withJavadocJar()
         }
+        singleVariant("noPermissionsRelease") {
+            withSourcesJar()
+            withJavadocJar()
+        }
     }
 }
 
@@ -48,18 +52,20 @@ afterEvaluate {
 
     publishing {
         publications {
-            // Single publication with both variants
-            // Default flavor is the main artifact, noPermissions uses a classifier
+            // Default flavor publication (with location permissions)
             create<MavenPublication>("release") {
                 from(components["defaultRelease"])
                 groupId = klaviyoGroupId
                 artifactId = "location"
                 version = sdkVersion
+            }
 
-                // Add noPermissions AAR as classified artifact
-                artifact(tasks.named("bundleNoPermissionsReleaseAar")) {
-                    classifier = "noPermissions"
-                }
+            // noPermissions flavor publication (without location permissions)
+            create<MavenPublication>("noPermissionsRelease") {
+                from(components["noPermissionsRelease"])
+                groupId = klaviyoGroupId
+                artifactId = "location-no-permissions"
+                version = sdkVersion
             }
         }
     }
