@@ -70,14 +70,14 @@ jobs:
               echo
               echo "$output"
 
-              # Verify location module noPermissions flavor was built
-              if [[ $output != *"noPermissions"* ]]; then
+              # Verify location-no-permissions artifact was published
+              if [[ $output != *"location-no-permissions"* ]]; then
                 echo
-                echo "ERROR: noPermissions flavor not found in build output!"
+                echo "ERROR: location-no-permissions artifact not found in build output!"
                 exit 1
               fi
               echo
-              echo "Verified: noPermissions flavor was built"
+              echo "Verified: location-no-permissions artifact was published"
               exit 0
             else
               echo "At $elapsed_time, build appears to be in progress..."

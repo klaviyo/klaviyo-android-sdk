@@ -64,7 +64,7 @@ afterEvaluate {
             create<MavenPublication>("noPermissionsRelease") {
                 from(components["noPermissionsRelease"])
                 groupId = klaviyoGroupId
-                artifactId = "location-noPermissions"
+                artifactId = "location-no-permissions"
                 version = sdkVersion
             }
         }
