@@ -70,14 +70,22 @@ jobs:
               echo
               echo "$output"
 
-              # Verify location-no-permissions artifact was published
-              if [[ $output != *"location-no-permissions"* ]]; then
+              # Verify all expected artifacts were published
+              expected_artifacts=("analytics" "core" "forms" "location" "location-no-permissions" "push-fcm")
+              missing=()
+              for artifact in "${expected_artifacts[@]}"; do
+                if ! echo "$output" | grep -q "Found artifact: com.klaviyo:${artifact}:"; then
+                  missing+=("$artifact")
+                fi
+              done
+
+              if [ ${#missing[@]} -ne 0 ]; then
                 echo
-                echo "ERROR: location-no-permissions artifact not found in build output!"
+                echo "ERROR: Missing artifacts: ${missing[*]}"
                 exit 1
               fi
               echo
-              echo "Verified: location-no-permissions artifact was published"
+              echo "Verified: All expected artifacts were published (${expected_artifacts[*]})"
               exit 0
             else
               echo "At $elapsed_time, build appears to be in progress..."
