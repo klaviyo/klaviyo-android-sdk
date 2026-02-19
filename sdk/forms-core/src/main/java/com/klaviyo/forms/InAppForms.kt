@@ -3,7 +3,7 @@ package com.klaviyo.forms
 import androidx.annotation.RestrictTo
 import androidx.annotation.UiThread
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.core.MissingModule
+import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
 import com.klaviyo.core.safeApply
 
@@ -18,36 +18,41 @@ import com.klaviyo.core.safeApply
  * If the API key changes, the session will be re-initialized automatically with the new key.
  *
  * @param config see [InAppFormsConfig] for configuration options.
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
  */
 @UiThread
 fun Klaviyo.registerForInAppForms(
     config: InAppFormsConfig = InAppFormsConfig()
-): Klaviyo = safeApply {
+): Klaviyo {
     val provider = Registry.getOrNull<FormsProvider>()
-        ?: throw MissingModule("forms")
-    provider.register(config)
+        ?: throw MissingKlaviyoModule("forms")
+    return safeApply { provider.register(config) }
 }
 
 /**
  * Halt the In-App Forms services and observers,
  * hiding any currently displayed forms and preventing any further forms from being presented.
+ *
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
  */
 @UiThread
-fun Klaviyo.unregisterFromInAppForms() = safeApply {
+fun Klaviyo.unregisterFromInAppForms(): Klaviyo {
     val provider = Registry.getOrNull<FormsProvider>()
-        ?: throw MissingModule("forms")
-    provider.unregister()
+        ?: throw MissingKlaviyoModule("forms")
+    return safeApply { provider.unregister() }
 }
 
 /**
  * Resets the In-App Forms listeners with the current configuration.
+ *
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
  */
 @UiThread
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-fun Klaviyo.reInitializeInAppForms() = safeApply {
+fun Klaviyo.reInitializeInAppForms(): Klaviyo {
     val provider = Registry.getOrNull<FormsProvider>()
-        ?: throw MissingModule("forms")
-    provider.reInitialize()
+        ?: throw MissingKlaviyoModule("forms")
+    return safeApply { provider.reInitialize() }
 }
 
 /**
