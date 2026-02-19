@@ -16,6 +16,7 @@ include(
     ":sdk:analytics",
     ":sdk:push-fcm",
     ":sdk:fixtures",
+    ":sdk:forms-core",
     ":sdk:forms",
     ":sdk:location-core",
     ":sdk:location"

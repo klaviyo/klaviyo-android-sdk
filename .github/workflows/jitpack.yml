@@ -71,7 +71,7 @@ jobs:
               echo "$output"
 
               # Verify all expected artifacts were published
-              expected_artifacts=("analytics" "core" "forms" "location" "location-core" "push-fcm")
+              expected_artifacts=("analytics" "core" "forms" "forms-core" "location" "location-core" "push-fcm")
               missing=()
               for artifact in "${expected_artifacts[@]}"; do
                 if ! echo "$output" | grep -q "Found artifact: com.klaviyo:${artifact}:"; then
