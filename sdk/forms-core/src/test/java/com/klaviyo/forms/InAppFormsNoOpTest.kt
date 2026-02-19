@@ -1,30 +1,30 @@
 package com.klaviyo.forms
 
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.core.MissingModule
 import com.klaviyo.fixtures.BaseTest
-import org.junit.Assert.assertThrows
+import io.mockk.verify
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 internal class InAppFormsNoOpTest : BaseTest() {
     @Test
-    fun `registerForInAppForms throws MissingModule when provider not registered`() {
-        assertThrows(MissingModule::class.java) {
-            Klaviyo.registerForInAppForms()
-        }
+    fun `registerForInAppForms logs error when provider not registered`() {
+        val result = Klaviyo.registerForInAppForms()
+        assertSame(Klaviyo, result)
+        verify { spyLog.error(match { it.contains("forms module not installed") }, any()) }
     }
 
     @Test
-    fun `unregisterFromInAppForms throws MissingModule when provider not registered`() {
-        assertThrows(MissingModule::class.java) {
-            Klaviyo.unregisterFromInAppForms()
-        }
+    fun `unregisterFromInAppForms logs error when provider not registered`() {
+        val result = Klaviyo.unregisterFromInAppForms()
+        assertSame(Klaviyo, result)
+        verify { spyLog.error(match { it.contains("forms module not installed") }, any()) }
     }
 
     @Test
-    fun `reInitializeInAppForms throws MissingModule when provider not registered`() {
-        assertThrows(MissingModule::class.java) {
-            Klaviyo.reInitializeInAppForms()
-        }
+    fun `reInitializeInAppForms logs error when provider not registered`() {
+        val result = Klaviyo.reInitializeInAppForms()
+        assertSame(Klaviyo, result)
+        verify { spyLog.error(match { it.contains("forms module not installed") }, any()) }
     }
 }

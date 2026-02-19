@@ -5,6 +5,7 @@ import androidx.annotation.UiThread
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.MissingModule
 import com.klaviyo.core.Registry
+import com.klaviyo.core.safeApply
 
 /**
  * Start an In-App Forms session.
@@ -21,7 +22,7 @@ import com.klaviyo.core.Registry
 @UiThread
 fun Klaviyo.registerForInAppForms(
     config: InAppFormsConfig = InAppFormsConfig()
-): Klaviyo = apply {
+): Klaviyo = safeApply {
     val provider = Registry.getOrNull<FormsProvider>()
         ?: throw MissingModule("forms")
     provider.register(config)
@@ -32,7 +33,7 @@ fun Klaviyo.registerForInAppForms(
  * hiding any currently displayed forms and preventing any further forms from being presented.
  */
 @UiThread
-fun Klaviyo.unregisterFromInAppForms() = apply {
+fun Klaviyo.unregisterFromInAppForms() = safeApply {
     val provider = Registry.getOrNull<FormsProvider>()
         ?: throw MissingModule("forms")
     provider.unregister()
@@ -43,7 +44,7 @@ fun Klaviyo.unregisterFromInAppForms() = apply {
  */
 @UiThread
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-fun Klaviyo.reInitializeInAppForms() = apply {
+fun Klaviyo.reInitializeInAppForms() = safeApply {
     val provider = Registry.getOrNull<FormsProvider>()
         ?: throw MissingModule("forms")
     provider.reInitialize()

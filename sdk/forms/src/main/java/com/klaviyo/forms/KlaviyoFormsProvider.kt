@@ -1,7 +1,6 @@
 package com.klaviyo.forms
 
 import com.klaviyo.core.Registry
-import com.klaviyo.core.safeCall
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.KlaviyoJsBridge
@@ -16,42 +15,36 @@ import com.klaviyo.forms.webview.WebViewClient
 
 internal class KlaviyoFormsProvider : FormsProvider {
     override fun register(config: InAppFormsConfig) {
-        safeCall {
-            Registry.apply {
-                register<InAppFormsConfig>(config)
-                registerOnce<PresentationManager> { KlaviyoPresentationManager() }
-                registerOnce<NativeBridge> { KlaviyoNativeBridge() }
-                registerOnce<WebViewClient> {
-                    KlaviyoWebViewClient().also { register<JavaScriptEvaluator>(it) }
-                }
-                registerOnce<JsBridge> { KlaviyoJsBridge() }
-                registerOnce<JsBridgeObserverCollection> { KlaviyoObserverCollection() }
+        Registry.apply {
+            register<InAppFormsConfig>(config)
+            registerOnce<PresentationManager> { KlaviyoPresentationManager() }
+            registerOnce<NativeBridge> { KlaviyoNativeBridge() }
+            registerOnce<WebViewClient> {
+                KlaviyoWebViewClient().also { register<JavaScriptEvaluator>(it) }
             }
-            Registry.get<WebViewClient>().initializeWebView()
+            registerOnce<JsBridge> { KlaviyoJsBridge() }
+            registerOnce<JsBridgeObserverCollection> { KlaviyoObserverCollection() }
         }
+        Registry.get<WebViewClient>().initializeWebView()
     }
 
     override fun unregister() {
-        safeCall {
-            if (inAppIsRegistered()) {
-                Registry.get<PresentationManager>().dismiss()
-                Registry.get<WebViewClient>().destroyWebView()
-            } else {
-                Registry.log.warning("Cannot unregister In-App Forms, must be registered first.")
-            }
+        if (inAppIsRegistered()) {
+            Registry.get<PresentationManager>().dismiss()
+            Registry.get<WebViewClient>().destroyWebView()
+        } else {
+            Registry.log.warning("Cannot unregister In-App Forms, must be registered first.")
         }
     }
 
     override fun reInitialize() {
-        safeCall {
-            if (inAppIsRegistered()) {
-                unregister()
-                register(Registry.get<InAppFormsConfig>())
-            } else {
-                Registry.log.warning(
-                    "Cannot reInitialize, registerForInAppForms must be called first."
-                )
-            }
+        if (inAppIsRegistered()) {
+            unregister()
+            register(Registry.get<InAppFormsConfig>())
+        } else {
+            Registry.log.warning(
+                "Cannot reInitialize, registerForInAppForms must be called first."
+            )
         }
     }
 
