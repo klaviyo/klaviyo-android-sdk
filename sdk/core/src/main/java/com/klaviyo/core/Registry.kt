@@ -24,7 +24,7 @@ class MissingRegistration(type: KType) : KlaviyoException(
     "No service registered for $type. Typically caused by accessing SDK before initializing or providing app lifecycle/context."
 )
 class InvalidRegistration(type: KType) : KlaviyoException("Registered service does not match $type")
-class MissingModule(moduleName: String) : KlaviyoException(
+class MissingKlaviyoModule(moduleName: String) : RuntimeException(
     "$moduleName module not installed. Add 'com.klaviyo:$moduleName' dependency to enable this feature."
 )
 
