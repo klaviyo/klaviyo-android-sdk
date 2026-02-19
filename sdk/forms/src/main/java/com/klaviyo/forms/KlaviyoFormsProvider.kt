@@ -21,7 +21,12 @@ import com.klaviyo.forms.webview.WebViewClient
  */
 @UiThread
 internal fun Klaviyo.reInitializeInAppForms(): Klaviyo = safeApply {
-    (Registry.get<FormsProvider>() as KlaviyoFormsProvider).reInitialize()
+    val provider = Registry.getOrNull<FormsProvider>() ?: run {
+        Registry.log.warning("Cannot reInitialize, registerForInAppForms must be called first.")
+        return@safeApply
+    }
+    provider.unregister()
+    provider.register(Registry.get<InAppFormsConfig>())
 }
 
 internal class KlaviyoFormsProvider : FormsProvider {
@@ -45,17 +50,6 @@ internal class KlaviyoFormsProvider : FormsProvider {
             Registry.get<WebViewClient>().destroyWebView()
         } else {
             Registry.log.warning("Cannot unregister In-App Forms, must be registered first.")
-        }
-    }
-
-    fun reInitialize() {
-        if (inAppIsRegistered()) {
-            unregister()
-            register(Registry.get<InAppFormsConfig>())
-        } else {
-            Registry.log.warning(
-                "Cannot reInitialize, registerForInAppForms must be called first."
-            )
         }
     }
 
