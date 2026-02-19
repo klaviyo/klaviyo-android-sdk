@@ -20,13 +20,13 @@ import com.klaviyo.forms.webview.WebViewClient
  * Resets the In-App Forms listeners with the current configuration.
  */
 @UiThread
-internal fun Klaviyo.reInitializeInAppForms(): Klaviyo = safeApply {
+internal fun Klaviyo.reInitializeInAppForms(): Klaviyo {
     val provider = Registry.getOrNull<FormsProvider>() ?: run {
         Registry.log.warning("Cannot reInitialize, registerForInAppForms must be called first.")
-        return@safeApply
+        return this
     }
-    provider.unregister()
-    provider.register(Registry.get<InAppFormsConfig>())
+    safeApply { provider.unregister() }
+    return safeApply { provider.register(Registry.get<InAppFormsConfig>()) }
 }
 
 internal class KlaviyoFormsProvider : FormsProvider {
