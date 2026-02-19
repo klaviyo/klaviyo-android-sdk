@@ -1,7 +1,6 @@
 package com.klaviyo.location
 
 import android.location.Location
-import androidx.annotation.RestrictTo
 import kotlin.math.roundToInt
 
 /**
@@ -14,7 +13,6 @@ import kotlin.math.roundToInt
  * @property latitude Latitude rounded to ~10 mile precision
  * @property longitude Longitude rounded to ~10 mile precision
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 data class AnonymizedLocation(
     val latitude: Double,
     val longitude: Double

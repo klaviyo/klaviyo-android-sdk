@@ -1,10 +1,7 @@
 package com.klaviyo.location
 
-import androidx.annotation.RestrictTo
-
 typealias PermissionObserver = (Boolean) -> Unit
 
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 interface PermissionMonitor {
     val permissionState: Boolean
 
