@@ -31,10 +31,13 @@ internal class GeofencingTest : BaseTest() {
         mockkStatic(LocationServices::class)
         every { LocationServices.getGeofencingClient(any<Context>()) } returns mockk(relaxed = true)
         MockIntent.mockPendingIntent()
+        // Register the provider so extension functions don't throw MissingModule
+        Registry.register<GeofencingProvider>(KlaviyoGeofencingProvider())
     }
 
     @After
     override fun cleanup() {
+        Registry.unregister<GeofencingProvider>()
         Registry.unregister<LocationManager>()
         Registry.unregister<PermissionMonitor>()
         MockIntent.unmockPendingIntent()

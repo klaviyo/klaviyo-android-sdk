@@ -20,8 +20,8 @@ data class AnonymizedLocation(
     companion object {
         /**
          * Rounding increment in degrees for ~10 mile precision.
-         * At mid-latitudes (around 40°N), 1 degree ≈ 69 miles latitude, 53 miles longitude.
-         * 0.145 degrees ≈ 10 miles latitude, 7.7 miles longitude.
+         * At mid-latitudes (around 40N), 1 degree ~ 69 miles latitude, 53 miles longitude.
+         * 0.145 degrees ~ 10 miles latitude, 7.7 miles longitude.
          */
         private const val ROUNDING_INCREMENT = 0.145
 

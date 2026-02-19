@@ -53,9 +53,6 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-
-        // Location module has permission flavors; use 'default' (includes location permissions)
-        missingDimensionStrategy("permissions", "default")
     }
 
     buildTypes {

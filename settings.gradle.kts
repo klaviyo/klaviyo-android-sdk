@@ -17,6 +17,7 @@ include(
     ":sdk:push-fcm",
     ":sdk:fixtures",
     ":sdk:forms",
+    ":sdk:location-core",
     ":sdk:location"
 )
 
