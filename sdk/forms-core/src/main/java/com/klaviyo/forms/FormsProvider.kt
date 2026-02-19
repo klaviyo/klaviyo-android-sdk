@@ -19,10 +19,4 @@ interface FormsProvider {
      * and tearing down the WebView client.
      */
     fun unregister()
-
-    /**
-     * Re-initialize the In-App Forms session with the current configuration.
-     * Typically called internally when the API key changes.
-     */
-    fun reInitialize()
 }

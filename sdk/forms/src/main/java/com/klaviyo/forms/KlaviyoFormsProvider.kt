@@ -3,6 +3,7 @@ package com.klaviyo.forms
 import androidx.annotation.UiThread
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
+import com.klaviyo.core.safeApply
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.KlaviyoJsBridge
@@ -19,8 +20,8 @@ import com.klaviyo.forms.webview.WebViewClient
  * Resets the In-App Forms listeners with the current configuration.
  */
 @UiThread
-internal fun Klaviyo.reInitializeInAppForms(): Klaviyo = apply {
-    Registry.get<FormsProvider>().reInitialize()
+internal fun Klaviyo.reInitializeInAppForms(): Klaviyo = safeApply {
+    (Registry.get<FormsProvider>() as KlaviyoFormsProvider).reInitialize()
 }
 
 internal class KlaviyoFormsProvider : FormsProvider {
@@ -47,7 +48,7 @@ internal class KlaviyoFormsProvider : FormsProvider {
         }
     }
 
-    override fun reInitialize() {
+    fun reInitialize() {
         if (inAppIsRegistered()) {
             unregister()
             register(Registry.get<InAppFormsConfig>())
