@@ -1,6 +1,6 @@
+package com.klaviyo.forms
 
 import com.klaviyo.fixtures.BaseTest
-import com.klaviyo.forms.InAppFormsConfig
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import org.junit.Assert.assertEquals

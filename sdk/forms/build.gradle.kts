@@ -22,7 +22,6 @@ android {
 dependencies {
     api(project(":sdk:forms-core"))
     implementation(project(":sdk:core"))
-    implementation(project(":sdk:analytics"))
 
     implementation(AndroidX.appCompat)
     implementation(AndroidX.webkit)

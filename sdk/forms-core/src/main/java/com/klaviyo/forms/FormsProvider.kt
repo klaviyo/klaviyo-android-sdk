@@ -4,8 +4,8 @@ package com.klaviyo.forms
  * Service interface for the In-App Forms module.
  *
  * The `forms-core` module provides a no-op stub of this interface.
- * The full `forms` module registers [com.klaviyo.forms.KlaviyoFormsProvider]
- * via [com.klaviyo.forms.FormsInitProvider] ContentProvider at app startup.
+ * The full `forms` module registers its KlaviyoFormsProvider implementation
+ * via a FormsInitProvider ContentProvider at app startup.
  */
 interface FormsProvider {
     /**
