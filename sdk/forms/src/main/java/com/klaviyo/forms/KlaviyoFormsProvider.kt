@@ -21,12 +21,14 @@ import com.klaviyo.forms.webview.WebViewClient
  */
 @UiThread
 internal fun Klaviyo.reInitializeInAppForms(): Klaviyo {
-    val provider = Registry.getOrNull<FormsProvider>() ?: run {
-        Registry.log.warning("Cannot reInitialize, registerForInAppForms must be called first.")
+    if (!inAppIsRegistered()) {
+        Registry.log.warning(
+            "Cannot reInitializeInAppForms, registerForInAppForms must be called first."
+        )
         return this
     }
-    safeApply { provider.unregister() }
-    return safeApply { provider.register(Registry.get<InAppFormsConfig>()) }
+    safeApply { Registry.get<FormsProvider>().unregister() }
+    return safeApply { Registry.get<FormsProvider>().register(Registry.get<InAppFormsConfig>()) }
 }
 
 internal class KlaviyoFormsProvider : FormsProvider {
@@ -52,12 +54,15 @@ internal class KlaviyoFormsProvider : FormsProvider {
             Registry.log.warning("Cannot unregister In-App Forms, must be registered first.")
         }
     }
-
-    private fun inAppIsRegistered(): Boolean = listOf(
-        Registry.getOrNull<InAppFormsConfig>(),
-        Registry.getOrNull<PresentationManager>(),
-        Registry.getOrNull<WebViewClient>(),
-        Registry.getOrNull<JsBridge>(),
-        Registry.getOrNull<NativeBridge>()
-    ).all { it != null }
 }
+
+/**
+ * Check if IAF services are registered in the Klaviyo registry.
+ */
+private fun inAppIsRegistered(): Boolean = listOf(
+    Registry.getOrNull<InAppFormsConfig>(),
+    Registry.getOrNull<PresentationManager>(),
+    Registry.getOrNull<WebViewClient>(),
+    Registry.getOrNull<JsBridge>(),
+    Registry.getOrNull<NativeBridge>()
+).all { it != null }
