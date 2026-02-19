@@ -17,7 +17,7 @@ android {
 
 dependencies {
     implementation(project(":sdk:core"))
-    implementation(project(":sdk:analytics"))
+    api(project(":sdk:analytics"))
     testImplementation(project(":sdk:fixtures"))
 }
 
