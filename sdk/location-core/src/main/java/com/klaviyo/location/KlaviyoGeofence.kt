@@ -1,5 +1,6 @@
 package com.klaviyo.location
 
+import androidx.annotation.RestrictTo
 import com.klaviyo.core.Registry
 import org.json.JSONArray
 import org.json.JSONObject
@@ -8,6 +9,7 @@ import org.json.JSONObject
  * Primary representation of a geofence in the Klaviyo SDK.
  * Here we combine the company ID and location ID to form a composite geofence ID.
  */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 data class KlaviyoGeofence(
     /**
      * The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a colon.

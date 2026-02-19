@@ -10,7 +10,8 @@ import androidx.annotation.RestrictTo
  * The `location` module provides [KlaviyoGeofencingProvider] as the concrete implementation,
  * auto-registered via [LocationInitProvider] ContentProvider.
  *
- * @see com.klaviyo.location.Geofencing for the public-facing API
+ * @see registerGeofencing
+ * @see unregisterGeofencing
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 interface GeofencingProvider {
