@@ -7,8 +7,8 @@ import androidx.annotation.RestrictTo
  * Implementations handle registering and unregistering geofence monitoring
  * with the underlying platform location services.
  *
- * The `location` module provides [KlaviyoGeofencingProvider] as the concrete implementation,
- * auto-registered via [LocationInitProvider] ContentProvider.
+ * The default implementation is `KlaviyoGeofencingProvider` in the `location` module,
+ * auto-registered via a `LocationInitProvider` ContentProvider.
  *
  * @see registerGeofencing
  * @see unregisterGeofencing
