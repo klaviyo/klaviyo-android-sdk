@@ -2,9 +2,11 @@ package com.klaviyo.location
 
 import android.content.Context
 import android.content.Intent
+import androidx.annotation.RestrictTo
 
 typealias GeofenceObserver = (List<KlaviyoGeofence>) -> Unit
 
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 interface LocationManager {
 
     companion object {
