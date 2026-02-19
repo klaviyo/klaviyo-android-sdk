@@ -1,4 +1,4 @@
-description = "Location functionality for the Klaviyo SDK suite"
+description = "Shared interfaces and data types for the Klaviyo Location module"
 evaluationDependsOn(":sdk")
 
 val publishBuildVariant: String by rootProject.extra
@@ -6,8 +6,7 @@ val readXmlValue: (String, String, Project) -> String by rootProject.extra
 val klaviyoGroupId: String by project
 
 android {
-    namespace = "$klaviyoGroupId.location"
-
+    namespace = "$klaviyoGroupId.location.core"
     publishing {
         singleVariant(publishBuildVariant) {
             withSourcesJar()
@@ -17,11 +16,8 @@ android {
 }
 
 dependencies {
-    api(project(":sdk:location-core"))
     implementation(project(":sdk:core"))
     implementation(project(":sdk:analytics"))
-    implementation(Google.android.playServices.location)
-    implementation(KotlinX.coroutines.playServices)
     testImplementation(project(":sdk:fixtures"))
 }
 
@@ -31,7 +27,7 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 from(components[publishBuildVariant])
                 groupId = klaviyoGroupId
-                artifactId = "location"
+                artifactId = "location-core"
                 version = readXmlValue(
                     "src/main/res/values/strings.xml",
                     "klaviyo_sdk_version_override",

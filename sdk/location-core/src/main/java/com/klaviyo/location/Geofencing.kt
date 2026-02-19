@@ -1,35 +1,34 @@
 package com.klaviyo.location
 
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
-import com.klaviyo.core.Registry.log
 import com.klaviyo.core.safeApply
 
 /**
- * Entrypoint to start geofence monitoring
+ * Entrypoint to start geofence monitoring.
  * You should call this as early as possible in your application lifecycle, ideally at app launch.
  * Klaviyo will monitor for permission changes and start/stop geofence monitoring as needed.
+ *
+ * @throws MissingKlaviyoModule if the `com.klaviyo:location` module is not on the classpath.
  */
-fun Klaviyo.registerGeofencing(): Klaviyo = safeApply {
-    // Register dependencies
-    Registry.apply {
-        registerOnce<PermissionMonitor> { KlaviyoPermissionMonitor() }
-        registerOnce<LocationManager> { KlaviyoLocationManager() }
-    }
-
-    // And start monitoring
-    Registry.get<LocationManager>().startGeofenceMonitoring()
+fun Klaviyo.registerGeofencing(): Klaviyo {
+    val provider = Registry.getOrNull<GeofencingProvider>()
+        ?: throw MissingKlaviyoModule("location")
+    return safeApply { provider.register() }
 }
 
 /**
- * Stops geofence monitoring
+ * Stops geofence monitoring.
  * You can call this if you want to stop monitoring geofences, but it's not usually necessary.
  * Klaviyo will automatically stop monitoring if location permissions are revoked.
+ *
+ * @throws MissingKlaviyoModule if the `com.klaviyo:location` module is not on the classpath.
  */
-fun Klaviyo.unregisterGeofencing(): Klaviyo = safeApply {
-    Registry.getOrNull<LocationManager>()?.stopGeofenceMonitoring() ?: run {
-        log.warning("Cannot unregister geofencing, must be registered first.")
-    }
+fun Klaviyo.unregisterGeofencing(): Klaviyo {
+    val provider = Registry.getOrNull<GeofencingProvider>()
+        ?: throw MissingKlaviyoModule("location")
+    return safeApply { provider.unregister() }
 }
 
 /**

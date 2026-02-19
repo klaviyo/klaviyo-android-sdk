@@ -11,7 +11,7 @@ interface LocationManager {
         /**
          * Maximum geofences to monitor at once
          */
-        internal const val MAX_CONCURRENT_GEOFENCES = 20
+        const val MAX_CONCURRENT_GEOFENCES = 20
     }
 
     /**
