@@ -1,6 +1,5 @@
 package com.klaviyo.forms
 
-import androidx.annotation.RestrictTo
 import androidx.annotation.UiThread
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.MissingKlaviyoModule
@@ -40,19 +39,6 @@ fun Klaviyo.unregisterFromInAppForms(): Klaviyo {
     val provider = Registry.getOrNull<FormsProvider>()
         ?: throw MissingKlaviyoModule("forms")
     return safeApply { provider.unregister() }
-}
-
-/**
- * Resets the In-App Forms listeners with the current configuration.
- *
- * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
- */
-@UiThread
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-fun Klaviyo.reInitializeInAppForms(): Klaviyo {
-    val provider = Registry.getOrNull<FormsProvider>()
-        ?: throw MissingKlaviyoModule("forms")
-    return safeApply { provider.reInitialize() }
 }
 
 /**

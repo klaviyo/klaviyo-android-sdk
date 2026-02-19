@@ -20,11 +20,4 @@ internal class InAppFormsNoOpTest : BaseTest() {
             Klaviyo.unregisterFromInAppForms()
         }
     }
-
-    @Test
-    fun `reInitializeInAppForms throws when provider not registered`() {
-        assertThrows(MissingKlaviyoModule::class.java) {
-            Klaviyo.reInitializeInAppForms()
-        }
-    }
 }
