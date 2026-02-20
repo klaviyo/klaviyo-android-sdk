@@ -22,11 +22,9 @@ import com.klaviyo.core.safeApply
 @UiThread
 fun Klaviyo.registerForInAppForms(
     config: InAppFormsConfig = InAppFormsConfig()
-): Klaviyo {
-    val provider = Registry.getOrNull<FormsProvider>()
-        ?: throw MissingKlaviyoModule("forms")
-    return safeApply { provider.register(config) }
-}
+): Klaviyo = Registry.getOrNull<FormsProvider>()?.let { provider ->
+    safeApply { provider.register(config) }
+} ?: throw MissingKlaviyoModule("forms")
 
 /**
  * Halt the In-App Forms services and observers,
@@ -35,11 +33,10 @@ fun Klaviyo.registerForInAppForms(
  * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
  */
 @UiThread
-fun Klaviyo.unregisterFromInAppForms(): Klaviyo {
-    val provider = Registry.getOrNull<FormsProvider>()
-        ?: throw MissingKlaviyoModule("forms")
-    return safeApply { provider.unregister() }
-}
+fun Klaviyo.unregisterFromInAppForms(): Klaviyo =
+    Registry.getOrNull<FormsProvider>()?.let { provider ->
+        safeApply { provider.unregister() }
+    } ?: throw MissingKlaviyoModule("forms")
 
 /**
  * Java-friendly static methods for In-App Forms.
