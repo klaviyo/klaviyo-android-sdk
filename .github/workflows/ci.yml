@@ -19,7 +19,7 @@ jobs:
 
     strategy:
       matrix:
-        module: [ ':sdk:analytics', ':sdk:core', ':sdk:forms', ':sdk:location', ':sdk:push-fcm' ]
+        module: [ ':sdk:analytics', ':sdk:core', ':sdk:forms-core', ':sdk:forms', ':sdk:location-core', ':sdk:location', ':sdk:push-fcm' ]
 
     steps:
       - uses: actions/checkout@v4

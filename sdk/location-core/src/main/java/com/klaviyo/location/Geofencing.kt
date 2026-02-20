@@ -12,11 +12,10 @@ import com.klaviyo.core.safeApply
  *
  * @throws MissingKlaviyoModule if the `com.klaviyo:location` module is not on the classpath.
  */
-fun Klaviyo.registerGeofencing(): Klaviyo {
-    val provider = Registry.getOrNull<GeofencingProvider>()
-        ?: throw MissingKlaviyoModule("location")
-    return safeApply { provider.register() }
-}
+fun Klaviyo.registerGeofencing(): Klaviyo =
+    Registry.getOrNull<GeofencingProvider>()?.let { provider ->
+        safeApply { provider.register() }
+    } ?: throw MissingKlaviyoModule("location")
 
 /**
  * Stops geofence monitoring.
@@ -25,11 +24,10 @@ fun Klaviyo.registerGeofencing(): Klaviyo {
  *
  * @throws MissingKlaviyoModule if the `com.klaviyo:location` module is not on the classpath.
  */
-fun Klaviyo.unregisterGeofencing(): Klaviyo {
-    val provider = Registry.getOrNull<GeofencingProvider>()
-        ?: throw MissingKlaviyoModule("location")
-    return safeApply { provider.unregister() }
-}
+fun Klaviyo.unregisterGeofencing(): Klaviyo =
+    Registry.getOrNull<GeofencingProvider>()?.let { provider ->
+        safeApply { provider.unregister() }
+    } ?: throw MissingKlaviyoModule("location")
 
 /**
  * Java-friendly static methods for Geofencing.

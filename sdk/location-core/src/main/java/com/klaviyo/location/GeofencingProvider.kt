@@ -1,7 +1,5 @@
 package com.klaviyo.location
 
-import androidx.annotation.RestrictTo
-
 /**
  * Internal interface for geofence lifecycle management.
  * Implementations handle registering and unregistering geofence monitoring
@@ -13,7 +11,6 @@ import androidx.annotation.RestrictTo
  * @see registerGeofencing
  * @see unregisterGeofencing
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 interface GeofencingProvider {
     /**
      * Start geofence monitoring, registering necessary dependencies.
