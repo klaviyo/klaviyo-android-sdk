@@ -274,6 +274,30 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
+    fun `openDeepLink with empty android route logs warning and does not navigate`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
+         */
+        val emptyAndroidMessage = """
+            {
+              "type": "openDeepLink",
+              "data": {
+                "ios": "klaviyotest://settings",
+                "android": ""
+              }
+            }
+        """.trimIndent()
+
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        postMessage(emptyAndroidMessage)
+
+        verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
+        verify { spyLog.warning("Deep link CTA with no Android route configured", null) }
+    }
+
+    @Test
     fun `formDisappeared triggers close`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close

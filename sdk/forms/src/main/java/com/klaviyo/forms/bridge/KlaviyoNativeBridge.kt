@@ -114,7 +114,10 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * There is a brief window between our overlay activity pausing and the next activity resuming.
      * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
-    private fun deepLink(message: OpenDeepLink) = DeepLinking.handleDeepLink(message.route.toUri())
+    private fun deepLink(message: OpenDeepLink) {
+        message.route?.let { DeepLinking.handleDeepLink(it.toUri()) }
+            ?: Registry.log.warning("Deep link CTA with no Android route configured")
+    }
 
     /**
      * Instruct presentation manager to dismiss the form overlay activity
