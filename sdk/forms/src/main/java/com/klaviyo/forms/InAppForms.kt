@@ -84,6 +84,43 @@ internal fun Klaviyo.reInitializeInAppForms() = safeApply {
 }
 
 /**
+ * Register a callback to receive form lifecycle events.
+ *
+ * Only one callback can be registered at a time. Registering a new callback will replace
+ * any previously registered callback.
+ *
+ * All callbacks are invoked on the UI thread.
+ *
+ * @param callback The callback to be invoked when form lifecycle events occur
+ * @return The Klaviyo instance for chaining
+ */
+@UiThread
+fun Klaviyo.registerFormLifecycleCallback(callback: FormLifecycleCallback): Klaviyo = safeApply {
+    Registry.register<FormLifecycleCallback>(callback)
+}
+
+/**
+ * Unregister the current form lifecycle callback.
+ *
+ * After calling this, no lifecycle events will be delivered until a new callback is registered.
+ *
+ * @return The Klaviyo instance for chaining
+ */
+@UiThread
+fun Klaviyo.unregisterFormLifecycleCallback(): Klaviyo = safeApply {
+    Registry.unregister<FormLifecycleCallback>()
+}
+
+/**
+ * Check if a form lifecycle callback is currently registered.
+ *
+ * @return true if a callback is registered, false otherwise
+ */
+fun Klaviyo.isFormLifecycleCallbackRegistered(): Boolean {
+    return Registry.isRegistered<FormLifecycleCallback>()
+}
+
+/**
  * Check if IAF services are registered in the Klaviyo registry.
  */
 private fun Registry.inAppIsRegistered(): Boolean = listOf(

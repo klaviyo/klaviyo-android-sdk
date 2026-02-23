@@ -2,13 +2,19 @@ package com.klaviyo.sample
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.registerForInAppForms
+import com.klaviyo.forms.registerFormLifecycleCallback
 
 class SampleApplication : Application() {
+    companion object {
+        private const val TAG = "SampleApplication"
+    }
+
     override fun onCreate() {
         super.onCreate()
 
@@ -21,6 +27,24 @@ class SampleApplication : Application() {
                 // OPTIONAL SETUP NOTE: Register a callback to handle any deep links from Klaviyo notifications, in-app forms, or universal tracking links
                 // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
                 showToast("Deep link to: $uri")
+            }
+            .registerFormLifecycleCallback { event, formId ->
+                // OPTIONAL SETUP NOTE: Register a callback to receive form lifecycle events
+                // This allows you to track when forms are shown, dismissed, or when CTAs are clicked
+                when (event) {
+                    FormLifecycleEvent.FORM_SHOWN -> {
+                        Log.d(TAG, "Form shown: $formId")
+                        showToast("Form shown: $formId")
+                    }
+                    FormLifecycleEvent.FORM_DISMISSED -> {
+                        Log.d(TAG, "Form dismissed: $formId")
+                        showToast("Form dismissed: $formId")
+                    }
+                    FormLifecycleEvent.FORM_CTA_CLICKED -> {
+                        Log.d(TAG, "Form CTA clicked: $formId")
+                        showToast("Form CTA clicked: $formId")
+                    }
+                }
             }
     }
 }

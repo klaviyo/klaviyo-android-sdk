@@ -19,6 +19,8 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
 import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
+import com.klaviyo.forms.FormLifecycleCallback
+import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
@@ -92,8 +94,10 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     /**
      * Notify the client that the webview should be shown
      */
-    private fun show(bridgeMessage: FormWillAppear) = Registry.get<PresentationManager>()
-        .present(bridgeMessage.formId)
+    private fun show(bridgeMessage: FormWillAppear) {
+        Registry.get<PresentationManager>().present(bridgeMessage.formId)
+        invokeLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, bridgeMessage.formId)
+    }
 
     /**
      * Handle a [TrackAggregateEvent] message by creating an API call
@@ -114,17 +118,36 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * There is a brief window between our overlay activity pausing and the next activity resuming.
      * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
-    private fun deepLink(message: OpenDeepLink) = DeepLinking.handleDeepLink(message.route.toUri())
+    private fun deepLink(message: OpenDeepLink) {
+        val currentFormId = Registry.get<PresentationManager>().currentFormId
+        invokeLifecycleCallback(FormLifecycleEvent.FORM_CTA_CLICKED, currentFormId)
+        DeepLinking.handleDeepLink(message.route.toUri())
+    }
 
     /**
      * Instruct presentation manager to dismiss the form overlay activity
      */
-    private fun close() = Registry.get<PresentationManager>().dismiss()
+    private fun close() {
+        val currentFormId = Registry.get<PresentationManager>().currentFormId
+        invokeLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, currentFormId)
+        Registry.get<PresentationManager>().dismiss()
+    }
 
     /**
      * Handle a [Abort] message by logging the reason and destroying the webview
      */
     private fun abort(reason: String) = Klaviyo.unregisterFromInAppForms().also {
         Registry.log.error("IAF aborted, reason: $reason")
+    }
+
+    /**
+     * Invoke the registered form lifecycle callback on the UI thread, if one is registered
+     */
+    private fun invokeLifecycleCallback(event: FormLifecycleEvent, formId: FormId?) {
+        Registry.getOrNull<FormLifecycleCallback>()?.let { callback ->
+            Registry.threadHelper.runOnUiThread {
+                callback.onFormLifecycleEvent(event, formId)
+            }
+        }
     }
 }
