@@ -13,8 +13,6 @@ import io.mockk.mockkObject
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -46,11 +44,8 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     fun `registerFormLifecycleCallback registers callback successfully`() {
         val callback = FormLifecycleCallback { _, _ -> }
 
-        assertFalse(Klaviyo.isFormLifecycleCallbackRegistered())
-
         Klaviyo.registerFormLifecycleCallback(callback)
 
-        assertTrue(Klaviyo.isFormLifecycleCallbackRegistered())
         assertEquals(callback, Registry.get<FormLifecycleCallback>())
     }
 
@@ -59,17 +54,12 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         val callback = FormLifecycleCallback { _, _ -> }
 
         Klaviyo.registerFormLifecycleCallback(callback)
-        assertTrue(Klaviyo.isFormLifecycleCallbackRegistered())
 
         Klaviyo.unregisterFormLifecycleCallback()
 
-        assertFalse(Klaviyo.isFormLifecycleCallbackRegistered())
+        assertEquals(null, Registry.getOrNull<FormLifecycleCallback>())
     }
 
-    @Test
-    fun `isFormLifecycleCallbackRegistered returns false when no callback registered`() {
-        assertFalse(Klaviyo.isFormLifecycleCallbackRegistered())
-    }
 
     @Test
     fun `registerFormLifecycleCallback replaces existing callback`() {

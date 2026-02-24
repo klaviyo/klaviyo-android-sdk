@@ -112,15 +112,6 @@ fun Klaviyo.unregisterFormLifecycleCallback(): Klaviyo = safeApply {
 }
 
 /**
- * Check if a form lifecycle callback is currently registered.
- *
- * @return true if a callback is registered, false otherwise
- */
-fun Klaviyo.isFormLifecycleCallbackRegistered(): Boolean {
-    return Registry.isRegistered<FormLifecycleCallback>()
-}
-
-/**
  * Check if IAF services are registered in the Klaviyo registry.
  */
 private fun Registry.inAppIsRegistered(): Boolean = listOf(
