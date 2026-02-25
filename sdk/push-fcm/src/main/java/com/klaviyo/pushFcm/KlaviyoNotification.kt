@@ -16,6 +16,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
@@ -65,7 +66,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val NOTIFICATION_COUNT_KEY = "notification_count"
         internal const val NOTIFICATION_PRIORITY = "notification_priority"
         internal const val NOTIFICATION_TAG = "notification_tag"
-        internal const val KEY_VALUE_PAIRS_KEY = "key_value_pairs"
+        internal const val KEY_VALUE_PAIRS_KEY = Constants.KEY_VALUE_PAIRS
         private const val DOWNLOAD_TIMEOUT_MS = 5_000
 
         /**

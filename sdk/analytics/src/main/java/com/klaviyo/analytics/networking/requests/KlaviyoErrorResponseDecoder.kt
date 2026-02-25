@@ -1,7 +1,7 @@
 package com.klaviyo.analytics.networking.requests
 
-import com.klaviyo.analytics.networking.requests.JSONUtil.getStringNullable
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.JSONUtil.getStringNullable
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -16,7 +16,7 @@ internal object KlaviyoErrorResponseDecoder {
     internal fun fromJson(json: JSONObject): KlaviyoErrorResponse {
         val errorsJsonArray: JSONArray = try {
             json.getJSONArray(KlaviyoErrorResponse.ERRORS)
-        } catch (e: JSONException) {
+        } catch (_: JSONException) {
             JSONArray()
         }
         val errorsList = mutableListOf<KlaviyoError>()
@@ -29,7 +29,7 @@ internal object KlaviyoErrorResponseDecoder {
                         status = errorJson.getInt(KlaviyoErrorResponse.STATUS),
                         title = errorJson.getStringNullable(KlaviyoErrorResponse.TITLE),
                         detail = errorJson.getStringNullable(KlaviyoErrorResponse.DETAIL),
-                        source = errorJson.getJSONObject(KlaviyoErrorResponse.SOURCE)?.let {
+                        source = errorJson.optJSONObject(KlaviyoErrorResponse.SOURCE)?.let {
                             KlaviyoErrorSource(
                                 it.getStringNullable(KlaviyoErrorResponse.POINTER)
                             )

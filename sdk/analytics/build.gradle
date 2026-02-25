@@ -5,7 +5,7 @@ evaluationDependsOn(":sdk")
 def ext = rootProject.ext
 
 android {
-    namespace "${klaviyoGroupId}.analytics"
+    namespace = "${klaviyoGroupId}.analytics"
 
     publishing {
         singleVariant(ext.publishBuildVariant) {
@@ -19,6 +19,7 @@ dependencies {
     implementation project(":sdk:core")
     implementation KotlinX.coroutines.core
     implementation KotlinX.coroutines.android
+    implementation AndroidX.work.runtimeKtx
 
     testImplementation project(":sdk:fixtures")
 }

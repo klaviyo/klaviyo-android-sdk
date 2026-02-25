@@ -81,4 +81,31 @@ internal abstract class BaseApiRequestTest<T> : BaseTest() where T : KlaviyoApiR
         assert(revivedRequest is T)
         compareJson(requestJson, revivedRequest.toJson())
     }
+
+    /**
+     * Use reflection to set the protected responseBody field for testing
+     */
+    fun <T : KlaviyoApiRequest> T.setResponseBody(body: String) = apply {
+        KlaviyoApiRequest::class.java.getDeclaredField("responseBody").also {
+            it.isAccessible = true
+            it.set(this, body)
+        }
+    }
+
+    /**
+     * Use reflection to set the private status and responseCode fields for testing
+     */
+    fun <T : KlaviyoApiRequest> T.setStatus(
+        status: KlaviyoApiRequest.Status,
+        code: Int? = null
+    ) = apply {
+        KlaviyoApiRequest::class.java.getDeclaredField("status").also {
+            it.isAccessible = true
+            it.set(this, status)
+        }
+        KlaviyoApiRequest::class.java.getDeclaredField("responseCode").also {
+            it.isAccessible = true
+            it.set(this, code)
+        }
+    }
 }
