@@ -13,6 +13,8 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import com.klaviyo.forms.FormLifecycleCallback
+import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
@@ -271,6 +273,35 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
         postMessage(deeplinkMessage)
         verify { DeepLinking.handleDeepLink(mockUri) }
+    }
+
+    @Test
+    fun `openDeepLink with empty android route fires lifecycle callback but does not navigate`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
+         */
+        val emptyAndroidMessage = """
+            {
+              "type": "openDeepLink",
+              "data": {
+                "ios": "klaviyotest://settings",
+                "android": ""
+              }
+            }
+        """.trimIndent()
+
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        val mockLifecycleCallback = mockk<FormLifecycleCallback>(relaxed = true)
+        Registry.register<FormLifecycleCallback>(mockLifecycleCallback)
+
+        postMessage(emptyAndroidMessage)
+
+        verify { mockLifecycleCallback.onFormLifecycleEvent(FormLifecycleEvent.FORM_CTA_CLICKED, any()) }
+        verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
+
+        Registry.unregister<FormLifecycleCallback>()
     }
 
     @Test
