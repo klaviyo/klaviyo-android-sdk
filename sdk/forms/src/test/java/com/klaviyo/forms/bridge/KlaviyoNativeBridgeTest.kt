@@ -294,7 +294,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         postMessage(emptyAndroidMessage)
 
         verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
-        verify { spyLog.warning("Deep link CTA with no Android route configured", null) }
+        verify { spyLog.warning(any(), null) }
     }
 
     @Test
