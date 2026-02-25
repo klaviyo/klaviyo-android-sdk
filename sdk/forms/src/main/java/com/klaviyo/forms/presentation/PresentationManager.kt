@@ -9,11 +9,6 @@ internal interface PresentationManager {
     val presentationState: PresentationState
 
     /**
-     * The form ID of the currently presented form, or null if no form is presented
-     */
-    val currentFormId: FormId?
-
-    /**
      * Present the form overlay activity, optionally provide the formId to be presented
      */
     fun present(formId: FormId?)

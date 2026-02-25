@@ -36,9 +36,6 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     override var presentationState: PresentationState = Hidden
         private set
 
-    override val currentFormId: FormId?
-        get() = presentationState.formId
-
     /**
      * For tracking device rotation
      */

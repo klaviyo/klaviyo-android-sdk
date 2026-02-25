@@ -32,6 +32,12 @@ import com.klaviyo.forms.webview.WebViewClient
 internal class KlaviyoNativeBridge() : NativeBridge {
 
     /**
+     * Tracks the most recently presented form ID so it remains accessible after the form is dismissed.
+     * Needed for v2 protocol where [FormDisappeared] arrives before [OpenDeepLink] (see [handShakeData]).
+     */
+    private var lastFormId: FormId? = null
+
+    /**
      * This is the name that will be used to access the bridge from JS, i.e. window.KlaviyoNativeBridge
      */
     override val name = "KlaviyoNativeBridge"
@@ -73,7 +79,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
                 is TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
                 is TrackProfileEvent -> createProfileEvent(bridgeMessage)
                 is OpenDeepLink -> deepLink(bridgeMessage)
-                is FormDisappeared -> close()
+                is FormDisappeared -> close(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
             }
         } catch (e: Exception) {
@@ -95,6 +101,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * Notify the client that the webview should be shown
      */
     private fun show(bridgeMessage: FormWillAppear) {
+        Registry.log.info("Form shown: ${bridgeMessage.formId}")
         Registry.get<PresentationManager>().present(bridgeMessage.formId)
         invokeLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, bridgeMessage.formId)
     }
@@ -119,17 +126,19 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
     private fun deepLink(message: OpenDeepLink) {
-        val currentFormId = Registry.get<PresentationManager>().currentFormId
-        invokeLifecycleCallback(FormLifecycleEvent.FORM_CTA_CLICKED, currentFormId)
-        DeepLinking.handleDeepLink(message.route.toUri())
+        Registry.log.info("Form CTA clicked: $lastFormId")
+        invokeLifecycleCallback(FormLifecycleEvent.FORM_CTA_CLICKED, lastFormId)
+        message.route?.let { DeepLinking.handleDeepLink(it.toUri()) }
+            ?: Registry.log.warning("Deep link CTA with no Android route configured")
     }
 
     /**
      * Instruct presentation manager to dismiss the form overlay activity
      */
-    private fun close() {
-        val currentFormId = Registry.get<PresentationManager>().currentFormId
-        invokeLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, currentFormId)
+    private fun close(bridgeMessage: FormDisappeared) {
+        lastFormId = bridgeMessage.formId
+        Registry.log.info("Form dismissed: $lastFormId")
+        invokeLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, lastFormId)
         Registry.get<PresentationManager>().dismiss()
     }
 
