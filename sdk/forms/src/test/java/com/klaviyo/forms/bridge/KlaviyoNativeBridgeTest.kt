@@ -13,6 +13,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import com.klaviyo.forms.FormContext
 import com.klaviyo.forms.FormLifecycleCallback
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.presentation.PresentationManager
@@ -298,8 +299,32 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         postMessage(emptyAndroidMessage)
 
-        verify { mockLifecycleCallback.onFormLifecycleEvent(FormLifecycleEvent.FORM_CTA_CLICKED, any()) }
+        verify { mockLifecycleCallback.onFormLifecycleEvent(FormLifecycleEvent.FORM_CTA_CLICKED, any<FormContext>()) }
         verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
+
+        Registry.unregister<FormLifecycleCallback>()
+    }
+
+    @Test
+    fun `formName flows through from show to dismiss and CTA events`() {
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
+        val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
+        Registry.register<FormLifecycleCallback>(callback)
+
+        // Show with formName
+        postMessage("""{"type":"formWillAppear","data":{"formId":"abc","formName":"My Form"}}""")
+        // Dismiss
+        postMessage("""{"type":"formDisappeared","data":{"formId":"abc"}}""")
+        // CTA
+        postMessage("""{"type":"openDeepLink","data":{"android":"klaviyotest://settings"}}""")
+
+        assertEquals(3, events.size)
+        assertEquals("My Form", events[0].second.formName)
+        assertEquals("My Form", events[1].second.formName)
+        assertEquals("My Form", events[2].second.formName)
 
         Registry.unregister<FormLifecycleCallback>()
     }

@@ -28,21 +28,21 @@ class SampleApplication : Application() {
                 // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
                 showToast("Deep link to: $uri")
             }
-            .registerFormLifecycleCallback { event, formId ->
+            .registerFormLifecycleCallback { event, context ->
                 // OPTIONAL SETUP NOTE: Register a callback to receive form lifecycle events
                 // This allows you to track when forms are shown, dismissed, or when CTAs are clicked
                 when (event) {
                     FormLifecycleEvent.FORM_SHOWN -> {
-                        Log.d(TAG, "Form shown: $formId")
-                        showToast("Form shown: $formId")
+                        Log.d(TAG, "Form shown: ${context.formId} ${context.formName}")
+                        showToast("Form shown: ${context.formId}")
                     }
                     FormLifecycleEvent.FORM_DISMISSED -> {
-                        Log.d(TAG, "Form dismissed: $formId")
-                        showToast("Form dismissed: $formId")
+                        Log.d(TAG, "Form dismissed: ${context.formId} ${context.formName}")
+                        showToast("Form dismissed: ${context.formId}")
                     }
                     FormLifecycleEvent.FORM_CTA_CLICKED -> {
-                        Log.d(TAG, "Form CTA clicked: $formId")
-                        showToast("Form CTA clicked: $formId")
+                        Log.d(TAG, "Form CTA clicked: ${context.formId} ${context.formName}")
+                        showToast("Form CTA clicked: ${context.formId}")
                     }
                 }
             }

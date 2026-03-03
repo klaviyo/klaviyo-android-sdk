@@ -28,9 +28,11 @@ internal sealed class NativeBridgeMessage {
      * Sent from the onsite-in-app-forms when a form is about to appear as a signal to present the webview
      *
      * @param formId The form ID of the form that is appearing
+     * @param formName The name of the form that is appearing
      */
     data class FormWillAppear(
-        val formId: FormId?
+        val formId: FormId?,
+        val formName: String?
     ) : NativeBridgeMessage()
 
     /**
@@ -119,7 +121,8 @@ internal sealed class NativeBridgeMessage {
                 keyName<HandShook>() -> HandShook
 
                 keyName<FormWillAppear>() -> FormWillAppear(
-                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() }
+                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() },
+                    formName = jsonData.optString("formName").takeIf { it.isNotEmpty() }
                 )
 
                 keyName<TrackAggregateEvent>() -> TrackAggregateEvent(

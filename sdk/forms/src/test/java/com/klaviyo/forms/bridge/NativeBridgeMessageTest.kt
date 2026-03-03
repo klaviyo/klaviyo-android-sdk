@@ -50,6 +50,31 @@ class NativeBridgeMessageTest : BaseTest() {
         // Assert
         assert(result is NativeBridgeMessage.FormWillAppear)
         assertEquals("abc123", (result as NativeBridgeMessage.FormWillAppear).formId)
+        assertEquals(null, result.formName)
+    }
+
+    @Test
+    fun `test decodeWebviewMessage decodes formName from formWillAppear`() {
+        val showMessage = """
+            {"type": "formWillAppear", "data": {"formId": "abc123", "formName": "My Newsletter"}}
+        """.trimIndent()
+
+        val result = NativeBridgeMessage.decodeWebviewMessage(showMessage) as NativeBridgeMessage.FormWillAppear
+
+        assertEquals("abc123", result.formId)
+        assertEquals("My Newsletter", result.formName)
+    }
+
+    @Test
+    fun `test decodeWebviewMessage returns null formName when empty`() {
+        val showMessage = """
+            {"type": "formWillAppear", "data": {"formId": "abc123", "formName": ""}}
+        """.trimIndent()
+
+        val result = NativeBridgeMessage.decodeWebviewMessage(showMessage) as NativeBridgeMessage.FormWillAppear
+
+        assertEquals("abc123", result.formId)
+        assertEquals(null, result.formName)
     }
 
     @Test

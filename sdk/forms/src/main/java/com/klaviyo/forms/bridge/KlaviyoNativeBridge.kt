@@ -19,6 +19,7 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
 import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
+import com.klaviyo.forms.FormContext
 import com.klaviyo.forms.FormLifecycleCallback
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.presentation.PresentationManager
@@ -32,10 +33,10 @@ import com.klaviyo.forms.webview.WebViewClient
 internal class KlaviyoNativeBridge() : NativeBridge {
 
     /**
-     * Tracks the most recently presented form ID so it remains accessible after the form is dismissed.
+     * Tracks the most recently presented form context so it remains accessible after the form is dismissed.
      * Needed for v2 protocol where [FormDisappeared] arrives before [OpenDeepLink] (see [handShakeData]).
      */
-    private var lastFormId: FormId? = null
+    private var lastFormContext: FormContext? = null
 
     /**
      * This is the name that will be used to access the bridge from JS, i.e. window.KlaviyoNativeBridge
@@ -79,7 +80,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
                 is TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
                 is TrackProfileEvent -> createProfileEvent(bridgeMessage)
                 is OpenDeepLink -> deepLink(bridgeMessage)
-                is FormDisappeared -> close(bridgeMessage)
+                is FormDisappeared -> close()
                 is Abort -> abort(bridgeMessage.reason)
             }
         } catch (e: Exception) {
@@ -103,7 +104,8 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     private fun show(bridgeMessage: FormWillAppear) {
         Registry.log.info("Form shown: ${bridgeMessage.formId}")
         Registry.get<PresentationManager>().present(bridgeMessage.formId)
-        invokeLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, bridgeMessage.formId)
+        lastFormContext = FormContext(bridgeMessage.formId, bridgeMessage.formName)
+        invokeLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, lastFormContext)
     }
 
     /**
@@ -126,8 +128,8 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
     private fun deepLink(message: OpenDeepLink) {
-        Registry.log.info("Form CTA clicked: $lastFormId")
-        invokeLifecycleCallback(FormLifecycleEvent.FORM_CTA_CLICKED, lastFormId)
+        Registry.log.info("Form CTA clicked: ${lastFormContext?.formId}")
+        invokeLifecycleCallback(FormLifecycleEvent.FORM_CTA_CLICKED, lastFormContext)
         message.route?.let { DeepLinking.handleDeepLink(it.toUri()) }
             ?: Registry.log.warning("Deep link CTA with no Android route configured")
     }
@@ -135,10 +137,9 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     /**
      * Instruct presentation manager to dismiss the form overlay activity
      */
-    private fun close(bridgeMessage: FormDisappeared) {
-        lastFormId = bridgeMessage.formId
-        Registry.log.info("Form dismissed: $lastFormId")
-        invokeLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, lastFormId)
+    private fun close() {
+        Registry.log.info("Form dismissed: ${lastFormContext?.formId}")
+        invokeLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, lastFormContext)
         Registry.get<PresentationManager>().dismiss()
     }
 
@@ -152,10 +153,10 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     /**
      * Invoke the registered form lifecycle callback on the UI thread, if one is registered
      */
-    private fun invokeLifecycleCallback(event: FormLifecycleEvent, formId: FormId?) {
+    private fun invokeLifecycleCallback(event: FormLifecycleEvent, context: FormContext?) {
         Registry.getOrNull<FormLifecycleCallback>()?.let { callback ->
             Registry.threadHelper.runOnUiThread {
-                callback.onFormLifecycleEvent(event, formId)
+                callback.onFormLifecycleEvent(event, context ?: FormContext(null, null))
             }
         }
     }
