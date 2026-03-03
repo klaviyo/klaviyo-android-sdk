@@ -559,14 +559,16 @@ in response to form interactions.
 
 ```kotlin
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.forms.FormContext
 import com.klaviyo.forms.FormLifecycleCallback
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.registerFormLifecycleCallback
 
-Klaviyo.registerFormLifecycleCallback { event, formId ->
+Klaviyo.registerFormLifecycleCallback { event, context ->
     when (event) {
         FormLifecycleEvent.FORM_SHOWN -> {
             // A form became visible to the user
+            // context.formId and context.formName identify the form
         }
         FormLifecycleEvent.FORM_DISMISSED -> {
             // The user closed or the form was programmatically dismissed
