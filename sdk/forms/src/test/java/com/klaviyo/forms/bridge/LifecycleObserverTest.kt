@@ -4,7 +4,9 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.forms.FormsProvider
 import com.klaviyo.forms.InAppFormsConfig
+import com.klaviyo.forms.KlaviyoFormsProvider
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
@@ -28,6 +30,7 @@ class LifecycleObserverTest : BaseTest() {
     override fun setup() {
         super.setup()
         every { mockLifecycleMonitor.onActivityEvent(capture(observerSlot)) } returns Unit
+        Registry.register<FormsProvider>(KlaviyoFormsProvider())
         Registry.register<InAppFormsConfig>(InAppFormsConfig(10.seconds))
         Registry.register<PresentationManager>(mockk<PresentationManager>(relaxed = true))
         Registry.register<WebViewClient>(mockWebViewClient)
@@ -40,6 +43,7 @@ class LifecycleObserverTest : BaseTest() {
     @After
     override fun cleanup() {
         super.cleanup()
+        Registry.unregister<FormsProvider>()
         Registry.unregister<InAppFormsConfig>()
         Registry.unregister<PresentationManager>()
         Registry.unregister<WebViewClient>()

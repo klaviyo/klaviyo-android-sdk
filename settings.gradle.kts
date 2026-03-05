@@ -1,0 +1,33 @@
+plugins {
+    id("de.fayard.refreshVersions") version "0.60.5"
+}
+
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// SDK modules
+include(
+    ":sdk",
+    ":sdk:core",
+    ":sdk:analytics",
+    ":sdk:push-fcm",
+    ":sdk:fixtures",
+    ":sdk:forms-core",
+    ":sdk:forms",
+    ":sdk:location-core",
+    ":sdk:location"
+)
+
+if (System.getenv("JITPACK") != "true") {
+    include(":sample")
+}
+
+refreshVersions {
+    rejectVersionIf {
+        candidate.stabilityLevel.isLessStableThan(current.stabilityLevel)
+    }
+}

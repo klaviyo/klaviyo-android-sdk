@@ -1,6 +1,36 @@
 # Migration Guide
-This document provides guidance on how to migrate from one version of the SDK to a newer version. 
+This document provides guidance on how to migrate from one version of the SDK to a newer version.
 It will be updated as new versions are released including deprecations or breaking changes.
+
+# 4.3.0
+
+## New Modules for Cross-Platform Support
+
+Version 4.3.0 introduces new modules and architectural changes to support wrapper SDKs (Flutter, React Native). While this adds new public modules and some internal APIs, **it requires no migration steps for Android developers**. All existing APIs remain unchanged and fully backward compatible.
+
+### New Gradle Artifacts
+Two new lightweight modules are now available as separate gradle dependencies:
+
+- **`com.github.klaviyo.klaviyo-android-sdk:location-core:4.3.0`** - Interfaces and types for geofencing without Play Services dependencies
+- **`com.github.klaviyo.klaviyo-android-sdk:forms-core:4.3.0`** - Interfaces and types for in-app forms without WebView dependencies
+
+**For Android developers:** Continue using the existing `location` and `forms` modules as before. These new `-core` modules are primarily intended for wrapper SDK developers (Flutter, React Native) who need to depend on interfaces without pulling in the full Android implementations.
+
+**For wrapper SDK developers:** You can now depend on `location-core` and/or `forms-core` to access public interfaces, data types, and extension functions without including the full implementation. When the full module (`location` or `forms`) is present in the app, it auto-registers via ContentProvider.
+
+### Additional Changes
+- Added ContentProvider-based auto-registration for optional modules (no manual registration required)
+- Migrated build files to Kotlin DSL
+- Added `getCurrentGeofences()` method to internal `LocationManager` interface
+- Made `MAX_CONCURRENT_GEOFENCES` constant publicly accessible
+- Updated Android Gradle Plugin to 8.11.0
+- Updated Kotlin to 1.9.25
+
+### Bug Fixes
+- Fixed an issue where in-app forms could appear in a separate task in the app switcher (primarily affected Flutter integrations)
+
+### No Action Required for Android Developers
+If you're integrating the Klaviyo Android SDK directly into an Android app, you can upgrade from 4.2.0 to 4.3.0 without any code changes. Continue using the existing module dependencies (`analytics`, `push-fcm`, `forms`, `location`) as before.
 
 # 4.2.0
 
