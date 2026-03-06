@@ -9,6 +9,7 @@ import com.klaviyo.forms.presentation.PresentationManager
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -35,6 +36,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        unmockkAll()
         Registry.unregister<PresentationManager>()
         Registry.unregister<FormLifecycleCallback>()
         super.cleanup()

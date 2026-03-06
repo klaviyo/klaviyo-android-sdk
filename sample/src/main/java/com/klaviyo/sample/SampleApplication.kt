@@ -9,6 +9,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.registerFormLifecycleCallback
+import com.klaviyo.forms.unregisterFormLifecycleCallback
 
 class SampleApplication : Application() {
     companion object {
@@ -46,6 +47,11 @@ class SampleApplication : Application() {
                     }
                 }
             }
+    }
+
+    override fun onTerminate() {
+        Klaviyo.unregisterFormLifecycleCallback()
+        super.onTerminate()
     }
 }
 
