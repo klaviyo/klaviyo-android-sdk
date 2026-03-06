@@ -125,9 +125,9 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     @Test
     fun `present should not start a duplicate activity`() {
         val manager = withPresentedState()
-        verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
+        verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
         manager.present("formId")
-        verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
+        verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
     }
 
     @Test
@@ -160,7 +160,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         manager.present("formId")
 
         // Expect start activity to be called and state to be Presenting
-        verify(exactly = 1) { mockContext.startActivity(mockLaunchIntent) }
+        verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
         assertEquals(
             "PresentationState should transition to Presenting",
             PresentationState.Presenting("formId"),

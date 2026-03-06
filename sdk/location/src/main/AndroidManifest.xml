@@ -5,18 +5,18 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application>
-        <!-- Register Klaviyo service for receiving geofence broadcasts -->
-        <receiver
-            android:name="com.klaviyo.location.KlaviyoGeofenceReceiver"
+        <receiver android:name="com.klaviyo.location.KlaviyoGeofenceReceiver"
             android:exported="false" />
-
-        <!-- Register Klaviyo service for receiving boot events to restore geofences -->
-        <receiver
-            android:name="com.klaviyo.location.KlaviyoLocationBootReceiver"
+        <receiver android:name="com.klaviyo.location.KlaviyoLocationBootReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <provider
+            android:name="com.klaviyo.location.LocationInitProvider"
+            android:authorities="${applicationId}.klaviyo.location.init"
+            android:exported="false" />
     </application>
 </manifest>

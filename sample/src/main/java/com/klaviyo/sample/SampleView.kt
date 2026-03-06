@@ -217,7 +217,8 @@ fun SampleView(
                 unregisterFromGeofencing = executeWithToast(
                     viewModel::unregisterFromGeofencing,
                     "Unregistered from geofencing"
-                )
+                ),
+                refreshGeofences = viewModel::refreshCurrentGeofences
             )
         }
     }
@@ -252,7 +253,8 @@ private fun SampleViewContent(
     requestLocationPermission: () -> Unit = {},
     requestBackgroundLocationPermission: () -> Unit = {},
     registerForGeofencing: () -> Unit = {},
-    unregisterFromGeofencing: () -> Unit = {}
+    unregisterFromGeofencing: () -> Unit = {},
+    refreshGeofences: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -402,7 +404,8 @@ private fun SampleViewContent(
                 onRequestLocationPermission = requestLocationPermission,
                 onRequestBackgroundLocationPermission = requestBackgroundLocationPermission,
                 onRegisterForGeofencing = registerForGeofencing,
-                onUnregisterFromGeofencing = unregisterFromGeofencing
+                onUnregisterFromGeofencing = unregisterFromGeofencing,
+                onRefreshGeofences = refreshGeofences
             )
         }
     }
