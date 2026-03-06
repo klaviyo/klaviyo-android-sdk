@@ -125,9 +125,9 @@ The Klaviyo Android SDK is organized into multiple modules, each with specific r
 
 ### CI/CD Pipeline
 
-The project uses GitHub Actions for CI/CD, particularly for running tests and link checks on pull requests.
-Ensure that all tests pass and lint checks are successful before committing any changes.
-Do not use --no-verify as a way to work around pre-commit checks unless prompted.
+The project uses GitHub Actions for CI/CD, particularly for running tests and lint checks on pull requests.
+Ensure that relevant tests pass and lint checks are successful before committing any changes.
+NEVER use --no-verify as a way to work around pre-commit checks unless prompted.
 
 ### Testing Approach
 
