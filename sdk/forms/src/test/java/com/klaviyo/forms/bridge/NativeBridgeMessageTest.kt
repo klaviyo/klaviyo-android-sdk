@@ -222,7 +222,7 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `deeplink does not have android field, throws error`() {
+    fun `deeplink does not have android field, returns OpenDeepLink with null route`() {
         val deeplinkMessage = """
             {
               "type": "openDeepLink",
@@ -232,12 +232,26 @@ class NativeBridgeMessageTest : BaseTest() {
             }
         """.trimIndent()
 
-        every { Registry.log.error(any(), any<Throwable>()) } just Runs
+        val result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage) as NativeBridgeMessage.OpenDeepLink
 
-        // Act & Assert
-        assertThrows(IllegalStateException::class.java) {
-            NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage)
-        }
+        assertEquals(NativeBridgeMessage.OpenDeepLink(route = null), result)
+    }
+
+    @Test
+    fun `deeplink with empty android field returns OpenDeepLink with null route`() {
+        val deeplinkMessage = """
+            {
+              "type": "openDeepLink",
+              "data": {
+                "ios": "klaviyotest://settings",
+                "android": ""
+              }
+            }
+        """.trimIndent()
+
+        val result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage) as NativeBridgeMessage.OpenDeepLink
+
+        assertEquals(NativeBridgeMessage.OpenDeepLink(route = null), result)
     }
 
     @Test
