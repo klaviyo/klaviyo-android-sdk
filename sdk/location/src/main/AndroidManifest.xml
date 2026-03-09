@@ -1,0 +1,22 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application>
+        <receiver android:name="com.klaviyo.location.KlaviyoGeofenceReceiver"
+            android:exported="false" />
+        <receiver android:name="com.klaviyo.location.KlaviyoLocationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <provider
+            android:name="com.klaviyo.location.LocationInitProvider"
+            android:authorities="${applicationId}.klaviyo.location.init"
+            android:exported="false" />
+    </application>
+</manifest>

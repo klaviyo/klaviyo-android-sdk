@@ -29,6 +29,7 @@ internal class InAppFormsTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+        Registry.register<FormsProvider>(KlaviyoFormsProvider())
         mockkConstructor(KlaviyoPresentationManager::class).apply {
             every { anyConstructed<KlaviyoPresentationManager>().dismiss() } returns Unit
         }
@@ -42,6 +43,7 @@ internal class InAppFormsTest : BaseTest() {
     @After
     override fun cleanup() {
         unmockkAll()
+        Registry.unregister<FormsProvider>()
         Registry.unregister<InAppFormsConfig>()
         Registry.unregister<PresentationManager>()
         Registry.unregister<NativeBridge>()

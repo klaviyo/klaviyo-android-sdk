@@ -66,6 +66,11 @@
         <meta-data android:name="com.klaviyo.push.default_notification_color"
                    android:resource="@color/teal_700"/>
 
+        <!-- Sample App Only: Google Maps API Key (for GoogleMaps UI testing) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${googleMapsApiKey}" />
+
     </application>
 
 </manifest>
