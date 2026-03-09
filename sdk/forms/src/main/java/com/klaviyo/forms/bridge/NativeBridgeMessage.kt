@@ -56,10 +56,10 @@ internal sealed class NativeBridgeMessage {
     /**
      * Sent from the onsite-in-app-forms when a deep link is opened
      *
-     * @param route The deep link route to be opened (usually a URL)
+     * @param route The deep link route to be opened (usually a URL), or null if no Android route is configured
      */
     data class OpenDeepLink(
-        val route: String
+        val route: String?
     ) : NativeBridgeMessage()
 
     /**
@@ -164,14 +164,9 @@ internal sealed class NativeBridgeMessage {
         }
 
         /**
-         * Parse out the android platform deep link
+         * Parse out the android platform deep link, returning null if not present or empty
          */
-        private fun JSONObject.getDeepLink(): String {
-            val routeString = optString("android")
-            if (routeString.isNullOrEmpty()) {
-                throw IllegalStateException("No android deeplink found in js payload")
-            }
-            return routeString
-        }
+        private fun JSONObject.getDeepLink(): String? =
+            optString("android").takeIf { it.isNotEmpty() }
     }
 }
