@@ -39,7 +39,9 @@ class SampleApplication : Application() {
                         showToast("Form dismissed: ${context.formId} ${context.formName}")
                     }
                     FormLifecycleEvent.FORM_CTA_CLICKED -> {
-                        Registry.log.debug("Form CTA clicked: ${context.formId} ${context.formName}")
+                        Registry.log.debug(
+                            "Form CTA clicked: ${context.formId} ${context.formName}"
+                        )
                         showToast("Form CTA clicked: ${context.formId} ${context.formName}")
                     }
                 }
