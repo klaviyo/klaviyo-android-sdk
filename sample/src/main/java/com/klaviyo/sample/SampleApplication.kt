@@ -2,9 +2,9 @@ package com.klaviyo.sample
 
 import android.app.Application
 import android.content.Context
-import android.util.Log
 import android.widget.Toast
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.Registry
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.registerFormLifecycleCallback
@@ -12,10 +12,6 @@ import com.klaviyo.forms.unregisterFormLifecycleCallback
 import com.klaviyo.location.registerGeofencing
 
 class SampleApplication : Application() {
-    companion object {
-        private const val TAG = "SampleApplication"
-    }
-
     override fun onCreate() {
         super.onCreate()
 
@@ -35,16 +31,16 @@ class SampleApplication : Application() {
                 // This allows you to track when forms are shown, dismissed, or when CTAs are clicked
                 when (event) {
                     FormLifecycleEvent.FORM_SHOWN -> {
-                        Log.d(TAG, "Form shown: ${context.formId} ${context.formName}")
-                        showToast("Form shown: ${context.formId}")
+                        Registry.log.debug("Form shown: ${context.formId} ${context.formName}")
+                        showToast("Form shown: ${context.formId} ${context.formName}")
                     }
                     FormLifecycleEvent.FORM_DISMISSED -> {
-                        Log.d(TAG, "Form dismissed: ${context.formId} ${context.formName}")
-                        showToast("Form dismissed: ${context.formId}")
+                        Registry.log.debug("Form dismissed: ${context.formId} ${context.formName}")
+                        showToast("Form dismissed: ${context.formId} ${context.formName}")
                     }
                     FormLifecycleEvent.FORM_CTA_CLICKED -> {
-                        Log.d(TAG, "Form CTA clicked: ${context.formId} ${context.formName}")
-                        showToast("Form CTA clicked: ${context.formId}")
+                        Registry.log.debug("Form CTA clicked: ${context.formId} ${context.formName}")
+                        showToast("Form CTA clicked: ${context.formId} ${context.formName}")
                     }
                 }
             }
