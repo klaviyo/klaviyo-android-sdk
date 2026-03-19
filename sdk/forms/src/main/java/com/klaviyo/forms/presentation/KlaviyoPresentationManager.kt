@@ -129,6 +129,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      */
     override fun closeFormAndDismiss() = presentationState.takeIf<Presented>()?.let {
         Registry.get<JsBridge>().closeForm(it.formId)
+        dismissOnTimeout?.cancel()
         dismissOnTimeout = Registry.clock.schedule(CLOSE_TIMEOUT) {
             invokeFormLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, formContext)
             dismiss()
