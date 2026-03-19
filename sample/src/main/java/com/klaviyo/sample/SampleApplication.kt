@@ -35,7 +35,7 @@ class SampleApplication : Application() {
                 // This allows you to track when forms are shown, dismissed, or when CTAs are clicked
                 when (event) {
                     FormLifecycleEvent.FORM_SHOWN -> {
-                        Registry.log.debug("Form shown: ${context.formId} ${context.formName}")
+                        Log.d(TAG, "Form shown: ${context.formId} ${context.formName}")
                         showToast("Form shown: ${context.formId}")
                     }
                     FormLifecycleEvent.FORM_DISMISSED -> {
