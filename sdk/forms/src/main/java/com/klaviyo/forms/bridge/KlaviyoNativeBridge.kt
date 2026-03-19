@@ -11,8 +11,6 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
-import com.klaviyo.forms.FormContext
-import com.klaviyo.forms.FormLifecycleCallback
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
@@ -22,7 +20,9 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
 import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
+import com.klaviyo.forms.invokeFormLifecycleCallback
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.presentation.PresentationState
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 
@@ -122,18 +122,30 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     private fun deepLink(message: OpenDeepLink) {
         val formContext = Registry.get<PresentationManager>().formContext
         Registry.log.debug("Form CTA clicked: ${formContext?.formId}")
-        invokeLifecycleCallback(FormLifecycleEvent.FORM_CTA_CLICKED, formContext)
+        invokeFormLifecycleCallback(FormLifecycleEvent.FORM_CTA_CLICKED, formContext)
         message.route?.let { DeepLinking.handleDeepLink(it.toUri()) }
             ?: Registry.log.warning("Deep link CTA with no Android route configured")
     }
 
     /**
-     * Instruct presentation manager to dismiss the form overlay activity
+     * Instruct presentation manager to dismiss the form overlay activity.
+     *
+     * Guards against a race where [closeFormAndDismiss][PresentationManager.closeFormAndDismiss]
+     * has already dismissed the form via its timeout. If the state is already
+     * [Hidden][PresentationState.Hidden], we skip the callback to avoid a duplicate
+     * [FORM_DISMISSED][FormLifecycleEvent.FORM_DISMISSED] event.
      */
     private fun close() {
         val presentationManager = Registry.get<PresentationManager>()
+        if (presentationManager.presentationState is PresentationState.Hidden) {
+            Registry.log.debug("Form already dismissed, skipping FORM_DISMISSED callback")
+            return
+        }
         Registry.log.debug("Form dismissed: ${presentationManager.formContext?.formId}")
-        invokeLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, presentationManager.formContext)
+        invokeFormLifecycleCallback(
+            FormLifecycleEvent.FORM_DISMISSED,
+            presentationManager.formContext
+        )
         presentationManager.dismiss()
     }
 
@@ -142,20 +154,5 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      */
     private fun abort(reason: String) = Klaviyo.unregisterFromInAppForms().also {
         Registry.log.error("IAF aborted, reason: $reason")
-    }
-
-    /**
-     * Invoke the registered form lifecycle callback on the UI thread, if one is registered
-     */
-    private fun invokeLifecycleCallback(event: FormLifecycleEvent, context: FormContext?) {
-        Registry.getOrNull<FormLifecycleCallback>()?.let { callback ->
-            Registry.threadHelper.runOnUiThread {
-                try {
-                    callback.onFormLifecycleEvent(event, context ?: FormContext(null, null))
-                } catch (e: Exception) {
-                    Registry.log.error("Form lifecycle callback threw an exception", e)
-                }
-            }
-        }
     }
 }

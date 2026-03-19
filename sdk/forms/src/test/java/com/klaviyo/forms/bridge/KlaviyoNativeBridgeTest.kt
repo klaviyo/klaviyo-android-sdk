@@ -17,6 +17,7 @@ import com.klaviyo.forms.FormContext
 import com.klaviyo.forms.FormLifecycleCallback
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.presentation.PresentationState
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
@@ -56,6 +57,10 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.register<State>(mockState)
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<PresentationManager>(mockPresentationManager)
+
+        every { mockPresentationManager.presentationState } returns PresentationState.Presented(
+            "formId"
+        )
 
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockUri
@@ -345,8 +350,36 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
+        every { mockPresentationManager.presentationState } returns PresentationState.Presented(
+            "formId"
+        )
         postMessage("""{"type":"formDisappeared"}""")
         verify { mockPresentationManager.dismiss() }
+    }
+
+    @Test
+    fun `formDisappeared skips callback when already dismissed by timeout`() {
+        /**
+         * Verifies that FORM_DISMISSED only fires once when the back-press timeout
+         * races with the JS formDisappeared response.
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
+         */
+        val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
+        val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
+        Registry.register<FormLifecycleCallback>(callback)
+
+        // Simulate that the timeout already fired: presentation state is Hidden
+        every { mockPresentationManager.presentationState } returns PresentationState.Hidden
+
+        postMessage("""{"type":"formDisappeared"}""")
+
+        // The callback should NOT have been invoked since the form is already Hidden
+        assertEquals(0, events.size)
+        // dismiss() should NOT be called again either
+        verify(exactly = 0) { mockPresentationManager.dismiss() }
+        verify { spyLog.debug("Form already dismissed, skipping FORM_DISMISSED callback") }
+
+        Registry.unregister<FormLifecycleCallback>()
     }
 
     @Test

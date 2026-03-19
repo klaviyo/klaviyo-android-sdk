@@ -6,6 +6,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.forms.bridge.KlaviyoNativeBridge
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.presentation.PresentationState
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -31,6 +32,9 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     override fun setup() {
         super.setup()
         every { mockPresentationManager.formContext } returns null
+        every { mockPresentationManager.presentationState } returns PresentationState.Presented(
+            "formId"
+        )
         Registry.register<PresentationManager>(mockPresentationManager)
         nativeBridge = KlaviyoNativeBridge()
     }
