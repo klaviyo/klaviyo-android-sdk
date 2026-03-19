@@ -89,11 +89,11 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         clearTimers()
         cancelPostponedPresent = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
             timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
-        ) {
+        ) { activity ->
             presentationState.takeIf<Hidden>()?.let {
                 presentationState = Presenting(formId)
                 Registry.log.debug("Presentation State: $presentationState")
-                Registry.config.applicationContext.startActivity(
+                activity.startActivity(
                     KlaviyoFormsOverlayActivity.launchIntent
                 )
             } ?: run {

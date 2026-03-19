@@ -58,6 +58,11 @@ internal class KlaviyoLocationManager : LocationManager {
         private const val GEOFENCES_STORAGE_KEY = "klaviyo_geofences"
 
         /**
+         * Key for storing IDs of geofences currently registered with the system GeofencingClient
+         */
+        private const val TRACKED_IDS_STORAGE_KEY = "klaviyo_tracked_geofence_ids"
+
+        /**
          * Geofence transition types to monitor (enter and exit)
          */
         private const val TRANSITIONS = GEOFENCE_TRANSITION_ENTER or GEOFENCE_TRANSITION_EXIT
@@ -344,6 +349,63 @@ internal class KlaviyoLocationManager : LocationManager {
     }
 
     /**
+     * Get the list of geofences currently being monitored by the system
+     *
+     * @return List of geofences actively being monitored, or empty if none
+     */
+    override fun getCurrentGeofences(): List<KlaviyoGeofence> {
+        val trackedIds = getTrackedIds()
+        return if (trackedIds.isEmpty()) {
+            emptyList()
+        } else {
+            getStoredGeofences().filter { it.id in trackedIds }
+        }
+    }
+
+    /**
+     * Save the IDs of geofences currently registered with the system GeofencingClient
+     *
+     * @param ids List of geofence IDs to save
+     */
+    private fun storeTrackedIds(ids: List<String>) {
+        try {
+            val jsonArray = JSONArray(ids)
+            Registry.dataStore.store(TRACKED_IDS_STORAGE_KEY, jsonArray.toString())
+            Registry.log.verbose("Saved ${ids.size} tracked geofence IDs")
+        } catch (e: Exception) {
+            Registry.log.error("Failed to save tracked geofence IDs", e)
+        }
+    }
+
+    /**
+     * Retrieve the IDs of geofences currently registered with the system GeofencingClient
+     *
+     * @return Set of tracked geofence IDs, or empty set if none
+     */
+    private fun getTrackedIds(): Set<String> = try {
+        Registry.dataStore.fetch(TRACKED_IDS_STORAGE_KEY)?.let { json ->
+            JSONArray(json).let { array ->
+                (0 until array.length()).map { array.getString(it) }.toSet()
+            }
+        } ?: emptySet()
+    } catch (e: Exception) {
+        Registry.log.error("Failed to retrieve tracked geofence IDs", e)
+        emptySet()
+    }
+
+    /**
+     * Clear the stored tracked geofence IDs
+     */
+    private fun clearTrackedIds() {
+        try {
+            Registry.dataStore.clear(TRACKED_IDS_STORAGE_KEY)
+            Registry.log.verbose("Cleared tracked geofence IDs")
+        } catch (e: Exception) {
+            Registry.log.error("Failed to clear tracked geofence IDs", e)
+        }
+    }
+
+    /**
      * Wrapper for startSystemMonitoring that can be used as a callback.
      * Launches a coroutine to call the suspend function.
      */
@@ -431,6 +493,8 @@ internal class KlaviyoLocationManager : LocationManager {
         }.also { geofenceRequest ->
             client.addGeofences(geofenceRequest, intent).run {
                 addOnSuccessListener {
+                    // Store tracked IDs on successful registration with system
+                    storeTrackedIds(geofencesToMonitor.map { it.id })
                     Registry.log.debug(
                         "Monitoring ${geofencesToMonitor.size} geofences with system geofencing client" +
                             if (geofences.size > geofencesToMonitor.size) {
@@ -451,7 +515,15 @@ internal class KlaviyoLocationManager : LocationManager {
      * Stop monitoring all Klaviyo geofences
      */
     private fun stopSystemMonitoring() {
-        client.removeGeofences(intent)
+        val task = client.removeGeofences(intent)
+        task.run {
+            addOnSuccessListener {
+                clearTrackedIds()
+            }
+            addOnFailureListener {
+                Registry.log.error("Failed to stop geofence monitoring", it)
+            }
+        }
     }
 
     /**
