@@ -321,6 +321,47 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
+    fun `opened intent adds CLEAR_TOP flag for launch intent`() {
+        val mockLaunchIntent = mockk<Intent>(relaxed = true)
+        val intentSlot = slot<Intent>()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.deepLink } returns null
+        }
+
+        every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
+
+        every {
+            PendingIntent.getActivity(any(), any(), capture(intentSlot), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        verify { mockLaunchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP) }
+    }
+
+    @Test
+    fun `opened intent adds CLEAR_TOP flag for deep link intent`() {
+        val mockDeepLinkUri = mockk<Uri>(relaxed = true)
+        val mockDeepLinkIntent = mockk<Intent>(relaxed = true)
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.deepLink } returns mockDeepLinkUri
+        }
+
+        every { DeepLinking.makeDeepLinkIntent(mockDeepLinkUri, any()) } returns mockDeepLinkIntent
+        every { mockDeepLinkIntent.resolveActivity(any()) } returns mockk()
+
+        every {
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        verify { mockDeepLinkIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP) }
+    }
+
+    @Test
     fun `pending intent created with correct flags`() {
         val flagsSlot = slot<Int>()
 
