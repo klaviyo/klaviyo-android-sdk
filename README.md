@@ -559,8 +559,6 @@ in response to form interactions.
 
 ```kotlin
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.forms.FormContext
-import com.klaviyo.forms.FormLifecycleCallback
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.registerFormLifecycleCallback
 
@@ -580,6 +578,23 @@ Klaviyo.registerFormLifecycleCallback { event, context ->
 }
 ```
 
+```java
+import com.klaviyo.forms.FormLifecycleCallback;
+import com.klaviyo.forms.FormLifecycleEvent;
+import com.klaviyo.forms.KlaviyoFormLifecycleCallbacks;
+
+KlaviyoFormLifecycleCallbacks.registerFormLifecycleCallback((event, context) -> {
+    if (event == FormLifecycleEvent.FORM_SHOWN) {
+        // A form became visible to the user
+        // context.getFormId() and context.getFormName() identify the form
+    } else if (event == FormLifecycleEvent.FORM_DISMISSED) {
+        // The user closed or the form was programmatically dismissed
+    } else if (event == FormLifecycleEvent.FORM_CTA_CLICKED) {
+        // The user tapped a call-to-action button
+    }
+});
+```
+
 All callbacks are invoked on the UI thread. Only one callback can be registered at a time —
 registering a new callback replaces any previously registered one.
 
@@ -589,6 +604,10 @@ To unregister the callback:
 import com.klaviyo.forms.unregisterFormLifecycleCallback
 
 Klaviyo.unregisterFormLifecycleCallback()
+```
+
+```java
+KlaviyoFormLifecycleCallbacks.unregisterFormLifecycleCallback();
 ```
 
 ## Deep Linking
