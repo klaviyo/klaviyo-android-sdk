@@ -311,7 +311,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formName flows through from show to dismiss and CTA events`() {
+    fun `formName flows through from dismiss and CTA events`() {
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
 
@@ -326,17 +326,16 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
         Registry.register<FormLifecycleCallback>(callback)
 
-        // Show with formName
+        // Show with formName (FORM_SHOWN is now fired by the presentation manager, not the bridge)
         postMessage("""{"type":"formWillAppear","data":{"formId":"abc","formName":"My Form"}}""")
         // Dismiss
         postMessage("""{"type":"formDisappeared","data":{"formId":"abc"}}""")
         // CTA
         postMessage("""{"type":"openDeepLink","data":{"android":"klaviyotest://settings"}}""")
 
-        assertEquals(3, events.size)
+        assertEquals(2, events.size)
         assertEquals("My Form", events[0].second.formName)
         assertEquals("My Form", events[1].second.formName)
-        assertEquals("My Form", events[2].second.formName)
 
         Registry.unregister<FormLifecycleCallback>()
     }

@@ -76,24 +76,21 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     }
 
     @Test
-    fun `FORM_SHOWN event is triggered when form is shown`() {
+    fun `FORM_SHOWN event is triggered by presentation manager, not bridge`() {
         var capturedEvent: FormLifecycleEvent? = null
-        var capturedContext: FormContext? = null
-        val callback = FormLifecycleCallback { event, context ->
+        val callback = FormLifecycleCallback { event, _ ->
             capturedEvent = event
-            capturedContext = context
         }
 
-        every { mockPresentationManager.formContext } returns FormContext(testFormId, testFormName)
         Klaviyo.registerFormLifecycleCallback(callback)
 
-        // Simulate form shown message from webview
+        // Simulate form shown message from webview — bridge delegates to present()
         val message = """{"type":"formWillAppear", "data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(message)
 
-        assertEquals(FormLifecycleEvent.FORM_SHOWN, capturedEvent)
-        assertEquals(testFormId, capturedContext?.formId)
-        assertEquals(testFormName, capturedContext?.formName)
+        // FORM_SHOWN is now fired by the presentation manager, not the bridge
+        verify { mockPresentationManager.present(testFormId, testFormName) }
+        assertEquals(null, capturedEvent)
     }
 
     @Test
@@ -147,14 +144,12 @@ internal class FormLifecycleCallbackTest : BaseTest() {
             """{"type":"openDeepLink","data":{"android":"https://example.com"}}"""
         )
 
-        assertEquals(3, events.size)
-        assertEquals(FormLifecycleEvent.FORM_SHOWN, events[0].first)
+        // FORM_SHOWN is now fired by the presentation manager, not the bridge
+        assertEquals(2, events.size)
+        assertEquals(FormLifecycleEvent.FORM_DISMISSED, events[0].first)
         assertEquals(testFormId, events[0].second.formId)
-        assertEquals(testFormName, events[0].second.formName)
-        assertEquals(FormLifecycleEvent.FORM_DISMISSED, events[1].first)
+        assertEquals(FormLifecycleEvent.FORM_CTA_CLICKED, events[1].first)
         assertEquals(testFormId, events[1].second.formId)
-        assertEquals(FormLifecycleEvent.FORM_CTA_CLICKED, events[2].first)
-        assertEquals(testFormId, events[2].second.formId)
     }
 
     @Test
@@ -193,8 +188,8 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
         Klaviyo.registerFormLifecycleCallback(callback)
 
-        // Simulate form shown message
-        val message = """{"type":"formWillAppear", "data":{"formId":"$testFormId"}}"""
+        // Simulate form dismissed message (bridge still fires FORM_DISMISSED)
+        val message = """{"type":"formDisappeared","data":{"formId":"$testFormId"}}"""
         nativeBridge.postMessage(message)
 
         // Verify threadHelper.runOnUiThread was called

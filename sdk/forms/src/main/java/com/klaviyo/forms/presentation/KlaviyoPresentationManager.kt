@@ -8,6 +8,8 @@ import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf
 import com.klaviyo.core.utils.takeIfNot
 import com.klaviyo.forms.FormContext
+import com.klaviyo.forms.FormLifecycleCallback
+import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.FormId
 import com.klaviyo.forms.bridge.JsBridge
@@ -90,14 +92,15 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * or else wait till next foregrounded unless session ends
      */
     override fun present(formId: FormId?, formName: String?) {
-        formContext = FormContext(formId, formName)
         clearTimers()
         cancelPostponedPresent = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
             timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
         ) { activity ->
             presentationState.takeIf<Hidden>()?.let {
+                formContext = FormContext(formId, formName)
                 presentationState = Presenting(formId)
                 Registry.log.debug("Presentation State: $presentationState")
+                invokeLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, formContext)
                 activity.startActivity(
                     KlaviyoFormsOverlayActivity.launchIntent
                 )
@@ -126,7 +129,10 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      */
     override fun closeFormAndDismiss() = presentationState.takeIf<Presented>()?.let {
         Registry.get<JsBridge>().closeForm(it.formId)
-        dismissOnTimeout = Registry.clock.schedule(CLOSE_TIMEOUT, ::dismiss)
+        dismissOnTimeout = Registry.clock.schedule(CLOSE_TIMEOUT) {
+            invokeLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, formContext)
+            dismiss()
+        }
     } ?: dismiss().also {
         Registry.log.debug("Dismissing without closing form. Current state: $presentationState")
     }
@@ -139,6 +145,21 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         cancelPostponedPresent?.runNow().also { cancelPostponedPresent = null }
         // Cancel the timeout for dismissing the overlay activity
         dismissOnTimeout?.cancel().also { dismissOnTimeout = null }
+    }
+
+    /**
+     * Invoke the registered form lifecycle callback on the UI thread, if one is registered
+     */
+    private fun invokeLifecycleCallback(event: FormLifecycleEvent, context: FormContext?) {
+        Registry.getOrNull<FormLifecycleCallback>()?.let { callback ->
+            Registry.threadHelper.runOnUiThread {
+                try {
+                    callback.onFormLifecycleEvent(event, context ?: FormContext(null, null))
+                } catch (e: Exception) {
+                    Registry.log.error("Form lifecycle callback threw an exception", e)
+                }
+            }
+        }
     }
 
     private companion object {

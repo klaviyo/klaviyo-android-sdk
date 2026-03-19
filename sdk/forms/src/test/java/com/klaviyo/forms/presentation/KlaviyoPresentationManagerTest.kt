@@ -8,6 +8,8 @@ import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.forms.FormContext
+import com.klaviyo.forms.FormLifecycleCallback
+import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.webview.WebViewClient
@@ -260,5 +262,59 @@ class KlaviyoPresentationManagerTest : BaseTest() {
             PresentationState.Hidden,
             manager.presentationState
         )
+    }
+
+    @Test
+    fun `FORM_SHOWN is not fired when presentation state is not Hidden`() {
+        val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
+        val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
+        Registry.register<FormLifecycleCallback>(callback)
+
+        val manager = withPresentedState()
+
+        // FORM_SHOWN should have fired once during initial present
+        assertEquals(1, events.size)
+        assertEquals(FormLifecycleEvent.FORM_SHOWN, events[0].first)
+
+        // Attempt to present again while already Presented
+        manager.present("secondFormId", "Second Form")
+
+        // FORM_SHOWN should NOT have fired again
+        assertEquals(1, events.size)
+        // formContext should NOT have been overwritten
+        assertEquals(FormContext("formId", null), manager.formContext)
+
+        Registry.unregister<FormLifecycleCallback>()
+    }
+
+    @Test
+    fun `FORM_DISMISSED fires on back-press timeout path`() {
+        val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
+        val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
+        Registry.register<FormLifecycleCallback>(callback)
+
+        val manager = withPresentedState()
+        val mockBridge = mockk<JsBridge>().apply {
+            every { closeForm(any()) } just runs
+        }
+        Registry.register<JsBridge>(mockBridge)
+
+        // Clear events from the present() call
+        events.clear()
+
+        manager.closeFormAndDismiss()
+
+        // Before timeout, no FORM_DISMISSED should have fired
+        assertEquals(0, events.size)
+
+        // Simulate timeout (JS didn't respond)
+        staticClock.execute(400L)
+
+        // FORM_DISMISSED should have fired via the timeout path
+        assertEquals(1, events.size)
+        assertEquals(FormLifecycleEvent.FORM_DISMISSED, events[0].first)
+        assertEquals(FormContext("formId", null), events[0].second)
+
+        Registry.unregister<FormLifecycleCallback>()
     }
 }

@@ -97,9 +97,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      */
     private fun show(bridgeMessage: FormWillAppear) {
         Registry.log.debug("Form shown: ${bridgeMessage.formId}")
-        val presentationManager = Registry.get<PresentationManager>()
-        presentationManager.present(bridgeMessage.formId, bridgeMessage.formName)
-        invokeLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, presentationManager.formContext)
+        Registry.get<PresentationManager>().present(bridgeMessage.formId, bridgeMessage.formName)
     }
 
     /**
