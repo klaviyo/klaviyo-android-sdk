@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -230,6 +231,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 }
             // Else, just launch the app
             else -> DeepLinking.makeLaunchIntent(context)
-        }?.appendKlaviyoExtras(message)
+        }?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            appendKlaviyoExtras(message)
+        }
     }
 }
