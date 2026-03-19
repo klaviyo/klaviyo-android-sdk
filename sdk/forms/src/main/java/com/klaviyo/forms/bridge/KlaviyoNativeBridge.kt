@@ -102,7 +102,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * Notify the client that the webview should be shown
      */
     private fun show(bridgeMessage: FormWillAppear) {
-        Registry.log.info("Form shown: ${bridgeMessage.formId}")
+        Registry.log.debug("Form shown: ${bridgeMessage.formId}")
         Registry.get<PresentationManager>().present(bridgeMessage.formId)
         lastFormContext = FormContext(bridgeMessage.formId, bridgeMessage.formName)
         invokeLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, lastFormContext)
@@ -128,7 +128,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
     private fun deepLink(message: OpenDeepLink) {
-        Registry.log.info("Form CTA clicked: ${lastFormContext?.formId}")
+        Registry.log.debug("Form CTA clicked: ${lastFormContext?.formId}")
         invokeLifecycleCallback(FormLifecycleEvent.FORM_CTA_CLICKED, lastFormContext)
         message.route?.let { DeepLinking.handleDeepLink(it.toUri()) }
             ?: Registry.log.warning("Deep link CTA with no Android route configured")
@@ -138,7 +138,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * Instruct presentation manager to dismiss the form overlay activity
      */
     private fun close() {
-        Registry.log.info("Form dismissed: ${lastFormContext?.formId}")
+        Registry.log.debug("Form dismissed: ${lastFormContext?.formId}")
         invokeLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, lastFormContext)
         Registry.get<PresentationManager>().dismiss()
     }

@@ -57,6 +57,25 @@ internal class KlaviyoFormsProvider : FormsProvider {
 }
 
 /**
+ * Register a callback to receive form lifecycle events.
+ *
+ * The callback will be invoked on the UI thread whenever a form is shown, dismissed,
+ * or a CTA button is clicked. Only one callback can be registered at a time;
+ * calling this again replaces the previous registration.
+ *
+ * @param callback The [FormLifecycleCallback] to invoke on lifecycle events.
+ */
+fun Klaviyo.registerFormLifecycleCallback(callback: FormLifecycleCallback): Klaviyo =
+    also { Registry.register<FormLifecycleCallback>(callback) }
+
+/**
+ * Remove the previously registered form lifecycle callback.
+ * After calling this, no further lifecycle events will be delivered.
+ */
+fun Klaviyo.unregisterFormLifecycleCallback(): Klaviyo =
+    also { Registry.unregister<FormLifecycleCallback>() }
+
+/**
  * Check if IAF services are registered in the Klaviyo registry.
  */
 private fun inAppIsRegistered(): Boolean = listOf(
