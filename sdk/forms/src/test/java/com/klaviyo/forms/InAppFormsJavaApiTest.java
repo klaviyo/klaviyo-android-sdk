@@ -1,6 +1,7 @@
 package com.klaviyo.forms;
 
 import com.klaviyo.analytics.Klaviyo;
+import com.klaviyo.fixtures.BaseTest;
 
 import org.junit.After;
 import org.junit.Before;
@@ -12,16 +13,18 @@ import static org.junit.Assert.assertNotNull;
 /**
  * Tests to verify the In-App Forms API is accessible from Java.
  */
-public class InAppFormsJavaApiTest {
+public class InAppFormsJavaApiTest extends BaseTest {
 
     @Before
     public void setup() {
+        super.setup();
         InAppFormsMock.setup();
     }
 
     @After
     public void teardown() {
         InAppFormsMock.teardown();
+        super.cleanup();
     }
 
     @Test
@@ -75,5 +78,29 @@ public class InAppFormsJavaApiTest {
     public void testKlaviyoFormsUnregister() {
         KlaviyoForms.unregisterFromInAppForms();
         InAppFormsMock.verifyKlaviyoFormsUnregisterCalled();
+    }
+
+    @Test
+    public void testRegisterFormLifecycleCallback() {
+        FormLifecycleCallback callback = (event, context) -> {};
+        Klaviyo result = KlaviyoFormsProviderKt.registerFormLifecycleCallback(Klaviyo.INSTANCE, callback);
+        assertEquals(Klaviyo.INSTANCE, result);
+    }
+
+    @Test
+    public void testUnregisterFormLifecycleCallback() {
+        Klaviyo result = KlaviyoFormsProviderKt.unregisterFormLifecycleCallback(Klaviyo.INSTANCE);
+        assertEquals(Klaviyo.INSTANCE, result);
+    }
+
+    @Test
+    public void testKlaviyoFormLifecycleCallbacksRegister() {
+        FormLifecycleCallback callback = (event, context) -> {};
+        KlaviyoFormLifecycleCallbacks.registerFormLifecycleCallback(callback);
+    }
+
+    @Test
+    public void testKlaviyoFormLifecycleCallbacksUnregister() {
+        KlaviyoFormLifecycleCallbacks.unregisterFormLifecycleCallback();
     }
 }

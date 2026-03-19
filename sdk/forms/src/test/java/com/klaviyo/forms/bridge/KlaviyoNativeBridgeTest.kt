@@ -117,7 +117,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockPresentationManager.present(null) }
+        verify { mockPresentationManager.present(null, null) }
     }
 
     @Test
@@ -126,7 +126,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear", "data":{"formId":"64CjgW"}}""")
-        verify { mockPresentationManager.present("64CjgW") }
+        verify { mockPresentationManager.present("64CjgW", null) }
     }
 
     @Test
@@ -299,7 +299,12 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         postMessage(emptyAndroidMessage)
 
-        verify { mockLifecycleCallback.onFormLifecycleEvent(FormLifecycleEvent.FORM_CTA_CLICKED, any<FormContext>()) }
+        verify {
+            mockLifecycleCallback.onFormLifecycleEvent(
+                FormLifecycleEvent.FORM_CTA_CLICKED,
+                any<FormContext>()
+            )
+        }
         verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
 
         Registry.unregister<FormLifecycleCallback>()
@@ -309,6 +314,13 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     fun `formName flows through from show to dismiss and CTA events`() {
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        // Simulate real PresentationManager.formContext behavior: set on present(), persists after dismiss()
+        var storedFormContext: FormContext? = null
+        every { mockPresentationManager.present(any(), any()) } answers {
+            storedFormContext = FormContext(firstArg(), secondArg())
+        }
+        every { mockPresentationManager.formContext } answers { storedFormContext }
 
         val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
         val callback = FormLifecycleCallback { event, context -> events.add(event to context) }

@@ -7,6 +7,7 @@ import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf
 import com.klaviyo.core.utils.takeIfNot
+import com.klaviyo.forms.FormContext
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.FormId
 import com.klaviyo.forms.bridge.JsBridge
@@ -34,6 +35,9 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     private var overlayActivity by WeakReferenceDelegate<KlaviyoFormsOverlayActivity>(null)
 
     override var presentationState: PresentationState = Hidden
+        private set
+
+    override var formContext: FormContext? = null
         private set
 
     /**
@@ -85,7 +89,8 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * Present the form now if the app is foregrounded,
      * or else wait till next foregrounded unless session ends
      */
-    override fun present(formId: FormId?) {
+    override fun present(formId: FormId?, formName: String?) {
+        formContext = FormContext(formId, formName)
         clearTimers()
         cancelPostponedPresent = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
             timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds

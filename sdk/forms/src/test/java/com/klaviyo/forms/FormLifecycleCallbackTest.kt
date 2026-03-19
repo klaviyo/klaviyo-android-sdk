@@ -30,6 +30,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+        every { mockPresentationManager.formContext } returns null
         Registry.register<PresentationManager>(mockPresentationManager)
         nativeBridge = KlaviyoNativeBridge()
     }
@@ -62,7 +63,6 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         assertEquals(null, Registry.getOrNull<FormLifecycleCallback>())
     }
 
-
     @Test
     fun `registerFormLifecycleCallback replaces existing callback`() {
         val firstCallback = FormLifecycleCallback { _, _ -> }
@@ -84,6 +84,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
             capturedContext = context
         }
 
+        every { mockPresentationManager.formContext } returns FormContext(testFormId, testFormName)
         Klaviyo.registerFormLifecycleCallback(callback)
 
         // Simulate form shown message from webview
@@ -104,9 +105,10 @@ internal class FormLifecycleCallbackTest : BaseTest() {
             capturedContext = context
         }
 
+        every { mockPresentationManager.formContext } returns FormContext(testFormId, testFormName)
         Klaviyo.registerFormLifecycleCallback(callback)
 
-        // First show the form so lastFormContext is populated
+        // First show the form so formContext is populated
         val showMessage = """{"type":"formWillAppear", "data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(showMessage)
 
@@ -126,17 +128,24 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
         val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
 
+        every { mockPresentationManager.formContext } returns FormContext(testFormId, testFormName)
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any()) } returns Unit
 
         Klaviyo.registerFormLifecycleCallback(callback)
 
-        // First show the form so lastFormContext is populated
-        nativeBridge.postMessage("""{"type":"formWillAppear","data":{"formId":"$testFormId","formName":"$testFormName"}}""")
+        // First show the form so formContext is populated
+        nativeBridge.postMessage(
+            """{"type":"formWillAppear","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
+        )
         // v2: FormDisappeared arrives next
-        nativeBridge.postMessage("""{"type":"formDisappeared","data":{"formId":"$testFormId"}}""")
+        nativeBridge.postMessage(
+            """{"type":"formDisappeared","data":{"formId":"$testFormId"}}"""
+        )
         // Then OpenDeepLink
-        nativeBridge.postMessage("""{"type":"openDeepLink","data":{"android":"https://example.com"}}""")
+        nativeBridge.postMessage(
+            """{"type":"openDeepLink","data":{"android":"https://example.com"}}"""
+        )
 
         assertEquals(3, events.size)
         assertEquals(FormLifecycleEvent.FORM_SHOWN, events[0].first)
@@ -155,7 +164,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         nativeBridge.postMessage(message)
 
         // Verify PresentationManager was called but no exception thrown
-        verify { mockPresentationManager.present(testFormId) }
+        verify { mockPresentationManager.present(testFormId, any()) }
     }
 
     @Test

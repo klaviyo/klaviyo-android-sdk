@@ -7,6 +7,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.forms.FormContext
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.webview.WebViewClient
@@ -207,6 +208,34 @@ class KlaviyoPresentationManagerTest : BaseTest() {
             PresentationState.Hidden,
             manager.presentationState
         )
+    }
+
+    @Test
+    fun `formContext is set during present`() {
+        val manager = withHiddenState()
+        manager.present("formId", "My Form")
+        assertEquals(FormContext("formId", "My Form"), manager.formContext)
+    }
+
+    @Test
+    fun `formContext persists after dismiss`() {
+        val manager = withPresentedState()
+        assertEquals(FormContext("formId", null), manager.formContext)
+        manager.dismiss()
+        assertEquals(
+            "formContext should persist after dismiss for late-arriving events",
+            FormContext("formId", null),
+            manager.formContext
+        )
+    }
+
+    @Test
+    fun `formContext is overwritten by subsequent present`() {
+        val manager = withPresentedState()
+        assertEquals(FormContext("formId", null), manager.formContext)
+        manager.dismiss()
+        manager.present("newFormId", "New Form")
+        assertEquals(FormContext("newFormId", "New Form"), manager.formContext)
     }
 
     @Test
