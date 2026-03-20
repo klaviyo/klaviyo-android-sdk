@@ -311,7 +311,11 @@ class FileLogger(
         Registry.lifecycleMonitor.onActivityEvent(lifecycleObserver)
 
         if (showNotification) {
-            showDebugNotification()
+            try {
+                showDebugNotification()
+            } catch (e: Exception) {
+                Log.Level.Error.log(TAG, "Failed to show debug notification", e)
+            }
         }
     }
 
