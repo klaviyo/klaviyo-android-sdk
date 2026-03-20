@@ -338,11 +338,9 @@ class FileLogger(
         // Remove lifecycle observer
         Registry.lifecycleMonitor.offActivityEvent(lifecycleObserver)
 
-        // Dismiss notification if showing
-        dismissNotification()
-
         // Flush synchronously and shutdown
         try {
+            dismissNotification()
             flushBuffer()
             coroutineScope.cancel()
         } catch (e: Exception) {
@@ -757,10 +755,16 @@ class FileLogger(
                     TAG,
                     "Failed to save to Downloads, could not open output stream"
                 )
+                resolver.delete(uri, null, null)
                 return@withContext null
             }
-            output.use { out ->
-                zipFile.inputStream().use { input -> input.copyTo(out) }
+            try {
+                output.use { out ->
+                    zipFile.inputStream().use { input -> input.copyTo(out) }
+                }
+            } catch (e: Exception) {
+                resolver.delete(uri, null, null)
+                throw e
             }
 
             values.clear()
@@ -798,6 +802,12 @@ class FileLogger(
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
 
+        val nm = NotificationManagerCompat.from(appContext)
+        if (!nm.areNotificationsEnabled()) {
+            Log.Level.Debug.log(TAG, "Notifications not enabled, skipping debug notification")
+            return
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // API 29+: Register dynamic receiver and show action buttons
             val filter = IntentFilter().apply {
@@ -831,13 +841,7 @@ class FileLogger(
                 .setContentText("Use ADB to retrieve logs")
         }
 
-        val nm = NotificationManagerCompat.from(appContext)
-        if (nm.areNotificationsEnabled()) {
-            nm.notify(NOTIFICATION_ID, builder.build())
-        } else {
-            Log.Level.Debug.log(TAG, "Notifications not enabled, skipping debug notification")
-        }
-
+        nm.notify(NOTIFICATION_ID, builder.build())
         isShowingNotification = true
     }
 
