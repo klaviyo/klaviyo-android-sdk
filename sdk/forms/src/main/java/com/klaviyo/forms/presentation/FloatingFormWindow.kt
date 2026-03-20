@@ -116,10 +116,6 @@ internal class FloatingFormWindow(private val context: Context) {
         Registry.threadHelper.runOnUiThread {
             container?.let { view ->
                 try {
-                    // Remove webView from container first
-                    view.getChildAt(0)?.let { webView ->
-                        view.removeView(webView)
-                    }
                     windowManager.removeView(view)
                     Registry.log.debug("FloatingFormWindow dismissed")
                 } catch (e: Exception) {
