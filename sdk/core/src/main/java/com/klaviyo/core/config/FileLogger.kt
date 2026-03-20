@@ -1,10 +1,22 @@
 package com.klaviyo.core.config
 
+import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
+import android.provider.MediaStore
+import androidx.annotation.RequiresApi
 import androidx.annotation.WorkerThread
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
@@ -33,9 +45,11 @@ import kotlinx.coroutines.withContext
  * - Writes logs to app's private storage (no permissions required)
  * - Automatic file rotation when size limit reached, limited number of log files
  * - Buffered writes for performance
+ * - Optional persistent debug notification with Save/Share actions (API 29+)
  * - Open latest log file in browser
  * - Export logs as ZIP file
  * - Share logs ZIP via Android share sheet
+ * - Save logs to Downloads via MediaStore (API 29+, no FileProvider needed)
  * - Automatic crash detection and log flushing
  * - Lifecycle-aware: flushes logs when app backgrounds
  * - Simple attach/detach API for easy integration
@@ -74,18 +88,25 @@ import kotlinx.coroutines.withContext
  *
  * Example usage:
  * ```kotlin
- * // From Application.onCreate, start writing klaviyo logs to file
+ * // Simplest setup: attach with notification (API 29+ gets Save/Share actions)
+ * if (BuildConfig.DEBUG) {
+ *     FileLogger(context).attach(showNotification = true)
+ * }
+ *
+ * // Or, for programmatic export:
  * val fileLogger = FileLogger(context)
  * fileLogger.attach()
  *
- * // There are a few options for accessing the log files
- * // Open in a text viewer app:
+ * // Open in a text viewer app (requires FileProvider setup):
  * fileLogger.openLogInViewer(context)
  *
- * // Create zip and share via sheet (e.g. email, slack etc)
+ * // Create zip and share via sheet (requires FileProvider setup):
  * fileLogger.shareLogs(context)
  *
- * // Save zip file to a URI, you can use createSaveLogsIntent to prompt the user for a location
+ * // Save to Downloads via MediaStore (API 29+, no FileProvider needed):
+ * fileLogger.saveToDownloads()
+ *
+ * // Save zip file to a URI via SAF (no FileProvider needed):
  * fileLogger.saveLogsToUri(context, uri)
  *
  * // Optional, detach listener and disable logging to file
@@ -113,6 +134,8 @@ class FileLogger(
     private val maxFileSize = maxFileSize.takeIf { it > 0 } ?: DEFAULT_MAX_FILE_SIZE
     private val maxFiles = maxFiles.takeIf { it > 0 } ?: DEFAULT_MAX_FILES
 
+    private val appContext: Context = context.applicationContext
+
     private companion object {
         const val MAX_BUFFER_SIZE = 5 * 1024 // 5KB
         const val DEFAULT_MAX_FILE_SIZE = 1L * 1024 * 1024 // 1mb
@@ -134,6 +157,14 @@ class FileLogger(
         // MIME types
         const val MIME_TYPE_ZIP = "application/zip"
         const val MIME_TYPE_TEXT = "text/plain"
+
+        // Notification
+        const val NOTIFICATION_CHANNEL_ID = "klaviyo_sdk_logs"
+        const val NOTIFICATION_ID = 0x4B4C // "KL"
+        const val ACTION_SAVE_TO_DOWNLOADS = "com.klaviyo.core.FILE_LOGGER_SAVE"
+        const val ACTION_SHARE = "com.klaviyo.core.FILE_LOGGER_SHARE"
+        const val REQUEST_CODE_SAVE = 1001
+        const val REQUEST_CODE_SHARE = 1002
 
         // Log tag
         const val TAG = "FileLogger"
@@ -194,6 +225,25 @@ class FileLogger(
     private var isAttached: Boolean = false
 
     /**
+     * Tracks whether the debug notification is currently showing
+     */
+    @Volatile
+    private var isShowingNotification: Boolean = false
+
+    /**
+     * Dynamic BroadcastReceiver for notification action buttons (API 29+).
+     * Registered in [showDebugNotification], unregistered in [dismissNotification].
+     */
+    private val notificationReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                ACTION_SAVE_TO_DOWNLOADS -> handleSaveToDownloads()
+                ACTION_SHARE -> handleShare()
+            }
+        }
+    }
+
+    /**
      * Stores the previous uncaught exception handler so we can chain to it
      */
     private var previousExceptionHandler: Thread.UncaughtExceptionHandler? = null
@@ -218,16 +268,19 @@ class FileLogger(
      *
      * This method is idempotent - calling it multiple times has no effect after the first call.
      *
+     * @param showNotification If true, posts a persistent debug notification with action buttons
+     *                         to save/share logs (API 29+) or a passive reminder (API 23-28).
+     *
      * Example usage:
      * ```
      * val fileLogger = FileLogger(context)
-     * fileLogger.attach()
+     * fileLogger.attach(showNotification = true)
      *
      * // Later, when done:
      * fileLogger.detach()
      * ```
      */
-    fun attach() {
+    fun attach(showNotification: Boolean = false) {
         // Prevent duplicate attachments
         if (isAttached) {
             Log.Level.Warning.log(
@@ -255,6 +308,10 @@ class FileLogger(
 
         // Register lifecycle observer to flush on background
         Registry.lifecycleMonitor.onActivityEvent(lifecycleObserver)
+
+        if (showNotification) {
+            showDebugNotification()
+        }
     }
 
     /**
@@ -279,6 +336,9 @@ class FileLogger(
 
         // Remove lifecycle observer
         Registry.lifecycleMonitor.offActivityEvent(lifecycleObserver)
+
+        // Dismiss notification if showing
+        dismissNotification()
 
         // Flush synchronously and shutdown
         try {
@@ -657,4 +717,173 @@ class FileLogger(
             false
         }
     }
+
+    // region Notification
+
+    /**
+     * Save logs as a ZIP file to the device's Downloads folder via MediaStore.
+     * Returns a content:// URI that can be used for sharing without a FileProvider.
+     *
+     * @return content URI of the saved ZIP, or null if the operation failed
+     */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    suspend fun saveToDownloads(): Uri? = withContext(Registry.dispatcher) {
+        try {
+            val zipFile = exportLogsAsZip(appContext) ?: run {
+                Log.Level.Error.log(TAG, "Failed to save to Downloads, could not export ZIP")
+                return@withContext null
+            }
+
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, zipFile.name)
+                put(MediaStore.Downloads.MIME_TYPE, MIME_TYPE_ZIP)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+
+            val resolver = appContext.contentResolver
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: run {
+                Log.Level.Error.log(TAG, "Failed to save to Downloads, MediaStore insert failed")
+                return@withContext null
+            }
+
+            resolver.openOutputStream(uri)?.use { output ->
+                zipFile.inputStream().use { input -> input.copyTo(output) }
+            }
+
+            values.clear()
+            values.put(MediaStore.Downloads.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+
+            Log.Level.Info.log(TAG, "Logs saved to Downloads")
+            uri
+        } catch (e: Exception) {
+            Log.Level.Error.log(TAG, "Failed to save logs to Downloads", e)
+            null
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Klaviyo SDK Logs",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Debug notifications for Klaviyo SDK log capture"
+            }
+            val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.createNotificationChannel(channel)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun showDebugNotification() {
+        createNotificationChannel()
+
+        val builder = NotificationCompat.Builder(appContext, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // API 29+: Register dynamic receiver and show action buttons
+            val filter = IntentFilter().apply {
+                addAction(ACTION_SAVE_TO_DOWNLOADS)
+                addAction(ACTION_SHARE)
+            }
+            ContextCompat.registerReceiver(
+                appContext,
+                notificationReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+
+            builder
+                .setContentTitle("Klaviyo SDK logging active")
+                .setContentText("Tap an action to export logs")
+                .addAction(
+                    0,
+                    "Save to Downloads",
+                    createActionPendingIntent(ACTION_SAVE_TO_DOWNLOADS, REQUEST_CODE_SAVE)
+                )
+                .addAction(
+                    0,
+                    "Share",
+                    createActionPendingIntent(ACTION_SHARE, REQUEST_CODE_SHARE)
+                )
+        } else {
+            // API 23-28: Passive reminder only (no MediaStore.Downloads)
+            builder
+                .setContentTitle("Klaviyo SDK logging active")
+                .setContentText("Use ADB to retrieve logs")
+        }
+
+        val nm = NotificationManagerCompat.from(appContext)
+        if (nm.areNotificationsEnabled()) {
+            nm.notify(NOTIFICATION_ID, builder.build())
+        } else {
+            Log.Level.Debug.log(TAG, "Notifications not enabled, skipping debug notification")
+        }
+
+        isShowingNotification = true
+    }
+
+    private fun dismissNotification() {
+        if (!isShowingNotification) return
+
+        NotificationManagerCompat.from(appContext).cancel(NOTIFICATION_ID)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                appContext.unregisterReceiver(notificationReceiver)
+            } catch (_: IllegalArgumentException) {
+                // Receiver was not registered
+            }
+        }
+
+        isShowingNotification = false
+    }
+
+    private fun createActionPendingIntent(action: String, requestCode: Int): PendingIntent {
+        val intent = Intent(action).setPackage(appContext.packageName)
+        return PendingIntent.getBroadcast(
+            appContext,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun handleSaveToDownloads() {
+        coroutineScope.safeLaunch {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                saveToDownloads()
+            }
+        }
+    }
+
+    private fun handleShare() {
+        coroutineScope.safeLaunch {
+            try {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return@safeLaunch
+
+                val uri = saveToDownloads() ?: return@safeLaunch
+
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = MIME_TYPE_ZIP
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_SUBJECT, "Klaviyo SDK Logs")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                val chooser = Intent.createChooser(shareIntent, "Share Klaviyo Logs")
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                appContext.startActivity(chooser)
+            } catch (e: Exception) {
+                Log.Level.Error.log(TAG, "Failed to share logs", e)
+            }
+        }
+    }
+
+    // endregion
 }

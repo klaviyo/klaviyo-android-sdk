@@ -26,8 +26,8 @@ interface Log {
      * 1 = Verbose and above
      * 2 = Debug and above
      * 3 = Info and above
-     * 4 = Error and above
-     * 5 = Warning and above
+     * 4 = Warning and above
+     * 5 = Error and above
      * 6 = Assert only
      */
     var logLevel: Level
