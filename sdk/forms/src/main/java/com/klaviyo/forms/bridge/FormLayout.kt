@@ -75,6 +75,8 @@ internal data class Dimension(
      * @param density The screen density (pixels per dp)
      * @return The dimension in pixels
      */
+    // TODO: Test on devices with different zoom states
+    //  (system-wide settings for controlling content scaling)
     fun toPixels(screenDimension: Int, density: Float): Int = when (unit) {
         DimensionUnit.PERCENT -> (screenDimension * (value / 100f)).toInt()
         DimensionUnit.FIXED -> (value * density).toInt()

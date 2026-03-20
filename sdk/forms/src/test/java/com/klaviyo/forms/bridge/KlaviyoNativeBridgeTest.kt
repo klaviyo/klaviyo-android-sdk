@@ -122,8 +122,8 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
-        postMessage("""{"type":"formWillAppear", "data":{"formId":"64CjgW"}}""")
-        verify { mockPresentationManager.present("64CjgW", any()) }
+        postMessage("""{"type":"formWillAppear", "data":{"formId":"aPiKeY"}}""")
+        verify { mockPresentationManager.present("aPiKeY", any()) }
     }
 
     @Test
@@ -150,7 +150,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
                         "source": "Local Form",
                         "email": "local@local.com",
                         "consent_method": "Klaviyo Form",
-                        "consent_form_id": "64CjgW",
+                        "consent_form_id": "aPiKeY",
                         "consent_form_version": 3,
                         "sent_identifiers": {},
                         "sms_consent": true,
@@ -159,7 +159,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
                       "step_name": "Email Opt-In",
                       "step_number": 1,
                       "action_type": "Submit Step",
-                      "form_id": "64CjgW",
+                      "form_id": "aPiKeY",
                       "form_version_id": 3,
                       "form_type": "POPUP",
                       "device_type": "DESKTOP",
@@ -191,7 +191,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
                             "first_referrer": "http://localhost:4001/onsite/js/",
                             "action_type": "Submit Step",
                             "form_version_id": 3,
-                            "form_id": "64CjgW",
+                            "form_id": "aPiKeY",
                             "device_type": "DESKTOP",
                             "form_type": "POPUP",
                             "referrer": "http://localhost:4001/onsite/js/",
@@ -200,7 +200,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
                               "consent_method": "Klaviyo Form",
                               "consent_form_version": 3,
                               "step_name": "Email Opt-In",
-                              "consent_form_id": "64CjgW",
+                              "consent_form_id": "aPiKeY",
                               "source": "Local Form",
                               "email": "local@local.com",
                               "sent_identifiers": {}
