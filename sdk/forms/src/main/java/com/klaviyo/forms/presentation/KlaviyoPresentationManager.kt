@@ -42,7 +42,8 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     private var floatingFormWindow: FloatingFormWindow? = null
 
     /**
-     * Weak reference to the host activity for floating window presentation
+     * Weak reference to the host activity for floating window presentation.
+     * TODO: Will be used for orientation change re-presentation and dynamic layout updates.
      */
     private var hostActivity by WeakReferenceDelegate<Activity>(null)
 
@@ -152,7 +153,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         val webView = webViewClient.getWebView()
 
         if (webView == null) {
-            Registry.log.error("Cannot present floating form - WebView is null")
+            Registry.log.warning("Cannot present floating form - WebView is null")
             presentationState = Hidden
             return
         }
@@ -161,6 +162,10 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             window.show(activity, webView, layout)
         }
 
+        // TODO: Ideally state should transition to Presented inside the runOnUiThread
+        //  callback in FloatingFormWindow.show() once windowManager.addView() completes,
+        //  mirroring the Activity path's onCreateActivity callback. Setting Presented
+        //  immediately is a POC shortcut — the window may not yet be on screen.
         presentationState = Presented(formId)
         Registry.log.debug("Presentation State: $presentationState")
     }
