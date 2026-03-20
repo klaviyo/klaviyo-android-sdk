@@ -104,18 +104,18 @@ internal data class Dimension(
 }
 
 /**
- * Margins around the form in dp
+ * Offsets around the form in dp
  */
-internal data class Margins(
+internal data class Offsets(
     val top: Float = 0f,
     val bottom: Float = 0f,
     val left: Float = 0f,
     val right: Float = 0f
 ) {
     companion object {
-        fun fromJson(json: JSONObject?): Margins {
-            if (json == null) return Margins()
-            return Margins(
+        fun fromJson(json: JSONObject?): Offsets {
+            if (json == null) return Offsets()
+            return Offsets(
                 top = json.optDouble("top", 0.0).toFloat(),
                 bottom = json.optDouble("bottom", 0.0).toFloat(),
                 left = json.optDouble("left", 0.0).toFloat(),
@@ -124,9 +124,9 @@ internal data class Margins(
         }
 
         /**
-         * Create uniform margins
+         * Create uniform offsets
          */
-        fun all(value: Float): Margins = Margins(value, value, value, value)
+        fun all(value: Float): Offsets = Offsets(value, value, value, value)
     }
 }
 
@@ -137,7 +137,7 @@ internal data class FormLayout(
     val position: FormPosition,
     val width: Dimension,
     val height: Dimension,
-    val margins: Margins = Margins()
+    val offsets: Offsets = Offsets()
 ) {
     /**
      * Returns true if this layout represents a fullscreen form
@@ -152,13 +152,13 @@ internal data class FormLayout(
             val position = FormPosition.fromString(json.optString("position"))
             val width = Dimension.fromJson(json.optJSONObject("width")) ?: return null
             val height = Dimension.fromJson(json.optJSONObject("height")) ?: return null
-            val margins = Margins.fromJson(json.optJSONObject("margins"))
+            val offsets = Offsets.fromJson(json.optJSONObject("offsets"))
 
             return FormLayout(
                 position = position,
                 width = width,
                 height = height,
-                margins = margins
+                offsets = offsets
             )
         }
     }

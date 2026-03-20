@@ -125,44 +125,44 @@ class FormLayoutTest {
         assertEquals(DimensionUnit.PERCENT, dimension.unit)
     }
 
-    // ===== Margins tests =====
+    // ===== Offsets tests =====
 
     @Test
-    fun `Margins fromJson parses valid JSON`() {
+    fun `Offsets fromJson parses valid JSON`() {
         val json = JSONObject("""{"top": 10, "bottom": 20, "left": 30, "right": 40}""")
-        val margins = Margins.fromJson(json)
-        assertEquals(10f, margins.top, 0.01f)
-        assertEquals(20f, margins.bottom, 0.01f)
-        assertEquals(30f, margins.left, 0.01f)
-        assertEquals(40f, margins.right, 0.01f)
+        val offsets = Offsets.fromJson(json)
+        assertEquals(10f, offsets.top, 0.01f)
+        assertEquals(20f, offsets.bottom, 0.01f)
+        assertEquals(30f, offsets.left, 0.01f)
+        assertEquals(40f, offsets.right, 0.01f)
     }
 
     @Test
-    fun `Margins fromJson defaults to zero for missing values`() {
+    fun `Offsets fromJson defaults to zero for missing values`() {
         val json = JSONObject("""{"top": 10}""")
-        val margins = Margins.fromJson(json)
-        assertEquals(10f, margins.top, 0.01f)
-        assertEquals(0f, margins.bottom, 0.01f)
-        assertEquals(0f, margins.left, 0.01f)
-        assertEquals(0f, margins.right, 0.01f)
+        val offsets = Offsets.fromJson(json)
+        assertEquals(10f, offsets.top, 0.01f)
+        assertEquals(0f, offsets.bottom, 0.01f)
+        assertEquals(0f, offsets.left, 0.01f)
+        assertEquals(0f, offsets.right, 0.01f)
     }
 
     @Test
-    fun `Margins fromJson returns default margins for null input`() {
-        val margins = Margins.fromJson(null)
-        assertEquals(0f, margins.top, 0.01f)
-        assertEquals(0f, margins.bottom, 0.01f)
-        assertEquals(0f, margins.left, 0.01f)
-        assertEquals(0f, margins.right, 0.01f)
+    fun `Offsets fromJson returns default offsets for null input`() {
+        val offsets = Offsets.fromJson(null)
+        assertEquals(0f, offsets.top, 0.01f)
+        assertEquals(0f, offsets.bottom, 0.01f)
+        assertEquals(0f, offsets.left, 0.01f)
+        assertEquals(0f, offsets.right, 0.01f)
     }
 
     @Test
-    fun `Margins all helper creates uniform margins`() {
-        val margins = Margins.all(16f)
-        assertEquals(16f, margins.top, 0.01f)
-        assertEquals(16f, margins.bottom, 0.01f)
-        assertEquals(16f, margins.left, 0.01f)
-        assertEquals(16f, margins.right, 0.01f)
+    fun `Offsets all helper creates uniform offsets`() {
+        val offsets = Offsets.all(16f)
+        assertEquals(16f, offsets.top, 0.01f)
+        assertEquals(16f, offsets.bottom, 0.01f)
+        assertEquals(16f, offsets.left, 0.01f)
+        assertEquals(16f, offsets.right, 0.01f)
     }
 
     // ===== FormLayout tests =====
@@ -175,7 +175,7 @@ class FormLayoutTest {
                 "position": "bottom_right",
                 "width": {"value": 300, "unit": "fixed"},
                 "height": {"value": 200, "unit": "fixed"},
-                "margins": {"top": 0, "bottom": 16, "left": 0, "right": 16}
+                "offsets": {"top": 0, "bottom": 16, "left": 0, "right": 16}
             }
             """.trimIndent()
         )
@@ -187,8 +187,8 @@ class FormLayoutTest {
         assertEquals(DimensionUnit.FIXED, layout.width.unit)
         assertEquals(200f, layout.height.value, 0.01f)
         assertEquals(DimensionUnit.FIXED, layout.height.unit)
-        assertEquals(16f, layout.margins.bottom, 0.01f)
-        assertEquals(16f, layout.margins.right, 0.01f)
+        assertEquals(16f, layout.offsets.bottom, 0.01f)
+        assertEquals(16f, layout.offsets.right, 0.01f)
     }
 
     @Test

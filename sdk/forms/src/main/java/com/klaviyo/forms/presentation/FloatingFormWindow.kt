@@ -63,7 +63,7 @@ internal class FloatingFormWindow(private val context: Context) {
             // Set gravity based on position
             gravity = layout.position.toGravity()
 
-            // Calculate offsets based on margins and position
+            // Calculate offsets based on position
             x = calculateHorizontalOffset(layout, density)
             y = calculateVerticalOffset(layout, density)
 
@@ -160,29 +160,29 @@ internal class FloatingFormWindow(private val context: Context) {
     }
 
     /**
-     * Calculate horizontal offset based on position and margins
+     * Calculate horizontal offset based on position and offsets
      */
     private fun calculateHorizontalOffset(layout: FormLayout, density: Float): Int {
-        val leftMargin = (layout.margins.left * density).toInt()
-        val rightMargin = (layout.margins.right * density).toInt()
+        val leftOffset = (layout.offsets.left * density).toInt()
+        val rightOffset = (layout.offsets.right * density).toInt()
 
         return when (layout.position) {
-            FormPosition.TOP_LEFT, FormPosition.BOTTOM_LEFT -> leftMargin
-            FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> -rightMargin
+            FormPosition.TOP_LEFT, FormPosition.BOTTOM_LEFT -> leftOffset
+            FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> -rightOffset
             FormPosition.TOP, FormPosition.BOTTOM, FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
         }
     }
 
     /**
-     * Calculate vertical offset based on position and margins
+     * Calculate vertical offset based on position and offsets
      */
     private fun calculateVerticalOffset(layout: FormLayout, density: Float): Int {
-        val topMargin = (layout.margins.top * density).toInt()
-        val bottomMargin = (layout.margins.bottom * density).toInt()
+        val topOffset = (layout.offsets.top * density).toInt()
+        val bottomOffset = (layout.offsets.bottom * density).toInt()
 
         return when (layout.position) {
-            FormPosition.TOP, FormPosition.TOP_LEFT, FormPosition.TOP_RIGHT -> topMargin
-            FormPosition.BOTTOM, FormPosition.BOTTOM_LEFT, FormPosition.BOTTOM_RIGHT -> -bottomMargin
+            FormPosition.TOP, FormPosition.TOP_LEFT, FormPosition.TOP_RIGHT -> topOffset
+            FormPosition.BOTTOM, FormPosition.BOTTOM_LEFT, FormPosition.BOTTOM_RIGHT -> -bottomOffset
             FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
         }
     }

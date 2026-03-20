@@ -102,14 +102,14 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     private companion object {
         /**
          * Hardcoded test layout for debugging WindowManager approach
-         * Position: BOTTOM_RIGHT, Size: 300x200dp, Margins: 16dp
+         * Position: BOTTOM_RIGHT, Size: 300x200dp, Offsets: 16dp
          * Set to null to use layout from JS instead
          */
         private val TEST_LAYOUT: FormLayout? = FormLayout(
             position = FormPosition.BOTTOM_RIGHT,
             width = Dimension.dp(300f),
             height = Dimension.dp(200f),
-            margins = Margins.all(16f)
+            offsets = Offsets.all(16f)
         )
     }
 
