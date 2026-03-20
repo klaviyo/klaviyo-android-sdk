@@ -31,7 +31,6 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
-        every { mockPresentationManager.formContext } returns null
         every { mockPresentationManager.presentationState } returns PresentationState.Presented(
             "formId"
         )
@@ -106,15 +105,14 @@ internal class FormLifecycleCallbackTest : BaseTest() {
             capturedContext = context
         }
 
-        every { mockPresentationManager.formContext } returns FormContext(testFormId, testFormName)
         Klaviyo.registerFormLifecycleCallback(callback)
 
-        // First show the form so formContext is populated
+        // First show the form
         val showMessage = """{"type":"formWillAppear", "data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(showMessage)
 
-        // Simulate form dismissed message from webview
-        val message = """{"type":"formDisappeared","data":{"formId":"$testFormId"}}"""
+        // Simulate form dismissed message from webview — formId+formName now come from the message
+        val message = """{"type":"formDisappeared","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(message)
 
         assertEquals(FormLifecycleEvent.FORM_DISMISSED, capturedEvent)
@@ -124,36 +122,36 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
     @Test
     fun `FORM_CTA_CLICKED event is triggered when deep link is opened (v2 protocol)`() {
-        // In v2, FormDisappeared is sent before OpenDeepLink, so the bridge must retain
-        // the context from the show message to attach to subsequent events.
+        // In v2, FormDisappeared is sent before OpenDeepLink, both now carry formId+formName
         val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
         val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
 
-        every { mockPresentationManager.formContext } returns FormContext(testFormId, testFormName)
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any()) } returns Unit
 
         Klaviyo.registerFormLifecycleCallback(callback)
 
-        // First show the form so formContext is populated
+        // First show the form
         nativeBridge.postMessage(
             """{"type":"formWillAppear","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         )
-        // v2: FormDisappeared arrives next
+        // v2: FormDisappeared arrives next — now carries formId+formName
         nativeBridge.postMessage(
-            """{"type":"formDisappeared","data":{"formId":"$testFormId"}}"""
+            """{"type":"formDisappeared","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         )
-        // Then OpenDeepLink
+        // Then OpenDeepLink — now carries formId+formName
         nativeBridge.postMessage(
-            """{"type":"openDeepLink","data":{"android":"https://example.com"}}"""
+            """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId","formName":"$testFormName"}}"""
         )
 
         // FORM_SHOWN is now fired by the presentation manager, not the bridge
         assertEquals(2, events.size)
         assertEquals(FormLifecycleEvent.FORM_DISMISSED, events[0].first)
         assertEquals(testFormId, events[0].second.formId)
+        assertEquals(testFormName, events[0].second.formName)
         assertEquals(FormLifecycleEvent.FORM_CTA_CLICKED, events[1].first)
         assertEquals(testFormId, events[1].second.formId)
+        assertEquals(testFormName, events[1].second.formName)
     }
 
     @Test

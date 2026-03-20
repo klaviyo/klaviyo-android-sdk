@@ -39,9 +39,6 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     override var presentationState: PresentationState = Hidden
         private set
 
-    override var formContext: FormContext? = null
-        private set
-
     /**
      * For tracking device rotation
      */
@@ -97,7 +94,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
         ) { activity ->
             presentationState.takeIf<Hidden>()?.let {
-                formContext = FormContext(formId, formName)
+                val formContext = FormContext(formId, formName)
                 presentationState = Presenting(formId)
                 Registry.log.debug("Presentation State: $presentationState")
                 invokeFormLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, formContext)
@@ -131,7 +128,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         Registry.get<JsBridge>().closeForm(it.formId)
         dismissOnTimeout?.cancel()
         dismissOnTimeout = Registry.clock.schedule(CLOSE_TIMEOUT) {
-            invokeFormLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, formContext)
+            invokeFormLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, FormContext(null, null))
             dismiss()
         }
     } ?: dismiss().also {
