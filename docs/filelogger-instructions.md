@@ -35,7 +35,9 @@ That's it. FileLogger will now:
 - Write all SDK logs to files in your app's private storage
 - Automatically rotate files (default: 5 files, 1 MB each)
 - Flush logs when the app goes to background or crashes
-- Show a persistent notification while logging is active (API 29+)
+- **API 29+ (Android 10+):** Show a persistent notification with **Save to Downloads** and
+  **Share** action buttons
+- **API 23–28 (Android 6–9):** Show a passive reminder notification (use ADB to retrieve logs)
 
 No manifest changes, no FileProvider, no custom UI needed.
 
