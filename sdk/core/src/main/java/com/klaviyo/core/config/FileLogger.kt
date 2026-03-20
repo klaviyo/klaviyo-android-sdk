@@ -280,6 +280,7 @@ class FileLogger(
      * fileLogger.detach()
      * ```
      */
+    @JvmOverloads
     fun attach(showNotification: Boolean = false) {
         // Prevent duplicate attachments
         if (isAttached) {
@@ -728,6 +729,11 @@ class FileLogger(
      */
     @RequiresApi(Build.VERSION_CODES.Q)
     suspend fun saveToDownloads(): Uri? = withContext(Registry.dispatcher) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            Log.Level.Warning.log(TAG, "saveToDownloads() requires API 29+")
+            return@withContext null
+        }
+
         try {
             val zipFile = exportLogsAsZip(appContext) ?: run {
                 Log.Level.Error.log(TAG, "Failed to save to Downloads, could not export ZIP")
@@ -746,8 +752,15 @@ class FileLogger(
                 return@withContext null
             }
 
-            resolver.openOutputStream(uri)?.use { output ->
-                zipFile.inputStream().use { input -> input.copyTo(output) }
+            val output = resolver.openOutputStream(uri) ?: run {
+                Log.Level.Error.log(
+                    TAG,
+                    "Failed to save to Downloads, could not open output stream"
+                )
+                return@withContext null
+            }
+            output.use { out ->
+                zipFile.inputStream().use { input -> input.copyTo(out) }
             }
 
             values.clear()
