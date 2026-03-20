@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.PixelFormat
 import android.util.DisplayMetrics
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import com.klaviyo.core.Registry
@@ -40,6 +41,7 @@ internal class FloatingFormWindow(private val context: Context) {
         }
 
         val displayMetrics = DisplayMetrics()
+        // TODO: Use WindowMetrics when minSdk >= 30
         @Suppress("DEPRECATION")
         hostActivity.windowManager.defaultDisplay.getMetrics(displayMetrics)
         val screenWidth = displayMetrics.widthPixels
@@ -73,32 +75,31 @@ internal class FloatingFormWindow(private val context: Context) {
             format = PixelFormat.TRANSLUCENT
         }
 
-        container = FrameLayout(hostActivity).apply {
-            // Semi-transparent red background for debugging visibility
-            setBackgroundColor(DEBUG_BACKGROUND_COLOR)
-
-            // Ensure the container fills its bounds
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-
-        // Detach webView from any existing parent before adding
-        (webView.parent as? android.view.ViewGroup)?.removeView(webView)
-        container?.addView(
-            webView,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        )
-
         windowParams = params
 
         Registry.threadHelper.runOnUiThread {
             try {
-                windowManager.addView(container, params)
+                val newContainer = FrameLayout(hostActivity).apply {
+                    // TODO: Remove debug background before production
+                    setBackgroundColor(DEBUG_BACKGROUND_COLOR)
+                    layoutParams = FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                }
+                // Detach webView from any existing parent before adding
+                (webView.parent as? ViewGroup)?.removeView(webView)
+                // Restore visibility in case it was hidden by detachWebView()
+                webView.visibility = View.VISIBLE
+                newContainer.addView(
+                    webView,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+                container = newContainer
+                windowManager.addView(newContainer, params)
                 Registry.log.debug("FloatingFormWindow shown at ${layout.position}")
             } catch (e: Exception) {
                 Registry.log.error("Failed to show FloatingFormWindow", e)
@@ -116,7 +117,7 @@ internal class FloatingFormWindow(private val context: Context) {
             container?.let { view ->
                 try {
                     // Remove webView from container first
-                    (view.getChildAt(0) as? View)?.let { webView ->
+                    view.getChildAt(0)?.let { webView ->
                         view.removeView(webView)
                     }
                     windowManager.removeView(view)
@@ -132,6 +133,8 @@ internal class FloatingFormWindow(private val context: Context) {
 
     /**
      * Update the layout of the floating form window
+     *
+     * TODO: Will be used for dynamic resizing (e.g. after orientation change)
      *
      * @param layout The new layout configuration
      */

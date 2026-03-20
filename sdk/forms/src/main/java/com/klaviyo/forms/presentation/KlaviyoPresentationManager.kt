@@ -84,6 +84,10 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     /**
      * Handles device orientation change by observing all configuration changes
      * and re-attaching the webview if currently presented.
+     *
+     * TODO: Add floating window re-creation on orientation change. Currently the WindowManager
+     *  LayoutParams become stale after the host Activity recreates, so the floating window
+     *  position/size won't update after rotation.
      */
     private fun onConfigurationChanged(event: ActivityEvent.ConfigurationChanged) = safeCall {
         event.newConfig.orientation.takeIf { it != orientation }
@@ -108,17 +112,17 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         clearTimers()
         currentLayout = layout
 
-        // Determine if we should use floating window (non-fullscreen) or Activity approach
-        val useFloatingWindow = layout != null && !layout.isFullscreen
+        // Capture non-null layout for floating window (non-fullscreen), null for Activity approach
+        val floatingLayout: FormLayout? = layout?.takeUnless { it.isFullscreen }
 
         cancelPostponedPresent = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
             timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
         ) { activity ->
             presentationState.takeIf<Hidden>()?.let {
-                if (useFloatingWindow) {
-                    presentFloatingWindow(activity, formId, layout!!)
+                if (floatingLayout != null) {
+                    presentFloatingWindow(activity, formId, floatingLayout)
                 } else {
-                    presentActivity(formId)
+                    presentActivity(activity, formId)
                 }
             } ?: run {
                 Registry.log.debug("Cannot present form. Current state: $presentationState")
@@ -129,12 +133,10 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     /**
      * Present the form using the Activity-based approach (fullscreen)
      */
-    private fun presentActivity(formId: FormId?) {
+    private fun presentActivity(activity: Activity, formId: FormId?) {
         presentationState = Presenting(formId)
         Registry.log.debug("Presentation State: $presentationState (Activity approach)")
-        Registry.config.applicationContext.startActivity(
-            KlaviyoFormsOverlayActivity.launchIntent
-        )
+        activity.startActivity(KlaviyoFormsOverlayActivity.launchIntent)
     }
 
     /**
@@ -171,6 +173,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
 
         // Try to dismiss floating window first
         floatingFormWindow?.let { window ->
+            Registry.get<WebViewClient>().detachWebView()
             window.dismiss()
             floatingFormWindow = null
             hostActivity = null
