@@ -283,7 +283,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         // FORM_DISMISSED should have fired via the timeout path
         assertEquals(1, events.size)
         assertEquals(FormLifecycleEvent.FORM_DISMISSED, events[0].first)
-        assertEquals(FormContext(null, null), events[0].second)
+        assertEquals(FormContext("formId", null), events[0].second)
 
         Registry.unregister<FormLifecycleCallback>()
     }

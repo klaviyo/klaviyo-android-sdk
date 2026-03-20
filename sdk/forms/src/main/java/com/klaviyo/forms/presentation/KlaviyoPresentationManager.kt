@@ -125,10 +125,11 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * Close any open forms and dismiss the overlay activity
      */
     override fun closeFormAndDismiss() = presentationState.takeIf<Presented>()?.let {
-        Registry.get<JsBridge>().closeForm(it.formId)
+        val formId = it.formId
+        Registry.get<JsBridge>().closeForm(formId)
         dismissOnTimeout?.cancel()
         dismissOnTimeout = Registry.clock.schedule(CLOSE_TIMEOUT) {
-            invokeFormLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, FormContext(null, null))
+            invokeFormLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, FormContext(formId, null))
             dismiss()
         }
     } ?: dismiss().also {
