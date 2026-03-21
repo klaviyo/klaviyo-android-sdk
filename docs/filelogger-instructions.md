@@ -5,11 +5,11 @@ the device. This guide walks you through enabling it, capturing logs, and sendin
 
 ## Prerequisites
 
-- Klaviyo Android SDK **4.3.0+**
-- A debug build of your app
+> **Important:** FileLogger is intended for debugging. While it uses private storage, runs in the background,
+> and rotates files to limit disk usage, we still recommend disabling it in before production release.
 
-> **Important:** FileLogger is strictly for debugging. Do **not** ship these changes to production.
-> All code below should be guarded behind `BuildConfig.DEBUG` and removed before releasing your app.
+- Klaviyo Android SDK **4.2.0+**
+- A debug build of your app
 
 ## Quick Start
 
@@ -44,11 +44,9 @@ class MyApplication : Application() {
 > typical SDK usage. The compiler will remind you if you forget it.
 
 That's it. FileLogger will now:
-- Write all SDK logs to files in your app's private storage
+- Write SDK logs to files in your app's private storage from a background thread
 - Automatically rotate files (default: 5 files, 1 MB each)
 - Flush logs when the app goes to background or crashes
-
-No manifest changes, no FileProvider, no custom UI needed.
 
 ## Reproduce the Issue
 
@@ -78,25 +76,13 @@ You can also browse the files in **Android Studio → Device Explorer** under
 
 Zip up the files and send them to us.
 
-## Optional: Verbose Logcat Output
+## Other export options
 
-By default, the SDK only logs warnings and errors to **logcat**. FileLogger captures *all* log
-levels regardless of the logcat setting. If you also want to see verbose SDK output in logcat
-(e.g. for live debugging), add this to your **debug** `AndroidManifest.xml`
-(`src/debug/AndroidManifest.xml`) inside the `<application>` tag:
+> If you want to programmatically export logs from the app e.g. add a "Send Logs" button or a
+> persistent notification with a "Share Logs" action button, you can use the following APIs.
 
-```xml
-<meta-data
-    android:name="com.klaviyo.core.log_level"
-    android:value="1" />
-```
-
-> `1` = Verbose. This is only needed for logcat visibility — FileLogger already captures everything.
-
-## Optional: Programmatic Export
-
-If you can add button in your app's UI for triggering the log export, FileLogger provides several export methods.
-Keep a reference to your FileLogger instance:
+First, keep a reference to the FileLogger instance so you can call its export methods later. 
+Each method has detailed inline documentation on how it works and any additional setup required.
 
 ```kotlin
 var fileLogger: FileLogger? = null
@@ -105,28 +91,6 @@ var fileLogger: FileLogger? = null
 if (BuildConfig.DEBUG) {
     fileLogger = FileLogger(this).also { it.attach() }
 }
-```
-
-All export methods use MediaStore (API 29+) — no FileProvider or manifest changes needed.
-
-### Save to Downloads
-
-```kotlin
-lifecycleScope.launch {
-    fileLogger?.saveToDownloads()
-}
-```
-
-### Share via share sheet
-
-```kotlin
-fileLogger?.shareLogs(context)
-```
-
-### Open in a text viewer
-
-```kotlin
-fileLogger?.openLogInViewer(context)
 ```
 
 ### Save via file picker (SAF)
@@ -142,6 +106,55 @@ lifecycleScope.launch {
 }
 ```
 
+### Save to Downloads
+> Added in SDK version 4.4.0. No additional setup required.
+
+```kotlin
+lifecycleScope.launch {
+    fileLogger?.saveToDownloads()
+}
+```
+
+### Share via share sheet
+> `FileProvider` setup is required for SDK versions 4.2 and 4.3.
+
+```kotlin
+fileLogger?.shareLogs(context)
+```
+
+### Open in a text viewer
+> `FileProvider` setup is required for SDK versions 4.2 and 4.3.
+
+```kotlin
+fileLogger?.openLogInViewer(context)
+```
+
+### FileProvider setup
+
+On SDK versions **4.2 and 4.3**, `shareLogs()` and `openLogInViewer()` require a `FileProvider` to share files with other apps.
+To simplify setup, in version **4.4.0**, we replaced the `FileProvider` requirement with `MediaStore` to save files to the device's Downloads folder.
+
+Add the following to your `AndroidManifest.xml`:
+
+```xml
+<provider android:name="androidx.core.content.FileProvider"
+        android:authorities="${applicationId}.klaviyo.fileprovider" android:exported="false"
+        android:grantUriPermissions="true">
+    <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/klaviyo_file_paths" />
+</provider>
+```
+
+And create `res/xml/klaviyo_file_paths.xml`:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <files-path name="klaviyo_logs" path="klaviyo_logs/" />
+    <cache-path name="klaviyo_log_cache" path="klaviyo_logs/" />
+</paths>
+```
+
 ## Cleanup
 
 To stop logging and clean up:
@@ -155,19 +168,4 @@ lifecycleScope.launch {
 }
 ```
 
-Remove the FileLogger code from your `Application` class when you no longer need it. If you added
-the verbose logcat manifest entry, remove that too.
-
-## Log Format Reference
-
-Each log entry looks like:
-
-```
-[2025-03-18 14:32:15.123] Info    Klaviyo: SDK initialized
-[2025-03-18 14:32:16.456] Error   ApiClient: Request failed
-java.io.IOException: Connection timed out
-    at com.klaviyo.core...
-```
-
-The logs include timestamps, severity levels, component tags, messages, and stack traces for any
-exceptions — everything we need to diagnose SDK-related issues.
+Remove the FileLogger code from your `Application` class and any other references when you no longer need it.

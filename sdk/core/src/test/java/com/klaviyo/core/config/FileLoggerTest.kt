@@ -324,6 +324,4 @@ internal class FileLoggerTest : BaseTest() {
     }
 
     // endregion
-
-    // endregion
 }
