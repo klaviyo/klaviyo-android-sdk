@@ -13,31 +13,40 @@ the device. This guide walks you through enabling it, capturing logs, and sendin
 
 ## Quick Start
 
-In your `Application.onCreate()`, **after** calling `Klaviyo.initialize()`, add:
+Add the `core` module as a direct dependency:
+
+```groovy
+// build.gradle
+debugImplementation "com.github.klaviyo.klaviyo-android-sdk:core:<version>"
+```
+
+Then in your `Application.onCreate()`, add:
 
 ```kotlin
 import com.klaviyo.core.config.FileLogger
+import com.klaviyo.core.utils.AdvancedAPI
 
 class MyApplication : Application() {
+    @OptIn(AdvancedAPI::class)
     override fun onCreate() {
         super.onCreate()
 
-        Klaviyo.initialize("YOUR_PUBLIC_API_KEY", this)
-
         if (BuildConfig.DEBUG) {
-            FileLogger(this).attach(showNotification = true)
+            FileLogger(this).attach()
         }
+
+        Klaviyo.initialize("YOUR_PUBLIC_API_KEY", this)
     }
 }
 ```
+
+> `@OptIn(AdvancedAPI::class)` is required because `FileLogger` is an advanced API not intended for
+> typical SDK usage. The compiler will remind you if you forget it.
 
 That's it. FileLogger will now:
 - Write all SDK logs to files in your app's private storage
 - Automatically rotate files (default: 5 files, 1 MB each)
 - Flush logs when the app goes to background or crashes
-- **API 29+ (Android 10+):** Show a persistent notification with **Save to Downloads** and
-  **Share** action buttons
-- **API 23–28 (Android 6–9):** Show a passive reminder notification (use ADB to retrieve logs)
 
 No manifest changes, no FileProvider, no custom UI needed.
 
@@ -48,19 +57,10 @@ in the background.
 
 ## Get the Logs
 
-### Via notification (API 29+, recommended)
+### Via ADB (recommended)
 
-On Android 10+ devices, the notification has two action buttons:
-
-- **Save to Downloads** — writes a ZIP of all log files to the device's Downloads folder
-- **Share** — saves the ZIP and opens the Android share sheet (email, Slack, etc.)
-
-On Android 6–9 (API 23–28), the notification serves as a passive reminder that logging is active.
-Use ADB (below) to retrieve the files.
-
-### Via ADB
-
-If you prefer the command line, or are on an older API level:
+After reproducing the issue, **press Home to background the app** (this ensures all buffered logs
+are flushed to disk), then pull the files:
 
 ```bash
 # List the log files
@@ -95,8 +95,8 @@ levels regardless of the logcat setting. If you also want to see verbose SDK out
 
 ## Optional: Programmatic Export
 
-If you want to build custom UI for exporting logs instead of using the notification, FileLogger
-provides several export methods. Keep a reference to your FileLogger instance:
+If you can add button in your app's UI for triggering the log export, FileLogger provides several export methods.
+Keep a reference to your FileLogger instance:
 
 ```kotlin
 var fileLogger: FileLogger? = null
@@ -107,7 +107,9 @@ if (BuildConfig.DEBUG) {
 }
 ```
 
-### Save to Downloads (API 29+, no FileProvider)
+All export methods use MediaStore (API 29+) — no FileProvider or manifest changes needed.
+
+### Save to Downloads
 
 ```kotlin
 lifecycleScope.launch {
@@ -115,9 +117,19 @@ lifecycleScope.launch {
 }
 ```
 
-Uses MediaStore to write a ZIP to the device's Downloads folder. Returns a `content://` URI.
+### Share via share sheet
 
-### Save via file picker (no FileProvider)
+```kotlin
+fileLogger?.shareLogs(context)
+```
+
+### Open in a text viewer
+
+```kotlin
+fileLogger?.openLogInViewer(context)
+```
+
+### Save via file picker (SAF)
 
 ```kotlin
 // Launch the SAF file picker
@@ -129,43 +141,6 @@ lifecycleScope.launch {
     fileLogger?.saveLogsToUri(context, uri)
 }
 ```
-
-### Share via share sheet (requires FileProvider)
-
-```kotlin
-fileLogger?.shareLogs(context)
-```
-
-### Open in a text viewer (requires FileProvider)
-
-```kotlin
-fileLogger?.openLogInViewer(context)
-```
-
-> **FileProvider setup** is only required for `shareLogs()` and `openLogInViewer()`. Add to your
-> `AndroidManifest.xml`:
->
-> ```xml
-> <provider
->     android:name="androidx.core.content.FileProvider"
->     android:authorities="${applicationId}.klaviyo.fileprovider"
->     android:exported="false"
->     android:grantUriPermissions="true">
->     <meta-data
->         android:name="android.support.FILE_PROVIDER_PATHS"
->         android:resource="@xml/klaviyo_file_paths" />
-> </provider>
-> ```
->
-> And create `res/xml/klaviyo_file_paths.xml`:
->
-> ```xml
-> <?xml version="1.0" encoding="utf-8"?>
-> <paths xmlns:android="http://schemas.android.com/apk/res/android">
->     <files-path name="klaviyo_logs" path="klaviyo_logs/" />
->     <cache-path name="klaviyo_log_cache" path="klaviyo_logs/" />
-> </paths>
-> ```
 
 ## Cleanup
 

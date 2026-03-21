@@ -4,12 +4,17 @@ import android.app.Application
 import android.content.Context
 import android.widget.Toast
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.config.FileLogger
+import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.location.registerGeofencing
 
 class SampleApplication : Application() {
+    @OptIn(AdvancedAPI::class)
     override fun onCreate() {
         super.onCreate()
+
+        FileLogger(this).attach()
 
         // SETUP NOTE Initialize Klaviyo SDK: Add your public API key here or in the local.properties file
         val klaviyoPublicKey = validatePublicKey(BuildConfig.KLAVIYO_PUBLIC_KEY)

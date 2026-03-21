@@ -325,31 +325,5 @@ internal class FileLoggerTest : BaseTest() {
 
     // endregion
 
-    // region Notification
-
-    @Test
-    fun `attach without showNotification does not trigger notification code`() {
-        // showNotification defaults to false — this should not interact with Android notification APIs
-        fileLogger.attach()
-
-        // If we get here without RuntimeException from unmocked Android APIs, the notification
-        // code path was correctly skipped
-        assertTrue(spyLog.interceptors.contains(fileLogger))
-    }
-
-    @Test
-    fun `attach showNotification default parameter is false`() {
-        // Verify the default parameter value — attach() with no args should behave like attach(false)
-        fileLogger.attach()
-
-        // Should succeed without hitting notification code
-        assertTrue(spyLog.interceptors.contains(fileLogger))
-    }
-
-    // Note: Notification posting, channel creation, receiver registration, and dismiss behavior
-    // require Android framework classes (NotificationChannel, IntentFilter, NotificationCompat.Builder)
-    // that are not available in pure JUnit tests without Robolectric. These are verified via manual
-    // testing on API 29+ and API 23-28 devices/emulators (see verification plan in PR description).
-
     // endregion
 }
