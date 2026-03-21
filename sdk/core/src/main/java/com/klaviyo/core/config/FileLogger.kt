@@ -554,7 +554,8 @@ class FileLogger(
 
     /**
      * Create an intent for Storage Access Framework (SAF) file picker.
-     * User will be able to choose where to save the logs (Downloads, Drive, etc.).
+     * User will be able to choose where to save the logs (Downloads, Drive, etc.)
+     * Then you can call [saveLogsToUri] with the resulting URI to save the logs to the chosen location.
      *
      * Usage in Activity/Fragment:
      * ```
@@ -619,8 +620,6 @@ class FileLogger(
             false
         }
     }
-
-    // region Notification
 
     /**
      * Save logs as a ZIP file to the device's Downloads folder via MediaStore.
@@ -692,6 +691,4 @@ class FileLogger(
             return null
         }
     }
-
-    // endregion
 }
