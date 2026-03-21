@@ -387,7 +387,7 @@ class NativeBridgeMessageTest : BaseTest() {
                   },
                   {
                     "type": "formDisappeared",
-                    "version": 2
+                    "version": 1
                   },
                   {
                     "type": "abort",
