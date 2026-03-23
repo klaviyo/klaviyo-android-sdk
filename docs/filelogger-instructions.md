@@ -6,7 +6,7 @@ the device. This guide walks you through enabling it, capturing logs, and sendin
 ## Prerequisites
 
 > **Important:** FileLogger is intended for debugging. While it uses private storage, runs in the background,
-> and rotates files to limit disk usage, we still recommend disabling it in before production release.
+> and rotates files to limit disk usage, we still recommend disabling it before production release.
 
 - Klaviyo Android SDK **4.2.0+**
 - A debug build of your app
