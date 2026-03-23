@@ -450,6 +450,7 @@ class FileLogger(
      *
      * @param context Application context
      */
+    @RequiresApi(Build.VERSION_CODES.Q)
     fun openLogInViewer(context: Context) {
         coroutineScope.safeLaunch {
             try {
@@ -525,6 +526,7 @@ class FileLogger(
      *
      * @param context Application context
      */
+    @RequiresApi(Build.VERSION_CODES.Q)
     fun shareLogs(context: Context) {
         coroutineScope.safeLaunch {
             try {
