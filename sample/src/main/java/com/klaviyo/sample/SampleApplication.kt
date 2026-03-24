@@ -2,6 +2,7 @@ package com.klaviyo.sample
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.forms.registerForInAppForms
@@ -20,7 +21,25 @@ class SampleApplication : Application() {
             .registerDeepLinkHandler { uri ->
                 // OPTIONAL SETUP NOTE: Register a callback to handle any deep links from Klaviyo notifications, in-app forms, or universal tracking links
                 // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
-                showToast("Deep link to: $uri")
+                when {
+                    // Example: Open google.com in system browser
+                    uri.host == "www.google.com" && uri.path.orEmpty().let { it == "/" || it.isEmpty() } -> {
+                        startActivity(
+                            Intent(Intent.ACTION_VIEW, uri)
+                                .addFlags(
+                                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                )
+                        )
+                    }
+                    // Example: Show a toast for a specific path
+                    uri.host == "www.google.com" && uri.path == "/maps" -> {
+                        showToast("Opening Google Maps")
+                    }
+                    // Default: log unhandled deep links
+                    else -> {
+                        showToast("Unhandled deep link: $uri")
+                    }
+                }
             }
     }
 }
