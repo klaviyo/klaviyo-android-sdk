@@ -129,7 +129,10 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         Registry.get<JsBridge>().closeForm(formId)
         dismissOnTimeout?.cancel()
         dismissOnTimeout = Registry.clock.schedule(CLOSE_TIMEOUT) {
-            invokeFormLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, FormContext(formId, null))
+            invokeFormLifecycleCallback(
+                FormLifecycleEvent.FORM_DISMISSED,
+                FormContext(formId, null)
+            )
             dismiss()
         }
     } ?: dismiss().also {
