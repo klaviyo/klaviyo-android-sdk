@@ -62,7 +62,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             presentationState.takeIf<Presenting>()?.let {
                 overlayActivity = activity
                 Registry.get<WebViewClient>().attachWebView(activity)
-                presentationState = Presented(it.formId)
+                presentationState = Presented(it.formId, it.formName)
                 Registry.log.debug("Presentation State: $presentationState")
             }
         }
@@ -78,7 +78,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 presentationState.takeIfNot<PresentationState, Hidden>()?.let {
                     orientation = event.newConfig.orientation
                     Registry.get<WebViewClient>().detachWebView()
-                    presentationState = Presenting(it.formId)
+                    presentationState = Presenting(it.formId, it.formName)
                     Registry.log.debug("New screen orientation, detaching view")
                 }
             }
@@ -95,7 +95,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         ) { activity ->
             presentationState.takeIf<Hidden>()?.let {
                 val formContext = FormContext(formId, formName)
-                presentationState = Presenting(formId)
+                presentationState = Presenting(formId, formName)
                 Registry.log.debug("Presentation State: $presentationState")
                 invokeFormLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, formContext)
                 activity.startActivity(
@@ -126,12 +126,13 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      */
     override fun closeFormAndDismiss() = presentationState.takeIf<Presented>()?.let {
         val formId = it.formId
+        val formName = it.formName
         Registry.get<JsBridge>().closeForm(formId)
         dismissOnTimeout?.cancel()
         dismissOnTimeout = Registry.clock.schedule(CLOSE_TIMEOUT) {
             invokeFormLifecycleCallback(
                 FormLifecycleEvent.FORM_DISMISSED,
-                FormContext(formId, null)
+                FormContext(formId, formName)
             )
             dismiss()
         }
