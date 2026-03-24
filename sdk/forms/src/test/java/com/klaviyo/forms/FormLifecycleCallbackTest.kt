@@ -32,7 +32,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     override fun setup() {
         super.setup()
         every { mockPresentationManager.presentationState } returns PresentationState.Presented(
-            "formId"
+            FormContext("formId", null)
         )
         Registry.register<PresentationManager>(mockPresentationManager)
         nativeBridge = KlaviyoNativeBridge()
@@ -92,32 +92,19 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         nativeBridge.postMessage(message)
 
         // FORM_SHOWN is now fired by the presentation manager, not the bridge
-        verify { mockPresentationManager.present(testFormId, testFormName) }
+        verify { mockPresentationManager.present(FormContext(testFormId, testFormName)) }
         assertEquals(null, capturedEvent)
     }
 
     @Test
-    fun `FORM_DISMISSED event is triggered when form is dismissed`() {
-        var capturedEvent: FormLifecycleEvent? = null
-        var capturedContext: FormContext? = null
-        val callback = FormLifecycleCallback { event, context ->
-            capturedEvent = event
-            capturedContext = context
-        }
+    fun `formDisappeared delegates to presentation manager dismiss with formContext`() {
+        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _, _ -> })
 
-        Klaviyo.registerFormLifecycleCallback(callback)
-
-        // First show the form
-        val showMessage = """{"type":"formWillAppear", "data":{"formId":"$testFormId","formName":"$testFormName"}}"""
-        nativeBridge.postMessage(showMessage)
-
-        // Simulate form dismissed message from webview — formId+formName now come from the message
         val message = """{"type":"formDisappeared","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(message)
 
-        assertEquals(FormLifecycleEvent.FORM_DISMISSED, capturedEvent)
-        assertEquals(testFormId, capturedContext?.formId)
-        assertEquals(testFormName, capturedContext?.formName)
+        // FORM_DISMISSED is now fired internally by PM's dismiss()
+        verify { mockPresentationManager.dismiss(FormContext(testFormId, testFormName)) }
     }
 
     @Test
@@ -135,23 +122,22 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         nativeBridge.postMessage(
             """{"type":"formWillAppear","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         )
-        // v2: FormDisappeared arrives next — now carries formId+formName
+        // v2: FormDisappeared — bridge delegates to PM's dismiss()
         nativeBridge.postMessage(
             """{"type":"formDisappeared","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         )
-        // Then OpenDeepLink — now carries formId+formName
+        verify { mockPresentationManager.dismiss(FormContext(testFormId, testFormName)) }
+
+        // Then OpenDeepLink — CTA callback fires directly from bridge
         nativeBridge.postMessage(
             """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId","formName":"$testFormName"}}"""
         )
 
-        // FORM_SHOWN is now fired by the presentation manager, not the bridge
-        assertEquals(2, events.size)
-        assertEquals(FormLifecycleEvent.FORM_DISMISSED, events[0].first)
+        // Only CTA fires directly from bridge; FORM_DISMISSED is now internal to PM
+        assertEquals(1, events.size)
+        assertEquals(FormLifecycleEvent.FORM_CTA_CLICKED, events[0].first)
         assertEquals(testFormId, events[0].second.formId)
         assertEquals(testFormName, events[0].second.formName)
-        assertEquals(FormLifecycleEvent.FORM_CTA_CLICKED, events[1].first)
-        assertEquals(testFormId, events[1].second.formId)
-        assertEquals(testFormName, events[1].second.formName)
     }
 
     @Test
@@ -161,40 +147,30 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         nativeBridge.postMessage(message)
 
         // Verify PresentationManager was called but no exception thrown
-        verify { mockPresentationManager.present(testFormId, any()) }
+        verify { mockPresentationManager.present(any()) }
     }
 
     @Test
-    fun `callback receives null formId when no form was shown prior to dismiss`() {
-        var capturedEvent: FormLifecycleEvent? = null
-        var capturedContext: FormContext? = null
-        val callback = FormLifecycleCallback { event, context ->
-            capturedEvent = event
-            capturedContext = context
-        }
+    fun `formDisappeared without data delegates dismiss with null context fields`() {
+        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _, _ -> })
 
-        Klaviyo.registerFormLifecycleCallback(callback)
+        nativeBridge.postMessage("""{"type":"formDisappeared"}""")
 
-        // Simulate form dismissed message without a prior show (lastFormContext is null)
-        val message = """{"type":"formDisappeared"}"""
-        nativeBridge.postMessage(message)
-
-        assertEquals(FormLifecycleEvent.FORM_DISMISSED, capturedEvent)
-        assertEquals(null, capturedContext?.formId)
-        assertEquals(null, capturedContext?.formName)
+        verify { mockPresentationManager.dismiss(FormContext(null, null)) }
     }
 
     @Test
-    fun `callback is invoked on UI thread`() {
-        val callback = FormLifecycleCallback { _, _ -> }
+    fun `CTA callback is invoked on UI thread`() {
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any()) } returns Unit
 
-        Klaviyo.registerFormLifecycleCallback(callback)
+        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _, _ -> })
 
-        // Simulate form dismissed message (bridge still fires FORM_DISMISSED)
-        val message = """{"type":"formDisappeared","data":{"formId":"$testFormId"}}"""
-        nativeBridge.postMessage(message)
+        // CTA callback still fires directly from the bridge
+        nativeBridge.postMessage(
+            """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId"}}"""
+        )
 
-        // Verify threadHelper.runOnUiThread was called
         verify { mockThreadHelper.runOnUiThread(any()) }
     }
 }

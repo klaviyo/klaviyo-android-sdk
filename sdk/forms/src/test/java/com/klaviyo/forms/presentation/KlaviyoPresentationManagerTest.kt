@@ -52,7 +52,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     private fun withPresentedState(): KlaviyoPresentationManager = KlaviyoPresentationManager().mockPresent()
 
     private fun KlaviyoPresentationManager.mockPresent() = apply {
-        present("formId")
+        present(FormContext("formId", null))
         assert(slotOnActivityEvent.isCaptured) { "Lifecycle listener should be captured" }
         slotOnActivityEvent.captured(ActivityEvent.Created(mockOverlayActivity, null))
     }
@@ -72,7 +72,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
         assertEquals(
             "PresentationState should be Presented after overlay activity is created",
-            PresentationState.Presented("formId"),
+            PresentationState.Presented(FormContext("formId", null)),
             manager.presentationState
         )
     }
@@ -129,7 +129,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     fun `present should not start a duplicate activity`() {
         val manager = withPresentedState()
         verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
-        manager.present("formId")
+        manager.present(FormContext("formId", null))
         verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
     }
 
@@ -160,13 +160,13 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         val manager = withHiddenState()
 
         // Present comes first
-        manager.present("formId")
+        manager.present(FormContext("formId", null))
 
         // Expect start activity to be called and state to be Presenting
         verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
         assertEquals(
             "PresentationState should transition to Presenting",
-            PresentationState.Presenting("formId"),
+            PresentationState.Presenting(FormContext("formId", null)),
             manager.presentationState
         )
 
@@ -176,7 +176,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
         assertEquals(
             "PresentationState should transition to Presented",
-            PresentationState.Presented("formId"),
+            PresentationState.Presented(FormContext("formId", null)),
             manager.presentationState
         )
 
@@ -249,7 +249,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         assertEquals(FormLifecycleEvent.FORM_SHOWN, events[0].first)
 
         // Attempt to present again while already Presented
-        manager.present("secondFormId", "Second Form")
+        manager.present(FormContext("secondFormId", "Second Form"))
 
         // FORM_SHOWN should NOT have fired again
         assertEquals(1, events.size)

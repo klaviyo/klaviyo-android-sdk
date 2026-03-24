@@ -1,6 +1,6 @@
 package com.klaviyo.forms.presentation
 
-import com.klaviyo.forms.bridge.FormId
+import com.klaviyo.forms.FormContext
 
 internal interface PresentationManager {
     /**
@@ -9,14 +9,16 @@ internal interface PresentationManager {
     val presentationState: PresentationState
 
     /**
-     * Present the form overlay activity, optionally provide the formId and formName to be presented
+     * Present the form overlay activity
      */
-    fun present(formId: FormId?, formName: String? = null)
+    fun present(formContext: FormContext? = null)
 
     /**
-     * Dismiss the form overlay activity
+     * Dismiss the form overlay activity.
+     * Fires [com.klaviyo.forms.FormLifecycleEvent.FORM_DISMISSED] if transitioning out of a non-Hidden state.
+     * @param formContext optional context to use for the callback; falls back to [presentationState]
      */
-    fun dismiss()
+    fun dismiss(formContext: FormContext? = null)
 
     /**
      * Close any open forms and dismiss the overlay activity

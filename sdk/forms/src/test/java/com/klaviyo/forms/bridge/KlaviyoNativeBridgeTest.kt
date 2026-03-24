@@ -59,7 +59,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.register<PresentationManager>(mockPresentationManager)
 
         every { mockPresentationManager.presentationState } returns PresentationState.Presented(
-            "formId"
+            FormContext("formId", null)
         )
 
         mockkStatic(Uri::class)
@@ -122,7 +122,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockPresentationManager.present(null, null) }
+        verify { mockPresentationManager.present(FormContext(null, null)) }
     }
 
     @Test
@@ -131,7 +131,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear", "data":{"formId":"64CjgW"}}""")
-        verify { mockPresentationManager.present("64CjgW", null) }
+        verify { mockPresentationManager.present(FormContext("64CjgW", null)) }
     }
 
     @Test
@@ -328,57 +328,39 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         // Show with formName (FORM_SHOWN is now fired by the presentation manager, not the bridge)
         postMessage("""{"type":"formWillAppear","data":{"formId":"abc","formName":"My Form"}}""")
-        // Dismiss — formId+formName now come from the bridge message itself
+        // Dismiss — bridge passes formContext to PM's dismiss(), which fires the callback internally
         postMessage("""{"type":"formDisappeared","data":{"formId":"abc","formName":"My Form"}}""")
-        // CTA — formId+formName now come from the bridge message itself
+        verify { mockPresentationManager.dismiss(FormContext("abc", "My Form")) }
+        // CTA — formId+formName come from the bridge message itself
         postMessage(
             """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"abc","formName":"My Form"}}"""
         )
 
-        assertEquals(2, events.size)
+        // Only CTA callback fires directly from the bridge; FORM_DISMISSED is now fired by PM
+        assertEquals(1, events.size)
+        assertEquals(FormLifecycleEvent.FORM_CTA_CLICKED, events[0].first)
         assertEquals("My Form", events[0].second.formName)
         assertEquals("abc", events[0].second.formId)
-        assertEquals("My Form", events[1].second.formName)
-        assertEquals("abc", events[1].second.formId)
 
         Registry.unregister<FormLifecycleCallback>()
     }
 
     @Test
-    fun `formDisappeared triggers close`() {
+    fun `formDisappeared triggers dismiss with formContext`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
-        every { mockPresentationManager.presentationState } returns PresentationState.Presented(
-            "formId"
-        )
-        postMessage("""{"type":"formDisappeared"}""")
-        verify { mockPresentationManager.dismiss() }
+        postMessage("""{"type":"formDisappeared","data":{"formId":"abc","formName":"My Form"}}""")
+        verify { mockPresentationManager.dismiss(FormContext("abc", "My Form")) }
     }
 
     @Test
-    fun `formDisappeared skips callback when already dismissed by timeout`() {
+    fun `formDisappeared triggers dismiss with null context when no data`() {
         /**
-         * Verifies that FORM_DISMISSED only fires once when the back-press timeout
-         * races with the JS formDisappeared response.
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
-        val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
-        val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
-        Registry.register<FormLifecycleCallback>(callback)
-
-        // Simulate that the timeout already fired: presentation state is Hidden
-        every { mockPresentationManager.presentationState } returns PresentationState.Hidden
-
         postMessage("""{"type":"formDisappeared"}""")
-
-        // The callback should NOT have been invoked since the form is already Hidden
-        assertEquals(0, events.size)
-        // dismiss() should NOT be called again either
-        verify(exactly = 0) { mockPresentationManager.dismiss() }
-        verify { spyLog.debug("Form already dismissed, skipping FORM_DISMISSED callback") }
-
-        Registry.unregister<FormLifecycleCallback>()
+        verify { mockPresentationManager.dismiss(FormContext(null, null)) }
     }
 
     @Test

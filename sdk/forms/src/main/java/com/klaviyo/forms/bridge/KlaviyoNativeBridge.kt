@@ -23,7 +23,6 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
 import com.klaviyo.forms.invokeFormLifecycleCallback
 import com.klaviyo.forms.presentation.PresentationManager
-import com.klaviyo.forms.presentation.PresentationState
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 
@@ -98,7 +97,9 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      */
     private fun show(bridgeMessage: FormWillAppear) {
         Registry.log.debug("Form shown: ${bridgeMessage.formId}")
-        Registry.get<PresentationManager>().present(bridgeMessage.formId, bridgeMessage.formName)
+        Registry.get<PresentationManager>().present(
+            FormContext(bridgeMessage.formId, bridgeMessage.formName)
+        )
     }
 
     /**
@@ -130,22 +131,13 @@ internal class KlaviyoNativeBridge() : NativeBridge {
 
     /**
      * Instruct presentation manager to dismiss the form overlay activity.
-     *
-     * Guards against a race where [closeFormAndDismiss][PresentationManager.closeFormAndDismiss]
-     * has already dismissed the form via its timeout. If the state is already
-     * [Hidden][PresentationState.Hidden], we skip the callback to avoid a duplicate
-     * [FORM_DISMISSED][FormLifecycleEvent.FORM_DISMISSED] event.
+     * The presentation manager handles firing the [FORM_DISMISSED][FormLifecycleEvent.FORM_DISMISSED]
+     * callback and guarding against duplicate events.
      */
     private fun close(bridgeMessage: FormDisappeared) {
-        val presentationManager = Registry.get<PresentationManager>()
-        if (presentationManager.presentationState is PresentationState.Hidden) {
-            Registry.log.debug("Form already dismissed, skipping FORM_DISMISSED callback")
-            return
-        }
-        val formContext = FormContext(bridgeMessage.formId, bridgeMessage.formName)
-        Registry.log.debug("Form dismissed: ${formContext.formId}")
-        invokeFormLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, formContext)
-        presentationManager.dismiss()
+        Registry.get<PresentationManager>().dismiss(
+            FormContext(bridgeMessage.formId, bridgeMessage.formName)
+        )
     }
 
     /**
