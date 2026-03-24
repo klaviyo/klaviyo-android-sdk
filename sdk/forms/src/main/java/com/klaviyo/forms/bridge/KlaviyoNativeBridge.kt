@@ -11,6 +11,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
+import com.klaviyo.forms.FormContext
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
@@ -74,7 +75,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
                 is TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
                 is TrackProfileEvent -> createProfileEvent(bridgeMessage)
                 is OpenDeepLink -> deepLink(bridgeMessage)
-                is FormDisappeared -> close()
+                is FormDisappeared -> close(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
             }
         } catch (e: Exception) {
@@ -120,8 +121,8 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
     private fun deepLink(message: OpenDeepLink) {
-        val formContext = Registry.get<PresentationManager>().formContext
-        Registry.log.debug("Form CTA clicked: ${formContext?.formId}")
+        val formContext = FormContext(message.formId, message.formName)
+        Registry.log.debug("Form CTA clicked: ${formContext.formId}")
         invokeFormLifecycleCallback(FormLifecycleEvent.FORM_CTA_CLICKED, formContext)
         message.route?.let { DeepLinking.handleDeepLink(it.toUri()) }
             ?: Registry.log.warning("Deep link CTA with no Android route configured")
@@ -135,17 +136,15 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * [Hidden][PresentationState.Hidden], we skip the callback to avoid a duplicate
      * [FORM_DISMISSED][FormLifecycleEvent.FORM_DISMISSED] event.
      */
-    private fun close() {
+    private fun close(bridgeMessage: FormDisappeared) {
         val presentationManager = Registry.get<PresentationManager>()
         if (presentationManager.presentationState is PresentationState.Hidden) {
             Registry.log.debug("Form already dismissed, skipping FORM_DISMISSED callback")
             return
         }
-        Registry.log.debug("Form dismissed: ${presentationManager.formContext?.formId}")
-        invokeFormLifecycleCallback(
-            FormLifecycleEvent.FORM_DISMISSED,
-            presentationManager.formContext
-        )
+        val formContext = FormContext(bridgeMessage.formId, bridgeMessage.formName)
+        Registry.log.debug("Form dismissed: ${formContext.formId}")
+        invokeFormLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, formContext)
         presentationManager.dismiss()
     }
 

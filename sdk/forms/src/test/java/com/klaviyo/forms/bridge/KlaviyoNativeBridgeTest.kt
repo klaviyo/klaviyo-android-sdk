@@ -265,7 +265,9 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
           "type": "openDeepLink",
           "data": {
             "ios": "klaviyotest://settings",
-            "android": "klaviyotest://settings"
+            "android": "klaviyotest://settings",
+            "formId": "64CjgW",
+            "formName": "Test Form"
           }
         }
     """.trimIndent()
@@ -316,16 +318,9 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formName flows through from dismiss and CTA events`() {
+    fun `formName flows through from dismiss and CTA events via bridge messages`() {
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
-
-        // Simulate real PresentationManager.formContext behavior: set on present(), persists after dismiss()
-        var storedFormContext: FormContext? = null
-        every { mockPresentationManager.present(any(), any()) } answers {
-            storedFormContext = FormContext(firstArg(), secondArg())
-        }
-        every { mockPresentationManager.formContext } answers { storedFormContext }
 
         val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
         val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
@@ -333,14 +328,18 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         // Show with formName (FORM_SHOWN is now fired by the presentation manager, not the bridge)
         postMessage("""{"type":"formWillAppear","data":{"formId":"abc","formName":"My Form"}}""")
-        // Dismiss
-        postMessage("""{"type":"formDisappeared","data":{"formId":"abc"}}""")
-        // CTA
-        postMessage("""{"type":"openDeepLink","data":{"android":"klaviyotest://settings"}}""")
+        // Dismiss — formId+formName now come from the bridge message itself
+        postMessage("""{"type":"formDisappeared","data":{"formId":"abc","formName":"My Form"}}""")
+        // CTA — formId+formName now come from the bridge message itself
+        postMessage(
+            """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"abc","formName":"My Form"}}"""
+        )
 
         assertEquals(2, events.size)
         assertEquals("My Form", events[0].second.formName)
+        assertEquals("abc", events[0].second.formId)
         assertEquals("My Form", events[1].second.formName)
+        assertEquals("abc", events[1].second.formId)
 
         Registry.unregister<FormLifecycleCallback>()
     }

@@ -213,34 +213,6 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `formContext is set during present`() {
-        val manager = withHiddenState()
-        manager.present("formId", "My Form")
-        assertEquals(FormContext("formId", "My Form"), manager.formContext)
-    }
-
-    @Test
-    fun `formContext persists after dismiss`() {
-        val manager = withPresentedState()
-        assertEquals(FormContext("formId", null), manager.formContext)
-        manager.dismiss()
-        assertEquals(
-            "formContext should persist after dismiss for late-arriving events",
-            FormContext("formId", null),
-            manager.formContext
-        )
-    }
-
-    @Test
-    fun `formContext is overwritten by subsequent present`() {
-        val manager = withPresentedState()
-        assertEquals(FormContext("formId", null), manager.formContext)
-        manager.dismiss()
-        manager.present("newFormId", "New Form")
-        assertEquals(FormContext("newFormId", "New Form"), manager.formContext)
-    }
-
-    @Test
     fun `test closeFormAndDismiss dismisses if closeForm does not call back in time`() {
         val manager = withPresentedState()
         val mockBridge = mockk<JsBridge>().apply {
@@ -281,8 +253,6 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
         // FORM_SHOWN should NOT have fired again
         assertEquals(1, events.size)
-        // formContext should NOT have been overwritten
-        assertEquals(FormContext("formId", null), manager.formContext)
 
         Registry.unregister<FormLifecycleCallback>()
     }

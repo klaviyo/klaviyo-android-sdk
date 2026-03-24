@@ -59,18 +59,24 @@ internal sealed class NativeBridgeMessage {
      * Sent from the onsite-in-app-forms when a deep link is opened
      *
      * @param route The deep link route to be opened (usually a URL), or null if no Android route is configured
+     * @param formId The form ID of the form that triggered the deep link
+     * @param formName The name of the form that triggered the deep link
      */
     data class OpenDeepLink(
-        val route: String?
+        val route: String?,
+        val formId: FormId?,
+        val formName: String?
     ) : NativeBridgeMessage()
 
     /**
      * Sent from the onsite-in-app-forms when a form is closed as a signal to dismiss the webview
      *
      * @param formId The form ID of the form that is disappearing
+     * @param formName The name of the form that is disappearing
      */
     data class FormDisappeared(
-        val formId: FormId?
+        val formId: FormId?,
+        val formName: String?
     ) : NativeBridgeMessage()
 
     /**
@@ -137,11 +143,14 @@ internal sealed class NativeBridgeMessage {
                 )
 
                 keyName<OpenDeepLink>() -> OpenDeepLink(
-                    route = jsonData.getDeepLink()
+                    route = jsonData.getDeepLink(),
+                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() },
+                    formName = jsonData.optString("formName").takeIf { it.isNotEmpty() }
                 )
 
                 keyName<FormDisappeared>() -> FormDisappeared(
-                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() }
+                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() },
+                    formName = jsonData.optString("formName").takeIf { it.isNotEmpty() }
                 )
 
                 keyName<Abort>() -> Abort(
