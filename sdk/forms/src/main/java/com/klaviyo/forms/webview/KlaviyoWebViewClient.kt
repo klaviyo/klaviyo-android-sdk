@@ -96,6 +96,11 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     }
 
     /**
+     * Get the underlying WebView instance, or null if not initialized
+     */
+    override fun getWebView(): View? = webView
+
+    /**
      * If the webview is not loaded in time, we cancel the handshake timer and destroy the webview
      */
     private fun onJsHandshakeTimeout() {

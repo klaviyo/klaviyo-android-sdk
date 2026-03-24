@@ -1,6 +1,7 @@
 package com.klaviyo.forms.webview
 
 import android.app.Activity
+import android.view.View
 
 internal interface WebViewClient {
     /**
@@ -18,6 +19,11 @@ internal interface WebViewClient {
      * Invoke when [com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook] event is received: klaviyo.js has loaded
      */
     fun onJsHandshakeCompleted()
+
+    /**
+     * Get the underlying WebView instance, or null if not initialized
+     */
+    fun getWebView(): View?
 
     /**
      * Attach the webview to the overlay activity
