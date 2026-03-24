@@ -23,7 +23,7 @@ class SampleApplication : Application() {
                 // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
                 when {
                     // Example: Open google.com in system browser
-                    uri.host == "www.google.com" && uri.path.orEmpty().let { it == "/" || it.isEmpty() } -> {
+                    uri.host == "www.google.com" && (uri.path.isNullOrEmpty() || uri.path == "/") -> {
                         startActivity(
                             Intent(Intent.ACTION_VIEW, uri)
                                 .addFlags(
