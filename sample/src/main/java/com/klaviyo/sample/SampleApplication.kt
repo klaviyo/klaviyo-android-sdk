@@ -5,10 +5,11 @@ import android.content.Context
 import android.widget.Toast
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
-import com.klaviyo.forms.FormLifecycleEvent
+import com.klaviyo.forms.FormLifecycleEvent.FormCtaClicked
+import com.klaviyo.forms.FormLifecycleEvent.FormDismissed
+import com.klaviyo.forms.FormLifecycleEvent.FormShown
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.registerFormLifecycleCallback
-import com.klaviyo.forms.unregisterFormLifecycleCallback
 import com.klaviyo.location.registerGeofencing
 
 class SampleApplication : Application() {
@@ -26,31 +27,26 @@ class SampleApplication : Application() {
                 // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
                 showToast("Deep link to: $uri")
             }
-            .registerFormLifecycleCallback { event, context ->
+            .registerFormLifecycleCallback { event ->
                 // OPTIONAL SETUP NOTE: Register a callback to receive form lifecycle events
                 // This allows you to track when forms are shown, dismissed, or when CTAs are clicked
                 when (event) {
-                    FormLifecycleEvent.FORM_SHOWN -> {
-                        Registry.log.debug("Form shown: ${context.formId} ${context.formName}")
-                        showToast("Form shown: ${context.formId} ${context.formName}")
+                    is FormShown -> {
+                        Registry.log.debug("Form shown: ${event.formId} ${event.formName}")
+                        showToast("Form shown: ${event.formId} ${event.formName}")
                     }
-                    FormLifecycleEvent.FORM_DISMISSED -> {
-                        Registry.log.debug("Form dismissed: ${context.formId} ${context.formName}")
-                        showToast("Form dismissed: ${context.formId} ${context.formName}")
+                    is FormDismissed -> {
+                        Registry.log.debug("Form dismissed: ${event.formId} ${event.formName}")
+                        showToast("Form dismissed: ${event.formId} ${event.formName}")
                     }
-                    FormLifecycleEvent.FORM_CTA_CLICKED -> {
+                    is FormCtaClicked -> {
                         Registry.log.debug(
-                            "Form CTA clicked: ${context.formId} ${context.formName}"
+                            "Form CTA: ${event.buttonLabel} -> ${event.deepLinkUrl}"
                         )
-                        showToast("Form CTA clicked: ${context.formId} ${context.formName}")
+                        showToast("Form CTA: ${event.buttonLabel} -> ${event.deepLinkUrl}")
                     }
                 }
             }
-    }
-
-    override fun onTerminate() {
-        Klaviyo.unregisterFormLifecycleCallback()
-        super.onTerminate()
     }
 }
 

@@ -8,11 +8,11 @@ import com.klaviyo.core.Registry
  * Shared utility used by both [com.klaviyo.forms.bridge.KlaviyoNativeBridge]
  * and [com.klaviyo.forms.presentation.KlaviyoPresentationManager].
  */
-internal fun invokeFormLifecycleCallback(event: FormLifecycleEvent, context: FormContext?) {
+internal fun invokeFormLifecycleCallback(event: FormLifecycleEvent) {
     Registry.getOrNull<FormLifecycleCallback>()?.let { callback ->
         Registry.threadHelper.runOnUiThread {
             try {
-                callback.onFormLifecycleEvent(event, context ?: FormContext(null, null))
+                callback.onFormLifecycleEvent(event)
             } catch (e: Exception) {
                 Registry.log.error("Form lifecycle callback threw an exception", e)
             }

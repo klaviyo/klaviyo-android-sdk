@@ -62,8 +62,10 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 overlayActivity = activity
                 Registry.get<WebViewClient>().attachWebView(activity)
                 presentationState = Presented(it.formContext)
+                invokeFormLifecycleCallback(
+                    FormLifecycleEvent.FormShown(it.formId, it.formName)
+                )
                 Registry.log.debug("Presentation State: $presentationState")
-                invokeFormLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, it.formContext)
             }
         }
     }
@@ -114,7 +116,9 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         activity.finish()
         presentationState.takeIfNot<PresentationState, Hidden>()?.let {
             val context = formContext ?: it.formContext
-            invokeFormLifecycleCallback(FormLifecycleEvent.FORM_DISMISSED, context)
+            invokeFormLifecycleCallback(
+                FormLifecycleEvent.FormDismissed(context?.formId, context?.formName)
+            )
         }
         presentationState = Hidden
         overlayActivity = null
@@ -129,9 +133,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     override fun closeFormAndDismiss() = presentationState.takeIf<Presented>()?.let {
         Registry.get<JsBridge>().closeForm(it.formId)
         dismissOnTimeout?.cancel()
-        dismissOnTimeout = Registry.clock.schedule(CLOSE_TIMEOUT) {
-            dismiss()
-        }
+        dismissOnTimeout = Registry.clock.schedule(CLOSE_TIMEOUT, ::dismiss)
     } ?: dismiss().also {
         Registry.log.debug("Dismissing without closing form. Current state: $presentationState")
     }

@@ -1,9 +1,10 @@
 package com.klaviyo.forms
 
 /**
- * Contextual metadata about the in-app form associated with a lifecycle event.
+ * Internal contextual metadata about the in-app form being presented.
+ * Used by [com.klaviyo.forms.presentation.PresentationState] to track the current form.
  */
-data class FormContext(
+internal data class FormContext(
     val formId: String?,
     val formName: String?
 )

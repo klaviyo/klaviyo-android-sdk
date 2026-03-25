@@ -308,8 +308,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         verify {
             mockLifecycleCallback.onFormLifecycleEvent(
-                FormLifecycleEvent.FORM_CTA_CLICKED,
-                any<FormContext>()
+                any<FormLifecycleEvent.FormCtaClicked>()
             )
         }
         verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
@@ -322,8 +321,8 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
 
-        val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
-        val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleCallback { event -> events.add(event) }
         Registry.register<FormLifecycleCallback>(callback)
 
         // Show with formName (FORM_SHOWN is now fired by the presentation manager, not the bridge)
@@ -338,9 +337,10 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         // Only CTA callback fires directly from the bridge; FORM_DISMISSED is now fired by PM
         assertEquals(1, events.size)
-        assertEquals(FormLifecycleEvent.FORM_CTA_CLICKED, events[0].first)
-        assertEquals("My Form", events[0].second.formName)
-        assertEquals("abc", events[0].second.formId)
+        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaClicked
+        assertEquals("My Form", ctaEvent.formName)
+        assertEquals("abc", ctaEvent.formId)
+        assertEquals("klaviyotest://settings", ctaEvent.deepLinkUrl)
 
         Registry.unregister<FormLifecycleCallback>()
     }

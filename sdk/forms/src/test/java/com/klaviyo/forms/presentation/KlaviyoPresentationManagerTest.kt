@@ -22,6 +22,7 @@ import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KlaviyoPresentationManagerTest : BaseTest() {
@@ -238,15 +239,15 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
     @Test
     fun `FORM_SHOWN is not fired when presentation state is not Hidden`() {
-        val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
-        val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleCallback { event -> events.add(event) }
         Registry.register<FormLifecycleCallback>(callback)
 
         val manager = withPresentedState()
 
         // FORM_SHOWN should have fired once during initial present
         assertEquals(1, events.size)
-        assertEquals(FormLifecycleEvent.FORM_SHOWN, events[0].first)
+        assertTrue(events[0] is FormLifecycleEvent.FormShown)
 
         // Attempt to present again while already Presented
         manager.present(FormContext("secondFormId", "Second Form"))
@@ -259,8 +260,8 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
     @Test
     fun `FORM_DISMISSED fires on back-press timeout path`() {
-        val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
-        val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleCallback { event -> events.add(event) }
         Registry.register<FormLifecycleCallback>(callback)
 
         val manager = withPresentedState()
@@ -282,8 +283,8 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
         // FORM_DISMISSED should have fired via the timeout path
         assertEquals(1, events.size)
-        assertEquals(FormLifecycleEvent.FORM_DISMISSED, events[0].first)
-        assertEquals(FormContext("formId", null), events[0].second)
+        val dismissed = events[0] as FormLifecycleEvent.FormDismissed
+        assertEquals("formId", dismissed.formId)
 
         Registry.unregister<FormLifecycleCallback>()
     }

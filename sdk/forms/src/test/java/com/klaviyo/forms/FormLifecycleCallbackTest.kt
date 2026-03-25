@@ -14,6 +14,7 @@ import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -48,7 +49,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
     @Test
     fun `registerFormLifecycleCallback registers callback successfully`() {
-        val callback = FormLifecycleCallback { _, _ -> }
+        val callback = FormLifecycleCallback { _ -> }
 
         Klaviyo.registerFormLifecycleCallback(callback)
 
@@ -57,7 +58,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
     @Test
     fun `unregisterFormLifecycleCallback removes callback`() {
-        val callback = FormLifecycleCallback { _, _ -> }
+        val callback = FormLifecycleCallback { _ -> }
 
         Klaviyo.registerFormLifecycleCallback(callback)
 
@@ -68,8 +69,8 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
     @Test
     fun `registerFormLifecycleCallback replaces existing callback`() {
-        val firstCallback = FormLifecycleCallback { _, _ -> }
-        val secondCallback = FormLifecycleCallback { _, _ -> }
+        val firstCallback = FormLifecycleCallback { _ -> }
+        val secondCallback = FormLifecycleCallback { _ -> }
 
         Klaviyo.registerFormLifecycleCallback(firstCallback)
         assertEquals(firstCallback, Registry.get<FormLifecycleCallback>())
@@ -81,14 +82,15 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     @Test
     fun `FORM_SHOWN event is triggered by presentation manager, not bridge`() {
         var capturedEvent: FormLifecycleEvent? = null
-        val callback = FormLifecycleCallback { event, _ ->
+        val callback = FormLifecycleCallback { event ->
             capturedEvent = event
         }
 
         Klaviyo.registerFormLifecycleCallback(callback)
 
         // Simulate form shown message from webview — bridge delegates to present()
-        val message = """{"type":"formWillAppear", "data":{"formId":"$testFormId","formName":"$testFormName"}}"""
+        val message =
+            """{"type":"formWillAppear", "data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(message)
 
         // FORM_SHOWN is now fired by the presentation manager, not the bridge
@@ -98,9 +100,10 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
     @Test
     fun `formDisappeared delegates to presentation manager dismiss with formContext`() {
-        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _, _ -> })
+        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _ -> })
 
-        val message = """{"type":"formDisappeared","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
+        val message =
+            """{"type":"formDisappeared","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(message)
 
         // FORM_DISMISSED is now fired internally by PM's dismiss()
@@ -110,8 +113,8 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     @Test
     fun `FORM_CTA_CLICKED event is triggered when deep link is opened (v2 protocol)`() {
         // In v2, FormDisappeared is sent before OpenDeepLink, both now carry formId+formName
-        val events = mutableListOf<Pair<FormLifecycleEvent, FormContext>>()
-        val callback = FormLifecycleCallback { event, context -> events.add(event to context) }
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleCallback { event -> events.add(event) }
 
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any()) } returns Unit
@@ -130,14 +133,17 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
         // Then OpenDeepLink — CTA callback fires directly from bridge
         nativeBridge.postMessage(
-            """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId","formName":"$testFormName"}}"""
+            """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId","formName":"$testFormName","buttonLabel":"Shop Now"}}"""
         )
 
         // Only CTA fires directly from bridge; FORM_DISMISSED is now internal to PM
         assertEquals(1, events.size)
-        assertEquals(FormLifecycleEvent.FORM_CTA_CLICKED, events[0].first)
-        assertEquals(testFormId, events[0].second.formId)
-        assertEquals(testFormName, events[0].second.formName)
+        assertTrue(events[0] is FormLifecycleEvent.FormCtaClicked)
+        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaClicked
+        assertEquals(testFormId, ctaEvent.formId)
+        assertEquals(testFormName, ctaEvent.formName)
+        assertEquals("Shop Now", ctaEvent.buttonLabel)
+        assertEquals("https://example.com", ctaEvent.deepLinkUrl)
     }
 
     @Test
@@ -152,7 +158,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
     @Test
     fun `formDisappeared without data delegates dismiss with null context fields`() {
-        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _, _ -> })
+        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _ -> })
 
         nativeBridge.postMessage("""{"type":"formDisappeared"}""")
 
@@ -164,7 +170,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any()) } returns Unit
 
-        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _, _ -> })
+        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _ -> })
 
         // CTA callback still fires directly from the bridge
         nativeBridge.postMessage(

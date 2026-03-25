@@ -82,7 +82,7 @@ public class InAppFormsJavaApiTest extends BaseTest {
 
     @Test
     public void testRegisterFormLifecycleCallback() {
-        FormLifecycleCallback callback = (event, context) -> {};
+        FormLifecycleCallback callback = (event) -> {};
         Klaviyo result = KlaviyoFormsProviderKt.registerFormLifecycleCallback(Klaviyo.INSTANCE, callback);
         assertEquals(Klaviyo.INSTANCE, result);
     }
@@ -95,7 +95,7 @@ public class InAppFormsJavaApiTest extends BaseTest {
 
     @Test
     public void testKlaviyoFormLifecycleCallbacksRegister() {
-        FormLifecycleCallback callback = (event, context) -> {};
+        FormLifecycleCallback callback = (event) -> {};
         KlaviyoFormLifecycleCallbacks.registerFormLifecycleCallback(callback);
     }
 

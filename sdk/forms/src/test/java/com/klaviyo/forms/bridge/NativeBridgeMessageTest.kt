@@ -273,7 +273,12 @@ class NativeBridgeMessageTest : BaseTest() {
         val result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage) as NativeBridgeMessage.OpenDeepLink
 
         assertEquals(
-            NativeBridgeMessage.OpenDeepLink(route = null, formId = null, formName = null),
+            NativeBridgeMessage.OpenDeepLink(
+                route = null,
+                formId = null,
+                formName = null,
+                buttonLabel = null
+            ),
             result
         )
     }
@@ -293,7 +298,12 @@ class NativeBridgeMessageTest : BaseTest() {
         val result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage) as NativeBridgeMessage.OpenDeepLink
 
         assertEquals(
-            NativeBridgeMessage.OpenDeepLink(route = null, formId = null, formName = null),
+            NativeBridgeMessage.OpenDeepLink(
+                route = null,
+                formId = null,
+                formName = null,
+                buttonLabel = null
+            ),
             result
         )
     }

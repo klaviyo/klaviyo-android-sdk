@@ -8,11 +8,11 @@ package com.klaviyo.forms
  *
  * Example usage:
  * ```
- * Klaviyo.registerFormLifecycleCallback { event, context ->
+ * Klaviyo.registerFormLifecycleCallback { event ->
  *     when (event) {
- *         FormLifecycleEvent.FORM_SHOWN -> Log.d("Forms", "Form shown: ${context.formId} ${context.formName}")
- *         FormLifecycleEvent.FORM_DISMISSED -> Log.d("Forms", "Form dismissed: ${context.formId}")
- *         FormLifecycleEvent.FORM_CTA_CLICKED -> Log.d("Forms", "Form CTA clicked: ${context.formId}")
+ *         is FormLifecycleEvent.FormShown -> Log.d("Forms", "Form shown: ${event.formId}")
+ *         is FormLifecycleEvent.FormDismissed -> Log.d("Forms", "Form dismissed: ${event.formId}")
+ *         is FormLifecycleEvent.FormCtaClicked -> Log.d("Forms", "CTA: ${event.buttonLabel}")
  *     }
  * }
  * ```
@@ -21,8 +21,7 @@ fun interface FormLifecycleCallback {
     /**
      * Called when a form lifecycle event occurs.
      *
-     * @param event The type of lifecycle event that occurred
-     * @param context Contextual metadata about the form associated with the event
+     * @param event The lifecycle event, containing form metadata and event-specific data.
      */
-    fun onFormLifecycleEvent(event: FormLifecycleEvent, context: FormContext)
+    fun onFormLifecycleEvent(event: FormLifecycleEvent)
 }
