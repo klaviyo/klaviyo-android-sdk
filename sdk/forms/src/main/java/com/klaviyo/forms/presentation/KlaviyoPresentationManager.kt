@@ -63,6 +63,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 Registry.get<WebViewClient>().attachWebView(activity)
                 presentationState = Presented(it.formContext)
                 Registry.log.debug("Presentation State: $presentationState")
+                invokeFormLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, it.formContext)
             }
         }
     }
@@ -95,7 +96,6 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             presentationState.takeIf<Hidden>()?.let {
                 presentationState = Presenting(formContext)
                 Registry.log.debug("Presentation State: $presentationState")
-                invokeFormLifecycleCallback(FormLifecycleEvent.FORM_SHOWN, formContext)
                 activity.startActivity(
                     KlaviyoFormsOverlayActivity.launchIntent
                 )
