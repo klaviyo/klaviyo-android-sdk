@@ -41,6 +41,23 @@ class NativeBridgeMessageTest : BaseTest() {
     fun `test decodeWebviewMessage properly decodes show type`() {
         // Setup
         val showMessage = """
+            {"type": "formWillAppear", "data": {"formId": "abc123", "formName": "My Form"}}
+        """.trimIndent()
+
+        // Act
+        val result = NativeBridgeMessage.decodeWebviewMessage(showMessage)
+
+        // Assert
+        assert(result is NativeBridgeMessage.FormWillAppear)
+        val formWillAppear = result as NativeBridgeMessage.FormWillAppear
+        assertEquals("abc123", formWillAppear.formId)
+        assertEquals("My Form", formWillAppear.formName)
+    }
+
+    @Test
+    fun `test decodeWebviewMessage decodes show type without formName`() {
+        // Setup - v1 payloads may not include formName
+        val showMessage = """
             {"type": "formWillAppear", "data": {"formId": "abc123"}}
         """.trimIndent()
 
@@ -49,7 +66,9 @@ class NativeBridgeMessageTest : BaseTest() {
 
         // Assert
         assert(result is NativeBridgeMessage.FormWillAppear)
-        assertEquals("abc123", (result as NativeBridgeMessage.FormWillAppear).formId)
+        val formWillAppear = result as NativeBridgeMessage.FormWillAppear
+        assertEquals("abc123", formWillAppear.formId)
+        assertEquals(null, formWillAppear.formName)
     }
 
     @Test
@@ -283,6 +302,48 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
+    fun `test decodeWebviewMessage properly decodes formWillOpenQuery`() {
+        val queryMessage = """
+            {"type": "formWillOpenQuery", "data": {"formId": "abc123", "formType": "POPUP"}}
+        """.trimIndent()
+
+        val result = NativeBridgeMessage.decodeWebviewMessage(queryMessage)
+
+        assert(result is NativeBridgeMessage.FormWillOpenQuery)
+        val query = result as NativeBridgeMessage.FormWillOpenQuery
+        assertEquals("abc123", query.formId)
+        assertEquals("POPUP", query.formType)
+    }
+
+    @Test
+    fun `test decodeWebviewMessage decodes formWillOpenQuery without formType`() {
+        val queryMessage = """
+            {"type": "formWillOpenQuery", "data": {"formId": "abc123"}}
+        """.trimIndent()
+
+        val result = NativeBridgeMessage.decodeWebviewMessage(queryMessage)
+
+        assert(result is NativeBridgeMessage.FormWillOpenQuery)
+        val query = result as NativeBridgeMessage.FormWillOpenQuery
+        assertEquals("abc123", query.formId)
+        assertEquals(null, query.formType)
+    }
+
+    @Test
+    fun `test decodeWebviewMessage decodes formWillOpenQuery with empty data`() {
+        val queryMessage = """
+            {"type": "formWillOpenQuery", "data": {}}
+        """.trimIndent()
+
+        val result = NativeBridgeMessage.decodeWebviewMessage(queryMessage)
+
+        assert(result is NativeBridgeMessage.FormWillOpenQuery)
+        val query = result as NativeBridgeMessage.FormWillOpenQuery
+        assertEquals(null, query.formId)
+        assertEquals(null, query.formType)
+    }
+
+    @Test
     fun `Verify IAF handshake`() {
         assertEquals(
             """
@@ -309,6 +370,10 @@ class NativeBridgeMessageTest : BaseTest() {
                   },
                   {
                     "type": "formDisappeared",
+                    "version": 1
+                  },
+                  {
+                    "type": "formWillOpenQuery",
                     "version": 1
                   },
                   {

@@ -54,6 +54,32 @@ public class InAppFormsJavaApiTest {
     }
 
     @Test
+    public void testInAppFormsConfigWithCallback() {
+        InAppFormDisplayCallback callback = (formId, formType) -> true;
+        InAppFormsConfig config = new InAppFormsConfig(3600, callback);
+        assertNotNull(config);
+        assertEquals(callback, config.getFormDisplayCallback());
+    }
+
+    @Test
+    public void testInAppFormsConfigWithNullCallback() {
+        InAppFormsConfig config = new InAppFormsConfig(3600, null);
+        assertNotNull(config);
+        assertEquals(null, config.getFormDisplayCallback());
+    }
+
+    @Test
+    public void testInAppFormsConfigCallbackLambda() {
+        // Verify Java lambda works with the fun interface
+        InAppFormsConfig config = new InAppFormsConfig(
+            3600,
+            (formId, formType) -> !formType.equals("POPUP")
+        );
+        assertNotNull(config);
+        assertNotNull(config.getFormDisplayCallback());
+    }
+
+    @Test
     public void testKlaviyoInstanceAccessibleForExtensions() {
         assertNotNull(Klaviyo.INSTANCE);
     }

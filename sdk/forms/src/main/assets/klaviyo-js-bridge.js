@@ -112,6 +112,28 @@ window.closeForm = function (formId) {
     return true
 }
 
+/**
+ * Dispatches a formWillOpenContinuation event with the SDK's decision
+ * on whether to allow or block a form from displaying.
+ *
+ * @param formId - The form ID that was queried
+ * @param allowed - Whether the form should be allowed to display
+ */
+window.formWillOpenContinuation = function(formId, allowed) {
+    document.head.dispatchEvent(
+        new CustomEvent(
+            'formWillOpenContinuation',
+            {
+                detail: {
+                    formId: formId,
+                    answer: allowed
+                }
+            }
+        )
+    )
+    return true
+}
+
 window.setSafeArea = function(left, top, right, bottom) {
     document.documentElement.style.setProperty('--safe-area-inset-left', left + 'px');
     document.documentElement.style.setProperty('--safe-area-inset-top', top + 'px');

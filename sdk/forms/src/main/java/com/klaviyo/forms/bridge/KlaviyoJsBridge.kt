@@ -19,7 +19,8 @@ internal class KlaviyoJsBridge : JsBridge {
         openForm,
         closeForm,
         profileEvent,
-        setSafeArea
+        setSafeArea,
+        formWillOpenContinuation
     }
 
     override val handshake: List<HandshakeSpec> = listOf(
@@ -83,6 +84,12 @@ internal class KlaviyoJsBridge : JsBridge {
             right.toString(),
             bottom.toString()
         )
+
+    override fun formWillOpenContinuation(formId: FormId, allowed: Boolean) = evaluateJavascript(
+        HelperFunction.formWillOpenContinuation,
+        formId,
+        allowed
+    )
 
     /**
      * Evaluates a JS function in the webview with the given arguments

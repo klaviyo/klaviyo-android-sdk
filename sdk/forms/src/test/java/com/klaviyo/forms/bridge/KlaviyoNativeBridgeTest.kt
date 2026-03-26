@@ -13,6 +13,8 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import com.klaviyo.forms.InAppFormDisplayCallback
+import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
@@ -39,6 +41,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     private val mockState: State = mockk(relaxed = true)
     private val mockWebViewClient: WebViewClient = mockk(relaxed = true)
     private val mockPresentationManager: PresentationManager = mockk(relaxed = true)
+    private val mockJsBridge: JsBridge = mockk(relaxed = true)
 
     private val mockUri = mockk<Uri>(relaxed = true)
 
@@ -53,6 +56,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.register<State>(mockState)
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<PresentationManager>(mockPresentationManager)
+        Registry.register<JsBridge>(mockJsBridge)
 
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockUri
@@ -68,6 +72,8 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.unregister<State>()
         Registry.unregister<WebViewClient>()
         Registry.unregister<PresentationManager>()
+        Registry.unregister<JsBridge>()
+        Registry.unregister<InAppFormsConfig>()
         super.cleanup()
     }
 
@@ -315,6 +321,69 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
                 any<IllegalStateException>()
             )
         }
+    }
+
+    @Test
+    fun `formWillOpenQuery with callback returning true sends allowed continuation`() {
+        val callback = InAppFormDisplayCallback { _, _ -> true }
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(formDisplayCallback = callback))
+
+        postMessage("""{"type":"formWillOpenQuery","data":{"formId":"abc123","formType":"POPUP"}}""")
+
+        verify { mockJsBridge.formWillOpenContinuation("abc123", true) }
+    }
+
+    @Test
+    fun `formWillOpenQuery with callback returning false sends rejected continuation`() {
+        val callback = InAppFormDisplayCallback { _, _ -> false }
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(formDisplayCallback = callback))
+
+        postMessage("""{"type":"formWillOpenQuery","data":{"formId":"abc123","formType":"FLYOUT"}}""")
+
+        verify { mockJsBridge.formWillOpenContinuation("abc123", false) }
+    }
+
+    @Test
+    fun `formWillOpenQuery with no callback sends allowed continuation`() {
+        Registry.register<InAppFormsConfig>(InAppFormsConfig())
+
+        postMessage("""{"type":"formWillOpenQuery","data":{"formId":"abc123","formType":"POPUP"}}""")
+
+        verify { mockJsBridge.formWillOpenContinuation("abc123", true) }
+    }
+
+    @Test
+    fun `formWillOpenQuery with throwing callback sends allowed continuation and logs error`() {
+        val callback = InAppFormDisplayCallback { _, _ -> throw RuntimeException("test error") }
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(formDisplayCallback = callback))
+
+        postMessage("""{"type":"formWillOpenQuery","data":{"formId":"abc123","formType":"POPUP"}}""")
+
+        verify { mockJsBridge.formWillOpenContinuation("abc123", true) }
+        verify { spyLog.error("Form display callback threw an exception", any<RuntimeException>()) }
+    }
+
+    @Test
+    fun `formWillOpenQuery with null formId sends allowed continuation`() {
+        val callback = InAppFormDisplayCallback { _, _ -> false }
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(formDisplayCallback = callback))
+
+        postMessage("""{"type":"formWillOpenQuery","data":{}}""")
+
+        // With null formId, callback is skipped and allowed is true
+        verify { mockJsBridge.formWillOpenContinuation("", true) }
+    }
+
+    @Test
+    fun `formWillOpenQuery passes formId and formType to callback`() {
+        val callback = mockk<InAppFormDisplayCallback>(relaxed = true)
+        every { callback.shouldDisplayForm(any(), any()) } returns true
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(formDisplayCallback = callback))
+
+        postMessage("""{"type":"formWillOpenQuery","data":{"formId":"xyz789","formType":"FLYOUT"}}""")
+
+        verify { callback.shouldDisplayForm("xyz789", "FLYOUT") }
+        verify { mockJsBridge.formWillOpenContinuation("xyz789", true) }
     }
 
     @Test

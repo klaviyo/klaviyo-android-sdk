@@ -11,9 +11,12 @@ import kotlin.time.Duration.Companion.seconds
  * @param sessionTimeoutDuration Duration of user inactivity after which the form session is terminated.
  *  Defaults to 1 Hour, must be non-negative. Use 0 to timeout as soon as the app is backgrounded.
  *  To disable session timeout altogether, use [Duration.INFINITE]
+ * @param formDisplayCallback Optional callback to control whether a form should be displayed.
+ *  See [InAppFormDisplayCallback] for details.
  */
 data class InAppFormsConfig(
-    private val sessionTimeoutDuration: Duration
+    private val sessionTimeoutDuration: Duration,
+    private val formDisplayCallback: InAppFormDisplayCallback? = null
 ) {
     companion object {
         /***
@@ -33,6 +36,14 @@ data class InAppFormsConfig(
     constructor(timeoutSeconds: Int) : this(timeoutSeconds.seconds)
 
     /**
+     * Secondary constructor with timeout in seconds and a display callback for Java compatibility
+     */
+    constructor(timeoutSeconds: Int, callback: InAppFormDisplayCallback?) : this(
+        timeoutSeconds.seconds,
+        callback
+    )
+
+    /**
      * Returns the session timeout duration in seconds.
      * If the value is negative, it will return 0 and log an error.
      */
@@ -43,4 +54,9 @@ data class InAppFormsConfig(
             )
         }
     }
+
+    /**
+     * Returns the registered form display callback, or null if none was set.
+     */
+    fun getFormDisplayCallback(): InAppFormDisplayCallback? = formDisplayCallback
 }

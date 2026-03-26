@@ -11,9 +11,11 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
+import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear
+import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillOpenQuery
 import com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook
 import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
 import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
@@ -68,6 +70,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
                 JsReady -> jsReady()
                 HandShook -> handShook()
                 is FormWillAppear -> show(bridgeMessage)
+                is FormWillOpenQuery -> queryFormDisplay(bridgeMessage)
                 is TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
                 is TrackProfileEvent -> createProfileEvent(bridgeMessage)
                 is OpenDeepLink -> deepLink(bridgeMessage)
@@ -95,7 +98,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     private fun show(bridgeMessage: FormWillAppear) {
         // Use test layout for debugging WindowManager approach
         // TODO: Remove this hardcoded layout once JS is sending real layout data
-        val testLayout = TEST_LAYOUT ?: bridgeMessage.layout
+        val testLayout = bridgeMessage.layout ?: TEST_LAYOUT
         Registry.get<PresentationManager>().present(bridgeMessage.formId, testLayout)
     }
 
@@ -110,6 +113,35 @@ internal class KlaviyoNativeBridge() : NativeBridge {
             width = Dimension.dp(300f),
             height = Dimension.dp(200f),
             margins = Margins.all(16f)
+        )
+    }
+
+    /**
+     * Handle a [FormWillOpenQuery] by consulting the customer's display callback
+     * and sending the result back to JS via [JsBridge.formWillOpenContinuation].
+     *
+     * Fail-open: if no callback is registered, or if the callback throws, the form is allowed.
+     */
+    private fun queryFormDisplay(message: FormWillOpenQuery) {
+        val callback = Registry.get<InAppFormsConfig>().getFormDisplayCallback()
+
+        val allowed = if (callback != null && message.formId != null) {
+            try {
+                callback.shouldDisplayForm(
+                    message.formId,
+                    message.formType ?: ""
+                )
+            } catch (e: Exception) {
+                Registry.log.error("Form display callback threw an exception", e)
+                true
+            }
+        } else {
+            true
+        }
+
+        Registry.get<JsBridge>().formWillOpenContinuation(
+            message.formId ?: "",
+            allowed
         )
     }
 
