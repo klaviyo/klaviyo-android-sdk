@@ -108,13 +108,18 @@ internal class FloatingFormWindow(private val context: Context) {
     }
 
     /**
-     * Dismiss the floating form window and remove it from the WindowManager
+     * Dismiss the floating form window and remove it from the WindowManager.
+     *
+     * Uses [WindowManager.removeViewImmediate] to force synchronous view detach.
+     * This prevents WindowLeaked errors during activity destruction (e.g. rotation),
+     * where [WindowManager.removeView] would post the detach asynchronously and
+     * the activity could be destroyed before the view is actually removed.
      */
     fun dismiss() {
         Registry.threadHelper.runOnUiThread {
             container?.let { view ->
                 try {
-                    windowManager.removeView(view)
+                    windowManager.removeViewImmediate(view)
                     Registry.log.debug("FloatingFormWindow dismissed")
                 } catch (e: Exception) {
                     Registry.log.error("Failed to dismiss FloatingFormWindow", e)
