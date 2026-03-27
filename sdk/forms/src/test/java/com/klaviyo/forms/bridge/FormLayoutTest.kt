@@ -175,7 +175,7 @@ class FormLayoutTest {
                 "position": "bottom_right",
                 "width": {"value": 300, "unit": "fixed"},
                 "height": {"value": 200, "unit": "fixed"},
-                "offsets": {"top": 0, "bottom": 16, "left": 0, "right": 16}
+                "margin": {"top": 0, "bottom": 16, "left": 0, "right": 16}
             }
             """.trimIndent()
         )
@@ -189,6 +189,31 @@ class FormLayoutTest {
         assertEquals(DimensionUnit.FIXED, layout.height.unit)
         assertEquals(16f, layout.offsets.bottom, 0.01f)
         assertEquals(16f, layout.offsets.right, 0.01f)
+    }
+
+    @Test
+    fun `FormLayout fromJson parses Fender v2 flyout payload format`() {
+        // Exact payload shape from Fender MAGE-320-5 formWillAppear v2 handler
+        val json = JSONObject(
+            """
+            {
+                "position": "BOTTOM_RIGHT",
+                "width": {"value": 350, "unit": "FIXED"},
+                "height": {"value": 400, "unit": "FIXED"},
+                "margin": {"top": 0, "bottom": 0, "left": 0, "right": 0}
+            }
+            """.trimIndent()
+        )
+
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertEquals(FormPosition.BOTTOM_RIGHT, layout!!.position)
+        assertEquals(350f, layout.width.value, 0.01f)
+        assertEquals(DimensionUnit.FIXED, layout.width.unit)
+        assertEquals(400f, layout.height.value, 0.01f)
+        assertEquals(0f, layout.offsets.top, 0.01f)
+        assertEquals(0f, layout.offsets.bottom, 0.01f)
+        assertFalse(layout.isFullscreen)
     }
 
     @Test

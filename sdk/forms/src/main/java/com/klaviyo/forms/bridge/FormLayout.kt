@@ -152,7 +152,7 @@ internal data class FormLayout(
             val position = FormPosition.fromString(json.optString("position"))
             val width = Dimension.fromJson(json.optJSONObject("width")) ?: return null
             val height = Dimension.fromJson(json.optJSONObject("height")) ?: return null
-            val offsets = Offsets.fromJson(json.optJSONObject("offsets"))
+            val offsets = Offsets.fromJson(json.optJSONObject("margin"))
 
             return FormLayout(
                 position = position,

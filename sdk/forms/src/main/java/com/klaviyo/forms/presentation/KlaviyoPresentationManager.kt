@@ -65,6 +65,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     private fun onActivityEvent(event: ActivityEvent) = when (event) {
         is ActivityEvent.Created -> onCreateActivity(event)
         is ActivityEvent.ConfigurationChanged -> onConfigurationChanged(event)
+        is ActivityEvent.AllStopped -> onAllStopped()
         else -> Unit
     }
 
@@ -131,6 +132,40 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                     }
                 }
             }
+    }
+
+    /**
+     * Handles the app moving to the background (all activities stopped).
+     *
+     * Floating windows must be dismissed because their window token is tied to the host
+     * activity, which may be destroyed while backgrounded. The form state and layout are
+     * preserved so the window can be re-presented when the app returns to the foreground.
+     *
+     * Activity-based forms handle their own lifecycle and don't need intervention here.
+     */
+    private fun onAllStopped() = safeCall {
+        floatingFormWindow?.let { window ->
+            val state = presentationState.takeIfNot<PresentationState, Hidden>() ?: return@safeCall
+
+            Registry.get<WebViewClient>().detachWebView()
+            window.dismiss()
+            floatingFormWindow = null
+            presentationState = Presenting(state.formId)
+            Registry.log.debug("App backgrounded, dismissed floating window for re-presentation")
+
+            val layout = currentLayout ?: return@safeCall
+            val floatingLayout = layout.takeUnless { it.isFullscreen } ?: return@safeCall
+
+            // Re-present when the app returns to the foreground with a valid activity
+            cancelPostponedPresent = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
+                timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
+            ) { activity ->
+                // Post to ensure window token is available after activity resumes
+                activity.window.decorView.post {
+                    presentFloatingWindow(activity, state.formId, floatingLayout)
+                }
+            }
+        }
     }
 
     /**
