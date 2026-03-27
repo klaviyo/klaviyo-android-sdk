@@ -4,6 +4,7 @@ import android.app.Activity
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf
@@ -42,8 +43,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     private var floatingFormWindow: FloatingFormWindow? = null
 
     /**
-     * Weak reference to the host activity for floating window presentation.
-     * TODO: Will be used for orientation change re-presentation and dynamic layout updates.
+     * Weak reference to the host activity for floating window presentation
      */
     private var hostActivity by WeakReferenceDelegate<Activity>(null)
 
@@ -86,18 +86,49 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * Handles device orientation change by observing all configuration changes
      * and re-attaching the webview if currently presented.
      *
-     * TODO: Add floating window re-creation on orientation change. Currently the WindowManager
-     *  LayoutParams become stale after the host Activity recreates, so the floating window
-     *  position/size won't update after rotation.
+     * For Activity-based forms: detaches the webview and sets state to Presenting.
+     * The overlay activity will re-attach via [onCreateActivity] after recreation.
+     *
+     * For floating windows: dismisses the window (invalidated by activity recreation)
+     * and re-presents with the saved layout once the new activity is available.
      */
     private fun onConfigurationChanged(event: ActivityEvent.ConfigurationChanged) = safeCall {
         event.newConfig.orientation.takeIf { it != orientation }
             ?.also { newOrientation -> orientation = newOrientation }?.let {
-                presentationState.takeIfNot<PresentationState, Hidden>()?.let {
+                presentationState.takeIfNot<PresentationState, Hidden>()?.let { state ->
                     orientation = event.newConfig.orientation
                     Registry.get<WebViewClient>().detachWebView()
-                    presentationState = Presenting(it.formId)
+                    presentationState = Presenting(state.formId)
                     Registry.log.debug("New screen orientation, detaching view")
+
+                    // For floating windows, dismiss and re-present with new activity token.
+                    // We must wait for the NEXT Resumed activity, not use currentActivity,
+                    // because ConfigurationChanged fires before the old activity is destroyed.
+                    // runWithCurrentOrNextActivity would shortcut with the stale activity.
+                    floatingFormWindow?.let { window ->
+                        window.dismiss()
+                        floatingFormWindow = null
+
+                        val layout = currentLayout ?: return@safeCall
+                        val floatingLayout = layout.takeUnless { it.isFullscreen } ?: return@safeCall
+
+                        var observer: ActivityObserver? = null
+                        observer = { event ->
+                            event.takeIf<ActivityEvent.Resumed>()?.let { resumed ->
+                                observer?.let { Registry.lifecycleMonitor.offActivityEvent(it) }
+                                // Post to ensure window token is available — it's null
+                                // during onResume but valid after the view hierarchy attaches
+                                resumed.activity.window.decorView.post {
+                                    presentFloatingWindow(
+                                        resumed.activity,
+                                        state.formId,
+                                        floatingLayout
+                                    )
+                                }
+                            }
+                        }
+                        Registry.lifecycleMonitor.onActivityEvent(observer)
+                    }
                 }
             }
     }
