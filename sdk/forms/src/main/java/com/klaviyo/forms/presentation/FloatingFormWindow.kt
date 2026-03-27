@@ -80,8 +80,6 @@ internal class FloatingFormWindow(private val context: Context) {
         Registry.threadHelper.runOnUiThread {
             try {
                 val newContainer = FrameLayout(hostActivity).apply {
-                    // TODO: Remove debug background before production
-                    setBackgroundColor(DEBUG_BACKGROUND_COLOR)
                     layoutParams = FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.MATCH_PARENT
@@ -185,12 +183,5 @@ internal class FloatingFormWindow(private val context: Context) {
             FormPosition.BOTTOM, FormPosition.BOTTOM_LEFT, FormPosition.BOTTOM_RIGHT -> -bottomOffset
             FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
         }
-    }
-
-    companion object {
-        /**
-         * Semi-transparent red for debug visibility
-         */
-        private const val DEBUG_BACKGROUND_COLOR = 0x30FF0000
     }
 }
