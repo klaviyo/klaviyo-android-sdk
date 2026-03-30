@@ -31,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -87,7 +89,7 @@ fun LocationView(
                 shape = CircleShape,
                 onClick = onRegisterForGeofencing,
                 enabled = !isGeofencingRegistered,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).semantics { testTag = LocationTestTags.BTN_REGISTER_GEOFENCING }
             ) {
                 Text(text = LocationViewConstants.REGISTER_GEOFENCING)
             }
@@ -95,7 +97,7 @@ fun LocationView(
                 shape = CircleShape,
                 onClick = onUnregisterFromGeofencing,
                 enabled = isGeofencingRegistered,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).semantics { testTag = LocationTestTags.BTN_UNREGISTER_GEOFENCING }
             ) {
                 Text(text = LocationViewConstants.UNREGISTER_GEOFENCING)
             }
@@ -109,6 +111,7 @@ fun LocationView(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
+                    .semantics { testTag = LocationTestTags.BTN_REQUEST_LOCATION_PERMISSION }
             ) {
                 Text(text = LocationViewConstants.REQUEST_LOCATION_PERMISSION)
             }
@@ -120,6 +123,7 @@ fun LocationView(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
+                    .semantics { testTag = LocationTestTags.BTN_REQUEST_BACKGROUND_LOCATION_PERMISSION }
             ) {
                 Text(text = LocationViewConstants.REQUEST_BACKGROUND_LOCATION_PERMISSION)
             }
@@ -134,7 +138,9 @@ fun LocationView(
                 text = LocationViewConstants.BACKGROUND_PERMISSION_GRANTED,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 8.dp)
+                modifier = Modifier
+                    .padding(horizontal = 8.dp)
+                    .semantics { testTag = LocationTestTags.TEXT_BACKGROUND_LOCATION_GRANTED }
             )
         }
 
@@ -337,7 +343,7 @@ private fun MapContent(
         ) {
             IconButton(
                 onClick = onToggleExpand,
-                modifier = Modifier.size(38.dp)
+                modifier = Modifier.size(38.dp).semantics { testTag = LocationTestTags.BTN_TOGGLE_MAP_EXPAND }
             ) {
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ZoomInMap else Icons.Default.ZoomOutMap,
@@ -363,7 +369,7 @@ private fun MapContent(
         ) {
             IconButton(
                 onClick = onRefreshGeofences,
-                modifier = Modifier.size(38.dp)
+                modifier = Modifier.size(38.dp).semantics { testTag = LocationTestTags.BTN_REFRESH_GEOFENCES }
             ) {
                 Icon(
                     imageVector = Icons.Default.Refresh,
