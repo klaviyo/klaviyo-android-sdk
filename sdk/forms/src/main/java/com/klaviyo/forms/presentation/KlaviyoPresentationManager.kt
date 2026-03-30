@@ -7,9 +7,11 @@ import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf
 import com.klaviyo.core.utils.takeIfNot
+import com.klaviyo.forms.FormContext
+import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.InAppFormsConfig
-import com.klaviyo.forms.bridge.FormId
 import com.klaviyo.forms.bridge.JsBridge
+import com.klaviyo.forms.invokeFormLifecycleCallback
 import com.klaviyo.forms.presentation.PresentationState.Hidden
 import com.klaviyo.forms.presentation.PresentationState.Presented
 import com.klaviyo.forms.presentation.PresentationState.Presenting
@@ -59,7 +61,10 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             presentationState.takeIf<Presenting>()?.let {
                 overlayActivity = activity
                 Registry.get<WebViewClient>().attachWebView(activity)
-                presentationState = Presented(it.formId)
+                presentationState = Presented(it.formContext)
+                invokeFormLifecycleCallback(
+                    FormLifecycleEvent.FormShown(it.formId, it.formName)
+                )
                 Registry.log.debug("Presentation State: $presentationState")
             }
         }
@@ -75,7 +80,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 presentationState.takeIfNot<PresentationState, Hidden>()?.let {
                     orientation = event.newConfig.orientation
                     Registry.get<WebViewClient>().detachWebView()
-                    presentationState = Presenting(it.formId)
+                    presentationState = Presenting(it.formContext)
                     Registry.log.debug("New screen orientation, detaching view")
                 }
             }
@@ -85,13 +90,13 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * Present the form now if the app is foregrounded,
      * or else wait till next foregrounded unless session ends
      */
-    override fun present(formId: FormId?) {
+    override fun present(formContext: FormContext?) {
         clearTimers()
         cancelPostponedPresent = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
             timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
         ) { activity ->
             presentationState.takeIf<Hidden>()?.let {
-                presentationState = Presenting(formId)
+                presentationState = Presenting(formContext)
                 Registry.log.debug("Presentation State: $presentationState")
                 activity.startActivity(
                     KlaviyoFormsOverlayActivity.launchIntent
@@ -105,10 +110,16 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     /**
      * Detach the webview from the overlay activity and finish it
      */
-    override fun dismiss() = overlayActivity?.let { activity ->
+    override fun dismiss(formContext: FormContext?) = overlayActivity?.let { activity ->
         clearTimers()
         Registry.get<WebViewClient>().detachWebView()
         activity.finish()
+        presentationState.takeIfNot<PresentationState, Hidden>()?.let {
+            val context = formContext ?: it.formContext
+            invokeFormLifecycleCallback(
+                FormLifecycleEvent.FormDismissed(context?.formId, context?.formName)
+            )
+        }
         presentationState = Hidden
         overlayActivity = null
         Registry.log.debug("Presentation State: $presentationState")
@@ -121,6 +132,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      */
     override fun closeFormAndDismiss() = presentationState.takeIf<Presented>()?.let {
         Registry.get<JsBridge>().closeForm(it.formId)
+        dismissOnTimeout?.cancel()
         dismissOnTimeout = Registry.clock.schedule(CLOSE_TIMEOUT, ::dismiss)
     } ?: dismiss().also {
         Registry.log.debug("Dismissing without closing form. Current state: $presentationState")
