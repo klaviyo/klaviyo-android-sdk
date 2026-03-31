@@ -32,6 +32,20 @@ internal class FloatingFormWindow(private val context: Context) {
     private var originalYOffset: Int = 0
 
     /**
+     * The form's bottom edge distance from the screen bottom (in pixels),
+     * computed from gravity, offset, and form height. Used to determine
+     * whether the keyboard overlaps the form and by how much.
+     */
+    private var formBottomGap: Int = 0
+
+    /**
+     * Whether the form uses bottom-anchored gravity (BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT).
+     * Determines the direction of keyboard shift — bottom-anchored forms shift with
+     * positive y (up from bottom), others shift with negative y (up from anchor).
+     */
+    private var isBottomAnchored: Boolean = false
+
+    /**
      * Keyboard animation tracking for the host activity's root view.
      * Since the floating window uses FLAG_NOT_FOCUSABLE, inset callbacks won't fire
      * on the window itself — we must observe from the host activity's view hierarchy.
@@ -107,6 +121,12 @@ internal class FloatingFormWindow(private val context: Context) {
         }
 
         originalYOffset = params.y
+        formBottomGap = calculateFormBottomGap(layout, params.height, screenHeight, density)
+        isBottomAnchored = layout.position in listOf(
+            FormPosition.BOTTOM,
+            FormPosition.BOTTOM_LEFT,
+            FormPosition.BOTTOM_RIGHT
+        )
         windowParams = params
 
         Registry.threadHelper.runOnUiThread {
@@ -214,21 +234,7 @@ internal class FloatingFormWindow(private val context: Context) {
                 insets: WindowInsetsCompat,
                 runningAnimations: MutableList<WindowInsetsAnimationCompat>
             ): WindowInsetsCompat {
-                val params = windowParams ?: return insets
-                val currentContainer = container ?: return insets
-
-                val imeOffset = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-                params.y = originalYOffset + imeOffset
-
-                try {
-                    windowManager.updateViewLayout(currentContainer, params)
-                } catch (e: Exception) {
-                    Registry.log.error(
-                        "Failed to update flyout position during keyboard animation",
-                        e
-                    )
-                }
-
+                applyKeyboardShift(insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
                 return insets
             }
 
@@ -256,17 +262,7 @@ internal class FloatingFormWindow(private val context: Context) {
         // instant update here to avoid fighting with the animation.
         val insetsListener = androidx.core.view.OnApplyWindowInsetsListener { _, insets ->
             if (!isAnimatingKeyboard) {
-                val params = windowParams ?: return@OnApplyWindowInsetsListener insets
-                val currentContainer = container ?: return@OnApplyWindowInsetsListener insets
-                val imeOffset = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-
-                params.y = originalYOffset + imeOffset
-
-                try {
-                    windowManager.updateViewLayout(currentContainer, params)
-                } catch (e: Exception) {
-                    Registry.log.error("Failed to update flyout position for keyboard", e)
-                }
+                applyKeyboardShift(insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
             }
             insets
         }
@@ -284,6 +280,74 @@ internal class FloatingFormWindow(private val context: Context) {
         }
         hostRootView = null
         isAnimatingKeyboard = false
+    }
+
+    /**
+     * Shift the flyout up only if the keyboard actually overlaps the form.
+     * Computes the overlap between the keyboard top edge and the form bottom edge,
+     * and shifts by exactly the overlap amount — no shift if the form is fully above
+     * the keyboard (e.g. top-aligned short forms).
+     *
+     * The shift direction depends on gravity:
+     * - BOTTOM gravity: positive y = up, so we ADD the overlap
+     * - TOP/CENTER gravity: positive y = down, so we SUBTRACT the overlap
+     *
+     * @param keyboardHeight Current keyboard height in pixels (0 when closed)
+     */
+    private fun applyKeyboardShift(keyboardHeight: Int) {
+        val params = windowParams ?: return
+        val currentContainer = container ?: return
+
+        // How far the keyboard intrudes into the form's space
+        val overlap = (keyboardHeight - formBottomGap).coerceAtLeast(0)
+
+        // Shift direction depends on gravity anchor:
+        // Bottom-anchored: positive y moves up from bottom edge
+        // Top/Center-anchored: negative y moves up from anchor point
+        params.y = if (isBottomAnchored) {
+            originalYOffset + overlap
+        } else {
+            originalYOffset - overlap
+        }
+
+        try {
+            windowManager.updateViewLayout(currentContainer, params)
+        } catch (e: Exception) {
+            Registry.log.error("Failed to update flyout position for keyboard", e)
+        }
+    }
+
+    /**
+     * Calculate the gap between the form's bottom edge and the screen bottom (in pixels).
+     * Used to determine keyboard overlap — if keyboardHeight > formBottomGap, the keyboard
+     * overlaps the form and we need to shift.
+     *
+     * For BOTTOM gravity: gap = vertical offset (form sits at bottom, offset pushes it up)
+     * For TOP gravity: gap = screenHeight - topOffset - formHeight
+     * For CENTER gravity: gap = (screenHeight - formHeight) / 2
+     */
+    private fun calculateFormBottomGap(
+        layout: FormLayout,
+        formHeight: Int,
+        screenHeight: Int,
+        density: Float
+    ): Int {
+        val topOffset = (layout.offsets.top * density).toInt()
+        val bottomOffset = (layout.offsets.bottom * density).toInt()
+
+        return when (layout.position) {
+            FormPosition.BOTTOM,
+            FormPosition.BOTTOM_LEFT,
+            FormPosition.BOTTOM_RIGHT -> bottomOffset
+
+            FormPosition.TOP,
+            FormPosition.TOP_LEFT,
+            FormPosition.TOP_RIGHT -> screenHeight - topOffset - formHeight
+
+            FormPosition.CENTER -> (screenHeight - formHeight) / 2
+
+            FormPosition.FULLSCREEN -> 0
+        }
     }
 
     /**
