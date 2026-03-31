@@ -8,6 +8,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsAnimationCompat
+import androidx.core.view.WindowInsetsCompat
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.bridge.FormLayout
 import com.klaviyo.forms.bridge.FormPosition
@@ -26,6 +29,26 @@ internal class FloatingFormWindow(private val context: Context) {
 
     private var container: FrameLayout? = null
     private var windowParams: WindowManager.LayoutParams? = null
+    private var originalYOffset: Int = 0
+
+    /**
+     * Keyboard animation tracking for the host activity's root view.
+     * Since the floating window uses FLAG_NOT_FOCUSABLE, inset callbacks won't fire
+     * on the window itself — we must observe from the host activity's view hierarchy.
+     *
+     * Uses WindowInsetsAnimationCompat to smoothly track the keyboard animation
+     * frame-by-frame, shifting the flyout in sync with the keyboard slide.
+     * On API < 30, animation callbacks don't fire so we fall back to
+     * OnApplyWindowInsetsListener for an instant (non-animated) shift.
+     *
+     * We shift the flyout above the keyboard rather than hiding it so the user
+     * can still see the form while typing in the host app.
+     * An alternative approach is to hide the flyout entirely (set container GONE)
+     * which is simpler and avoids edge cases with tall forms that don't fit
+     * above the keyboard, but means the user loses sight of the form while typing.
+     */
+    private var hostRootView: View? = null
+    private var isAnimatingKeyboard = false
 
     /**
      * Show the floating form window with the given webView and layout configuration
@@ -68,13 +91,22 @@ internal class FloatingFormWindow(private val context: Context) {
             y = calculateVerticalOffset(layout, density)
 
             // FLAG_NOT_TOUCH_MODAL: Allow touches outside the window to pass through
+            // FLAG_NOT_FOCUSABLE: Let the host activity retain input focus so its keyboard
+            //   still works while the flyout is visible. Flyout forms currently only need
+            //   tap/scroll interaction (buttons, links), not text input.
+            //   TODO: When flyout forms support text input (email collection, etc.), this flag
+            //    will need to be removed or toggled dynamically so the WebView can receive
+            //    keyboard focus. Consider removing FLAG_NOT_FOCUSABLE when the user taps a
+            //    form input and restoring it when the input loses focus.
             // FLAG_LAYOUT_NO_LIMITS: Allow window to extend beyond screen bounds for positioning
             flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
             format = PixelFormat.TRANSLUCENT
         }
 
+        originalYOffset = params.y
         windowParams = params
 
         Registry.threadHelper.runOnUiThread {
@@ -98,6 +130,7 @@ internal class FloatingFormWindow(private val context: Context) {
                 )
                 container = newContainer
                 windowManager.addView(newContainer, params)
+                startKeyboardMonitor(hostActivity)
                 Registry.log.debug("FloatingFormWindow shown at ${layout.position}")
             } catch (e: Exception) {
                 Registry.log.error("Failed to show FloatingFormWindow", e)
@@ -116,6 +149,7 @@ internal class FloatingFormWindow(private val context: Context) {
      * the activity could be destroyed before the view is actually removed.
      */
     fun dismiss() {
+        stopKeyboardMonitor()
         Registry.threadHelper.runOnUiThread {
             container?.let { view ->
                 try {
@@ -160,6 +194,96 @@ internal class FloatingFormWindow(private val context: Context) {
                 Registry.log.error("Failed to update FloatingFormWindow layout", e)
             }
         }
+    }
+
+    /**
+     * Start monitoring keyboard animation from the host activity's root view.
+     *
+     * Uses [WindowInsetsAnimationCompat.Callback] to track the keyboard frame-by-frame
+     * on API 30+, shifting the flyout smoothly in sync. Falls back to
+     * [ViewCompat.setOnApplyWindowInsetsListener] for an instant shift on older APIs
+     * where animation callbacks don't fire.
+     */
+    private fun startKeyboardMonitor(hostActivity: Activity) {
+        val rootView = hostActivity.window.decorView.rootView
+        hostRootView = rootView
+
+        // Animation callback: tracks keyboard slide frame-by-frame (API 30+)
+        val animationCallback = object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_STOP) {
+            override fun onProgress(
+                insets: WindowInsetsCompat,
+                runningAnimations: MutableList<WindowInsetsAnimationCompat>
+            ): WindowInsetsCompat {
+                val params = windowParams ?: return insets
+                val currentContainer = container ?: return insets
+
+                val imeOffset = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+                params.y = originalYOffset + imeOffset
+
+                try {
+                    windowManager.updateViewLayout(currentContainer, params)
+                } catch (e: Exception) {
+                    Registry.log.error(
+                        "Failed to update flyout position during keyboard animation",
+                        e
+                    )
+                }
+
+                return insets
+            }
+
+            override fun onStart(
+                animation: WindowInsetsAnimationCompat,
+                bounds: WindowInsetsAnimationCompat.BoundsCompat
+            ): WindowInsetsAnimationCompat.BoundsCompat {
+                if (animation.typeMask and WindowInsetsCompat.Type.ime() != 0) {
+                    isAnimatingKeyboard = true
+                }
+                return bounds
+            }
+
+            override fun onEnd(animation: WindowInsetsAnimationCompat) {
+                if (animation.typeMask and WindowInsetsCompat.Type.ime() != 0) {
+                    isAnimatingKeyboard = false
+                }
+            }
+        }
+
+        ViewCompat.setWindowInsetsAnimationCallback(rootView, animationCallback)
+
+        // Fallback insets listener for API < 30 where animation callbacks don't fire.
+        // On API 30+, the animation callback handles positioning so we skip the
+        // instant update here to avoid fighting with the animation.
+        val insetsListener = androidx.core.view.OnApplyWindowInsetsListener { _, insets ->
+            if (!isAnimatingKeyboard) {
+                val params = windowParams ?: return@OnApplyWindowInsetsListener insets
+                val currentContainer = container ?: return@OnApplyWindowInsetsListener insets
+                val imeOffset = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+
+                params.y = originalYOffset + imeOffset
+
+                try {
+                    windowManager.updateViewLayout(currentContainer, params)
+                } catch (e: Exception) {
+                    Registry.log.error("Failed to update flyout position for keyboard", e)
+                }
+            }
+            insets
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(rootView, insetsListener)
+    }
+
+    /**
+     * Stop monitoring keyboard and clean up listeners
+     */
+    private fun stopKeyboardMonitor() {
+        hostRootView?.let {
+            ViewCompat.setWindowInsetsAnimationCallback(it, null)
+            ViewCompat.setOnApplyWindowInsetsListener(it, null)
+        }
+        hostRootView = null
+        isAnimatingKeyboard = false
     }
 
     /**
