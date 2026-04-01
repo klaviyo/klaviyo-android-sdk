@@ -62,9 +62,11 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 overlayActivity = activity
                 Registry.get<WebViewClient>().attachWebView(activity)
                 presentationState = Presented(it.formContext)
-                invokeFormLifecycleCallback(
-                    FormLifecycleEvent.FormShown(it.formId, it.formName)
-                )
+                it.formContext?.let { ctx ->
+                    invokeFormLifecycleCallback(
+                        FormLifecycleEvent.FormShown(ctx.formId, ctx.formName)
+                    )
+                }
                 Registry.log.debug("Presentation State: $presentationState")
             }
         }
@@ -115,10 +117,12 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         Registry.get<WebViewClient>().detachWebView()
         activity.finish()
         presentationState.takeIfNot<PresentationState, Hidden>()?.let {
-            val context = formContext ?: it.formContext
-            invokeFormLifecycleCallback(
-                FormLifecycleEvent.FormDismissed(context?.formId, context?.formName)
-            )
+            val ctx = formContext ?: it.formContext
+            ctx?.let { c ->
+                invokeFormLifecycleCallback(
+                    FormLifecycleEvent.FormDismissed(c.formId, c.formName)
+                )
+            }
         }
         presentationState = Hidden
         overlayActivity = null

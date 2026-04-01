@@ -5,6 +5,6 @@ package com.klaviyo.forms
  * Used by [com.klaviyo.forms.presentation.PresentationState] to track the current form.
  */
 internal data class FormContext(
-    val formId: String?,
-    val formName: String?
+    val formId: String,
+    val formName: String
 )

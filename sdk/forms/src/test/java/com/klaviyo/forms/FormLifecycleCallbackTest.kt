@@ -33,7 +33,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     override fun setup() {
         super.setup()
         every { mockPresentationManager.presentationState } returns PresentationState.Presented(
-            FormContext("formId", null)
+            FormContext("formId", "formName")
         )
         Registry.register<PresentationManager>(mockPresentationManager)
         nativeBridge = KlaviyoNativeBridge()
@@ -157,12 +157,12 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     }
 
     @Test
-    fun `formDisappeared without data delegates dismiss with null context fields`() {
+    fun `formDisappeared without data delegates dismiss with empty context fields`() {
         Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _ -> })
 
         nativeBridge.postMessage("""{"type":"formDisappeared"}""")
 
-        verify { mockPresentationManager.dismiss(FormContext(null, null)) }
+        verify { mockPresentationManager.dismiss(FormContext("", "")) }
     }
 
     @Test

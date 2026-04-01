@@ -53,7 +53,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     private fun withPresentedState(): KlaviyoPresentationManager = KlaviyoPresentationManager().mockPresent()
 
     private fun KlaviyoPresentationManager.mockPresent() = apply {
-        present(FormContext("formId", null))
+        present(FormContext("formId", "formName"))
         assert(slotOnActivityEvent.isCaptured) { "Lifecycle listener should be captured" }
         slotOnActivityEvent.captured(ActivityEvent.Created(mockOverlayActivity, null))
     }
@@ -73,7 +73,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
         assertEquals(
             "PresentationState should be Presented after overlay activity is created",
-            PresentationState.Presented(FormContext("formId", null)),
+            PresentationState.Presented(FormContext("formId", "formName")),
             manager.presentationState
         )
     }
@@ -130,7 +130,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     fun `present should not start a duplicate activity`() {
         val manager = withPresentedState()
         verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
-        manager.present(FormContext("formId", null))
+        manager.present(FormContext("formId", "formName"))
         verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
     }
 
@@ -161,13 +161,13 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         val manager = withHiddenState()
 
         // Present comes first
-        manager.present(FormContext("formId", null))
+        manager.present(FormContext("formId", "formName"))
 
         // Expect start activity to be called and state to be Presenting
         verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
         assertEquals(
             "PresentationState should transition to Presenting",
-            PresentationState.Presenting(FormContext("formId", null)),
+            PresentationState.Presenting(FormContext("formId", "formName")),
             manager.presentationState
         )
 
@@ -177,7 +177,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
         assertEquals(
             "PresentationState should transition to Presented",
-            PresentationState.Presented(FormContext("formId", null)),
+            PresentationState.Presented(FormContext("formId", "formName")),
             manager.presentationState
         )
 
@@ -254,6 +254,48 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
         // FORM_SHOWN should NOT have fired again
         assertEquals(1, events.size)
+
+        Registry.unregister<FormLifecycleCallback>()
+    }
+
+    @Test
+    fun `dismiss with different formContext uses provided context over state`() {
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleCallback { event -> events.add(event) }
+        Registry.register<FormLifecycleCallback>(callback)
+
+        val manager = withPresentedState()
+
+        // Clear the FORM_SHOWN from present()
+        events.clear()
+
+        // Dismiss with a different formContext than what was presented
+        manager.dismiss(FormContext("differentFormId", "Different Form"))
+
+        assertEquals(1, events.size)
+        val dismissed = events[0] as FormLifecycleEvent.FormDismissed
+        assertEquals("differentFormId", dismissed.formId)
+        assertEquals("Different Form", dismissed.formName)
+
+        Registry.unregister<FormLifecycleCallback>()
+    }
+
+    @Test
+    fun `dismiss without formContext falls back to state context`() {
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleCallback { event -> events.add(event) }
+        Registry.register<FormLifecycleCallback>(callback)
+
+        val manager = withPresentedState()
+        events.clear()
+
+        // Dismiss without providing explicit formContext
+        manager.dismiss()
+
+        assertEquals(1, events.size)
+        val dismissed = events[0] as FormLifecycleEvent.FormDismissed
+        assertEquals("formId", dismissed.formId)
+        assertEquals("formName", dismissed.formName)
 
         Registry.unregister<FormLifecycleCallback>()
     }
