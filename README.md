@@ -103,10 +103,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.3.2")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.3.2")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.3.2")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.3.2")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.4.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.4.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.4.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.4.0")
       }
       ```
    </details>
@@ -117,10 +117,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.3.2"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.3.2"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.3.2"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.3.2"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.4.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.4.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.4.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.4.0"
        }
       ```
    </details>
