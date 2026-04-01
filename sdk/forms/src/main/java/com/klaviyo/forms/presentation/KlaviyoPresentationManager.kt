@@ -35,6 +35,12 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      */
     private var dismissOnTimeout: Clock.Cancellable? = null
 
+    /**
+     * Observer waiting for the next Resumed activity after rotation to re-present a floating window.
+     * Tracked at class level so it can be cleaned up if dismiss() is called while pending.
+     */
+    private var rotationObserver: ActivityObserver? = null
+
     private var overlayActivity by WeakReferenceDelegate<KlaviyoFormsOverlayActivity>(null)
 
     /**
@@ -113,10 +119,12 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                         val layout = currentLayout ?: return@safeCall
                         val floatingLayout = layout.takeUnless { it.isFullscreen } ?: return@safeCall
 
-                        var observer: ActivityObserver? = null
-                        observer = { event ->
+                        rotationObserver = { event ->
                             event.takeIf<ActivityEvent.Resumed>()?.let { resumed ->
-                                observer?.let { Registry.lifecycleMonitor.offActivityEvent(it) }
+                                rotationObserver?.let {
+                                    Registry.lifecycleMonitor.offActivityEvent(it)
+                                }
+                                rotationObserver = null
                                 // Post to ensure window token is available — it's null
                                 // during onResume but valid after the view hierarchy attaches
                                 resumed.activity.window.decorView.post {
@@ -128,7 +136,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                                 }
                             }
                         }
-                        Registry.lifecycleMonitor.onActivityEvent(observer)
+                        Registry.lifecycleMonitor.onActivityEvent(rotationObserver!!)
                     }
                 }
             }
@@ -157,12 +165,26 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             val floatingLayout = layout.takeUnless { it.isFullscreen } ?: return@safeCall
 
             // Re-present when the app returns to the foreground with a valid activity
+            val timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
             cancelPostponedPresent = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
-                timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
+                timeout = timeout
             ) { activity ->
+                // Cancel the fallback since we're successfully re-presenting
+                dismissOnTimeout?.cancel()
+                dismissOnTimeout = null
                 // Post to ensure window token is available after activity resumes
                 activity.window.decorView.post {
                     presentFloatingWindow(activity, state.formId, floatingLayout)
+                }
+            }
+
+            // Fallback: if the timeout fires without re-presentation, reset state to Hidden
+            // so future present() calls aren't blocked by a stale Presenting state
+            dismissOnTimeout = Registry.clock.schedule(timeout) {
+                presentationState.takeIf<Presenting>()?.let {
+                    presentationState = Hidden
+                    currentLayout = null
+                    Registry.log.debug("Background re-presentation timed out, resetting to Hidden")
                 }
             }
         }
@@ -280,13 +302,16 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     }
 
     /**
-     * Clear timers to stop any delayed side effects
+     * Clear timers and observers to stop any delayed side effects
      */
     private fun clearTimers() {
         // Run this cancel job now to stop any postponed form presentation
         cancelPostponedPresent?.runNow().also { cancelPostponedPresent = null }
         // Cancel the timeout for dismissing the overlay activity
         dismissOnTimeout?.cancel().also { dismissOnTimeout = null }
+        // Unregister any pending rotation observer to prevent re-presentation after dismiss
+        rotationObserver?.let { Registry.lifecycleMonitor.offActivityEvent(it) }
+        rotationObserver = null
     }
 
     private companion object {

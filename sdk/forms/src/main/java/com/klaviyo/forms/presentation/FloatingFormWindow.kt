@@ -169,8 +169,8 @@ internal class FloatingFormWindow(private val context: Context) {
      * the activity could be destroyed before the view is actually removed.
      */
     fun dismiss() {
-        stopKeyboardMonitor()
         Registry.threadHelper.runOnUiThread {
+            stopKeyboardMonitor()
             container?.let { view ->
                 try {
                     windowManager.removeViewImmediate(view)
