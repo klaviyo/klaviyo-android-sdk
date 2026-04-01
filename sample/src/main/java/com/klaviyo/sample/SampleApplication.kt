@@ -33,17 +33,14 @@ class SampleApplication : Application() {
                 when (event) {
                     is FormShown -> {
                         Registry.log.debug("Form shown: ${event.formId} ${event.formName}")
-                        showToast("Form shown: ${event.formId} ${event.formName}")
                     }
                     is FormDismissed -> {
                         Registry.log.debug("Form dismissed: ${event.formId} ${event.formName}")
-                        showToast("Form dismissed: ${event.formId} ${event.formName}")
                     }
                     is FormCtaClicked -> {
                         Registry.log.debug(
                             "Form CTA: ${event.buttonLabel} -> ${event.deepLinkUrl}"
                         )
-                        showToast("Form CTA: ${event.buttonLabel} -> ${event.deepLinkUrl}")
                     }
                 }
             }

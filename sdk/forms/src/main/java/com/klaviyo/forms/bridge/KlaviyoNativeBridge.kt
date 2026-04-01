@@ -97,7 +97,10 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      */
     private fun show(bridgeMessage: FormWillAppear) {
         Registry.get<PresentationManager>().present(
-            FormContext(bridgeMessage.formId, bridgeMessage.formName)
+            FormContext(
+                bridgeMessage.formId.orEmpty(),
+                bridgeMessage.formName.orEmpty()
+            )
         )
     }
 
@@ -123,8 +126,8 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     private fun deepLink(message: OpenDeepLink) {
         invokeFormLifecycleCallback(
             FormLifecycleEvent.FormCtaClicked(
-                formId = message.formId,
-                formName = message.formName,
+                formId = message.formId.orEmpty(),
+                formName = message.formName.orEmpty(),
                 buttonLabel = message.buttonLabel,
                 deepLinkUrl = message.route
             )
@@ -142,7 +145,10 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      */
     private fun close(bridgeMessage: FormDisappeared) {
         Registry.get<PresentationManager>().dismiss(
-            FormContext(bridgeMessage.formId, bridgeMessage.formName)
+            FormContext(
+                bridgeMessage.formId.orEmpty(),
+                bridgeMessage.formName.orEmpty()
+            )
         )
     }
 

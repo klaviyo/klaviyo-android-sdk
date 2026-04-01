@@ -59,7 +59,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.register<PresentationManager>(mockPresentationManager)
 
         every { mockPresentationManager.presentationState } returns PresentationState.Presented(
-            FormContext("formId", null)
+            FormContext("formId", "formName")
         )
 
         mockkStatic(Uri::class)
@@ -122,7 +122,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockPresentationManager.present(FormContext(null, null)) }
+        verify { mockPresentationManager.present(FormContext("", "")) }
     }
 
     @Test
@@ -131,7 +131,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear", "data":{"formId":"64CjgW"}}""")
-        verify { mockPresentationManager.present(FormContext("64CjgW", null)) }
+        verify { mockPresentationManager.present(FormContext("64CjgW", "")) }
     }
 
     @Test
@@ -355,12 +355,12 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formDisappeared triggers dismiss with null context when no data`() {
+    fun `formDisappeared triggers dismiss with empty context when no data`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
         postMessage("""{"type":"formDisappeared"}""")
-        verify { mockPresentationManager.dismiss(FormContext(null, null)) }
+        verify { mockPresentationManager.dismiss(FormContext("", "")) }
     }
 
     @Test

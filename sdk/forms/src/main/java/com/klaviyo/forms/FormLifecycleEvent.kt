@@ -10,29 +10,29 @@ package com.klaviyo.forms
  */
 sealed interface FormLifecycleEvent {
     /**
-     * The form ID of the form associated with this event, or null if unavailable.
+     * The form ID of the form associated with this event.
      */
-    val formId: String?
+    val formId: String
 
     /**
-     * The display name of the form associated with this event, or null if unavailable.
+     * The display name of the form associated with this event.
      */
-    val formName: String?
+    val formName: String
 
     /**
      * Triggered when a form is shown to the user.
      */
     data class FormShown(
-        override val formId: String?,
-        override val formName: String?
+        override val formId: String,
+        override val formName: String
     ) : FormLifecycleEvent
 
     /**
      * Triggered when a form is dismissed (closed) by the user.
      */
     data class FormDismissed(
-        override val formId: String?,
-        override val formName: String?
+        override val formId: String,
+        override val formName: String
     ) : FormLifecycleEvent
 
     /**
@@ -42,8 +42,8 @@ sealed interface FormLifecycleEvent {
      * @property deepLinkUrl The deep link URL configured for the CTA, or null if not configured.
      */
     data class FormCtaClicked(
-        override val formId: String?,
-        override val formName: String?,
+        override val formId: String,
+        override val formName: String,
         val buttonLabel: String?,
         val deepLinkUrl: String?
     ) : FormLifecycleEvent
