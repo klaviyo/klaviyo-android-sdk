@@ -119,7 +119,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                         val layout = currentLayout ?: return@safeCall
                         val floatingLayout = layout.takeUnless { it.isFullscreen } ?: return@safeCall
 
-                        rotationObserver = { event ->
+                        val observer: ActivityObserver = { event ->
                             event.takeIf<ActivityEvent.Resumed>()?.let { resumed ->
                                 rotationObserver?.let {
                                     Registry.lifecycleMonitor.offActivityEvent(it)
@@ -136,7 +136,8 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                                 }
                             }
                         }
-                        Registry.lifecycleMonitor.onActivityEvent(rotationObserver!!)
+                        rotationObserver = observer
+                        Registry.lifecycleMonitor.onActivityEvent(observer)
                     }
                 }
             }

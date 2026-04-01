@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
+import androidx.core.view.OnApplyWindowInsetsListener
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
@@ -260,7 +261,7 @@ internal class FloatingFormWindow(private val context: Context) {
         // Fallback insets listener for API < 30 where animation callbacks don't fire.
         // On API 30+, the animation callback handles positioning so we skip the
         // instant update here to avoid fighting with the animation.
-        val insetsListener = androidx.core.view.OnApplyWindowInsetsListener { _, insets ->
+        val insetsListener = OnApplyWindowInsetsListener { _, insets ->
             if (!isAnimatingKeyboard) {
                 applyKeyboardShift(insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
             }
