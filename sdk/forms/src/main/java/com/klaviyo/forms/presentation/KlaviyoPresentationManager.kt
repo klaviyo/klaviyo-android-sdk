@@ -175,6 +175,8 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                                 // Post to ensure window token is available — it's null
                                 // during onResume but valid after the view hierarchy attaches
                                 resumed.activity.window.decorView.post {
+                                    // Guard: dismiss() may have run between post and execution
+                                    if (presentationState is Hidden) return@post
                                     presentFloatingWindow(
                                         resumed.activity,
                                         state.formId,
@@ -226,6 +228,8 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 dismissOnTimeout = null
                 // Post to ensure window token is available after activity resumes
                 activity.window.decorView.post {
+                    // Guard: dismiss() may have run between post and execution
+                    if (presentationState is Hidden) return@post
                     presentFloatingWindow(activity, state.formId, floatingLayout)
                 }
             }
