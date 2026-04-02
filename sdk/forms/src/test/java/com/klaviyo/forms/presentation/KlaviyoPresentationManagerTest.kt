@@ -381,16 +381,20 @@ class KlaviyoPresentationManagerTest : BaseTest() {
             slotOnActivityEvent.captured(ActivityEvent.ConfigurationChanged(mockConfig))
             assertEquals(PresentationState.Presenting("floatingFormId"), manager.presentationState)
 
-            // Dismiss cancels the rotation observer via clearTimers()
+            // Dismiss cancels the rotation observer via clearTimers() and resets state
             manager.dismiss()
+            assertEquals(
+                "Dismiss during rotation should reset state to Hidden",
+                PresentationState.Hidden,
+                manager.presentationState
+            )
 
             // Simulate new activity resuming — should NOT re-present the floating window
             // because the rotation observer was cleaned up by dismiss/clearTimers
-            val presentedStateBefore = manager.presentationState
             slotOnActivityEvent.captured(ActivityEvent.Resumed(mockk(relaxed = true)))
             assertEquals(
                 "Resumed should not change state after dismiss cancels rotation observer",
-                presentedStateBefore,
+                PresentationState.Hidden,
                 manager.presentationState
             )
         } finally {

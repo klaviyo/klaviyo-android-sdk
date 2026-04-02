@@ -339,7 +339,18 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             currentLayout = null
             Registry.log.debug("Presentation State: $presentationState (Activity dismissed)")
         } ?: run {
-            Registry.log.debug("No-op dismiss: nothing is currently presented")
+            // Catch-all: reset state to Hidden if neither branch handled dismissal.
+            // This covers mid-rotation dismiss where floatingFormWindow was already
+            // nulled by onConfigurationChanged but state is still Presenting.
+            if (presentationState !is Hidden) {
+                presentationState = Hidden
+                currentLayout = null
+                Registry.log.debug(
+                    "Presentation State: $presentationState (reset from stale state)"
+                )
+            } else {
+                Registry.log.debug("No-op dismiss: nothing is currently presented")
+            }
         }
     }
 
