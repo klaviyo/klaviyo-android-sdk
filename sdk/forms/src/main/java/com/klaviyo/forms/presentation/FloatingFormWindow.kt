@@ -186,38 +186,6 @@ internal class FloatingFormWindow(private val context: Context) {
     }
 
     /**
-     * Update the layout of the floating form window
-     *
-     * TODO: Will be used for dynamic resizing (e.g. after orientation change)
-     *
-     * @param layout The new layout configuration
-     */
-    fun updateLayout(layout: FormLayout) {
-        val params = windowParams ?: return
-        val container = container ?: return
-
-        val displayMetrics = context.resources.displayMetrics
-        val screenWidth = displayMetrics.widthPixels
-        val screenHeight = displayMetrics.heightPixels
-        val density = displayMetrics.density
-
-        params.width = layout.width.toPixels(screenWidth, density)
-        params.height = layout.height.toPixels(screenHeight, density)
-        params.gravity = layout.position.toGravity()
-        params.x = calculateHorizontalOffset(layout, density)
-        params.y = calculateVerticalOffset(layout, density)
-
-        Registry.threadHelper.runOnUiThread {
-            try {
-                windowManager.updateViewLayout(container, params)
-                Registry.log.debug("FloatingFormWindow layout updated")
-            } catch (e: Exception) {
-                Registry.log.error("Failed to update FloatingFormWindow layout", e)
-            }
-        }
-    }
-
-    /**
      * Start monitoring keyboard animation from the host activity's root view.
      *
      * Uses [WindowInsetsAnimationCompat.Callback] to track the keyboard frame-by-frame

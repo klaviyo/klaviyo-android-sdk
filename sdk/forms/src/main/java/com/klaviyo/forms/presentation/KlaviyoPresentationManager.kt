@@ -143,6 +143,10 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * and re-presents with the saved layout once the new activity is available.
      */
     private fun onConfigurationChanged(event: ActivityEvent.ConfigurationChanged) = safeCall {
+        // Cancel any pending per-activity cleanup — rotation handles its own re-presentation
+        hostActivityStoppedCleanup?.cancel()
+        hostActivityStoppedCleanup = null
+
         event.newConfig.orientation.takeIf { it != orientation }
             ?.also { newOrientation -> orientation = newOrientation }?.let {
                 presentationState.takeIfNot<PresentationState, Hidden>()?.let { state ->
