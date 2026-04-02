@@ -5,6 +5,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
+import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf
@@ -41,6 +42,15 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      */
     private var rotationObserver: ActivityObserver? = null
 
+    /**
+     * Delayed cleanup for multi-activity transitions. When the host activity stops,
+     * we schedule cleanup after a grace period. If AllStopped fires within the grace
+     * period (app backgrounding), it cancels this and handles re-presentation instead.
+     * If the grace period expires without AllStopped, this is a multi-activity transition
+     * and we permanently dismiss the floating window to avoid leaking the dead Activity.
+     */
+    private var hostActivityStoppedCleanup: Clock.Cancellable? = null
+
     private var overlayActivity by WeakReferenceDelegate<KlaviyoFormsOverlayActivity>(null)
 
     /**
@@ -71,6 +81,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     private fun onActivityEvent(event: ActivityEvent) = when (event) {
         is ActivityEvent.Created -> onCreateActivity(event)
         is ActivityEvent.ConfigurationChanged -> onConfigurationChanged(event)
+        is ActivityEvent.Stopped -> onActivityStopped(event)
         is ActivityEvent.AllStopped -> onAllStopped()
         else -> Unit
     }
@@ -85,6 +96,38 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 Registry.get<WebViewClient>().attachWebView(activity)
                 presentationState = Presented(it.formId)
                 Registry.log.debug("Presentation State: $presentationState")
+            }
+        }
+    }
+
+    /**
+     * Handles the host activity stopping in a multi-activity app.
+     *
+     * When the host activity (the one showing the floating form) stops, we schedule
+     * a delayed cleanup. If [onAllStopped] fires within the grace period (meaning the
+     * app is backgrounding), it cancels this cleanup and handles re-presentation instead.
+     * If the grace period expires without [onAllStopped], this is a multi-activity
+     * transition and we permanently dismiss the floating window to avoid leaking the
+     * dead Activity reference held by [FloatingFormWindow].
+     */
+    private fun onActivityStopped(event: ActivityEvent.Stopped) = safeCall {
+        floatingFormWindow ?: return@safeCall
+        if (event.activity !== hostActivity) return@safeCall
+
+        hostActivityStoppedCleanup = Registry.clock.schedule(
+            LifecycleMonitor.ACTIVITY_TRANSITION_GRACE_PERIOD
+        ) {
+            floatingFormWindow?.let { window ->
+                Registry.get<WebViewClient>().detachWebView()
+                window.dismiss()
+                floatingFormWindow = null
+                hostActivity = null
+                currentLayout = null
+                presentationState = Hidden
+                Registry.log.debug(
+                    "Host activity stopped in multi-activity transition, " +
+                        "dismissed floating window"
+                )
             }
         }
     }
@@ -153,6 +196,10 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * Activity-based forms handle their own lifecycle and don't need intervention here.
      */
     private fun onAllStopped() = safeCall {
+        // Cancel any pending per-activity cleanup — we handle it here with re-presentation
+        hostActivityStoppedCleanup?.cancel()
+        hostActivityStoppedCleanup = null
+
         floatingFormWindow?.let { window ->
             val state = presentationState.takeIfNot<PresentationState, Hidden>() ?: return@safeCall
 
@@ -313,6 +360,9 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         // Unregister any pending rotation observer to prevent re-presentation after dismiss
         rotationObserver?.let { Registry.lifecycleMonitor.offActivityEvent(it) }
         rotationObserver = null
+        // Cancel any pending multi-activity transition cleanup
+        hostActivityStoppedCleanup?.cancel()
+        hostActivityStoppedCleanup = null
     }
 
     private companion object {
