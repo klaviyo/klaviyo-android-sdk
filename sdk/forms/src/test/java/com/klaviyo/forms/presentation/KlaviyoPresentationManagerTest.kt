@@ -7,7 +7,6 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
-import com.klaviyo.forms.FormContext
 import com.klaviyo.forms.FormLifecycleCallback
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.InAppFormsConfig
@@ -22,7 +21,6 @@ import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KlaviyoPresentationManagerTest : BaseTest() {
@@ -53,7 +51,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     private fun withPresentedState(): KlaviyoPresentationManager = KlaviyoPresentationManager().mockPresent()
 
     private fun KlaviyoPresentationManager.mockPresent() = apply {
-        present(FormContext("formId", "formName"))
+        present()
         assert(slotOnActivityEvent.isCaptured) { "Lifecycle listener should be captured" }
         slotOnActivityEvent.captured(ActivityEvent.Created(mockOverlayActivity, null))
     }
@@ -73,7 +71,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
         assertEquals(
             "PresentationState should be Presented after overlay activity is created",
-            PresentationState.Presented(FormContext("formId", "formName")),
+            PresentationState.Presented,
             manager.presentationState
         )
     }
@@ -130,7 +128,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     fun `present should not start a duplicate activity`() {
         val manager = withPresentedState()
         verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
-        manager.present(FormContext("formId", "formName"))
+        manager.present()
         verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
     }
 
@@ -161,13 +159,13 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         val manager = withHiddenState()
 
         // Present comes first
-        manager.present(FormContext("formId", "formName"))
+        manager.present()
 
         // Expect start activity to be called and state to be Presenting
         verify(exactly = 1) { mockActivity.startActivity(mockLaunchIntent) }
         assertEquals(
             "PresentationState should transition to Presenting",
-            PresentationState.Presenting(FormContext("formId", "formName")),
+            PresentationState.Presenting,
             manager.presentationState
         )
 
@@ -177,7 +175,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
         assertEquals(
             "PresentationState should transition to Presented",
-            PresentationState.Presented(FormContext("formId", "formName")),
+            PresentationState.Presented,
             manager.presentationState
         )
 
@@ -195,7 +193,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     fun `test closeFormAndDismiss with expected JS callback`() {
         val manager = withPresentedState()
         val mockBridge = mockk<JsBridge>().apply {
-            every { closeForm(any()) } answers {
+            every { closeForm() } answers {
                 // Simulate expected JS behavior of sending back a form disappeared message
                 manager.dismiss()
             }
@@ -204,7 +202,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
         manager.closeFormAndDismiss()
 
-        verify(exactly = 1) { mockBridge.closeForm(any()) }
+        verify(exactly = 1) { mockBridge.closeForm() }
         verify(exactly = 1) { mockWebViewClient.detachWebView() }
         verify(exactly = 1) { mockOverlayActivity.finish() }
         assertEquals(
@@ -217,17 +215,17 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     fun `test closeFormAndDismiss dismisses if closeForm does not call back in time`() {
         val manager = withPresentedState()
         val mockBridge = mockk<JsBridge>().apply {
-            every { closeForm(any()) } just runs
+            every { closeForm() } just runs
         }
         Registry.register<JsBridge>(mockBridge)
 
         manager.closeFormAndDismiss()
 
-        verify(exactly = 1) { mockBridge.closeForm(any()) }
+        verify(exactly = 1) { mockBridge.closeForm() }
         verify(exactly = 0) { mockWebViewClient.detachWebView() }
         verify(exactly = 0) { mockOverlayActivity.finish() }
 
-        staticClock.execute(400L)
+        staticClock.execute(500L)
 
         verify(exactly = 1) { mockWebViewClient.detachWebView() }
         verify(exactly = 1) { mockOverlayActivity.finish() }
@@ -238,95 +236,20 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `FORM_SHOWN is not fired when presentation state is not Hidden`() {
+    fun `presentation manager does not fire lifecycle callbacks`() {
         val events = mutableListOf<FormLifecycleEvent>()
         val callback = FormLifecycleCallback { event -> events.add(event) }
         Registry.register<FormLifecycleCallback>(callback)
 
         val manager = withPresentedState()
 
-        // FORM_SHOWN should have fired once during initial present
-        assertEquals(1, events.size)
-        assertTrue(events[0] is FormLifecycleEvent.FormShown)
-
-        // Attempt to present again while already Presented
-        manager.present(FormContext("secondFormId", "Second Form"))
-
-        // FORM_SHOWN should NOT have fired again
-        assertEquals(1, events.size)
-
-        Registry.unregister<FormLifecycleCallback>()
-    }
-
-    @Test
-    fun `dismiss with different formContext uses provided context over state`() {
-        val events = mutableListOf<FormLifecycleEvent>()
-        val callback = FormLifecycleCallback { event -> events.add(event) }
-        Registry.register<FormLifecycleCallback>(callback)
-
-        val manager = withPresentedState()
-
-        // Clear the FORM_SHOWN from present()
-        events.clear()
-
-        // Dismiss with a different formContext than what was presented
-        manager.dismiss(FormContext("differentFormId", "Different Form"))
-
-        assertEquals(1, events.size)
-        val dismissed = events[0] as FormLifecycleEvent.FormDismissed
-        assertEquals("differentFormId", dismissed.formId)
-        assertEquals("Different Form", dismissed.formName)
-
-        Registry.unregister<FormLifecycleCallback>()
-    }
-
-    @Test
-    fun `dismiss without formContext falls back to state context`() {
-        val events = mutableListOf<FormLifecycleEvent>()
-        val callback = FormLifecycleCallback { event -> events.add(event) }
-        Registry.register<FormLifecycleCallback>(callback)
-
-        val manager = withPresentedState()
-        events.clear()
-
-        // Dismiss without providing explicit formContext
-        manager.dismiss()
-
-        assertEquals(1, events.size)
-        val dismissed = events[0] as FormLifecycleEvent.FormDismissed
-        assertEquals("formId", dismissed.formId)
-        assertEquals("formName", dismissed.formName)
-
-        Registry.unregister<FormLifecycleCallback>()
-    }
-
-    @Test
-    fun `FORM_DISMISSED fires on back-press timeout path`() {
-        val events = mutableListOf<FormLifecycleEvent>()
-        val callback = FormLifecycleCallback { event -> events.add(event) }
-        Registry.register<FormLifecycleCallback>(callback)
-
-        val manager = withPresentedState()
-        val mockBridge = mockk<JsBridge>().apply {
-            every { closeForm(any()) } just runs
-        }
-        Registry.register<JsBridge>(mockBridge)
-
-        // Clear events from the present() call
-        events.clear()
-
-        manager.closeFormAndDismiss()
-
-        // Before timeout, no FORM_DISMISSED should have fired
+        // PM should not fire FormShown — that's the bridge's job now
         assertEquals(0, events.size)
 
-        // Simulate timeout (JS didn't respond)
-        staticClock.execute(400L)
+        manager.dismiss()
 
-        // FORM_DISMISSED should have fired via the timeout path
-        assertEquals(1, events.size)
-        val dismissed = events[0] as FormLifecycleEvent.FormDismissed
-        assertEquals("formId", dismissed.formId)
+        // PM should not fire FormDismissed either
+        assertEquals(0, events.size)
 
         Registry.unregister<FormLifecycleCallback>()
     }

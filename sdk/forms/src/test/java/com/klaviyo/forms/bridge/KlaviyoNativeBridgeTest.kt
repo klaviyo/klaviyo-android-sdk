@@ -13,7 +13,6 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
-import com.klaviyo.forms.FormContext
 import com.klaviyo.forms.FormLifecycleCallback
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.presentation.PresentationManager
@@ -58,9 +57,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<PresentationManager>(mockPresentationManager)
 
-        every { mockPresentationManager.presentationState } returns PresentationState.Presented(
-            FormContext("formId", "formName")
-        )
+        every { mockPresentationManager.presentationState } returns PresentationState.Presented
 
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockUri
@@ -122,7 +119,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockPresentationManager.present(FormContext("", "")) }
+        verify { mockPresentationManager.present() }
     }
 
     @Test
@@ -131,7 +128,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear", "data":{"formId":"64CjgW"}}""")
-        verify { mockPresentationManager.present(FormContext("64CjgW", "")) }
+        verify { mockPresentationManager.present() }
     }
 
     @Test
@@ -325,19 +322,27 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         val callback = FormLifecycleCallback { event -> events.add(event) }
         Registry.register<FormLifecycleCallback>(callback)
 
-        // Show with formName (FORM_SHOWN is now fired by the presentation manager, not the bridge)
+        // Show — bridge fires FormShown
         postMessage("""{"type":"formWillAppear","data":{"formId":"abc","formName":"My Form"}}""")
-        // Dismiss — bridge passes formContext to PM's dismiss(), which fires the callback internally
+        assertEquals(1, events.size)
+        val shownEvent = events[0] as FormLifecycleEvent.FormShown
+        assertEquals("My Form", shownEvent.formName)
+        assertEquals("abc", shownEvent.formId)
+
+        // Dismiss — bridge fires FormDismissed and delegates to PM
         postMessage("""{"type":"formDisappeared","data":{"formId":"abc","formName":"My Form"}}""")
-        verify { mockPresentationManager.dismiss(FormContext("abc", "My Form")) }
+        verify { mockPresentationManager.dismiss() }
+        assertEquals(2, events.size)
+        val dismissedEvent = events[1] as FormLifecycleEvent.FormDismissed
+        assertEquals("My Form", dismissedEvent.formName)
+        assertEquals("abc", dismissedEvent.formId)
+
         // CTA — formId+formName come from the bridge message itself
         postMessage(
             """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"abc","formName":"My Form"}}"""
         )
-
-        // Only CTA callback fires directly from the bridge; FORM_DISMISSED is now fired by PM
-        assertEquals(1, events.size)
-        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaClicked
+        assertEquals(3, events.size)
+        val ctaEvent = events[2] as FormLifecycleEvent.FormCtaClicked
         assertEquals("My Form", ctaEvent.formName)
         assertEquals("abc", ctaEvent.formId)
         assertEquals("klaviyotest://settings", ctaEvent.deepLinkUrl)
@@ -351,7 +356,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
         postMessage("""{"type":"formDisappeared","data":{"formId":"abc","formName":"My Form"}}""")
-        verify { mockPresentationManager.dismiss(FormContext("abc", "My Form")) }
+        verify { mockPresentationManager.dismiss() }
     }
 
     @Test
@@ -360,7 +365,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
         postMessage("""{"type":"formDisappeared"}""")
-        verify { mockPresentationManager.dismiss(FormContext("", "")) }
+        verify { mockPresentationManager.dismiss() }
     }
 
     @Test

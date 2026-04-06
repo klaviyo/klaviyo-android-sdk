@@ -1,7 +1,5 @@
 package com.klaviyo.forms.presentation
 
-import com.klaviyo.forms.FormContext
-
 internal interface PresentationManager {
     /**
      * The current state of presentation
@@ -11,14 +9,12 @@ internal interface PresentationManager {
     /**
      * Present the form overlay activity
      */
-    fun present(formContext: FormContext? = null)
+    fun present()
 
     /**
-     * Dismiss the form overlay activity.
-     * Fires [com.klaviyo.forms.FormLifecycleEvent.FORM_DISMISSED] if transitioning out of a non-Hidden state.
-     * @param formContext optional context to use for the callback; falls back to [presentationState]
+     * Dismiss the form overlay activity
      */
-    fun dismiss(formContext: FormContext? = null)
+    fun dismiss()
 
     /**
      * Close any open forms and dismiss the overlay activity
