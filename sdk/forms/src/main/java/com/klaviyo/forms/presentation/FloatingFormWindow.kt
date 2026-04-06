@@ -12,6 +12,8 @@ import androidx.core.view.OnApplyWindowInsetsListener
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsCompat.Type.displayCutout
+import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.bridge.FormLayout
 import com.klaviyo.forms.bridge.FormPosition
@@ -86,6 +88,14 @@ internal class FloatingFormWindow(private val context: Context) {
         val screenHeight = displayMetrics.heightPixels
         val density = displayMetrics.density
 
+        // Read safe area insets (notch, system bars, display cutouts) from the
+        // host activity's decor view. These ensure the form is not obscured by
+        // device hardware or system UI.
+        val rootWindowInsets = ViewCompat.getRootWindowInsets(hostActivity.window.decorView)
+        val safeInsets = rootWindowInsets?.getInsets(systemBars() or displayCutout())
+        val safeAreaTop = safeInsets?.top ?: 0
+        val safeAreaBottom = safeInsets?.bottom ?: 0
+
         val params = WindowManager.LayoutParams().apply {
             // TYPE_APPLICATION_PANEL (1000) doesn't require special permissions
             // It attaches as a panel to the parent window
@@ -101,9 +111,9 @@ internal class FloatingFormWindow(private val context: Context) {
             // Set gravity based on position
             gravity = layout.position.toGravity()
 
-            // Calculate offsets based on position
+            // Calculate offsets based on position, including safe area insets
             x = calculateHorizontalOffset(layout, density)
-            y = calculateVerticalOffset(layout, density)
+            y = calculateVerticalOffset(layout, density, safeAreaTop, safeAreaBottom)
 
             // FLAG_NOT_TOUCH_MODAL: Allow touches outside the window to pass through
             // FLAG_NOT_FOCUSABLE: Let the host activity retain input focus so its keyboard
@@ -122,7 +132,7 @@ internal class FloatingFormWindow(private val context: Context) {
         }
 
         originalYOffset = params.y
-        formBottomGap = calculateFormBottomGap(layout, params.height, screenHeight, density)
+        formBottomGap = calculateFormBottomGap(layout, params.height, screenHeight, density, safeAreaTop, safeAreaBottom)
         isBottomAnchored = layout.position in listOf(
             FormPosition.BOTTOM,
             FormPosition.BOTTOM_LEFT,
@@ -291,15 +301,17 @@ internal class FloatingFormWindow(private val context: Context) {
      * Used to determine keyboard overlap — if keyboardHeight > formBottomGap, the keyboard
      * overlaps the form and we need to shift.
      *
-     * For BOTTOM gravity: gap = vertical offset (form sits at bottom, offset pushes it up)
-     * For TOP gravity: gap = screenHeight - topOffset - formHeight
+     * For BOTTOM gravity: gap = vertical offset (safe area + user offset)
+     * For TOP gravity: gap = screenHeight - totalTopOffset - formHeight
      * For CENTER gravity: gap = (screenHeight - formHeight) / 2
      */
     private fun calculateFormBottomGap(
         layout: FormLayout,
         formHeight: Int,
         screenHeight: Int,
-        density: Float
+        density: Float,
+        safeAreaTop: Int,
+        safeAreaBottom: Int
     ): Int {
         val topOffset = (layout.offsets.top * density).toInt()
         val bottomOffset = (layout.offsets.bottom * density).toInt()
@@ -307,11 +319,11 @@ internal class FloatingFormWindow(private val context: Context) {
         return when (layout.position) {
             FormPosition.BOTTOM,
             FormPosition.BOTTOM_LEFT,
-            FormPosition.BOTTOM_RIGHT -> bottomOffset
+            FormPosition.BOTTOM_RIGHT -> safeAreaBottom + bottomOffset
 
             FormPosition.TOP,
             FormPosition.TOP_LEFT,
-            FormPosition.TOP_RIGHT -> screenHeight - topOffset - formHeight
+            FormPosition.TOP_RIGHT -> screenHeight - safeAreaTop - topOffset - formHeight
 
             FormPosition.CENTER -> (screenHeight - formHeight) / 2
 
@@ -334,15 +346,27 @@ internal class FloatingFormWindow(private val context: Context) {
     }
 
     /**
-     * Calculate vertical offset based on position and offsets
+     * Calculate vertical offset based on position, user offsets, and safe area insets.
+     * Safe area insets ensure the form is not obscured by notches, Dynamic Island,
+     * or system UI. User offsets are additive on top of safe area.
+     *
+     * @param safeAreaTop Top safe area inset in pixels
+     * @param safeAreaBottom Bottom safe area inset in pixels
      */
-    private fun calculateVerticalOffset(layout: FormLayout, density: Float): Int {
+    private fun calculateVerticalOffset(
+        layout: FormLayout,
+        density: Float,
+        safeAreaTop: Int,
+        safeAreaBottom: Int
+    ): Int {
         val topOffset = (layout.offsets.top * density).toInt()
         val bottomOffset = (layout.offsets.bottom * density).toInt()
 
         return when (layout.position) {
-            FormPosition.TOP, FormPosition.TOP_LEFT, FormPosition.TOP_RIGHT -> topOffset
-            FormPosition.BOTTOM, FormPosition.BOTTOM_LEFT, FormPosition.BOTTOM_RIGHT -> bottomOffset
+            FormPosition.TOP, FormPosition.TOP_LEFT, FormPosition.TOP_RIGHT ->
+                safeAreaTop + topOffset
+            FormPosition.BOTTOM, FormPosition.BOTTOM_LEFT, FormPosition.BOTTOM_RIGHT ->
+                safeAreaBottom + bottomOffset
             FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
         }
     }
