@@ -50,7 +50,7 @@ class NativeBridgeMessageTest : BaseTest() {
         // Assert
         assert(result is NativeBridgeMessage.FormWillAppear)
         assertEquals("abc123", (result as NativeBridgeMessage.FormWillAppear).formId)
-        assertEquals(null, result.formName)
+        assertEquals("", result.formName)
     }
 
     @Test
@@ -66,7 +66,7 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `test decodeWebviewMessage returns null formName when empty`() {
+    fun `test decodeWebviewMessage returns empty formName when empty`() {
         val showMessage = """
             {"type": "formWillAppear", "data": {"formId": "abc123", "formName": ""}}
         """.trimIndent()
@@ -74,7 +74,7 @@ class NativeBridgeMessageTest : BaseTest() {
         val result = NativeBridgeMessage.decodeWebviewMessage(showMessage) as NativeBridgeMessage.FormWillAppear
 
         assertEquals("abc123", result.formId)
-        assertEquals(null, result.formName)
+        assertEquals("", result.formName)
     }
 
     @Test
@@ -88,7 +88,7 @@ class NativeBridgeMessageTest : BaseTest() {
         // Assert
         assert(result is NativeBridgeMessage.FormDisappeared)
         assertEquals("abc123", (result as NativeBridgeMessage.FormDisappeared).formId)
-        assertEquals(null, result.formName)
+        assertEquals("", result.formName)
     }
 
     @Test
@@ -275,9 +275,9 @@ class NativeBridgeMessageTest : BaseTest() {
         assertEquals(
             NativeBridgeMessage.OpenDeepLink(
                 route = null,
-                formId = null,
-                formName = null,
-                buttonLabel = null
+                formId = "",
+                formName = "",
+                buttonLabel = ""
             ),
             result
         )
@@ -300,9 +300,9 @@ class NativeBridgeMessageTest : BaseTest() {
         assertEquals(
             NativeBridgeMessage.OpenDeepLink(
                 route = null,
-                formId = null,
-                formName = null,
-                buttonLabel = null
+                formId = "",
+                formName = "",
+                buttonLabel = ""
             ),
             result
         )

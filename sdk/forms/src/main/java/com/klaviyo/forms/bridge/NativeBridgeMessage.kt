@@ -31,8 +31,8 @@ internal sealed class NativeBridgeMessage {
      * @param formName The name of the form that is appearing
      */
     data class FormWillAppear(
-        val formId: FormId?,
-        val formName: String?
+        val formId: FormId,
+        val formName: String
     ) : NativeBridgeMessage()
 
     /**
@@ -65,9 +65,9 @@ internal sealed class NativeBridgeMessage {
      */
     data class OpenDeepLink(
         val route: String?,
-        val formId: FormId?,
-        val formName: String?,
-        val buttonLabel: String?
+        val formId: FormId,
+        val formName: String,
+        val buttonLabel: String
     ) : NativeBridgeMessage()
 
     /**
@@ -77,8 +77,8 @@ internal sealed class NativeBridgeMessage {
      * @param formName The name of the form that is disappearing
      */
     data class FormDisappeared(
-        val formId: FormId?,
-        val formName: String?
+        val formId: FormId,
+        val formName: String
     ) : NativeBridgeMessage()
 
     /**
@@ -129,8 +129,8 @@ internal sealed class NativeBridgeMessage {
                 keyName<HandShook>() -> HandShook
 
                 keyName<FormWillAppear>() -> FormWillAppear(
-                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() },
-                    formName = jsonData.optString("formName").takeIf { it.isNotEmpty() }
+                    formId = jsonData.optString("formId"),
+                    formName = jsonData.optString("formName")
                 )
 
                 keyName<TrackAggregateEvent>() -> TrackAggregateEvent(
@@ -146,14 +146,14 @@ internal sealed class NativeBridgeMessage {
 
                 keyName<OpenDeepLink>() -> OpenDeepLink(
                     route = jsonData.getDeepLink(),
-                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() },
-                    formName = jsonData.optString("formName").takeIf { it.isNotEmpty() },
-                    buttonLabel = jsonData.optString("buttonLabel").takeIf { it.isNotEmpty() }
+                    formId = jsonData.optString("formId"),
+                    formName = jsonData.optString("formName"),
+                    buttonLabel = jsonData.optString("buttonLabel")
                 )
 
                 keyName<FormDisappeared>() -> FormDisappeared(
-                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() },
-                    formName = jsonData.optString("formName").takeIf { it.isNotEmpty() }
+                    formId = jsonData.optString("formId"),
+                    formName = jsonData.optString("formName")
                 )
 
                 keyName<Abort>() -> Abort(

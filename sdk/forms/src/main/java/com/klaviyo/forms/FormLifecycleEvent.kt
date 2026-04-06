@@ -38,13 +38,13 @@ sealed interface FormLifecycleEvent {
     /**
      * Triggered when a user taps a call-to-action (CTA) button in the form.
      *
-     * @property buttonLabel The text label of the CTA button, or null if unavailable.
+     * @property buttonLabel The text label of the CTA button.
      * @property deepLinkUrl The deep link URL configured for the CTA, or null if not configured.
      */
     data class FormCtaClicked(
         override val formId: String,
         override val formName: String,
-        val buttonLabel: String?,
+        val buttonLabel: String,
         val deepLinkUrl: String?
     ) : FormLifecycleEvent
 }

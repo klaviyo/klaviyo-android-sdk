@@ -11,7 +11,6 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
-import com.klaviyo.forms.FormContext
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
@@ -96,11 +95,9 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * Notify the client that the webview should be shown
      */
     private fun show(bridgeMessage: FormWillAppear) {
-        Registry.get<PresentationManager>().present(
-            FormContext(
-                bridgeMessage.formId.orEmpty(),
-                bridgeMessage.formName.orEmpty()
-            )
+        Registry.get<PresentationManager>().present()
+        invokeFormLifecycleCallback(
+            FormLifecycleEvent.FormShown(bridgeMessage.formId, bridgeMessage.formName)
         )
     }
 
@@ -126,8 +123,8 @@ internal class KlaviyoNativeBridge() : NativeBridge {
     private fun deepLink(message: OpenDeepLink) {
         invokeFormLifecycleCallback(
             FormLifecycleEvent.FormCtaClicked(
-                formId = message.formId.orEmpty(),
-                formName = message.formName.orEmpty(),
+                formId = message.formId,
+                formName = message.formName,
                 buttonLabel = message.buttonLabel,
                 deepLinkUrl = message.route
             )
@@ -140,16 +137,12 @@ internal class KlaviyoNativeBridge() : NativeBridge {
 
     /**
      * Instruct presentation manager to dismiss the form overlay activity.
-     * The presentation manager handles firing the [FORM_DISMISSED][FormLifecycleEvent.FORM_DISMISSED]
-     * callback and guarding against duplicate events.
      */
     private fun close(bridgeMessage: FormDisappeared) {
-        Registry.get<PresentationManager>().dismiss(
-            FormContext(
-                bridgeMessage.formId.orEmpty(),
-                bridgeMessage.formName.orEmpty()
-            )
+        invokeFormLifecycleCallback(
+            FormLifecycleEvent.FormDismissed(bridgeMessage.formId, bridgeMessage.formName)
         )
+        Registry.get<PresentationManager>().dismiss()
     }
 
     /**

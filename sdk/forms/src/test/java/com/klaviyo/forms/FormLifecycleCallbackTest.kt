@@ -32,9 +32,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
-        every { mockPresentationManager.presentationState } returns PresentationState.Presented(
-            FormContext("formId", "formName")
-        )
+        every { mockPresentationManager.presentationState } returns PresentationState.Presented
         Registry.register<PresentationManager>(mockPresentationManager)
         nativeBridge = KlaviyoNativeBridge()
     }
@@ -80,7 +78,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     }
 
     @Test
-    fun `FORM_SHOWN event is triggered by presentation manager, not bridge`() {
+    fun `FORM_SHOWN event is triggered by bridge on formWillAppear`() {
         var capturedEvent: FormLifecycleEvent? = null
         val callback = FormLifecycleCallback { event ->
             capturedEvent = event
@@ -88,14 +86,14 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
         Klaviyo.registerFormLifecycleCallback(callback)
 
-        // Simulate form shown message from webview — bridge delegates to present()
         val message =
             """{"type":"formWillAppear", "data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(message)
 
-        // FORM_SHOWN is now fired by the presentation manager, not the bridge
-        verify { mockPresentationManager.present(FormContext(testFormId, testFormName)) }
-        assertEquals(null, capturedEvent)
+        verify { mockPresentationManager.present() }
+        assertTrue(capturedEvent is FormLifecycleEvent.FormShown)
+        assertEquals(testFormId, capturedEvent!!.formId)
+        assertEquals(testFormName, capturedEvent!!.formName)
     }
 
     @Test
@@ -106,8 +104,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
             """{"type":"formDisappeared","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(message)
 
-        // FORM_DISMISSED is now fired internally by PM's dismiss()
-        verify { mockPresentationManager.dismiss(FormContext(testFormId, testFormName)) }
+        verify { mockPresentationManager.dismiss() }
     }
 
     @Test
@@ -125,21 +122,24 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         nativeBridge.postMessage(
             """{"type":"formWillAppear","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         )
-        // v2: FormDisappeared — bridge delegates to PM's dismiss()
+        assertEquals(1, events.size)
+        assertTrue(events[0] is FormLifecycleEvent.FormShown)
+
+        // v2: FormDisappeared — bridge fires FormDismissed callback and delegates to PM
         nativeBridge.postMessage(
             """{"type":"formDisappeared","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         )
-        verify { mockPresentationManager.dismiss(FormContext(testFormId, testFormName)) }
+        verify { mockPresentationManager.dismiss() }
+        assertEquals(2, events.size)
+        assertTrue(events[1] is FormLifecycleEvent.FormDismissed)
 
         // Then OpenDeepLink — CTA callback fires directly from bridge
         nativeBridge.postMessage(
             """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId","formName":"$testFormName","buttonLabel":"Shop Now"}}"""
         )
 
-        // Only CTA fires directly from bridge; FORM_DISMISSED is now internal to PM
-        assertEquals(1, events.size)
-        assertTrue(events[0] is FormLifecycleEvent.FormCtaClicked)
-        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaClicked
+        assertEquals(3, events.size)
+        val ctaEvent = events[2] as FormLifecycleEvent.FormCtaClicked
         assertEquals(testFormId, ctaEvent.formId)
         assertEquals(testFormName, ctaEvent.formName)
         assertEquals("Shop Now", ctaEvent.buttonLabel)
@@ -153,7 +153,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         nativeBridge.postMessage(message)
 
         // Verify PresentationManager was called but no exception thrown
-        verify { mockPresentationManager.present(any()) }
+        verify { mockPresentationManager.present() }
     }
 
     @Test
@@ -162,7 +162,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
         nativeBridge.postMessage("""{"type":"formDisappeared"}""")
 
-        verify { mockPresentationManager.dismiss(FormContext("", "")) }
+        verify { mockPresentationManager.dismiss() }
     }
 
     @Test
