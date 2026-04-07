@@ -1,27 +1,16 @@
 package com.klaviyo.forms.presentation
 
-import com.klaviyo.forms.bridge.FormId
-
 /**
  * Captures the state of form presentation
  */
 internal sealed interface PresentationState {
-    val formId: FormId?
 
-    data class Presenting(
-        override val formId: FormId?
-    ) : PresentationState {
-        override fun toString(): String = "Presenting:$formId"
-    }
+    /** The overlay activity is not showing */
+    data object Hidden : PresentationState
 
-    data class Presented(
-        override val formId: FormId?
-    ) : PresentationState {
-        override fun toString(): String = "Presented:$formId"
-    }
+    /** The overlay activity has been launched but is not yet created */
+    data object Presenting : PresentationState
 
-    data object Hidden : PresentationState {
-        override val formId = null
-        override fun toString(): String = "Hidden"
-    }
+    /** The overlay activity is created and the webview is attached */
+    data object Presented : PresentationState
 }

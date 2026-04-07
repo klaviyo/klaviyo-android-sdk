@@ -13,7 +13,10 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import com.klaviyo.forms.FormLifecycleEvent
+import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.presentation.PresentationState
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
@@ -53,6 +56,8 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.register<State>(mockState)
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<PresentationManager>(mockPresentationManager)
+
+        every { mockPresentationManager.presentationState } returns PresentationState.Presented
 
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockUri
@@ -114,7 +119,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockPresentationManager.present(null) }
+        verify { mockPresentationManager.present() }
     }
 
     @Test
@@ -123,7 +128,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
         postMessage("""{"type":"formWillAppear", "data":{"formId":"64CjgW"}}""")
-        verify { mockPresentationManager.present("64CjgW") }
+        verify { mockPresentationManager.present() }
     }
 
     @Test
@@ -257,7 +262,9 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
           "type": "openDeepLink",
           "data": {
             "ios": "klaviyotest://settings",
-            "android": "klaviyotest://settings"
+            "android": "klaviyotest://settings",
+            "formId": "64CjgW",
+            "formName": "Test Form"
           }
         }
     """.trimIndent()
@@ -274,7 +281,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `openDeepLink with empty android route logs warning and does not navigate`() {
+    fun `openDeepLink with empty android route skips lifecycle callback and does not navigate`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
          */
@@ -291,14 +298,65 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
 
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
         postMessage(emptyAndroidMessage)
 
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
         verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
-        verify { spyLog.warning(any(), null) }
+
+        Registry.unregister<FormLifecycleHandler>()
     }
 
     @Test
-    fun `formDisappeared triggers close`() {
+    fun `formName flows through from dismiss and CTA events via bridge messages`() {
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleHandler { event -> events.add(event) }
+        Registry.register<FormLifecycleHandler>(callback)
+
+        // Show — bridge fires FormShown
+        postMessage("""{"type":"formWillAppear","data":{"formId":"abc","formName":"My Form"}}""")
+        assertEquals(1, events.size)
+        val shownEvent = events[0] as FormLifecycleEvent.FormShown
+        assertEquals("My Form", shownEvent.formName)
+        assertEquals("abc", shownEvent.formId)
+
+        // Dismiss — bridge fires FormDismissed and delegates to PM
+        postMessage("""{"type":"formDisappeared","data":{"formId":"abc","formName":"My Form"}}""")
+        verify { mockPresentationManager.dismiss() }
+        assertEquals(2, events.size)
+        val dismissedEvent = events[1] as FormLifecycleEvent.FormDismissed
+        assertEquals("My Form", dismissedEvent.formName)
+        assertEquals("abc", dismissedEvent.formId)
+
+        // CTA — formId+formName come from the bridge message itself
+        postMessage(
+            """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"abc","formName":"My Form"}}"""
+        )
+        assertEquals(3, events.size)
+        val ctaEvent = events[2] as FormLifecycleEvent.FormCtaClicked
+        assertEquals("My Form", ctaEvent.formName)
+        assertEquals("abc", ctaEvent.formId)
+        assertEquals(mockUri, ctaEvent.deepLinkUrl)
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `formDisappeared triggers dismiss with formContext`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
+         */
+        postMessage("""{"type":"formDisappeared","data":{"formId":"abc","formName":"My Form"}}""")
+        verify { mockPresentationManager.dismiss() }
+    }
+
+    @Test
+    fun `formDisappeared triggers dismiss with empty context when no data`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
