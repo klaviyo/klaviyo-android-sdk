@@ -97,7 +97,7 @@ window.openForm = function (formId) {
  *
  * @returns {boolean}
  */
-window.closeForm = function (formId) {
+window.closeForm = function () {
     document.head.dispatchEvent(
         new CustomEvent(
             'closeForm',
