@@ -216,7 +216,7 @@ class KlaviyoJsBridgeTest : BaseTest() {
 
         verify {
             jsEvaluator.evaluateJavascript(
-                eq("""window.closeForm("")"""),
+                eq("""window.closeForm()"""),
                 any()
             )
         }

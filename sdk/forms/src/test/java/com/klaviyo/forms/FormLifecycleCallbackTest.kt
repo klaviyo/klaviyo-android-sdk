@@ -1,5 +1,6 @@
 package com.klaviyo.forms
 
+import android.net.Uri
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.Registry
@@ -10,6 +11,7 @@ import com.klaviyo.forms.presentation.PresentationState
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.After
@@ -34,6 +36,8 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         super.setup()
         every { mockPresentationManager.presentationState } returns PresentationState.Presented
         Registry.register<PresentationManager>(mockPresentationManager)
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk(relaxed = true)
         nativeBridge = KlaviyoNativeBridge()
     }
 

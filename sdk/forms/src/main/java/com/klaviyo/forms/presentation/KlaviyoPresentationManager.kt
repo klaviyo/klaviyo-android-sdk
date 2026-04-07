@@ -140,9 +140,9 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         /**
          * Grace period to close a form with animation, before we just dismiss
          *  the overlay activity without waiting for formDisappeared event.
-         *  Must exceed the JS close animation duration (~400ms) or the activity
-         *  teardown will kill the animation before formDisappeared is sent.
+         *  Must exceed the JS close animation duration (~350ms) with a buffer for signaling delays
+         *  or else teardown will kill the webview's rendering before formDisappeared can be sent.
          */
-        private const val CLOSE_TIMEOUT = 500L
+        private const val CLOSE_TIMEOUT = 600L
     }
 }

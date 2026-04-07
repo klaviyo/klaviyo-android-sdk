@@ -225,7 +225,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         verify(exactly = 0) { mockWebViewClient.detachWebView() }
         verify(exactly = 0) { mockOverlayActivity.finish() }
 
-        staticClock.execute(500L)
+        staticClock.execute(600L)
 
         verify(exactly = 1) { mockWebViewClient.detachWebView() }
         verify(exactly = 1) { mockOverlayActivity.finish() }
