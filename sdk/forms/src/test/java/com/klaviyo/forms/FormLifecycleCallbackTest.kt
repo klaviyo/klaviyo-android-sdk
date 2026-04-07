@@ -95,9 +95,9 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         nativeBridge.postMessage(message)
 
         verify { mockPresentationManager.present() }
-        assertTrue(capturedEvent is FormLifecycleEvent.FormShown)
-        assertEquals(testFormId, capturedEvent!!.formId)
-        assertEquals(testFormName, capturedEvent!!.formName)
+        val shownEvent = capturedEvent as FormLifecycleEvent.FormShown
+        assertEquals(testFormId, shownEvent.formId)
+        assertEquals(testFormName, shownEvent.formName)
     }
 
     @Test
