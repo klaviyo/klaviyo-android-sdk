@@ -76,8 +76,16 @@ internal class PushTokenApiRequest(
             }
         }?.toString()
 
-    // Equality is inherited from KlaviyoApiRequest (UUID-based).
-    // Content-based dedup of push token requests is handled by KlaviyoApiClient.enqueuePushToken.
+    override fun equals(other: Any?): Boolean {
+        return when (other) {
+            is PushTokenApiRequest -> body.toString() == other.body.toString() && query.toString() == other.query.toString()
+            else -> super.equals(other)
+        }
+    }
+
+    override fun hashCode(): Int {
+        return body.toString().hashCode()
+    }
 }
 
 fun DeviceProperties.buildMetaData(): Map<String, String?> = mapOf(

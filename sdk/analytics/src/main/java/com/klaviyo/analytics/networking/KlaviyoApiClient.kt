@@ -79,13 +79,6 @@ internal object KlaviyoApiClient : ApiClient {
 
     override fun enqueuePushToken(token: String, profile: Profile): ApiRequest =
         PushTokenApiRequest(token, profile).also {
-            // Supersede any previously queued push token request.
-            // Only one push-token request should be in the queue at a time;
-            // the latest one always carries the most up-to-date state.
-            apiQueue.filterIsInstance<PushTokenApiRequest>().forEach { existing ->
-                apiQueue.remove(existing)
-                Registry.dataStore.clear(existing.uuid)
-            }
             Registry.log.verbose("Enqueuing Push Token request")
             enqueueRequest(it)
         }
