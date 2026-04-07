@@ -319,11 +319,11 @@ internal class FloatingFormWindow(private val context: Context) {
         return when (layout.position) {
             FormPosition.BOTTOM,
             FormPosition.BOTTOM_LEFT,
-            FormPosition.BOTTOM_RIGHT -> safeAreaBottom + bottomOffset
+            FormPosition.BOTTOM_RIGHT -> maxOf(safeAreaBottom, bottomOffset)
 
             FormPosition.TOP,
             FormPosition.TOP_LEFT,
-            FormPosition.TOP_RIGHT -> screenHeight - safeAreaTop - topOffset - formHeight
+            FormPosition.TOP_RIGHT -> screenHeight - maxOf(safeAreaTop, topOffset) - formHeight
 
             FormPosition.CENTER -> (screenHeight - formHeight) / 2
 
@@ -347,8 +347,9 @@ internal class FloatingFormWindow(private val context: Context) {
 
     /**
      * Calculate vertical offset based on position, user offsets, and safe area insets.
-     * Safe area insets ensure the form is not obscured by notches, Dynamic Island,
-     * or system UI. User offsets are additive on top of safe area.
+     * Uses the larger of safe area or user offset — a small user offset that falls
+     * within the safe zone is effectively a no-op, while a large user offset that
+     * exceeds the safe zone is applied directly (it already clears the safe area).
      *
      * @param safeAreaTop Top safe area inset in pixels
      * @param safeAreaBottom Bottom safe area inset in pixels
@@ -364,9 +365,9 @@ internal class FloatingFormWindow(private val context: Context) {
 
         return when (layout.position) {
             FormPosition.TOP, FormPosition.TOP_LEFT, FormPosition.TOP_RIGHT ->
-                safeAreaTop + topOffset
+                maxOf(safeAreaTop, topOffset)
             FormPosition.BOTTOM, FormPosition.BOTTOM_LEFT, FormPosition.BOTTOM_RIGHT ->
-                safeAreaBottom + bottomOffset
+                maxOf(safeAreaBottom, bottomOffset)
             FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
         }
     }
