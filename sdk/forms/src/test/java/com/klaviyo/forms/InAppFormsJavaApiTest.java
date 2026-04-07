@@ -83,24 +83,24 @@ public class InAppFormsJavaApiTest extends BaseTest {
     @Test
     public void testRegisterFormLifecycleHandler() {
         FormLifecycleHandler callback = (event) -> {};
-        Klaviyo result = KlaviyoFormsProviderKt.registerFormLifecycleHandler(Klaviyo.INSTANCE, callback);
+        Klaviyo result = InAppFormsKt.registerFormLifecycleHandler(Klaviyo.INSTANCE, callback);
         assertEquals(Klaviyo.INSTANCE, result);
     }
 
     @Test
     public void testUnregisterFormLifecycleHandler() {
-        Klaviyo result = KlaviyoFormsProviderKt.unregisterFormLifecycleHandler(Klaviyo.INSTANCE);
+        Klaviyo result = InAppFormsKt.unregisterFormLifecycleHandler(Klaviyo.INSTANCE);
         assertEquals(Klaviyo.INSTANCE, result);
     }
 
     @Test
-    public void testKlaviyoFormLifecycleHandlersRegister() {
+    public void testKlaviyoFormsRegisterLifecycleHandler() {
         FormLifecycleHandler callback = (event) -> {};
-        KlaviyoFormLifecycleHandlers.registerFormLifecycleHandler(callback);
+        KlaviyoForms.registerFormLifecycleHandler(callback);
     }
 
     @Test
-    public void testKlaviyoFormLifecycleHandlersUnregister() {
-        KlaviyoFormLifecycleHandlers.unregisterFormLifecycleHandler();
+    public void testKlaviyoFormsUnregisterLifecycleHandler() {
+        KlaviyoForms.unregisterFormLifecycleHandler();
     }
 }
