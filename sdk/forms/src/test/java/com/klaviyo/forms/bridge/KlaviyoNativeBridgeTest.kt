@@ -30,7 +30,6 @@ import org.json.JSONException
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
@@ -282,7 +281,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `openDeepLink with empty android route emits lifecycle event with null deepLinkUrl and does not navigate`() {
+    fun `openDeepLink with empty android route skips lifecycle callback and does not navigate`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
          */
@@ -291,10 +290,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
               "type": "openDeepLink",
               "data": {
                 "ios": "klaviyotest://settings",
-                "android": "",
-                "formId": "abc",
-                "formName": "My Form",
-                "buttonLabel": "Click Me"
+                "android": ""
               }
             }
         """.trimIndent()
@@ -302,18 +298,12 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
 
-        val events = mutableListOf<FormLifecycleEvent>()
-        val callback = FormLifecycleHandler { event -> events.add(event) }
-        Registry.register<FormLifecycleHandler>(callback)
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
 
         postMessage(emptyAndroidMessage)
 
-        assertEquals(1, events.size)
-        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaClicked
-        assertEquals("abc", ctaEvent.formId)
-        assertEquals("My Form", ctaEvent.formName)
-        assertEquals("Click Me", ctaEvent.buttonLabel)
-        assertNull(ctaEvent.deepLinkUrl)
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
         verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
 
         Registry.unregister<FormLifecycleHandler>()

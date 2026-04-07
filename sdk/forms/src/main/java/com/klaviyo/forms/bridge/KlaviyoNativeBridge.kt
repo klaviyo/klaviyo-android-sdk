@@ -121,14 +121,14 @@ internal class KlaviyoNativeBridge : NativeBridge {
      * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
     private fun deepLink(message: OpenDeepLink) {
-        val deepLinkUri = message.route?.let { it.toUri() }
+        val deepLinkUri = message.route?.toUri()
 
-        if (deepLinkUri != null) {
-            DeepLinking.handleDeepLink(deepLinkUri)
-        } else {
-            Registry.log.verbose("Form CTA with no Android route configured: ${message.formId}")
+        if (deepLinkUri == null) {
+            Registry.log.warning("Form CTA with no Android route configured: ${message.formId}")
+            return
         }
 
+        DeepLinking.handleDeepLink(deepLinkUri)
         invokeFormLifecycleHandler(
             FormLifecycleEvent.FormCtaClicked(
                 formId = message.formId,
