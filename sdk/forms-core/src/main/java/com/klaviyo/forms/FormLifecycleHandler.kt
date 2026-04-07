@@ -3,15 +3,15 @@ package com.klaviyo.forms
 /**
  * Functional interface for handling form lifecycle events.
  *
- * Implement this interface to receive callbacks when in-app form lifecycle events occur.
+ * Implement this interface to receive notifications when in-app form lifecycle events occur.
  *
- * **Threading:** Callbacks are always invoked on the main thread.
- * Avoid performing long-running or blocking work in this callback, as it may delay
+ * **Threading:** The handler is always invoked on the main thread.
+ * Avoid performing long-running or blocking work in this handler, as it may delay
  * form presentation or dismissal.
  *
  * Example usage:
  * ```
- * Klaviyo.registerFormLifecycleCallback { event ->
+ * Klaviyo.registerFormLifecycleHandler { event ->
  *     when (event) {
  *         is FormLifecycleEvent.FormShown -> Log.d("Forms", "Form shown: ${event.formId}")
  *         is FormLifecycleEvent.FormDismissed -> Log.d("Forms", "Form dismissed: ${event.formId}")
@@ -20,7 +20,7 @@ package com.klaviyo.forms
  * }
  * ```
  */
-fun interface FormLifecycleCallback {
+fun interface FormLifecycleHandler {
     /**
      * Called when a form lifecycle event occurs.
      *

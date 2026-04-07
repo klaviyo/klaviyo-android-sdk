@@ -13,8 +13,8 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
-import com.klaviyo.forms.FormLifecycleCallback
 import com.klaviyo.forms.FormLifecycleEvent
+import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.presentation.PresentationState
 import com.klaviyo.forms.unregisterFromInAppForms
@@ -281,7 +281,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `openDeepLink with empty android route fires lifecycle callback but does not navigate`() {
+    fun `openDeepLink with empty android route skips lifecycle callback and does not navigate`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
          */
@@ -298,19 +298,15 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
 
-        val mockLifecycleCallback = mockk<FormLifecycleCallback>(relaxed = true)
-        Registry.register<FormLifecycleCallback>(mockLifecycleCallback)
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
 
         postMessage(emptyAndroidMessage)
 
-        verify {
-            mockLifecycleCallback.onFormLifecycleEvent(
-                any<FormLifecycleEvent.FormCtaClicked>()
-            )
-        }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
         verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
 
-        Registry.unregister<FormLifecycleCallback>()
+        Registry.unregister<FormLifecycleHandler>()
     }
 
     @Test
@@ -319,8 +315,8 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
 
         val events = mutableListOf<FormLifecycleEvent>()
-        val callback = FormLifecycleCallback { event -> events.add(event) }
-        Registry.register<FormLifecycleCallback>(callback)
+        val callback = FormLifecycleHandler { event -> events.add(event) }
+        Registry.register<FormLifecycleHandler>(callback)
 
         // Show — bridge fires FormShown
         postMessage("""{"type":"formWillAppear","data":{"formId":"abc","formName":"My Form"}}""")
@@ -345,9 +341,9 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         val ctaEvent = events[2] as FormLifecycleEvent.FormCtaClicked
         assertEquals("My Form", ctaEvent.formName)
         assertEquals("abc", ctaEvent.formId)
-        assertEquals("klaviyotest://settings", ctaEvent.deepLinkUrl)
+        assertEquals(mockUri, ctaEvent.deepLinkUrl)
 
-        Registry.unregister<FormLifecycleCallback>()
+        Registry.unregister<FormLifecycleHandler>()
     }
 
     @Test

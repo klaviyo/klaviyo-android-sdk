@@ -57,61 +57,6 @@ internal class KlaviyoFormsProvider : FormsProvider {
 }
 
 /**
- * Register a callback to receive [FormLifecycleEvent] events.
- *
- * The callback is invoked whenever a form is shown, dismissed,
- * or a CTA button is clicked. Only one callback can be registered at a time;
- * calling this again replaces the previous registration.
- *
- * **Threading:** The callback is always invoked on the main thread for consistency.
- * Avoid performing long-running or blocking work in this callback.
- *
- * @param callback The [FormLifecycleCallback] to invoke on lifecycle events.
- */
-fun Klaviyo.registerFormLifecycleCallback(callback: FormLifecycleCallback): Klaviyo =
-    safeApply { Registry.register<FormLifecycleCallback>(callback) }
-
-/**
- * Remove the previously registered form lifecycle callback.
- * After calling this, no further lifecycle events will be delivered.
- */
-fun Klaviyo.unregisterFormLifecycleCallback(): Klaviyo =
-    safeApply { Registry.unregister<FormLifecycleCallback>() }
-
-/**
- * Java-friendly static methods for form lifecycle callbacks.
- * Kotlin users should use the extension functions on [Klaviyo] instead.
- *
- * Note: These wrappers live in the `forms` module (rather than in [KlaviyoForms] in `forms-core`)
- * because [FormLifecycleCallback] is defined in the `forms` module and `forms-core` cannot depend
- * on `forms`.
- */
-object KlaviyoFormLifecycleCallbacks {
-    /**
-     * Register a callback to receive form lifecycle events.
-     * Java-friendly static method.
-     *
-     * @param callback The [FormLifecycleCallback] to invoke on lifecycle events.
-     * @see Klaviyo.registerFormLifecycleCallback
-     */
-    @JvmStatic
-    fun registerFormLifecycleCallback(callback: FormLifecycleCallback) {
-        Klaviyo.registerFormLifecycleCallback(callback)
-    }
-
-    /**
-     * Remove the previously registered form lifecycle callback.
-     * Java-friendly static method.
-     *
-     * @see Klaviyo.unregisterFormLifecycleCallback
-     */
-    @JvmStatic
-    fun unregisterFormLifecycleCallback() {
-        Klaviyo.unregisterFormLifecycleCallback()
-    }
-}
-
-/**
  * Check if IAF services are registered in the Klaviyo registry.
  */
 private fun inAppIsRegistered(): Boolean = listOf(

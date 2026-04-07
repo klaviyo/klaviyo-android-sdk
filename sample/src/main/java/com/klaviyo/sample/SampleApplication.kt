@@ -9,7 +9,7 @@ import com.klaviyo.forms.FormLifecycleEvent.FormCtaClicked
 import com.klaviyo.forms.FormLifecycleEvent.FormDismissed
 import com.klaviyo.forms.FormLifecycleEvent.FormShown
 import com.klaviyo.forms.registerForInAppForms
-import com.klaviyo.forms.registerFormLifecycleCallback
+import com.klaviyo.forms.registerFormLifecycleHandler
 import com.klaviyo.location.registerGeofencing
 
 class SampleApplication : Application() {
@@ -27,19 +27,23 @@ class SampleApplication : Application() {
                 // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
                 showToast("Deep link to: $uri")
             }
-            .registerFormLifecycleCallback { event ->
+            .registerFormLifecycleHandler { event ->
                 // OPTIONAL SETUP NOTE: Register a callback to receive form lifecycle events
                 // This allows you to track when forms are shown, dismissed, or when CTAs are clicked
                 when (event) {
                     is FormShown -> {
-                        Registry.log.debug("Form shown: ${event.formId} ${event.formName}")
+                        Registry.log.debug(
+                            "Form Lifecycle: ${event.formName} (${event.formId}) Shown"
+                        )
                     }
                     is FormDismissed -> {
-                        Registry.log.debug("Form dismissed: ${event.formId} ${event.formName}")
+                        Registry.log.debug(
+                            "Form Lifecycle: ${event.formName} (${event.formId}) Dismissed"
+                        )
                     }
                     is FormCtaClicked -> {
                         Registry.log.debug(
-                            "Form CTA: ${event.buttonLabel} -> ${event.deepLinkUrl}"
+                            "Form Lifecycle: CTA ${event.buttonLabel} -> ${event.deepLinkUrl} from ${event.formName} (${event.formId})"
                         )
                     }
                 }
