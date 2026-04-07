@@ -142,11 +142,14 @@ class StateSideEffectsTest : BaseTest() {
 
         capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
 
+        // ProfileReset flushes pending profile changes for the old profile immediately
         verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
 
         staticClock.execute(debounceTime.toLong())
 
-        verify(exactly = 2) { apiClientMock.enqueueProfile(any()) }
+        // No second enqueue: ProfileReset only flushes pending changes,
+        // it does not start a new pending profile that would flush on debounce
+        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
     }
 
     @Test
