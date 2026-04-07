@@ -23,9 +23,10 @@ import org.junit.Test
 /**
  * Tests for form lifecycle callback functionality
  */
-internal class FormLifecycleCallbackTest : BaseTest() {
+internal class FormLifecycleHandlerTest : BaseTest() {
 
     private val mockPresentationManager: PresentationManager = mockk(relaxed = true)
+    private val mockUri: Uri = mockk(relaxed = true)
     private lateinit var nativeBridge: KlaviyoNativeBridge
 
     private val testFormId = "test-form-123"
@@ -37,7 +38,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         every { mockPresentationManager.presentationState } returns PresentationState.Presented
         Registry.register<PresentationManager>(mockPresentationManager)
         mockkStatic(Uri::class)
-        every { Uri.parse(any()) } returns mockk(relaxed = true)
+        every { Uri.parse(any()) } returns mockUri
         nativeBridge = KlaviyoNativeBridge()
     }
 
@@ -45,50 +46,50 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     override fun cleanup() {
         unmockkAll()
         Registry.unregister<PresentationManager>()
-        Registry.unregister<FormLifecycleCallback>()
+        Registry.unregister<FormLifecycleHandler>()
         super.cleanup()
     }
 
     @Test
-    fun `registerFormLifecycleCallback registers callback successfully`() {
-        val callback = FormLifecycleCallback { _ -> }
+    fun `registerFormLifecycleHandler registers callback successfully`() {
+        val callback = FormLifecycleHandler { _ -> }
 
-        Klaviyo.registerFormLifecycleCallback(callback)
+        Klaviyo.registerFormLifecycleHandler(callback)
 
-        assertEquals(callback, Registry.get<FormLifecycleCallback>())
+        assertEquals(callback, Registry.get<FormLifecycleHandler>())
     }
 
     @Test
-    fun `unregisterFormLifecycleCallback removes callback`() {
-        val callback = FormLifecycleCallback { _ -> }
+    fun `unregisterFormLifecycleHandler removes callback`() {
+        val callback = FormLifecycleHandler { _ -> }
 
-        Klaviyo.registerFormLifecycleCallback(callback)
+        Klaviyo.registerFormLifecycleHandler(callback)
 
-        Klaviyo.unregisterFormLifecycleCallback()
+        Klaviyo.unregisterFormLifecycleHandler()
 
-        assertEquals(null, Registry.getOrNull<FormLifecycleCallback>())
+        assertEquals(null, Registry.getOrNull<FormLifecycleHandler>())
     }
 
     @Test
-    fun `registerFormLifecycleCallback replaces existing callback`() {
-        val firstCallback = FormLifecycleCallback { _ -> }
-        val secondCallback = FormLifecycleCallback { _ -> }
+    fun `registerFormLifecycleHandler replaces existing callback`() {
+        val firstCallback = FormLifecycleHandler { _ -> }
+        val secondCallback = FormLifecycleHandler { _ -> }
 
-        Klaviyo.registerFormLifecycleCallback(firstCallback)
-        assertEquals(firstCallback, Registry.get<FormLifecycleCallback>())
+        Klaviyo.registerFormLifecycleHandler(firstCallback)
+        assertEquals(firstCallback, Registry.get<FormLifecycleHandler>())
 
-        Klaviyo.registerFormLifecycleCallback(secondCallback)
-        assertEquals(secondCallback, Registry.get<FormLifecycleCallback>())
+        Klaviyo.registerFormLifecycleHandler(secondCallback)
+        assertEquals(secondCallback, Registry.get<FormLifecycleHandler>())
     }
 
     @Test
     fun `FORM_SHOWN event is triggered by bridge on formWillAppear`() {
         var capturedEvent: FormLifecycleEvent? = null
-        val callback = FormLifecycleCallback { event ->
+        val callback = FormLifecycleHandler { event ->
             capturedEvent = event
         }
 
-        Klaviyo.registerFormLifecycleCallback(callback)
+        Klaviyo.registerFormLifecycleHandler(callback)
 
         val message =
             """{"type":"formWillAppear", "data":{"formId":"$testFormId","formName":"$testFormName"}}"""
@@ -102,7 +103,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
     @Test
     fun `formDisappeared delegates to presentation manager dismiss with formContext`() {
-        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _ -> })
+        Klaviyo.registerFormLifecycleHandler(FormLifecycleHandler { _ -> })
 
         val message =
             """{"type":"formDisappeared","data":{"formId":"$testFormId","formName":"$testFormName"}}"""
@@ -115,12 +116,12 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     fun `FORM_CTA_CLICKED event is triggered when deep link is opened (v2 protocol)`() {
         // In v2, FormDisappeared is sent before OpenDeepLink, both now carry formId+formName
         val events = mutableListOf<FormLifecycleEvent>()
-        val callback = FormLifecycleCallback { event -> events.add(event) }
+        val callback = FormLifecycleHandler { event -> events.add(event) }
 
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any()) } returns Unit
 
-        Klaviyo.registerFormLifecycleCallback(callback)
+        Klaviyo.registerFormLifecycleHandler(callback)
 
         // First show the form
         nativeBridge.postMessage(
@@ -147,7 +148,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         assertEquals(testFormId, ctaEvent.formId)
         assertEquals(testFormName, ctaEvent.formName)
         assertEquals("Shop Now", ctaEvent.buttonLabel)
-        assertEquals("https://example.com", ctaEvent.deepLinkUrl)
+        assertEquals(mockUri, ctaEvent.deepLinkUrl)
     }
 
     @Test
@@ -162,7 +163,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
 
     @Test
     fun `formDisappeared without data delegates dismiss with empty context fields`() {
-        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _ -> })
+        Klaviyo.registerFormLifecycleHandler(FormLifecycleHandler { _ -> })
 
         nativeBridge.postMessage("""{"type":"formDisappeared"}""")
 
@@ -174,7 +175,7 @@ internal class FormLifecycleCallbackTest : BaseTest() {
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any()) } returns Unit
 
-        Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _ -> })
+        Klaviyo.registerFormLifecycleHandler(FormLifecycleHandler { _ -> })
 
         nativeBridge.postMessage(
             """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId"}}"""
