@@ -7,8 +7,8 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
-import com.klaviyo.forms.FormLifecycleCallback
 import com.klaviyo.forms.FormLifecycleEvent
+import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.webview.WebViewClient
@@ -238,8 +238,8 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     @Test
     fun `presentation manager does not fire lifecycle callbacks`() {
         val events = mutableListOf<FormLifecycleEvent>()
-        val callback = FormLifecycleCallback { event -> events.add(event) }
-        Registry.register<FormLifecycleCallback>(callback)
+        val callback = FormLifecycleHandler { event -> events.add(event) }
+        Registry.register<FormLifecycleHandler>(callback)
 
         val manager = withPresentedState()
 
@@ -251,6 +251,6 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         // PM should not fire FormDismissed either
         assertEquals(0, events.size)
 
-        Registry.unregister<FormLifecycleCallback>()
+        Registry.unregister<FormLifecycleHandler>()
     }
 }

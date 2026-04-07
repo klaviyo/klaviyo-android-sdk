@@ -57,57 +57,56 @@ internal class KlaviyoFormsProvider : FormsProvider {
 }
 
 /**
- * Register a callback to receive [FormLifecycleEvent] events.
+ * Register a handler to receive [FormLifecycleEvent] events.
  *
- * The callback is invoked whenever a form is shown, dismissed,
- * or a CTA button is clicked. Only one callback can be registered at a time;
+ * The handler is invoked whenever a form is shown, dismissed,
+ * or a CTA button is clicked. Only one handler can be registered at a time;
  * calling this again replaces the previous registration.
  *
- * **Threading:** The callback is always invoked on the main thread for consistency.
- * Avoid performing long-running or blocking work in this callback.
+ * **Threading:** The handler is always invoked on the main thread.
  *
- * @param callback The [FormLifecycleCallback] to invoke on lifecycle events.
+ * @param handler The [FormLifecycleHandler] to invoke on lifecycle events.
  */
-fun Klaviyo.registerFormLifecycleCallback(callback: FormLifecycleCallback): Klaviyo =
-    safeApply { Registry.register<FormLifecycleCallback>(callback) }
+fun Klaviyo.registerFormLifecycleHandler(handler: FormLifecycleHandler): Klaviyo =
+    safeApply { Registry.register<FormLifecycleHandler>(handler) }
 
 /**
- * Remove the previously registered form lifecycle callback.
+ * Remove the previously registered form lifecycle handler.
  * After calling this, no further lifecycle events will be delivered.
  */
-fun Klaviyo.unregisterFormLifecycleCallback(): Klaviyo =
-    safeApply { Registry.unregister<FormLifecycleCallback>() }
+fun Klaviyo.unregisterFormLifecycleHandler(): Klaviyo =
+    safeApply { Registry.unregister<FormLifecycleHandler>() }
 
 /**
- * Java-friendly static methods for form lifecycle callbacks.
+ * Java-friendly static methods for form lifecycle handlers.
  * Kotlin users should use the extension functions on [Klaviyo] instead.
  *
  * Note: These wrappers live in the `forms` module (rather than in [KlaviyoForms] in `forms-core`)
- * because [FormLifecycleCallback] is defined in the `forms` module and `forms-core` cannot depend
+ * because [FormLifecycleHandler] is defined in the `forms` module and `forms-core` cannot depend
  * on `forms`.
  */
-object KlaviyoFormLifecycleCallbacks {
+object KlaviyoFormLifecycleHandlers {
     /**
-     * Register a callback to receive form lifecycle events.
+     * Register a handler to receive form lifecycle events.
      * Java-friendly static method.
      *
-     * @param callback The [FormLifecycleCallback] to invoke on lifecycle events.
-     * @see Klaviyo.registerFormLifecycleCallback
+     * @param handler The [FormLifecycleHandler] to invoke on lifecycle events.
+     * @see Klaviyo.registerFormLifecycleHandler
      */
     @JvmStatic
-    fun registerFormLifecycleCallback(callback: FormLifecycleCallback) {
-        Klaviyo.registerFormLifecycleCallback(callback)
+    fun registerFormLifecycleHandler(handler: FormLifecycleHandler) {
+        Klaviyo.registerFormLifecycleHandler(handler)
     }
 
     /**
-     * Remove the previously registered form lifecycle callback.
+     * Remove the previously registered form lifecycle handler.
      * Java-friendly static method.
      *
-     * @see Klaviyo.unregisterFormLifecycleCallback
+     * @see Klaviyo.unregisterFormLifecycleHandler
      */
     @JvmStatic
-    fun unregisterFormLifecycleCallback() {
-        Klaviyo.unregisterFormLifecycleCallback()
+    fun unregisterFormLifecycleHandler() {
+        Klaviyo.unregisterFormLifecycleHandler()
     }
 }
 
