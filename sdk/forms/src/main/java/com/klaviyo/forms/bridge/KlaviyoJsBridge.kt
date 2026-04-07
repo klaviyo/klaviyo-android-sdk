@@ -46,10 +46,7 @@ internal class KlaviyoJsBridge : JsBridge {
         formId
     )
 
-    override fun closeForm() = evaluateJavascript(
-        HelperFunction.closeForm,
-        ""
-    )
+    override fun closeForm() = evaluateJavascript(HelperFunction.closeForm)
 
     override fun profileMutation(profile: ImmutableProfile) = evaluateJavascript(
         HelperFunction.profileMutation,
