@@ -157,14 +157,7 @@ internal class StateSideEffects(
             onApiKeyChange(oldApiKey = change.oldValue)
         }
 
-        is StateChange.ProfileReset -> {
-            // A profile reset is a transitional state (e.g. setProfile clearing old identifiers).
-            // Flush any pending changes for the old profile, but don't start a new pending profile.
-            // The subsequent identifier sets will start a new pending profile naturally.
-            flushProfile()
-        }
-
-        is StateChange.ProfileIdentifier -> {
+        is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> {
             onUserStateChange()
         }
 
