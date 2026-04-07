@@ -33,7 +33,7 @@ class SampleApplication : Application() {
                 when (event) {
                     is FormShown -> {
                         Registry.log.debug(
-                            "Form Lifecycle: ${event.formName} (${event.formName}) Shown"
+                            "Form Lifecycle: ${event.formName} (${event.formId}) Shown"
                         )
                     }
                     is FormDismissed -> {
@@ -43,7 +43,7 @@ class SampleApplication : Application() {
                     }
                     is FormCtaClicked -> {
                         Registry.log.debug(
-                            "Form Lifecycle: CTA ${event.buttonLabel} -> ${event.deepLinkUrl} from ${event.formName} (${event.formName})"
+                            "Form Lifecycle: CTA ${event.buttonLabel} -> ${event.deepLinkUrl} from ${event.formName} (${event.formId})"
                         )
                     }
                 }
