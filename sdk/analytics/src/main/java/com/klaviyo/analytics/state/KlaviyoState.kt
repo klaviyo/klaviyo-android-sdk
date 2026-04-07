@@ -108,9 +108,17 @@ internal class KlaviyoState : State {
      */
     override fun setProfile(profile: Profile) {
         if (!externalId.isNullOrEmpty() || !email.isNullOrEmpty() || !phoneNumber.isNullOrEmpty()) {
-            // If a profile with external identifiers is already in state, we must reset.
-            // This conditional is important to preserve merging with an anonymous profile.
-            reset()
+            // Only reset if the incoming profile has different identifiers.
+            // Anonymous ID is the lowest-order identifier, so there's no reason to regenerate it
+            // when higher-order identifiers haven't changed. Resetting with the same identifiers
+            // causes unnecessary anonymous ID churn, which triggers spurious API requests.
+            // resetProfile() remains available for explicitly clobbering all state.
+            val identifiersChanged = profile.externalId != externalId ||
+                profile.email != email ||
+                profile.phoneNumber != phoneNumber
+            if (identifiersChanged) {
+                reset()
+            }
         }
 
         // Move any identifiers and attributes to their specified state variables
