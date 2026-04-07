@@ -123,12 +123,12 @@ internal class KlaviyoNativeBridge : NativeBridge {
     private fun deepLink(message: OpenDeepLink) {
         val deepLinkUri = message.route?.let { it.toUri() }
 
-        if (deepLinkUri == null) {
-            Registry.log.warning("Form CTA with no Android route configured: ${message.formId}")
-            return
+        if (deepLinkUri != null) {
+            DeepLinking.handleDeepLink(deepLinkUri)
+        } else {
+            Registry.log.verbose("Form CTA with no Android route configured: ${message.formId}")
         }
 
-        DeepLinking.handleDeepLink(deepLinkUri)
         invokeFormLifecycleHandler(
             FormLifecycleEvent.FormCtaClicked(
                 formId = message.formId,
