@@ -166,13 +166,12 @@ internal class FormLifecycleCallbackTest : BaseTest() {
     }
 
     @Test
-    fun `CTA callback is invoked on UI thread`() {
+    fun `CTA callback is dispatched to main thread`() {
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any()) } returns Unit
 
         Klaviyo.registerFormLifecycleCallback(FormLifecycleCallback { _ -> })
 
-        // CTA callback still fires directly from the bridge
         nativeBridge.postMessage(
             """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId"}}"""
         )

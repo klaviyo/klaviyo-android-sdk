@@ -57,11 +57,14 @@ internal class KlaviyoFormsProvider : FormsProvider {
 }
 
 /**
- * Register a callback to receive [FormLifecycleEvent]s.
+ * Register a callback to receive [FormLifecycleEvent] events.
  *
- * The callback will be invoked on the UI thread whenever a form is shown, dismissed,
+ * The callback is invoked whenever a form is shown, dismissed,
  * or a CTA button is clicked. Only one callback can be registered at a time;
  * calling this again replaces the previous registration.
+ *
+ * **Threading:** The callback is always invoked on the main thread for consistency.
+ * Avoid performing long-running or blocking work in this callback.
  *
  * @param callback The [FormLifecycleCallback] to invoke on lifecycle events.
  */

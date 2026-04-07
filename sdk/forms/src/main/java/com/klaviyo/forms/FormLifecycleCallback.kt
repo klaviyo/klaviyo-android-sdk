@@ -4,7 +4,10 @@ package com.klaviyo.forms
  * Functional interface for handling form lifecycle events.
  *
  * Implement this interface to receive callbacks when in-app form lifecycle events occur.
- * All callbacks are invoked on the UI thread.
+ *
+ * **Threading:** Callbacks are always invoked on the main thread.
+ * Avoid performing long-running or blocking work in this callback, as it may delay
+ * form presentation or dismissal.
  *
  * Example usage:
  * ```
