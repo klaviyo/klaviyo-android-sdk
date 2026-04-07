@@ -176,9 +176,15 @@ internal class StateSideEffects(
 
     private fun onLifecycleEvent(activity: ActivityEvent) {
         activity.takeIf<ActivityEvent.Resumed>()?.run {
-            Registry.get<State>().pushToken?.let {
-                // Trigger the token in state to refresh overall push state, if changed
-                Klaviyo.setPushToken(it)
+            state.pushToken?.let { token ->
+                // Only re-send the push token if the push state has actually changed
+                // (e.g. notification permission or background data status flipped).
+                // Computing the candidate request body and comparing to stored pushState
+                // avoids re-enqueuing an identical request on every activity resume.
+                val candidatePushState = PushTokenApiRequest(token, state.getAsProfile()).requestBody
+                if (candidatePushState != state.pushState) {
+                    Klaviyo.setPushToken(token)
+                }
             }
         }
     }
