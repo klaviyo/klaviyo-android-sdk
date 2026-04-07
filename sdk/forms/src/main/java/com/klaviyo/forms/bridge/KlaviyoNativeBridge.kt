@@ -11,6 +11,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
+import com.klaviyo.forms.FormLifecycleCallback
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
@@ -20,7 +21,6 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
 import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
-import com.klaviyo.forms.invokeFormLifecycleCallback
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
@@ -29,7 +29,7 @@ import com.klaviyo.forms.webview.WebViewClient
  * An instance of this class is injected into a [com.klaviyo.forms.webview.KlaviyoWebView] as a global property
  * on the window. It receives and interprets messages from klaviyo.js over the native bridge
  */
-internal class KlaviyoNativeBridge() : NativeBridge {
+internal class KlaviyoNativeBridge : NativeBridge {
 
     /**
      * This is the name that will be used to access the bridge from JS, i.e. window.KlaviyoNativeBridge
@@ -121,6 +121,10 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
     private fun deepLink(message: OpenDeepLink) {
+        message.route?.let {
+            DeepLinking.handleDeepLink(it.toUri())
+        } ?: Registry.log.warning("Form CTA with no Android route configured: ${message.formId}")
+
         invokeFormLifecycleCallback(
             FormLifecycleEvent.FormCtaClicked(
                 formId = message.formId,
@@ -129,20 +133,16 @@ internal class KlaviyoNativeBridge() : NativeBridge {
                 deepLinkUrl = message.route
             )
         )
-        Registry.log.debug("Form CTA clicked: ${message.formId}")
-        message.route?.let {
-            DeepLinking.handleDeepLink(it.toUri())
-        } ?: Registry.log.warning("Form CTA with no Android route configured")
     }
 
     /**
      * Instruct presentation manager to dismiss the form overlay activity.
      */
     private fun close(bridgeMessage: FormDisappeared) {
+        Registry.get<PresentationManager>().dismiss()
         invokeFormLifecycleCallback(
             FormLifecycleEvent.FormDismissed(bridgeMessage.formId, bridgeMessage.formName)
         )
-        Registry.get<PresentationManager>().dismiss()
     }
 
     /**
@@ -150,5 +150,23 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      */
     private fun abort(reason: String) = Klaviyo.unregisterFromInAppForms().also {
         Registry.log.error("IAF aborted, reason: $reason")
+    }
+
+    /**
+     * Invoke the registered form lifecycle callback on the main thread, if one is registered.
+     * Dispatches to main thread for consistency across bridge paths:
+     * Modern WebView versions, using [WEB_MESSAGE_LISTENER] are already on main thread,
+     * but [JavascriptInterface] sends its messages on a background thread.
+     */
+    private fun invokeFormLifecycleCallback(event: FormLifecycleEvent) {
+        Registry.getOrNull<FormLifecycleCallback>()?.let { callback ->
+            Registry.threadHelper.runOnUiThread {
+                try {
+                    callback.onFormLifecycleEvent(event)
+                } catch (e: Exception) {
+                    Registry.log.error("Form lifecycle callback threw an exception", e)
+                }
+            }
+        }
     }
 }
