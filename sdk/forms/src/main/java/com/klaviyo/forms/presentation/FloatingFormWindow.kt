@@ -132,7 +132,14 @@ internal class FloatingFormWindow(private val context: Context) {
         }
 
         originalYOffset = params.y
-        formBottomGap = calculateFormBottomGap(layout, params.height, screenHeight, density, safeAreaTop, safeAreaBottom)
+        formBottomGap = calculateFormBottomGap(
+            layout,
+            params.height,
+            screenHeight,
+            density,
+            safeAreaTop,
+            safeAreaBottom
+        )
         isBottomAnchored = layout.position in listOf(
             FormPosition.BOTTOM,
             FormPosition.BOTTOM_LEFT,
@@ -319,11 +326,11 @@ internal class FloatingFormWindow(private val context: Context) {
         return when (layout.position) {
             FormPosition.BOTTOM,
             FormPosition.BOTTOM_LEFT,
-            FormPosition.BOTTOM_RIGHT -> maxOf(safeAreaBottom, bottomOffset)
+            FormPosition.BOTTOM_RIGHT -> safeAreaBottom + bottomOffset
 
             FormPosition.TOP,
             FormPosition.TOP_LEFT,
-            FormPosition.TOP_RIGHT -> screenHeight - maxOf(safeAreaTop, topOffset) - formHeight
+            FormPosition.TOP_RIGHT -> screenHeight - safeAreaTop - topOffset - formHeight
 
             FormPosition.CENTER -> (screenHeight - formHeight) / 2
 
@@ -347,9 +354,8 @@ internal class FloatingFormWindow(private val context: Context) {
 
     /**
      * Calculate vertical offset based on position, user offsets, and safe area insets.
-     * Uses the larger of safe area or user offset — a small user offset that falls
-     * within the safe zone is effectively a no-op, while a large user offset that
-     * exceeds the safe zone is applied directly (it already clears the safe area).
+     * Safe area insets ensure the form clears notches, Dynamic Island, and system UI.
+     * User offsets are additive on top of safe area.
      *
      * @param safeAreaTop Top safe area inset in pixels
      * @param safeAreaBottom Bottom safe area inset in pixels
@@ -365,9 +371,9 @@ internal class FloatingFormWindow(private val context: Context) {
 
         return when (layout.position) {
             FormPosition.TOP, FormPosition.TOP_LEFT, FormPosition.TOP_RIGHT ->
-                maxOf(safeAreaTop, topOffset)
+                safeAreaTop + topOffset
             FormPosition.BOTTOM, FormPosition.BOTTOM_LEFT, FormPosition.BOTTOM_RIGHT ->
-                maxOf(safeAreaBottom, bottomOffset)
+                safeAreaBottom + bottomOffset
             FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
         }
     }
