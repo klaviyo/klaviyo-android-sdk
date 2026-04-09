@@ -113,9 +113,12 @@ internal class KlaviyoState : State {
             // when higher-order identifiers haven't changed. Resetting with the same identifiers
             // causes unnecessary anonymous ID churn, which triggers spurious API requests.
             // resetProfile() remains available for explicitly clobbering all state.
-            val identifiersChanged = profile.externalId != externalId ||
-                profile.email != email ||
-                profile.phoneNumber != phoneNumber
+            // Normalize incoming values the same way PersistentObservableString does
+            // (trim whitespace, treat empty as null) so padded inputs match stored state.
+            val identifiersChanged =
+                profile.externalId?.trim()?.ifEmpty { null } != externalId ||
+                    profile.email?.trim()?.ifEmpty { null } != email ||
+                    profile.phoneNumber?.trim()?.ifEmpty { null } != phoneNumber
             if (identifiersChanged) {
                 reset()
             }
