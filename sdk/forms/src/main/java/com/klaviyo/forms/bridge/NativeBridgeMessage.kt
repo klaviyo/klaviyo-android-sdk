@@ -163,8 +163,8 @@ internal sealed class NativeBridgeMessage {
                 )
 
                 keyName<FormDisappeared>() -> FormDisappeared(
-                    formId = jsonData.requireString("formId"),
-                    formName = jsonData.requireString("formName")
+                    formId = jsonData.optString("formId", ""),
+                    formName = jsonData.optString("formName", "")
                 )
 
                 keyName<Abort>() -> Abort(

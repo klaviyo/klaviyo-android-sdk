@@ -98,11 +98,11 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `formDisappeared with missing formId throws`() {
+    fun `formDisappeared with missing formId still parses with empty default`() {
         val message = """{"type": "formDisappeared", "data": {"formName": "Test"}}"""
-        assertThrows(IllegalArgumentException::class.java) {
-            NativeBridgeMessage.decodeWebviewMessage(message)
-        }
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.FormDisappeared
+        assertEquals("", result.formId)
+        assertEquals("Test", result.formName)
     }
 
     @Test

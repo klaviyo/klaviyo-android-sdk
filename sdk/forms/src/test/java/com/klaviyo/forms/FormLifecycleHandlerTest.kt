@@ -162,13 +162,13 @@ internal class FormLifecycleHandlerTest : BaseTest() {
     }
 
     @Test
-    fun `formDisappeared without data logs error`() {
+    fun `formDisappeared without data still dismisses`() {
         Klaviyo.registerFormLifecycleHandler(FormLifecycleHandler { _ -> })
 
         nativeBridge.postMessage("""{"type":"formDisappeared"}""")
 
-        verify(exactly = 0) { mockPresentationManager.dismiss() }
-        verify { spyLog.error(any(), any<IllegalArgumentException>()) }
+        // FormDisappeared uses tolerant parsing so dismiss always fires
+        verify { mockPresentationManager.dismiss() }
     }
 
     @Test

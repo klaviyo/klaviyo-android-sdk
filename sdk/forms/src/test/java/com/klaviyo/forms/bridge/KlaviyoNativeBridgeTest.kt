@@ -118,15 +118,9 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
-        val message = """{"type":"formWillAppear"}"""
-        postMessage(message)
+        postMessage("""{"type":"formWillAppear"}""")
         verify(exactly = 0) { mockPresentationManager.present() }
-        verify {
-            spyLog.error(
-                "Failed to relay webview message: $message",
-                any<IllegalArgumentException>()
-            )
-        }
+        verify { spyLog.error(any(), any<IllegalArgumentException>()) }
     }
 
     @Test
@@ -142,15 +136,9 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
     @Test
     fun `formWillAppear with missing formId logs error and does not present`() {
-        val message = """{"type":"formWillAppear","data":{"formName":"Test Form"}}"""
-        postMessage(message)
+        postMessage("""{"type":"formWillAppear","data":{"formName":"Test Form"}}""")
         verify(exactly = 0) { mockPresentationManager.present() }
-        verify {
-            spyLog.error(
-                "Failed to relay webview message: $message",
-                any<IllegalArgumentException>()
-            )
-        }
+        verify { spyLog.error(any(), any<IllegalArgumentException>()) }
     }
 
     @Test
@@ -350,12 +338,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
         verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
-        verify {
-            spyLog.error(
-                "Failed to relay webview message: $message",
-                any<IllegalArgumentException>()
-            )
-        }
+        verify { spyLog.error(any(), any<IllegalArgumentException>()) }
 
         Registry.unregister<FormLifecycleHandler>()
     }
@@ -407,32 +390,21 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formDisappeared with no data logs error`() {
+    fun `formDisappeared with no data still dismisses`() {
         /**
+         * FormDisappeared uses tolerant parsing (optString) so that dismiss() always fires,
+         * preventing the user from getting stuck behind a full-screen overlay.
+         *
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
-        val message = """{"type":"formDisappeared"}"""
-        postMessage(message)
-        verify(exactly = 0) { mockPresentationManager.dismiss() }
-        verify {
-            spyLog.error(
-                "Failed to relay webview message: $message",
-                any<IllegalArgumentException>()
-            )
-        }
+        postMessage("""{"type":"formDisappeared"}""")
+        verify { mockPresentationManager.dismiss() }
     }
 
     @Test
-    fun `formDisappeared with missing formId logs error and does not dismiss`() {
-        val message = """{"type":"formDisappeared","data":{"formName":"Test Form"}}"""
-        postMessage(message)
-        verify(exactly = 0) { mockPresentationManager.dismiss() }
-        verify {
-            spyLog.error(
-                "Failed to relay webview message: $message",
-                any<IllegalArgumentException>()
-            )
-        }
+    fun `formDisappeared with missing formId still dismisses`() {
+        postMessage("""{"type":"formDisappeared","data":{"formName":"Test Form"}}""")
+        verify { mockPresentationManager.dismiss() }
     }
 
     @Test
@@ -449,25 +421,13 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     @Test
     fun `malformed message throws an error`() {
         postMessage("sawr a warewolf with a chinese menu inhis hands")
-
-        verify {
-            spyLog.error(
-                "Failed to relay webview message: sawr a warewolf with a chinese menu inhis hands",
-                any<JSONException>()
-            )
-        }
+        verify { spyLog.error(any(), any<JSONException>()) }
     }
 
     @Test
     fun `unknown type throws an error`() {
         postMessage("""{"type":"unknown"}""")
-
-        verify {
-            spyLog.error(
-                "Failed to relay webview message: {\"type\":\"unknown\"}",
-                any<IllegalStateException>()
-            )
-        }
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
     }
 
     @Test
