@@ -154,7 +154,7 @@ internal class FormLifecycleHandlerTest : BaseTest() {
     @Test
     fun `callback is not invoked when no callback is registered`() {
         // Simulate form shown message without registering a callback
-        val message = """{"type":"formWillAppear", "data":{"formId":"$testFormId"}}"""
+        val message = """{"type":"formWillAppear", "data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(message)
 
         // Verify PresentationManager was called but no exception thrown
@@ -162,12 +162,13 @@ internal class FormLifecycleHandlerTest : BaseTest() {
     }
 
     @Test
-    fun `formDisappeared without data delegates dismiss with empty context fields`() {
+    fun `formDisappeared without data logs error`() {
         Klaviyo.registerFormLifecycleHandler(FormLifecycleHandler { _ -> })
 
         nativeBridge.postMessage("""{"type":"formDisappeared"}""")
 
-        verify { mockPresentationManager.dismiss() }
+        verify(exactly = 0) { mockPresentationManager.dismiss() }
+        verify { spyLog.error(any(), any<IllegalArgumentException>()) }
     }
 
     @Test
@@ -178,7 +179,7 @@ internal class FormLifecycleHandlerTest : BaseTest() {
         Klaviyo.registerFormLifecycleHandler(FormLifecycleHandler { _ -> })
 
         nativeBridge.postMessage(
-            """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId"}}"""
+            """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId","formName":"$testFormName","buttonLabel":"Shop Now"}}"""
         )
 
         verify { mockThreadHelper.runOnUiThread(any()) }

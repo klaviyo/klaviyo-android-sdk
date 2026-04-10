@@ -114,12 +114,19 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formWillAppear triggers show`() {
+    fun `formWillAppear with no data logs error`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
-        postMessage("""{"type":"formWillAppear"}""")
-        verify { mockPresentationManager.present() }
+        val message = """{"type":"formWillAppear"}"""
+        postMessage(message)
+        verify(exactly = 0) { mockPresentationManager.present() }
+        verify {
+            spyLog.error(
+                "Failed to relay webview message: $message",
+                any<IllegalArgumentException>()
+            )
+        }
     }
 
     @Test
@@ -127,8 +134,23 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
-        postMessage("""{"type":"formWillAppear", "data":{"formId":"64CjgW"}}""")
+        postMessage(
+            """{"type":"formWillAppear", "data":{"formId":"64CjgW","formName":"Test Form"}}"""
+        )
         verify { mockPresentationManager.present() }
+    }
+
+    @Test
+    fun `formWillAppear with missing formId logs error and does not present`() {
+        val message = """{"type":"formWillAppear","data":{"formName":"Test Form"}}"""
+        postMessage(message)
+        verify(exactly = 0) { mockPresentationManager.present() }
+        verify {
+            spyLog.error(
+                "Failed to relay webview message: $message",
+                any<IllegalArgumentException>()
+            )
+        }
     }
 
     @Test
@@ -264,7 +286,8 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
             "ios": "klaviyotest://settings",
             "android": "klaviyotest://settings",
             "formId": "64CjgW",
-            "formName": "Test Form"
+            "formName": "Test Form",
+            "buttonLabel": "Click Me"
           }
         }
     """.trimIndent()
@@ -290,7 +313,10 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
               "type": "openDeepLink",
               "data": {
                 "ios": "klaviyotest://settings",
-                "android": ""
+                "android": "",
+                "formId": "64CjgW",
+                "formName": "Test Form",
+                "buttonLabel": "Click Me"
               }
             }
         """.trimIndent()
@@ -305,6 +331,30 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
         verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `openDeepLink with missing buttonLabel logs error and does not fire lifecycle callback`() {
+        val message = """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"64CjgW","formName":"Test Form"}}"""
+
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+        postMessage(message)
+
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
+        verify {
+            spyLog.error(
+                "Failed to relay webview message: $message",
+                any<IllegalArgumentException>()
+            )
+        }
 
         Registry.unregister<FormLifecycleHandler>()
     }
@@ -335,7 +385,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         // CTA — formId+formName come from the bridge message itself
         postMessage(
-            """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"abc","formName":"My Form"}}"""
+            """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"abc","formName":"My Form","buttonLabel":"Shop Now"}}"""
         )
         assertEquals(3, events.size)
         val ctaEvent = events[2] as FormLifecycleEvent.FormCtaClicked
@@ -356,12 +406,32 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formDisappeared triggers dismiss with empty context when no data`() {
+    fun `formDisappeared with no data logs error`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
-        postMessage("""{"type":"formDisappeared"}""")
-        verify { mockPresentationManager.dismiss() }
+        val message = """{"type":"formDisappeared"}"""
+        postMessage(message)
+        verify(exactly = 0) { mockPresentationManager.dismiss() }
+        verify {
+            spyLog.error(
+                "Failed to relay webview message: $message",
+                any<IllegalArgumentException>()
+            )
+        }
+    }
+
+    @Test
+    fun `formDisappeared with missing formId logs error and does not dismiss`() {
+        val message = """{"type":"formDisappeared","data":{"formName":"Test Form"}}"""
+        postMessage(message)
+        verify(exactly = 0) { mockPresentationManager.dismiss() }
+        verify {
+            spyLog.error(
+                "Failed to relay webview message: $message",
+                any<IllegalArgumentException>()
+            )
+        }
     }
 
     @Test
