@@ -331,6 +331,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
         verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
+        verify { spyLog.warning("Form CTA with no Android route configured: 64CjgW") }
 
         Registry.unregister<FormLifecycleHandler>()
     }
