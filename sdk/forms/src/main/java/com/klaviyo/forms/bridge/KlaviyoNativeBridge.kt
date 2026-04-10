@@ -96,6 +96,14 @@ internal class KlaviyoNativeBridge : NativeBridge {
      */
     private fun show(bridgeMessage: FormWillAppear) {
         Registry.get<PresentationManager>().present()
+
+        if (bridgeMessage.formId.isEmpty() || bridgeMessage.formName.isEmpty()) {
+            Registry.log.warning(
+                "FormWillAppear missing required fields, skipping lifecycle callback"
+            )
+            return
+        }
+
         invokeFormLifecycleHandler(
             FormLifecycleEvent.FormShown(bridgeMessage.formId, bridgeMessage.formName)
         )
@@ -129,6 +137,14 @@ internal class KlaviyoNativeBridge : NativeBridge {
         }
 
         DeepLinking.handleDeepLink(deepLinkUri)
+
+        if (message.formId.isEmpty() || message.formName.isEmpty() || message.buttonLabel.isEmpty()) {
+            Registry.log.warning(
+                "OpenDeepLink missing required fields, skipping lifecycle callback"
+            )
+            return
+        }
+
         invokeFormLifecycleHandler(
             FormLifecycleEvent.FormCtaClicked(
                 formId = message.formId,
@@ -144,6 +160,14 @@ internal class KlaviyoNativeBridge : NativeBridge {
      */
     private fun close(bridgeMessage: FormDisappeared) {
         Registry.get<PresentationManager>().dismiss()
+
+        if (bridgeMessage.formId.isEmpty() || bridgeMessage.formName.isEmpty()) {
+            Registry.log.warning(
+                "FormDisappeared missing required fields, skipping lifecycle callback"
+            )
+            return
+        }
+
         invokeFormLifecycleHandler(
             FormLifecycleEvent.FormDismissed(bridgeMessage.formId, bridgeMessage.formName)
         )

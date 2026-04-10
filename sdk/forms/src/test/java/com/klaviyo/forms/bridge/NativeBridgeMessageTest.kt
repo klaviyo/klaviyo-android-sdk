@@ -10,6 +10,7 @@ import io.mockk.just
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
@@ -51,19 +52,19 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `formWillAppear with missing formId throws`() {
+    fun `formWillAppear with missing formId parses with empty default`() {
         val message = """{"type": "formWillAppear", "data": {"formName": "Test"}}"""
-        assertThrows(IllegalArgumentException::class.java) {
-            NativeBridgeMessage.decodeWebviewMessage(message)
-        }
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.FormWillAppear
+        assertEquals("", result.formId)
+        assertEquals("Test", result.formName)
     }
 
     @Test
-    fun `formWillAppear with missing formName throws`() {
+    fun `formWillAppear with missing formName parses with empty default`() {
         val message = """{"type": "formWillAppear", "data": {"formId": "abc123"}}"""
-        assertThrows(IllegalArgumentException::class.java) {
-            NativeBridgeMessage.decodeWebviewMessage(message)
-        }
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.FormWillAppear
+        assertEquals("abc123", result.formId)
+        assertEquals("", result.formName)
     }
 
     @Test
@@ -79,11 +80,11 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `formWillAppear with empty formName throws`() {
+    fun `formWillAppear with empty formName parses with empty string`() {
         val message = """{"type": "formWillAppear", "data": {"formId": "abc123", "formName": ""}}"""
-        assertThrows(IllegalArgumentException::class.java) {
-            NativeBridgeMessage.decodeWebviewMessage(message)
-        }
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.FormWillAppear
+        assertEquals("abc123", result.formId)
+        assertEquals("", result.formName)
     }
 
     @Test
@@ -279,7 +280,7 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `deeplink without required fields throws`() {
+    fun `deeplink without metadata fields parses with empty defaults`() {
         val deeplinkMessage = """
             {
               "type": "openDeepLink",
@@ -289,9 +290,11 @@ class NativeBridgeMessageTest : BaseTest() {
             }
         """.trimIndent()
 
-        assertThrows(IllegalArgumentException::class.java) {
-            NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage)
-        }
+        val result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage) as NativeBridgeMessage.OpenDeepLink
+        assertNull(result.route)
+        assertEquals("", result.formId)
+        assertEquals("", result.formName)
+        assertEquals("", result.buttonLabel)
     }
 
     @Test
@@ -318,7 +321,7 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `openDeepLink with missing buttonLabel throws`() {
+    fun `openDeepLink with missing buttonLabel parses with empty default`() {
         val message = """
             {
               "type": "openDeepLink",
@@ -330,9 +333,11 @@ class NativeBridgeMessageTest : BaseTest() {
             }
         """.trimIndent()
 
-        assertThrows(IllegalArgumentException::class.java) {
-            NativeBridgeMessage.decodeWebviewMessage(message)
-        }
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenDeepLink
+        assertEquals("klaviyotest://settings", result.route)
+        assertEquals("abc123", result.formId)
+        assertEquals("My Newsletter", result.formName)
+        assertEquals("", result.buttonLabel)
     }
 
     @Test

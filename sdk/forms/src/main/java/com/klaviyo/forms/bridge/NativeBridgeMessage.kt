@@ -115,20 +115,9 @@ internal sealed class NativeBridgeMessage {
         }
 
         /**
-         * Require a non-empty string value for the given key, or throw.
-         * The caller ([KlaviyoNativeBridge.postMessage]) catches and logs the exception.
-         */
-        private fun JSONObject.requireString(key: String): String =
-            optString(key).takeIf { it.isNotEmpty() }
-                ?: throw IllegalArgumentException(
-                    "Required field '$key' missing from bridge message"
-                )
-
-        /**
          * Parse a native bridge message string into a [NativeBridgeMessage]
          *
          * @throws IllegalStateException for unexpected message strings
-         * @throws IllegalArgumentException for messages missing required fields
          */
         fun decodeWebviewMessage(message: String): NativeBridgeMessage {
             val jsonMessage = JSONObject(message)
@@ -140,8 +129,8 @@ internal sealed class NativeBridgeMessage {
                 keyName<HandShook>() -> HandShook
 
                 keyName<FormWillAppear>() -> FormWillAppear(
-                    formId = jsonData.requireString("formId"),
-                    formName = jsonData.requireString("formName")
+                    formId = jsonData.optString("formId", ""),
+                    formName = jsonData.optString("formName", "")
                 )
 
                 keyName<TrackAggregateEvent>() -> TrackAggregateEvent(
@@ -157,9 +146,9 @@ internal sealed class NativeBridgeMessage {
 
                 keyName<OpenDeepLink>() -> OpenDeepLink(
                     route = jsonData.getDeepLink(),
-                    formId = jsonData.requireString("formId"),
-                    formName = jsonData.requireString("formName"),
-                    buttonLabel = jsonData.requireString("buttonLabel")
+                    formId = jsonData.optString("formId", ""),
+                    formName = jsonData.optString("formName", ""),
+                    buttonLabel = jsonData.optString("buttonLabel", "")
                 )
 
                 keyName<FormDisappeared>() -> FormDisappeared(

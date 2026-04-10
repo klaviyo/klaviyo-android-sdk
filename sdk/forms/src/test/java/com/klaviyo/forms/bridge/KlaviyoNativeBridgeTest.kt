@@ -114,13 +114,23 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formWillAppear with no data logs error`() {
+    fun `formWillAppear with no data still presents but skips lifecycle callback`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
         postMessage("""{"type":"formWillAppear"}""")
-        verify(exactly = 0) { mockPresentationManager.present() }
-        verify { spyLog.error(any(), any<IllegalArgumentException>()) }
+        verify { mockPresentationManager.present() }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify {
+            spyLog.warning(
+                "FormWillAppear missing required fields, skipping lifecycle callback"
+            )
+        }
+
+        Registry.unregister<FormLifecycleHandler>()
     }
 
     @Test
@@ -135,10 +145,20 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formWillAppear with missing formId logs error and does not present`() {
+    fun `formWillAppear with missing formId still presents but skips lifecycle callback`() {
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
         postMessage("""{"type":"formWillAppear","data":{"formName":"Test Form"}}""")
-        verify(exactly = 0) { mockPresentationManager.present() }
-        verify { spyLog.error(any(), any<IllegalArgumentException>()) }
+        verify { mockPresentationManager.present() }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify {
+            spyLog.warning(
+                "FormWillAppear missing required fields, skipping lifecycle callback"
+            )
+        }
+
+        Registry.unregister<FormLifecycleHandler>()
     }
 
     @Test
@@ -325,7 +345,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `openDeepLink with missing buttonLabel logs error and does not fire lifecycle callback`() {
+    fun `openDeepLink with missing buttonLabel still navigates but skips lifecycle callback`() {
         val message = """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"64CjgW","formName":"Test Form"}}"""
 
         mockkObject(DeepLinking)
@@ -336,9 +356,9 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         postMessage(message)
 
+        verify { DeepLinking.handleDeepLink(mockUri) }
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
-        verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
-        verify { spyLog.error(any(), any<IllegalArgumentException>()) }
+        verify { spyLog.warning("OpenDeepLink missing required fields, skipping lifecycle callback") }
 
         Registry.unregister<FormLifecycleHandler>()
     }
@@ -390,21 +410,44 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formDisappeared with no data still dismisses`() {
+    fun `formDisappeared with no data still dismisses but skips lifecycle callback`() {
         /**
-         * FormDisappeared uses tolerant parsing (optString) so that dismiss() always fires,
-         * preventing the user from getting stuck behind a full-screen overlay.
+         * All message types use tolerant parsing (optString) so that SDK-internal actions
+         * always fire, preventing the user from getting stuck behind a full-screen overlay.
+         * Lifecycle callbacks are gated on valid metadata at the dispatch layer.
          *
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
         postMessage("""{"type":"formDisappeared"}""")
         verify { mockPresentationManager.dismiss() }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify {
+            spyLog.warning(
+                "FormDisappeared missing required fields, skipping lifecycle callback"
+            )
+        }
+
+        Registry.unregister<FormLifecycleHandler>()
     }
 
     @Test
-    fun `formDisappeared with missing formId still dismisses`() {
+    fun `formDisappeared with missing formId still dismisses but skips lifecycle callback`() {
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
         postMessage("""{"type":"formDisappeared","data":{"formName":"Test Form"}}""")
         verify { mockPresentationManager.dismiss() }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify {
+            spyLog.warning(
+                "FormDisappeared missing required fields, skipping lifecycle callback"
+            )
+        }
+
+        Registry.unregister<FormLifecycleHandler>()
     }
 
     @Test
