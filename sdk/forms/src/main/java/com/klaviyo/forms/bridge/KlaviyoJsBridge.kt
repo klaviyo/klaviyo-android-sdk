@@ -19,7 +19,8 @@ internal class KlaviyoJsBridge : JsBridge {
         openForm,
         closeForm,
         profileEvent,
-        setSafeArea
+        setSafeArea,
+        formWillOpenContinuation
     }
 
     override val handshake: List<HandshakeSpec> = listOf(
@@ -37,6 +38,10 @@ internal class KlaviyoJsBridge : JsBridge {
         ),
         HandshakeSpec(
             type = HelperFunction.profileEvent.name,
+            version = 1
+        ),
+        HandshakeSpec(
+            type = HelperFunction.formWillOpenContinuation.name,
             version = 1
         )
     )
@@ -81,6 +86,13 @@ internal class KlaviyoJsBridge : JsBridge {
             bottom.toString()
         )
 
+    override fun formWillOpenContinuation(formId: FormId, allowed: Boolean) =
+        evaluateJavascript(
+            HelperFunction.formWillOpenContinuation,
+            formId,
+            allowed
+        )
+
     /**
      * Evaluates a JS function in the webview with the given arguments
      */
@@ -108,13 +120,20 @@ internal class KlaviyoJsBridge : JsBridge {
  *  mapOf("key" to "value") -> "{\"key\":\"value\"}"\
  */
 private fun Any?.toJsonString(): String = when (this) {
-    is String -> JSONObject.quote(this)
+    is String -> JSONObject.quote(this).escapeJsLineSeparators()
     is Number -> this.toString()
     is Boolean -> this.toString()
     is Map<*, *> -> JSONObject(this).toString()
     null -> "null"
     else -> this.toString().let { str ->
         Registry.log.warning("Unsafe type for JSON: ${this::class.java}=$str")
-        JSONObject.quote(str)
+        JSONObject.quote(str).escapeJsLineSeparators()
     }
 }
+
+/**
+ * Escape U+2028 and U+2029 line/paragraph separators which are valid in JSON strings
+ * but act as line terminators in JavaScript, causing SyntaxError when embedded in JS source.
+ */
+private fun String.escapeJsLineSeparators(): String =
+    replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")

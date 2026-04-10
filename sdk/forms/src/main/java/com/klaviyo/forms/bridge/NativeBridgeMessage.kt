@@ -91,6 +91,21 @@ internal sealed class NativeBridgeMessage {
     ) : NativeBridgeMessage()
 
     /**
+     * Sent from the onsite-in-app-forms to query whether the customer app allows a form to be displayed.
+     * The SDK should consult the registered [FormLifecycleHandler] and respond via
+     * [JsBridge.formWillOpenContinuation].
+     *
+     * @param formId The form ID being queried
+     * @param formName The name of the form being queried
+     * @param formType The type of form (e.g. "POPUP", "FLYOUT", "FULLSCREEN")
+     */
+    data class FormWillOpenQuery(
+        val formId: FormId,
+        val formName: String,
+        val formType: String
+    ) : NativeBridgeMessage()
+
+    /**
      * Sent from the onsite-in-app-forms when an irrecoverable error occurs and the webview should be closed
      */
     data class Abort(
@@ -120,6 +135,7 @@ internal sealed class NativeBridgeMessage {
                 // v3 carries both deep links and external URLs in one message, keyed by `openExternally`.
                 HandshakeSpec(keyName<OpenDeepLink>(), 3),
                 HandshakeSpec(keyName<FormDisappeared>(), 1),
+                HandshakeSpec(keyName<FormWillOpenQuery>(), 1),
                 HandshakeSpec(keyName<Abort>(), 1)
             )
         }
@@ -166,6 +182,12 @@ internal sealed class NativeBridgeMessage {
                 keyName<FormDisappeared>() -> FormDisappeared(
                     formId = jsonData.optString("formId"),
                     formName = jsonData.optString("formName")
+                )
+
+                keyName<FormWillOpenQuery>() -> FormWillOpenQuery(
+                    formId = jsonData.optString("formId"),
+                    formName = jsonData.optString("formName"),
+                    formType = jsonData.optString("formType")
                 )
 
                 keyName<Abort>() -> Abort(

@@ -11,6 +11,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.hasAllowedOpenUrlScheme
 import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.FormLifecycleEvent
@@ -18,6 +19,7 @@ import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear
+import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillOpenQuery
 import com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook
 import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
 import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
@@ -26,6 +28,7 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * An instance of this class is injected into a [com.klaviyo.forms.webview.KlaviyoWebView] as a global property
@@ -76,6 +79,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 is TrackProfileEvent -> createProfileEvent(bridgeMessage)
                 is OpenDeepLink -> openCtaUrl(bridgeMessage)
                 is FormDisappeared -> close(bridgeMessage)
+                is FormWillOpenQuery -> queryFormDisplay(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
             }
         } catch (e: Exception) {
@@ -204,6 +208,90 @@ internal class KlaviyoNativeBridge : NativeBridge {
         invokeFormLifecycleHandler(
             FormLifecycleEvent.FormDismissed(bridgeMessage.formId, bridgeMessage.formName)
         )
+    }
+
+    /**
+     * Handle a [FormWillOpenQuery] by consulting the registered [FormLifecycleHandler].
+     *
+     * If a lifecycle handler is registered, we deliver a [FormLifecycleEvent.FormWillDisplay]
+     * event with accept/reject callbacks. The handler must call one of them to signal its
+     * decision. Only the first call takes effect (guarded by [AtomicBoolean]).
+     *
+     * A native-side timeout is also scheduled as a safety net. If neither accept nor reject
+     * is called within [FORM_GATING_TIMEOUT_MS], the form is allowed (fail-open).
+     *
+     * If no handler is registered, the form is allowed (fail-open).
+     */
+    private fun queryFormDisplay(message: FormWillOpenQuery) {
+        val formId = message.formId
+
+        if (formId.isEmpty()) {
+            Registry.log.warning("formWillOpenQuery received with empty formId")
+        }
+
+        val handler = Registry.getOrNull<FormLifecycleHandler>()
+
+        if (handler == null) {
+            Registry.get<JsBridge>().formWillOpenContinuation(formId, true)
+            return
+        }
+
+        val responded = AtomicBoolean(false)
+        lateinit var timeoutCancellable: Clock.Cancellable
+
+        fun sendContinuation(allowed: Boolean) {
+            timeoutCancellable.cancel()
+            Registry.threadHelper.runOnUiThread {
+                Registry.get<JsBridge>().formWillOpenContinuation(formId, allowed)
+            }
+        }
+
+        val event = FormLifecycleEvent.FormWillDisplay(
+            formId = formId,
+            formName = message.formName,
+            formType = message.formType,
+            accept = {
+                if (responded.compareAndSet(false, true)) {
+                    sendContinuation(true)
+                }
+            },
+            reject = {
+                if (responded.compareAndSet(false, true)) {
+                    sendContinuation(false)
+                }
+            }
+        )
+
+        // Schedule a timeout that fail-opens if the handler doesn't respond
+        timeoutCancellable = Registry.clock.schedule(FORM_GATING_TIMEOUT_MS) {
+            if (responded.compareAndSet(false, true)) {
+                Registry.log.warning(
+                    "Form gating timeout expired for formId=$formId; allowing form (fail-open)"
+                )
+                sendContinuation(true)
+            }
+        }
+
+        Registry.threadHelper.runOnUiThread {
+            try {
+                handler.onFormLifecycleEvent(event)
+            } catch (e: Exception) {
+                Registry.log.error("Form lifecycle callback threw an exception", e)
+                // Fail-open: allow the form if the handler threw
+                if (responded.compareAndSet(false, true)) {
+                    sendContinuation(true)
+                }
+            }
+        }
+    }
+
+    companion object {
+        /**
+         * Timeout in milliseconds for the host app to respond to a formWillDisplay event.
+         * After this duration, the form is allowed to display (fail-open).
+         * The JS-side timeout is the real guard; this is a native safety net.
+         */
+        internal const val FORM_GATING_TIMEOUT_MS = 5_000L
     }
 
     /**

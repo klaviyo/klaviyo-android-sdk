@@ -621,4 +621,235 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         verify { spyLog.warning(any(), null) }
     }
+
+    // --- FormWillOpenQuery / form gating tests ---
+
+    private val mockJsBridge: JsBridge = mockk(relaxed = true)
+
+    private fun setupJsBridge() {
+        Registry.register<JsBridge>(mockJsBridge)
+    }
+
+    private fun cleanupJsBridge() {
+        Registry.unregister<JsBridge>()
+    }
+
+    @Test
+    fun `formWillOpenQuery allows form when no lifecycle handler is registered`() {
+        setupJsBridge()
+
+        postMessage("""{"type":"formWillOpenQuery","data":{"formId":"abc","formType":"POPUP"}}""")
+
+        verify { mockJsBridge.formWillOpenContinuation("abc", true) }
+        cleanupJsBridge()
+    }
+
+    @Test
+    fun `formWillOpenQuery calls lifecycle handler and accepts form`() {
+        setupJsBridge()
+
+        val events = mutableListOf<FormLifecycleEvent>()
+        val handler = FormLifecycleHandler { event ->
+            events.add(event)
+            if (event is FormLifecycleEvent.FormWillDisplay) {
+                event.accept()
+            }
+        }
+        Registry.register<FormLifecycleHandler>(handler)
+
+        postMessage(
+            """{"type":"formWillOpenQuery","data":{"formId":"abc","formName":"My Form","formType":"POPUP"}}"""
+        )
+
+        assertEquals(1, events.size)
+        val event = events[0] as FormLifecycleEvent.FormWillDisplay
+        assertEquals("abc", event.formId)
+        assertEquals("My Form", event.formName)
+        assertEquals("POPUP", event.formType)
+        verify { mockJsBridge.formWillOpenContinuation("abc", true) }
+
+        Registry.unregister<FormLifecycleHandler>()
+        cleanupJsBridge()
+    }
+
+    @Test
+    fun `formWillOpenQuery calls lifecycle handler and rejects form`() {
+        setupJsBridge()
+
+        val handler = FormLifecycleHandler { event ->
+            if (event is FormLifecycleEvent.FormWillDisplay) {
+                event.reject()
+            }
+        }
+        Registry.register<FormLifecycleHandler>(handler)
+
+        postMessage(
+            """{"type":"formWillOpenQuery","data":{"formId":"abc","formType":"POPUP"}}"""
+        )
+
+        verify { mockJsBridge.formWillOpenContinuation("abc", false) }
+
+        Registry.unregister<FormLifecycleHandler>()
+        cleanupJsBridge()
+    }
+
+    @Test
+    fun `formWillOpenQuery only sends one continuation even if both accept and reject are called`() {
+        setupJsBridge()
+
+        val handler = FormLifecycleHandler { event ->
+            if (event is FormLifecycleEvent.FormWillDisplay) {
+                event.accept()
+                event.reject() // Second call should be ignored
+            }
+        }
+        Registry.register<FormLifecycleHandler>(handler)
+
+        postMessage(
+            """{"type":"formWillOpenQuery","data":{"formId":"abc","formType":"POPUP"}}"""
+        )
+
+        // Only one continuation call should have been made
+        verify(exactly = 1) { mockJsBridge.formWillOpenContinuation("abc", true) }
+        verify(exactly = 0) { mockJsBridge.formWillOpenContinuation("abc", false) }
+
+        Registry.unregister<FormLifecycleHandler>()
+        cleanupJsBridge()
+    }
+
+    @Test
+    fun `formWillOpenQuery fails open when lifecycle handler throws`() {
+        setupJsBridge()
+
+        val handler = FormLifecycleHandler { _ ->
+            throw RuntimeException("handler crash")
+        }
+        Registry.register<FormLifecycleHandler>(handler)
+
+        postMessage(
+            """{"type":"formWillOpenQuery","data":{"formId":"abc","formType":"POPUP"}}"""
+        )
+
+        verify { mockJsBridge.formWillOpenContinuation("abc", true) }
+        verify { spyLog.error("Form lifecycle callback threw an exception", any<RuntimeException>()) }
+
+        Registry.unregister<FormLifecycleHandler>()
+        cleanupJsBridge()
+    }
+
+    @Test
+    fun `formWillOpenQuery uses empty string for missing formId`() {
+        setupJsBridge()
+
+        postMessage("""{"type":"formWillOpenQuery","data":{}}""")
+
+        verify { mockJsBridge.formWillOpenContinuation("", true) }
+        cleanupJsBridge()
+    }
+
+    @Test
+    fun `formWillOpenQuery with empty formId and handler registered logs warning`() {
+        setupJsBridge()
+
+        val handler = FormLifecycleHandler { event ->
+            if (event is FormLifecycleEvent.FormWillDisplay) {
+                event.accept()
+            }
+        }
+        Registry.register<FormLifecycleHandler>(handler)
+
+        postMessage("""{"type":"formWillOpenQuery","data":{"formId":"","formType":"POPUP"}}""")
+
+        verify { spyLog.warning("formWillOpenQuery received with empty formId", null) }
+        verify { mockJsBridge.formWillOpenContinuation("", true) }
+
+        Registry.unregister<FormLifecycleHandler>()
+        cleanupJsBridge()
+    }
+
+    @Test
+    fun `formWillOpenQuery timeout fires fail-open when handler does not respond`() {
+        setupJsBridge()
+
+        // Handler that deliberately does NOT call accept or reject
+        val handler = FormLifecycleHandler { _ -> }
+        Registry.register<FormLifecycleHandler>(handler)
+
+        postMessage(
+            """{"type":"formWillOpenQuery","data":{"formId":"timeout123","formType":"POPUP"}}"""
+        )
+
+        // Handler was called but didn't respond — no continuation yet
+        verify(exactly = 0) { mockJsBridge.formWillOpenContinuation(any(), any()) }
+
+        // Advance clock past the timeout
+        staticClock.execute(KlaviyoNativeBridge.FORM_GATING_TIMEOUT_MS)
+
+        // Timeout should have fired fail-open
+        verify { mockJsBridge.formWillOpenContinuation("timeout123", true) }
+        verify {
+            spyLog.warning(
+                "Form gating timeout expired for formId=timeout123; allowing form (fail-open)",
+                null
+            )
+        }
+
+        Registry.unregister<FormLifecycleHandler>()
+        cleanupJsBridge()
+    }
+
+    @Test
+    fun `formWillOpenQuery timeout does not double-send after accept`() {
+        setupJsBridge()
+
+        val handler = FormLifecycleHandler { event ->
+            if (event is FormLifecycleEvent.FormWillDisplay) {
+                event.accept()
+            }
+        }
+        Registry.register<FormLifecycleHandler>(handler)
+
+        postMessage(
+            """{"type":"formWillOpenQuery","data":{"formId":"abc","formType":"POPUP"}}"""
+        )
+
+        // Handler already called accept
+        verify(exactly = 1) { mockJsBridge.formWillOpenContinuation("abc", true) }
+
+        // Advance clock past timeout — should NOT send again
+        staticClock.execute(KlaviyoNativeBridge.FORM_GATING_TIMEOUT_MS)
+
+        // Still exactly 1 call
+        verify(exactly = 1) { mockJsBridge.formWillOpenContinuation("abc", any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
+        cleanupJsBridge()
+    }
+
+    @Test
+    fun `formWillOpenQuery accept and reject from different calls only sends first`() {
+        setupJsBridge()
+
+        var capturedEvent: FormLifecycleEvent.FormWillDisplay? = null
+        val handler = FormLifecycleHandler { event ->
+            if (event is FormLifecycleEvent.FormWillDisplay) {
+                capturedEvent = event
+            }
+        }
+        Registry.register<FormLifecycleHandler>(handler)
+
+        postMessage(
+            """{"type":"formWillOpenQuery","data":{"formId":"abc","formType":"POPUP"}}"""
+        )
+
+        // Simulate calling reject first, then accept from "another thread"
+        capturedEvent!!.reject()
+        capturedEvent!!.accept()
+
+        verify(exactly = 1) { mockJsBridge.formWillOpenContinuation("abc", false) }
+        verify(exactly = 0) { mockJsBridge.formWillOpenContinuation("abc", true) }
+
+        Registry.unregister<FormLifecycleHandler>()
+        cleanupJsBridge()
+    }
 }
