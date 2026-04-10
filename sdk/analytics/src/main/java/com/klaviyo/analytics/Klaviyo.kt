@@ -149,7 +149,7 @@ object Klaviyo {
      * build analytics requests with profile identifiers
      *
      * @param profile A map-like object representing properties of the new user
-     * @return Returns [Klaviyo] for call chaining
+     * @return Returns [Klaviyo] for call chainingm
      */
     @JvmStatic
     fun setProfile(profile: Profile): Klaviyo = safeApply {
