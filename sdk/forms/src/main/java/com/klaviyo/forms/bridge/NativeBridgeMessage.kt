@@ -129,8 +129,8 @@ internal sealed class NativeBridgeMessage {
                 keyName<HandShook>() -> HandShook
 
                 keyName<FormWillAppear>() -> FormWillAppear(
-                    formId = jsonData.optString("formId", ""),
-                    formName = jsonData.optString("formName", "")
+                    formId = jsonData.optString("formId"),
+                    formName = jsonData.optString("formName")
                 )
 
                 keyName<TrackAggregateEvent>() -> TrackAggregateEvent(
@@ -146,14 +146,14 @@ internal sealed class NativeBridgeMessage {
 
                 keyName<OpenDeepLink>() -> OpenDeepLink(
                     route = jsonData.getDeepLink(),
-                    formId = jsonData.optString("formId", ""),
-                    formName = jsonData.optString("formName", ""),
-                    buttonLabel = jsonData.optString("buttonLabel", "")
+                    formId = jsonData.optString("formId"),
+                    formName = jsonData.optString("formName"),
+                    buttonLabel = jsonData.optString("buttonLabel")
                 )
 
                 keyName<FormDisappeared>() -> FormDisappeared(
-                    formId = jsonData.optString("formId", ""),
-                    formName = jsonData.optString("formName", "")
+                    formId = jsonData.optString("formId"),
+                    formName = jsonData.optString("formName")
                 )
 
                 keyName<Abort>() -> Abort(

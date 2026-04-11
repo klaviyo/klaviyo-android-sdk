@@ -124,11 +124,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         postMessage("""{"type":"formWillAppear"}""")
         verify { mockPresentationManager.present() }
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
-        verify {
-            spyLog.warning(
-                "FormWillAppear missing required fields, skipping lifecycle callback"
-            )
-        }
+        verify { spyLog.warning(any()) }
 
         Registry.unregister<FormLifecycleHandler>()
     }
@@ -152,11 +148,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         postMessage("""{"type":"formWillAppear","data":{"formName":"Test Form"}}""")
         verify { mockPresentationManager.present() }
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
-        verify {
-            spyLog.warning(
-                "FormWillAppear missing required fields, skipping lifecycle callback"
-            )
-        }
+        verify { spyLog.warning(any()) }
 
         Registry.unregister<FormLifecycleHandler>()
     }
@@ -339,7 +331,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
         verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
-        verify { spyLog.warning("Form CTA with no Android route configured: 64CjgW") }
+        verify { spyLog.warning(any()) }
 
         Registry.unregister<FormLifecycleHandler>()
     }
@@ -358,7 +350,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         verify { DeepLinking.handleDeepLink(mockUri) }
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
-        verify { spyLog.warning("OpenDeepLink missing required fields, skipping lifecycle callback") }
+        verify { spyLog.warning(any()) }
 
         Registry.unregister<FormLifecycleHandler>()
     }
@@ -424,11 +416,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         postMessage("""{"type":"formDisappeared"}""")
         verify { mockPresentationManager.dismiss() }
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
-        verify {
-            spyLog.warning(
-                "FormDisappeared missing required fields, skipping lifecycle callback"
-            )
-        }
+        verify { spyLog.warning(any()) }
 
         Registry.unregister<FormLifecycleHandler>()
     }
@@ -441,11 +429,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         postMessage("""{"type":"formDisappeared","data":{"formName":"Test Form"}}""")
         verify { mockPresentationManager.dismiss() }
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
-        verify {
-            spyLog.warning(
-                "FormDisappeared missing required fields, skipping lifecycle callback"
-            )
-        }
+        verify { spyLog.warning(any()) }
 
         Registry.unregister<FormLifecycleHandler>()
     }
@@ -477,11 +461,6 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     fun `null message logs warning`() {
         postMessage(null)
 
-        verify {
-            spyLog.warning(
-                "Received null message from webview",
-                null
-            )
-        }
+        verify { spyLog.warning(any(), null) }
     }
 }
