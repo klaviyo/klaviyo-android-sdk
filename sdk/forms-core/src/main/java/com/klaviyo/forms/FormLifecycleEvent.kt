@@ -23,6 +23,8 @@ sealed interface FormLifecycleEvent {
 
     /**
      * Triggered when a form is shown to the user.
+     *
+     * Fired after the SDK has initiated form presentation.
      */
     data class FormShown(
         override val formId: String,
@@ -31,6 +33,8 @@ sealed interface FormLifecycleEvent {
 
     /**
      * Triggered when a form is dismissed (closed) by the user.
+     *
+     * Fired after the SDK has initiated form dismissal.
      */
     data class FormDismissed(
         override val formId: String,
@@ -39,6 +43,9 @@ sealed interface FormLifecycleEvent {
 
     /**
      * Triggered when a user taps a call-to-action (CTA) button in the form.
+     *
+     * Fired after the SDK has initiated deep link navigation. Not emitted
+     * if no deep link URL is configured for the CTA.
      *
      * @property buttonLabel The text label of the CTA button.
      * @property deepLinkUrl The deep link URI configured for the CTA.

@@ -6,8 +6,9 @@ package com.klaviyo.forms
  * Implement this interface to receive notifications when in-app form lifecycle events occur.
  *
  * **Threading:** The handler is always invoked on the main thread.
- * Avoid performing long-running or blocking work in this handler, as it may delay
- * form presentation or dismissal.
+ * Lifecycle callbacks fire after the SDK has already initiated the corresponding
+ * action (presentation, dismissal, or deep link navigation). Avoid performing
+ * long-running or blocking work in this handler, as it runs on the main thread.
  *
  * Example usage:
  * ```
