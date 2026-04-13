@@ -95,6 +95,8 @@ internal class FloatingFormWindow(private val context: Context) {
         val safeInsets = rootWindowInsets?.getInsets(systemBars() or displayCutout())
         val safeAreaTop = safeInsets?.top ?: 0
         val safeAreaBottom = safeInsets?.bottom ?: 0
+        val safeAreaLeft = safeInsets?.left ?: 0
+        val safeAreaRight = safeInsets?.right ?: 0
 
         val params = WindowManager.LayoutParams().apply {
             // TYPE_APPLICATION_PANEL (1000) doesn't require special permissions
@@ -112,7 +114,7 @@ internal class FloatingFormWindow(private val context: Context) {
             gravity = layout.position.toGravity()
 
             // Calculate offsets based on position, including safe area insets
-            x = calculateHorizontalOffset(layout, density)
+            x = calculateHorizontalOffset(layout, density, safeAreaLeft, safeAreaRight)
             y = calculateVerticalOffset(layout, density, safeAreaTop, safeAreaBottom)
 
             // FLAG_NOT_TOUCH_MODAL: Allow touches outside the window to pass through
@@ -339,15 +341,25 @@ internal class FloatingFormWindow(private val context: Context) {
     }
 
     /**
-     * Calculate horizontal offset based on position and offsets
+     * Calculate horizontal offset based on position, user offsets, and safe area insets.
+     * Safe area insets ensure the form clears notches, display cutouts, and system UI.
+     * User offsets are additive on top of safe area.
+     *
+     * @param safeAreaLeft Left safe area inset in pixels
+     * @param safeAreaRight Right safe area inset in pixels
      */
-    private fun calculateHorizontalOffset(layout: FormLayout, density: Float): Int {
+    private fun calculateHorizontalOffset(
+        layout: FormLayout,
+        density: Float,
+        safeAreaLeft: Int,
+        safeAreaRight: Int
+    ): Int {
         val leftOffset = (layout.offsets.left * density).toInt()
         val rightOffset = (layout.offsets.right * density).toInt()
 
         return when (layout.position) {
-            FormPosition.TOP_LEFT, FormPosition.BOTTOM_LEFT -> leftOffset
-            FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> -rightOffset
+            FormPosition.TOP_LEFT, FormPosition.BOTTOM_LEFT -> safeAreaLeft + leftOffset
+            FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> -(safeAreaRight + rightOffset)
             FormPosition.TOP, FormPosition.BOTTOM, FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
         }
     }
