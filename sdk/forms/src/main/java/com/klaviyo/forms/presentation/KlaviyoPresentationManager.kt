@@ -234,6 +234,11 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 }
             }
 
+            // Cancel any existing dismiss timer before scheduling a new one to prevent
+            // orphaned timers firing on a dead context (e.g. if closeFormAndDismiss set
+            // a 400ms timer and the app backgrounds within that window)
+            dismissOnTimeout?.cancel()
+
             // Fallback: if the timeout fires without re-presentation, reset state to Hidden
             // so future present() calls aren't blocked by a stale Presenting state
             dismissOnTimeout = Registry.clock.schedule(timeout) {
@@ -303,15 +308,11 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         }
 
         floatingFormWindow = FloatingFormWindow(activity).also { window ->
-            window.show(activity, webView, layout)
+            window.show(activity, webView, layout) {
+                presentationState = Presented(formId)
+                Registry.log.debug("Presentation State: $presentationState")
+            }
         }
-
-        // TODO: Ideally state should transition to Presented inside the runOnUiThread
-        //  callback in FloatingFormWindow.show() once windowManager.addView() completes,
-        //  mirroring the Activity path's onCreateActivity callback. Setting Presented
-        //  immediately is a POC shortcut — the window may not yet be on screen.
-        presentationState = Presented(formId)
-        Registry.log.debug("Presentation State: $presentationState")
     }
 
     /**
