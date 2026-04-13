@@ -350,7 +350,7 @@ internal class FloatingFormWindow(private val context: Context) {
 
             return when (layout.position) {
                 FormPosition.TOP_LEFT, FormPosition.BOTTOM_LEFT -> leftOffset
-                FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> -rightOffset
+                FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> rightOffset
                 FormPosition.TOP, FormPosition.BOTTOM, FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
             }
         }

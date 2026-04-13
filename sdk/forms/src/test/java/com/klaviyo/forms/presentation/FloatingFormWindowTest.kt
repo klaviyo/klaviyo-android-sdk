@@ -80,15 +80,15 @@ class FloatingFormWindowTest {
     }
 
     @Test
-    fun `horizontal offset for RIGHT positions uses negative right offset`() {
+    fun `horizontal offset for RIGHT positions uses positive right offset`() {
         val layout = layoutAt(FormPosition.TOP_RIGHT, Offsets(right = 16f))
-        assertEquals(-32, FloatingFormWindow.calculateHorizontalOffset(layout, density))
+        assertEquals(32, FloatingFormWindow.calculateHorizontalOffset(layout, density))
     }
 
     @Test
-    fun `horizontal offset for BOTTOM_RIGHT uses negative right offset`() {
+    fun `horizontal offset for BOTTOM_RIGHT uses positive right offset`() {
         val layout = layoutAt(FormPosition.BOTTOM_RIGHT, Offsets(right = 10f))
-        assertEquals(-20, FloatingFormWindow.calculateHorizontalOffset(layout, density))
+        assertEquals(20, FloatingFormWindow.calculateHorizontalOffset(layout, density))
     }
 
     @Test
