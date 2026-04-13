@@ -7,9 +7,9 @@ import android.os.Build
 import android.util.DisplayMetrics
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.view.WindowManager
 import android.widget.FrameLayout
-import androidx.core.view.OnApplyWindowInsetsListener
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
@@ -50,23 +50,28 @@ internal class FloatingFormWindow(private val context: Context) {
     private var isBottomAnchored: Boolean = false
 
     /**
-     * Keyboard animation tracking for the host activity's root view.
-     * Since the floating window uses FLAG_NOT_FOCUSABLE, inset callbacks won't fire
-     * on the window itself — we must observe from the host activity's view hierarchy.
+     * Keyboard observation for the host activity's view hierarchy.
+     * Since the floating window uses FLAG_NOT_FOCUSABLE, IME insets are delivered to
+     * the host activity's window — not ours — so we must observe from there.
      *
-     * Uses WindowInsetsAnimationCompat to smoothly track the keyboard animation
-     * frame-by-frame, shifting the flyout in sync with the keyboard slide.
-     * On API < 30, animation callbacks don't fire so we fall back to
-     * OnApplyWindowInsetsListener for an instant (non-animated) shift.
+     * Strategy: inject a zero-size probe view as a direct child of the host DecorView
+     * and attach our WindowInsetsAnimationCallback to it. This avoids clobbering any
+     * callback the host app may have registered on its own root view, since
+     * DISPATCH_MODE_STOP on a sibling only stops recursion into that sibling's subtree,
+     * not dispatch to our probe view.
      *
-     * We shift the flyout above the keyboard rather than hiding it so the user
-     * can still see the form while typing in the host app.
-     * An alternative approach is to hide the flyout entirely (set container GONE)
-     * which is simpler and avoids edge cases with tall forms that don't fit
-     * above the keyboard, but means the user loses sight of the form while typing.
+     * Fallback: ViewTreeObserver.OnGlobalLayoutListener on the DecorView for pre-API 30
+     * (where the compat animation shim may not reach a non-root child) and for the rare
+     * case where an ancestor uses DISPATCH_MODE_STOP and blocks our animation callback.
+     * The layout listener fires once per layout pass (no per-frame progress), so the
+     * flyout snaps to its shifted position rather than tracking the keyboard slide.
+     * The isAnimatingKeyboard guard prevents the two paths from fighting each other.
      */
-    private var hostRootView: View? = null
+    private var probeView: View? = null
+    private var globalLayoutListener: ViewTreeObserver.OnGlobalLayoutListener? = null
+    private var viewTreeObserver: ViewTreeObserver? = null
     private var isAnimatingKeyboard = false
+    private var lastAppliedKeyboardHeight: Int = 0
 
     /**
      * Show the floating form window with the given webView and layout configuration
@@ -231,19 +236,29 @@ internal class FloatingFormWindow(private val context: Context) {
     }
 
     /**
-     * Start monitoring keyboard animation from the host activity's root view.
+     * Start monitoring keyboard animation from the host activity's view hierarchy.
      *
-     * Uses [WindowInsetsAnimationCompat.Callback] to track the keyboard frame-by-frame
-     * on API 30+, shifting the flyout smoothly in sync. Falls back to
-     * [ViewCompat.setOnApplyWindowInsetsListener] for an instant shift on older APIs
-     * where animation callbacks don't fire.
+     * Injects a zero-size probe [View] as a direct child of the host [DecorView][android.view.Window.getDecorView]
+     * and attaches a [WindowInsetsAnimationCompat.Callback] to it. This avoids clobbering any
+     * animation callback the host app may have registered on its own root view.
+     *
+     * Falls back to [ViewTreeObserver.OnGlobalLayoutListener] for pre-API 30 devices or when
+     * [WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_STOP] on an ancestor blocks our
+     * animation callback. The layout listener snaps the flyout to its final position rather
+     * than tracking the keyboard slide frame-by-frame. The [isAnimatingKeyboard] flag prevents
+     * both paths from applying a shift at the same time.
      */
     private fun startKeyboardMonitor(hostActivity: Activity) {
-        val rootView = hostActivity.window.decorView.rootView
-        hostRootView = rootView
+        // Guard against double-registration if show() is called while already monitoring
+        stopKeyboardMonitor()
+
+        val decorView = hostActivity.window.decorView as ViewGroup
+        lastAppliedKeyboardHeight = 0
 
         // Animation callback: tracks keyboard slide frame-by-frame (API 30+)
-        val animationCallback = object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_STOP) {
+        val animationCallback = object : WindowInsetsAnimationCompat.Callback(
+            DISPATCH_MODE_CONTINUE_ON_SUBTREE
+        ) {
             override fun onProgress(
                 insets: WindowInsetsCompat,
                 runningAnimations: MutableList<WindowInsetsAnimationCompat>
@@ -269,31 +284,60 @@ internal class FloatingFormWindow(private val context: Context) {
             }
         }
 
-        ViewCompat.setWindowInsetsAnimationCallback(rootView, animationCallback)
-
-        // Fallback insets listener for API < 30 where animation callbacks don't fire.
-        // On API 30+, the animation callback handles positioning so we skip the
-        // instant update here to avoid fighting with the animation.
-        val insetsListener = OnApplyWindowInsetsListener { _, insets ->
-            if (!isAnimatingKeyboard) {
-                applyKeyboardShift(insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
-            }
-            insets
+        // Inject a zero-size probe view as a direct sibling of the app's content inside DecorView.
+        // Attaching the callback here avoids replacing whatever the host app set on its root view.
+        probeView = View(hostActivity).also { probe ->
+            decorView.addView(probe, ViewGroup.LayoutParams(0, 0))
+            ViewCompat.setWindowInsetsAnimationCallback(probe, animationCallback)
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(rootView, insetsListener)
+        // Fallback: fires once per layout pass when keyboard height changes.
+        // Guards with isAnimatingKeyboard so it doesn't fight the per-frame animation path.
+        // Uses ViewCompat.getRootWindowInsets with WindowInsetsCompat.Type.ime() to isolate
+        // only the keyboard height — avoids the nav bar contamination of getWindowVisibleDisplayFrame.
+        // If an ancestor in the host app uses DISPATCH_MODE_STOP and blocks the animation callback,
+        // this ensures the flyout still shifts — snapping to the final position rather than
+        // tracking the keyboard slide frame-by-frame.
+        globalLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
+            if (!isAnimatingKeyboard) {
+                val probe = probeView ?: return@OnGlobalLayoutListener
+                val keyboardHeight = ViewCompat.getRootWindowInsets(probe)
+                    ?.getInsets(WindowInsetsCompat.Type.ime())?.bottom ?: 0
+                if (keyboardHeight != lastAppliedKeyboardHeight) {
+                    lastAppliedKeyboardHeight = keyboardHeight
+                    applyKeyboardShift(keyboardHeight)
+                }
+            }
+        }.also { layoutListener ->
+            decorView.viewTreeObserver.also { vto ->
+                viewTreeObserver = vto
+                vto.addOnGlobalLayoutListener(layoutListener)
+            }
+        }
     }
 
     /**
-     * Stop monitoring keyboard and clean up listeners
+     * Stop monitoring keyboard and clean up the probe view and listeners.
      */
     private fun stopKeyboardMonitor() {
-        hostRootView?.let {
-            ViewCompat.setWindowInsetsAnimationCallback(it, null)
-            ViewCompat.setOnApplyWindowInsetsListener(it, null)
+        probeView?.let { probe ->
+            ViewCompat.setWindowInsetsAnimationCallback(probe, null)
+            (probe.parent as? ViewGroup)?.removeView(probe)
         }
-        hostRootView = null
+
+        viewTreeObserver?.let { vto ->
+            if (vto.isAlive) {
+                globalLayoutListener?.let {
+                    vto.removeOnGlobalLayoutListener(it)
+                }
+            }
+        }
+
+        probeView = null
+        viewTreeObserver = null
+        globalLayoutListener = null
         isAnimatingKeyboard = false
+        lastAppliedKeyboardHeight = 0
     }
 
     /**
