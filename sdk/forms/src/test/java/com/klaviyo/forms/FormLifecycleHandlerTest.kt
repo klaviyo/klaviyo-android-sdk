@@ -162,13 +162,17 @@ internal class FormLifecycleHandlerTest : BaseTest() {
     }
 
     @Test
-    fun `formDisappeared without data still dismisses`() {
-        Klaviyo.registerFormLifecycleHandler(FormLifecycleHandler { _ -> })
+    fun `formDisappeared without data still dismisses but skips lifecycle callback`() {
+        var callbackInvoked = false
+        Klaviyo.registerFormLifecycleHandler(FormLifecycleHandler { _ -> callbackInvoked = true })
 
         nativeBridge.postMessage("""{"type":"formDisappeared"}""")
 
         // FormDisappeared uses tolerant parsing so dismiss always fires
         verify { mockPresentationManager.dismiss() }
+        // Missing formId/formName means the lifecycle callback should be skipped
+        assert(!callbackInvoked) { "Lifecycle callback should not fire when form metadata is missing" }
+        verify { spyLog.warning(any()) }
     }
 
     @Test
