@@ -337,20 +337,25 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `openDeepLink with missing buttonLabel still navigates but skips lifecycle callback`() {
+    fun `openDeepLink with missing buttonLabel still navigates and fires lifecycle callback`() {
         val message = """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"64CjgW","formName":"Test Form"}}"""
 
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
 
-        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
-        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleHandler { event -> events.add(event) }
+        Registry.register<FormLifecycleHandler>(callback)
 
         postMessage(message)
 
         verify { DeepLinking.handleDeepLink(mockUri) }
-        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
-        verify { spyLog.warning(any()) }
+        assertEquals(1, events.size)
+        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaClicked
+        assertEquals("64CjgW", ctaEvent.formId)
+        assertEquals("Test Form", ctaEvent.formName)
+        assertEquals("", ctaEvent.buttonLabel)
+        assertEquals(mockUri, ctaEvent.deepLinkUrl)
 
         Registry.unregister<FormLifecycleHandler>()
     }

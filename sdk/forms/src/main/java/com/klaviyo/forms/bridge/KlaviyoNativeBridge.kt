@@ -138,7 +138,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
 
         DeepLinking.handleDeepLink(deepLinkUri)
 
-        if (message.formId.isEmpty() || message.formName.isEmpty() || message.buttonLabel.isEmpty()) {
+        if (message.formId.isEmpty() || message.formName.isEmpty()) {
             Registry.log.warning(
                 "OpenDeepLink missing required fields, skipping lifecycle callback"
             )
