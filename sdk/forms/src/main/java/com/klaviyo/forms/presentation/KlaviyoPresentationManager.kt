@@ -143,12 +143,14 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * and re-presents with the saved layout once the new activity is available.
      */
     private fun onConfigurationChanged(event: ActivityEvent.ConfigurationChanged) = safeCall {
-        // Cancel any pending per-activity cleanup — rotation handles its own re-presentation
-        hostActivityStoppedCleanup?.cancel()
-        hostActivityStoppedCleanup = null
-
         event.newConfig.orientation.takeIf { it != orientation }
             ?.also { newOrientation -> orientation = newOrientation }?.let {
+                // Cancel any pending per-activity cleanup — rotation handles its own re-presentation.
+                // Must be inside the orientation guard so non-orientation config changes (locale,
+                // dark mode, font scale) don't cancel the timer without scheduling a replacement.
+                hostActivityStoppedCleanup?.cancel()
+                hostActivityStoppedCleanup = null
+
                 presentationState.takeIfNot<PresentationState, Hidden>()?.let { state ->
                     orientation = event.newConfig.orientation
                     Registry.get<WebViewClient>().detachWebView()
