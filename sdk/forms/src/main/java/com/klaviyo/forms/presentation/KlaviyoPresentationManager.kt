@@ -165,11 +165,19 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                         window.dismiss()
                         floatingFormWindow = null
 
-                        val layout = currentLayout ?: return@safeCall
-                        val floatingLayout = layout.takeUnless { it.isFullscreen } ?: return@safeCall
+                        val layout = currentLayout ?: run {
+                            presentationState = Hidden
+                            Registry.log.warning("Rotation aborted: no layout to re-present")
+                            return@safeCall
+                        }
+                        val floatingLayout = layout.takeUnless { it.isFullscreen } ?: run {
+                            presentationState = Hidden
+                            Registry.log.warning("Rotation aborted: layout is fullscreen")
+                            return@safeCall
+                        }
 
-                        val observer: ActivityObserver = { event ->
-                            event.takeIf<ActivityEvent.Resumed>()?.let { resumed ->
+                        val observer: ActivityObserver = { activityEvent ->
+                            activityEvent.takeIf<ActivityEvent.Resumed>()?.let { resumed ->
                                 rotationObserver?.let {
                                     Registry.lifecycleMonitor.offActivityEvent(it)
                                 }
@@ -310,10 +318,22 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         }
 
         floatingFormWindow = FloatingFormWindow(activity).also { window ->
-            window.show(activity, webView, layout) {
-                presentationState = Presented(formId)
-                Registry.log.debug("Presentation State: $presentationState")
-            }
+            window.show(
+                hostActivity = activity,
+                webView = webView,
+                layout = layout,
+                onPresented = {
+                    presentationState = Presented(formId)
+                    Registry.log.debug("Presentation State: $presentationState")
+                },
+                onError = {
+                    floatingFormWindow = null
+                    hostActivity = null
+                    currentLayout = null
+                    presentationState = Hidden
+                    Registry.log.debug("Presentation State: $presentationState (addView failed)")
+                }
+            )
         }
     }
 

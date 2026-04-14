@@ -257,7 +257,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
      */
     private fun withFloatingPresentedState(): KlaviyoPresentationManager {
         mockkConstructor(FloatingFormWindow::class)
-        every { anyConstructed<FloatingFormWindow>().show(any(), any(), any(), any()) } answers {
+        every { anyConstructed<FloatingFormWindow>().show(any(), any(), any(), any(), any()) } answers {
             // Invoke the onPresented callback (4th arg) to mirror real addView behavior
             arg<(() -> Unit)?>(3)?.invoke()
         }
@@ -297,6 +297,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
                     any(),
                     mockWebView,
                     mockFloatingLayout,
+                    any(),
                     any()
                 )
             }

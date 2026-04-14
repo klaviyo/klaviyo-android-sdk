@@ -80,12 +80,14 @@ internal class FloatingFormWindow(private val context: Context) {
      * @param webView The WebView to display in the floating window
      * @param layout The layout configuration for positioning and sizing
      * @param onPresented Callback invoked after the window is successfully added to the screen
+     * @param onError Callback invoked if addView fails, so the caller can reset state
      */
     fun show(
         hostActivity: Activity,
         webView: View,
         layout: FormLayout,
-        onPresented: (() -> Unit)? = null
+        onPresented: (() -> Unit)? = null,
+        onError: (() -> Unit)? = null
     ) {
         if (container != null) {
             Registry.log.warning("FloatingFormWindow already shown, dismissing first")
@@ -207,6 +209,7 @@ internal class FloatingFormWindow(private val context: Context) {
                 Registry.log.error("Failed to show FloatingFormWindow", e)
                 container = null
                 windowParams = null
+                onError?.invoke()
             }
         }
     }
