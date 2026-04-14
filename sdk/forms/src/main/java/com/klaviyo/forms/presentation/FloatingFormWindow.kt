@@ -186,10 +186,9 @@ internal class FloatingFormWindow(private val context: Context) {
             // Guard: dismiss() may have been called between show() and this queued lambda.
             // If so, skip adding the view entirely to avoid an orphaned window and
             // leaked keyboard monitor that no subsequent dismiss() can reach.
-            if (isDismissed) {
-                onError?.invoke()
-                return@runOnUiThread
-            }
+            // Do NOT call onError here — dismiss already cleaned up the manager's state,
+            // and a new present() may have set up fresh state that onError would corrupt.
+            if (isDismissed) return@runOnUiThread
 
             try {
                 val newContainer = FrameLayout(hostActivity).apply {
