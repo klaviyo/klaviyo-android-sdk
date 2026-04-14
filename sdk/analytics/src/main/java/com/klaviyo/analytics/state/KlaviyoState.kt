@@ -107,9 +107,20 @@ internal class KlaviyoState : State {
      * Update user state from a new [Profile] model object
      */
     override fun setProfile(profile: Profile) {
-        if (!externalId.isNullOrEmpty() || !email.isNullOrEmpty() || !phoneNumber.isNullOrEmpty()) {
-            // If a profile with external identifiers is already in state, we must reset.
-            // This conditional is important to preserve merging with an anonymous profile.
+        val currentIds = listOf(externalId, email, phoneNumber)
+        val isIdentified = currentIds.any { !it.isNullOrEmpty() }
+        val incomingIds = listOf(profile.externalId, profile.email, profile.phoneNumber).map {
+            // Normalize incoming values the same way PersistentObservableString does
+            // (trim whitespace, treat empty as null) so padded inputs match stored state.
+            it?.trim()?.ifEmpty { null }
+        }
+
+        // Only reset if the incoming profile has different identifiers.
+        // Anonymous ID is the lowest-order identifier, so there's no reason to regenerate it
+        // when higher-order identifiers haven't changed. Resetting with the same identifiers
+        // causes unnecessary anonymous ID churn, which triggers spurious API requests.
+        // resetProfile() remains available for explicitly clobbering all state.
+        if (isIdentified && currentIds != incomingIds) {
             reset()
         }
 
