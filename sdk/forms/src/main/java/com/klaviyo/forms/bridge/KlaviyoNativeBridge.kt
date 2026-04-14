@@ -93,24 +93,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * Notify the client that the webview should be shown
      */
     private fun show(bridgeMessage: FormWillAppear) {
-        // Use test layout for debugging WindowManager approach
-        // TODO: Remove this hardcoded layout once JS is sending real layout data
-        val testLayout = TEST_LAYOUT ?: bridgeMessage.layout
-        Registry.get<PresentationManager>().present(bridgeMessage.formId, testLayout)
-    }
-
-    private companion object {
-        /**
-         * Hardcoded test layout for debugging WindowManager approach
-         * Position: BOTTOM_RIGHT, Size: 300x200dp, Offsets: 16dp
-         * Set to null to use layout from JS instead
-         */
-        private val TEST_LAYOUT: FormLayout? = FormLayout(
-            position = FormPosition.BOTTOM_RIGHT,
-            width = Dimension.dp(300f),
-            height = Dimension.dp(200f),
-            offsets = Offsets.all(16f)
-        )
+        Registry.get<PresentationManager>().present(bridgeMessage.formId, bridgeMessage.layout)
     }
 
     /**

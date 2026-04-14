@@ -1,21 +1,28 @@
 package com.klaviyo.forms.presentation
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.view.View
+import android.view.WindowManager
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
+import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.forms.InAppFormsConfig
+import com.klaviyo.forms.bridge.FormLayout
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkConstructor
 import io.mockk.mockkObject
 import io.mockk.runs
 import io.mockk.slot
+import io.mockk.unmockkConstructor
 import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.Assert.assertEquals
@@ -107,7 +114,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     }
 
     @Test
-    fun `other lifecycle events are ignored`() {
+    fun `other lifecycle events are ignored for activity-based forms`() {
         withPresentedState()
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
 
@@ -231,5 +238,216 @@ class KlaviyoPresentationManagerTest : BaseTest() {
             PresentationState.Hidden,
             manager.presentationState
         )
+    }
+
+    // ---- Floating Window Tests ----
+
+    private val mockWebView = mockk<View>(relaxed = true)
+    private val mockFloatingLayout = mockk<FormLayout>(relaxed = true).apply {
+        every { isFullscreen } returns false
+    }
+    private val mockWindowManager = mockk<WindowManager>(relaxed = true)
+    private val mockHostActivity = mockk<Activity>(relaxed = true).apply {
+        every { getSystemService(Context.WINDOW_SERVICE) } returns mockWindowManager
+    }
+
+    /**
+     * Sets up FloatingFormWindow constructor mocking and presents a floating form.
+     * Must call [cleanupFloatingMocks] in the test or after block.
+     */
+    private fun withFloatingPresentedState(): KlaviyoPresentationManager {
+        mockkConstructor(FloatingFormWindow::class)
+        every { anyConstructed<FloatingFormWindow>().show(any(), any(), any(), any(), any()) } answers {
+            // Invoke the onPresented callback (4th arg) to mirror real addView behavior
+            arg<(() -> Unit)?>(3)?.invoke()
+        }
+        every { anyConstructed<FloatingFormWindow>().dismiss() } just runs
+        every { mockWebViewClient.getWebView() } returns mockWebView
+
+        // runWithCurrentOrNextActivity must return our host activity for floating window tests
+        val slotJob = slot<(activity: Activity) -> Unit>()
+        every {
+            mockLifecycleMonitor.runWithCurrentOrNextActivity(any(), capture(slotJob))
+        } answers {
+            slotJob.captured.invoke(mockHostActivity)
+            null
+        }
+
+        val manager = KlaviyoPresentationManager()
+        manager.present("floatingFormId", mockFloatingLayout)
+
+        assertEquals(
+            "PresentationState should be Presented for floating window",
+            PresentationState.Presented("floatingFormId"),
+            manager.presentationState
+        )
+        return manager
+    }
+
+    private fun cleanupFloatingMocks() {
+        unmockkConstructor(FloatingFormWindow::class)
+    }
+
+    @Test
+    fun `floating window present and dismiss cycle`() {
+        val manager = withFloatingPresentedState()
+        try {
+            verify {
+                anyConstructed<FloatingFormWindow>().show(
+                    any(),
+                    mockWebView,
+                    mockFloatingLayout,
+                    any(),
+                    any()
+                )
+            }
+
+            manager.dismiss()
+
+            verify { mockWebViewClient.detachWebView() }
+            verify { anyConstructed<FloatingFormWindow>().dismiss() }
+            assertEquals(PresentationState.Hidden, manager.presentationState)
+        } finally {
+            cleanupFloatingMocks()
+        }
+    }
+
+    @Test
+    fun `floating window host activity stopped triggers cleanup after grace period`() {
+        val manager = withFloatingPresentedState()
+        try {
+            // Simulate the host activity stopping (multi-activity transition)
+            slotOnActivityEvent.captured(ActivityEvent.Stopped(mockHostActivity))
+
+            // Before grace period: still presented
+            assertEquals(PresentationState.Presented("floatingFormId"), manager.presentationState)
+
+            // After grace period: cleaned up
+            staticClock.execute(LifecycleMonitor.ACTIVITY_TRANSITION_GRACE_PERIOD)
+
+            verify { mockWebViewClient.detachWebView() }
+            verify { anyConstructed<FloatingFormWindow>().dismiss() }
+            assertEquals(PresentationState.Hidden, manager.presentationState)
+        } finally {
+            cleanupFloatingMocks()
+        }
+    }
+
+    @Test
+    fun `floating window stopped for non-host activity is ignored`() {
+        val manager = withFloatingPresentedState()
+        try {
+            val otherActivity = mockk<Activity>(relaxed = true)
+            slotOnActivityEvent.captured(ActivityEvent.Stopped(otherActivity))
+
+            staticClock.execute(LifecycleMonitor.ACTIVITY_TRANSITION_GRACE_PERIOD)
+
+            // Should still be presented — the stopped activity wasn't the host
+            assertEquals(PresentationState.Presented("floatingFormId"), manager.presentationState)
+        } finally {
+            cleanupFloatingMocks()
+        }
+    }
+
+    @Test
+    fun `floating window app backgrounding cancels per-activity cleanup and re-presents`() {
+        val manager = withFloatingPresentedState()
+        try {
+            // Simulate backgrounding: Stopped then AllStopped in quick succession
+            slotOnActivityEvent.captured(ActivityEvent.Stopped(mockHostActivity))
+            slotOnActivityEvent.captured(ActivityEvent.AllStopped())
+
+            // AllStopped should cancel the per-activity cleanup and set Presenting for re-presentation
+            assertEquals(PresentationState.Presenting("floatingFormId"), manager.presentationState)
+
+            // Grace period expires — should NOT trigger the multi-activity cleanup
+            // because AllStopped already cancelled it
+            staticClock.execute(LifecycleMonitor.ACTIVITY_TRANSITION_GRACE_PERIOD)
+            assertEquals(
+                "State should remain Presenting after grace period since AllStopped handled it",
+                PresentationState.Presenting("floatingFormId"),
+                manager.presentationState
+            )
+        } finally {
+            cleanupFloatingMocks()
+        }
+    }
+
+    @Test
+    fun `floating window dismiss during rotation cancels re-presentation observer`() {
+        val manager = withFloatingPresentedState()
+        try {
+            val mockConfig = mockk<Configuration>(relaxed = true) {
+                orientation = Configuration.ORIENTATION_LANDSCAPE
+            }
+
+            // Trigger rotation — this dismisses the window, sets floatingFormWindow = null,
+            // and registers a rotation observer for re-presentation
+            slotOnActivityEvent.captured(ActivityEvent.ConfigurationChanged(mockConfig))
+            assertEquals(PresentationState.Presenting("floatingFormId"), manager.presentationState)
+
+            // Dismiss cancels the rotation observer via clearTimers() and resets state
+            manager.dismiss()
+            assertEquals(
+                "Dismiss during rotation should reset state to Hidden",
+                PresentationState.Hidden,
+                manager.presentationState
+            )
+
+            // Simulate new activity resuming — should NOT re-present the floating window
+            // because the rotation observer was cleaned up by dismiss/clearTimers
+            slotOnActivityEvent.captured(ActivityEvent.Resumed(mockk(relaxed = true)))
+            assertEquals(
+                "Resumed should not change state after dismiss cancels rotation observer",
+                PresentationState.Hidden,
+                manager.presentationState
+            )
+        } finally {
+            cleanupFloatingMocks()
+        }
+    }
+
+    @Test
+    fun `floating window background timeout resets state to Hidden`() {
+        val manager = withFloatingPresentedState()
+        try {
+            // Background the app
+            slotOnActivityEvent.captured(ActivityEvent.Stopped(mockHostActivity))
+            slotOnActivityEvent.captured(ActivityEvent.AllStopped())
+            assertEquals(PresentationState.Presenting("floatingFormId"), manager.presentationState)
+
+            // Simulate session timeout (default from InAppFormsConfig)
+            val sessionTimeout = InAppFormsConfig()
+                .getSessionTimeoutDuration().inWholeMilliseconds
+            staticClock.execute(sessionTimeout)
+
+            assertEquals(
+                "State should reset to Hidden after session timeout",
+                PresentationState.Hidden,
+                manager.presentationState
+            )
+        } finally {
+            cleanupFloatingMocks()
+        }
+    }
+
+    @Test
+    fun `floating window present with null webview falls back to Hidden`() {
+        mockkConstructor(FloatingFormWindow::class)
+        try {
+            every { mockWebViewClient.getWebView() } returns null
+
+            val manager = KlaviyoPresentationManager()
+            manager.present("formId", mockFloatingLayout)
+
+            assertEquals(
+                "State should be Hidden when WebView is null",
+                PresentationState.Hidden,
+                manager.presentationState
+            )
+            verify { spyLog.warning(any()) }
+        } finally {
+            cleanupFloatingMocks()
+        }
     }
 }

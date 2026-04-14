@@ -4,6 +4,8 @@ import android.app.Activity
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.lifecycle.ActivityObserver
+import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.takeIf
@@ -34,6 +36,21 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      */
     private var dismissOnTimeout: Clock.Cancellable? = null
 
+    /**
+     * Observer waiting for the next Resumed activity after rotation to re-present a floating window.
+     * Tracked at class level so it can be cleaned up if dismiss() is called while pending.
+     */
+    private var rotationObserver: ActivityObserver? = null
+
+    /**
+     * Delayed cleanup for multi-activity transitions. When the host activity stops,
+     * we schedule cleanup after a grace period. If AllStopped fires within the grace
+     * period (app backgrounding), it cancels this and handles re-presentation instead.
+     * If the grace period expires without AllStopped, this is a multi-activity transition
+     * and we permanently dismiss the floating window to avoid leaking the dead Activity.
+     */
+    private var hostActivityStoppedCleanup: Clock.Cancellable? = null
+
     private var overlayActivity by WeakReferenceDelegate<KlaviyoFormsOverlayActivity>(null)
 
     /**
@@ -42,8 +59,7 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     private var floatingFormWindow: FloatingFormWindow? = null
 
     /**
-     * Weak reference to the host activity for floating window presentation.
-     * TODO: Will be used for orientation change re-presentation and dynamic layout updates.
+     * Weak reference to the host activity for floating window presentation
      */
     private var hostActivity by WeakReferenceDelegate<Activity>(null)
 
@@ -65,6 +81,8 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     private fun onActivityEvent(event: ActivityEvent) = when (event) {
         is ActivityEvent.Created -> onCreateActivity(event)
         is ActivityEvent.ConfigurationChanged -> onConfigurationChanged(event)
+        is ActivityEvent.Stopped -> onActivityStopped(event)
+        is ActivityEvent.AllStopped -> onAllStopped()
         else -> Unit
     }
 
@@ -83,23 +101,171 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     }
 
     /**
+     * Handles the host activity stopping in a multi-activity app.
+     *
+     * When the host activity (the one showing the floating form) stops, we schedule
+     * a delayed cleanup. If [onAllStopped] fires within the grace period (meaning the
+     * app is backgrounding), it cancels this cleanup and handles re-presentation instead.
+     * If the grace period expires without [onAllStopped], this is a multi-activity
+     * transition and we permanently dismiss the floating window to avoid leaking the
+     * dead Activity reference held by [FloatingFormWindow].
+     */
+    private fun onActivityStopped(event: ActivityEvent.Stopped) = safeCall {
+        floatingFormWindow ?: return@safeCall
+        if (event.activity !== hostActivity) return@safeCall
+
+        hostActivityStoppedCleanup = Registry.clock.schedule(
+            LifecycleMonitor.ACTIVITY_TRANSITION_GRACE_PERIOD
+        ) {
+            floatingFormWindow?.let { window ->
+                Registry.get<WebViewClient>().detachWebView()
+                window.dismiss()
+                floatingFormWindow = null
+                hostActivity = null
+                currentLayout = null
+                presentationState = Hidden
+                Registry.log.debug(
+                    "Host activity stopped in multi-activity transition, " +
+                        "dismissed floating window"
+                )
+            }
+        }
+    }
+
+    /**
      * Handles device orientation change by observing all configuration changes
      * and re-attaching the webview if currently presented.
      *
-     * TODO: Add floating window re-creation on orientation change. Currently the WindowManager
-     *  LayoutParams become stale after the host Activity recreates, so the floating window
-     *  position/size won't update after rotation.
+     * For Activity-based forms: detaches the webview and sets state to Presenting.
+     * The overlay activity will re-attach via [onCreateActivity] after recreation.
+     *
+     * For floating windows: dismisses the window (invalidated by activity recreation)
+     * and re-presents with the saved layout once the new activity is available.
      */
     private fun onConfigurationChanged(event: ActivityEvent.ConfigurationChanged) = safeCall {
         event.newConfig.orientation.takeIf { it != orientation }
             ?.also { newOrientation -> orientation = newOrientation }?.let {
-                presentationState.takeIfNot<PresentationState, Hidden>()?.let {
-                    orientation = event.newConfig.orientation
+                // Cancel any pending per-activity cleanup — rotation handles its own re-presentation.
+                // Must be inside the orientation guard so non-orientation config changes (locale,
+                // dark mode, font scale) don't cancel the timer without scheduling a replacement.
+                hostActivityStoppedCleanup?.cancel()
+                hostActivityStoppedCleanup = null
+
+                presentationState.takeIfNot<PresentationState, Hidden>()?.let { state ->
                     Registry.get<WebViewClient>().detachWebView()
-                    presentationState = Presenting(it.formId)
+                    presentationState = Presenting(state.formId)
                     Registry.log.debug("New screen orientation, detaching view")
+
+                    // For floating windows, dismiss and re-present with new activity token.
+                    // We must wait for the NEXT Resumed activity, not use currentActivity,
+                    // because ConfigurationChanged fires before the old activity is destroyed.
+                    // runWithCurrentOrNextActivity would shortcut with the stale activity.
+                    floatingFormWindow?.let { window ->
+                        window.dismiss()
+                        floatingFormWindow = null
+
+                        val layout = currentLayout ?: run {
+                            presentationState = Hidden
+                            Registry.log.warning("Rotation aborted: no layout to re-present")
+                            return@safeCall
+                        }
+                        val floatingLayout = layout.takeUnless { it.isFullscreen } ?: run {
+                            presentationState = Hidden
+                            Registry.log.warning("Rotation aborted: layout is fullscreen")
+                            return@safeCall
+                        }
+
+                        val observer: ActivityObserver = { activityEvent ->
+                            activityEvent.takeIf<ActivityEvent.Resumed>()?.let { resumed ->
+                                rotationObserver?.let {
+                                    Registry.lifecycleMonitor.offActivityEvent(it)
+                                }
+                                rotationObserver = null
+                                // Post to ensure window token is available — it's null
+                                // during onResume but valid after the view hierarchy attaches
+                                resumed.activity.window.decorView.post {
+                                    // Guard: dismiss() may have run between post and execution
+                                    if (presentationState is Hidden) return@post
+                                    presentFloatingWindow(
+                                        resumed.activity,
+                                        state.formId,
+                                        floatingLayout
+                                    )
+                                }
+                            }
+                        }
+                        rotationObserver = observer
+                        Registry.lifecycleMonitor.onActivityEvent(observer)
+                    }
                 }
             }
+    }
+
+    /**
+     * Handles the app moving to the background (all activities stopped).
+     *
+     * Floating windows must be dismissed because their window token is tied to the host
+     * activity, which may be destroyed while backgrounded. The form state and layout are
+     * preserved so the window can be re-presented when the app returns to the foreground.
+     *
+     * Activity-based forms handle their own lifecycle and don't need intervention here.
+     */
+    private fun onAllStopped() = safeCall {
+        // Cancel any pending per-activity cleanup — we handle it here with re-presentation
+        hostActivityStoppedCleanup?.cancel()
+        hostActivityStoppedCleanup = null
+
+        floatingFormWindow?.let { window ->
+            val state = presentationState.takeIfNot<PresentationState, Hidden>() ?: return@safeCall
+
+            Registry.get<WebViewClient>().detachWebView()
+            window.dismiss()
+            floatingFormWindow = null
+            presentationState = Presenting(state.formId)
+            Registry.log.debug("App backgrounded, dismissed floating window for re-presentation")
+
+            val layout = currentLayout ?: run {
+                presentationState = Hidden
+                Registry.log.warning("Background re-presentation aborted: no layout")
+                return@safeCall
+            }
+            val floatingLayout = layout.takeUnless { it.isFullscreen } ?: run {
+                presentationState = Hidden
+                Registry.log.warning("Background re-presentation aborted: layout is fullscreen")
+                return@safeCall
+            }
+
+            // Re-present when the app returns to the foreground with a valid activity
+            val timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
+            cancelPostponedPresent = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
+                timeout = timeout
+            ) { activity ->
+                // Cancel the fallback since we're successfully re-presenting
+                dismissOnTimeout?.cancel()
+                dismissOnTimeout = null
+                // Post to ensure window token is available after activity resumes
+                activity.window.decorView.post {
+                    // Guard: dismiss() may have run between post and execution
+                    if (presentationState is Hidden) return@post
+                    presentFloatingWindow(activity, state.formId, floatingLayout)
+                }
+            }
+
+            // Cancel any existing dismiss timer before scheduling a new one to prevent
+            // orphaned timers firing on a dead context (e.g. if closeFormAndDismiss set
+            // a 400ms timer and the app backgrounds within that window)
+            dismissOnTimeout?.cancel()
+
+            // Fallback: if the timeout fires without re-presentation, reset state to Hidden
+            // so future present() calls aren't blocked by a stale Presenting state
+            dismissOnTimeout = Registry.clock.schedule(timeout) {
+                presentationState.takeIf<Presenting>()?.let {
+                    presentationState = Hidden
+                    currentLayout = null
+                    Registry.log.debug("Background re-presentation timed out, resetting to Hidden")
+                }
+            }
+        }
     }
 
     /**
@@ -158,16 +324,29 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             return
         }
 
-        floatingFormWindow = FloatingFormWindow(activity).also { window ->
-            window.show(activity, webView, layout)
-        }
-
-        // TODO: Ideally state should transition to Presented inside the runOnUiThread
-        //  callback in FloatingFormWindow.show() once windowManager.addView() completes,
-        //  mirroring the Activity path's onCreateActivity callback. Setting Presented
-        //  immediately is a POC shortcut — the window may not yet be on screen.
-        presentationState = Presented(formId)
-        Registry.log.debug("Presentation State: $presentationState")
+        val window = FloatingFormWindow(activity)
+        floatingFormWindow = window
+        window.show(
+            hostActivity = activity,
+            webView = webView,
+            layout = layout,
+            onPresented = {
+                // Guard: dismiss() may have run between show() and this callback
+                // (which executes asynchronously via runOnUiThread). Mirrors the
+                // Activity path's guard in onCreateActivity: takeIf<Presenting>().
+                if (presentationState is Presenting) {
+                    presentationState = Presented(formId)
+                    Registry.log.debug("Presentation State: $presentationState")
+                }
+            },
+            onError = {
+                floatingFormWindow = null
+                hostActivity = null
+                currentLayout = null
+                presentationState = Hidden
+                Registry.log.debug("Presentation State: $presentationState (addView failed)")
+            }
+        )
     }
 
     /**
@@ -199,7 +378,18 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             currentLayout = null
             Registry.log.debug("Presentation State: $presentationState (Activity dismissed)")
         } ?: run {
-            Registry.log.debug("No-op dismiss: nothing is currently presented")
+            // Catch-all: reset state to Hidden if neither branch handled dismissal.
+            // This covers mid-rotation dismiss where floatingFormWindow was already
+            // nulled by onConfigurationChanged but state is still Presenting.
+            if (presentationState !is Hidden) {
+                presentationState = Hidden
+                currentLayout = null
+                Registry.log.debug(
+                    "Presentation State: $presentationState (reset from stale state)"
+                )
+            } else {
+                Registry.log.debug("No-op dismiss: nothing is currently presented")
+            }
         }
     }
 
@@ -214,13 +404,19 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     }
 
     /**
-     * Clear timers to stop any delayed side effects
+     * Clear timers and observers to stop any delayed side effects
      */
     private fun clearTimers() {
         // Run this cancel job now to stop any postponed form presentation
         cancelPostponedPresent?.runNow().also { cancelPostponedPresent = null }
         // Cancel the timeout for dismissing the overlay activity
         dismissOnTimeout?.cancel().also { dismissOnTimeout = null }
+        // Unregister any pending rotation observer to prevent re-presentation after dismiss
+        rotationObserver?.let { Registry.lifecycleMonitor.offActivityEvent(it) }
+        rotationObserver = null
+        // Cancel any pending multi-activity transition cleanup
+        hostActivityStoppedCleanup?.cancel()
+        hostActivityStoppedCleanup = null
     }
 
     private companion object {
