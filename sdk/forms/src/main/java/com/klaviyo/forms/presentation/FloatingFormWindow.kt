@@ -34,6 +34,8 @@ internal class FloatingFormWindow(private val context: Context) {
     private var container: FrameLayout? = null
     private var windowParams: WindowManager.LayoutParams? = null
     private var originalYOffset: Int = 0
+
+    @Volatile
     private var isDismissed: Boolean = false
 
     /**
@@ -94,6 +96,9 @@ internal class FloatingFormWindow(private val context: Context) {
             Registry.log.warning("FloatingFormWindow already shown, dismissing first")
             dismiss()
         }
+        // Reset in case this instance was previously dismissed (e.g. the dismiss() above,
+        // or a rotation-triggered dismiss followed by re-presentation on the same instance)
+        isDismissed = false
 
         val screenWidth: Int
         val screenHeight: Int
