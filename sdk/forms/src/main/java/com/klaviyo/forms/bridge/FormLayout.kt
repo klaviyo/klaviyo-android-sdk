@@ -17,6 +17,16 @@ internal enum class FormPosition {
     CENTER;
 
     /**
+     * Returns true if this position uses horizontal centering (CENTER_HORIZONTAL or CENTER).
+     * These positions need width adjusted for horizontal safe area insets so forms
+     * don't extend into display cutouts in landscape.
+     */
+    fun isHorizontallyCentered(): Boolean = when (this) {
+        TOP, BOTTOM, CENTER, FULLSCREEN -> true
+        TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT -> false
+    }
+
+    /**
      * Convert form position to Android Gravity flags
      */
     fun toGravity(): Int = when (this) {
