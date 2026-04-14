@@ -225,8 +225,16 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             presentationState = Presenting(state.formId)
             Registry.log.debug("App backgrounded, dismissed floating window for re-presentation")
 
-            val layout = currentLayout ?: return@safeCall
-            val floatingLayout = layout.takeUnless { it.isFullscreen } ?: return@safeCall
+            val layout = currentLayout ?: run {
+                presentationState = Hidden
+                Registry.log.warning("Background re-presentation aborted: no layout")
+                return@safeCall
+            }
+            val floatingLayout = layout.takeUnless { it.isFullscreen } ?: run {
+                presentationState = Hidden
+                Registry.log.warning("Background re-presentation aborted: layout is fullscreen")
+                return@safeCall
+            }
 
             // Re-present when the app returns to the foreground with a valid activity
             val timeout = Registry.get<InAppFormsConfig>().getSessionTimeoutDuration().inWholeMilliseconds
