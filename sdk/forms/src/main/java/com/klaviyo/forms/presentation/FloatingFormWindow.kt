@@ -34,6 +34,7 @@ internal class FloatingFormWindow(private val context: Context) {
     private var container: FrameLayout? = null
     private var windowParams: WindowManager.LayoutParams? = null
     private var originalYOffset: Int = 0
+    private var isDismissed: Boolean = false
 
     /**
      * The form's bottom edge distance from the screen bottom (in pixels),
@@ -182,6 +183,14 @@ internal class FloatingFormWindow(private val context: Context) {
         windowParams = params
 
         Registry.threadHelper.runOnUiThread {
+            // Guard: dismiss() may have been called between show() and this queued lambda.
+            // If so, skip adding the view entirely to avoid an orphaned window and
+            // leaked keyboard monitor that no subsequent dismiss() can reach.
+            if (isDismissed) {
+                onError?.invoke()
+                return@runOnUiThread
+            }
+
             try {
                 val newContainer = FrameLayout(hostActivity).apply {
                     layoutParams = FrameLayout.LayoutParams(
@@ -231,6 +240,7 @@ internal class FloatingFormWindow(private val context: Context) {
      * the activity could be destroyed before the view is actually removed.
      */
     fun dismiss() {
+        isDismissed = true
         Registry.threadHelper.runOnUiThread {
             stopKeyboardMonitor()
             container?.let { view ->
