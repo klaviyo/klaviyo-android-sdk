@@ -220,6 +220,9 @@ internal class FloatingFormWindow(private val context: Context) {
                 Registry.log.debug("FloatingFormWindow shown at ${layout.position}")
             } catch (e: Exception) {
                 Registry.log.error("Failed to show FloatingFormWindow", e)
+                // Clean up keyboard monitor in case startKeyboardMonitor partially
+                // succeeded (e.g. injected probe view) before throwing
+                stopKeyboardMonitor()
                 // If addView succeeded before the throw, remove the leaked view
                 container?.let {
                     try {
