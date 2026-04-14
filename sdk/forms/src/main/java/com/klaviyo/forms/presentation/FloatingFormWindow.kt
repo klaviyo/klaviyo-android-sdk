@@ -207,6 +207,14 @@ internal class FloatingFormWindow(private val context: Context) {
                 Registry.log.debug("FloatingFormWindow shown at ${layout.position}")
             } catch (e: Exception) {
                 Registry.log.error("Failed to show FloatingFormWindow", e)
+                // If addView succeeded before the throw, remove the leaked view
+                container?.let {
+                    try {
+                        windowManager.removeViewImmediate(it)
+                    } catch (removeEx: Exception) {
+                        Registry.log.error("Failed to clean up leaked view", removeEx)
+                    }
+                }
                 container = null
                 windowParams = null
                 onError?.invoke()
