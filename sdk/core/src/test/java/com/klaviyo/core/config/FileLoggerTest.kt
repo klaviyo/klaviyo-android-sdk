@@ -50,6 +50,7 @@ internal class FileLoggerTest : BaseTest() {
         // Mock context.filesDir to return our temp directory's parent
         every { mockContext.filesDir } returns tempFolder.root
         every { mockContext.cacheDir } returns tempFolder.root
+        every { mockContext.applicationContext } returns mockContext
 
         // Capture lifecycle observer when registered
         every {

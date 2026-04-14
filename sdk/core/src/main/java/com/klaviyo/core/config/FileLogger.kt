@@ -1,11 +1,13 @@
 package com.klaviyo.core.config
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.MediaStore
+import androidx.annotation.RequiresApi
 import androidx.annotation.WorkerThread
-import androidx.core.content.FileProvider
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
@@ -36,56 +38,35 @@ import kotlinx.coroutines.withContext
  * - Open latest log file in browser
  * - Export logs as ZIP file
  * - Share logs ZIP via Android share sheet
+ * - Save logs to Downloads via MediaStore (API 29+, no FileProvider needed)
  * - Automatic crash detection and log flushing
  * - Lifecycle-aware: flushes logs when app backgrounds
  * - Simple attach/detach API for easy integration
  *
  * This is an OPT-IN feature for debugging and reporting purposes.
- *
- * Setup:
- * To enable file sharing capabilities (openLogInViewer, shareLogs), you need to add a FileProvider
- * to your app's AndroidManifest.xml and create a file paths XML resource.
- *
- * 1. Add to AndroidManifest.xml:
- * ```xml
- * <application>
- *     <provider
- *         android:name="androidx.core.content.FileProvider"
- *         android:authorities="${applicationId}.klaviyo.fileprovider"
- *         android:exported="false"
- *         android:grantUriPermissions="true">
- *         <meta-data
- *             android:name="android.support.FILE_PROVIDER_PATHS"
- *             android:resource="@xml/klaviyo_file_paths" />
- *     </provider>
- * </application>
- * ```
- *
- * 2. Create res/xml/klaviyo_file_paths.xml (use the same directory name as passed to FileLogger):
- * ```xml
- * <?xml version="1.0" encoding="utf-8"?>
- * <paths xmlns:android="http://schemas.android.com/apk/res/android">
- *     <!-- files-path: Required for openLogInViewer() to share raw .txt log files -->
- *     <files-path name="klaviyo_logs" path="klaviyo_logs/" />
- *     <!-- cache-path: Required for shareLogs() and saveLogsToUri() to share exported .zip files -->
- *     <cache-path name="klaviyo_log_cache" path="klaviyo_logs/" />
- * </paths>
- * ```
+ * All export methods use MediaStore (API 29+) — no FileProvider or manifest changes needed.
  *
  * Example usage:
  * ```kotlin
- * // From Application.onCreate, start writing klaviyo logs to file
+ * // Simplest setup:
+ * if (BuildConfig.DEBUG) {
+ *     FileLogger(context).attach()
+ * }
+ *
+ * // Or, for programmatic export:
  * val fileLogger = FileLogger(context)
  * fileLogger.attach()
  *
- * // There are a few options for accessing the log files
- * // Open in a text viewer app:
+ * // Open latest log in a text viewer app:
  * fileLogger.openLogInViewer(context)
  *
- * // Create zip and share via sheet (e.g. email, slack etc)
+ * // Create zip and share via share sheet:
  * fileLogger.shareLogs(context)
  *
- * // Save zip file to a URI, you can use createSaveLogsIntent to prompt the user for a location
+ * // Save zip to Downloads:
+ * fileLogger.saveToDownloads()
+ *
+ * // Save zip file to a URI via SAF:
  * fileLogger.saveLogsToUri(context, uri)
  *
  * // Optional, detach listener and disable logging to file
@@ -94,7 +75,6 @@ import kotlinx.coroutines.withContext
  *
  * @param context Application context
  * @param directoryName Name of the directory to store logs in (default: "klaviyo_logs").
- *                      Must match the path specified in your FileProvider XML configuration.
  * @param maxFileSize Maximum size of each log file before rotation (default: 1MB)
  * @param maxFiles Maximum number of log files to keep (default: 5)
  * @param minLevel Minimum log level to write to file (default: Verbose)
@@ -113,6 +93,8 @@ class FileLogger(
     private val maxFileSize = maxFileSize.takeIf { it > 0 } ?: DEFAULT_MAX_FILE_SIZE
     private val maxFiles = maxFiles.takeIf { it > 0 } ?: DEFAULT_MAX_FILES
 
+    private val appContext: Context = context.applicationContext
+
     private companion object {
         const val MAX_BUFFER_SIZE = 5 * 1024 // 5KB
         const val DEFAULT_MAX_FILE_SIZE = 1L * 1024 * 1024 // 1mb
@@ -127,9 +109,6 @@ class FileLogger(
         // Date format patterns
         const val TIMESTAMP_PATTERN = "yyyy-MM-dd HH:mm:ss.SSS"
         const val FILENAME_PATTERN = "yyyyMMdd_HHmmss"
-
-        // FileProvider
-        const val FILEPROVIDER_SUFFIX = ".klaviyo.fileprovider"
 
         // MIME types
         const val MIME_TYPE_ZIP = "application/zip"
@@ -466,29 +445,29 @@ class FileLogger(
 
     /**
      * Open the most recent log file in a text viewer app.
-     * Launches Android's chooser to let user pick which app to open the log with.
-     * Requires FileProvider setup (see class documentation).
+     * Saves the log to Downloads via MediaStore, then launches a viewer chooser.
+     * Requires API 29+.
      *
      * @param context Application context
-     * @param authority FileProvider authority (default: "${packageName}.klaviyo.fileprovider")
      */
-    fun openLogInViewer(
-        context: Context,
-        authority: String = "${context.packageName}$FILEPROVIDER_SUFFIX"
-    ) {
+    @RequiresApi(Build.VERSION_CODES.Q)
+    fun openLogInViewer(context: Context) {
         coroutineScope.safeLaunch {
             try {
-                // Flush any pending logs first
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    Log.Level.Warning.log(TAG, "openLogInViewer() requires API 29+")
+                    return@safeLaunch
+                }
+
                 flushBuffer()
 
                 val latestLog = getLogFiles().firstOrNull()
-
                 if (latestLog == null) {
                     Log.Level.Warning.log(TAG, "No log files to open")
                     return@safeLaunch
                 }
 
-                val uri = FileProvider.getUriForFile(context, authority, latestLog)
+                val uri = saveFileToDownloads(latestLog, MIME_TYPE_TEXT) ?: return@safeLaunch
 
                 val viewIntent = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(uri, MIME_TYPE_TEXT)
@@ -542,41 +521,26 @@ class FileLogger(
 
     /**
      * Share logs via Android's share sheet (email, Slack, etc.).
-     * Requires FileProvider setup (see class documentation).
+     * Saves a ZIP to Downloads via MediaStore, then opens the share sheet.
+     * Requires API 29+.
      *
      * @param context Application context
-     * @param authority FileProvider authority (default: "${packageName}.klaviyo.fileprovider")
      */
-    fun shareLogs(
-        context: Context,
-        authority: String = "${context.packageName}$FILEPROVIDER_SUFFIX"
-    ) {
+    @RequiresApi(Build.VERSION_CODES.Q)
+    fun shareLogs(context: Context) {
         coroutineScope.safeLaunch {
             try {
-                val zipFile = exportLogsAsZip(context) ?: return@safeLaunch
-
-                // Create content URI using FileProvider
-                val uri = FileProvider.getUriForFile(context, authority, zipFile)
-
-                // Get log stats for email body
-                val totalSize = getTotalLogSize()
-                val fileCount = getLogFileCount()
-
-                // Build device info for email body
-                val deviceInfo = buildString {
-                    appendLine("Klaviyo SDK Debug Logs")
-                    appendLine()
-                    appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
-                    appendLine("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-                    appendLine("Total Size: ${totalSize / 1024}KB")
-                    appendLine("Files: $fileCount")
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    Log.Level.Warning.log(TAG, "shareLogs() requires API 29+")
+                    return@safeLaunch
                 }
+
+                val uri = saveToDownloads() ?: return@safeLaunch
 
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = MIME_TYPE_ZIP
                     putExtra(Intent.EXTRA_STREAM, uri)
                     putExtra(Intent.EXTRA_SUBJECT, "Klaviyo SDK Logs")
-                    putExtra(Intent.EXTRA_TEXT, deviceInfo)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
@@ -592,7 +556,8 @@ class FileLogger(
 
     /**
      * Create an intent for Storage Access Framework (SAF) file picker.
-     * User will be able to choose where to save the logs (Downloads, Drive, etc.).
+     * User will be able to choose where to save the logs (Downloads, Drive, etc.)
+     * Then you can call [saveLogsToUri] with the resulting URI to save the logs to the chosen location.
      *
      * Usage in Activity/Fragment:
      * ```
@@ -655,6 +620,77 @@ class FileLogger(
         } catch (e: Exception) {
             Log.Level.Error.log(TAG, "Failed to save logs to URI", e)
             false
+        }
+    }
+
+    /**
+     * Save logs as a ZIP file to the device's Downloads folder via MediaStore.
+     * Returns a content:// URI that can be used for sharing without a FileProvider.
+     *
+     * @return content URI of the saved ZIP, or null if the operation failed
+     */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    suspend fun saveToDownloads(): Uri? = withContext(Registry.dispatcher) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            Log.Level.Warning.log(TAG, "saveToDownloads() requires API 29+")
+            return@withContext null
+        }
+
+        val zipFile = exportLogsAsZip(appContext) ?: run {
+            Log.Level.Error.log(TAG, "Failed to save to Downloads, could not export ZIP")
+            return@withContext null
+        }
+
+        saveFileToDownloads(zipFile, MIME_TYPE_ZIP)
+    }
+
+    /**
+     * Save a file to the device's Downloads folder via MediaStore.
+     * Requires API 29+. Caller is responsible for the API level check.
+     *
+     * @return content:// URI of the saved file, or null on failure
+     */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun saveFileToDownloads(file: File, mimeType: String): Uri? {
+        try {
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, file.name)
+                put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+
+            val resolver = appContext.contentResolver
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: run {
+                Log.Level.Error.log(TAG, "Failed to save to Downloads, MediaStore insert failed")
+                return null
+            }
+
+            val output = resolver.openOutputStream(uri) ?: run {
+                Log.Level.Error.log(
+                    TAG,
+                    "Failed to save to Downloads, could not open output stream"
+                )
+                resolver.delete(uri, null, null)
+                return null
+            }
+            try {
+                output.use { out ->
+                    file.inputStream().use { input -> input.copyTo(out) }
+                }
+            } catch (e: Exception) {
+                resolver.delete(uri, null, null)
+                throw e
+            }
+
+            values.clear()
+            values.put(MediaStore.Downloads.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+
+            Log.Level.Info.log(TAG, "Saved ${file.name} to Downloads")
+            return uri
+        } catch (e: Exception) {
+            Log.Level.Error.log(TAG, "Failed to save ${file.name} to Downloads", e)
+            return null
         }
     }
 }
