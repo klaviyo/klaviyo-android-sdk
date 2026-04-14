@@ -331,8 +331,13 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             webView = webView,
             layout = layout,
             onPresented = {
-                presentationState = Presented(formId)
-                Registry.log.debug("Presentation State: $presentationState")
+                // Guard: dismiss() may have run between show() and this callback
+                // (which executes asynchronously via runOnUiThread). Mirrors the
+                // Activity path's guard in onCreateActivity: takeIf<Presenting>().
+                if (presentationState is Presenting) {
+                    presentationState = Presented(formId)
+                    Registry.log.debug("Presentation State: $presentationState")
+                }
             },
             onError = {
                 floatingFormWindow = null
