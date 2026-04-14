@@ -154,7 +154,7 @@ internal class FormLifecycleHandlerTest : BaseTest() {
     @Test
     fun `callback is not invoked when no callback is registered`() {
         // Simulate form shown message without registering a callback
-        val message = """{"type":"formWillAppear", "data":{"formId":"$testFormId"}}"""
+        val message = """{"type":"formWillAppear", "data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(message)
 
         // Verify PresentationManager was called but no exception thrown
@@ -162,12 +162,17 @@ internal class FormLifecycleHandlerTest : BaseTest() {
     }
 
     @Test
-    fun `formDisappeared without data delegates dismiss with empty context fields`() {
-        Klaviyo.registerFormLifecycleHandler(FormLifecycleHandler { _ -> })
+    fun `formDisappeared without data still dismisses but skips lifecycle callback`() {
+        var callbackInvoked = false
+        Klaviyo.registerFormLifecycleHandler(FormLifecycleHandler { _ -> callbackInvoked = true })
 
         nativeBridge.postMessage("""{"type":"formDisappeared"}""")
 
+        // FormDisappeared uses tolerant parsing so dismiss always fires
         verify { mockPresentationManager.dismiss() }
+        // Missing formId/formName means the lifecycle callback should be skipped
+        assert(!callbackInvoked) { "Lifecycle callback should not fire when form metadata is missing" }
+        verify { spyLog.warning(any()) }
     }
 
     @Test
@@ -178,7 +183,7 @@ internal class FormLifecycleHandlerTest : BaseTest() {
         Klaviyo.registerFormLifecycleHandler(FormLifecycleHandler { _ -> })
 
         nativeBridge.postMessage(
-            """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId"}}"""
+            """{"type":"openDeepLink","data":{"android":"https://example.com","formId":"$testFormId","formName":"$testFormName","buttonLabel":"Shop Now"}}"""
         )
 
         verify { mockThreadHelper.runOnUiThread(any()) }

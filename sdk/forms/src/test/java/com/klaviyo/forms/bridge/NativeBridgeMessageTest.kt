@@ -10,6 +10,7 @@ import io.mockk.just
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
@@ -39,17 +40,30 @@ class NativeBridgeMessageTest : BaseTest() {
 
     @Test
     fun `test decodeWebviewMessage properly decodes show type`() {
-        // Setup
         val showMessage = """
-            {"type": "formWillAppear", "data": {"formId": "abc123"}}
+            {"type": "formWillAppear", "data": {"formId": "abc123", "formName": "Test Form"}}
         """.trimIndent()
 
-        // Act
         val result = NativeBridgeMessage.decodeWebviewMessage(showMessage)
 
-        // Assert
         assert(result is NativeBridgeMessage.FormWillAppear)
         assertEquals("abc123", (result as NativeBridgeMessage.FormWillAppear).formId)
+        assertEquals("Test Form", result.formName)
+    }
+
+    @Test
+    fun `formWillAppear with missing formId parses with empty default`() {
+        val message = """{"type": "formWillAppear", "data": {"formName": "Test"}}"""
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.FormWillAppear
+        assertEquals("", result.formId)
+        assertEquals("Test", result.formName)
+    }
+
+    @Test
+    fun `formWillAppear with missing formName parses with empty default`() {
+        val message = """{"type": "formWillAppear", "data": {"formId": "abc123"}}"""
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.FormWillAppear
+        assertEquals("abc123", result.formId)
         assertEquals("", result.formName)
     }
 
@@ -66,29 +80,30 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `test decodeWebviewMessage returns empty formName when empty`() {
-        val showMessage = """
-            {"type": "formWillAppear", "data": {"formId": "abc123", "formName": ""}}
-        """.trimIndent()
-
-        val result = NativeBridgeMessage.decodeWebviewMessage(showMessage) as NativeBridgeMessage.FormWillAppear
-
+    fun `formWillAppear with empty formName parses with empty string`() {
+        val message = """{"type": "formWillAppear", "data": {"formId": "abc123", "formName": ""}}"""
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.FormWillAppear
         assertEquals("abc123", result.formId)
         assertEquals("", result.formName)
     }
 
     @Test
     fun `test decodeWebviewMessage properly decodes close type`() {
-        // Setup
-        val closeMessage = "{\"type\": \"formDisappeared\", \"data\": {\"formId\": \"abc123\"}}"
+        val closeMessage = """{"type": "formDisappeared", "data": {"formId": "abc123", "formName": "Test Form"}}"""
 
-        // Act
         val result = NativeBridgeMessage.decodeWebviewMessage(closeMessage)
 
-        // Assert
         assert(result is NativeBridgeMessage.FormDisappeared)
         assertEquals("abc123", (result as NativeBridgeMessage.FormDisappeared).formId)
-        assertEquals("", result.formName)
+        assertEquals("Test Form", result.formName)
+    }
+
+    @Test
+    fun `formDisappeared with missing formId still parses with empty default`() {
+        val message = """{"type": "formDisappeared", "data": {"formName": "Test"}}"""
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.FormDisappeared
+        assertEquals("", result.formId)
+        assertEquals("Test", result.formName)
     }
 
     @Test
@@ -243,13 +258,15 @@ class NativeBridgeMessageTest : BaseTest() {
 
     @Test
     fun `test deeplinks decoding`() {
-        // setup
         val deeplinkMessage = """
             {
               "type": "openDeepLink",
               "data": {
                 "ios": "klaviyotest://settings",
-                "android": "klaviyotest://settings"
+                "android": "klaviyotest://settings",
+                "formId": "abc123",
+                "formName": "Test Form",
+                "buttonLabel": "Click Me"
               }
             }
         """.trimIndent()
@@ -257,10 +274,13 @@ class NativeBridgeMessageTest : BaseTest() {
         val result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage) as NativeBridgeMessage.OpenDeepLink
 
         assertEquals("klaviyotest://settings", result.route)
+        assertEquals("abc123", result.formId)
+        assertEquals("Test Form", result.formName)
+        assertEquals("Click Me", result.buttonLabel)
     }
 
     @Test
-    fun `deeplink does not have android field, returns OpenDeepLink with null route`() {
+    fun `deeplink without metadata fields parses with empty defaults`() {
         val deeplinkMessage = """
             {
               "type": "openDeepLink",
@@ -271,16 +291,10 @@ class NativeBridgeMessageTest : BaseTest() {
         """.trimIndent()
 
         val result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage) as NativeBridgeMessage.OpenDeepLink
-
-        assertEquals(
-            NativeBridgeMessage.OpenDeepLink(
-                route = null,
-                formId = "",
-                formName = "",
-                buttonLabel = ""
-            ),
-            result
-        )
+        assertNull(result.route)
+        assertEquals("", result.formId)
+        assertEquals("", result.formName)
+        assertEquals("", result.buttonLabel)
     }
 
     @Test
@@ -290,27 +304,25 @@ class NativeBridgeMessageTest : BaseTest() {
               "type": "openDeepLink",
               "data": {
                 "ios": "klaviyotest://settings",
-                "android": ""
+                "android": "",
+                "formId": "abc123",
+                "formName": "Test Form",
+                "buttonLabel": "Click Me"
               }
             }
         """.trimIndent()
 
         val result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage) as NativeBridgeMessage.OpenDeepLink
 
-        assertEquals(
-            NativeBridgeMessage.OpenDeepLink(
-                route = null,
-                formId = "",
-                formName = "",
-                buttonLabel = ""
-            ),
-            result
-        )
+        assertEquals(null, result.route)
+        assertEquals("abc123", result.formId)
+        assertEquals("Test Form", result.formName)
+        assertEquals("Click Me", result.buttonLabel)
     }
 
     @Test
-    fun `test decodeWebviewMessage decodes formId and formName from openDeepLink`() {
-        val deeplinkMessage = """
+    fun `openDeepLink with missing buttonLabel parses with empty default`() {
+        val message = """
             {
               "type": "openDeepLink",
               "data": {
@@ -321,11 +333,33 @@ class NativeBridgeMessageTest : BaseTest() {
             }
         """.trimIndent()
 
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenDeepLink
+        assertEquals("klaviyotest://settings", result.route)
+        assertEquals("abc123", result.formId)
+        assertEquals("My Newsletter", result.formName)
+        assertEquals("", result.buttonLabel)
+    }
+
+    @Test
+    fun `test decodeWebviewMessage decodes formId and formName from openDeepLink`() {
+        val deeplinkMessage = """
+            {
+              "type": "openDeepLink",
+              "data": {
+                "android": "klaviyotest://settings",
+                "formId": "abc123",
+                "formName": "My Newsletter",
+                "buttonLabel": "Shop Now"
+              }
+            }
+        """.trimIndent()
+
         val result = NativeBridgeMessage.decodeWebviewMessage(deeplinkMessage) as NativeBridgeMessage.OpenDeepLink
 
         assertEquals("klaviyotest://settings", result.route)
         assertEquals("abc123", result.formId)
         assertEquals("My Newsletter", result.formName)
+        assertEquals("Shop Now", result.buttonLabel)
     }
 
     @Test
