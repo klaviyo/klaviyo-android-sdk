@@ -3,6 +3,7 @@ package com.klaviyo.forms.presentation
 import android.app.Activity
 import android.content.Context
 import android.graphics.PixelFormat
+import android.os.Build
 import android.util.DisplayMetrics
 import android.view.View
 import android.view.ViewGroup
@@ -73,20 +74,37 @@ internal class FloatingFormWindow(private val context: Context) {
      * @param hostActivity The activity to attach the window to (provides window token)
      * @param webView The WebView to display in the floating window
      * @param layout The layout configuration for positioning and sizing
+     * @param onPresented Callback invoked after the window is successfully added to the screen
      */
-    fun show(hostActivity: Activity, webView: View, layout: FormLayout) {
+    fun show(
+        hostActivity: Activity,
+        webView: View,
+        layout: FormLayout,
+        onPresented: (() -> Unit)? = null
+    ) {
         if (container != null) {
             Registry.log.warning("FloatingFormWindow already shown, dismissing first")
             dismiss()
         }
 
-        val displayMetrics = DisplayMetrics()
-        // TODO: Use WindowMetrics when minSdk >= 30
-        @Suppress("DEPRECATION")
-        hostActivity.windowManager.defaultDisplay.getMetrics(displayMetrics)
-        val screenWidth = displayMetrics.widthPixels
-        val screenHeight = displayMetrics.heightPixels
-        val density = displayMetrics.density
+        val screenWidth: Int
+        val screenHeight: Int
+        val density: Float
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val windowMetrics = hostActivity.windowManager.currentWindowMetrics
+            val bounds = windowMetrics.bounds
+            screenWidth = bounds.width()
+            screenHeight = bounds.height()
+            density = hostActivity.resources.displayMetrics.density
+        } else {
+            val displayMetrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            hostActivity.windowManager.defaultDisplay.getMetrics(displayMetrics)
+            screenWidth = displayMetrics.widthPixels
+            screenHeight = displayMetrics.heightPixels
+            density = displayMetrics.density
+        }
 
         // Read safe area insets (notch, system bars, display cutouts) from the
         // host activity's decor view. These ensure the form is not obscured by
@@ -127,8 +145,8 @@ internal class FloatingFormWindow(private val context: Context) {
             //    form input and restoring it when the input loses focus.
             // FLAG_LAYOUT_NO_LIMITS: Allow window to extend beyond screen bounds for positioning
             flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
             format = PixelFormat.TRANSLUCENT
         }
@@ -170,6 +188,7 @@ internal class FloatingFormWindow(private val context: Context) {
                 )
                 container = newContainer
                 windowManager.addView(newContainer, params)
+                onPresented?.invoke()
                 startKeyboardMonitor(hostActivity)
                 Registry.log.debug("FloatingFormWindow shown at ${layout.position}")
             } catch (e: Exception) {
@@ -305,88 +324,94 @@ internal class FloatingFormWindow(private val context: Context) {
         }
     }
 
-    /**
-     * Calculate the gap between the form's bottom edge and the screen bottom (in pixels).
-     * Used to determine keyboard overlap — if keyboardHeight > formBottomGap, the keyboard
-     * overlaps the form and we need to shift.
-     *
-     * For BOTTOM gravity: gap = vertical offset (safe area + user offset)
-     * For TOP gravity: gap = screenHeight - totalTopOffset - formHeight
-     * For CENTER gravity: gap = (screenHeight - formHeight) / 2
-     */
-    private fun calculateFormBottomGap(
-        layout: FormLayout,
-        formHeight: Int,
-        screenHeight: Int,
-        density: Float,
-        safeAreaTop: Int,
-        safeAreaBottom: Int
-    ): Int {
-        val topOffset = (layout.offsets.top * density).toInt()
-        val bottomOffset = (layout.offsets.bottom * density).toInt()
+    companion object {
+        /**
+         * Calculate the gap between the form's bottom edge and the screen bottom (in pixels).
+         * Used to determine keyboard overlap — if keyboardHeight > formBottomGap, the keyboard
+         * overlaps the form and we need to shift.
+         *
+         * For BOTTOM gravity: gap = vertical offset (safe area + user offset)(form sits at bottom, offset pushes it up)
+         * For TOP gravity: gap = screenHeight - totalTopOffset - formHeight
+         * For CENTER gravity: gap = (screenHeight - formHeight) / 2
+         */
+        internal fun calculateFormBottomGap(
+            layout: FormLayout,
+            formHeight: Int,
+            screenHeight: Int,
+            density: Float,
+            safeAreaTop: Int,
+            safeAreaBottom: Int
+        ): Int {
+            val topOffset = (layout.offsets.top * density).toInt()
+            val bottomOffset = (layout.offsets.bottom * density).toInt()
 
-        return when (layout.position) {
-            FormPosition.BOTTOM,
-            FormPosition.BOTTOM_LEFT,
-            FormPosition.BOTTOM_RIGHT -> safeAreaBottom + bottomOffset
+            return when (layout.position) {
+                FormPosition.BOTTOM,
+                FormPosition.BOTTOM_LEFT,
+                FormPosition.BOTTOM_RIGHT -> safeAreaBottom + bottomOffset
 
-            FormPosition.TOP,
-            FormPosition.TOP_LEFT,
-            FormPosition.TOP_RIGHT -> screenHeight - safeAreaTop - topOffset - formHeight
+                FormPosition.TOP,
+                FormPosition.TOP_LEFT,
+                FormPosition.TOP_RIGHT -> screenHeight - safeAreaTop - topOffset - formHeight
 
-            FormPosition.CENTER -> (screenHeight - formHeight) / 2
+                // TODO: If center-aligned forms support top/bottom offsets in the future,
+                //  this calculation should account for the offset shifting the form from center
+                FormPosition.CENTER -> (screenHeight - formHeight) / 2
 
-            FormPosition.FULLSCREEN -> 0
+                FormPosition.FULLSCREEN -> 0
+            }
         }
-    }
 
-    /**
-     * Calculate horizontal offset based on position, user offsets, and safe area insets.
-     * Safe area insets ensure the form clears notches, display cutouts, and system UI.
-     * User offsets are additive on top of safe area.
-     *
-     * @param safeAreaLeft Left safe area inset in pixels
-     * @param safeAreaRight Right safe area inset in pixels
-     */
-    private fun calculateHorizontalOffset(
-        layout: FormLayout,
-        density: Float,
-        safeAreaLeft: Int,
-        safeAreaRight: Int
-    ): Int {
-        val leftOffset = (layout.offsets.left * density).toInt()
-        val rightOffset = (layout.offsets.right * density).toInt()
+        /**
+         * Calculate horizontal offset based on position, user offsets, and safe area insets.
+         * Safe area insets ensure the form clears notches, display cutouts, and system UI.
+         * User offsets are additive on top of safe area.
+         *
+         * @param safeAreaLeft Left safe area inset in pixels
+         * @param safeAreaRight Right safe area inset in pixels
+         */
+        internal fun calculateHorizontalOffset(
+            layout: FormLayout,
+            density: Float,
+            safeAreaLeft: Int,
+            safeAreaRight: Int
+        ): Int {
+            val leftOffset = (layout.offsets.left * density).toInt()
+            val rightOffset = (layout.offsets.right * density).toInt()
 
-        return when (layout.position) {
-            FormPosition.TOP_LEFT, FormPosition.BOTTOM_LEFT -> safeAreaLeft + leftOffset
-            FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> -(safeAreaRight + rightOffset)
-            FormPosition.TOP, FormPosition.BOTTOM, FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
+            return when (layout.position) {
+                FormPosition.TOP_LEFT, FormPosition.BOTTOM_LEFT -> safeAreaLeft + leftOffset
+                FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> -(safeAreaRight + rightOffset)
+                FormPosition.TOP, FormPosition.BOTTOM, FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
+            }
         }
-    }
 
-    /**
-     * Calculate vertical offset based on position, user offsets, and safe area insets.
-     * Safe area insets ensure the form clears notches, Dynamic Island, and system UI.
-     * User offsets are additive on top of safe area.
-     *
-     * @param safeAreaTop Top safe area inset in pixels
-     * @param safeAreaBottom Bottom safe area inset in pixels
-     */
-    private fun calculateVerticalOffset(
-        layout: FormLayout,
-        density: Float,
-        safeAreaTop: Int,
-        safeAreaBottom: Int
-    ): Int {
-        val topOffset = (layout.offsets.top * density).toInt()
-        val bottomOffset = (layout.offsets.bottom * density).toInt()
+        /**
+         * Calculate vertical offset based on position, user offsets, and safe area insets.
+         * Safe area insets ensure the form clears notches, Dynamic Island, and system UI.
+         * User offsets are additive on top of safe area.
+         *
+         * @param safeAreaTop Top safe area inset in pixels
+         * @param safeAreaBottom Bottom safe area inset in pixels
+         */
+        internal fun calculateVerticalOffset(
+            layout: FormLayout,
+            density: Float,
+            safeAreaTop: Int,
+            safeAreaBottom: Int
+        ): Int {
+            val topOffset = (layout.offsets.top * density).toInt()
+            val bottomOffset = (layout.offsets.bottom * density).toInt()
 
-        return when (layout.position) {
-            FormPosition.TOP, FormPosition.TOP_LEFT, FormPosition.TOP_RIGHT ->
-                safeAreaTop + topOffset
-            FormPosition.BOTTOM, FormPosition.BOTTOM_LEFT, FormPosition.BOTTOM_RIGHT ->
-                safeAreaBottom + bottomOffset
-            FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
+            return when (layout.position) {
+                FormPosition.TOP, FormPosition.TOP_LEFT, FormPosition.TOP_RIGHT ->
+                    safeAreaTop + topOffset
+
+                FormPosition.BOTTOM, FormPosition.BOTTOM_LEFT, FormPosition.BOTTOM_RIGHT ->
+                    safeAreaBottom + bottomOffset
+
+                FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
+            }
         }
     }
 }
