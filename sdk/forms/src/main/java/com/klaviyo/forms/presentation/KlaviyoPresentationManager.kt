@@ -143,12 +143,14 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * and re-presents with the saved layout once the new activity is available.
      */
     private fun onConfigurationChanged(event: ActivityEvent.ConfigurationChanged) = safeCall {
-        // Cancel any pending per-activity cleanup — rotation handles its own re-presentation
-        hostActivityStoppedCleanup?.cancel()
-        hostActivityStoppedCleanup = null
-
         event.newConfig.orientation.takeIf { it != orientation }
             ?.also { newOrientation -> orientation = newOrientation }?.let {
+                // Cancel any pending per-activity cleanup — rotation handles its own re-presentation.
+                // Must be inside the orientation guard so non-orientation config changes (locale,
+                // dark mode, font scale) don't cancel the timer without scheduling a replacement.
+                hostActivityStoppedCleanup?.cancel()
+                hostActivityStoppedCleanup = null
+
                 presentationState.takeIfNot<PresentationState, Hidden>()?.let { state ->
                     orientation = event.newConfig.orientation
                     Registry.get<WebViewClient>().detachWebView()
@@ -234,6 +236,11 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 }
             }
 
+            // Cancel any existing dismiss timer before scheduling a new one to prevent
+            // orphaned timers firing on a dead context (e.g. if closeFormAndDismiss set
+            // a 400ms timer and the app backgrounds within that window)
+            dismissOnTimeout?.cancel()
+
             // Fallback: if the timeout fires without re-presentation, reset state to Hidden
             // so future present() calls aren't blocked by a stale Presenting state
             dismissOnTimeout = Registry.clock.schedule(timeout) {
@@ -303,15 +310,11 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         }
 
         floatingFormWindow = FloatingFormWindow(activity).also { window ->
-            window.show(activity, webView, layout)
+            window.show(activity, webView, layout) {
+                presentationState = Presented(formId)
+                Registry.log.debug("Presentation State: $presentationState")
+            }
         }
-
-        // TODO: Ideally state should transition to Presented inside the runOnUiThread
-        //  callback in FloatingFormWindow.show() once windowManager.addView() completes,
-        //  mirroring the Activity path's onCreateActivity callback. Setting Presented
-        //  immediately is a POC shortcut — the window may not yet be on screen.
-        presentationState = Presented(formId)
-        Registry.log.debug("Presentation State: $presentationState")
     }
 
     /**
