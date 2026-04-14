@@ -145,8 +145,8 @@ internal class FloatingFormWindow(private val context: Context) {
             //    form input and restoring it when the input loses focus.
             // FLAG_LAYOUT_NO_LIMITS: Allow window to extend beyond screen bounds for positioning
             flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
             format = PixelFormat.TRANSLUCENT
         }
@@ -381,14 +381,14 @@ internal class FloatingFormWindow(private val context: Context) {
 
             return when (layout.position) {
                 FormPosition.TOP_LEFT, FormPosition.BOTTOM_LEFT -> safeAreaLeft + leftOffset
-                FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> -(safeAreaRight + rightOffset)
+                FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> safeAreaRight + rightOffset
                 FormPosition.TOP, FormPosition.BOTTOM, FormPosition.CENTER, FormPosition.FULLSCREEN -> 0
             }
         }
 
         /**
          * Calculate vertical offset based on position, user offsets, and safe area insets.
-         * Safe area insets ensure the form clears notches, Dynamic Island, and system UI.
+         * Safe area insets ensure the form clears notches, display cutouts, and system UI.
          * User offsets are additive on top of safe area.
          *
          * @param safeAreaTop Top safe area inset in pixels
