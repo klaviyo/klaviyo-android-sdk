@@ -152,7 +152,6 @@ internal class KlaviyoPresentationManager() : PresentationManager {
                 hostActivityStoppedCleanup = null
 
                 presentationState.takeIfNot<PresentationState, Hidden>()?.let { state ->
-                    orientation = event.newConfig.orientation
                     Registry.get<WebViewClient>().detachWebView()
                     presentationState = Presenting(state.formId)
                     Registry.log.debug("New screen orientation, detaching view")
@@ -325,24 +324,24 @@ internal class KlaviyoPresentationManager() : PresentationManager {
             return
         }
 
-        floatingFormWindow = FloatingFormWindow(activity).also { window ->
-            window.show(
-                hostActivity = activity,
-                webView = webView,
-                layout = layout,
-                onPresented = {
-                    presentationState = Presented(formId)
-                    Registry.log.debug("Presentation State: $presentationState")
-                },
-                onError = {
-                    floatingFormWindow = null
-                    hostActivity = null
-                    currentLayout = null
-                    presentationState = Hidden
-                    Registry.log.debug("Presentation State: $presentationState (addView failed)")
-                }
-            )
-        }
+        val window = FloatingFormWindow(activity)
+        floatingFormWindow = window
+        window.show(
+            hostActivity = activity,
+            webView = webView,
+            layout = layout,
+            onPresented = {
+                presentationState = Presented(formId)
+                Registry.log.debug("Presentation State: $presentationState")
+            },
+            onError = {
+                floatingFormWindow = null
+                hostActivity = null
+                currentLayout = null
+                presentationState = Hidden
+                Registry.log.debug("Presentation State: $presentationState (addView failed)")
+            }
+        )
     }
 
     /**
