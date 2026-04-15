@@ -28,7 +28,6 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [Collecting Push Tokens](#collecting-push-tokens)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Rich Push](#rich-push)
-    - [Push Action Buttons](#push-action-buttons)
     - [Tracking Open Events](#tracking-open-events)
     - [Silent Push Notifications](#silent-push-notifications)
     - [Custom Data](#custom-data)
@@ -479,11 +478,6 @@ push notification messages. No additional setup is needed to support rich push. 
 attaching it to the notification is handled within `KlaviyoPushService`. If an image fails to download
 (e.g. if the device has a poor network connection) the notification will be displayed without an image
 after the download times out.
-
-#### Push Action Buttons
-[Push Action Buttons](https://help.klaviyo.com/hc/en-us/article/46285872166683) is the ability to add clickable buttons to
-push notification messages. These buttons can show custom text, and, when clicked, deep link or open your app. 
-Push notification messages can include a maximum of 3 buttons. No additional setup is needed to support push action buttons.
 
 #### Tracking Open Events
 To track push notification opens, you must call `Klaviyo.handlePush(intent)` when your app is launched from an intent.
