@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.util.AttributeSet
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.util.TypedValueCompat.pxToDp
@@ -52,8 +53,14 @@ internal class KlaviyoWebView : WebView {
         setBackgroundColor(Color.TRANSPARENT)
         if (Registry.config.isDebugBuild) {
             setWebContentsDebuggingEnabled(true)
+
             // Disable webview resources cache when debugging:
             // settings.cacheMode = WebSettings.LOAD_NO_CACHE
+
+            // Allow mixed content when CDN URL is HTTP (local development only)
+            if (Registry.config.baseCdnUrl.startsWith("http://")) {
+                settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            }
         }
     }
 

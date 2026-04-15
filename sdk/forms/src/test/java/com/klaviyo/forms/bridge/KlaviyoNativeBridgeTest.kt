@@ -13,7 +13,10 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import com.klaviyo.forms.FormLifecycleEvent
+import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.presentation.PresentationState
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
@@ -53,6 +56,10 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.register<State>(mockState)
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<PresentationManager>(mockPresentationManager)
+
+        every {
+            mockPresentationManager.presentationState
+        } returns PresentationState.Presented(null)
 
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockUri
@@ -109,12 +116,19 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formWillAppear triggers show`() {
+    fun `formWillAppear with no data still presents but skips lifecycle callback`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockPresentationManager.present(null, any()) }
+        verify { mockPresentationManager.present(any(), any()) }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify { spyLog.warning(any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
     }
 
     @Test
@@ -122,8 +136,23 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
          */
-        postMessage("""{"type":"formWillAppear", "data":{"formId":"aPiKeY"}}""")
-        verify { mockPresentationManager.present("aPiKeY", any()) }
+        postMessage(
+            """{"type":"formWillAppear", "data":{"formId":"64CjgW","formName":"Test Form"}}"""
+        )
+        verify { mockPresentationManager.present("64CjgW", any()) }
+    }
+
+    @Test
+    fun `formWillAppear with missing formId still presents but skips lifecycle callback`() {
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+        postMessage("""{"type":"formWillAppear","data":{"formName":"Test Form"}}""")
+        verify { mockPresentationManager.present(any(), any()) }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify { spyLog.warning(any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
     }
 
     @Test
@@ -257,7 +286,10 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
           "type": "openDeepLink",
           "data": {
             "ios": "klaviyotest://settings",
-            "android": "klaviyotest://settings"
+            "android": "klaviyotest://settings",
+            "formId": "64CjgW",
+            "formName": "Test Form",
+            "buttonLabel": "Click Me"
           }
         }
     """.trimIndent()
@@ -274,12 +306,139 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formDisappeared triggers close`() {
+    fun `openDeepLink with empty android route skips lifecycle callback and does not navigate`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
+         */
+        val emptyAndroidMessage = """
+            {
+              "type": "openDeepLink",
+              "data": {
+                "ios": "klaviyotest://settings",
+                "android": "",
+                "formId": "64CjgW",
+                "formName": "Test Form",
+                "buttonLabel": "Click Me"
+              }
+            }
+        """.trimIndent()
+
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+        postMessage(emptyAndroidMessage)
+
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
+        verify { spyLog.warning(any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `openDeepLink with missing buttonLabel still navigates and fires lifecycle callback`() {
+        val message = """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"64CjgW","formName":"Test Form"}}"""
+
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleHandler { event -> events.add(event) }
+        Registry.register<FormLifecycleHandler>(callback)
+
+        postMessage(message)
+
+        verify { DeepLinking.handleDeepLink(mockUri) }
+        assertEquals(1, events.size)
+        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaClicked
+        assertEquals("64CjgW", ctaEvent.formId)
+        assertEquals("Test Form", ctaEvent.formName)
+        assertEquals("", ctaEvent.buttonLabel)
+        assertEquals(mockUri, ctaEvent.deepLinkUrl)
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `formName flows through from dismiss and CTA events via bridge messages`() {
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleHandler { event -> events.add(event) }
+        Registry.register<FormLifecycleHandler>(callback)
+
+        // Show — bridge fires FormShown
+        postMessage("""{"type":"formWillAppear","data":{"formId":"abc","formName":"My Form"}}""")
+        assertEquals(1, events.size)
+        val shownEvent = events[0] as FormLifecycleEvent.FormShown
+        assertEquals("My Form", shownEvent.formName)
+        assertEquals("abc", shownEvent.formId)
+
+        // Dismiss — bridge fires FormDismissed and delegates to PM
+        postMessage("""{"type":"formDisappeared","data":{"formId":"abc","formName":"My Form"}}""")
+        verify { mockPresentationManager.dismiss() }
+        assertEquals(2, events.size)
+        val dismissedEvent = events[1] as FormLifecycleEvent.FormDismissed
+        assertEquals("My Form", dismissedEvent.formName)
+        assertEquals("abc", dismissedEvent.formId)
+
+        // CTA — formId+formName come from the bridge message itself
+        postMessage(
+            """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"abc","formName":"My Form","buttonLabel":"Shop Now"}}"""
+        )
+        assertEquals(3, events.size)
+        val ctaEvent = events[2] as FormLifecycleEvent.FormCtaClicked
+        assertEquals("My Form", ctaEvent.formName)
+        assertEquals("abc", ctaEvent.formId)
+        assertEquals(mockUri, ctaEvent.deepLinkUrl)
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `formDisappeared triggers dismiss with formContext`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
          */
+        postMessage("""{"type":"formDisappeared","data":{"formId":"abc","formName":"My Form"}}""")
+        verify { mockPresentationManager.dismiss() }
+    }
+
+    @Test
+    fun `formDisappeared with no data still dismisses but skips lifecycle callback`() {
+        /**
+         * All message types use tolerant parsing (optString) so that SDK-internal actions
+         * always fire, preventing the user from getting stuck behind a full-screen overlay.
+         * Lifecycle callbacks are gated on valid metadata at the dispatch layer.
+         *
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
+         */
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
         postMessage("""{"type":"formDisappeared"}""")
         verify { mockPresentationManager.dismiss() }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify { spyLog.warning(any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `formDisappeared with missing formId still dismisses but skips lifecycle callback`() {
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+        postMessage("""{"type":"formDisappeared","data":{"formName":"Test Form"}}""")
+        verify { mockPresentationManager.dismiss() }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify { spyLog.warning(any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
     }
 
     @Test
@@ -296,36 +455,19 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     @Test
     fun `malformed message throws an error`() {
         postMessage("sawr a warewolf with a chinese menu inhis hands")
-
-        verify {
-            spyLog.error(
-                "Failed to relay webview message: sawr a warewolf with a chinese menu inhis hands",
-                any<JSONException>()
-            )
-        }
+        verify { spyLog.error(any(), any<JSONException>()) }
     }
 
     @Test
     fun `unknown type throws an error`() {
         postMessage("""{"type":"unknown"}""")
-
-        verify {
-            spyLog.error(
-                "Failed to relay webview message: {\"type\":\"unknown\"}",
-                any<IllegalStateException>()
-            )
-        }
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
     }
 
     @Test
     fun `null message logs warning`() {
         postMessage(null)
 
-        verify {
-            spyLog.warning(
-                "Received null message from webview",
-                null
-            )
-        }
+        verify { spyLog.warning(any(), null) }
     }
 }

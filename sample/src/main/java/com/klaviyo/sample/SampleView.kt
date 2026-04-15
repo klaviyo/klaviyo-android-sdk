@@ -38,6 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -281,8 +283,12 @@ private fun SampleViewContent(
             keyboardType = KeyboardType.Ascii,
             imeAction = ImeAction.Next,
             keyboardActions = keyboardActions,
+            testTag = SampleTestTags.FIELD_EXTERNAL_ID,
             trailingIcon = {
-                EntryTrailingButton(onClick = setExternalId)
+                EntryTrailingButton(
+                    onClick = setExternalId,
+                    modifier = Modifier.semantics { testTag = SampleTestTags.BTN_SET_EXTERNAL_ID }
+                )
             }
         )
         ProfileTextField(
@@ -292,8 +298,12 @@ private fun SampleViewContent(
             keyboardType = KeyboardType.Email,
             imeAction = ImeAction.Next,
             keyboardActions = keyboardActions,
+            testTag = SampleTestTags.FIELD_EMAIL,
             trailingIcon = {
-                EntryTrailingButton(onClick = setEmail)
+                EntryTrailingButton(
+                    onClick = setEmail,
+                    modifier = Modifier.semantics { testTag = SampleTestTags.BTN_SET_EMAIL }
+                )
             }
         )
         ProfileTextField(
@@ -303,22 +313,26 @@ private fun SampleViewContent(
             keyboardType = KeyboardType.Phone,
             imeAction = ImeAction.Send,
             keyboardActions = keyboardActions,
+            testTag = SampleTestTags.FIELD_PHONE,
             trailingIcon = {
-                EntryTrailingButton(onClick = setPhoneNumber)
+                EntryTrailingButton(
+                    onClick = setPhoneNumber,
+                    modifier = Modifier.semantics { testTag = SampleTestTags.BTN_SET_PHONE }
+                )
             }
         )
         ViewRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionButton(
                 text = UiConstants.SET_PROFILE,
                 onClick = setProfile,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).semantics { testTag = SampleTestTags.BTN_SET_PROFILE }
             )
 
             ActionButton(
                 text = UiConstants.RESET_PROFILE,
                 onClick = resetProfile,
                 enabled = externalId.isNotEmpty() || email.isNotEmpty() || phoneNumber.isNotEmpty(),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).semantics { testTag = SampleTestTags.BTN_RESET_PROFILE }
             )
         }
 
@@ -329,7 +343,7 @@ private fun SampleViewContent(
             ActionButton(
                 text = UiConstants.CREATE_TEST_EVENT,
                 onClick = createTestEvent,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).semantics { testTag = SampleTestTags.BTN_CREATE_TEST_EVENT },
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Science,
@@ -341,12 +355,12 @@ private fun SampleViewContent(
             ActionButton(
                 text = UiConstants.VIEWED_PRODUCT,
                 onClick = createViewedProductEvent,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).semantics { testTag = SampleTestTags.BTN_VIEWED_PRODUCT },
                 icon = {
                     Icon(
                         imageVector = Icons.Default.ShoppingCart,
                         tint = MaterialTheme.colorScheme.primary,
-                        contentDescription = "Create Test Event"
+                        contentDescription = "Viewed Product"
                     )
                 }
             )
@@ -360,13 +374,13 @@ private fun SampleViewContent(
                 text = UiConstants.REGISTER,
                 onClick = registerForInAppForms,
                 enabled = !isFormsRegistered,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).semantics { testTag = SampleTestTags.BTN_REGISTER_FORMS }
             )
             ActionButton(
                 text = UiConstants.UNREGISTER,
                 onClick = unregisterFromInAppForms,
                 enabled = isFormsRegistered,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).semantics { testTag = SampleTestTags.BTN_UNREGISTER_FORMS }
             )
         }
 
@@ -375,12 +389,15 @@ private fun SampleViewContent(
         SectionHeader(UiConstants.PUSH_SECTION)
         ViewRow {
             if (hasNotificationPermission) {
-                Text(text = UiConstants.PERMISSION_GRANTED)
+                Text(
+                    text = UiConstants.PERMISSION_GRANTED,
+                    modifier = Modifier.semantics { testTag = SampleTestTags.TEXT_NOTIFICATION_PERMISSION_GRANTED }
+                )
             } else {
                 ActionButton(
                     text = UiConstants.REQUEST_PERMISSION,
                     onClick = requestPermission,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).semantics { testTag = SampleTestTags.BTN_REQUEST_NOTIFICATION_PERMISSION }
                 )
             }
         }
@@ -388,7 +405,11 @@ private fun SampleViewContent(
             Text(text = UiConstants.PUSH_TOKEN_LABEL, style = MaterialTheme.typography.labelMedium)
         }
         ViewRow {
-            Text(text = pushToken, style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = pushToken,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.semantics { testTag = SampleTestTags.TEXT_PUSH_TOKEN }
+            )
         }
 
         ViewRow { HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color) }
@@ -444,6 +465,7 @@ private fun ProfileTextField(
     keyboardType: KeyboardType,
     imeAction: ImeAction,
     keyboardActions: KeyboardActions,
+    testTag: String = "",
     trailingIcon: @Composable (() -> Unit)? = null
 ) {
     ViewRow {
@@ -454,7 +476,11 @@ private fun ProfileTextField(
             keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
             keyboardActions = keyboardActions,
             trailingIcon = trailingIcon,
-            modifier = Modifier.weight(1f, fill = true)
+            modifier = Modifier
+                .weight(1f, fill = true)
+                .then(
+                    if (testTag.isNotEmpty()) Modifier.semantics { this.testTag = testTag } else Modifier
+                )
         )
     }
 }
@@ -481,12 +507,13 @@ private fun ActionButton(
 @Composable
 private fun EntryTrailingButton(
     text: String = "Set",
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     OutlinedButton(
         onClick = onClick,
         shape = CircleShape,
-        modifier = Modifier.padding(end = 16.dp)
+        modifier = Modifier.padding(end = 16.dp).then(modifier)
     ) {
         Text(text = text)
     }

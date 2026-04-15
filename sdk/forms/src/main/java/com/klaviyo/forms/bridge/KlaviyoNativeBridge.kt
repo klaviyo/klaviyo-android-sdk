@@ -11,6 +11,8 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
+import com.klaviyo.forms.FormLifecycleEvent
+import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear
@@ -27,7 +29,7 @@ import com.klaviyo.forms.webview.WebViewClient
  * An instance of this class is injected into a [com.klaviyo.forms.webview.KlaviyoWebView] as a global property
  * on the window. It receives and interprets messages from klaviyo.js over the native bridge
  */
-internal class KlaviyoNativeBridge() : NativeBridge {
+internal class KlaviyoNativeBridge : NativeBridge {
 
     /**
      * This is the name that will be used to access the bridge from JS, i.e. window.KlaviyoNativeBridge
@@ -71,7 +73,7 @@ internal class KlaviyoNativeBridge() : NativeBridge {
                 is TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
                 is TrackProfileEvent -> createProfileEvent(bridgeMessage)
                 is OpenDeepLink -> deepLink(bridgeMessage)
-                is FormDisappeared -> close()
+                is FormDisappeared -> close(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
             }
         } catch (e: Exception) {
@@ -94,6 +96,17 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      */
     private fun show(bridgeMessage: FormWillAppear) {
         Registry.get<PresentationManager>().present(bridgeMessage.formId, bridgeMessage.layout)
+
+        if (bridgeMessage.formId.isEmpty() || bridgeMessage.formName.isEmpty()) {
+            Registry.log.warning(
+                "FormWillAppear missing required fields, skipping lifecycle callback"
+            )
+            return
+        }
+
+        invokeFormLifecycleHandler(
+            FormLifecycleEvent.FormShown(bridgeMessage.formId, bridgeMessage.formName)
+        )
     }
 
     /**
@@ -115,17 +128,73 @@ internal class KlaviyoNativeBridge() : NativeBridge {
      * There is a brief window between our overlay activity pausing and the next activity resuming.
      * We alleviate this race condition by postponing till next activity resumes if current activity is null.
      */
-    private fun deepLink(message: OpenDeepLink) = DeepLinking.handleDeepLink(message.route.toUri())
+    private fun deepLink(message: OpenDeepLink) {
+        val deepLinkUri = message.route?.toUri()
+
+        if (deepLinkUri == null) {
+            Registry.log.warning("Form CTA with no Android route configured: ${message.formId}")
+            return
+        }
+
+        DeepLinking.handleDeepLink(deepLinkUri)
+
+        if (message.formId.isEmpty() || message.formName.isEmpty()) {
+            Registry.log.warning(
+                "OpenDeepLink missing required fields, skipping lifecycle callback"
+            )
+            return
+        }
+
+        invokeFormLifecycleHandler(
+            FormLifecycleEvent.FormCtaClicked(
+                formId = message.formId,
+                formName = message.formName,
+                buttonLabel = message.buttonLabel,
+                deepLinkUrl = deepLinkUri
+            )
+        )
+    }
 
     /**
-     * Instruct presentation manager to dismiss the form overlay activity
+     * Instruct presentation manager to dismiss the form overlay activity.
      */
-    private fun close() = Registry.get<PresentationManager>().dismiss()
+    private fun close(bridgeMessage: FormDisappeared) {
+        Registry.get<PresentationManager>().dismiss()
+
+        if (bridgeMessage.formId.isEmpty() || bridgeMessage.formName.isEmpty()) {
+            Registry.log.warning(
+                "FormDisappeared missing required fields, skipping lifecycle callback"
+            )
+            return
+        }
+
+        invokeFormLifecycleHandler(
+            FormLifecycleEvent.FormDismissed(bridgeMessage.formId, bridgeMessage.formName)
+        )
+    }
 
     /**
      * Handle a [Abort] message by logging the reason and destroying the webview
      */
     private fun abort(reason: String) = Klaviyo.unregisterFromInAppForms().also {
         Registry.log.error("IAF aborted, reason: $reason")
+    }
+
+    /**
+     * Invoke the registered form lifecycle callback on the main thread, if one is registered.
+     * Dispatches to main thread for consistency across bridge paths:
+     * Modern WebView versions, using [WEB_MESSAGE_LISTENER] are already on main thread,
+     * but [JavascriptInterface] sends its messages on a background thread.
+     */
+    private fun invokeFormLifecycleHandler(event: FormLifecycleEvent) {
+        Registry.getOrNull<FormLifecycleHandler>()?.let { callback ->
+            Registry.threadHelper.runOnUiThread {
+                try {
+                    callback.onFormLifecycleEvent(event)
+                } catch (e: Exception) {
+                    Registry.log.error("Form lifecycle callback threw an exception", e)
+                }
+            }
+        }
     }
 }
