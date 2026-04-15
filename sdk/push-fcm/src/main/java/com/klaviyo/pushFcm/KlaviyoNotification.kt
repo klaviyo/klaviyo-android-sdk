@@ -161,7 +161,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      */
     internal fun buildNotification(
         context: Context,
-        notificationTag: String = message.notificationTag ?: generateId().toString()
+        notificationTag: String
     ): NotificationCompat.Builder {
         val requestCodeBase = generateId()
         return NotificationCompat.Builder(context, message.channel_id)
