@@ -18,4 +18,10 @@ object Constants {
      * Klaviyo push messages contain metadata to associate an event with its original transmission
      */
     const val TRACKING_PARAMETER = "_k"
+
+    /**
+     * Intent extra key for the notification tag, used to dismiss the notification
+     * when an action button is tapped and [handlePush] processes the intent
+     */
+    const val NOTIFICATION_TAG_EXTRA = PACKAGE_PREFIX + "notification_tag"
 }
