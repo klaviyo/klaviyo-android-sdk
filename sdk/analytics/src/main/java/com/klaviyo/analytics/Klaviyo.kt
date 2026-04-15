@@ -342,7 +342,7 @@ object Klaviyo {
             intent?.getStringExtra(Constants.NOTIFICATION_TAG_EXTRA)?.let { tag ->
                 NotificationManagerCompat
                     .from(Registry.config.applicationContext)
-                    .cancel(tag, 0)
+                    .cancel(tag, Constants.NOTIFICATION_ID)
             }
         }?.safeApply {
             // If a Klaviyo notification is deep linked, invoke the developer's deep link handler

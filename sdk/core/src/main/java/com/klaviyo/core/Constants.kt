@@ -24,4 +24,10 @@ object Constants {
      * when an action button is tapped and [handlePush] processes the intent
      */
     const val NOTIFICATION_TAG_EXTRA = PACKAGE_PREFIX + "notification_tag"
+
+    /**
+     * Fixed notification ID used in all notify/cancel calls.
+     * Notifications are uniquely identified by their string tag, not this ID.
+     */
+    const val NOTIFICATION_ID = 0
 }

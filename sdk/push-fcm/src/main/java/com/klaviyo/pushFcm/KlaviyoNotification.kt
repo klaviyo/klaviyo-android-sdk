@@ -77,6 +77,11 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         private const val ACTION_REQUEST_CODE_OFFSET = 1
 
         /**
+         * @see Constants.NOTIFICATION_ID
+         */
+        private const val NOTIFICATION_ID = Constants.NOTIFICATION_ID
+
+        /**
          * Get an integer ID to associate with a notification or its pending intent
          * The notification system service will de-dupe on this if we get a null
          * notification tag from the payload
@@ -127,7 +132,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
         NotificationManagerCompat
             .from(context)
-            .notify(notificationTag, 0, notification.build())
+            .notify(notificationTag, NOTIFICATION_ID, notification.build())
 
         return true
     }
