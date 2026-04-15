@@ -648,7 +648,7 @@ class KlaviyoNotificationTest : BaseTest() {
 
         verify {
             mockLaunchIntent.putExtra(
-                "com.klaviyo.notification_tag",
+                "_klaviyo.notification_tag",
                 "test_tag"
             )
         }
@@ -681,7 +681,7 @@ class KlaviyoNotificationTest : BaseTest() {
         // Should still have a notification tag extra (generated from timestamp)
         verify {
             mockLaunchIntent.putExtra(
-                "com.klaviyo.notification_tag",
+                "_klaviyo.notification_tag",
                 any<String>()
             )
         }

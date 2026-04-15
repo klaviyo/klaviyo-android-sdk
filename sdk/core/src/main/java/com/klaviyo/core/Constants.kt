@@ -21,9 +21,13 @@ object Constants {
 
     /**
      * Intent extra key for the notification tag, used to dismiss the notification
-     * when an action button is tapped and [handlePush] processes the intent
+     * when an action button is tapped and [handlePush] processes the intent.
+     *
+     * Uses [INTERNAL_PREFIX] instead of [PACKAGE_PREFIX] to avoid being swept into
+     * analytics event properties by [appendKlaviyoExtras].
      */
-    const val NOTIFICATION_TAG_EXTRA = PACKAGE_PREFIX + "notification_tag"
+    private const val INTERNAL_PREFIX = "_klaviyo."
+    const val NOTIFICATION_TAG_EXTRA = INTERNAL_PREFIX + "notification_tag"
 
     /**
      * Fixed notification ID used in all notify/cancel calls.
