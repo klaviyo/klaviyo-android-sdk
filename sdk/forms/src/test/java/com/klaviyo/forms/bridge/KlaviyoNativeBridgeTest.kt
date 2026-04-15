@@ -57,7 +57,9 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<PresentationManager>(mockPresentationManager)
 
-        every { mockPresentationManager.presentationState } returns PresentationState.Presented
+        every {
+            mockPresentationManager.presentationState
+        } returns PresentationState.Presented(null)
 
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockUri
@@ -122,7 +124,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
 
         postMessage("""{"type":"formWillAppear"}""")
-        verify { mockPresentationManager.present() }
+        verify { mockPresentationManager.present(any(), any()) }
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
         verify { spyLog.warning(any()) }
 
@@ -137,7 +139,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         postMessage(
             """{"type":"formWillAppear", "data":{"formId":"64CjgW","formName":"Test Form"}}"""
         )
-        verify { mockPresentationManager.present() }
+        verify { mockPresentationManager.present("64CjgW", any()) }
     }
 
     @Test
@@ -146,7 +148,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
 
         postMessage("""{"type":"formWillAppear","data":{"formName":"Test Form"}}""")
-        verify { mockPresentationManager.present() }
+        verify { mockPresentationManager.present(any(), any()) }
         verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
         verify { spyLog.warning(any()) }
 
@@ -177,7 +179,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
                         "source": "Local Form",
                         "email": "local@local.com",
                         "consent_method": "Klaviyo Form",
-                        "consent_form_id": "64CjgW",
+                        "consent_form_id": "aPiKeY",
                         "consent_form_version": 3,
                         "sent_identifiers": {},
                         "sms_consent": true,
@@ -186,7 +188,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
                       "step_name": "Email Opt-In",
                       "step_number": 1,
                       "action_type": "Submit Step",
-                      "form_id": "64CjgW",
+                      "form_id": "aPiKeY",
                       "form_version_id": 3,
                       "form_type": "POPUP",
                       "device_type": "DESKTOP",
@@ -218,7 +220,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
                             "first_referrer": "http://localhost:4001/onsite/js/",
                             "action_type": "Submit Step",
                             "form_version_id": 3,
-                            "form_id": "64CjgW",
+                            "form_id": "aPiKeY",
                             "device_type": "DESKTOP",
                             "form_type": "POPUP",
                             "referrer": "http://localhost:4001/onsite/js/",
@@ -227,7 +229,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
                               "consent_method": "Klaviyo Form",
                               "consent_form_version": 3,
                               "step_name": "Email Opt-In",
-                              "consent_form_id": "64CjgW",
+                              "consent_form_id": "aPiKeY",
                               "source": "Local Form",
                               "email": "local@local.com",
                               "sent_identifiers": {}

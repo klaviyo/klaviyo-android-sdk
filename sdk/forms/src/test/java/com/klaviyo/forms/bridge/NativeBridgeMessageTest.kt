@@ -415,7 +415,7 @@ class NativeBridgeMessageTest : BaseTest() {
                   },
                   {
                     "type": "formWillAppear",
-                    "version": 1
+                    "version": 2
                   },
                   {
                     "type": "trackAggregateEvent",

@@ -35,7 +35,9 @@ internal class FormLifecycleHandlerTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
-        every { mockPresentationManager.presentationState } returns PresentationState.Presented
+        every {
+            mockPresentationManager.presentationState
+        } returns PresentationState.Presented(null)
         Registry.register<PresentationManager>(mockPresentationManager)
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockUri
@@ -95,7 +97,7 @@ internal class FormLifecycleHandlerTest : BaseTest() {
             """{"type":"formWillAppear", "data":{"formId":"$testFormId","formName":"$testFormName"}}"""
         nativeBridge.postMessage(message)
 
-        verify { mockPresentationManager.present() }
+        verify { mockPresentationManager.present(any(), any()) }
         val shownEvent = capturedEvent as FormLifecycleEvent.FormShown
         assertEquals(testFormId, shownEvent.formId)
         assertEquals(testFormName, shownEvent.formName)
@@ -158,7 +160,7 @@ internal class FormLifecycleHandlerTest : BaseTest() {
         nativeBridge.postMessage(message)
 
         // Verify PresentationManager was called but no exception thrown
-        verify { mockPresentationManager.present() }
+        verify { mockPresentationManager.present(any(), any()) }
     }
 
     @Test

@@ -29,10 +29,12 @@ internal sealed class NativeBridgeMessage {
      *
      * @param formId The form ID of the form that is appearing
      * @param formName The name of the form that is appearing
+     * @param layout The optional layout configuration for the form
      */
     data class FormWillAppear(
         val formId: FormId,
-        val formName: String
+        val formName: String,
+        val layout: FormLayout? = null
     ) : NativeBridgeMessage()
 
     /**
@@ -104,7 +106,7 @@ internal sealed class NativeBridgeMessage {
         internal val handShakeData by lazy {
             listOf(
                 HandshakeSpec(keyName<HandShook>(), 1),
-                HandshakeSpec(keyName<FormWillAppear>(), 1),
+                HandshakeSpec(keyName<FormWillAppear>(), 2),
                 HandshakeSpec(keyName<TrackAggregateEvent>(), 1),
                 HandshakeSpec(keyName<TrackProfileEvent>(), 1),
                 // Version 2 issues deep link after closing the form (v1 was before close, causing a timing issue)
@@ -130,7 +132,8 @@ internal sealed class NativeBridgeMessage {
 
                 keyName<FormWillAppear>() -> FormWillAppear(
                     formId = jsonData.optString("formId"),
-                    formName = jsonData.optString("formName")
+                    formName = jsonData.optString("formName"),
+                    layout = FormLayout.fromJson(jsonData.optJSONObject("layout"))
                 )
 
                 keyName<TrackAggregateEvent>() -> TrackAggregateEvent(

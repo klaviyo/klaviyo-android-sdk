@@ -95,7 +95,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
      * Notify the client that the webview should be shown
      */
     private fun show(bridgeMessage: FormWillAppear) {
-        Registry.get<PresentationManager>().present()
+        Registry.get<PresentationManager>().present(bridgeMessage.formId, bridgeMessage.layout)
 
         if (bridgeMessage.formId.isEmpty() || bridgeMessage.formName.isEmpty()) {
             Registry.log.warning(
