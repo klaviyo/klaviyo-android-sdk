@@ -31,7 +31,7 @@ class CompanyObserverTest {
 
     @Before
     fun setup() {
-        mockkStatic("com.klaviyo.forms.InAppFormsKt") // Mock the extension function
+        mockkStatic("com.klaviyo.forms.KlaviyoFormsProviderKt") // Mock the extension function
         every { Klaviyo.reInitializeInAppForms() } returns Klaviyo
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<State>(stateMock)

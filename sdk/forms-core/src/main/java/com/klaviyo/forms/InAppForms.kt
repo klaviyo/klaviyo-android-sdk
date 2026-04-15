@@ -1,0 +1,115 @@
+package com.klaviyo.forms
+
+import androidx.annotation.UiThread
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.MissingKlaviyoModule
+import com.klaviyo.core.Registry
+import com.klaviyo.core.safeApply
+
+/**
+ * Start an In-App Forms session.
+ *
+ * This will load forms data and establish ongoing listeners to present a form to the user
+ * whenever a form is triggered by an event or condition according to the targeting and behavior
+ * settings configured for forms in your Klaviyo account.
+ *
+ * Note: a public API key is required, so [Klaviyo.initialize] must be called first.
+ * If the API key changes, the session will be re-initialized automatically with the new key.
+ *
+ * @param config see [InAppFormsConfig] for configuration options.
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
+ */
+@UiThread
+fun Klaviyo.registerForInAppForms(
+    config: InAppFormsConfig = InAppFormsConfig()
+): Klaviyo = Registry.getOrNull<FormsProvider>()?.let { provider ->
+    safeApply { provider.register(config) }
+} ?: throw MissingKlaviyoModule("forms")
+
+/**
+ * Halt the In-App Forms services and observers,
+ * hiding any currently displayed forms and preventing any further forms from being presented.
+ *
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
+ */
+@UiThread
+fun Klaviyo.unregisterFromInAppForms(): Klaviyo =
+    Registry.getOrNull<FormsProvider>()?.let { provider ->
+        safeApply { provider.unregister() }
+    } ?: throw MissingKlaviyoModule("forms")
+
+/**
+ * Register a handler to receive [FormLifecycleEvent] events.
+ *
+ * The handler is invoked whenever a form is shown, dismissed,
+ * or a CTA button is clicked. Only one handler can be registered at a time;
+ * calling this again replaces the previous registration.
+ *
+ * **Threading:** The handler is always invoked on the main thread.
+ *
+ * @param handler The [FormLifecycleHandler] to invoke on lifecycle events.
+ */
+fun Klaviyo.registerFormLifecycleHandler(handler: FormLifecycleHandler): Klaviyo =
+    safeApply { Registry.register<FormLifecycleHandler>(handler) }
+
+/**
+ * Remove the previously registered form lifecycle handler.
+ * After calling this, no further lifecycle events will be delivered.
+ */
+fun Klaviyo.unregisterFormLifecycleHandler(): Klaviyo =
+    safeApply { Registry.unregister<FormLifecycleHandler>() }
+
+/**
+ * Java-friendly static methods for In-App Forms.
+ * Kotlin users should use the extension functions on [Klaviyo] instead.
+ */
+object KlaviyoForms {
+    /**
+     * Start an In-App Forms session.
+     * Java-friendly static method.
+     *
+     * @param config see [InAppFormsConfig] for configuration options.
+     * @see Klaviyo.registerForInAppForms
+     */
+    @JvmStatic
+    @JvmOverloads
+    @UiThread
+    fun registerForInAppForms(config: InAppFormsConfig = InAppFormsConfig()) {
+        Klaviyo.registerForInAppForms(config)
+    }
+
+    /**
+     * Halt the In-App Forms services and observers.
+     * Java-friendly static method.
+     *
+     * @see Klaviyo.unregisterFromInAppForms
+     */
+    @JvmStatic
+    @UiThread
+    fun unregisterFromInAppForms() {
+        Klaviyo.unregisterFromInAppForms()
+    }
+
+    /**
+     * Register a handler to receive form lifecycle events.
+     * Java-friendly static method.
+     *
+     * @param handler The [FormLifecycleHandler] to invoke on lifecycle events.
+     * @see Klaviyo.registerFormLifecycleHandler
+     */
+    @JvmStatic
+    fun registerFormLifecycleHandler(handler: FormLifecycleHandler) {
+        Klaviyo.registerFormLifecycleHandler(handler)
+    }
+
+    /**
+     * Remove the previously registered form lifecycle handler.
+     * Java-friendly static method.
+     *
+     * @see Klaviyo.unregisterFormLifecycleHandler
+     */
+    @JvmStatic
+    fun unregisterFormLifecycleHandler() {
+        Klaviyo.unregisterFormLifecycleHandler()
+    }
+}

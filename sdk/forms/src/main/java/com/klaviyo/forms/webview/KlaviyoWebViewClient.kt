@@ -11,6 +11,9 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient as AndroidWebViewClient
 import androidx.core.net.toUri
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
+import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
@@ -141,6 +144,18 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         webView?.let { webView ->
             Registry.threadHelper.runOnUiThread {
                 Registry.log.verbose("Clear IAF WebView reference")
+                val nativeBridge = Registry.get<NativeBridge>()
+
+                if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
+                    // Explicitly remove the listener: On some vendors' implementation of webview,
+                    // failure to remove the listener results in a memory leak.
+                    WebViewCompat.removeWebMessageListener(webView, nativeBridge.name)
+                } else {
+                    // For completeness, remove the JS interface if WEB_MESSAGE_LISTENER
+                    // is not supported, although [destroy] should clean this up internally
+                    webView.removeJavascriptInterface(nativeBridge.name)
+                }
+
                 webView.destroy()
                 this.webView = null
             }

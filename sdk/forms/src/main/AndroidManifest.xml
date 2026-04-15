@@ -4,5 +4,9 @@
         <activity
                 android:name=".presentation.KlaviyoFormsOverlayActivity"
                 android:theme="@style/KlaviyoFormsOverlayTheme"/>
+        <provider
+            android:name="com.klaviyo.forms.FormsInitProvider"
+            android:authorities="${applicationId}.klaviyo.forms.init"
+            android:exported="false" />
     </application>
 </manifest>

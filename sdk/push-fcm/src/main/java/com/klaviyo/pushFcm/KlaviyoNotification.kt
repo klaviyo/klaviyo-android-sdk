@@ -240,7 +240,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             )
             // Else, just launch the app
             else -> DeepLinking.makeLaunchIntent(context)
-        }?.appendKlaviyoExtras(message)
+        }?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            appendKlaviyoExtras(message)
+        }
     }
 
     /**

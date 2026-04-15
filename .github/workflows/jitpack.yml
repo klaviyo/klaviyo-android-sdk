@@ -63,12 +63,29 @@ jobs:
             if [[ $output == *"BUILD FAILED"* ]]; then
               echo "Build Failed!"
               echo
-              echo "$output" 
+              echo "$output"
               exit 1
             elif [[ $output == *"BUILD SUCCESSFUL"* ]]; then
               echo "Build Complete!"
               echo
-              echo "$output" 
+              echo "$output"
+
+              # Verify all expected artifacts were published
+              expected_artifacts=("analytics" "core" "forms" "forms-core" "location" "location-core" "push-fcm")
+              missing=()
+              for artifact in "${expected_artifacts[@]}"; do
+                if ! echo "$output" | grep -q "Found artifact: com.klaviyo:${artifact}:"; then
+                  missing+=("$artifact")
+                fi
+              done
+
+              if [ ${#missing[@]} -ne 0 ]; then
+                echo
+                echo "ERROR: Missing artifacts: ${missing[*]}"
+                exit 1
+              fi
+              echo
+              echo "Verified: All expected artifacts were published (${expected_artifacts[*]})"
               exit 0
             else
               echo "At $elapsed_time, build appears to be in progress..."

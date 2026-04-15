@@ -4,7 +4,12 @@ import android.app.Application
 import android.content.Context
 import android.widget.Toast
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.Registry
+import com.klaviyo.forms.FormLifecycleEvent.FormCtaClicked
+import com.klaviyo.forms.FormLifecycleEvent.FormDismissed
+import com.klaviyo.forms.FormLifecycleEvent.FormShown
 import com.klaviyo.forms.registerForInAppForms
+import com.klaviyo.forms.registerFormLifecycleHandler
 import com.klaviyo.location.registerGeofencing
 
 class SampleApplication : Application() {
@@ -21,6 +26,27 @@ class SampleApplication : Application() {
                 // OPTIONAL SETUP NOTE: Register a callback to handle any deep links from Klaviyo notifications, in-app forms, or universal tracking links
                 // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
                 showToast("Deep link to: $uri")
+            }
+            .registerFormLifecycleHandler { event ->
+                // OPTIONAL SETUP NOTE: Register a callback to receive form lifecycle events
+                // This allows you to track when forms are shown, dismissed, or when CTAs are clicked
+                when (event) {
+                    is FormShown -> {
+                        Registry.log.debug(
+                            "Form Lifecycle: ${event.formName} (${event.formId}) Shown"
+                        )
+                    }
+                    is FormDismissed -> {
+                        Registry.log.debug(
+                            "Form Lifecycle: ${event.formName} (${event.formId}) Dismissed"
+                        )
+                    }
+                    is FormCtaClicked -> {
+                        Registry.log.debug(
+                            "Form Lifecycle: CTA ${event.buttonLabel} -> ${event.deepLinkUrl} from ${event.formName} (${event.formId})"
+                        )
+                    }
+                }
             }
     }
 }

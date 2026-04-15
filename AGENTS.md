@@ -1,24 +1,6 @@
 # AI Agent Guidelines
 
-This file provides guidance to AI coding agents (Claude Code, Cursor, GitHub Copilot, etc.) when
-working with code in this repository.
-
-AI agents should assume the role of an experienced android developer with a background in mobile app
-development.
-You are familiar with Kotlin, Android SDK development, and best practices in software engineering.
-You will be asked to help with code reviews, feature implementations, and debugging issues in the
-Klaviyo Android SDK.
-You prioritize code quality, maintainability, and adherence to the project's architecture and coding
-styles and standards.
-You create reusable code, searching for existing implementations first, and if you see conflicting
-or duplicative methods of doing the similar tasks, refactor common functionality into shared
-helpers/utilities.
-The experience of 3rd party developers integrating the SDK should be smooth, intuitive and as simple
-as possible.
-You prefer solutions using the most modern, practical and efficient approaches available in the
-Android ecosystem.
-When creating pull requests, you should typically start in Draft unless prompted otherwise, and
-fill in the repository's PR template with concise details in the appropriate sections.
+Assume the role of an experienced Android SDK developer. Prioritize code quality, maintainability, and a smooth third-party developer experience. Search existing implementations before creating new code; refactor duplicated logic into shared utilities (typically in `sdk/core`). Default to modern, idiomatic Kotlin. Start pull requests in Draft unless told otherwise; fill in the PR template concisely.
 
 ## Intro
 
@@ -34,11 +16,9 @@ analytics, push notifications, and in-app messaging (aka forms).
 # Build the entire project
 ./gradlew build
 
-# Build a specific module
-./gradlew :sdk:core:build
-./gradlew :sdk:analytics:build
-./gradlew :sdk:forms:build
-./gradlew :sdk:push-fcm:build
+# Build a specific module (pattern applies to all modules under sdk/)
+# Modules: core, analytics, forms, forms-core, push-fcm, location, location-core
+./gradlew :sdk:{module}:build
 
 # Assemble only (compile without testing)
 ./gradlew assemble
@@ -59,15 +39,11 @@ field overrides via reflection.
 # Run all tests in the project
 ./gradlew test
 
-# Run unit tests for a specific module
-./gradlew :sdk:core:testDebugUnitTest
-./gradlew :sdk:analytics:testDebugUnitTest
-./gradlew :sdk:forms:testDebugUnitTest
-./gradlew :sdk:push-fcm:testDebugUnitTest
+# Run unit tests for a specific module (same module list as build)
+./gradlew :sdk:{module}:testDebugUnitTest
 
 # Run a specific unit test with "--tests" flag
 ./gradlew :sdk:core:testDebugUnitTest --tests "com.klaviyo.core.KLogTest"
-
 ```
 
 ### Lint Commands
@@ -113,6 +89,18 @@ The Klaviyo Android SDK is organized into multiple modules, each with specific r
     - Connects to Klaviyo's CDN for form content
     - Manages form display timing and user interaction
 
+5. **Forms-Core Module** (`sdk/forms-core`):
+    - Auto-registers forms services via ContentProvider
+    - Allows forms feature to be excluded at build time without a no-op module
+
+6. **Location Module** (`sdk/location`):
+    - Provides location/geofencing capabilities (requires runtime permissions)
+    - Depends on location-core for base registration
+
+7. **Location-Core Module** (`sdk/location-core`):
+    - Auto-registers location services via ContentProvider (no runtime permissions required)
+    - Enables location feature without the full location module
+
 ### Key Components
 
 1. **Klaviyo Object** (`Klaviyo.kt`):
@@ -137,9 +125,9 @@ The Klaviyo Android SDK is organized into multiple modules, each with specific r
 
 ### CI/CD Pipeline
 
-The project uses GitHub Actions for CI/CD, particularly for running tests and link checks on pull requests.
-Ensure that all tests pass and lint checks are successful before committing any changes.
-Do not use --no-verify as a way to work around pre-commit checks unless prompted.
+The project uses GitHub Actions for CI/CD, particularly for running tests and lint checks on pull requests.
+Ensure that relevant tests pass and lint checks are successful before committing any changes.
+NEVER use --no-verify as a way to work around pre-commit checks unless prompted.
 
 ### Testing Approach
 
