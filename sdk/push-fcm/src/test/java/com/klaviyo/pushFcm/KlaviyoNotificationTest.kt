@@ -141,7 +141,7 @@ class KlaviyoNotificationTest : BaseTest() {
     fun `displayNotification calls buildNotification with context`() {
         notification.displayNotification(mockContext)
 
-        verify { notification.buildNotification(mockContext) }
+        verify { notification.buildNotification(mockContext, any()) }
     }
 
     @Test
@@ -149,7 +149,7 @@ class KlaviyoNotificationTest : BaseTest() {
         val result = notification.displayNotification(mockContext)
 
         assertTrue(result)
-        verify { notification.buildNotification(mockContext) }
+        verify { notification.buildNotification(mockContext, any()) }
         verify { mockNotificationManager.notify(any<String>(), eq(0), any()) }
     }
 
@@ -618,6 +618,71 @@ class KlaviyoNotificationTest : BaseTest() {
             mockDeepLinkIntent.putExtra(
                 "com.klaviyo.Button Link",
                 "klaviyotest://order/123"
+            )
+        }
+    }
+
+    @Test
+    fun `action button intent includes notification tag for dismissal`() {
+        val mockLaunchIntent = spyk<Intent>()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.notificationTag } returns "test_tag"
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.OpenApp(
+                    id = "open",
+                    label = "Open"
+                )
+            )
+        }
+
+        every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
+        every { mockLaunchIntent.putExtra(any<String>(), any<String>()) } returns mockLaunchIntent
+        every { mockLaunchIntent.addFlags(any()) } returns mockLaunchIntent
+
+        every {
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        verify {
+            mockLaunchIntent.putExtra(
+                "_klaviyo.notification_tag",
+                "test_tag"
+            )
+        }
+    }
+
+    @Test
+    fun `action button intent includes generated tag when no notification tag in payload`() {
+        val mockLaunchIntent = spyk<Intent>()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.notificationTag } returns null
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.OpenApp(
+                    id = "open",
+                    label = "Open"
+                )
+            )
+        }
+
+        every { DeepLinking.makeLaunchIntent(any()) } returns mockLaunchIntent
+        every { mockLaunchIntent.putExtra(any<String>(), any<String>()) } returns mockLaunchIntent
+        every { mockLaunchIntent.addFlags(any()) } returns mockLaunchIntent
+
+        every {
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        // Should still have a notification tag extra (generated from timestamp)
+        verify {
+            mockLaunchIntent.putExtra(
+                "_klaviyo.notification_tag",
+                any<String>()
             )
         }
     }

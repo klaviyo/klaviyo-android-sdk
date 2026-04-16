@@ -77,6 +77,11 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         private const val ACTION_REQUEST_CODE_OFFSET = 1
 
         /**
+         * @see Constants.NOTIFICATION_ID
+         */
+        private const val NOTIFICATION_ID = Constants.NOTIFICATION_ID
+
+        /**
          * Get an integer ID to associate with a notification or its pending intent
          * The notification system service will de-dupe on this if we get a null
          * notification tag from the payload
@@ -119,14 +124,15 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
         createNotificationChannel(context)
 
-        val notification = buildNotification(context)
+        val notificationTag = message.notificationTag ?: generateId().toString()
+        val notification = buildNotification(context, notificationTag)
 
         // Check for valid rich push image url, download and apply to the notification
         message.imageUrl?.applyToNotification(builder = notification)
 
         NotificationManagerCompat
             .from(context)
-            .notify(message.notificationTag ?: generateId().toString(), 0, notification.build())
+            .notify(notificationTag, NOTIFICATION_ID, notification.build())
 
         return true
     }
@@ -153,7 +159,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * @param context
      * @return [Notification.Builder] to display
      */
-    internal fun buildNotification(context: Context): NotificationCompat.Builder {
+    internal fun buildNotification(
+        context: Context,
+        notificationTag: String
+    ): NotificationCompat.Builder {
         val requestCodeBase = generateId()
         return NotificationCompat.Builder(context, message.channel_id)
             .setContentIntent(makePendingIntent(context, requestCodeBase))
@@ -166,7 +175,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
-            .addActionButtons(context, requestCodeBase)
+            .addActionButtons(context, requestCodeBase, notificationTag)
     }
 
     private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
@@ -260,7 +269,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      */
     private fun NotificationCompat.Builder.addActionButtons(
         context: Context,
-        requestCodeBase: Int
+        requestCodeBase: Int,
+        notificationTag: String
     ): NotificationCompat.Builder {
         val actionButtons = message.actionButtons ?: return this
 
@@ -269,7 +279,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             // request codes need to be unique, add index + offset to generate unique code
             // offset required due to zero index, so body and first button have unique codes
             val requestCode = requestCodeBase + index + ACTION_REQUEST_CODE_OFFSET
-            val action = createButtonAction(context, index, requestCode, button) ?: return@forEachIndexed
+            val action = createButtonAction(context, index, requestCode, button, notificationTag) ?: return@forEachIndexed
             addAction(action)
 
             val actionType = when (button) {
@@ -294,7 +304,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         context: Context,
         index: Int,
         requestCode: Int,
-        button: ActionButton
+        button: ActionButton,
+        notificationTag: String
     ): NotificationCompat.Action? {
         val intent = when (button) {
             is ActionButton.DeepLink -> {
@@ -310,6 +321,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             }
         }?.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra(Constants.NOTIFICATION_TAG_EXTRA, notificationTag)
         }?.appendKlaviyoExtras(message)
             ?.appendActionButtonExtras(button)
 
