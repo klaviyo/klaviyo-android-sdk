@@ -77,6 +77,9 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .replace("BRIDGE_HANDSHAKE", handshake.compileJson())
             .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
+            // Raw JSON is safe inside the single-quoted HTML attribute because JSONObject emits
+            // double-quoted strings; jsEscape is only needed when injecting into a JS string literal
+            // (see pushDeviceInfo).
             .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
             .let { html ->
                 webView.loadTemplate(html, this, nativeBridge)
@@ -223,9 +226,13 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * changes and safe-area inset updates without reloading the template.
      */
     override fun pushDeviceInfo() = webView?.let { webView ->
-        val json = DeviceInfoProvider.current().toJson().jsEscape()
-        val script = "document.head.setAttribute('data-klaviyo-device', '$json')"
+        // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
+        // decorView.rootWindowInsets). Building the snapshot off-thread would yield silently
+        // degraded payloads because DeviceInfoProvider swallows CalledFromWrongThreadException.
+        // Dispatch the entire body — snapshot, serialize, escape, evaluate — onto the UI thread.
         Registry.threadHelper.runOnUiThread {
+            val json = DeviceInfoProvider.current().toJson().jsEscape()
+            val script = "document.head.setAttribute('data-klaviyo-device', '$json')"
             webView.evaluateJavascript(script, null)
         }
     } ?: run {

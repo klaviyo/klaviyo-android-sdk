@@ -70,6 +70,13 @@ internal data class DeviceInfo(
              * Android's rotation values describe the counter-clockwise rotation applied to the
              * natural orientation; pairing that with whether the logical orientation is portrait
              * or landscape gives us enough to pick the `*-primary` vs `*-secondary` flavor.
+             *
+             * Caveat: this mapping assumes a natural-portrait device, which holds for all phones
+             * and is sufficient for our product scope. On natural-landscape devices (some tablets
+             * and foldables) the rotation-to-CSSOM mapping may diverge from
+             * [`screen.orientation.type`](https://drafts.csswg.org/screen-orientation/#dom-screenorientation-type):
+             * for example, `rotation = 90` on a natural-landscape device is reported here as
+             * `portrait-secondary`, where the web platform would report `portrait-primary`.
              */
             fun from(configOrientation: Int, rotation: Int): Orientation {
                 val isPortrait = configOrientation != Configuration.ORIENTATION_LANDSCAPE
