@@ -18,12 +18,14 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.startActivityIfResolved
+import com.klaviyo.forms.bridge.DeviceInfoProvider
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
+import com.klaviyo.forms.bridge.jsEscape
 import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
 
@@ -75,6 +77,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .replace("BRIDGE_HANDSHAKE", handshake.compileJson())
             .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
+            .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
             .let { html ->
                 webView.loadTemplate(html, this, nativeBridge)
                 handshakeTimer?.cancel()
@@ -212,6 +215,21 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             return true
         }
         return false
+    }
+
+    /**
+     * Re-publish the current [com.klaviyo.forms.bridge.DeviceInfo] snapshot to the webview's
+     * `data-klaviyo-device` head attribute. This keeps onsite-in-app in sync with orientation
+     * changes and safe-area inset updates without reloading the template.
+     */
+    override fun pushDeviceInfo() = webView?.let { webView ->
+        val json = DeviceInfoProvider.current().toJson().jsEscape()
+        val script = "document.head.setAttribute('data-klaviyo-device', '$json')"
+        Registry.threadHelper.runOnUiThread {
+            webView.evaluateJavascript(script, null)
+        }
+    } ?: run {
+        Registry.log.verbose("Unable to push device info - null WebView reference")
     }
 
     /**

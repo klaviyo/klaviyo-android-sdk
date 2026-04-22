@@ -145,6 +145,11 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     private fun onConfigurationChanged(event: ActivityEvent.ConfigurationChanged) = safeCall {
         event.newConfig.orientation.takeIf { it != orientation }
             ?.also { newOrientation -> orientation = newOrientation }?.let {
+                // Update the `data-klaviyo-device` head attribute so onsite-in-app sees
+                // the new orientation/dimensions even when the webview is preloaded but
+                // not currently presented.
+                Registry.get<WebViewClient>().pushDeviceInfo()
+
                 // Cancel any pending per-activity cleanup — rotation handles its own re-presentation.
                 // Must be inside the orientation guard so non-orientation config changes (locale,
                 // dark mode, font scale) don't cancel the timer without scheduling a replacement.
