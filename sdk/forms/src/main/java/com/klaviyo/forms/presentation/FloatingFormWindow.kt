@@ -518,7 +518,7 @@ internal class FloatingFormWindow(private val context: Context) {
             val topMargin = safeAreaTop + (layout.offsets.top * density).toInt()
             val bottomMargin = safeAreaBottom + (layout.offsets.bottom * density).toInt()
 
-            return when (layout.position) {
+            val gap = when (layout.position) {
                 FormPosition.BOTTOM,
                 FormPosition.BOTTOM_LEFT,
                 FormPosition.BOTTOM_RIGHT -> bottomMargin
@@ -531,6 +531,10 @@ internal class FloatingFormWindow(private val context: Context) {
 
                 FormPosition.FULLSCREEN -> 0
             }
+            // Forms taller than available space (or heavily asymmetric CENTER margins)
+            // can push the form bottom edge off-screen, which would otherwise produce a
+            // negative gap and over-shift the keyboard adjustment.
+            return gap.coerceAtLeast(0)
         }
     }
 }
