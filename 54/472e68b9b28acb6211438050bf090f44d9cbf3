@@ -1,0 +1,35 @@
+sdk/forms/src/main/java/com/klaviyo/forms/webview/KlaviyoWebViewClient.kt
+  e32609dbb683a875 21,28,80,220-234
+sdk/forms/src/main/java/com/klaviyo/forms/webview/KlaviyoWebView.kt
+  e32609dbb683a875 9,37,113-116
+sdk/forms/src/main/java/com/klaviyo/forms/webview/WebViewClient.kt
+  e32609dbb683a875 42-48
+sdk/forms/src/main/java/com/klaviyo/forms/bridge/DeviceInfo.kt
+  e32609dbb683a875 1-184
+sdk/forms/src/main/assets/InAppFormsTemplate.html
+  e32609dbb683a875 10
+sdk/forms/src/test/java/com/klaviyo/forms/bridge/DeviceInfoTest.kt
+  e32609dbb683a875 1-161
+sdk/forms/src/main/java/com/klaviyo/forms/presentation/KlaviyoPresentationManager.kt
+  e32609dbb683a875 148-152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "54472e68b9b28acb6211438050bf090f44d9cbf3",
+  "prompts": {
+    "e32609dbb683a875": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6b95c3a-2fb2-4981-adbf-e8f659540368",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Evan Masseau",
+      "messages": [],
+      "total_additions": 418,
+      "total_deletions": 38,
+      "accepted_lines": 382,
+      "overriden_lines": 0
+    }
+  }
+}
