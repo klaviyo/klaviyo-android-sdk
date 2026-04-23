@@ -1,0 +1,23 @@
+sdk/forms/src/main/java/com/klaviyo/forms/presentation/FloatingFormWindow.kt
+  e32609dbb683a875 468-471,473-474,487-489,493-495
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "b2524ae3cbbaa17fe1ef23b3cb3d8a40953e86c8",
+  "prompts": {
+    "e32609dbb683a875": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6b95c3a-2fb2-4981-adbf-e8f659540368",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Evan Masseau",
+      "messages": [],
+      "total_additions": 24,
+      "total_deletions": 24,
+      "accepted_lines": 2148,
+      "overriden_lines": 0
+    }
+  }
+}
