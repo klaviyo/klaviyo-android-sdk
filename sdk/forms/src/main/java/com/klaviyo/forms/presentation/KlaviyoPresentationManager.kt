@@ -495,10 +495,10 @@ internal class KlaviyoPresentationManager() : PresentationManager {
 
         /**
          * Upper bound for how long to wait for the next Resumed activity before giving up
-         * on pushing fresh device info after a rotation. Chosen to comfortably exceed a
-         * typical activity recreation (tens of ms) while bounding the leak window if the
-         * activity is permanently destroyed.
+         * on pushing fresh device info after a rotation. Typical rotation-to-Resumed is
+         * well under 300 ms; this bounds the observer lifetime if the activity is
+         * permanently destroyed without replacement.
          */
-        private const val DEVICE_INFO_PUSH_TIMEOUT = 5_000L
+        private const val DEVICE_INFO_PUSH_TIMEOUT = 1_000L
     }
 }
