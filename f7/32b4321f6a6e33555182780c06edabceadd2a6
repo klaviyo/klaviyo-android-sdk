@@ -1,0 +1,25 @@
+sdk/forms/src/main/java/com/klaviyo/forms/presentation/KlaviyoPresentationManager.kt
+  e32609dbb683a875 46-59,163-167,444-486,495-502
+sdk/forms/src/test/java/com/klaviyo/forms/presentation/KlaviyoPresentationManagerTest.kt
+  e32609dbb683a875 34-46,52-56,62-67,86,113,132,137,141-245
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "f732b4321f6a6e33555182780c06edabceadd2a6",
+  "prompts": {
+    "e32609dbb683a875": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6b95c3a-2fb2-4981-adbf-e8f659540368",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Evan Masseau",
+      "messages": [],
+      "total_additions": 698,
+      "total_deletions": 6,
+      "accepted_lines": 1684,
+      "overriden_lines": 0
+    }
+  }
+}
