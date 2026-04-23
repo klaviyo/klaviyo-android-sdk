@@ -257,4 +257,131 @@ class FloatingFormWindowTest {
             FloatingFormWindow.calculateFormBottomGap(l, 400, screenHeight, 1.0f, 0, 0)
         )
     }
+
+    // ===== addSafeAreaInsetsToOffsets flag =====
+
+    private fun layoutNoSafeArea(
+        position: FormPosition,
+        width: Dimension = Dimension.dp(300f),
+        height: Dimension = Dimension.dp(200f),
+        offsets: Offsets = Offsets()
+    ) = FormLayout(
+        position = position,
+        width = width,
+        height = height,
+        offsets = offsets,
+        addSafeAreaInsetsToOffsets = false
+    )
+
+    @Test
+    fun `addSafeAreaInsetsToOffsets false skips safe-area for TOP_LEFT position math`() {
+        val l = layoutNoSafeArea(
+            position = FormPosition.TOP_LEFT,
+            offsets = Offsets(top = 10f, left = 20f)
+        )
+        val computed = compute(l, safeTop = 100, safeLeft = 50)
+        // Without safe-area: x = left offset only (20 * density 2 = 40), y = top offset only (10 * 2 = 20)
+        assertEquals(40, computed.x)
+        assertEquals(20, computed.y)
+    }
+
+    @Test
+    fun `addSafeAreaInsetsToOffsets false skips safe-area for TOP_RIGHT position math`() {
+        val l = layoutNoSafeArea(
+            position = FormPosition.TOP_RIGHT,
+            offsets = Offsets(top = 10f, right = 20f)
+        )
+        val computed = compute(l, safeTop = 100, safeRight = 50)
+        assertEquals(40, computed.x)
+        assertEquals(20, computed.y)
+    }
+
+    @Test
+    fun `addSafeAreaInsetsToOffsets false skips safe-area for BOTTOM_LEFT position math`() {
+        val l = layoutNoSafeArea(
+            position = FormPosition.BOTTOM_LEFT,
+            offsets = Offsets(bottom = 10f, left = 20f)
+        )
+        val computed = compute(l, safeBottom = 100, safeLeft = 50)
+        assertEquals(40, computed.x)
+        assertEquals(20, computed.y)
+    }
+
+    @Test
+    fun `addSafeAreaInsetsToOffsets false skips safe-area for BOTTOM_RIGHT position math`() {
+        val l = layoutNoSafeArea(
+            position = FormPosition.BOTTOM_RIGHT,
+            offsets = Offsets(bottom = 10f, right = 20f)
+        )
+        val computed = compute(l, safeBottom = 100, safeRight = 50)
+        assertEquals(40, computed.x)
+        assertEquals(20, computed.y)
+    }
+
+    @Test
+    fun `addSafeAreaInsetsToOffsets false skips safe-area from available-space clamping`() {
+        // 500px form on 500px screen, zero offsets, 50px safe insets on each side.
+        // With flag=true the available width collapses to 500-50-50=400 and the form clamps to 400.
+        // With flag=false the SDK ignores safe-area entirely: available = 500, form fits at 500.
+        val l = FormLayout(
+            position = FormPosition.TOP_LEFT,
+            width = Dimension.dp(250f), // * density 2 = 500px
+            height = Dimension.dp(250f),
+            offsets = Offsets(),
+            addSafeAreaInsetsToOffsets = false
+        )
+        val computed = compute(
+            l,
+            screenW = 500,
+            screenH = 500,
+            safeLeft = 50,
+            safeRight = 50,
+            safeTop = 50,
+            safeBottom = 50
+        )
+        assertEquals(500, computed.width)
+        assertEquals(500, computed.height)
+    }
+
+    @Test
+    fun `addSafeAreaInsetsToOffsets true (default) preserves safe-area additive behavior`() {
+        val l = layout(
+            position = FormPosition.TOP_LEFT,
+            offsets = Offsets(top = 10f, left = 20f)
+        )
+        val computed = compute(l, safeTop = 100, safeLeft = 50)
+        // With safe-area: x = 50 + (20*2) = 90, y = 100 + (10*2) = 120
+        assertEquals(90, computed.x)
+        assertEquals(120, computed.y)
+    }
+
+    @Test
+    fun `addSafeAreaInsetsToOffsets false on FULLSCREEN still fills screen (flag ignored)`() {
+        val l = layoutNoSafeArea(position = FormPosition.FULLSCREEN)
+        val computed = compute(l, safeTop = 100, safeBottom = 100, safeLeft = 50, safeRight = 50)
+        assertEquals(screenWidth, computed.width)
+        assertEquals(screenHeight, computed.height)
+        assertEquals(0, computed.x)
+        assertEquals(0, computed.y)
+    }
+
+    @Test
+    fun `addSafeAreaInsetsToOffsets false skips safe-area in bottom gap math for BOTTOM position`() {
+        val l = layoutNoSafeArea(FormPosition.BOTTOM, offsets = Offsets(bottom = 16f))
+        // flag=false: gap = bottom offset only (16 * density 2 = 32), safeBottom=100 ignored
+        assertEquals(
+            32,
+            FloatingFormWindow.calculateFormBottomGap(l, 400, screenHeight, density, 0, 100)
+        )
+    }
+
+    @Test
+    fun `addSafeAreaInsetsToOffsets true (default) includes safe-area in bottom gap for BOTTOM position`() {
+        val l = layout(FormPosition.BOTTOM, offsets = Offsets(bottom = 16f))
+        // flag=true: gap = safeBottom (100) + bottom offset (16 * 2 = 32) = 132
+        assertEquals(
+            132,
+            FloatingFormWindow.calculateFormBottomGap(l, 400, screenHeight, density, 0, 100)
+        )
+    }
 }

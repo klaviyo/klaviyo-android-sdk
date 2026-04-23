@@ -1,6 +1,9 @@
 package com.klaviyo.forms.bridge
 
 import android.view.Gravity
+import com.klaviyo.fixtures.BaseTest
+import io.mockk.verify
+import java.util.concurrent.atomic.AtomicBoolean
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,7 +15,7 @@ import org.junit.Test
 /**
  * Tests for [FormLayout] and related data classes
  */
-class FormLayoutTest {
+class FormLayoutTest : BaseTest() {
 
     // ===== FormPosition tests =====
 
@@ -255,6 +258,117 @@ class FormLayoutTest {
             height = Dimension.percent(100f)
         )
         assertTrue(layout.isFullscreen)
+    }
+
+    @Test
+    fun `FormLayout fromJson reads offsets key when present`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "top",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "offsets": {"top": 8, "bottom": 12, "left": 4, "right": 6}
+            }
+            """.trimIndent()
+        )
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertEquals(8f, layout!!.offsets.top, 0.01f)
+        assertEquals(12f, layout.offsets.bottom, 0.01f)
+        assertEquals(4f, layout.offsets.left, 0.01f)
+        assertEquals(6f, layout.offsets.right, 0.01f)
+    }
+
+    @Test
+    fun `FormLayout fromJson falls back to margin key when offsets is absent`() {
+        resetMarginDeprecationLogFlag()
+        val json = JSONObject(
+            """
+            {
+                "position": "top",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "margin": {"top": 8, "bottom": 12, "left": 4, "right": 6}
+            }
+            """.trimIndent()
+        )
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertEquals(8f, layout!!.offsets.top, 0.01f)
+        assertEquals(12f, layout.offsets.bottom, 0.01f)
+        verify(atLeast = 1) { spyLog.verbose(any(), any()) }
+    }
+
+    @Test
+    fun `FormLayout fromJson offsets wins when both offsets and margin are present`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "top",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "offsets": {"top": 1, "bottom": 2, "left": 3, "right": 4},
+                "margin": {"top": 99, "bottom": 99, "left": 99, "right": 99}
+            }
+            """.trimIndent()
+        )
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertEquals(1f, layout!!.offsets.top, 0.01f)
+        assertEquals(2f, layout.offsets.bottom, 0.01f)
+        assertEquals(3f, layout.offsets.left, 0.01f)
+        assertEquals(4f, layout.offsets.right, 0.01f)
+    }
+
+    @Test
+    fun `FormLayout fromJson defaults addSafeAreaInsetsToOffsets to true when absent`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "top",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "offsets": {"top": 0, "bottom": 0, "left": 0, "right": 0}
+            }
+            """.trimIndent()
+        )
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertTrue(layout!!.addSafeAreaInsetsToOffsets)
+    }
+
+    @Test
+    fun `FormLayout fromJson parses addSafeAreaInsetsToOffsets false`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "top",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "offsets": {"top": 0, "bottom": 0, "left": 0, "right": 0},
+                "addSafeAreaInsetsToOffsets": false
+            }
+            """.trimIndent()
+        )
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertFalse(layout!!.addSafeAreaInsetsToOffsets)
+    }
+
+    /**
+     * Reset the process-wide one-time deprecation log guard so tests that exercise the
+     * `margin` fallback path can reliably observe the emitted log regardless of test
+     * ordering.
+     */
+    private fun resetMarginDeprecationLogFlag() {
+        // The `private val` on the companion object is compiled to a static field on
+        // the enclosing FormLayout class (with a synthetic Companion accessor). Reach
+        // for the static directly so we don't depend on internal accessor shape.
+        val field = FormLayout::class.java.getDeclaredField("loggedMarginDeprecation")
+        field.isAccessible = true
+        val atomic = field.get(null) as AtomicBoolean
+        atomic.set(false)
     }
 
     @Test

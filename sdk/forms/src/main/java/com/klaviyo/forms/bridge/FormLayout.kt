@@ -1,6 +1,8 @@
 package com.klaviyo.forms.bridge
 
 import android.view.Gravity
+import com.klaviyo.core.Registry
+import java.util.concurrent.atomic.AtomicBoolean
 import org.json.JSONObject
 
 /**
@@ -137,7 +139,14 @@ internal data class FormLayout(
     val position: FormPosition,
     val width: Dimension,
     val height: Dimension,
-    val offsets: Offsets = Offsets()
+    val offsets: Offsets = Offsets(),
+    /**
+     * When true (default), the SDK adds safe-area insets to the provided [offsets]
+     * when positioning the form. When false, the SDK uses [offsets] as-is and does
+     * not account for safe-area at all — onsite is fully responsible for baking
+     * any safe-area inset it wants into [offsets].
+     */
+    val addSafeAreaInsetsToOffsets: Boolean = true
 ) {
     /**
      * Returns true if this layout represents a fullscreen form
@@ -146,19 +155,42 @@ internal data class FormLayout(
         get() = position == FormPosition.FULLSCREEN
 
     companion object {
+        /**
+         * Guards the one-time deprecation log emitted when a payload uses the legacy
+         * `margin` wire key instead of the new `offsets` key. Scoped to the process
+         * lifetime — the webview is re-created per session, so this effectively emits
+         * at most once per webview session (and at most once per process, whichever
+         * comes first).
+         */
+        private val loggedMarginDeprecation = AtomicBoolean(false)
+
         fun fromJson(json: JSONObject?): FormLayout? {
             if (json == null) return null
 
             val position = FormPosition.fromString(json.optString("position"))
             val width = Dimension.fromJson(json.optJSONObject("width")) ?: return null
             val height = Dimension.fromJson(json.optJSONObject("height")) ?: return null
-            val offsets = Offsets.fromJson(json.optJSONObject("margin"))
+
+            // Prefer the new `offsets` wire key; fall back to legacy `margin` for
+            // backward compatibility with older onsite payloads. Log once per session
+            // when we hit the fallback so we can track deprecation in the wild.
+            val offsetsJson = json.optJSONObject("offsets") ?: json.optJSONObject("margin")?.also {
+                if (loggedMarginDeprecation.compareAndSet(false, true)) {
+                    Registry.log.verbose(
+                        "FormLayout payload used deprecated `margin` key; " +
+                            "expected `offsets`. Update onsite to emit `offsets`."
+                    )
+                }
+            }
+            val offsets = Offsets.fromJson(offsetsJson)
+            val addSafeAreaInsetsToOffsets = json.optBoolean("addSafeAreaInsetsToOffsets", true)
 
             return FormLayout(
                 position = position,
                 width = width,
                 height = height,
-                offsets = offsets
+                offsets = offsets,
+                addSafeAreaInsetsToOffsets = addSafeAreaInsetsToOffsets
             )
         }
     }

@@ -455,10 +455,20 @@ internal class FloatingFormWindow(private val context: Context) {
                 return ComputedLayout(width = screenWidth, height = screenHeight, x = 0, y = 0)
             }
 
-            val marginTop = safeAreaTop + (layout.offsets.top * density).toInt()
-            val marginBottom = safeAreaBottom + (layout.offsets.bottom * density).toInt()
-            val marginLeft = safeAreaLeft + (layout.offsets.left * density).toInt()
-            val marginRight = safeAreaRight + (layout.offsets.right * density).toInt()
+            // When addSafeAreaInsetsToOffsets=false, onsite owns safe-area handling end-to-end:
+            // offsets are treated as the absolute distance from the screen edge and the
+            // SDK does not touch safe-area at all (position math and clamping both skip
+            // the safe-area term). Default (true) preserves the historical behavior of
+            // SDK-managed safe-area insets.
+            val effectiveSafeTop = if (layout.addSafeAreaInsetsToOffsets) safeAreaTop else 0
+            val effectiveSafeBottom = if (layout.addSafeAreaInsetsToOffsets) safeAreaBottom else 0
+            val effectiveSafeLeft = if (layout.addSafeAreaInsetsToOffsets) safeAreaLeft else 0
+            val effectiveSafeRight = if (layout.addSafeAreaInsetsToOffsets) safeAreaRight else 0
+
+            val marginTop = effectiveSafeTop + (layout.offsets.top * density).toInt()
+            val marginBottom = effectiveSafeBottom + (layout.offsets.bottom * density).toInt()
+            val marginLeft = effectiveSafeLeft + (layout.offsets.left * density).toInt()
+            val marginRight = effectiveSafeRight + (layout.offsets.right * density).toInt()
 
             val availableWidth = (screenWidth - marginLeft - marginRight).coerceAtLeast(0)
             val availableHeight = (screenHeight - marginTop - marginBottom).coerceAtLeast(0)
@@ -515,8 +525,12 @@ internal class FloatingFormWindow(private val context: Context) {
             safeAreaTop: Int,
             safeAreaBottom: Int
         ): Int {
-            val topMargin = safeAreaTop + (layout.offsets.top * density).toInt()
-            val bottomMargin = safeAreaBottom + (layout.offsets.bottom * density).toInt()
+            // Mirror the addSafeAreaInsetsToOffsets semantics used by [calculateLayoutParams]
+            // so keyboard-overlap math stays consistent with the form's actual position.
+            val effectiveSafeTop = if (layout.addSafeAreaInsetsToOffsets) safeAreaTop else 0
+            val effectiveSafeBottom = if (layout.addSafeAreaInsetsToOffsets) safeAreaBottom else 0
+            val topMargin = effectiveSafeTop + (layout.offsets.top * density).toInt()
+            val bottomMargin = effectiveSafeBottom + (layout.offsets.bottom * density).toInt()
 
             val gap = when (layout.position) {
                 FormPosition.BOTTOM,
