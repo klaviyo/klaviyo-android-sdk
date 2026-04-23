@@ -1,20 +1,12 @@
 package com.klaviyo.forms.bridge
 
 import android.content.res.Configuration
-import android.util.DisplayMetrics
 import android.view.Surface
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class DeviceInfoTest {
-
-    private fun displayMetrics(widthPx: Int, heightPx: Int, density: Float): DisplayMetrics =
-        DisplayMetrics().apply {
-            this.widthPixels = widthPx
-            this.heightPixels = heightPx
-            this.density = density
-        }
 
     private fun configuration(orientation: Int): Configuration =
         Configuration().apply {
@@ -72,7 +64,7 @@ class DeviceInfoTest {
     @Test
     fun `from converts pixels to dp at density 1`() {
         val info = DeviceInfo.from(
-            displayMetrics = displayMetrics(widthPx = 400, heightPx = 800, density = 1f),
+            screenWidthPx = 400, screenHeightPx = 800, density = 1f,
             configuration = configuration(Configuration.ORIENTATION_PORTRAIT),
             rotation = Surface.ROTATION_0,
             insetLeftPx = 0,
@@ -91,7 +83,7 @@ class DeviceInfoTest {
     @Test
     fun `from converts pixels to dp at density 2`() {
         val info = DeviceInfo.from(
-            displayMetrics = displayMetrics(widthPx = 800, heightPx = 1600, density = 2f),
+            screenWidthPx = 800, screenHeightPx = 1600, density = 2f,
             configuration = configuration(Configuration.ORIENTATION_PORTRAIT),
             rotation = Surface.ROTATION_0,
             insetLeftPx = 0,
@@ -110,7 +102,7 @@ class DeviceInfoTest {
     @Test
     fun `from converts pixels to dp at density 3`() {
         val info = DeviceInfo.from(
-            displayMetrics = displayMetrics(widthPx = 1206, heightPx = 2622, density = 3f),
+            screenWidthPx = 1206, screenHeightPx = 2622, density = 3f,
             configuration = configuration(Configuration.ORIENTATION_PORTRAIT),
             rotation = Surface.ROTATION_0,
             insetLeftPx = 0,
@@ -129,7 +121,7 @@ class DeviceInfoTest {
     @Test
     fun `from defends against zero density`() {
         val info = DeviceInfo.from(
-            displayMetrics = displayMetrics(widthPx = 100, heightPx = 200, density = 0f),
+            screenWidthPx = 100, screenHeightPx = 200, density = 0f,
             configuration = configuration(Configuration.ORIENTATION_UNDEFINED),
             rotation = Surface.ROTATION_0,
             insetLeftPx = 0,
@@ -147,7 +139,7 @@ class DeviceInfoTest {
     @Test
     fun `from coerces sub-unit density to dpr 1`() {
         val info = DeviceInfo.from(
-            displayMetrics = displayMetrics(widthPx = 100, heightPx = 200, density = 0.5f),
+            screenWidthPx = 100, screenHeightPx = 200, density = 0.5f,
             configuration = configuration(Configuration.ORIENTATION_PORTRAIT),
             rotation = Surface.ROTATION_0,
             insetLeftPx = 0,
@@ -163,7 +155,7 @@ class DeviceInfoTest {
     @Test
     fun `from rounds density 1_5 up to dpr 2`() {
         val info = DeviceInfo.from(
-            displayMetrics = displayMetrics(widthPx = 600, heightPx = 1200, density = 1.5f),
+            screenWidthPx = 600, screenHeightPx = 1200, density = 1.5f,
             configuration = configuration(Configuration.ORIENTATION_PORTRAIT),
             rotation = Surface.ROTATION_0,
             insetLeftPx = 0,
@@ -178,7 +170,7 @@ class DeviceInfoTest {
     @Test
     fun `from rounds density 2_75 to dpr 3`() {
         val info = DeviceInfo.from(
-            displayMetrics = displayMetrics(widthPx = 1100, heightPx = 2200, density = 2.75f),
+            screenWidthPx = 1100, screenHeightPx = 2200, density = 2.75f,
             configuration = configuration(Configuration.ORIENTATION_PORTRAIT),
             rotation = Surface.ROTATION_0,
             insetLeftPx = 0,
@@ -194,7 +186,7 @@ class DeviceInfoTest {
     fun `from preserves asymmetric insets like a landscape cutout`() {
         // A landscape cutout may leave a non-zero left inset with a zero right inset.
         val info = DeviceInfo.from(
-            displayMetrics = displayMetrics(widthPx = 800, heightPx = 400, density = 1f),
+            screenWidthPx = 800, screenHeightPx = 400, density = 1f,
             configuration = configuration(Configuration.ORIENTATION_LANDSCAPE),
             rotation = Surface.ROTATION_90,
             insetLeftPx = 40,
@@ -212,7 +204,7 @@ class DeviceInfoTest {
     @Test
     fun `toJson is deterministic for identical inputs`() {
         val info = DeviceInfo.from(
-            displayMetrics = displayMetrics(widthPx = 1206, heightPx = 2622, density = 3f),
+            screenWidthPx = 1206, screenHeightPx = 2622, density = 3f,
             configuration = configuration(Configuration.ORIENTATION_PORTRAIT),
             rotation = Surface.ROTATION_0,
             insetLeftPx = 0,

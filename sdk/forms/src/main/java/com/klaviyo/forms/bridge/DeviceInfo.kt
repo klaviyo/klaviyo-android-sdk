@@ -3,7 +3,6 @@ package com.klaviyo.forms.bridge
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.Build
-import android.util.DisplayMetrics
 import android.view.Surface
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsCompat.Type.displayCutout
@@ -111,7 +110,9 @@ internal data class DeviceInfo(
          * testable. See [DeviceInfoProvider] for the live-device lookup entry point.
          */
         fun from(
-            displayMetrics: DisplayMetrics,
+            screenWidthPx: Int,
+            screenHeightPx: Int,
+            density: Float,
             configuration: Configuration,
             rotation: Int,
             insetLeftPx: Int,
@@ -119,13 +120,13 @@ internal data class DeviceInfo(
             insetRightPx: Int,
             insetBottomPx: Int
         ): DeviceInfo {
-            // Guard against pathological DisplayMetrics (density <= 0) which would cause
-            // NaN from pxToDp. This most commonly occurs in test doubles.
-            val safeDensity = displayMetrics.density.takeIf { it > 0f } ?: 1f
+            // Guard against pathological density (<= 0) which would cause NaN from pxToDp.
+            // This most commonly occurs in test doubles.
+            val safeDensity = density.takeIf { it > 0f } ?: 1f
             fun pxToDpRounded(px: Int): Int = (px / safeDensity).roundToInt()
             return DeviceInfo(
-                screenWidthDp = pxToDpRounded(displayMetrics.widthPixels),
-                screenHeightDp = pxToDpRounded(displayMetrics.heightPixels),
+                screenWidthDp = pxToDpRounded(screenWidthPx),
+                screenHeightDp = pxToDpRounded(screenHeightPx),
                 insetTopDp = pxToDpRounded(insetTopPx),
                 insetBottomDp = pxToDpRounded(insetBottomPx),
                 insetLeftDp = pxToDpRounded(insetLeftPx),
@@ -152,8 +153,21 @@ internal object DeviceInfoProvider {
     fun current(): DeviceInfo {
         val activity = Registry.lifecycleMonitor.currentActivity
         val resources = activity?.resources ?: Resources.getSystem()
-        val displayMetrics = resources.displayMetrics
         val configuration = resources.configuration
+        val density = resources.displayMetrics.density
+
+        // Source window dimensions from `currentWindowMetrics` on API 30+ so we report the
+        // activity's actual drawable rect in multi-window scenarios (matches the offset-math
+        // path in FloatingFormWindow). Fall back to resources.displayMetrics on older APIs,
+        // which is activity-scoped and already window-aware post-N in practice.
+        val (screenWidthPx, screenHeightPx) = runCatching {
+            if (activity != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val bounds = activity.windowManager.currentWindowMetrics.bounds
+                bounds.width() to bounds.height()
+            } else {
+                resources.displayMetrics.let { it.widthPixels to it.heightPixels }
+            }
+        }.getOrElse { resources.displayMetrics.let { it.widthPixels to it.heightPixels } }
 
         val rotation = runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -174,7 +188,9 @@ internal object DeviceInfoProvider {
         }.getOrNull() ?: InsetsPx(0, 0, 0, 0)
 
         return DeviceInfo.from(
-            displayMetrics = displayMetrics,
+            screenWidthPx = screenWidthPx,
+            screenHeightPx = screenHeightPx,
+            density = density,
             configuration = configuration,
             rotation = rotation,
             insetLeftPx = insetsPx.left,
