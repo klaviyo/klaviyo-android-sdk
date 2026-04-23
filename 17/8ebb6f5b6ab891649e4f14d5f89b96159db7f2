@@ -1,0 +1,29 @@
+sdk/forms/src/test/java/com/klaviyo/forms/bridge/FormLayoutTest.kt
+  e32609dbb683a875 4-6,18,263-324,326-337,339-341,343-349,351-355,357-373
+sdk/forms/src/main/java/com/klaviyo/forms/bridge/FormLayout.kt
+  e32609dbb683a875 4-5,142-148,158-166,173-185,192
+sdk/forms/src/main/java/com/klaviyo/forms/presentation/FloatingFormWindow.kt
+  e32609dbb683a875 459-462,467-471,529,532-533
+sdk/forms/src/test/java/com/klaviyo/forms/presentation/FloatingFormWindowTest.kt
+  e32609dbb683a875 260,262-272,274-276,278-288,290-299,301-310,312-321,323-330,332-346,348-358,360-368,370-378,380-386
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "178ebb6f5b6ab891649e4f14d5f89b96159db7f2",
+  "prompts": {
+    "e32609dbb683a875": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6b95c3a-2fb2-4981-adbf-e8f659540368",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Evan Masseau",
+      "messages": [],
+      "total_additions": 1287,
+      "total_deletions": 29,
+      "accepted_lines": 1256,
+      "overriden_lines": 28
+    }
+  }
+}
