@@ -1,8 +1,6 @@
 package com.klaviyo.forms.bridge
 
 import android.view.Gravity
-import com.klaviyo.core.Registry
-import java.util.concurrent.atomic.AtomicBoolean
 import org.json.JSONObject
 
 /**
@@ -155,15 +153,6 @@ internal data class FormLayout(
         get() = position == FormPosition.FULLSCREEN
 
     companion object {
-        /**
-         * Guards the one-time deprecation log emitted when a payload uses the legacy
-         * `margin` wire key instead of the new `offsets` key. Scoped to the process
-         * lifetime — the webview is re-created per session, so this effectively emits
-         * at most once per webview session (and at most once per process, whichever
-         * comes first).
-         */
-        private val loggedMarginDeprecation = AtomicBoolean(false)
-
         fun fromJson(json: JSONObject?): FormLayout? {
             if (json == null) return null
 
@@ -171,18 +160,7 @@ internal data class FormLayout(
             val width = Dimension.fromJson(json.optJSONObject("width")) ?: return null
             val height = Dimension.fromJson(json.optJSONObject("height")) ?: return null
 
-            // Prefer the new `offsets` wire key; fall back to legacy `margin` for
-            // backward compatibility with older onsite payloads. Log once per session
-            // when we hit the fallback so we can track deprecation in the wild.
-            val offsetsJson = json.optJSONObject("offsets") ?: json.optJSONObject("margin")?.also {
-                if (loggedMarginDeprecation.compareAndSet(false, true)) {
-                    Registry.log.verbose(
-                        "FormLayout payload used deprecated `margin` key; " +
-                            "expected `offsets`. Update onsite to emit `offsets`."
-                    )
-                }
-            }
-            val offsets = Offsets.fromJson(offsetsJson)
+            val offsets = Offsets.fromJson(json.optJSONObject("offsets"))
             val addSafeAreaInsetsToOffsets = json.optBoolean("addSafeAreaInsetsToOffsets", true)
 
             return FormLayout(
