@@ -25,7 +25,6 @@ import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
-import com.klaviyo.forms.bridge.jsEscape
 import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
 
@@ -78,8 +77,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
             // Raw JSON is safe inside the single-quoted HTML attribute because JSONObject emits
-            // double-quoted strings; jsEscape is only needed when injecting into a JS string literal
-            // (see pushDeviceInfo).
+            // double-quoted strings.
             .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
             .let { html ->
                 webView.loadTemplate(html, this, nativeBridge)
@@ -230,10 +228,12 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
             // decorView.rootWindowInsets). Building the snapshot off-thread would yield silently
             // degraded payloads because DeviceInfoProvider swallows CalledFromWrongThreadException.
-            // Dispatch the entire body — snapshot, serialize, escape, evaluate — onto the UI thread.
+            // Dispatch the entire body — snapshot, serialize, evaluate — onto the UI thread.
             Registry.threadHelper.runOnUiThread {
-                val json = DeviceInfoProvider.current().toJson().jsEscape()
-                val script = "document.head.setAttribute('data-klaviyo-device', '$json')"
+                // JSON is a subset of JS: embedding the raw JSON as a JS object expression and
+                // letting the engine stringify it avoids any JS string-literal escaping concerns.
+                val json = DeviceInfoProvider.current().toJson()
+                val script = "document.head.setAttribute('data-klaviyo-device', JSON.stringify($json))"
                 webView.evaluateJavascript(script, null)
             }
         }

@@ -223,19 +223,4 @@ class DeviceInfoTest {
 
         assertEquals(info.toJson(), info.toJson())
     }
-
-    @Test
-    fun `jsEscape escapes backslashes and single quotes`() {
-        val raw = "it's a back\\slash"
-        val escaped = raw.jsEscape()
-        assertEquals("it\\'s a back\\\\slash", escaped)
-    }
-
-    @Test
-    fun `jsEscape leaves double quotes untouched since caller wraps in single quotes`() {
-        // JSONObject already escapes double-quotes inside string values, but the JSON's
-        // outer syntax uses them freely — those must survive embedding in a JS single-quote literal.
-        val raw = """{"screen":{"width":402}}"""
-        assertEquals(raw, raw.jsEscape())
-    }
 }

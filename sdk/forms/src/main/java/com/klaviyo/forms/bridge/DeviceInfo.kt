@@ -184,13 +184,3 @@ internal object DeviceInfoProvider {
         )
     }
 }
-
-/**
- * Escapes a JSON payload for embedding inside a single-quoted JS string literal.
- *
- * Only backslashes and single quotes need escaping — JSON is otherwise JS-safe because
- * [JSONObject] already escapes double quotes, control characters, and non-ASCII characters.
- */
-internal fun String.jsEscape(): String = this
-    .replace("\\", "\\\\")
-    .replace("'", "\\'")
