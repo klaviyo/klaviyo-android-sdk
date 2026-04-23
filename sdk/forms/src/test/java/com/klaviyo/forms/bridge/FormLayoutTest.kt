@@ -1,6 +1,7 @@
 package com.klaviyo.forms.bridge
 
 import android.view.Gravity
+import com.klaviyo.fixtures.BaseTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,7 +13,7 @@ import org.junit.Test
 /**
  * Tests for [FormLayout] and related data classes
  */
-class FormLayoutTest {
+class FormLayoutTest : BaseTest() {
 
     // ===== FormPosition tests =====
 
@@ -175,7 +176,7 @@ class FormLayoutTest {
                 "position": "bottom_right",
                 "width": {"value": 300, "unit": "fixed"},
                 "height": {"value": 200, "unit": "fixed"},
-                "margin": {"top": 0, "bottom": 16, "left": 0, "right": 16}
+                "offsets": {"top": 0, "bottom": 16, "left": 0, "right": 16}
             }
             """.trimIndent()
         )
@@ -200,7 +201,7 @@ class FormLayoutTest {
                 "position": "BOTTOM_RIGHT",
                 "width": {"value": 350, "unit": "FIXED"},
                 "height": {"value": 400, "unit": "FIXED"},
-                "margin": {"top": 0, "bottom": 0, "left": 0, "right": 0}
+                "offsets": {"top": 0, "bottom": 0, "left": 0, "right": 0}
             }
             """.trimIndent()
         )
@@ -255,6 +256,61 @@ class FormLayoutTest {
             height = Dimension.percent(100f)
         )
         assertTrue(layout.isFullscreen)
+    }
+
+    @Test
+    fun `FormLayout fromJson reads offsets key when present`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "top",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "offsets": {"top": 8, "bottom": 12, "left": 4, "right": 6}
+            }
+            """.trimIndent()
+        )
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertEquals(8f, layout!!.offsets.top, 0.01f)
+        assertEquals(12f, layout.offsets.bottom, 0.01f)
+        assertEquals(4f, layout.offsets.left, 0.01f)
+        assertEquals(6f, layout.offsets.right, 0.01f)
+    }
+
+    @Test
+    fun `FormLayout fromJson defaults addSafeAreaInsetsToOffsets to true when absent`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "top",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "offsets": {"top": 0, "bottom": 0, "left": 0, "right": 0}
+            }
+            """.trimIndent()
+        )
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertTrue(layout!!.addSafeAreaInsetsToOffsets)
+    }
+
+    @Test
+    fun `FormLayout fromJson parses addSafeAreaInsetsToOffsets false`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "top",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "offsets": {"top": 0, "bottom": 0, "left": 0, "right": 0},
+                "addSafeAreaInsetsToOffsets": false
+            }
+            """.trimIndent()
+        )
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertFalse(layout!!.addSafeAreaInsetsToOffsets)
     }
 
     @Test

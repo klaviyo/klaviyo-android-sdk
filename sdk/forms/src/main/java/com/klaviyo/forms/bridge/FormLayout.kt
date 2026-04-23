@@ -17,16 +17,6 @@ internal enum class FormPosition {
     CENTER;
 
     /**
-     * Returns true if this position uses horizontal centering (CENTER_HORIZONTAL or CENTER).
-     * These positions need width adjusted for horizontal safe area insets so forms
-     * don't extend into display cutouts in landscape.
-     */
-    fun isHorizontallyCentered(): Boolean = when (this) {
-        TOP, BOTTOM, CENTER, FULLSCREEN -> true
-        TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT -> false
-    }
-
-    /**
      * Convert form position to Android Gravity flags
      */
     fun toGravity(): Int = when (this) {
@@ -147,7 +137,14 @@ internal data class FormLayout(
     val position: FormPosition,
     val width: Dimension,
     val height: Dimension,
-    val offsets: Offsets = Offsets()
+    val offsets: Offsets = Offsets(),
+    /**
+     * When true (default), the SDK adds safe-area insets to the provided [offsets]
+     * when positioning the form. When false, the SDK uses [offsets] as-is and does
+     * not account for safe-area at all — onsite is fully responsible for baking
+     * any safe-area inset it wants into [offsets].
+     */
+    val addSafeAreaInsetsToOffsets: Boolean = true
 ) {
     /**
      * Returns true if this layout represents a fullscreen form
@@ -162,13 +159,16 @@ internal data class FormLayout(
             val position = FormPosition.fromString(json.optString("position"))
             val width = Dimension.fromJson(json.optJSONObject("width")) ?: return null
             val height = Dimension.fromJson(json.optJSONObject("height")) ?: return null
-            val offsets = Offsets.fromJson(json.optJSONObject("margin"))
+
+            val offsets = Offsets.fromJson(json.optJSONObject("offsets"))
+            val addSafeAreaInsetsToOffsets = json.optBoolean("addSafeAreaInsetsToOffsets", true)
 
             return FormLayout(
                 position = position,
                 width = width,
                 height = height,
-                offsets = offsets
+                offsets = offsets,
+                addSafeAreaInsetsToOffsets = addSafeAreaInsetsToOffsets
             )
         }
     }
