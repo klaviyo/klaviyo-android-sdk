@@ -225,18 +225,18 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * `data-klaviyo-device` head attribute. This keeps onsite-in-app in sync with orientation
      * changes and safe-area inset updates without reloading the template.
      */
-    override fun pushDeviceInfo() = webView?.let { webView ->
-        // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
-        // decorView.rootWindowInsets). Building the snapshot off-thread would yield silently
-        // degraded payloads because DeviceInfoProvider swallows CalledFromWrongThreadException.
-        // Dispatch the entire body — snapshot, serialize, escape, evaluate — onto the UI thread.
-        Registry.threadHelper.runOnUiThread {
-            val json = DeviceInfoProvider.current().toJson().jsEscape()
-            val script = "document.head.setAttribute('data-klaviyo-device', '$json')"
-            webView.evaluateJavascript(script, null)
+    override fun pushDeviceInfo() {
+        webView?.let { webView ->
+            // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
+            // decorView.rootWindowInsets). Building the snapshot off-thread would yield silently
+            // degraded payloads because DeviceInfoProvider swallows CalledFromWrongThreadException.
+            // Dispatch the entire body — snapshot, serialize, escape, evaluate — onto the UI thread.
+            Registry.threadHelper.runOnUiThread {
+                val json = DeviceInfoProvider.current().toJson().jsEscape()
+                val script = "document.head.setAttribute('data-klaviyo-device', '$json')"
+                webView.evaluateJavascript(script, null)
+            }
         }
-    } ?: run {
-        Registry.log.verbose("Unable to push device info - null WebView reference")
     }
 
     /**

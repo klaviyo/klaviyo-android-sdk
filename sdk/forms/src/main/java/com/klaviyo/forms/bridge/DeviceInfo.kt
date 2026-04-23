@@ -2,6 +2,7 @@ package com.klaviyo.forms.bridge
 
 import android.content.res.Configuration
 import android.content.res.Resources
+import android.os.Build
 import android.util.DisplayMetrics
 import android.view.Surface
 import androidx.core.view.WindowInsetsCompat
@@ -155,8 +156,12 @@ internal object DeviceInfoProvider {
         val configuration = resources.configuration
 
         val rotation = runCatching {
-            @Suppress("DEPRECATION")
-            activity?.windowManager?.defaultDisplay?.rotation ?: Surface.ROTATION_0
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                activity?.display
+            } else {
+                @Suppress("DEPRECATION")
+                activity?.windowManager?.defaultDisplay
+            }?.rotation ?: Surface.ROTATION_0
         }.getOrDefault(Surface.ROTATION_0)
 
         data class InsetsPx(val left: Int, val top: Int, val right: Int, val bottom: Int)
