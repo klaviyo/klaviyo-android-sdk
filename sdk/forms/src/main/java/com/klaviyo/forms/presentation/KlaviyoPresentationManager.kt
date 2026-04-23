@@ -43,6 +43,21 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     private var rotationObserver: ActivityObserver? = null
 
     /**
+     * One-shot observer waiting for the next Resumed activity after a rotation, used to push
+     * fresh device info to the webview. ConfigurationChanged fires before the new activity is
+     * resumed, so reading Display.rotation/rootWindowInsets at that moment yields stale values
+     * one rotation behind. Deferring to the next Resumed ensures the payload reflects the
+     * NEW orientation. Tracked at class level for cleanup/timeout.
+     */
+    private var deviceInfoPushObserver: ActivityObserver? = null
+
+    /**
+     * Safety timeout to unregister [deviceInfoPushObserver] if a Resumed event never arrives
+     * (e.g. activity permanently destroyed). Prevents leaks.
+     */
+    private var deviceInfoPushTimeout: Clock.Cancellable? = null
+
+    /**
      * Delayed cleanup for multi-activity transitions. When the host activity stops,
      * we schedule cleanup after a grace period. If AllStopped fires within the grace
      * period (app backgrounding), it cancels this and handles re-presentation instead.
@@ -145,10 +160,11 @@ internal class KlaviyoPresentationManager() : PresentationManager {
     private fun onConfigurationChanged(event: ActivityEvent.ConfigurationChanged) = safeCall {
         event.newConfig.orientation.takeIf { it != orientation }
             ?.also { newOrientation -> orientation = newOrientation }?.let {
-                // Update the `data-klaviyo-device` head attribute so onsite-in-app sees
-                // the new orientation/dimensions even when the webview is preloaded but
-                // not currently presented.
-                Registry.get<WebViewClient>().pushDeviceInfo()
+                // Defer the `data-klaviyo-device` head attribute update until the NEXT
+                // Resumed activity. ConfigurationChanged fires before the old activity is
+                // destroyed, so Display.rotation/rootWindowInsets still reflect the prior
+                // orientation. Pushing now would leave the attribute one rotation behind.
+                scheduleDeviceInfoPushOnNextResume()
 
                 // Cancel any pending per-activity cleanup — rotation handles its own re-presentation.
                 // Must be inside the orientation guard so non-orientation config changes (locale,
@@ -425,6 +441,49 @@ internal class KlaviyoPresentationManager() : PresentationManager {
         hostActivityStoppedCleanup = null
     }
 
+    /**
+     * Register a one-shot observer that calls [WebViewClient.pushDeviceInfo] once the next
+     * activity Resumes. If a prior rotation is still pending (rapid rotate-rotate), the
+     * previous observer is discarded so only the latest orientation is reported. A safety
+     * timeout unregisters the observer if no Resumed event arrives (e.g. activity is
+     * permanently destroyed while backgrounded).
+     */
+    private fun scheduleDeviceInfoPushOnNextResume() {
+        // Drop any in-flight observer from an earlier rotation so we only push once per
+        // completed orientation change (and always with the latest values).
+        deviceInfoPushObserver?.let { Registry.lifecycleMonitor.offActivityEvent(it) }
+        deviceInfoPushObserver = null
+        deviceInfoPushTimeout?.cancel()
+        deviceInfoPushTimeout = null
+
+        val observer: ActivityObserver = { activityEvent ->
+            activityEvent.takeIf<ActivityEvent.Resumed>()?.let {
+                deviceInfoPushObserver?.let { obs ->
+                    Registry.lifecycleMonitor.offActivityEvent(obs)
+                }
+                deviceInfoPushObserver = null
+                deviceInfoPushTimeout?.cancel()
+                deviceInfoPushTimeout = null
+                Registry.get<WebViewClient>().pushDeviceInfo()
+            }
+        }
+        deviceInfoPushObserver = observer
+        Registry.lifecycleMonitor.onActivityEvent(observer)
+
+        // Fallback: if the next Resumed never arrives (activity destroyed permanently),
+        // clean up the observer to avoid leaking it indefinitely.
+        deviceInfoPushTimeout = Registry.clock.schedule(DEVICE_INFO_PUSH_TIMEOUT) {
+            deviceInfoPushObserver?.let { obs ->
+                Registry.lifecycleMonitor.offActivityEvent(obs)
+            }
+            deviceInfoPushObserver = null
+            deviceInfoPushTimeout = null
+            Registry.log.verbose(
+                "Device-info push observer timed out waiting for next Resumed activity"
+            )
+        }
+    }
+
     private companion object {
         /**
          * Grace period to close a form with animation, before we just dismiss
@@ -433,5 +492,13 @@ internal class KlaviyoPresentationManager() : PresentationManager {
          *  or else teardown will kill the webview's rendering before formDisappeared can be sent.
          */
         private const val CLOSE_TIMEOUT = 600L
+
+        /**
+         * Upper bound for how long to wait for the next Resumed activity before giving up
+         * on pushing fresh device info after a rotation. Chosen to comfortably exceed a
+         * typical activity recreation (tens of ms) while bounding the leak window if the
+         * activity is permanently destroyed.
+         */
+        private const val DEVICE_INFO_PUSH_TIMEOUT = 5_000L
     }
 }

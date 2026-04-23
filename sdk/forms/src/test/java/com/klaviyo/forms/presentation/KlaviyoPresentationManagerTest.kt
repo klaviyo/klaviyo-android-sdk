@@ -31,17 +31,40 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class KlaviyoPresentationManagerTest : BaseTest() {
+    /**
+     * Tracks every observer the manager registers via [LifecycleMonitor.onActivityEvent].
+     * The manager registers the primary observer from its `init` block and may register
+     * additional one-shot observers for rotation / device-info push. Tests dispatch events
+     * to all currently-registered observers via [dispatchEvent], mirroring how the real
+     * [LifecycleMonitor] broadcasts events to every registered observer.
+     */
+    private val registeredObservers = mutableListOf<ActivityObserver>()
+
+    /**
+     * Convenience slot for legacy tests that only care about the most recently registered
+     * observer. Prefer [dispatchEvent] for new tests that exercise observer interleaving.
+     */
     private val slotOnActivityEvent = slot<ActivityObserver>()
     private val mockWebViewClient = mockk<WebViewClient>(relaxed = true)
     private val mockOverlayActivity: Activity = mockk<KlaviyoFormsOverlayActivity>(relaxed = true)
     private val mockLaunchIntent = mockk<Intent>(relaxed = true)
+
+    private fun dispatchEvent(event: ActivityEvent) {
+        // Iterate over a snapshot — observers may register/unregister others during dispatch
+        registeredObservers.toList().forEach { it(event) }
+    }
 
     override fun setup() {
         super.setup()
         mockkObject(KlaviyoFormsOverlayActivity).apply {
             every { KlaviyoFormsOverlayActivity.launchIntent } returns mockLaunchIntent
         }
-        every { mockLifecycleMonitor.onActivityEvent(capture(slotOnActivityEvent)) } just runs
+        every { mockLifecycleMonitor.onActivityEvent(capture(slotOnActivityEvent)) } answers {
+            registeredObservers.add(slotOnActivityEvent.captured)
+        }
+        every { mockLifecycleMonitor.offActivityEvent(any()) } answers {
+            registeredObservers.remove(firstArg<ActivityObserver>())
+        }
         every { mockContext.startActivity(mockLaunchIntent) } just runs
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<InAppFormsConfig>(InAppFormsConfig())
@@ -60,7 +83,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     private fun KlaviyoPresentationManager.mockPresent() = apply {
         present(null)
         assert(slotOnActivityEvent.isCaptured) { "Lifecycle listener should be captured" }
-        slotOnActivityEvent.captured(ActivityEvent.Created(mockOverlayActivity, null))
+        dispatchEvent(ActivityEvent.Created(mockOverlayActivity, null))
     }
 
     private fun withHiddenState() = KlaviyoPresentationManager().apply {
@@ -87,7 +110,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
     fun `verify it ignores non-klaviyo activities`() {
         val manager = withHiddenState()
 
-        slotOnActivityEvent.captured(ActivityEvent.Created(mockActivity, null))
+        dispatchEvent(ActivityEvent.Created(mockActivity, null))
 
         verify(exactly = 0) { mockWebViewClient.attachWebView(mockOverlayActivity) }
         assertEquals(
@@ -106,13 +129,118 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         }
 
         // Initial orientation event must be a change
-        slotOnActivityEvent.captured(ActivityEvent.ConfigurationChanged(mockConfig))
+        dispatchEvent(ActivityEvent.ConfigurationChanged(mockConfig))
         verify { mockWebViewClient.detachWebView() }
 
         // After configuration change, the activity gets re-created,
         // at which point we should re-attach if we were previously presenting
-        slotOnActivityEvent.captured(ActivityEvent.Created(mockOverlayActivity, mockk()))
+        dispatchEvent(ActivityEvent.Created(mockOverlayActivity, mockk()))
         verify { mockWebViewClient.attachWebView(mockOverlayActivity) }
+    }
+
+    @Test
+    fun `pushDeviceInfo is deferred until next Resumed activity after orientation change`() {
+        withPresentedState()
+
+        val mockConfig = mockk<Configuration>(relaxed = true) {
+            orientation = Configuration.ORIENTATION_LANDSCAPE
+        }
+
+        // ConfigurationChanged fires while the stale activity is still current —
+        // pushDeviceInfo must NOT be called yet, or it would capture pre-rotation
+        // Display.rotation/rootWindowInsets values.
+        dispatchEvent(ActivityEvent.ConfigurationChanged(mockConfig))
+        verify(exactly = 0) { mockWebViewClient.pushDeviceInfo() }
+
+        // The next Resumed activity represents the rotated activity with fresh
+        // Display metrics — pushDeviceInfo should fire exactly once here.
+        dispatchEvent(ActivityEvent.Resumed(mockk(relaxed = true)))
+        verify(exactly = 1) { mockWebViewClient.pushDeviceInfo() }
+
+        // Subsequent Resumed events (e.g. backgrounding/foregrounding after rotation)
+        // must NOT re-trigger pushDeviceInfo — the one-shot observer is consumed.
+        dispatchEvent(ActivityEvent.Resumed(mockk(relaxed = true)))
+        dispatchEvent(ActivityEvent.Resumed(mockk(relaxed = true)))
+        verify(exactly = 1) { mockWebViewClient.pushDeviceInfo() }
+    }
+
+    @Test
+    fun `pushDeviceInfo fires on rotation even when no form is presenting`() {
+        // Preloaded-but-not-presenting webview case: no present() was called.
+        KlaviyoPresentationManager()
+
+        val mockConfig = mockk<Configuration>(relaxed = true) {
+            orientation = Configuration.ORIENTATION_LANDSCAPE
+        }
+
+        dispatchEvent(ActivityEvent.ConfigurationChanged(mockConfig))
+        verify(exactly = 0) { mockWebViewClient.pushDeviceInfo() }
+
+        dispatchEvent(ActivityEvent.Resumed(mockk(relaxed = true)))
+        verify(exactly = 1) { mockWebViewClient.pushDeviceInfo() }
+    }
+
+    @Test
+    fun `pushDeviceInfo is not triggered by non-orientation configuration changes`() {
+        withPresentedState()
+
+        // Same orientation — e.g. locale change, dark-mode toggle, font scale update.
+        // The manager's initial orientation is null, so the first ConfigurationChanged
+        // with any orientation value is treated as a change. Establish a baseline first.
+        val portrait = mockk<Configuration>(relaxed = true) {
+            orientation = Configuration.ORIENTATION_PORTRAIT
+        }
+        dispatchEvent(ActivityEvent.ConfigurationChanged(portrait))
+        // Baseline push after first orientation is observed
+        dispatchEvent(ActivityEvent.Resumed(mockk(relaxed = true)))
+        verify(exactly = 1) { mockWebViewClient.pushDeviceInfo() }
+
+        // Now a non-orientation config change (same PORTRAIT) — must not schedule
+        // or fire another device-info push.
+        val portraitAgain = mockk<Configuration>(relaxed = true) {
+            orientation = Configuration.ORIENTATION_PORTRAIT
+        }
+        dispatchEvent(ActivityEvent.ConfigurationChanged(portraitAgain))
+        dispatchEvent(ActivityEvent.Resumed(mockk(relaxed = true)))
+        verify(exactly = 1) { mockWebViewClient.pushDeviceInfo() }
+    }
+
+    @Test
+    fun `pushDeviceInfo observer times out if no Resumed ever arrives`() {
+        withPresentedState()
+
+        val mockConfig = mockk<Configuration>(relaxed = true) {
+            orientation = Configuration.ORIENTATION_LANDSCAPE
+        }
+        dispatchEvent(ActivityEvent.ConfigurationChanged(mockConfig))
+
+        // Advance well past the safety timeout — observer should have unregistered itself.
+        staticClock.execute(10_000L)
+
+        // Late Resumed arrives after the observer timed out — must not fire pushDeviceInfo.
+        dispatchEvent(ActivityEvent.Resumed(mockk(relaxed = true)))
+        verify(exactly = 0) { mockWebViewClient.pushDeviceInfo() }
+    }
+
+    @Test
+    fun `rapid rotation replaces prior pushDeviceInfo observer so only latest fires`() {
+        withPresentedState()
+
+        val landscape = mockk<Configuration>(relaxed = true) {
+            orientation = Configuration.ORIENTATION_LANDSCAPE
+        }
+        val portrait = mockk<Configuration>(relaxed = true) {
+            orientation = Configuration.ORIENTATION_PORTRAIT
+        }
+
+        // Two rotations land before the next Resumed.
+        dispatchEvent(ActivityEvent.ConfigurationChanged(landscape))
+        dispatchEvent(ActivityEvent.ConfigurationChanged(portrait))
+
+        dispatchEvent(ActivityEvent.Resumed(mockk(relaxed = true)))
+        // Should only push once — the second ConfigurationChanged should have dropped the
+        // first one-shot observer, so only the latest fires on Resumed.
+        verify(exactly = 1) { mockWebViewClient.pushDeviceInfo() }
     }
 
     @Test
@@ -120,12 +248,12 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         withPresentedState()
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
 
-        slotOnActivityEvent.captured(ActivityEvent.Started(mockk()))
-        slotOnActivityEvent.captured(ActivityEvent.Resumed(mockk()))
-        slotOnActivityEvent.captured(ActivityEvent.SaveInstanceState(mockk(), mockk()))
-        slotOnActivityEvent.captured(ActivityEvent.Paused(mockk()))
-        slotOnActivityEvent.captured(ActivityEvent.Stopped(mockk()))
-        slotOnActivityEvent.captured(ActivityEvent.AllStopped())
+        dispatchEvent(ActivityEvent.Started(mockk()))
+        dispatchEvent(ActivityEvent.Resumed(mockk()))
+        dispatchEvent(ActivityEvent.SaveInstanceState(mockk(), mockk()))
+        dispatchEvent(ActivityEvent.Paused(mockk()))
+        dispatchEvent(ActivityEvent.Stopped(mockk()))
+        dispatchEvent(ActivityEvent.AllStopped())
 
         verify(inverse = true) { mockWebViewClient.detachWebView() }
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
@@ -177,7 +305,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         )
 
         // Simulate activity creation lifecycle event
-        slotOnActivityEvent.captured(ActivityEvent.Created(mockOverlayActivity, null))
+        dispatchEvent(ActivityEvent.Created(mockOverlayActivity, null))
 
         verify(exactly = 1) { mockWebViewClient.attachWebView(mockOverlayActivity) }
         assertEquals(
@@ -338,7 +466,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         val manager = withFloatingPresentedState()
         try {
             // Simulate the host activity stopping (multi-activity transition)
-            slotOnActivityEvent.captured(ActivityEvent.Stopped(mockHostActivity))
+            dispatchEvent(ActivityEvent.Stopped(mockHostActivity))
 
             // Before grace period: still presented
             assertEquals(PresentationState.Presented("floatingFormId"), manager.presentationState)
@@ -359,7 +487,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         val manager = withFloatingPresentedState()
         try {
             val otherActivity = mockk<Activity>(relaxed = true)
-            slotOnActivityEvent.captured(ActivityEvent.Stopped(otherActivity))
+            dispatchEvent(ActivityEvent.Stopped(otherActivity))
 
             staticClock.execute(LifecycleMonitor.ACTIVITY_TRANSITION_GRACE_PERIOD)
 
@@ -375,8 +503,8 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         val manager = withFloatingPresentedState()
         try {
             // Simulate backgrounding: Stopped then AllStopped in quick succession
-            slotOnActivityEvent.captured(ActivityEvent.Stopped(mockHostActivity))
-            slotOnActivityEvent.captured(ActivityEvent.AllStopped())
+            dispatchEvent(ActivityEvent.Stopped(mockHostActivity))
+            dispatchEvent(ActivityEvent.AllStopped())
 
             // AllStopped should cancel the per-activity cleanup and set Presenting for re-presentation
             assertEquals(PresentationState.Presenting("floatingFormId"), manager.presentationState)
@@ -404,7 +532,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
             // Trigger rotation — this dismisses the window, sets floatingFormWindow = null,
             // and registers a rotation observer for re-presentation
-            slotOnActivityEvent.captured(ActivityEvent.ConfigurationChanged(mockConfig))
+            dispatchEvent(ActivityEvent.ConfigurationChanged(mockConfig))
             assertEquals(PresentationState.Presenting("floatingFormId"), manager.presentationState)
 
             // Dismiss cancels the rotation observer via clearTimers() and resets state
@@ -417,7 +545,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
 
             // Simulate new activity resuming — should NOT re-present the floating window
             // because the rotation observer was cleaned up by dismiss/clearTimers
-            slotOnActivityEvent.captured(ActivityEvent.Resumed(mockk(relaxed = true)))
+            dispatchEvent(ActivityEvent.Resumed(mockk(relaxed = true)))
             assertEquals(
                 "Resumed should not change state after dismiss cancels rotation observer",
                 PresentationState.Hidden,
@@ -433,8 +561,8 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         val manager = withFloatingPresentedState()
         try {
             // Background the app
-            slotOnActivityEvent.captured(ActivityEvent.Stopped(mockHostActivity))
-            slotOnActivityEvent.captured(ActivityEvent.AllStopped())
+            dispatchEvent(ActivityEvent.Stopped(mockHostActivity))
+            dispatchEvent(ActivityEvent.AllStopped())
             assertEquals(PresentationState.Presenting("floatingFormId"), manager.presentationState)
 
             // Simulate session timeout (default from InAppFormsConfig)
