@@ -48,12 +48,19 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * resumed, so reading Display.rotation/rootWindowInsets at that moment yields stale values
      * one rotation behind. Deferring to the next Resumed ensures the payload reflects the
      * NEW orientation. Tracked at class level for cleanup/timeout.
+     *
+     * Intentionally NOT cleared in [clearTimers] — the attribute should stay current on the
+     * preloaded webview regardless of whether a form is presenting. `dismiss()` does not
+     * destroy the webview (only [destroyWebviewAndListeners] does), so an in-flight observer
+     * firing post-dismiss simply refreshes `data-klaviyo-device` on the idle preloaded webview
+     * ready for the next form. [pushDeviceInfo] already no-ops on a null webview.
      */
     private var deviceInfoPushObserver: ActivityObserver? = null
 
     /**
      * Safety timeout to unregister [deviceInfoPushObserver] if a Resumed event never arrives
-     * (e.g. activity permanently destroyed). Prevents leaks.
+     * (e.g. activity permanently destroyed). Prevents leaks. Intentionally NOT cleared in
+     * [clearTimers] for the same reason as [deviceInfoPushObserver].
      */
     private var deviceInfoPushTimeout: Clock.Cancellable? = null
 
