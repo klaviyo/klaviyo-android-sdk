@@ -465,13 +465,13 @@ internal class FloatingFormWindow(private val context: Context) {
             val effectiveSafeLeft = if (layout.addSafeAreaInsetsToOffsets) safeAreaLeft else 0
             val effectiveSafeRight = if (layout.addSafeAreaInsetsToOffsets) safeAreaRight else 0
 
-            val marginTop = effectiveSafeTop + (layout.offsets.top * density).toInt()
-            val marginBottom = effectiveSafeBottom + (layout.offsets.bottom * density).toInt()
-            val marginLeft = effectiveSafeLeft + (layout.offsets.left * density).toInt()
-            val marginRight = effectiveSafeRight + (layout.offsets.right * density).toInt()
+            val offsetTop = effectiveSafeTop + (layout.offsets.top * density).toInt()
+            val offsetBottom = effectiveSafeBottom + (layout.offsets.bottom * density).toInt()
+            val offsetLeft = effectiveSafeLeft + (layout.offsets.left * density).toInt()
+            val offsetRight = effectiveSafeRight + (layout.offsets.right * density).toInt()
 
-            val availableWidth = (screenWidth - marginLeft - marginRight).coerceAtLeast(0)
-            val availableHeight = (screenHeight - marginTop - marginBottom).coerceAtLeast(0)
+            val availableWidth = (screenWidth - offsetLeft - offsetRight).coerceAtLeast(0)
+            val availableHeight = (screenHeight - offsetTop - offsetBottom).coerceAtLeast(0)
 
             val requestedWidth = layout.width.toPixels(screenWidth, density)
             val requestedHeight = layout.height.toPixels(screenHeight, density)
@@ -484,15 +484,15 @@ internal class FloatingFormWindow(private val context: Context) {
             // centered within [marginStart, screenDim - marginEnd] instead of the raw
             // screen bounds.
             val x = when (layout.position) {
-                FormPosition.TOP_LEFT, FormPosition.BOTTOM_LEFT -> marginLeft
-                FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> marginRight
-                FormPosition.TOP, FormPosition.BOTTOM, FormPosition.CENTER -> (marginLeft - marginRight) / 2
+                FormPosition.TOP_LEFT, FormPosition.BOTTOM_LEFT -> offsetLeft
+                FormPosition.TOP_RIGHT, FormPosition.BOTTOM_RIGHT -> offsetRight
+                FormPosition.TOP, FormPosition.BOTTOM, FormPosition.CENTER -> (offsetLeft - offsetRight) / 2
                 FormPosition.FULLSCREEN -> 0
             }
             val y = when (layout.position) {
-                FormPosition.TOP, FormPosition.TOP_LEFT, FormPosition.TOP_RIGHT -> marginTop
-                FormPosition.BOTTOM, FormPosition.BOTTOM_LEFT, FormPosition.BOTTOM_RIGHT -> marginBottom
-                FormPosition.CENTER -> (marginTop - marginBottom) / 2
+                FormPosition.TOP, FormPosition.TOP_LEFT, FormPosition.TOP_RIGHT -> offsetTop
+                FormPosition.BOTTOM, FormPosition.BOTTOM_LEFT, FormPosition.BOTTOM_RIGHT -> offsetBottom
+                FormPosition.CENTER -> (offsetTop - offsetBottom) / 2
                 FormPosition.FULLSCREEN -> 0
             }
 
