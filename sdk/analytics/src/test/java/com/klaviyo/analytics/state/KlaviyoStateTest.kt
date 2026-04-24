@@ -331,4 +331,170 @@ internal class KlaviyoStateTest : BaseTest() {
             "createEvent should return a new event object, not mutate the original"
         }
     }
+
+    @Test
+    fun `setProfile with same external ID does not reset anonymous ID`() {
+        // Setup: create initial state with identifiers
+        state.externalId = EXTERNAL_ID
+        state.email = EMAIL
+        val initialAnonId = state.anonymousId
+
+        // Call setProfile with same identifiers
+        state.setProfile(
+            Profile(externalId = EXTERNAL_ID, email = EMAIL)
+        )
+
+        // Verify anonymous ID is preserved (no reset)
+        assertEquals(initialAnonId, state.anonymousId)
+    }
+
+    @Test
+    fun `setProfile with same email does not reset anonymous ID`() {
+        state.email = EMAIL
+        val initialAnonId = state.anonymousId
+
+        state.setProfile(Profile(email = EMAIL))
+
+        assertEquals(initialAnonId, state.anonymousId)
+    }
+
+    @Test
+    fun `setProfile with same phone number does not reset anonymous ID`() {
+        state.phoneNumber = PHONE
+        val initialAnonId = state.anonymousId
+
+        state.setProfile(Profile(phoneNumber = PHONE))
+
+        assertEquals(initialAnonId, state.anonymousId)
+    }
+
+    @Test
+    fun `setProfile with different external ID triggers reset and new anonymous ID`() {
+        state.externalId = EXTERNAL_ID
+        val initialAnonId = state.anonymousId
+
+        state.setProfile(Profile(externalId = "different_external_id"))
+
+        assertNotEquals(initialAnonId, state.anonymousId)
+        assertEquals("different_external_id", state.externalId)
+    }
+
+    @Test
+    fun `setProfile with different email triggers reset and new anonymous ID`() {
+        state.email = EMAIL
+        val initialAnonId = state.anonymousId
+
+        state.setProfile(Profile(email = "different@email.com"))
+
+        assertNotEquals(initialAnonId, state.anonymousId)
+        assertEquals("different@email.com", state.email)
+    }
+
+    @Test
+    fun `setProfile with different phone triggers reset and new anonymous ID`() {
+        state.phoneNumber = PHONE
+        val initialAnonId = state.anonymousId
+
+        state.setProfile(Profile(phoneNumber = "9999999999"))
+
+        assertNotEquals(initialAnonId, state.anonymousId)
+        assertEquals("9999999999", state.phoneNumber)
+    }
+
+    @Test
+    fun `setProfile repeated calls with same identifiers do not trigger spurious resets`() {
+        state.externalId = EXTERNAL_ID
+        state.email = EMAIL
+        val initialAnonId = state.anonymousId
+
+        // Call setProfile multiple times with same identifiers (simulates Wyze behavior)
+        repeat(3) {
+            state.setProfile(Profile(externalId = EXTERNAL_ID, email = EMAIL))
+            assertEquals(initialAnonId, state.anonymousId)
+        }
+    }
+
+    @Test
+    fun `setProfile with same identifiers but different attributes does not reset`() {
+        state.externalId = EXTERNAL_ID
+        state.email = EMAIL
+        val initialAnonId = state.anonymousId
+
+        state.setProfile(
+            Profile(
+                externalId = EXTERNAL_ID,
+                email = EMAIL,
+                properties = mapOf(ProfileKey.FIRST_NAME to "Kermit")
+            )
+        )
+
+        // Key assertion: anonymous ID should not change even though attributes differ
+        assertEquals(initialAnonId, state.anonymousId)
+    }
+
+    @Test
+    fun `resetProfile explicitly clobbers all state regardless of setProfile fix`() {
+        state.externalId = EXTERNAL_ID
+        state.email = EMAIL
+        state.phoneNumber = PHONE
+        state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
+
+        val anonIdBeforeReset = state.anonymousId
+
+        state.reset()
+
+        assertNull(state.externalId)
+        assertNull(state.email)
+        assertNull(state.phoneNumber)
+        assertNull(state.getAsProfile()[ProfileKey.FIRST_NAME])
+        assertNotEquals(anonIdBeforeReset, state.anonymousId)
+    }
+
+    @Test
+    fun `setProfile with one identifier changed triggers reset while others are same`() {
+        state.externalId = EXTERNAL_ID
+        state.email = EMAIL
+        state.phoneNumber = PHONE
+        val initialAnonId = state.anonymousId
+
+        state.setProfile(
+            Profile(
+                externalId = EXTERNAL_ID,
+                email = "different@email.com",
+                phoneNumber = PHONE
+            )
+        )
+
+        assertNotEquals(initialAnonId, state.anonymousId)
+        assertEquals(EXTERNAL_ID, state.externalId)
+        assertEquals("different@email.com", state.email)
+        assertEquals(PHONE, state.phoneNumber)
+    }
+
+    @Test
+    fun `setProfile on fresh state with no prior identifiers sets identifiers without reset`() {
+        // Don't set any identifiers on state first — all are null
+        val initialAnonId = state.anonymousId
+
+        state.setProfile(Profile(externalId = EXTERNAL_ID, email = EMAIL))
+
+        assertEquals(EXTERNAL_ID, state.externalId)
+        assertEquals(EMAIL, state.email)
+        assertNotEquals(null, state.anonymousId)
+        // Anonymous ID should be preserved since no prior identifiers existed (outer guard is false)
+        assertEquals(initialAnonId, state.anonymousId)
+    }
+
+    @Test
+    fun `setProfile with all-null identifiers triggers reset when state has non-null identifiers`() {
+        state.externalId = EXTERNAL_ID
+        state.email = EMAIL
+        val initialAnonId = state.anonymousId
+
+        // Pass an empty profile — all identifier fields are null
+        state.setProfile(Profile())
+
+        // Reset should fire because null != "abcdefg" is true for the existing identifiers
+        assertNotEquals(initialAnonId, state.anonymousId)
+    }
 }
