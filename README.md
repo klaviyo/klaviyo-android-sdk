@@ -36,6 +36,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [Prerequisites](#prerequisites-1)
   - [Setup](#setup-1)
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
+  - [Form Lifecycle Callbacks](#form-lifecycle-callbacks)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
 - [Geofencing](#geofencing)
   - [Setup](#setup-2)
@@ -857,6 +858,65 @@ You are responsible for requesting runtime permission from users according to
 > for guidance on requesting background location permission.
 
 **Note:** Unregistering removes all geofences from Android's location services and stops monitoring for permission changes.
+
+#### Form Lifecycle Callbacks
+
+You can optionally register a callback to be notified when key form lifecycle events occur.
+This is useful for integrating with your own analytics platform or triggering app-side behavior
+in response to form interactions.
+
+```kotlin
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.forms.FormLifecycleEvent
+import com.klaviyo.forms.registerFormLifecycleCallback
+
+Klaviyo.registerFormLifecycleCallback { event, context ->
+    when (event) {
+        FormLifecycleEvent.FORM_SHOWN -> {
+            // A form became visible to the user
+            // context.formId and context.formName identify the form
+        }
+        FormLifecycleEvent.FORM_DISMISSED -> {
+            // The user closed or the form was programmatically dismissed
+        }
+        FormLifecycleEvent.FORM_CTA_CLICKED -> {
+            // The user tapped a call-to-action button
+        }
+    }
+}
+```
+
+```java
+import com.klaviyo.forms.FormLifecycleCallback;
+import com.klaviyo.forms.FormLifecycleEvent;
+import com.klaviyo.forms.KlaviyoFormLifecycleCallbacks;
+
+KlaviyoFormLifecycleCallbacks.registerFormLifecycleCallback((event, context) -> {
+    if (event == FormLifecycleEvent.FORM_SHOWN) {
+        // A form became visible to the user
+        // context.getFormId() and context.getFormName() identify the form
+    } else if (event == FormLifecycleEvent.FORM_DISMISSED) {
+        // The user closed or the form was programmatically dismissed
+    } else if (event == FormLifecycleEvent.FORM_CTA_CLICKED) {
+        // The user tapped a call-to-action button
+    }
+});
+```
+
+All callbacks are invoked on the UI thread. Only one callback can be registered at a time —
+registering a new callback replaces any previously registered one.
+
+To unregister the callback:
+
+```kotlin
+import com.klaviyo.forms.unregisterFormLifecycleCallback
+
+Klaviyo.unregisterFormLifecycleCallback()
+```
+
+```java
+KlaviyoFormLifecycleCallbacks.unregisterFormLifecycleCallback();
+```
 
 ## Deep Linking
 Klaviyo [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a
