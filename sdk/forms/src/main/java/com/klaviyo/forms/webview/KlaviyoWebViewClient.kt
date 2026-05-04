@@ -42,6 +42,16 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     private var webView: KlaviyoWebView? by WeakReferenceDelegate()
 
     /**
+     * JWT queued before the bridge handshake completed; delivered in [onJsHandshakeCompleted].
+     */
+    private var pendingJwt: String? = null
+
+    /**
+     * Tracks whether the JS bridge handshake has completed and [window.klaviyoIAFSetJWT] is available.
+     */
+    private var isHandshakeCompleted: Boolean = false
+
+    /**
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head
      */
@@ -87,12 +97,18 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     }
 
     /**
-     * When the webview has loaded klaviyo.js, we can cancel the timeout
+     * When the webview has loaded klaviyo.js, we can cancel the timeout and flush any queued JWT.
      */
     override fun onJsHandshakeCompleted() {
-        Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.HandShook)
         handshakeTimer?.cancel()
         handshakeTimer = null
+        isHandshakeCompleted = true
+        // Deliver JWT before form-triggering events to give onsite a head start on profile fetch
+        pendingJwt?.let { token ->
+            pendingJwt = null
+            deliverJwt(token)
+        }
+        Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.HandShook)
     }
 
     /**
@@ -133,10 +149,31 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     }
 
     /**
+     * Deliver a JWT to the webview, or queue it if the bridge handshake has not yet completed.
+     */
+    override fun setJWT(token: String) {
+        val escapedToken = token.replace("\\", "\\\\").replace("'", "\\'")
+        if (isHandshakeCompleted) {
+            deliverJwt(escapedToken)
+        } else {
+            Registry.log.verbose("IAF WebView bridge not ready, queuing JWT for delivery")
+            pendingJwt = escapedToken
+        }
+    }
+
+    private fun deliverJwt(escapedToken: String) {
+        evaluateJavascript("window.klaviyoIAFSetJWT('$escapedToken')") {
+            Registry.log.verbose("JWT delivered to IAF WebView")
+        }
+    }
+
+    /**
      * Destroy the webview and release the reference
      */
     override fun destroyWebView() = apply {
         handshakeTimer?.cancel()
+        pendingJwt = null
+        isHandshakeCompleted = false
         Registry.get<JsBridgeObserverCollection>().stopObservers()
         webView?.let { webView ->
             Registry.threadHelper.runOnUiThread {

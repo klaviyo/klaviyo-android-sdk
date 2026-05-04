@@ -20,4 +20,11 @@ internal class InAppFormsNoOpTest : BaseTest() {
             Klaviyo.unregisterFromInAppForms()
         }
     }
+
+    @Test
+    fun `setJWT throws when provider not registered`() {
+        assertThrows(MissingKlaviyoModule::class.java) {
+            Klaviyo.setJWT("test-token")
+        }
+    }
 }

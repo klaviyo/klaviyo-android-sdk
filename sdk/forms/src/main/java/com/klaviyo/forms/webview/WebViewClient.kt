@@ -33,4 +33,10 @@ internal interface WebViewClient {
      * Destroy the webview and release the reference
      */
     fun destroyWebView(): WebViewClient
+
+    /**
+     * Deliver a JWT to the webview. If the webview bridge is not yet ready,
+     * the token is queued until the handshake completes.
+     */
+    fun setJWT(token: String)
 }

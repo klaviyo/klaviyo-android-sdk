@@ -463,4 +463,58 @@ class KlaviyoWebViewClientTest : BaseTest() {
         KlaviyoWebViewClient().onPageFinished(mockWebview, "https://example.com")
         verify { spyLog.debug(any()) }
     }
+
+    @Test
+    fun `setJWT on ready webview calls evaluateJavascript with escaped token`() {
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        client.onJsHandshakeCompleted()
+
+        every { anyConstructed<KlaviyoWebView>().evaluateJavascript(any(), any()) } answers {
+            val callback = secondArg<ValueCallback<String>>()
+            callback.onReceiveValue("null")
+        }
+
+        client.setJWT("test-token")
+
+        verify {
+            anyConstructed<KlaviyoWebView>().evaluateJavascript(
+                "window.klaviyoIAFSetJWT('test-token')",
+                any()
+            )
+        }
+        verify { spyLog.verbose(match { it.contains("delivered") }) }
+    }
+
+    @Test
+    fun `setJWT before bridge ready queues token and delivers on handshake`() {
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        // Notably: handshake has NOT completed yet
+
+        client.setJWT("test-token")
+
+        verify { spyLog.verbose(match { it.contains("queuing") }) }
+        verify(exactly = 0) {
+            anyConstructed<KlaviyoWebView>().evaluateJavascript(
+                "window.klaviyoIAFSetJWT('test-token')",
+                any()
+            )
+        }
+
+        every { anyConstructed<KlaviyoWebView>().evaluateJavascript(any(), any()) } answers {
+            val callback = secondArg<ValueCallback<String>>()
+            callback.onReceiveValue("null")
+        }
+
+        // Handshake completes — queued JWT should be flushed
+        client.onJsHandshakeCompleted()
+
+        verify(exactly = 1) {
+            anyConstructed<KlaviyoWebView>().evaluateJavascript(
+                "window.klaviyoIAFSetJWT('test-token')",
+                any()
+            )
+        }
+    }
 }
