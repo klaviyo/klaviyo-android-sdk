@@ -32,6 +32,12 @@ internal fun Klaviyo.reInitializeInAppForms(): Klaviyo {
 }
 
 internal class KlaviyoFormsProvider : FormsProvider {
+
+    /**
+     * JWT queued before [registerForInAppForms] was called; forwarded to [WebViewClient] on register.
+     */
+    private var pendingJwt: String? = null
+
     override fun register(config: InAppFormsConfig) {
         Registry.apply {
             register<InAppFormsConfig>(config)
@@ -44,6 +50,10 @@ internal class KlaviyoFormsProvider : FormsProvider {
             registerOnce<JsBridgeObserverCollection> { KlaviyoObserverCollection() }
         }
         Registry.get<WebViewClient>().initializeWebView()
+        pendingJwt?.let { token ->
+            pendingJwt = null
+            Registry.get<WebViewClient>().setJWT(token)
+        }
     }
 
     override fun unregister() {
@@ -52,6 +62,13 @@ internal class KlaviyoFormsProvider : FormsProvider {
             Registry.get<WebViewClient>().destroyWebView()
         } else {
             Registry.log.warning("Cannot unregister In-App Forms, must be registered first.")
+        }
+    }
+
+    override fun setJWT(token: String) {
+        Registry.getOrNull<WebViewClient>()?.setJWT(token) ?: run {
+            Registry.log.verbose("IAF not yet registered, queuing JWT for delivery on register")
+            pendingJwt = token
         }
     }
 }

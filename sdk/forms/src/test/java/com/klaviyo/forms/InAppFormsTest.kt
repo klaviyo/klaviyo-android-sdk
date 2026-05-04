@@ -14,8 +14,10 @@ import com.klaviyo.forms.webview.JavaScriptEvaluator
 import com.klaviyo.forms.webview.KlaviyoWebViewClient
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkConstructor
+import io.mockk.runs
 import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.After
@@ -143,5 +145,24 @@ internal class InAppFormsTest : BaseTest() {
         assert(!Registry.isRegistered<InAppFormsConfig>())
         verify(inverse = true) { anyConstructed<KlaviyoPresentationManager>().dismiss() }
         verify(inverse = true) { anyConstructed<KlaviyoWebViewClient>().destroyWebView() }
+    }
+
+    @Test
+    fun `setJWT before register queues token and delivers it on registerForInAppForms`() {
+        every { anyConstructed<KlaviyoWebViewClient>().setJWT(any()) } just runs
+        Klaviyo.setJWT("test-token")
+        verify { spyLog.verbose(match { it.contains("queuing") }) }
+        verify(inverse = true) { anyConstructed<KlaviyoWebViewClient>().setJWT(any()) }
+
+        Klaviyo.registerForInAppForms()
+        verify { anyConstructed<KlaviyoWebViewClient>().setJWT("test-token") }
+    }
+
+    @Test
+    fun `setJWT after register delegates to webview client`() {
+        Klaviyo.registerForInAppForms()
+        every { anyConstructed<KlaviyoWebViewClient>().setJWT(any()) } just runs
+        Klaviyo.setJWT("test-token")
+        verify { anyConstructed<KlaviyoWebViewClient>().setJWT("test-token") }
     }
 }

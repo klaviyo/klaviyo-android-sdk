@@ -19,4 +19,13 @@ interface FormsProvider {
      * and tearing down the WebView client.
      */
     fun unregister()
+
+    /**
+     * Deliver a JWT to the active IAF webview by calling `window.klaviyoIAFSetJWT`.
+     * If the webview bridge is not yet ready, the token will be queued and delivered once the
+     * handshake completes.
+     *
+     * @param token The JWT to deliver to the webview.
+     */
+    fun setJWT(token: String)
 }

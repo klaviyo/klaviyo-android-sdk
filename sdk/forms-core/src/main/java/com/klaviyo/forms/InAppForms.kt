@@ -39,6 +39,22 @@ fun Klaviyo.unregisterFromInAppForms(): Klaviyo =
     } ?: throw MissingKlaviyoModule("forms")
 
 /**
+ * Deliver a JWT to the active IAF webview.
+ *
+ * Calls `window.klaviyoIAFSetJWT(token)` in the webview via `evaluateJavascript`.
+ * If the webview bridge is not yet ready, the token is queued and delivered after
+ * the bridge handshake completes.
+ *
+ * @param token The JWT string to deliver.
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
+ */
+@UiThread
+fun Klaviyo.setJWT(token: String): Klaviyo =
+    Registry.getOrNull<FormsProvider>()?.let { provider ->
+        safeApply { provider.setJWT(token) }
+    } ?: throw MissingKlaviyoModule("forms")
+
+/**
  * Java-friendly static methods for In-App Forms.
  * Kotlin users should use the extension functions on [Klaviyo] instead.
  */
@@ -67,5 +83,18 @@ object KlaviyoForms {
     @UiThread
     fun unregisterFromInAppForms() {
         Klaviyo.unregisterFromInAppForms()
+    }
+
+    /**
+     * Deliver a JWT to the active IAF webview.
+     * Java-friendly static method.
+     *
+     * @param token The JWT string to deliver.
+     * @see Klaviyo.setJWT
+     */
+    @JvmStatic
+    @UiThread
+    fun setJWT(token: String) {
+        Klaviyo.setJWT(token)
     }
 }
