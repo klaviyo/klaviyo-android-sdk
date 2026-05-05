@@ -1,0 +1,337 @@
+package com.klaviyo.forms.bridge
+
+import android.view.Gravity
+import com.klaviyo.fixtures.BaseTest
+import org.json.JSONObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * Tests for [FormLayout] and related data classes
+ */
+class FormLayoutTest : BaseTest() {
+
+    // ===== FormPosition tests =====
+
+    @Test
+    fun `FormPosition toGravity returns correct gravity flags`() {
+        assertEquals(Gravity.CENTER, FormPosition.FULLSCREEN.toGravity())
+        assertEquals(Gravity.TOP or Gravity.CENTER_HORIZONTAL, FormPosition.TOP.toGravity())
+        assertEquals(Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, FormPosition.BOTTOM.toGravity())
+        assertEquals(Gravity.TOP or Gravity.START, FormPosition.TOP_LEFT.toGravity())
+        assertEquals(Gravity.TOP or Gravity.END, FormPosition.TOP_RIGHT.toGravity())
+        assertEquals(Gravity.BOTTOM or Gravity.START, FormPosition.BOTTOM_LEFT.toGravity())
+        assertEquals(Gravity.BOTTOM or Gravity.END, FormPosition.BOTTOM_RIGHT.toGravity())
+        assertEquals(Gravity.CENTER, FormPosition.CENTER.toGravity())
+    }
+
+    @Test
+    fun `FormPosition fromString parses valid positions`() {
+        assertEquals(FormPosition.FULLSCREEN, FormPosition.fromString("fullscreen"))
+        assertEquals(FormPosition.FULLSCREEN, FormPosition.fromString("FULLSCREEN"))
+        assertEquals(FormPosition.TOP, FormPosition.fromString("top"))
+        assertEquals(FormPosition.BOTTOM, FormPosition.fromString("bottom"))
+        assertEquals(FormPosition.TOP_LEFT, FormPosition.fromString("top_left"))
+        assertEquals(FormPosition.TOP_RIGHT, FormPosition.fromString("top_right"))
+        assertEquals(FormPosition.BOTTOM_LEFT, FormPosition.fromString("bottom_left"))
+        assertEquals(FormPosition.BOTTOM_RIGHT, FormPosition.fromString("bottom_right"))
+        assertEquals(FormPosition.CENTER, FormPosition.fromString("center"))
+    }
+
+    @Test
+    fun `FormPosition fromString defaults to FULLSCREEN for invalid input`() {
+        assertEquals(FormPosition.FULLSCREEN, FormPosition.fromString(null))
+        assertEquals(FormPosition.FULLSCREEN, FormPosition.fromString(""))
+        assertEquals(FormPosition.FULLSCREEN, FormPosition.fromString("invalid"))
+    }
+
+    // ===== DimensionUnit tests =====
+
+    @Test
+    fun `DimensionUnit fromString parses valid units`() {
+        assertEquals(DimensionUnit.PERCENT, DimensionUnit.fromString("percent"))
+        assertEquals(DimensionUnit.PERCENT, DimensionUnit.fromString("PERCENT"))
+        assertEquals(DimensionUnit.FIXED, DimensionUnit.fromString("fixed"))
+        assertEquals(DimensionUnit.FIXED, DimensionUnit.fromString("FIXED"))
+    }
+
+    @Test
+    fun `DimensionUnit fromString defaults to FIXED for invalid input`() {
+        assertEquals(DimensionUnit.FIXED, DimensionUnit.fromString(null))
+        assertEquals(DimensionUnit.FIXED, DimensionUnit.fromString(""))
+        assertEquals(DimensionUnit.FIXED, DimensionUnit.fromString("invalid"))
+    }
+
+    // ===== Dimension tests =====
+
+    @Test
+    fun `Dimension toPixels with FIXED unit converts dp to pixels`() {
+        val dimension = Dimension(100f, DimensionUnit.FIXED)
+        // With density 2.0, 100dp = 200px
+        assertEquals(200, dimension.toPixels(1000, 2.0f))
+        // With density 1.0, 100dp = 100px
+        assertEquals(100, dimension.toPixels(1000, 1.0f))
+        // With density 3.0, 100dp = 300px
+        assertEquals(300, dimension.toPixels(1000, 3.0f))
+    }
+
+    @Test
+    fun `Dimension toPixels with PERCENT unit calculates percentage of screen`() {
+        val dimension = Dimension(50f, DimensionUnit.PERCENT)
+        // 50% of 1000px = 500px (density doesn't matter for percent)
+        assertEquals(500, dimension.toPixels(1000, 2.0f))
+        assertEquals(500, dimension.toPixels(1000, 1.0f))
+        // 50% of 800px = 400px
+        assertEquals(400, dimension.toPixels(800, 2.0f))
+    }
+
+    @Test
+    fun `Dimension fromJson parses valid JSON`() {
+        val json = JSONObject("""{"value": 100, "unit": "fixed"}""")
+        val dimension = Dimension.fromJson(json)
+        assertNotNull(dimension)
+        assertEquals(100f, dimension!!.value, 0.01f)
+        assertEquals(DimensionUnit.FIXED, dimension.unit)
+    }
+
+    @Test
+    fun `Dimension fromJson parses percent unit`() {
+        val json = JSONObject("""{"value": 50, "unit": "percent"}""")
+        val dimension = Dimension.fromJson(json)
+        assertNotNull(dimension)
+        assertEquals(50f, dimension!!.value, 0.01f)
+        assertEquals(DimensionUnit.PERCENT, dimension.unit)
+    }
+
+    @Test
+    fun `Dimension fromJson returns null for null input`() {
+        assertNull(Dimension.fromJson(null))
+    }
+
+    @Test
+    fun `Dimension dp helper creates fixed dimension`() {
+        val dimension = Dimension.dp(150f)
+        assertEquals(150f, dimension.value, 0.01f)
+        assertEquals(DimensionUnit.FIXED, dimension.unit)
+    }
+
+    @Test
+    fun `Dimension percent helper creates percent dimension`() {
+        val dimension = Dimension.percent(75f)
+        assertEquals(75f, dimension.value, 0.01f)
+        assertEquals(DimensionUnit.PERCENT, dimension.unit)
+    }
+
+    // ===== Offsets tests =====
+
+    @Test
+    fun `Offsets fromJson parses valid JSON`() {
+        val json = JSONObject("""{"top": 10, "bottom": 20, "left": 30, "right": 40}""")
+        val offsets = Offsets.fromJson(json)
+        assertEquals(10f, offsets.top, 0.01f)
+        assertEquals(20f, offsets.bottom, 0.01f)
+        assertEquals(30f, offsets.left, 0.01f)
+        assertEquals(40f, offsets.right, 0.01f)
+    }
+
+    @Test
+    fun `Offsets fromJson defaults to zero for missing values`() {
+        val json = JSONObject("""{"top": 10}""")
+        val offsets = Offsets.fromJson(json)
+        assertEquals(10f, offsets.top, 0.01f)
+        assertEquals(0f, offsets.bottom, 0.01f)
+        assertEquals(0f, offsets.left, 0.01f)
+        assertEquals(0f, offsets.right, 0.01f)
+    }
+
+    @Test
+    fun `Offsets fromJson returns default offsets for null input`() {
+        val offsets = Offsets.fromJson(null)
+        assertEquals(0f, offsets.top, 0.01f)
+        assertEquals(0f, offsets.bottom, 0.01f)
+        assertEquals(0f, offsets.left, 0.01f)
+        assertEquals(0f, offsets.right, 0.01f)
+    }
+
+    @Test
+    fun `Offsets all helper creates uniform offsets`() {
+        val offsets = Offsets.all(16f)
+        assertEquals(16f, offsets.top, 0.01f)
+        assertEquals(16f, offsets.bottom, 0.01f)
+        assertEquals(16f, offsets.left, 0.01f)
+        assertEquals(16f, offsets.right, 0.01f)
+    }
+
+    // ===== FormLayout tests =====
+
+    @Test
+    fun `FormLayout fromJson parses complete valid JSON`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "bottom_right",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "offsets": {"top": 0, "bottom": 16, "left": 0, "right": 16}
+            }
+            """.trimIndent()
+        )
+
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertEquals(FormPosition.BOTTOM_RIGHT, layout!!.position)
+        assertEquals(300f, layout.width.value, 0.01f)
+        assertEquals(DimensionUnit.FIXED, layout.width.unit)
+        assertEquals(200f, layout.height.value, 0.01f)
+        assertEquals(DimensionUnit.FIXED, layout.height.unit)
+        assertEquals(16f, layout.offsets.bottom, 0.01f)
+        assertEquals(16f, layout.offsets.right, 0.01f)
+    }
+
+    @Test
+    fun `FormLayout fromJson parses Fender v2 flyout payload format`() {
+        // Exact payload shape from Fender MAGE-320-5 formWillAppear v2 handler
+        val json = JSONObject(
+            """
+            {
+                "position": "BOTTOM_RIGHT",
+                "width": {"value": 350, "unit": "FIXED"},
+                "height": {"value": 400, "unit": "FIXED"},
+                "offsets": {"top": 0, "bottom": 0, "left": 0, "right": 0}
+            }
+            """.trimIndent()
+        )
+
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertEquals(FormPosition.BOTTOM_RIGHT, layout!!.position)
+        assertEquals(350f, layout.width.value, 0.01f)
+        assertEquals(DimensionUnit.FIXED, layout.width.unit)
+        assertEquals(400f, layout.height.value, 0.01f)
+        assertEquals(0f, layout.offsets.top, 0.01f)
+        assertEquals(0f, layout.offsets.bottom, 0.01f)
+        assertFalse(layout.isFullscreen)
+    }
+
+    @Test
+    fun `FormLayout fromJson returns null for null input`() {
+        assertNull(FormLayout.fromJson(null))
+    }
+
+    @Test
+    fun `FormLayout fromJson returns null when width is missing`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "center",
+                "height": {"value": 200, "unit": "fixed"}
+            }
+            """.trimIndent()
+        )
+        assertNull(FormLayout.fromJson(json))
+    }
+
+    @Test
+    fun `FormLayout fromJson returns null when height is missing`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "center",
+                "width": {"value": 300, "unit": "fixed"}
+            }
+            """.trimIndent()
+        )
+        assertNull(FormLayout.fromJson(json))
+    }
+
+    @Test
+    fun `FormLayout isFullscreen returns true for FULLSCREEN position`() {
+        val layout = FormLayout(
+            position = FormPosition.FULLSCREEN,
+            width = Dimension.percent(100f),
+            height = Dimension.percent(100f)
+        )
+        assertTrue(layout.isFullscreen)
+    }
+
+    @Test
+    fun `FormLayout fromJson reads offsets key when present`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "top",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "offsets": {"top": 8, "bottom": 12, "left": 4, "right": 6}
+            }
+            """.trimIndent()
+        )
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertEquals(8f, layout!!.offsets.top, 0.01f)
+        assertEquals(12f, layout.offsets.bottom, 0.01f)
+        assertEquals(4f, layout.offsets.left, 0.01f)
+        assertEquals(6f, layout.offsets.right, 0.01f)
+    }
+
+    @Test
+    fun `FormLayout fromJson defaults addSafeAreaInsetsToOffsets to true when absent`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "top",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "offsets": {"top": 0, "bottom": 0, "left": 0, "right": 0}
+            }
+            """.trimIndent()
+        )
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertTrue(layout!!.addSafeAreaInsetsToOffsets)
+    }
+
+    @Test
+    fun `FormLayout fromJson parses addSafeAreaInsetsToOffsets false`() {
+        val json = JSONObject(
+            """
+            {
+                "position": "top",
+                "width": {"value": 300, "unit": "fixed"},
+                "height": {"value": 200, "unit": "fixed"},
+                "offsets": {"top": 0, "bottom": 0, "left": 0, "right": 0},
+                "addSafeAreaInsetsToOffsets": false
+            }
+            """.trimIndent()
+        )
+        val layout = FormLayout.fromJson(json)
+        assertNotNull(layout)
+        assertFalse(layout!!.addSafeAreaInsetsToOffsets)
+    }
+
+    @Test
+    fun `FormLayout isFullscreen returns false for non-FULLSCREEN positions`() {
+        val positions = listOf(
+            FormPosition.TOP,
+            FormPosition.BOTTOM,
+            FormPosition.CENTER,
+            FormPosition.TOP_LEFT,
+            FormPosition.TOP_RIGHT,
+            FormPosition.BOTTOM_LEFT,
+            FormPosition.BOTTOM_RIGHT
+        )
+
+        for (position in positions) {
+            val layout = FormLayout(
+                position = position,
+                width = Dimension.dp(300f),
+                height = Dimension.dp(200f)
+            )
+            assertFalse("$position should not be fullscreen", layout.isFullscreen)
+        }
+    }
+}

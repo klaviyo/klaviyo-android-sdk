@@ -151,6 +151,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         mockkStatic(WebViewCompat::class)
         every { WebViewCompat.addWebMessageListener(any(), any(), any(), any()) } just runs
+        every { WebViewCompat.removeWebMessageListener(any(), any()) } just runs
+
+        every { anyConstructed<KlaviyoWebView>().removeJavascriptInterface(any()) } just runs
     }
 
     @After
@@ -343,6 +346,28 @@ class KlaviyoWebViewClientTest : BaseTest() {
         verify { mockThreadHelper.runOnUiThread(any()) }
 
         verifyDestroy()
+    }
+
+    @Test
+    fun `destroyWebView removes WebMessageListener when supported`() {
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        client.destroyWebView()
+
+        verify { WebViewCompat.removeWebMessageListener(any(), eq("MockNativeBridge")) }
+    }
+
+    @Test
+    fun `destroyWebView removes JavascriptInterface when WebMessageListener unsupported`() {
+        every { WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) } returns false
+        every { anyConstructed<KlaviyoWebView>().addJavascriptInterface(any(), any()) } just runs
+
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        client.destroyWebView()
+
+        verify { anyConstructed<KlaviyoWebView>().removeJavascriptInterface(eq("MockNativeBridge")) }
+        verify(inverse = true) { WebViewCompat.removeWebMessageListener(any(), any()) }
     }
 
     @Test

@@ -11,10 +11,14 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient as AndroidWebViewClient
 import androidx.core.net.toUri
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
+import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.startActivityIfResolved
+import com.klaviyo.forms.bridge.DeviceInfoProvider
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
@@ -72,6 +76,9 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .replace("BRIDGE_HANDSHAKE", handshake.compileJson())
             .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
             .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
+            // Raw JSON is safe inside the single-quoted HTML attribute because JSONObject emits
+            // double-quoted strings.
+            .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
             .let { html ->
                 webView.loadTemplate(html, this, nativeBridge)
                 handshakeTimer?.cancel()
@@ -94,6 +101,11 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         handshakeTimer?.cancel()
         handshakeTimer = null
     }
+
+    /**
+     * Get the underlying WebView instance, or null if not initialized
+     */
+    override fun getWebView(): View? = webView
 
     /**
      * If the webview is not loaded in time, we cancel the handshake timer and destroy the webview
@@ -141,6 +153,18 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         webView?.let { webView ->
             Registry.threadHelper.runOnUiThread {
                 Registry.log.verbose("Clear IAF WebView reference")
+                val nativeBridge = Registry.get<NativeBridge>()
+
+                if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
+                    // Explicitly remove the listener: On some vendors' implementation of webview,
+                    // failure to remove the listener results in a memory leak.
+                    WebViewCompat.removeWebMessageListener(webView, nativeBridge.name)
+                } else {
+                    // For completeness, remove the JS interface if WEB_MESSAGE_LISTENER
+                    // is not supported, although [destroy] should clean this up internally
+                    webView.removeJavascriptInterface(nativeBridge.name)
+                }
+
                 webView.destroy()
                 this.webView = null
             }
@@ -192,6 +216,27 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             return true
         }
         return false
+    }
+
+    /**
+     * Re-publish the current [com.klaviyo.forms.bridge.DeviceInfo] snapshot to the webview's
+     * `data-klaviyo-device` head attribute. This keeps onsite-in-app in sync with orientation
+     * changes and safe-area inset updates without reloading the template.
+     */
+    override fun pushDeviceInfo() {
+        webView?.let { webView ->
+            // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
+            // decorView.rootWindowInsets). Building the snapshot off-thread would yield silently
+            // degraded payloads because DeviceInfoProvider swallows CalledFromWrongThreadException.
+            // Dispatch the entire body — snapshot, serialize, evaluate — onto the UI thread.
+            Registry.threadHelper.runOnUiThread {
+                // JSON is a subset of JS: embedding the raw JSON as a JS object expression and
+                // letting the engine stringify it avoids any JS string-literal escaping concerns.
+                val json = DeviceInfoProvider.current().toJson()
+                val script = "document.head.setAttribute('data-klaviyo-device', JSON.stringify($json))"
+                webView.evaluateJavascript(script, null)
+            }
+        }
     }
 
     /**

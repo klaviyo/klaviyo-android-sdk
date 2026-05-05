@@ -28,6 +28,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [Collecting Push Tokens](#collecting-push-tokens)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Rich Push](#rich-push)
+    - [Push Action Buttons](#push-action-buttons)
     - [Tracking Open Events](#tracking-open-events)
     - [Silent Push Notifications](#silent-push-notifications)
     - [Custom Data](#custom-data)
@@ -37,6 +38,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [Setup](#setup-1)
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Setup](#setup-2)
   - [Requesting Permissions](#requesting-permissions)
@@ -103,10 +105,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.3.2")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.3.2")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.3.2")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.3.2")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.4.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.4.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.4.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.4.0")
       }
       ```
    </details>
@@ -117,10 +119,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.3.2"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.3.2"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.3.2"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.3.2"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.4.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.4.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.4.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.4.0"
        }
       ```
    </details>
@@ -479,6 +481,11 @@ attaching it to the notification is handled within `KlaviyoPushService`. If an i
 (e.g. if the device has a poor network connection) the notification will be displayed without an image
 after the download times out.
 
+#### Push Action Buttons
+[Push Action Buttons](https://help.klaviyo.com/hc/en-us/article/46285872166683) provide the ability to add clickable buttons to
+push notification messages. These buttons can show custom text, and, when clicked, deep link or open your app.
+A notification can include up to 3 buttons. No additional SDK setup is required.
+
 #### Tracking Open Events
 To track push notification opens, you must call `Klaviyo.handlePush(intent)` when your app is launched from an intent.
 This method will check if the app was opened from a notification originating from Klaviyo and if so, create an 
@@ -695,6 +702,7 @@ See the table below to understand available features by SDK version.
 | Time Delay           | 4.0.0               |
 | Audience Targeting   | 4.0.0               |
 | Event Triggers       | 4.1.0               |
+| Form Lifecycle Hooks | 4.4.0               |
 
 ### Setup
 To begin, call `Klaviyo.registerForInAppForms()` after initializing the SDK with your public API key.
@@ -786,6 +794,76 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 </details>
 
 **Note:** After unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+### Monitoring Form Lifecycle Events
+
+> Form lifecycle events are available in SDK version 4.4.0 and higher.
+
+You can register a handler to receive callbacks whenever a form is shown, dismissed, or a CTA button is tapped.
+This is useful for forwarding engagement data to a third-party analytics platform such as Amplitude, Segment, or Mixpanel.
+
+The handler is invoked on the **main thread**, so avoid performing long-running or blocking work inside it.
+
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.forms.FormLifecycleEvent.FormCtaClicked
+   import com.klaviyo.forms.FormLifecycleEvent.FormDismissed
+   import com.klaviyo.forms.FormLifecycleEvent.FormShown
+   import com.klaviyo.forms.registerFormLifecycleHandler
+   import com.klaviyo.forms.unregisterFormLifecycleHandler
+
+   Klaviyo.registerFormLifecycleHandler { event ->
+       when (event) {
+           is FormShown -> {
+               // e.g. myAnalytics.track("Form Shown", mapOf("formId" to event.formId, "formName" to event.formName))
+           }
+           is FormDismissed -> {
+               // e.g. myAnalytics.track("Form Dismissed", mapOf("formId" to event.formId, "formName" to event.formName))
+           }
+           is FormCtaClicked -> {
+               // e.g. myAnalytics.track("Form CTA Clicked", mapOf(
+               //     "formId" to event.formId,
+               //     "formName" to event.formName,
+               //     "buttonLabel" to event.buttonLabel,
+               //     "deepLinkUrl" to event.deepLinkUrl.toString()
+               // ))
+           }
+       }
+   }
+
+   // To stop receiving events, unregister the handler
+   Klaviyo.unregisterFormLifecycleHandler()
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.klaviyo.forms.FormLifecycleEvent;
+   import com.klaviyo.forms.KlaviyoForms;
+
+   KlaviyoForms.registerFormLifecycleHandler(event -> {
+       if (event instanceof FormLifecycleEvent.FormShown shown) {
+           // e.g. myAnalytics.track("Form Shown", ...)
+       } else if (event instanceof FormLifecycleEvent.FormDismissed dismissed) {
+           // e.g. myAnalytics.track("Form Dismissed", ...)
+       } else if (event instanceof FormLifecycleEvent.FormCtaClicked ctaClicked) {
+           // e.g. myAnalytics.track("Form CTA Clicked", ...)
+       }
+   });
+
+   // To stop receiving events, unregister the handler
+   KlaviyoForms.unregisterFormLifecycleHandler();
+   ```
+</details>
+
+Registering a lifecycle handler is optional and does not affect normal form behavior — forms are displayed and dismissed
+regardless of whether a handler is registered. Only one handler can be registered at a time; calling
+`registerFormLifecycleHandler` again replaces the previous registration.
 
 ## Geofencing
 

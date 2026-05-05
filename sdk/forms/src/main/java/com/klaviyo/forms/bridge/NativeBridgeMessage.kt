@@ -28,9 +28,13 @@ internal sealed class NativeBridgeMessage {
      * Sent from the onsite-in-app-forms when a form is about to appear as a signal to present the webview
      *
      * @param formId The form ID of the form that is appearing
+     * @param formName The name of the form that is appearing
+     * @param layout The optional layout configuration for the form
      */
     data class FormWillAppear(
-        val formId: FormId?
+        val formId: FormId,
+        val formName: String,
+        val layout: FormLayout? = null
     ) : NativeBridgeMessage()
 
     /**
@@ -56,19 +60,27 @@ internal sealed class NativeBridgeMessage {
     /**
      * Sent from the onsite-in-app-forms when a deep link is opened
      *
-     * @param route The deep link route to be opened (usually a URL)
+     * @param route The deep link route to be opened (usually a URL), or null if no Android route is configured
+     * @param formId The form ID of the form that triggered the deep link
+     * @param formName The name of the form that triggered the deep link
+     * @param buttonLabel The text label of the CTA button that was clicked
      */
     data class OpenDeepLink(
-        val route: String
+        val route: String?,
+        val formId: FormId,
+        val formName: String,
+        val buttonLabel: String
     ) : NativeBridgeMessage()
 
     /**
      * Sent from the onsite-in-app-forms when a form is closed as a signal to dismiss the webview
      *
      * @param formId The form ID of the form that is disappearing
+     * @param formName The name of the form that is disappearing
      */
     data class FormDisappeared(
-        val formId: FormId?
+        val formId: FormId,
+        val formName: String
     ) : NativeBridgeMessage()
 
     /**
@@ -94,7 +106,7 @@ internal sealed class NativeBridgeMessage {
         internal val handShakeData by lazy {
             listOf(
                 HandshakeSpec(keyName<HandShook>(), 1),
-                HandshakeSpec(keyName<FormWillAppear>(), 1),
+                HandshakeSpec(keyName<FormWillAppear>(), 2),
                 HandshakeSpec(keyName<TrackAggregateEvent>(), 1),
                 HandshakeSpec(keyName<TrackProfileEvent>(), 1),
                 // Version 2 issues deep link after closing the form (v1 was before close, causing a timing issue)
@@ -119,7 +131,9 @@ internal sealed class NativeBridgeMessage {
                 keyName<HandShook>() -> HandShook
 
                 keyName<FormWillAppear>() -> FormWillAppear(
-                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() }
+                    formId = jsonData.optString("formId"),
+                    formName = jsonData.optString("formName"),
+                    layout = FormLayout.fromJson(jsonData.optJSONObject("layout"))
                 )
 
                 keyName<TrackAggregateEvent>() -> TrackAggregateEvent(
@@ -134,11 +148,15 @@ internal sealed class NativeBridgeMessage {
                 )
 
                 keyName<OpenDeepLink>() -> OpenDeepLink(
-                    route = jsonData.getDeepLink()
+                    route = jsonData.getDeepLink(),
+                    formId = jsonData.optString("formId"),
+                    formName = jsonData.optString("formName"),
+                    buttonLabel = jsonData.optString("buttonLabel")
                 )
 
                 keyName<FormDisappeared>() -> FormDisappeared(
-                    formId = jsonData.optString("formId").takeIf { it.isNotEmpty() }
+                    formId = jsonData.optString("formId"),
+                    formName = jsonData.optString("formName")
                 )
 
                 keyName<Abort>() -> Abort(
@@ -164,14 +182,9 @@ internal sealed class NativeBridgeMessage {
         }
 
         /**
-         * Parse out the android platform deep link
+         * Parse out the android platform deep link, returning null if not present or empty
          */
-        private fun JSONObject.getDeepLink(): String {
-            val routeString = optString("android")
-            if (routeString.isNullOrEmpty()) {
-                throw IllegalStateException("No android deeplink found in js payload")
-            }
-            return routeString
-        }
+        private fun JSONObject.getDeepLink(): String? =
+            optString("android").takeIf { it.isNotEmpty() }
     }
 }
