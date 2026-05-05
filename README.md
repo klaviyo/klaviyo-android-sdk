@@ -802,13 +802,7 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 You can register a handler to receive callbacks whenever a form is shown, dismissed, or a CTA button is tapped.
 This is useful for forwarding engagement data to a third-party analytics platform such as Amplitude, Segment, or Mixpanel.
 
-The handler is always invoked on the **main thread**, so avoid performing long-running or blocking work inside it.
-Two behaviors to be aware of:
-
-- **`FormCtaClicked`** only fires when the tapped CTA button has a deep link URL configured. Tapping a button
-  with no URL action does not emit this event.
-- **`FormDismissed`** only fires for user-initiated dismissals (tapping outside the form or pressing the close button).
-  It does **not** fire when the SDK tears down a form internally (session timeout, `unregisterFromInAppForms()`).
+The handler is invoked on the **main thread**, so avoid performing long-running or blocking work inside it.
 
 <details open>
    <summary>Kotlin</summary>
@@ -830,7 +824,6 @@ Two behaviors to be aware of:
                // e.g. myAnalytics.track("Form Dismissed", mapOf("formId" to event.formId, "formName" to event.formName))
            }
            is FormCtaClicked -> {
-               // Only fires when the CTA has a deep link URL configured
                // e.g. myAnalytics.track("Form CTA Clicked", mapOf(
                //     "formId" to event.formId,
                //     "formName" to event.formName,
@@ -859,7 +852,6 @@ Two behaviors to be aware of:
        } else if (event instanceof FormLifecycleEvent.FormDismissed dismissed) {
            // e.g. myAnalytics.track("Form Dismissed", ...)
        } else if (event instanceof FormLifecycleEvent.FormCtaClicked ctaClicked) {
-           // Only fires when the CTA has a deep link URL configured
            // e.g. myAnalytics.track("Form CTA Clicked", ...)
        }
    });
