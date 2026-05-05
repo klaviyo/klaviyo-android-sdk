@@ -1,0 +1,23 @@
+sdk/forms/src/main/java/com/klaviyo/forms/bridge/DeviceInfo.kt
+  e32609dbb683a875 113-115,123-125,128-129,157-170,191-193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "63d0813c3c2e1bca6d6479d9de8f077360c52fbf",
+  "prompts": {
+    "e32609dbb683a875": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6b95c3a-2fb2-4981-adbf-e8f659540368",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Evan Masseau",
+      "messages": [],
+      "total_additions": 276,
+      "total_deletions": 34,
+      "accepted_lines": 2395,
+      "overriden_lines": 0
+    }
+  }
+}
