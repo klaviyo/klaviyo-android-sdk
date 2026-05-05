@@ -38,6 +38,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [Setup](#setup-1)
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Setup](#setup-2)
   - [Requesting Permissions](#requesting-permissions)
@@ -701,6 +702,7 @@ See the table below to understand available features by SDK version.
 | Time Delay           | 4.0.0               |
 | Audience Targeting   | 4.0.0               |
 | Event Triggers       | 4.1.0               |
+| Form Lifecycle Hooks | 4.4.0               |
 
 ### Setup
 To begin, call `Klaviyo.registerForInAppForms()` after initializing the SDK with your public API key.
@@ -792,6 +794,84 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 </details>
 
 **Note:** After unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+### Monitoring Form Lifecycle Events
+
+> Form lifecycle events are available in SDK version 4.4.0 and higher.
+
+You can register a handler to receive callbacks whenever a form is shown, dismissed, or a CTA button is tapped.
+This is useful for forwarding engagement data to a third-party analytics platform such as Amplitude, Segment, or Mixpanel.
+
+The handler is always invoked on the **main thread**, so avoid performing long-running or blocking work inside it.
+Two behaviors to be aware of:
+
+- **`FormCtaClicked`** only fires when the tapped CTA button has a deep link URL configured. Tapping a button
+  with no URL action does not emit this event.
+- **`FormDismissed`** only fires for user-initiated dismissals (tapping outside the form or pressing the close button).
+  It does **not** fire when the SDK tears down a form internally (session timeout, `unregisterFromInAppForms()`).
+
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.forms.FormLifecycleEvent.FormCtaClicked
+   import com.klaviyo.forms.FormLifecycleEvent.FormDismissed
+   import com.klaviyo.forms.FormLifecycleEvent.FormShown
+   import com.klaviyo.forms.registerFormLifecycleHandler
+   import com.klaviyo.forms.unregisterFormLifecycleHandler
+
+   Klaviyo.registerFormLifecycleHandler { event ->
+       when (event) {
+           is FormShown -> {
+               // e.g. myAnalytics.track("Form Shown", mapOf("formId" to event.formId, "formName" to event.formName))
+           }
+           is FormDismissed -> {
+               // e.g. myAnalytics.track("Form Dismissed", mapOf("formId" to event.formId, "formName" to event.formName))
+           }
+           is FormCtaClicked -> {
+               // Only fires when the CTA has a deep link URL configured
+               // e.g. myAnalytics.track("Form CTA Clicked", mapOf(
+               //     "formId" to event.formId,
+               //     "formName" to event.formName,
+               //     "buttonLabel" to event.buttonLabel,
+               //     "deepLinkUrl" to event.deepLinkUrl.toString()
+               // ))
+           }
+       }
+   }
+
+   // To stop receiving events, unregister the handler
+   Klaviyo.unregisterFormLifecycleHandler()
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.klaviyo.forms.FormLifecycleEvent;
+   import com.klaviyo.forms.KlaviyoForms;
+
+   KlaviyoForms.registerFormLifecycleHandler(event -> {
+       if (event instanceof FormLifecycleEvent.FormShown shown) {
+           // e.g. myAnalytics.track("Form Shown", ...)
+       } else if (event instanceof FormLifecycleEvent.FormDismissed dismissed) {
+           // e.g. myAnalytics.track("Form Dismissed", ...)
+       } else if (event instanceof FormLifecycleEvent.FormCtaClicked ctaClicked) {
+           // Only fires when the CTA has a deep link URL configured
+           // e.g. myAnalytics.track("Form CTA Clicked", ...)
+       }
+   });
+
+   // To stop receiving events, unregister the handler
+   KlaviyoForms.unregisterFormLifecycleHandler();
+   ```
+</details>
+
+Registering a lifecycle handler is optional and does not affect normal form behavior — forms are displayed and dismissed
+regardless of whether a handler is registered. Only one handler can be registered at a time; calling
+`registerFormLifecycleHandler` again replaces the previous registration.
 
 ## Geofencing
 
