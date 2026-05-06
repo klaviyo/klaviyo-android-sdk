@@ -123,6 +123,18 @@ The Klaviyo Android SDK is organized into multiple modules, each with specific r
 
 ## Development Workflow
 
+### Branch Naming & PR Targets
+
+| Prefix | Purpose | May target `master` directly |
+|--------|---------|------------------------------|
+| `rel/*` | Release branches | Yes |
+| `ci/*` | CI/tooling changes (GitHub Actions, scripts, build config) | Yes |
+| `docs/*` | Documentation-only changes | Yes |
+| `feat/*` | New features | No — target active `rel/*` |
+| `{initials}/*` | Personal/WIP branches | No — target active `rel/*` |
+
+A required status check blocks merges to `master` from any branch not in the allowed list. The check posts a comment with retargeting instructions and applies a `needs: release branch` label. To bypass in exceptional cases, a maintainer can add the `manual-merge` label — use sparingly.
+
 ### CI/CD Pipeline
 
 The project uses GitHub Actions for CI/CD, particularly for running tests and lint checks on pull requests.
