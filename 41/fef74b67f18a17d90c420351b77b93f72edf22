@@ -1,0 +1,27 @@
+sdk/forms/src/test/java/com/klaviyo/forms/bridge/NativeBridgeMessageTest.kt
+  b545eb7d6b60b137 433-435,449-496
+sdk/push-fcm/src/test/java/com/klaviyo/pushFcm/KlaviyoRemoteMessageTest.kt
+  b545eb7d6b60b137 17-18,526-663
+sdk/push-fcm/src/test/java/com/klaviyo/pushFcm/KlaviyoNotificationTest.kt
+  b545eb7d6b60b137 15,18-19,105-110,698-810
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "41fef74b67f18a17d90c420351b77b93f72edf22",
+  "prompts": {
+    "b545eb7d6b60b137": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "728d2ac8-5c91-4349-ab08-97bf33c9e5a8",
+        "model": "claude-haiku-4-5-20251001"
+      },
+      "human_author": "Tim Morrill",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 555,
+      "overriden_lines": 0
+    }
+  }
+}
