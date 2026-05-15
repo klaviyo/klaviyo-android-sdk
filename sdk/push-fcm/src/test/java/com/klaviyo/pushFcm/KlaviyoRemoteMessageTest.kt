@@ -14,6 +14,8 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.hasKlaviyoKeyValuePairs
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.keyValuePairs
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.openAction
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -520,5 +522,143 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         assert(buttons?.get(1)?.label == "Valid 2")
         assert(buttons?.get(2)?.id == "valid3")
         assert(buttons?.get(2)?.label == "Valid 3")
+    }
+
+    @Test
+    fun `openAction returns value when open_action key is set`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            put(KlaviyoNotification.OPEN_ACTION_KEY, "open_url")
+        }
+
+        assert(msg.openAction == "open_url")
+    }
+
+    @Test
+    fun `openAction returns null when key is missing`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage
+
+        assert(msg.openAction == null)
+    }
+
+    @Test
+    fun `webUrl returns Uri when open_action is open_url and url is set`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            put(KlaviyoNotification.OPEN_ACTION_KEY, "open_url")
+            put(KlaviyoNotification.URL_KEY, "https://example.com")
+        }
+
+        val webUrl = msg.webUrl
+        assert(webUrl != null)
+        assert(webUrl.toString() == "https://example.com")
+    }
+
+    @Test
+    fun `webUrl returns null when open_action is deep_link`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            put(KlaviyoNotification.OPEN_ACTION_KEY, "deep_link")
+            put(KlaviyoNotification.URL_KEY, "myapp://home")
+        }
+
+        assert(msg.webUrl == null)
+    }
+
+    @Test
+    fun `webUrl returns null when open_action is missing`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            put(KlaviyoNotification.URL_KEY, "https://example.com")
+        }
+
+        assert(msg.webUrl == null)
+    }
+
+    @Test
+    fun `actionButtons parses open_url variant with url`() {
+        val actionButtonsData = listOf(
+            mapOf(
+                "id" to "open.url",
+                "label" to "Open Website",
+                "action" to "open_url",
+                "url" to "https://example.com"
+            )
+        )
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, JSONArray(actionButtonsData).toString())
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        val buttons = msg.actionButtons
+        assert(buttons != null)
+        assert(buttons?.size == 1)
+
+        val button = buttons?.get(0)
+        assert(button is ActionButton.OpenUrl)
+        assert(button?.id == "open.url")
+        assert(button?.label == "Open Website")
+        assert((button as? ActionButton.OpenUrl)?.url == "https://example.com")
+    }
+
+    @Test
+    fun `actionButtons skips open_url with missing url`() {
+        val actionButtonsData = listOf(
+            mapOf(
+                "id" to "open.url",
+                "label" to "Open Website",
+                "action" to "open_url"
+            )
+        )
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, JSONArray(actionButtonsData).toString())
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        assert(msg.actionButtons == null)
+    }
+
+    @Test
+    fun `actionButtons skips open_url with blank url`() {
+        val actionButtonsJson = JSONArray().put(
+            JSONObject()
+                .put("id", "open.url")
+                .put("label", "Open Website")
+                .put("action", "open_url")
+                .put("url", JSONObject.NULL)
+        ).toString()
+
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, actionButtonsJson)
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        assert(msg.actionButtons == null)
+    }
+
+    @Test
+    fun `appendActionButtonExtras for OpenUrl includes link and display name`() {
+        val intent = mockk<Intent>(relaxed = true)
+        val button = ActionButton.OpenUrl(
+            id = "open.url",
+            label = "Open Website",
+            url = "https://example.com"
+        )
+
+        every { intent.putExtra(any<String>(), any<String>()) } returns intent
+
+        intent.appendActionButtonExtras(button)
+
+        verify { intent.putExtra("com.klaviyo.Button ID", "open.url") }
+        verify { intent.putExtra("com.klaviyo.Button Label", "Open Website") }
+        verify { intent.putExtra("com.klaviyo.Button Action", "Open URL") }
+        verify { intent.putExtra("com.klaviyo.Button Link", "https://example.com") }
     }
 }
