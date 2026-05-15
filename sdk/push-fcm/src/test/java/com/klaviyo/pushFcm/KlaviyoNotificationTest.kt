@@ -724,7 +724,7 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
-    fun `open_url tap with missing webUrl falls back to launch intent`() {
+    fun `open_url tap with missing webUrl falls back to launch intent with CLEAR_TOP`() {
         val mockLaunchIntent = mockk<Intent>(relaxed = true)
         val intentSlot = slot<Intent>()
 
@@ -744,6 +744,7 @@ class KlaviyoNotificationTest : BaseTest() {
 
         verify { DeepLinking.makeLaunchIntent(mockContext) }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
+        verify { mockLaunchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP) }
         assertEquals(mockLaunchIntent, intentSlot.captured)
     }
 

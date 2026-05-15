@@ -254,6 +254,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             }
             Registry.log.warning("Push message has open_url action but missing url")
             return DeepLinking.makeLaunchIntent(context)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 appendKlaviyoExtras(message)
             }
         }
