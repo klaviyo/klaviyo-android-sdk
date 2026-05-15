@@ -18,6 +18,8 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.openAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.json.JSONArray
 import org.json.JSONObject
@@ -544,6 +546,10 @@ class KlaviyoRemoteMessageTest : BaseTest() {
 
     @Test
     fun `webUrl returns Uri when open_action is open_url and url is set`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("https://example.com") } returns mockUri
+
         val msg = mockk<RemoteMessage>()
         every { msg.data } returns stubMessage.toMutableMap().apply {
             put(KlaviyoNotification.OPEN_ACTION_KEY, "open_url")
@@ -552,7 +558,9 @@ class KlaviyoRemoteMessageTest : BaseTest() {
 
         val webUrl = msg.webUrl
         assert(webUrl != null)
-        assert(webUrl.toString() == "https://example.com")
+        verify { android.net.Uri.parse("https://example.com") }
+
+        unmockkStatic(android.net.Uri::class)
     }
 
     @Test
