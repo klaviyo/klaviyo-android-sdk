@@ -1,0 +1,31 @@
+sdk/push-fcm/src/main/java/com/klaviyo/pushFcm/KlaviyoNotification.kt
+  b545eb7d6b60b137 78-79,242-245,247-271,305,310,341-343
+sdk/forms/src/main/java/com/klaviyo/forms/bridge/NativeBridgeMessage.kt
+  b545eb7d6b60b137 76-89,129,173-174,176-185
+sdk/forms/src/main/java/com/klaviyo/forms/bridge/KlaviyoNativeBridge.kt
+  b545eb7d6b60b137 22,77,160-168
+sdk/analytics/src/main/java/com/klaviyo/analytics/linking/DeepLinking.kt
+  b545eb7d6b60b137 120-146
+sdk/push-fcm/src/main/java/com/klaviyo/pushFcm/KlaviyoRemoteMessage.kt
+  b545eb7d6b60b137 66,70-73,136-151,280-293,345-353,360,367
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "07c1fb7f151d6033fffdb5281f64260d659341d8",
+  "prompts": {
+    "b545eb7d6b60b137": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "728d2ac8-5c91-4349-ab08-97bf33c9e5a8",
+        "model": "claude-haiku-4-5-20251001"
+      },
+      "human_author": "Tim Morrill",
+      "messages": [],
+      "total_additions": 688,
+      "total_deletions": 20,
+      "accepted_lines": 688,
+      "overriden_lines": 1
+    }
+  }
+}
