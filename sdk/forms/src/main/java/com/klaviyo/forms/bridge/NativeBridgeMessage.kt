@@ -73,6 +73,21 @@ internal sealed class NativeBridgeMessage {
     ) : NativeBridgeMessage()
 
     /**
+     * Sent from the onsite-in-app-forms when a button action opens an external URL in the browser
+     *
+     * @param url The web URL to open in the default browser
+     * @param formId The form ID of the form that triggered the action
+     * @param formName The name of the form that triggered the action
+     * @param buttonLabel The text label of the CTA button that was clicked
+     */
+    data class OpenExternalUrl(
+        val url: String,
+        val formId: FormId,
+        val formName: String,
+        val buttonLabel: String
+    ) : NativeBridgeMessage()
+
+    /**
      * Sent from the onsite-in-app-forms when a form is closed as a signal to dismiss the webview
      *
      * @param formId The form ID of the form that is disappearing
@@ -111,6 +126,7 @@ internal sealed class NativeBridgeMessage {
                 HandshakeSpec(keyName<TrackProfileEvent>(), 1),
                 // Version 2 issues deep link after closing the form (v1 was before close, causing a timing issue)
                 HandshakeSpec(keyName<OpenDeepLink>(), 2),
+                HandshakeSpec(keyName<OpenExternalUrl>(), 1),
                 HandshakeSpec(keyName<FormDisappeared>(), 1),
                 HandshakeSpec(keyName<Abort>(), 1)
             )
@@ -149,6 +165,19 @@ internal sealed class NativeBridgeMessage {
 
                 keyName<OpenDeepLink>() -> OpenDeepLink(
                     route = jsonData.getDeepLink(),
+                    formId = jsonData.optString("formId"),
+                    formName = jsonData.optString("formName"),
+                    buttonLabel = jsonData.optString("buttonLabel")
+                )
+
+                keyName<OpenExternalUrl>() -> OpenExternalUrl(
+                    url = jsonData.getString("url").also {
+                        if (it.isEmpty()) {
+                            throw IllegalStateException(
+                                "openExternalUrl message missing url"
+                            )
+                        }
+                    },
                     formId = jsonData.optString("formId"),
                     formName = jsonData.optString("formName"),
                     buttonLabel = jsonData.optString("buttonLabel")

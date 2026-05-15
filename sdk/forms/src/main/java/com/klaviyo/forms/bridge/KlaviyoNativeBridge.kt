@@ -19,6 +19,7 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear
 import com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook
 import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
 import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
+import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenExternalUrl
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
 import com.klaviyo.forms.presentation.PresentationManager
@@ -73,6 +74,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 is TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
                 is TrackProfileEvent -> createProfileEvent(bridgeMessage)
                 is OpenDeepLink -> deepLink(bridgeMessage)
+                is OpenExternalUrl -> openExternalUrl(bridgeMessage)
                 is FormDisappeared -> close(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
             }
@@ -154,6 +156,15 @@ internal class KlaviyoNativeBridge : NativeBridge {
             )
         )
     }
+
+    /**
+     * Handle an [OpenExternalUrl] message by opening the URL in the default browser.
+     *
+     * Uses the same lifecycle monitor pattern as deep links to avoid race conditions
+     * when the form overlay activity is still active.
+     */
+    private fun openExternalUrl(message: OpenExternalUrl) =
+        DeepLinking.sendBrowserIntent(message.url.toUri())
 
     /**
      * Instruct presentation manager to dismiss the form overlay activity.
