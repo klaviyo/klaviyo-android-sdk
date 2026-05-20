@@ -248,7 +248,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         if (message.openAction == OPEN_ACTION_OPEN_URL) {
             val webUrl = message.webUrl
             if (webUrl != null) {
-                return DeepLinking.makeBrowserIntent(webUrl).apply {
+                // Route through the trampoline so handlePush tracks $opened_push
+                // and dismisses the notification — the browser would otherwise swallow the intent.
+                return KlaviyoBrowserTrampolineActivity.makeIntent(context, webUrl.toString()).apply {
                     appendKlaviyoExtras(message)
                 }
             }
@@ -340,7 +342,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 DeepLinking.makeLaunchIntent(context)
             }
             is ActionButton.OpenUrl -> {
-                DeepLinking.makeBrowserIntent(button.url.toUri())
+                // Route through the trampoline so handlePush tracks $opened_push
+                // and dismisses the notification — the browser would otherwise swallow the intent.
+                KlaviyoBrowserTrampolineActivity.makeIntent(context, button.url)
             }
         }?.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

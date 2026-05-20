@@ -697,10 +697,9 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
-    fun `open_url tap builds browser intent without setPackage`() {
+    fun `open_url tap routes through trampoline activity with browser URL extra`() {
         val mockWebUri = mockk<Uri>(relaxed = true)
-        val mockBrowserIntent = mockk<Intent>(relaxed = true)
-        val intentSlot = slot<Intent>()
+        every { mockWebUri.toString() } returns "https://example.com"
 
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.openAction } returns KlaviyoNotification.OPEN_ACTION_OPEN_URL
@@ -708,19 +707,19 @@ class KlaviyoNotificationTest : BaseTest() {
             every { mockRemoteMessage.deepLink } returns null
         }
 
-        every { DeepLinking.makeBrowserIntent(mockWebUri) } returns mockBrowserIntent
-        every { mockBrowserIntent.putExtra(any<String>(), any<String>()) } returns mockBrowserIntent
-
         every {
-            PendingIntent.getActivity(any(), any(), capture(intentSlot), any())
+            PendingIntent.getActivity(any(), any(), any(), any())
         } returns mockk(relaxed = true)
 
         notification.displayNotification(mockContext)
 
-        verify { DeepLinking.makeBrowserIntent(mockWebUri) }
+        // Intent should target the trampoline with the URL as an extra, not the browser directly
+        verify {
+            anyConstructed<Intent>().putExtra("com.klaviyo.browser_url", "https://example.com")
+        }
+        verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
         verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any()) }
         verify(exactly = 0) { DeepLinking.makeLaunchIntent(any()) }
-        assertEquals(mockBrowserIntent, intentSlot.captured)
     }
 
     @Test
@@ -749,10 +748,7 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
-    fun `open_url action button uses browser intent`() {
-        val mockBrowserIntent = mockk<Intent>(relaxed = true)
-        val intents = mutableListOf<Intent>()
-
+    fun `open_url action button routes through trampoline activity with browser URL extra`() {
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.actionButtons } returns listOf(
                 ActionButton.OpenUrl(
@@ -762,42 +758,6 @@ class KlaviyoNotificationTest : BaseTest() {
                 )
             )
         }
-
-        every { DeepLinking.makeBrowserIntent(any()) } returns mockBrowserIntent
-        every { mockBrowserIntent.putExtra(any<String>(), any<String>()) } returns mockBrowserIntent
-        every { mockBrowserIntent.addFlags(any()) } returns mockBrowserIntent
-
-        every {
-            PendingIntent.getActivity(any(), any(), any(), any())
-        } answers {
-            intents.add(invocation.args[2] as Intent)
-            mockk(relaxed = true)
-        }
-
-        notification.displayNotification(mockContext)
-
-        val buttonIntent = intents.last()
-        verify { DeepLinking.makeBrowserIntent(any()) }
-        assertEquals(mockBrowserIntent, buttonIntent)
-    }
-
-    @Test
-    fun `open_url action button intent includes tracking extras`() {
-        val mockBrowserIntent = spyk<Intent>()
-
-        with(KlaviyoRemoteMessage) {
-            every { mockRemoteMessage.actionButtons } returns listOf(
-                ActionButton.OpenUrl(
-                    id = "open-url",
-                    label = "Open Website",
-                    url = "https://example.com"
-                )
-            )
-        }
-
-        every { DeepLinking.makeBrowserIntent(any()) } returns mockBrowserIntent
-        every { mockBrowserIntent.putExtra(any<String>(), any<String>()) } returns mockBrowserIntent
-        every { mockBrowserIntent.addFlags(any()) } returns mockBrowserIntent
 
         every {
             PendingIntent.getActivity(any(), any(), any(), any())
@@ -805,8 +765,32 @@ class KlaviyoNotificationTest : BaseTest() {
 
         notification.displayNotification(mockContext)
 
-        verify { mockBrowserIntent.putExtra("com.klaviyo.Button Label", "Open Website") }
-        verify { mockBrowserIntent.putExtra("com.klaviyo.Button Action", "Open URL") }
-        verify { mockBrowserIntent.putExtra("com.klaviyo.Button Link", "https://example.com") }
+        verify {
+            anyConstructed<Intent>().putExtra("com.klaviyo.browser_url", "https://example.com")
+        }
+        verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
+    }
+
+    @Test
+    fun `open_url action button intent includes tracking extras`() {
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.OpenUrl(
+                    id = "open-url",
+                    label = "Open Website",
+                    url = "https://example.com"
+                )
+            )
+        }
+
+        every {
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        verify { anyConstructed<Intent>().putExtra("com.klaviyo.Button Label", "Open Website") }
+        verify { anyConstructed<Intent>().putExtra("com.klaviyo.Button Action", "Open URL") }
+        verify { anyConstructed<Intent>().putExtra("com.klaviyo.Button Link", "https://example.com") }
     }
 }
