@@ -161,10 +161,31 @@ internal class KlaviyoNativeBridge : NativeBridge {
      * Handle an [OpenExternalUrl] message by opening the URL in the default browser.
      *
      * Uses the same lifecycle monitor pattern as deep links to avoid race conditions
-     * when the form overlay activity is still active.
+     * when the form overlay activity is still active. Fires a
+     * [FormLifecycleEvent.FormCtaExternalUrlClicked] callback after dispatching the
+     * browser intent so host apps subscribed to [FormLifecycleHandler] are notified.
      */
-    private fun openExternalUrl(message: OpenExternalUrl) =
-        DeepLinking.sendBrowserIntent(message.url.toUri())
+    private fun openExternalUrl(message: OpenExternalUrl) {
+        val externalUri = message.url.toUri()
+
+        DeepLinking.sendBrowserIntent(externalUri)
+
+        if (message.formId.isEmpty() || message.formName.isEmpty()) {
+            Registry.log.warning(
+                "OpenExternalUrl missing required fields, skipping lifecycle callback"
+            )
+            return
+        }
+
+        invokeFormLifecycleHandler(
+            FormLifecycleEvent.FormCtaExternalUrlClicked(
+                formId = message.formId,
+                formName = message.formName,
+                buttonLabel = message.buttonLabel,
+                externalUrl = externalUri
+            )
+        )
+    }
 
     /**
      * Instruct presentation manager to dismiss the form overlay activity.

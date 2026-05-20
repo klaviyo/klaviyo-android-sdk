@@ -470,4 +470,70 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         verify { spyLog.warning(any(), null) }
     }
+
+    private val openExternalUrlMessage = """
+        {
+          "type": "openExternalUrl",
+          "data": {
+            "url": "https://example.com",
+            "formId": "64CjgW",
+            "formName": "Test Form",
+            "buttonLabel": "Visit Site"
+          }
+        }
+    """.trimIndent()
+
+    @Test
+    fun `openExternalUrl dispatches browser intent and fires lifecycle callback`() {
+        mockkObject(DeepLinking)
+        every { DeepLinking.sendBrowserIntent(any()) } returns Unit
+
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleHandler { event -> events.add(event) }
+        Registry.register<FormLifecycleHandler>(callback)
+
+        postMessage(openExternalUrlMessage)
+
+        verify { DeepLinking.sendBrowserIntent(mockUri) }
+        verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
+        assertEquals(1, events.size)
+        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaExternalUrlClicked
+        assertEquals("64CjgW", ctaEvent.formId)
+        assertEquals("Test Form", ctaEvent.formName)
+        assertEquals("Visit Site", ctaEvent.buttonLabel)
+        assertEquals(mockUri, ctaEvent.externalUrl)
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `openExternalUrl with missing formId still navigates but skips lifecycle callback`() {
+        val message = """{"type":"openExternalUrl","data":{"url":"https://example.com","formName":"Test Form","buttonLabel":"Visit"}}"""
+
+        mockkObject(DeepLinking)
+        every { DeepLinking.sendBrowserIntent(any()) } returns Unit
+
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+        postMessage(message)
+
+        verify { DeepLinking.sendBrowserIntent(mockUri) }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify { spyLog.warning(any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `openExternalUrl with missing url throws and logs error`() {
+        val message = """{"type":"openExternalUrl","data":{"formId":"x","formName":"y","buttonLabel":"z"}}"""
+
+        mockkObject(DeepLinking)
+
+        postMessage(message)
+
+        verify(exactly = 0) { DeepLinking.sendBrowserIntent(any()) }
+        verify { spyLog.error(any(), any<Exception>()) }
+    }
 }

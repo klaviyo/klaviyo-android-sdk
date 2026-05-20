@@ -60,4 +60,22 @@ sealed interface FormLifecycleEvent {
         val buttonLabel: String,
         val deepLinkUrl: Uri
     ) : FormLifecycleEvent
+
+    /**
+     * Triggered when a user taps a call-to-action (CTA) button in a form
+     * that opens an external web URL in the default browser.
+     *
+     * Fired after the SDK has dispatched the browser intent. Distinct from
+     * [FormCtaClicked] because the host app loses focus to the browser, which
+     * typically warrants different telemetry and UI handling.
+     *
+     * @property buttonLabel The text label of the CTA button.
+     * @property externalUrl The web URL opened in the default browser.
+     */
+    data class FormCtaExternalUrlClicked(
+        override val formId: String,
+        override val formName: String,
+        val buttonLabel: String,
+        val externalUrl: Uri
+    ) : FormLifecycleEvent
 }
