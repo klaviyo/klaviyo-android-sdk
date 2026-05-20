@@ -6,6 +6,9 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
+import com.klaviyo.analytics.auth.AuthTokenManager
+import com.klaviyo.analytics.auth.AuthTokenProvider
+import com.klaviyo.analytics.auth.KlaviyoAuthTokenManager
 import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
@@ -28,6 +31,7 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.JSONUtil.toHashMap
 import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
@@ -103,6 +107,8 @@ object Klaviyo {
             }
         }
 
+        Registry.registerOnce<AuthTokenManager> { KlaviyoAuthTokenManager() }
+
         Registry.get<ApiClient>().startService()
 
         Registry.get<State>().apiKey = apiKey
@@ -139,6 +145,21 @@ object Klaviyo {
     @JvmStatic
     fun unregisterDeepLinkHandler() = safeApply {
         Registry.unregister<DeepLinkHandler>()
+    }
+
+    /**
+     * Register an [AuthTokenProvider] that supplies JWTs to authenticate personalized Klaviyo
+     * features (such as in-app forms that target a known profile).
+     *
+     * Re-registering replaces the previously registered provider and discards any cached token.
+     * The SDK will invoke [AuthTokenProvider.fetchToken] whenever a fresh token is needed; the
+     * host MUST invoke exactly one of [AuthTokenProvider.Callback.onSuccess] or
+     * [AuthTokenProvider.Callback.onFailure] per call.
+     */
+    @JvmStatic
+    fun registerAuthTokenProvider(provider: AuthTokenProvider) = safeApply {
+        val manager = Registry.get<AuthTokenManager>()
+        manager.coroutineScope.safeLaunch { manager.registerProvider(provider) }
     }
 
     /**

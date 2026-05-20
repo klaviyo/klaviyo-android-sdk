@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 
+import com.klaviyo.analytics.auth.AuthTokenProvider;
 import com.klaviyo.analytics.linking.DeepLinkHandler;
 import com.klaviyo.analytics.model.Event;
 import com.klaviyo.analytics.model.EventKey;
@@ -307,6 +308,19 @@ public class KlaviyoJavaApiTest {
         assertEquals(Klaviyo.INSTANCE, result2);
 
         KlaviyoMock.verifyUnregisterDeepLinkHandlerCalled(2);
+    }
+
+    @Test
+    public void testRegisterAuthTokenProvider() {
+        AuthTokenProvider provider = callback -> callback.onSuccess("eyJ.eyJ.sig");
+
+        Klaviyo result1 = Klaviyo.INSTANCE.registerAuthTokenProvider(provider);
+        assertEquals(Klaviyo.INSTANCE, result1);
+
+        Klaviyo result2 = Klaviyo.registerAuthTokenProvider(provider);
+        assertEquals(Klaviyo.INSTANCE, result2);
+
+        KlaviyoMock.verifyRegisterAuthTokenProviderCalled(2);
     }
 
     @Test
