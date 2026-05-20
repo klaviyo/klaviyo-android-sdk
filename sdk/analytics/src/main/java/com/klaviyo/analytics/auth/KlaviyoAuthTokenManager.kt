@@ -84,8 +84,9 @@ internal class KlaviyoAuthTokenManager : AuthTokenManager {
             is JWTValidationResult.Valid -> result.token
             else -> {
                 val reason = result::class.simpleName ?: "Unknown"
-                Registry.log.error("Auth token validation failed: $reason")
-                throw IllegalStateException("Auth token validation failed: $reason")
+                val error = IllegalStateException("Auth token validation failed: $reason")
+                Registry.log.error("Auth token validation failed: $reason", error)
+                throw error
             }
         }
 

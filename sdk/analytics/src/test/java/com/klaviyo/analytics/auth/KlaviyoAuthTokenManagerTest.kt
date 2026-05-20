@@ -128,7 +128,12 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
             )
         }
 
-        verify { spyLog.error(match { it.startsWith("Auth token validation failed:") }) }
+        verify {
+            spyLog.error(
+                match { it.startsWith("Auth token validation failed:") },
+                match { it is IllegalStateException }
+            )
+        }
     }
 
     @Test
