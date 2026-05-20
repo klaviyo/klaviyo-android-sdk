@@ -151,6 +151,15 @@ class JWTParserTest : BaseTest() {
     }
 
     @Test
+    fun iatAsString() {
+        val token = makeJwt(mapOf("exp" to EXP_SECONDS.toDouble(), "iat" to "not-a-number"))
+
+        val result = JWTParser.parseAndValidate(token, nowEpochSeconds = NOW_SECONDS)
+
+        assertEquals(JWTValidationResult.MalformedJson, result)
+    }
+
+    @Test
     fun emptyPayloadSegment() {
         val header = base64UrlEncode(JSONObject(mapOf("alg" to "HS256")).toString().toByteArray())
         val token = "$header..$header"
@@ -320,14 +329,44 @@ class JWTParserTest : BaseTest() {
     }
 
     @Test
-    fun failurePathsDoNotLogTokenContents() {
-        val token = makeJwt(mapOf("iat" to IAT_SECONDS.toDouble()))
+    fun failureLogsDoNotContainRawToken() {
+        // Exercise every failure path and verify that no captured warning message
+        // contains the raw JWT. Belt-and-suspenders for the "token contents NEVER
+        // passed to the logger" requirement — code review alone is insufficient.
+        val expiredHeader = base64UrlEncode(
+            JSONObject(mapOf("alg" to "HS256")).toString().toByteArray()
+        )
+        val tokens = listOf(
+            makeJwt(mapOf("iat" to IAT_SECONDS.toDouble())), // MissingExpClaim
+            makeJwt(mapOf("exp" to EXP_SECONDS.toDouble())), // MissingIatClaim
+            makeJwt(mapOf("exp" to "not-a-number", "iat" to IAT_SECONDS.toDouble())), // exp non-numeric
+            makeJwt(mapOf("exp" to EXP_SECONDS.toDouble(), "iat" to "not-a-number")), // iat non-numeric
+            "$expiredHeader.****.signature", // MalformedBase64
+            "$expiredHeader.${base64UrlEncode("not-json".toByteArray())}.signature", // MalformedJson
+            makeJwt(mapOf("exp" to NOW_SECONDS.toDouble() - 1, "iat" to IAT_SECONDS.toDouble())) // ExpiredOnReceipt
+        )
 
-        val result = JWTParser.parseAndValidate(token, nowEpochSeconds = NOW_SECONDS)
+        tokens.forEach { token ->
+            JWTParser.parseAndValidate(token, nowEpochSeconds = NOW_SECONDS)
+        }
 
-        assertEquals(JWTValidationResult.MissingExpClaim, result)
-        // Verify that spyLog was called with a warning
-        verify { spyLog.warning(any(), any()) }
+        val messages = mutableListOf<String>()
+        verify { spyLog.warning(capture(messages), any()) }
+
+        // Sanity: at least one warning per failure path.
+        assertTrue(
+            "Expected at least one warning per failure path",
+            messages.size >= tokens.size
+        )
+        // The actual guarantee: no captured message contains any raw token.
+        tokens.forEach { token ->
+            messages.forEach { msg ->
+                assertFalse(
+                    "Log message must not contain raw JWT. Message: '$msg'",
+                    msg.contains(token)
+                )
+            }
+        }
     }
 
     // MARK: - Fixtures
