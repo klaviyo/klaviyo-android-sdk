@@ -6,6 +6,7 @@ import android.widget.Toast
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.FormLifecycleEvent.FormCtaClicked
+import com.klaviyo.forms.FormLifecycleEvent.FormCtaExternalUrlClicked
 import com.klaviyo.forms.FormLifecycleEvent.FormDismissed
 import com.klaviyo.forms.FormLifecycleEvent.FormShown
 import com.klaviyo.forms.registerForInAppForms
@@ -44,6 +45,11 @@ class SampleApplication : Application() {
                     is FormCtaClicked -> {
                         Registry.log.debug(
                             "Form Lifecycle: CTA ${event.buttonLabel} -> ${event.deepLinkUrl} from ${event.formName} (${event.formId})"
+                        )
+                    }
+                    is FormCtaExternalUrlClicked -> {
+                        Registry.log.debug(
+                            "Form Lifecycle: External CTA ${event.buttonLabel} -> ${event.externalUrl} from ${event.formName} (${event.formId})"
                         )
                     }
                 }
