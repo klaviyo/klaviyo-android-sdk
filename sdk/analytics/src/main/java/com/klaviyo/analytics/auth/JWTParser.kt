@@ -37,7 +37,7 @@ internal object JWTParser {
             return JWTValidationResult.MissingExpClaim
         }
         if (expRaw.isNaN()) {
-            Registry.log.warning("JWT validation failed: malformed JSON payload")
+            Registry.log.warning("JWT validation failed: exp claim non-numeric")
             return JWTValidationResult.MalformedJson
         }
 
@@ -47,7 +47,7 @@ internal object JWTParser {
             return JWTValidationResult.MissingIatClaim
         }
         if (iatRaw.isNaN()) {
-            Registry.log.warning("JWT validation failed: malformed JSON payload")
+            Registry.log.warning("JWT validation failed: iat claim non-numeric")
             return JWTValidationResult.MalformedJson
         }
 
