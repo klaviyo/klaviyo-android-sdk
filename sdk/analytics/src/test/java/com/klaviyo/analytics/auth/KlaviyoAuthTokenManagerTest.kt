@@ -3,7 +3,9 @@ package com.klaviyo.analytics.auth
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.verify
 import java.util.Base64
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -93,6 +95,22 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
             "registerProvider should have eagerly invoked the provider",
             provider.callCount >= 1
         )
+    }
+
+    @Test
+    fun `registerProvider cancellation during eager fetch does not log warning`() = runTest {
+        val provider = DeferredProvider()
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent()
+        manager.coroutineScope.cancel(CancellationException("teardown"))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+        verify(exactly = 0) {
+            spyLog.warning("Eager auth token fetch failed", any<Throwable?>())
+        }
     }
 
     @Test
@@ -188,6 +206,15 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     private class FailureProvider(private val error: Throwable) : AuthTokenProvider {
         override fun fetchToken(callback: AuthTokenProvider.Callback) {
             callback.onFailure(error)
+        }
+    }
+
+    private class DeferredProvider : AuthTokenProvider {
+        var callCount: Int = 0
+            private set
+
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callCount++
         }
     }
 

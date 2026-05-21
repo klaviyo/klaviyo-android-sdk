@@ -4,6 +4,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.safeLaunch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
@@ -43,8 +44,14 @@ internal class KlaviyoAuthTokenManager : AuthTokenManager {
         Registry.log.info("AuthTokenProvider registered")
 
         coroutineScope.safeLaunch {
-            runCatching { currentToken() }
-                .onFailure { Registry.log.warning("Eager auth token fetch failed", it) }
+            try {
+                currentToken()
+            } catch (e: CancellationException) {
+                // Preserve structured concurrency by rethrowing cancellation.
+                throw e
+            } catch (e: Exception) {
+                Registry.log.warning("Eager auth token fetch failed", e)
+            }
         }
     }
 
