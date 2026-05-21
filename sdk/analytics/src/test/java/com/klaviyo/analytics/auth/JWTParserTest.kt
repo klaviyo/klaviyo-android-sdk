@@ -351,7 +351,7 @@ class JWTParserTest : BaseTest() {
         }
 
         val messages = mutableListOf<String>()
-        verify { spyLog.warning(capture(messages), null) }
+        verify { spyLog.warning(capture(messages), any()) }
 
         // Sanity: at least one warning per failure path.
         assertTrue(
