@@ -20,8 +20,8 @@ class JWTParserTest : BaseTest() {
     // MARK: - Happy path
 
     @Test
-    fun defaultLeewayIs15Seconds() {
-        assertEquals(15L, JWTParser.DEFAULT_LEEWAY_SECONDS)
+    fun defaultLeewayIs30Seconds() {
+        assertEquals(30L, JWTParser.DEFAULT_LEEWAY_SECONDS)
     }
 
     @Test
