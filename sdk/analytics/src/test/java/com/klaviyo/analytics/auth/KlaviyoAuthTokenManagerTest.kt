@@ -109,7 +109,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
 
         assertEquals(1, provider.callCount)
         verify(exactly = 0) {
-            spyLog.warning("Eager auth token fetch failed", any<Throwable?>())
+            spyLog.warning("Eager auth token fetch failed", any<Throwable>())
         }
     }
 
