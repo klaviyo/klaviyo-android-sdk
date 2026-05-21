@@ -6,7 +6,7 @@ import org.json.JSONException
 import org.json.JSONObject
 
 internal object JWTParser {
-    const val DEFAULT_LEEWAY_SECONDS: Long = 15L
+    const val DEFAULT_LEEWAY_SECONDS: Long = 30L
 
     fun parseAndValidate(
         token: String,
