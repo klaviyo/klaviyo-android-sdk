@@ -36,9 +36,11 @@ import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import java.io.ByteArrayInputStream
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -286,6 +288,34 @@ class KlaviyoWebViewClientTest : BaseTest() {
             htmlSlot.captured.contains("data-klaviyo-jwt=''")
         )
         verify { spyLog.info("Auth token unavailable at load — proceeding without token") }
+    }
+
+    @Test
+    fun `initializeWebView skips stale load when webview is destroyed before auth token resolves`() = runTest {
+        val pendingToken = CompletableDeferred<String?>()
+        every { mockAuthTokenManager.coroutineScope } returns this
+        coEvery { mockAuthTokenManager.currentToken() } coAnswers { pendingToken.await() }
+
+        val uiTasks = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers {
+            uiTasks.add(firstArg())
+        }
+
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        client.destroyWebView()
+
+        pendingToken.complete(null)
+        advanceUntilIdle()
+
+        assertEquals(2, uiTasks.size)
+        uiTasks[0].invoke()
+        uiTasks[1].invoke()
+
+        verify { anyConstructed<KlaviyoWebView>().destroy() }
+        verify(inverse = true) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+        verify { spyLog.debug("Skipping IAF template load on stale WebView reference") }
+        assertEquals(0, staticClock.scheduledTasks.size)
     }
 
     @Test
