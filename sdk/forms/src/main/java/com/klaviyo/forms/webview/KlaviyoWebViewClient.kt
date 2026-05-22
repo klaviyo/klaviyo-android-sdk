@@ -91,6 +91,11 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             }
 
             Registry.threadHelper.runOnUiThread {
+                if (this@KlaviyoWebViewClient.webView !== webView) {
+                    Registry.log.debug("Skipping IAF template load on stale WebView reference")
+                    return@runOnUiThread
+                }
+
                 Registry.config.applicationContext.assets
                     .open("InAppFormsTemplate.html")
                     .bufferedReader()
