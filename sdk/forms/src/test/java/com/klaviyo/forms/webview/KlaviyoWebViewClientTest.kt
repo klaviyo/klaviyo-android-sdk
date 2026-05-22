@@ -39,6 +39,7 @@ import java.io.ByteArrayInputStream
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -292,7 +293,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `initializeWebView skips stale load when webview is destroyed before auth token resolves`() = runTest {
-        val pendingToken = CompletableDeferred<String?>()
+        val pendingToken = CompletableDeferred<String>()
         every { mockAuthTokenManager.coroutineScope } returns this
         coEvery { mockAuthTokenManager.currentToken() } coAnswers { pendingToken.await() }
 
@@ -305,7 +306,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         client.initializeWebView()
         client.destroyWebView()
 
-        pendingToken.complete(null)
+        pendingToken.complete("delayed-token")
         advanceUntilIdle()
 
         assertEquals(2, uiTasks.size)
