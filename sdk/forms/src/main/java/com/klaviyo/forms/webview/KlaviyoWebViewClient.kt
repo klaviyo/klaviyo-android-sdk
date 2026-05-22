@@ -14,8 +14,10 @@ import androidx.core.net.toUri
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
+import com.klaviyo.analytics.auth.AuthTokenManager
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.bridge.DeviceInfoProvider
@@ -27,6 +29,7 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
+import kotlinx.coroutines.CancellationException
 
 /**
  * Manages the [KlaviyoWebView] instance that powers In-App Forms behavior, triggering, rendering and display,
@@ -66,27 +69,48 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .appendAssetSource()
             .build()
 
-        Registry.config.applicationContext.assets
-            .open("InAppFormsTemplate.html")
-            .bufferedReader()
-            .use(BufferedReader::readText)
-            .replace("SDK_NAME", Registry.config.sdkName)
-            .replace("SDK_VERSION", Registry.config.sdkVersion)
-            .replace("BRIDGE_NAME", nativeBridge.name)
-            .replace("BRIDGE_HANDSHAKE", handshake.compileJson())
-            .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
-            .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
-            // Raw JSON is safe inside the single-quoted HTML attribute because JSONObject emits
-            // double-quoted strings.
-            .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
-            .let { html ->
-                webView.loadTemplate(html, this, nativeBridge)
-                handshakeTimer?.cancel()
-                handshakeTimer = Registry.clock.schedule(
-                    Registry.config.networkTimeout.toLong(),
-                    ::onJsHandshakeTimeout
-                )
+        val authTokenManager = Registry.get<AuthTokenManager>()
+        authTokenManager.coroutineScope.safeLaunch {
+            val authToken: String? = try {
+                authTokenManager.currentToken()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
             }
+
+            if (authToken != null) {
+                Registry.log.info("Auth token injected at load")
+            } else {
+                Registry.log.info("Auth token unavailable at load — proceeding without token")
+            }
+
+            Registry.threadHelper.runOnUiThread {
+                Registry.config.applicationContext.assets
+                    .open("InAppFormsTemplate.html")
+                    .bufferedReader()
+                    .use(BufferedReader::readText)
+                    .replace("SDK_NAME", Registry.config.sdkName)
+                    .replace("SDK_VERSION", Registry.config.sdkVersion)
+                    .replace("BRIDGE_NAME", nativeBridge.name)
+                    .replace("BRIDGE_HANDSHAKE", handshake.compileJson())
+                    .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
+                    .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
+                    // Raw JSON is safe inside the single-quoted HTML attribute because JSONObject emits
+                    // double-quoted strings.
+                    .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
+                    .replace("JWT_TOKEN", authToken ?: "")
+                    .let { html ->
+                        webView.loadTemplate(html, this@KlaviyoWebViewClient, nativeBridge)
+                        handshakeTimer?.cancel()
+                        handshakeTimer = Registry.clock.schedule(
+                            Registry.config.networkTimeout.toLong(),
+                            ::onJsHandshakeTimeout
+                        )
+                    }
+            }
+        }
+        Unit
     }
 
     override fun onLocalJsReady() {

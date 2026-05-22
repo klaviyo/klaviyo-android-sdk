@@ -13,6 +13,7 @@ import android.webkit.WebSettings
 import androidx.core.view.ViewCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.klaviyo.analytics.auth.AuthTokenManager
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
@@ -25,19 +26,26 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import io.mockk.clearAllMocks
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
 import io.mockk.runs
+import io.mockk.slot
 import io.mockk.verify
 import java.io.ByteArrayInputStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class KlaviyoWebViewClientTest : BaseTest() {
 
     companion object {
@@ -51,23 +59,24 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-forms-data-environment='FORMS_ENVIRONMENT'
                   data-klaviyo-local-tracking="1"
                   data-klaviyo-profile="{}"
+                  data-klaviyo-jwt='JWT_TOKEN'
             >
                 <meta charset="UTF-8">
                 <meta name="viewport"
                       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover"/>
-            
+
                 <!--  This meta tag protects @imported fonts from being blocked by CORS  -->
                 <meta name="referrer" content="same-origin"/>
-            
+
                 <title>Klaviyo In-App Form Template</title>
-            
+
                 <!-- Load in JS helper functions from assets directory -->
                 <script type="text/javascript" src="file:///android_asset/onsite-bridge.js"></script>
-            
+
                 <!-- Static stylesheet for "websafe" fonts that may be unavailable or inconsistent from the system -->
                 <link rel="stylesheet" type="text/css"
                       href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css" crossorigin/>
-            
+
                 <!-- Placeholder script to load klaviyo.js -->
                 <script type="text/javascript" src="KLAVIYO_JS_URL"></script>
             </head>
@@ -110,12 +119,18 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
     private val mockObserverCollection = mockk<JsBridgeObserverCollection>(relaxed = true)
 
+    private val mockAuthTokenManager = mockk<AuthTokenManager>().apply {
+        every { coroutineScope } returns CoroutineScope(UnconfinedTestDispatcher())
+        coEvery { currentToken() } throws IllegalStateException("No provider registered")
+    }
+
     @Before
     override fun setup() {
         super.setup()
         Registry.register<JsBridge>(mockJsBridge)
         Registry.register<JsBridgeObserverCollection>(mockObserverCollection)
         Registry.register<NativeBridge>(mockBridge)
+        Registry.register<AuthTokenManager>(mockAuthTokenManager)
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
         every { mockContext.assets } returns mockAssets
@@ -160,6 +175,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     override fun cleanup() {
         Registry.unregister<NativeBridge>()
         Registry.unregister<JsBridgeObserverCollection>()
+        Registry.unregister<AuthTokenManager>()
         clearAllMocks()
         super.cleanup()
     }
@@ -200,23 +216,24 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-forms-data-environment='in-app'
                   data-klaviyo-local-tracking="1"
                   data-klaviyo-profile="{}"
+                  data-klaviyo-jwt=''
             >
                 <meta charset="UTF-8">
                 <meta name="viewport"
                       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover"/>
-            
+
                 <!--  This meta tag protects @imported fonts from being blocked by CORS  -->
                 <meta name="referrer" content="same-origin"/>
-            
+
                 <title>Klaviyo In-App Form Template</title>
-            
+
                 <!-- Load in JS helper functions from assets directory -->
                 <script type="text/javascript" src="file:///android_asset/onsite-bridge.js"></script>
-            
+
                 <!-- Static stylesheet for "websafe" fonts that may be unavailable or inconsistent from the system -->
                 <link rel="stylesheet" type="text/css"
                       href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css" crossorigin/>
-            
+
                 <!-- Placeholder script to load klaviyo.js -->
                 <script type="text/javascript" src="$stubKlaviyoJs"></script>
             </head>
@@ -233,6 +250,42 @@ class KlaviyoWebViewClientTest : BaseTest() {
         verify { mockConfig.sdkVersion }
         // tells us timer has started
         assertEquals(staticClock.scheduledTasks.size, 1)
+    }
+
+    @Test
+    fun `initializeWebView injects auth token into data-klaviyo-jwt when token is available`() {
+        val token = "header.payload.signature"
+        coEvery { mockAuthTokenManager.currentToken() } returns token
+
+        val htmlSlot = slot<String>()
+        every {
+            anyConstructed<KlaviyoWebView>().loadTemplate(capture(htmlSlot), any(), any())
+        } just runs
+
+        KlaviyoWebViewClient().initializeWebView()
+
+        assertTrue(
+            "Expected loaded HTML to contain data-klaviyo-jwt='$token', got:\n${htmlSlot.captured}",
+            htmlSlot.captured.contains("data-klaviyo-jwt='$token'")
+        )
+        verify { spyLog.info("Auth token injected at load") }
+    }
+
+    @Test
+    fun `initializeWebView injects empty data-klaviyo-jwt when no token is available`() {
+        // default setup throws IllegalStateException — simulating no provider registered
+        val htmlSlot = slot<String>()
+        every {
+            anyConstructed<KlaviyoWebView>().loadTemplate(capture(htmlSlot), any(), any())
+        } just runs
+
+        KlaviyoWebViewClient().initializeWebView()
+
+        assertTrue(
+            "Expected loaded HTML to contain data-klaviyo-jwt='' (empty), got:\n${htmlSlot.captured}",
+            htmlSlot.captured.contains("data-klaviyo-jwt=''")
+        )
+        verify { spyLog.info("Auth token unavailable at load — proceeding without token") }
     }
 
     @Test
@@ -444,7 +497,8 @@ class KlaviyoWebViewClientTest : BaseTest() {
         var resultFalse: Boolean? = null
         client.evaluateJavascript("test") { resultFalse = it }
         assertEquals(false, resultFalse)
-        verify(exactly = 2) { mockThreadHelper.runOnUiThread(any()) }
+        // 1 from initializeWebView (auth-token coroutine → template load) + 2 from evaluateJavascript
+        verify(exactly = 3) { mockThreadHelper.runOnUiThread(any()) }
     }
 
     @Test
