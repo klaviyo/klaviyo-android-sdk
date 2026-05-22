@@ -85,7 +85,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             }
 
             if (authToken != null) {
-                Registry.log.info("Auth token injected at load")
+                Registry.log.debug("Auth token injected at load")
             } else {
                 Registry.log.warning("Auth token unavailable at load — proceeding without token")
             }
