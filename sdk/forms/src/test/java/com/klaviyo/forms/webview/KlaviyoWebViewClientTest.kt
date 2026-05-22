@@ -288,7 +288,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
             "Expected loaded HTML to contain data-klaviyo-jwt='' (empty), got:\n${htmlSlot.captured}",
             htmlSlot.captured.contains("data-klaviyo-jwt=''")
         )
-        verify { spyLog.info("Auth token unavailable at load — proceeding without token") }
+        verify { spyLog.warning("Auth token unavailable at load — proceeding without token") }
     }
 
     @Test
