@@ -52,14 +52,16 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head
      */
-    override fun initializeWebView(): Unit = webView?.let {
-        Registry.log.debug("Klaviyo webview is already initialized")
-    } ?: KlaviyoWebView().let { webView ->
+    override fun initializeWebView() {
+        if (webView != null) {
+            Registry.log.debug("Klaviyo webview is already initialized")
+            return
+        }
+
+        val webView = KlaviyoWebView().also { this.webView = it }
         val nativeBridge = Registry.get<NativeBridge>()
         val jsBridge = Registry.get<JsBridge>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
-
-        this.webView = webView
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
             .buildUpon()
@@ -71,6 +73,9 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
 
         val authTokenManager = Registry.get<AuthTokenManager>()
         authTokenManager.coroutineScope.safeLaunch {
+            // TODO: [MAGE-628] AuthTokenManager will enforce its own 500ms best-effort
+            // deadline internally. No external timeout is needed here; once MAGE-628
+            // lands, this call site is correct as-is.
             val authToken: String? = try {
                 authTokenManager.currentToken()
             } catch (e: CancellationException) {
@@ -110,7 +115,6 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
                     }
             }
         }
-        Unit
     }
 
     override fun onLocalJsReady() {
