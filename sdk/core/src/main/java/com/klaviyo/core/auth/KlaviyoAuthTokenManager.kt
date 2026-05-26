@@ -22,13 +22,19 @@ internal class KlaviyoAuthTokenManager(
     @Suppress("unused") private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
 ) : AuthTokenManager {
 
-    override val coroutineScope: CoroutineScope =
-        CoroutineScope(SupervisorJob() + Registry.dispatcher)
+    // Internal (not on the interface) so MAGE-619 consumers are forced to use their own scope
+    // when calling currentToken(), binding auth work to the correct lifecycle.
+    internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
 
+    // Mutex retained for currentToken's read-validate-write transition; MAGE-628 will replace
+    // this with Deferred-based deduplication.
     private val mutex = Mutex()
 
-    private var provider: AuthTokenProvider? = null
-    private var cachedToken: ValidatedToken? = null
+    // @Volatile so reads in invokeProvider (outside the mutex) always observe the latest write
+    // from registerProvider. Single-write-wins semantics are acceptable for the happy path.
+    @Volatile private var provider: AuthTokenProvider? = null
+
+    @Volatile private var cachedToken: ValidatedToken? = null
 
     // Reserved for MAGE-628 (concurrent-caller deduplication).
     @Suppress("unused")
@@ -40,29 +46,28 @@ internal class KlaviyoAuthTokenManager(
     @Suppress("unused")
     private val refreshObservers = CopyOnWriteArrayList<TokenRefreshObserver>()
 
-    override suspend fun registerProvider(provider: AuthTokenProvider) {
-        mutex.withLock {
-            this.provider = provider
-            this.cachedToken = null
-        }
+    override fun registerProvider(provider: AuthTokenProvider) {
+        cachedToken = null
+        this.provider = provider
         Registry.log.info("AuthTokenProvider registered")
+        scope.safeLaunch { tryEagerFetch() }
+    }
 
-        coroutineScope.safeLaunch {
-            try {
-                currentToken()
-            } catch (e: CancellationException) {
-                // Preserve structured concurrency by rethrowing cancellation.
-                throw e
-            } catch (_: Exception) {
-                // The failure is already logged at ERROR by validateOrThrow (or surfaced by the
-                // provider's own onFailure). Avoid double-logging at WARNING here.
-                Registry.log.debug("Eager auth token fetch failed")
-            }
+    private suspend fun tryEagerFetch() {
+        try {
+            currentToken()
+        } catch (e: CancellationException) {
+            // Preserve structured concurrency by rethrowing cancellation.
+            throw e
+        } catch (_: Exception) {
+            // The failure is already logged at ERROR by validateOrThrow (or surfaced by the
+            // provider's own onFailure). Avoid double-logging at WARNING here.
+            Registry.log.debug("Eager auth token fetch failed")
         }
     }
 
     override suspend fun currentToken(): String {
-        val cached = mutex.withLock { cachedToken }
+        val cached = cachedToken
         if (cached != null && isStillValid(cached)) {
             return cached.rawToken
         }
@@ -88,7 +93,7 @@ internal class KlaviyoAuthTokenManager(
             }
         }
         provider?.fetchToken(callback) ?: continuation.resumeWithException(
-            IllegalStateException("No auth token provider registered")
+            AuthTokenException.NoProviderRegistered
         )
     }
 
@@ -97,8 +102,8 @@ internal class KlaviyoAuthTokenManager(
             is JWTValidationResult.Valid -> result.token
             else -> {
                 val reason = result::class.simpleName ?: "Unknown"
-                val error = IllegalStateException("Auth token validation failed: $reason")
-                Registry.log.error("Auth token validation failed: $reason", error)
+                val error = AuthTokenException.ValidationFailed(reason)
+                Registry.log.error(requireNotNull(error.message), error)
                 throw error
             }
         }

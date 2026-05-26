@@ -30,7 +30,6 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
-import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.JSONUtil.toHashMap
 import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
@@ -155,8 +154,7 @@ object Klaviyo {
      */
     @JvmStatic
     fun registerAuthTokenProvider(provider: AuthTokenProvider) = safeApply {
-        val manager = Registry.get<AuthTokenManager>()
-        manager.coroutineScope.safeLaunch { manager.registerProvider(provider) }
+        Registry.get<AuthTokenManager>().registerProvider(provider)
     }
 
     /**

@@ -24,13 +24,13 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `currentToken throws when no provider registered`() = runTest {
+    fun `currentToken throws NoProviderRegistered when no provider registered`() = runTest {
         val manager = KlaviyoAuthTokenManager()
 
         try {
             manager.currentToken()
-            fail("Expected IllegalStateException")
-        } catch (e: IllegalStateException) {
+            fail("Expected AuthTokenException.NoProviderRegistered")
+        } catch (e: AuthTokenException.NoProviderRegistered) {
             assertEquals("No auth token provider registered", e.message)
         }
     }
@@ -104,7 +104,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
 
         manager.registerProvider(provider)
         dispatcher.scheduler.runCurrent()
-        manager.coroutineScope.cancel(CancellationException("teardown"))
+        manager.scope.cancel(CancellationException("teardown"))
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, provider.callCount)
@@ -131,31 +131,31 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `currentToken throws and logs error when returned jwt is malformed`() = runTest {
+    fun `currentToken throws ValidationFailed and logs error when returned jwt is malformed`() = runTest {
         val manager = KlaviyoAuthTokenManager()
         manager.registerProvider(SuccessProvider("not-a-jwt"))
         dispatcher.scheduler.advanceUntilIdle()
 
         try {
             manager.currentToken()
-            fail("Expected IllegalStateException")
-        } catch (e: IllegalStateException) {
+            fail("Expected AuthTokenException.ValidationFailed")
+        } catch (e: AuthTokenException.ValidationFailed) {
             assertTrue(
                 "Expected validation failure message, got: ${e.message}",
-                e.message?.startsWith("Auth token validation failed:") == true
+                e.message.startsWith("Auth token validation failed:")
             )
         }
 
         verify {
             spyLog.error(
-                match { it.startsWith("Auth token validation failed:") },
-                match { it is IllegalStateException }
+                match { it?.startsWith("Auth token validation failed:") == true },
+                match { it is AuthTokenException.ValidationFailed }
             )
         }
     }
 
     @Test
-    fun `currentToken throws when returned jwt is expired on receipt`() = runTest {
+    fun `currentToken throws ValidationFailed when returned jwt is expired on receipt`() = runTest {
         // exp within leeway of NOW → ExpiredOnReceipt
         val expired = makeJwt(NOW_SECONDS, IAT_SECONDS)
         val manager = KlaviyoAuthTokenManager()
@@ -164,12 +164,9 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
 
         try {
             manager.currentToken()
-            fail("Expected IllegalStateException")
-        } catch (e: IllegalStateException) {
-            assertTrue(
-                "Expected ExpiredOnReceipt failure, got: ${e.message}",
-                e.message?.contains("ExpiredOnReceipt") == true
-            )
+            fail("Expected AuthTokenException.ValidationFailed")
+        } catch (e: AuthTokenException.ValidationFailed) {
+            assertEquals("ExpiredOnReceipt", e.reason)
         }
     }
 
