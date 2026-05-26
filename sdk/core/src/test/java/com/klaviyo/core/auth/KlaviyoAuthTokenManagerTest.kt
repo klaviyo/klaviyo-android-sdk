@@ -140,15 +140,17 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
             manager.currentToken()
             fail("Expected AuthTokenException.ValidationFailed")
         } catch (e: AuthTokenException.ValidationFailed) {
+            // ValidationFailed.reason is non-null by construction; use it rather than
+            // Throwable.message (which is platform-typed String?).
             assertTrue(
-                "Expected validation failure message, got: ${e.message}",
-                e.message.startsWith("Auth token validation failed:")
+                "Expected non-empty validation reason, got: '${e.reason}'",
+                e.reason.isNotEmpty()
             )
         }
 
         verify {
             spyLog.error(
-                match { it?.startsWith("Auth token validation failed:") == true },
+                match { it.startsWith("Auth token validation failed:") },
                 match { it is AuthTokenException.ValidationFailed }
             )
         }
