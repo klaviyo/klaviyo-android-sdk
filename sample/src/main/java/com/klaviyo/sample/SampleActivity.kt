@@ -14,7 +14,6 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
 import com.klaviyo.analytics.model.EventMetric
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -62,12 +61,13 @@ class SampleActivity : ComponentActivity() {
             return
         }
 
-        // SETUP NOTE: Track an event when user opens a notification.
-        // If the notification is a deep link, the SDK will invoke your registered handler.
-        // If not using a deep link handler, you should parse the URI from intent.data below.
-        if (intent.isKlaviyoNotificationIntent) {
-            Klaviyo.handlePush(intent)
-        }
+        // SETUP NOTE: Notification opens are tracked automatically thanks to the
+        // `com.klaviyo.push.automatic_open_tracking = true` meta-data flag in AndroidManifest.xml.
+        // Notification taps route through KlaviyoTrampolineActivity which calls
+        // `Klaviyo.handlePush(intent)` for you and forwards the user to this Activity.
+        //
+        // If you migrate by enabling auto-tracking but leave a manual handlePush(intent) call
+        // here, the SDK's intent-flag dedup guard prevents double-tracking.
     }
 
     private val requestPermissionLauncher = registerForActivityResult(

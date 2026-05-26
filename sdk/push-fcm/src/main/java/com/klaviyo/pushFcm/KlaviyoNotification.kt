@@ -235,11 +235,42 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         )
 
     /**
-     * Create the appropriate intent to send when the notification is tapped
-     * When auto-track is enabled, use our middleware activity to handle the open
-     * Otherwise, use the deep link if available, or fall back to launching the app
+     * Create the appropriate intent to send when the notification is tapped.
+     *
+     * When automatic open tracking is opted in via
+     * [KlaviyoPushService.METADATA_AUTOMATIC_PUSH_OPEN_TRACKING], the tap routes through
+     * [KlaviyoTrampolineActivity], which tracks the `Opened Push` event and forwards
+     * the user to the real destination. Otherwise (the default), the tap targets the
+     * destination directly and the host Activity is expected to call [Klaviyo.handlePush].
+     *
+     * Action button intents are NOT routed through the trampoline in this iteration —
+     * they continue to target the host directly. See follow-up Linear ticket.
      */
-    private fun makeOpenedIntent(context: Context) = message.deepLink.let { deepLink ->
+    private fun makeOpenedIntent(context: Context) =
+        if (isAutomaticPushOpenTrackingEnabled) {
+            makeTrampolineIntent(context)
+        } else {
+            makeHostTargetedOpenedIntent(context)
+        }
+
+    /**
+     * Build an intent targeting [KlaviyoTrampolineActivity]. The trampoline reads
+     * `intent.data` (deep link, if any) and `intent.extras` (Klaviyo push extras) at
+     * tap time and re-derives the destination intent — no separate extras schema needed.
+     */
+    private fun makeTrampolineIntent(context: Context) = Intent(
+        context,
+        KlaviyoTrampolineActivity::class.java
+    ).apply {
+        message.deepLink?.let { data = it }
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        appendKlaviyoExtras(message)
+    }
+
+    /**
+     * Original (pre-auto-tracking) behavior: tap intent targets the host directly.
+     */
+    private fun makeHostTargetedOpenedIntent(context: Context) = message.deepLink.let { deepLink ->
         when {
             // If deep link is present, use an ACTION_VIEW intent
             deepLink is Uri -> makeResolvedDeepLinkIntent(
@@ -254,6 +285,12 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             appendKlaviyoExtras(message)
         }
     }
+
+    private val isAutomaticPushOpenTrackingEnabled: Boolean
+        get() = Registry.config.getManifestBoolean(
+            KlaviyoPushService.METADATA_AUTOMATIC_PUSH_OPEN_TRACKING,
+            defaultValue = false
+        )
 
     /**
      * Parse action buttons from message data and add them to the notification

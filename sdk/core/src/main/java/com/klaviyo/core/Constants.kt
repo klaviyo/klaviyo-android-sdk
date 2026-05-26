@@ -30,6 +30,15 @@ object Constants {
     const val NOTIFICATION_TAG_EXTRA = INTERNAL_PREFIX + "notification_tag"
 
     /**
+     * Intent extra key set by [KlaviyoTrampolineActivity] to mark an intent as already
+     * auto-tracked, so that downstream calls to [Klaviyo.handlePush] short-circuit
+     * instead of producing a duplicate `Opened Push` event.
+     *
+     * Uses [INTERNAL_PREFIX] to stay out of analytics event properties.
+     */
+    const val AUTO_TRACKED_EXTRA = INTERNAL_PREFIX + "auto_tracked"
+
+    /**
      * Fixed notification ID used in all notify/cancel calls.
      * Notifications are uniquely identified by their string tag, not this ID.
      */

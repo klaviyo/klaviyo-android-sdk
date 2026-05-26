@@ -325,7 +325,27 @@ object Klaviyo {
      */
     @JvmStatic
     fun handlePush(intent: Intent?): Klaviyo = this
-        .takeIf { intent.isKlaviyoNotificationIntent }
+        .takeIf {
+            val isKlaviyo = intent.isKlaviyoNotificationIntent
+            if (!isKlaviyo) Registry.log.verbose("Non-Klaviyo intent ignored")
+            isKlaviyo
+        }
+        ?.takeIf {
+            // Dedup guard: KlaviyoTrampolineActivity stamps this flag on the intent after
+            // it has already tracked the open. If a host Activity still calls handlePush
+            // (e.g. legacy integration that opted into auto-tracking without removing the
+            // manual call), short-circuit here so we don't enqueue a duplicate Opened Push.
+            val alreadyAutoTracked = intent?.getBooleanExtra(
+                Constants.AUTO_TRACKED_EXTRA,
+                false
+            ) == true
+            if (alreadyAutoTracked) {
+                Registry.log.verbose(
+                    "Push already auto-tracked by KlaviyoTrampolineActivity; skipping"
+                )
+            }
+            !alreadyAutoTracked
+        }
         ?.safeApply(preInitQueue) {
             // Create and enqueue an $opened_push
             val event = Event(EventMetric.OPENED_PUSH)
@@ -353,9 +373,7 @@ object Klaviyo {
                 DeepLinking.handleDeepLink(uri)
             }
         }
-        ?: apply {
-            Registry.log.verbose("Non-Klaviyo intent ignored")
-        }
+        ?: this
 
     /**
      * Handles a universal link [Intent], by resolving the destination [Uri] asynchronously

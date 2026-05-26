@@ -66,6 +66,13 @@
         <meta-data android:name="com.klaviyo.push.default_notification_color"
                    android:resource="@color/teal_700"/>
 
+        <!-- Prototype: Opt in to automatic push open tracking.
+             When true, push notification taps route through KlaviyoTrampolineActivity which
+             tracks the `Opened Push` event automatically and forwards the user to the
+             destination Activity. Host Activities no longer need to call Klaviyo.handlePush(intent). -->
+        <meta-data android:name="com.klaviyo.push.automatic_open_tracking"
+                   android:value="true"/>
+
         <!-- Sample App Only: Google Maps API Key (for GoogleMaps UI testing) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"

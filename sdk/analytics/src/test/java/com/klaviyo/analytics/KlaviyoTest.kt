@@ -18,6 +18,7 @@ import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.ProfileEventObserver
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.Constants
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
@@ -702,6 +703,32 @@ internal class KlaviyoTest : BaseTest() {
 
         assertEquals(null, getCapturedUri())
         verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
+    }
+
+    @Test
+    fun `handlePush short-circuits when AUTO_TRACKED_EXTRA is set on the intent`() {
+        // Simulates the legacy-integrator scenario: host opted into auto-tracking but
+        // also still calls Klaviyo.handlePush(intent) manually. The trampoline already
+        // tracked the open and stamped AUTO_TRACKED_EXTRA before the intent reached
+        // the host — handlePush must short-circuit to avoid a duplicate Opened Push.
+        val intent = mockIntent(stubIntentExtras)
+        every { intent.getBooleanExtra(Constants.AUTO_TRACKED_EXTRA, false) } returns true
+
+        Klaviyo.handlePush(intent)
+
+        verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
+    }
+
+    @Test
+    fun `handlePush enqueues opened_push when AUTO_TRACKED_EXTRA absent`() {
+        // Sanity counter-test for the above: identical intent without the flag set
+        // should produce one event.
+        val intent = mockIntent(stubIntentExtras)
+        every { intent.getBooleanExtra(Constants.AUTO_TRACKED_EXTRA, false) } returns false
+
+        Klaviyo.handlePush(intent)
+
+        verifyOpenedPushEventEnqueued()
     }
 
     @Test

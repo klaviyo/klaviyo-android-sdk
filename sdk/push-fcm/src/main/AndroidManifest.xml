@@ -9,5 +9,25 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!--
+            Transparent trampoline activity used when automatic push open tracking is
+            opted in via the com.klaviyo.push.automatic_open_tracking manifest meta-data.
+            See KlaviyoTrampolineActivity for design notes.
+
+            * exported="false" - PendingIntent.getActivity carries our app's UID
+            * launchMode="singleTask" - handles rapid taps from multiple notifications cleanly
+            * taskAffinity="" - keeps the trampoline out of the host's task chain
+            * noHistory + excludeFromRecents - never visible in the back stack or recents
+            * Theme.Translucent.NoTitleBar - invisible while routing
+        -->
+        <activity
+            android:name="com.klaviyo.pushFcm.KlaviyoTrampolineActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 </manifest>

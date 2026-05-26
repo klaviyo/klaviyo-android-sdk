@@ -21,6 +21,23 @@ open class KlaviyoPushService : FirebaseMessagingService() {
     companion object {
         const val METADATA_DEFAULT_ICON = "com.klaviyo.push.default_notification_icon"
         const val METADATA_DEFAULT_COLOR = "com.klaviyo.push.default_notification_color"
+
+        /**
+         * Manifest meta-data flag (Boolean) that opts in to automatic push open tracking.
+         *
+         * When `true`, push notification tap intents route through
+         * [KlaviyoTrampolineActivity], which tracks the `Opened Push` event and forwards
+         * the user to the host's deep link / launcher Activity — no manual
+         * [Klaviyo.handlePush] call is required in host Activities.
+         *
+         * Defaults to `false`. Set in the host app's `AndroidManifest.xml`:
+         * ```xml
+         * <meta-data
+         *     android:name="com.klaviyo.push.automatic_open_tracking"
+         *     android:value="true" />
+         * ```
+         */
+        const val METADATA_AUTOMATIC_PUSH_OPEN_TRACKING = "com.klaviyo.push.automatic_open_tracking"
     }
 
     /**

@@ -96,6 +96,8 @@ abstract class BaseTest {
         every { sdkName } returns "klaviyo-android-sdk"
         every { sdkVersion } returns "4.20.69"
         every { formEnvironment } returns FormEnvironment.IN_APP
+        every { getManifestInt(any(), any()) } answers { secondArg() }
+        every { getManifestBoolean(any(), any()) } answers { secondArg() }
     }
 
     protected val mockActivity: Activity = mockk(relaxed = true)
