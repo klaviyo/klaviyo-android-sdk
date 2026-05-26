@@ -24,10 +24,13 @@ import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.AuthTokenProvider
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.JSONUtil.toHashMap
 import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
@@ -139,6 +142,21 @@ object Klaviyo {
     @JvmStatic
     fun unregisterDeepLinkHandler() = safeApply {
         Registry.unregister<DeepLinkHandler>()
+    }
+
+    /**
+     * Register an [AuthTokenProvider] that supplies JWTs to authenticate personalized Klaviyo
+     * features (such as in-app forms that target a known profile).
+     *
+     * Re-registering replaces the previously registered provider and discards any cached token.
+     * The SDK will invoke [AuthTokenProvider.fetchToken] whenever a fresh token is needed; the
+     * host MUST invoke exactly one of [AuthTokenProvider.Callback.onSuccess] or
+     * [AuthTokenProvider.Callback.onFailure] per call.
+     */
+    @JvmStatic
+    fun registerAuthTokenProvider(provider: AuthTokenProvider) = safeApply {
+        val manager = Registry.get<AuthTokenManager>()
+        manager.coroutineScope.safeLaunch { manager.registerProvider(provider) }
     }
 
     /**
