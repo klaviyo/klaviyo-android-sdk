@@ -1,19 +1,26 @@
 package com.klaviyo.core.auth
 
 import com.klaviyo.core.Registry
+import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.safeLaunch
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-internal class KlaviyoAuthTokenManager : AuthTokenManager {
+/**
+ * @param lifecycleMonitor declared in the constructor to lock the signature for MAGE-629's
+ *   lifecycle-aware refresh work; unused by code in this PR.
+ */
+internal class KlaviyoAuthTokenManager(
+    @Suppress("unused") private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
+) : AuthTokenManager {
 
     override val coroutineScope: CoroutineScope =
         CoroutineScope(SupervisorJob() + Registry.dispatcher)
@@ -27,14 +34,11 @@ internal class KlaviyoAuthTokenManager : AuthTokenManager {
     @Suppress("unused")
     private var inFlightFetch: Deferred<String>? = null
 
-    // Reserved for MAGE-629 (proactive refresh scheduling).
+    // Reserved for MAGE-630 (onTokenRefresh/offTokenRefresh observers). Matches the established
+    // SDK observer-collection pattern (CopyOnWriteArrayList for thread-safe iteration while
+    // observers add/remove themselves on arbitrary threads).
     @Suppress("unused")
-    private var refreshJob: Job? = null
-
-    // Reserved for MAGE-630 (onTokenRefresh/offTokenRefresh observers); typed as a function for
-    // now — the formal observer interface will be introduced alongside the public API.
-    @Suppress("unused")
-    private val refreshObservers = mutableListOf<(String) -> Unit>()
+    private val refreshObservers = CopyOnWriteArrayList<TokenRefreshObserver>()
 
     override suspend fun registerProvider(provider: AuthTokenProvider) {
         mutex.withLock {
@@ -49,8 +53,10 @@ internal class KlaviyoAuthTokenManager : AuthTokenManager {
             } catch (e: CancellationException) {
                 // Preserve structured concurrency by rethrowing cancellation.
                 throw e
-            } catch (e: Exception) {
-                Registry.log.warning("Eager auth token fetch failed", e)
+            } catch (_: Exception) {
+                // The failure is already logged at ERROR by validateOrThrow (or surfaced by the
+                // provider's own onFailure). Avoid double-logging at WARNING here.
+                Registry.log.debug("Eager auth token fetch failed")
             }
         }
     }

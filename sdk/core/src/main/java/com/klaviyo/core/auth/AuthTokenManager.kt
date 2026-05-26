@@ -3,6 +3,14 @@ package com.klaviyo.core.auth
 import kotlinx.coroutines.CoroutineScope
 
 /**
+ * Callback invoked whenever the cached auth token is refreshed.
+ *
+ * Internal for now — the public `Klaviyo.onTokenRefresh` / `offTokenRefresh` surface lands with
+ * MAGE-630, at which point this typealias and its parameter type will be promoted as needed.
+ */
+internal typealias TokenRefreshObserver = (token: ValidatedToken) -> Unit
+
+/**
  * Manages the lifecycle of the host-supplied [AuthTokenProvider] and the resulting JWTs used by
  * personalized Klaviyo features.
  *
