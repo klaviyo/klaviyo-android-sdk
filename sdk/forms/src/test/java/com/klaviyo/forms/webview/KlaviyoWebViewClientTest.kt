@@ -14,6 +14,7 @@ import androidx.core.view.ViewCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
@@ -25,6 +26,7 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import io.mockk.clearAllMocks
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -51,6 +53,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-forms-data-environment='FORMS_ENVIRONMENT'
                   data-klaviyo-local-tracking="1"
                   data-klaviyo-profile="{}"
+                  data-klaviyo-jwt='JWT_TOKEN'
             >
                 <meta charset="UTF-8">
                 <meta name="viewport"
@@ -75,6 +78,8 @@ class KlaviyoWebViewClientTest : BaseTest() {
             </html>
         """.trimIndent()
     }
+
+    private val mockAuthTokenManager = mockk<AuthTokenManager>()
 
     private val stubKlaviyoJs = "stubKlaviyoJs"
     private val mockKlaviyoJsUri = mockk<Uri>(relaxed = true).also {
@@ -116,6 +121,10 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Registry.register<JsBridge>(mockJsBridge)
         Registry.register<JsBridgeObserverCollection>(mockObserverCollection)
         Registry.register<NativeBridge>(mockBridge)
+        // Default: no token available — form loads without auth token (JWT_TOKEN → "").
+        coEvery { mockAuthTokenManager.currentToken() } throws
+            RuntimeException("No auth token provider registered")
+        Registry.register<AuthTokenManager>(mockAuthTokenManager)
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
         every { mockContext.assets } returns mockAssets
@@ -160,6 +169,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     override fun cleanup() {
         Registry.unregister<NativeBridge>()
         Registry.unregister<JsBridgeObserverCollection>()
+        Registry.unregister<AuthTokenManager>()
         clearAllMocks()
         super.cleanup()
     }
@@ -200,6 +210,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-forms-data-environment='in-app'
                   data-klaviyo-local-tracking="1"
                   data-klaviyo-profile="{}"
+                  data-klaviyo-jwt=''
             >
                 <meta charset="UTF-8">
                 <meta name="viewport"
@@ -226,6 +237,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         verify { mockAssets.open("InAppFormsTemplate.html") }
         verify { anyConstructed<KlaviyoWebView>().loadTemplate(expectedHtml, client, mockBridge) }
@@ -240,6 +252,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
         // Verify that loadTemplate was only called once (which means WebView was only constructed once)
         verify(exactly = 1) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
     }
@@ -282,6 +295,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         verify { mockSettings.javaScriptEnabled = true }
         verify { mockSettings.userAgentString = "Mock User Agent" }
@@ -299,6 +313,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     fun `timeout cancels on handshake`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         client.onJsHandshakeCompleted()
         staticClock.execute(10_000)
@@ -314,6 +329,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     fun `closes webview on timeout`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
         // notably no handshake
         staticClock.execute(10_000)
 
@@ -487,5 +503,52 @@ class KlaviyoWebViewClientTest : BaseTest() {
         every { mockConfig.assetSource } returns "test-asset-source"
         KlaviyoWebViewClient().onPageFinished(mockWebview, "https://example.com")
         verify { spyLog.debug(any()) }
+    }
+
+    @Test
+    fun `initializeWebView injects auth token into data-klaviyo-jwt when token is available`() {
+        val fakeToken = "header.payload.signature"
+        coEvery { mockAuthTokenManager.currentToken() } returns fakeToken
+
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify {
+            anyConstructed<KlaviyoWebView>().loadTemplate(
+                match { it.contains("data-klaviyo-jwt='$fakeToken'") },
+                client,
+                mockBridge
+            )
+        }
+        verify { spyLog.debug(match { it.contains("Auth token injected") }) }
+    }
+
+    @Test
+    fun `initializeWebView proceeds with empty data-klaviyo-jwt when auth token unavailable`() {
+        // Default setup has currentToken() throwing — form must still load without a token.
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify {
+            anyConstructed<KlaviyoWebView>().loadTemplate(
+                match { it.contains("data-klaviyo-jwt=''") },
+                client,
+                mockBridge
+            )
+        }
+        verify { spyLog.warning(match { it.contains("Auth token unavailable") }) }
+    }
+
+    @Test
+    fun `initializeWebView skips stale load when webview is destroyed before auth token resolves`() {
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        // Destroy before the coroutine runs — cancels initJob, so loadTemplate must not be called.
+        client.destroyWebView()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(inverse = true) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
     }
 }

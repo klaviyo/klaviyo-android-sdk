@@ -15,7 +15,9 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.bridge.DeviceInfoProvider
@@ -27,6 +29,10 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Manages the [KlaviyoWebView] instance that powers In-App Forms behavior, triggering, rendering and display,
@@ -46,17 +52,37 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     private var webView: KlaviyoWebView? by WeakReferenceDelegate()
 
     /**
-     * Initialize a webview instance, with protection against duplication
-     * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head
+     * Coroutine scope for asynchronous work bound to this client's lifecycle.
+     * Uses [Registry.dispatcher] so tests can substitute a [kotlinx.coroutines.test.TestCoroutineDispatcher].
      */
-    override fun initializeWebView(): Unit = webView?.let {
-        Registry.log.debug("Klaviyo webview is already initialized")
-    } ?: KlaviyoWebView().let { webView ->
+    private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
+
+    /**
+     * Tracks the in-flight initialization coroutine so it can be cancelled if the WebView is
+     * destroyed before the auth token resolves.
+     */
+    private var initJob: Job? = null
+
+    /**
+     * Initialize a webview instance, with protection against duplication
+     * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head.
+     *
+     * Template substitutions that don't require async work (SDK metadata, bridge config, device
+     * info) are applied synchronously on the calling (UI) thread. Auth token injection requires
+     * an async provider call, so the final [KlaviyoWebView.loadTemplate] invocation is deferred
+     * to a background coroutine that calls [AuthTokenManager.currentToken] and then dispatches
+     * back to the UI thread.
+     */
+    override fun initializeWebView() {
+        if (webView != null) {
+            Registry.log.debug("Klaviyo webview is already initialized")
+            return
+        }
+
+        val webView = KlaviyoWebView().also { this.webView = it }
         val nativeBridge = Registry.get<NativeBridge>()
         val jsBridge = Registry.get<JsBridge>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
-
-        this.webView = webView
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
             .buildUpon()
@@ -66,7 +92,10 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .appendAssetSource()
             .build()
 
-        Registry.config.applicationContext.assets
+        // Apply all substitutions that can run synchronously on the calling (UI) thread.
+        // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
+        // decorView.rootWindowInsets) — snapshot it here while we are still on the main thread.
+        val partialHtml = Registry.config.applicationContext.assets
             .open("InAppFormsTemplate.html")
             .bufferedReader()
             .use(BufferedReader::readText)
@@ -79,14 +108,41 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             // Raw JSON is safe inside the single-quoted HTML attribute because JSONObject emits
             // double-quoted strings.
             .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
-            .let { html ->
-                webView.loadTemplate(html, this, nativeBridge)
-                handshakeTimer?.cancel()
-                handshakeTimer = Registry.clock.schedule(
-                    Registry.config.networkTimeout.toLong(),
-                    ::onJsHandshakeTimeout
-                )
+
+        initJob = scope.safeLaunch {
+            // TODO: [MAGE-628] AuthTokenManager will enforce its own 500ms best-effort deadline
+            // internally. No external timeout is needed here; once MAGE-628 lands, this call site
+            // is correct as-is.
+            val authToken: String? = try {
+                Registry.get<AuthTokenManager>().currentToken()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
             }
+
+            if (authToken != null) {
+                Registry.log.debug("Auth token injected at load")
+            } else {
+                Registry.log.warning("Auth token unavailable at load — proceeding without token")
+            }
+
+            Registry.threadHelper.runOnUiThread {
+                // Guard against the WebView being destroyed while the token fetch was in flight.
+                if (this@KlaviyoWebViewClient.webView !== webView) {
+                    Registry.log.debug("Skipping IAF template load on stale WebView reference")
+                    return@runOnUiThread
+                }
+                partialHtml.replace("JWT_TOKEN", authToken ?: "").let { html ->
+                    webView.loadTemplate(html, this@KlaviyoWebViewClient, nativeBridge)
+                    handshakeTimer?.cancel()
+                    handshakeTimer = Registry.clock.schedule(
+                        Registry.config.networkTimeout.toLong(),
+                        ::onJsHandshakeTimeout
+                    )
+                }
+            }
+        }
     }
 
     override fun onLocalJsReady() {
@@ -149,6 +205,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      */
     override fun destroyWebView() = apply {
         handshakeTimer?.cancel()
+        initJob?.cancel()
+        initJob = null
         Registry.get<JsBridgeObserverCollection>().stopObservers()
         webView?.let { webView ->
             Registry.threadHelper.runOnUiThread {
