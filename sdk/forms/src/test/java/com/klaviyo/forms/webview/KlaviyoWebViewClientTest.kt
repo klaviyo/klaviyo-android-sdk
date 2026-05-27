@@ -545,9 +545,6 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `initializeWebView HTML-escapes special characters in auth token value`() {
-        // Defense-in-depth: real JWTs (base64url segments + '.') cannot contain these chars, but
-        // a misbehaving AuthTokenProvider implementation could. The token must be escaped before
-        // it lands in the single-quoted `data-klaviyo-jwt` attribute.
         val mischievousToken = "a&b'c<d"
         coEvery { mockAuthTokenManager.currentToken() } returns mischievousToken
 
@@ -559,7 +556,6 @@ class KlaviyoWebViewClientTest : BaseTest() {
             anyConstructed<KlaviyoWebView>().loadTemplate(
                 match { html ->
                     html.contains("data-klaviyo-jwt='a&amp;b&#x27;c&lt;d'") &&
-                        // Raw unescaped form must NOT appear — would break the attribute.
                         !html.contains("data-klaviyo-jwt='a&b'c<d'")
                 },
                 client,
@@ -570,27 +566,21 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `destroyWebView cancels in-flight initJob during auth token fetch`() {
-        // Arrange: currentToken() suspends until we explicitly complete it, so the coroutine is
-        // mid-flight when destroyWebView runs.
         val tokenCompletion = CompletableDeferred<String>()
         coEvery { mockAuthTokenManager.currentToken() } coAnswers { tokenCompletion.await() }
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
-        // Start the coroutine and let it suspend at currentToken().
         dispatcher.scheduler.runCurrent()
         coVerify(exactly = 1) { mockAuthTokenManager.currentToken() }
 
         client.destroyWebView()
-        // Completing the deferred AFTER cancellation must be a no-op: the cancelled coroutine
-        // resumes only to propagate CancellationException, never reaching the post-token code.
         tokenCompletion.complete("would-be-token")
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(inverse = true) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
-        // The stale-ref guard would log this only if the coroutine reached the post-token UI
-        // block. Asserting it did NOT fire proves cancellation killed the coroutine at the
-        // suspension point — not that the guard caught a non-cancelled stale completion.
+        // Stale-ref log absence proves cancellation killed the coroutine at the suspension point
+        // rather than the guard catching a non-cancelled stale completion.
         verify(inverse = true) { spyLog.debug(match { it.contains("no longer current") }) }
     }
 
@@ -598,12 +588,10 @@ class KlaviyoWebViewClientTest : BaseTest() {
     fun `destroyWebView before coroutine starts cancels initJob and prevents loadTemplate`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
-        // Destroy before scheduler advance — initJob is cancelled before its body ever runs.
         client.destroyWebView()
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(inverse = true) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
-        // currentToken() should never be invoked because the job was cancelled pre-start.
         coVerify(exactly = 0) { mockAuthTokenManager.currentToken() }
     }
 }
