@@ -27,6 +27,7 @@ import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import io.mockk.clearAllMocks
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -35,6 +36,7 @@ import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.verify
 import java.io.ByteArrayInputStream
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -521,7 +523,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                 mockBridge
             )
         }
-        verify { spyLog.debug(match { it.contains("Auth token injected") }) }
+        verify { spyLog.info(match { it.contains("Auth token injected") }) }
     }
 
     @Test
@@ -538,17 +540,58 @@ class KlaviyoWebViewClientTest : BaseTest() {
                 mockBridge
             )
         }
-        verify { spyLog.warning(match { it.contains("Auth token unavailable") }) }
+        verify { spyLog.info(match { it.contains("Auth token unavailable") }) }
     }
 
     @Test
-    fun `initializeWebView skips stale load when webview is destroyed before auth token resolves`() {
+    fun `initializeWebView HTML-escapes special characters in auth token value`() {
+        val mischievousToken = "a&b'c<d"
+        coEvery { mockAuthTokenManager.currentToken() } returns mischievousToken
+
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
-        // Destroy before the coroutine runs — cancels initJob, so loadTemplate must not be called.
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify {
+            anyConstructed<KlaviyoWebView>().loadTemplate(
+                match { html ->
+                    html.contains("data-klaviyo-jwt='a&amp;b&#x27;c&lt;d'") &&
+                        !html.contains("data-klaviyo-jwt='a&b'c<d'")
+                },
+                client,
+                mockBridge
+            )
+        }
+    }
+
+    @Test
+    fun `destroyWebView cancels in-flight initJob during auth token fetch`() {
+        val tokenCompletion = CompletableDeferred<String>()
+        coEvery { mockAuthTokenManager.currentToken() } coAnswers { tokenCompletion.await() }
+
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        dispatcher.scheduler.runCurrent()
+        coVerify(exactly = 1) { mockAuthTokenManager.currentToken() }
+
+        client.destroyWebView()
+        tokenCompletion.complete("would-be-token")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(inverse = true) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+        // Stale-ref log absence proves cancellation killed the coroutine at the suspension point
+        // rather than the guard catching a non-cancelled stale completion.
+        verify(inverse = true) { spyLog.debug(match { it.contains("no longer current") }) }
+    }
+
+    @Test
+    fun `destroyWebView before coroutine starts cancels initJob and prevents loadTemplate`() {
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
         client.destroyWebView()
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(inverse = true) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+        coVerify(exactly = 0) { mockAuthTokenManager.currentToken() }
     }
 }

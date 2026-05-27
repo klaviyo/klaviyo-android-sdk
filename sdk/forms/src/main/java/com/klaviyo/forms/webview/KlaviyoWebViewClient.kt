@@ -52,16 +52,17 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     private var webView: KlaviyoWebView? by WeakReferenceDelegate()
 
     /**
-     * Coroutine scope for asynchronous work bound to this client's lifecycle.
-     * Uses [Registry.dispatcher] so tests can substitute a [kotlinx.coroutines.test.TestCoroutineDispatcher].
+     * Retained across [destroyWebView] so the client can be reinitialized. Individual jobs
+     * (currently [initJob]) are cancelled in [destroyWebView]; future `safeLaunch` callers must
+     * track their own [Job] or migrate to `scope.coroutineContext.cancelChildren()`.
      */
     private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
 
-    /**
-     * Tracks the in-flight initialization coroutine so it can be cancelled if the WebView is
-     * destroyed before the auth token resolves.
-     */
     private var initJob: Job? = null
+
+    private companion object {
+        const val JWT_TOKEN_PLACEHOLDER = "JWT_TOKEN"
+    }
 
     /**
      * Initialize a webview instance, with protection against duplication
@@ -110,9 +111,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
 
         initJob = scope.safeLaunch {
-            // TODO: [MAGE-628] AuthTokenManager will enforce its own 500ms best-effort deadline
-            // internally. No external timeout is needed here; once MAGE-628 lands, this call site
-            // is correct as-is.
+            // TODO: [MAGE-628] AuthTokenManager will enforce its own 500ms best-effort deadline.
+            // TODO: [MAGE-630] Subscribe to AuthTokenManager.onTokenRefresh for live updates.
             val authToken: String? = try {
                 Registry.get<AuthTokenManager>().currentToken()
             } catch (e: CancellationException) {
@@ -122,18 +122,19 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             }
 
             if (authToken != null) {
-                Registry.log.debug("Auth token injected at load")
+                Registry.log.info("Auth token injected at load")
             } else {
-                Registry.log.warning("Auth token unavailable at load — proceeding without token")
+                Registry.log.info("Auth token unavailable at load — proceeding without token")
             }
 
             Registry.threadHelper.runOnUiThread {
-                // Guard against the WebView being destroyed while the token fetch was in flight.
+                // webView is held weakly; may be cleared by destroy or GC mid-fetch.
                 if (this@KlaviyoWebViewClient.webView !== webView) {
-                    Registry.log.debug("Skipping IAF template load on stale WebView reference")
+                    Registry.log.debug("Skipping IAF template load: WebView no longer current")
                     return@runOnUiThread
                 }
-                partialHtml.replace("JWT_TOKEN", authToken ?: "").let { html ->
+                val jwtValue = authToken?.let(::escapeForHtmlAttribute).orEmpty()
+                partialHtml.replace(JWT_TOKEN_PLACEHOLDER, jwtValue).let { html ->
                     webView.loadTemplate(html, this@KlaviyoWebViewClient, nativeBridge)
                     handshakeTimer?.cancel()
                     handshakeTimer = Registry.clock.schedule(
@@ -144,6 +145,16 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             }
         }
     }
+
+    /**
+     * Defense-in-depth escape for the single-quoted `data-klaviyo-jwt` attribute. Valid JWTs
+     * cannot contain these characters, but a custom [AuthTokenProvider] could bypass validation.
+     */
+    private fun escapeForHtmlAttribute(value: String): String =
+        value
+            .replace("&", "&amp;") // must escape first to avoid double-encoding entities below
+            .replace("'", "&#x27;")
+            .replace("<", "&lt;")
 
     override fun onLocalJsReady() {
         Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.JsReady)
