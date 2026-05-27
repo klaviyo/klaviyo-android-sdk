@@ -10,6 +10,7 @@ import com.klaviyo.analytics.model.EventKey;
 import com.klaviyo.analytics.model.EventMetric;
 import com.klaviyo.analytics.model.Profile;
 import com.klaviyo.analytics.model.ProfileKey;
+import com.klaviyo.core.auth.AuthTokenProvider;
 import com.klaviyo.fixtures.KlaviyoMock;
 
 import java.io.Serializable;
@@ -307,6 +308,19 @@ public class KlaviyoJavaApiTest {
         assertEquals(Klaviyo.INSTANCE, result2);
 
         KlaviyoMock.verifyUnregisterDeepLinkHandlerCalled(2);
+    }
+
+    @Test
+    public void testRegisterAuthTokenProvider() {
+        AuthTokenProvider provider = callback -> callback.onSuccess("eyJ.eyJ.sig");
+
+        Klaviyo result1 = Klaviyo.INSTANCE.registerAuthTokenProvider(provider);
+        assertEquals(Klaviyo.INSTANCE, result1);
+
+        Klaviyo result2 = Klaviyo.registerAuthTokenProvider(provider);
+        assertEquals(Klaviyo.INSTANCE, result2);
+
+        KlaviyoMock.verifyRegisterAuthTokenProviderCalled(2);
     }
 
     @Test
