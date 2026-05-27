@@ -54,6 +54,11 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     /**
      * Coroutine scope for asynchronous work bound to this client's lifecycle.
      * Uses [Registry.dispatcher] so tests can substitute a [kotlinx.coroutines.test.TestCoroutineDispatcher].
+     *
+     * Intentionally retained across [destroyWebView] so the client can be reinitialized without
+     * recreating the scope. Individual jobs (currently [initJob]) are cancelled in [destroyWebView];
+     * any future `scope.safeLaunch { … }` additions must track their own [Job] and cancel
+     * accordingly, or migrate to `scope.coroutineContext.cancelChildren()` on teardown.
      */
     private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
 
@@ -62,6 +67,15 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * destroyed before the auth token resolves.
      */
     private var initJob: Job? = null
+
+    private companion object {
+        /**
+         * Placeholder in `InAppFormsTemplate.html` for the `data-klaviyo-jwt` attribute value.
+         * Substituted at load time with the (HTML-attribute-escaped) JWT from [AuthTokenManager],
+         * or with an empty string when no token is available.
+         */
+        const val JWT_TOKEN_PLACEHOLDER = "JWT_TOKEN"
+    }
 
     /**
      * Initialize a webview instance, with protection against duplication
@@ -113,6 +127,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             // TODO: [MAGE-628] AuthTokenManager will enforce its own 500ms best-effort deadline
             // internally. No external timeout is needed here; once MAGE-628 lands, this call site
             // is correct as-is.
+            // TODO: [MAGE-630] Subscribe to AuthTokenManager.onTokenRefresh here (or wire a
+            // dedicated observer) so live forms can update `data-klaviyo-jwt` without a reload.
             val authToken: String? = try {
                 Registry.get<AuthTokenManager>().currentToken()
             } catch (e: CancellationException) {
@@ -121,19 +137,28 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
                 null
             }
 
+            // Logged at info on both branches to mirror the iOS counterpart (PR #577) — a missing
+            // token is an expected state for apps without an AuthTokenProvider, not a degraded one.
+            // Provider-side failures are logged separately by [KlaviyoAuthTokenManager] at error
+            // level, so info here is not a regression in observability.
             if (authToken != null) {
-                Registry.log.debug("Auth token injected at load")
+                Registry.log.info("Auth token injected at load")
             } else {
-                Registry.log.warning("Auth token unavailable at load — proceeding without token")
+                Registry.log.info("Auth token unavailable at load — proceeding without token")
             }
 
             Registry.threadHelper.runOnUiThread {
-                // Guard against the WebView being destroyed while the token fetch was in flight.
+                // Guard against the captured WebView no longer matching the client's current
+                // reference. Two paths reach here: (1) [destroyWebView] ran after the coroutine
+                // completed but before this UI-thread block dispatched, nulling [webView]; or
+                // (2) GC cleared the [WeakReferenceDelegate]-held field independently. Either way,
+                // the load is no longer safe — skip it.
                 if (this@KlaviyoWebViewClient.webView !== webView) {
-                    Registry.log.debug("Skipping IAF template load on stale WebView reference")
+                    Registry.log.debug("Skipping IAF template load: WebView no longer current")
                     return@runOnUiThread
                 }
-                partialHtml.replace("JWT_TOKEN", authToken ?: "").let { html ->
+                val jwtValue = authToken?.let(::escapeForHtmlAttribute).orEmpty()
+                partialHtml.replace(JWT_TOKEN_PLACEHOLDER, jwtValue).let { html ->
                     webView.loadTemplate(html, this@KlaviyoWebViewClient, nativeBridge)
                     handshakeTimer?.cancel()
                     handshakeTimer = Registry.clock.schedule(
@@ -144,6 +169,24 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             }
         }
     }
+
+    /**
+     * Escape a string for safe interpolation into a single-quoted HTML attribute value.
+     *
+     * Defense-in-depth only: [KlaviyoAuthTokenManager.currentToken] returns tokens that have
+     * already passed [com.klaviyo.core.auth.JWTParser] validation, and a well-formed JWT
+     * (`base64url(header).base64url(payload).base64url(signature)`) cannot contain any of the
+     * escaped characters. This guards against host-supplied [com.klaviyo.core.auth.AuthTokenProvider]
+     * implementations that bypass validation (e.g. test doubles, or future code paths that surface
+     * raw provider strings before validation).
+     *
+     * Order matters: `&` is escaped first so subsequent entity introductions are not double-encoded.
+     */
+    private fun escapeForHtmlAttribute(value: String): String =
+        value
+            .replace("&", "&amp;")
+            .replace("'", "&#x27;")
+            .replace("<", "&lt;")
 
     override fun onLocalJsReady() {
         Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.JsReady)
