@@ -554,7 +554,11 @@ class KlaviyoWebViewClientTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(inverse = true) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
-        verify { spyLog.debug(match { it.contains("Skipping IAF template load: WebView no longer current") }) }
+        verify {
+            spyLog.debug(
+                match { it.contains("Skipping IAF template load: WebView no longer current") }
+            )
+        }
         verify(inverse = true) { spyLog.debug(match { it.contains("Auth token injected at load") }) }
     }
 
