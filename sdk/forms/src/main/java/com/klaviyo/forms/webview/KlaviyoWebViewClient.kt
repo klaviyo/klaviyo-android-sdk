@@ -15,6 +15,7 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.core.config.Clock
@@ -129,18 +130,28 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     ) {
         // TODO: [MAGE-628] AuthTokenManager will enforce its own 500ms best-effort deadline.
         // TODO: [MAGE-630] Subscribe to AuthTokenManager.onTokenRefresh for live updates.
-        val token: ValidatedToken? = try {
-            Registry.get<AuthTokenManager>().currentToken()
+        // NoProviderRegistered is split out from generic fetch failures: the former is the
+        // expected state for apps not using JWT auth (logged at debug), the latter is degraded
+        // functionality with a fallback (logged at warning). Matches the AuthTokenException
+        // KDoc intent — "treat NoProviderRegistered as 'auth is not enabled' rather than 'auth
+        // failed.'"
+        val outcome: AuthOutcome = try {
+            AuthOutcome.Success(Registry.get<AuthTokenManager>().currentToken())
         } catch (e: CancellationException) {
             throw e
+        } catch (_: AuthTokenException.NoProviderRegistered) {
+            AuthOutcome.NotEnabled
         } catch (_: Exception) {
-            null
+            AuthOutcome.FetchFailed
         }
 
-        if (token != null) {
-            Registry.log.debug("Auth token injected at load")
-        } else {
-            Registry.log.warning("Auth token unavailable at load — proceeding without token")
+        when (outcome) {
+            is AuthOutcome.Success ->
+                Registry.log.debug("Auth token injected at load")
+            AuthOutcome.NotEnabled ->
+                Registry.log.debug("Auth not enabled — proceeding without token")
+            AuthOutcome.FetchFailed ->
+                Registry.log.warning("Auth token fetch failed — proceeding without token")
         }
 
         Registry.threadHelper.runOnUiThread {
@@ -148,6 +159,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
                 Registry.log.debug("Skipping IAF template load: WebView no longer current")
                 return@runOnUiThread
             }
+            val token = (outcome as? AuthOutcome.Success)?.token
             val jwtValue = token?.rawToken?.let(::escapeForHtmlAttribute).orEmpty()
             partialHtml.replace(JWT_TOKEN_PLACEHOLDER, jwtValue).let { html ->
                 webView.loadTemplate(html, this, nativeBridge)
@@ -169,6 +181,17 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .replace("&", "&amp;") // must escape first to avoid double-encoding entities below
             .replace("'", "&#x27;")
             .replace("<", "&lt;")
+
+    /**
+     * Three-way result of the auth-token fetch in [loadTemplateWithAuthToken]. Lets the call site
+     * differentiate "auth not enabled" (debug-level log) from "auth fetch failed" (warning-level
+     * log) without re-throwing or re-checking exception types after the catch block.
+     */
+    private sealed interface AuthOutcome {
+        data class Success(val token: ValidatedToken) : AuthOutcome
+        data object NotEnabled : AuthOutcome
+        data object FetchFailed : AuthOutcome
+    }
 
     override fun onLocalJsReady() {
         Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.JsReady)
