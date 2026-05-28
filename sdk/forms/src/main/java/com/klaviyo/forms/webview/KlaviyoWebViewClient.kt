@@ -118,10 +118,10 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     }
 
     /**
-     * Fetch the auth token, log the outcome, then dispatch back to the UI thread to inject the
-     * (escaped) JWT into [partialHtml] and load it. [webView] is the locally-captured reference
-     * from [initializeWebView]; the body re-checks `this.webView !== webView` after the dispatch
-     * because the field is held weakly and may be cleared by destroy or GC mid-fetch.
+     * Fetch the auth token, then dispatch back to the UI thread to inject the (escaped) JWT into
+     * [partialHtml], load it, and log the auth outcome. [webView] is the locally-captured
+     * reference from [initializeWebView]; the body re-checks `this.webView !== webView` after the
+     * dispatch because the field is held weakly and may be cleared by destroy or GC mid-fetch.
      */
     private suspend fun loadTemplateWithAuthToken(
         webView: KlaviyoWebView,
@@ -145,15 +145,6 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             AuthOutcome.FetchFailed
         }
 
-        when (outcome) {
-            is AuthOutcome.Success ->
-                Registry.log.debug("Auth token injected at load")
-            AuthOutcome.NotEnabled ->
-                Registry.log.debug("Auth not enabled — proceeding without token")
-            AuthOutcome.FetchFailed ->
-                Registry.log.warning("Auth token fetch failed — proceeding without token")
-        }
-
         Registry.threadHelper.runOnUiThread {
             if (this.webView !== webView) {
                 Registry.log.debug("Skipping IAF template load: WebView no longer current")
@@ -163,6 +154,14 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             val jwtValue = token?.rawToken?.let(::escapeForHtmlAttribute).orEmpty()
             partialHtml.replace(JWT_TOKEN_PLACEHOLDER, jwtValue).let { html ->
                 webView.loadTemplate(html, this, nativeBridge)
+                when (outcome) {
+                    is AuthOutcome.Success ->
+                        Registry.log.debug("Auth token injected at load")
+                    AuthOutcome.NotEnabled ->
+                        Registry.log.debug("Auth not enabled — proceeding without token")
+                    AuthOutcome.FetchFailed ->
+                        Registry.log.warning("Auth token fetch failed — proceeding without token")
+                }
                 handshakeTimer?.cancel()
                 handshakeTimer = Registry.clock.schedule(
                     Registry.config.networkTimeout.toLong(),
