@@ -14,6 +14,7 @@ import androidx.core.view.ViewCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
@@ -129,9 +130,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Registry.register<JsBridge>(mockJsBridge)
         Registry.register<JsBridgeObserverCollection>(mockObserverCollection)
         Registry.register<NativeBridge>(mockBridge)
-        // Default: no token available — form loads without auth token (JWT_TOKEN → "").
-        coEvery { mockAuthTokenManager.currentToken() } throws
-            RuntimeException("No auth token provider registered")
+        // Default: no provider registered — form loads without auth token (JWT_TOKEN → "").
+        // Tests that need a fetch-failure outcome override this with a different exception type.
+        coEvery { mockAuthTokenManager.currentToken() } throws AuthTokenException.NoProviderRegistered
         Registry.register<AuthTokenManager>(mockAuthTokenManager)
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
@@ -534,8 +535,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     @Test
-    fun `initializeWebView proceeds with empty data-klaviyo-jwt when auth token unavailable`() {
-        // Default setup has currentToken() throwing — form must still load without a token.
+    fun `initializeWebView logs debug and proceeds without token when no provider is registered`() {
+        // Default mock throws NoProviderRegistered — the expected state for apps not using JWT
+        // auth. Should be a quiet diagnostic, not a warning.
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
         dispatcher.scheduler.advanceUntilIdle()
@@ -547,7 +549,31 @@ class KlaviyoWebViewClientTest : BaseTest() {
                 mockBridge
             )
         }
-        verify { spyLog.warning(match { it.contains("Auth token unavailable") }) }
+        verify { spyLog.debug(match { it.contains("Auth not enabled") }) }
+        verify(inverse = true) { spyLog.warning(match { it.contains("Auth token fetch failed") }) }
+    }
+
+    @Test
+    fun `initializeWebView logs warning and proceeds without token when provider fetch fails`() {
+        // Provider IS registered but its fetch fails — degraded functionality with fallback,
+        // appropriate for a warning. ValidationFailed stands in for any non-NoProviderRegistered
+        // AuthTokenException; a plain RuntimeException would hit the same branch.
+        coEvery { mockAuthTokenManager.currentToken() } throws
+            AuthTokenException.ValidationFailed("Malformed")
+
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify {
+            anyConstructed<KlaviyoWebView>().loadTemplate(
+                match { it.contains("data-klaviyo-jwt=''") },
+                client,
+                mockBridge
+            )
+        }
+        verify { spyLog.warning(match { it.contains("Auth token fetch failed") }) }
+        verify(inverse = true) { spyLog.debug(match { it.contains("Auth not enabled") }) }
     }
 
     @Test
