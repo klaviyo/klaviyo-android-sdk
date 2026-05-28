@@ -523,7 +523,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                 mockBridge
             )
         }
-        verify { spyLog.info(match { it.contains("Auth token injected") }) }
+        verify { spyLog.debug(match { it.contains("Auth token injected") }) }
     }
 
     @Test
@@ -540,7 +540,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                 mockBridge
             )
         }
-        verify { spyLog.info(match { it.contains("Auth token unavailable") }) }
+        verify { spyLog.warning(match { it.contains("Auth token unavailable") }) }
     }
 
     @Test
