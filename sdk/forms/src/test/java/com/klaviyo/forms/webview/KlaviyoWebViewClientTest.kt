@@ -535,6 +535,34 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     @Test
+    fun `initializeWebView does not log injected token when stale webview skips template load`() {
+        val fakeToken = "header.payload.signature"
+        coEvery { mockAuthTokenManager.currentToken() } returns validatedToken(fakeToken)
+
+        val client = KlaviyoWebViewClient()
+        var firstUiDispatch = true
+        every { mockThreadHelper.runOnUiThread(any()) } answers {
+            val runnable = firstArg<() -> Unit>()
+            if (firstUiDispatch) {
+                firstUiDispatch = false
+                client.destroyWebView()
+            }
+            runnable.invoke()
+        }
+
+        client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(inverse = true) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+        verify {
+            spyLog.debug(
+                match { it.contains("Skipping IAF template load: WebView no longer current") }
+            )
+        }
+        verify(inverse = true) { spyLog.debug(match { it.contains("Auth token injected at load") }) }
+    }
+
+    @Test
     fun `initializeWebView logs debug and proceeds without token when no provider is registered`() {
         // Default mock throws NoProviderRegistered — the expected state for apps not using JWT
         // auth. Should be a quiet diagnostic, not a warning.
