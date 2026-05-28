@@ -16,6 +16,7 @@ import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.WeakReferenceDelegate
@@ -111,44 +112,57 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
 
         initJob = scope.safeLaunch {
-            // TODO: [MAGE-628] AuthTokenManager will enforce its own 500ms best-effort deadline.
-            // TODO: [MAGE-630] Subscribe to AuthTokenManager.onTokenRefresh for live updates.
-            val authToken: String? = try {
-                Registry.get<AuthTokenManager>().currentToken()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                null
-            }
+            loadTemplateWithAuthToken(webView, partialHtml, nativeBridge)
+        }
+    }
 
-            if (authToken != null) {
-                Registry.log.debug("Auth token injected at load")
-            } else {
-                Registry.log.warning("Auth token unavailable at load — proceeding without token")
-            }
+    /**
+     * Fetch the auth token, log the outcome, then dispatch back to the UI thread to inject the
+     * (escaped) JWT into [partialHtml] and load it. [webView] is the locally-captured reference
+     * from [initializeWebView]; the body re-checks `this.webView !== webView` after the dispatch
+     * because the field is held weakly and may be cleared by destroy or GC mid-fetch.
+     */
+    private suspend fun loadTemplateWithAuthToken(
+        webView: KlaviyoWebView,
+        partialHtml: String,
+        nativeBridge: NativeBridge
+    ) {
+        // TODO: [MAGE-628] AuthTokenManager will enforce its own 500ms best-effort deadline.
+        // TODO: [MAGE-630] Subscribe to AuthTokenManager.onTokenRefresh for live updates.
+        val token: ValidatedToken? = try {
+            Registry.get<AuthTokenManager>().currentToken()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
 
-            Registry.threadHelper.runOnUiThread {
-                // webView is held weakly; may be cleared by destroy or GC mid-fetch.
-                if (this@KlaviyoWebViewClient.webView !== webView) {
-                    Registry.log.debug("Skipping IAF template load: WebView no longer current")
-                    return@runOnUiThread
-                }
-                val jwtValue = authToken?.let(::escapeForHtmlAttribute).orEmpty()
-                partialHtml.replace(JWT_TOKEN_PLACEHOLDER, jwtValue).let { html ->
-                    webView.loadTemplate(html, this@KlaviyoWebViewClient, nativeBridge)
-                    handshakeTimer?.cancel()
-                    handshakeTimer = Registry.clock.schedule(
-                        Registry.config.networkTimeout.toLong(),
-                        ::onJsHandshakeTimeout
-                    )
-                }
+        if (token != null) {
+            Registry.log.debug("Auth token injected at load")
+        } else {
+            Registry.log.warning("Auth token unavailable at load — proceeding without token")
+        }
+
+        Registry.threadHelper.runOnUiThread {
+            if (this.webView !== webView) {
+                Registry.log.debug("Skipping IAF template load: WebView no longer current")
+                return@runOnUiThread
+            }
+            val jwtValue = token?.rawToken?.let(::escapeForHtmlAttribute).orEmpty()
+            partialHtml.replace(JWT_TOKEN_PLACEHOLDER, jwtValue).let { html ->
+                webView.loadTemplate(html, this, nativeBridge)
+                handshakeTimer?.cancel()
+                handshakeTimer = Registry.clock.schedule(
+                    Registry.config.networkTimeout.toLong(),
+                    ::onJsHandshakeTimeout
+                )
             }
         }
     }
 
     /**
      * Defense-in-depth escape for the single-quoted `data-klaviyo-jwt` attribute. Valid JWTs
-     * cannot contain these characters, but a custom [AuthTokenProvider] could bypass validation.
+     * cannot contain these characters, but a custom `AuthTokenProvider` could bypass validation.
      */
     private fun escapeForHtmlAttribute(value: String): String =
         value

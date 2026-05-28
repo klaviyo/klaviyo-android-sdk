@@ -27,12 +27,16 @@ interface AuthTokenManager {
     fun registerProvider(provider: AuthTokenProvider)
 
     /**
-     * Return a currently-valid JWT, fetching from the registered provider if no cached token is
-     * available or the cached token has expired.
+     * Return a currently-valid [ValidatedToken], fetching from the registered provider if no
+     * cached token is available or the cached token has expired. Callers that only need the raw
+     * JWT string should read [ValidatedToken.rawToken]; consumers that benefit from the parsed
+     * `exp`/`iat` metadata (e.g. cache-aware short-circuiting, refresh scheduling) read it
+     * directly. [ValidatedToken.toString] is redacted, so the wrapper is safer to handle than
+     * the raw string.
      *
      * @throws [AuthTokenException.NoProviderRegistered] if no provider has been registered.
      * @throws [AuthTokenException.ValidationFailed] if the returned token fails validation.
      * @throws Throwable whatever error the provider passed to [AuthTokenProvider.Callback.onFailure].
      */
-    suspend fun currentToken(): String
+    suspend fun currentToken(): ValidatedToken
 }

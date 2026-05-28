@@ -15,6 +15,7 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
@@ -82,6 +83,11 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     private val mockAuthTokenManager = mockk<AuthTokenManager>()
+
+    // exp/iat are read by production logging in [KlaviyoAuthTokenManager] but not by the WebView
+    // injection path under test — any non-zero placeholder is fine for these tests.
+    private fun validatedToken(rawToken: String): ValidatedToken =
+        ValidatedToken(rawToken = rawToken, expiresAtEpochSeconds = 0L, issuedAtEpochSeconds = 0L)
 
     private val stubKlaviyoJs = "stubKlaviyoJs"
     private val mockKlaviyoJsUri = mockk<Uri>(relaxed = true).also {
@@ -265,6 +271,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         verify {
             spyLog.debug(
@@ -510,7 +517,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @Test
     fun `initializeWebView injects auth token into data-klaviyo-jwt when token is available`() {
         val fakeToken = "header.payload.signature"
-        coEvery { mockAuthTokenManager.currentToken() } returns fakeToken
+        coEvery { mockAuthTokenManager.currentToken() } returns validatedToken(fakeToken)
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
@@ -546,7 +553,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @Test
     fun `initializeWebView HTML-escapes special characters in auth token value`() {
         val mischievousToken = "a&b'c<d"
-        coEvery { mockAuthTokenManager.currentToken() } returns mischievousToken
+        coEvery { mockAuthTokenManager.currentToken() } returns validatedToken(mischievousToken)
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
@@ -566,7 +573,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `destroyWebView cancels in-flight initJob during auth token fetch`() {
-        val tokenCompletion = CompletableDeferred<String>()
+        val tokenCompletion = CompletableDeferred<ValidatedToken>()
         coEvery { mockAuthTokenManager.currentToken() } coAnswers { tokenCompletion.await() }
 
         val client = KlaviyoWebViewClient()
@@ -575,7 +582,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         coVerify(exactly = 1) { mockAuthTokenManager.currentToken() }
 
         client.destroyWebView()
-        tokenCompletion.complete("would-be-token")
+        tokenCompletion.complete(validatedToken("would-be-token"))
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(inverse = true) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
