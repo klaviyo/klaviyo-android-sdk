@@ -19,8 +19,8 @@
 
     <title>Klaviyo In-App Form Template</title>
 
-    <!-- Load in JS helper functions from assets directory -->
-    <script type="text/javascript" src="file:///android_asset/klaviyo-js-bridge.js"></script>
+    <!-- JS helper functions inlined at load time by KlaviyoWebViewClient (file:// access blocked from HTTPS origin) -->
+    <script type="text/javascript">BRIDGE_SCRIPT</script>
 
     <!-- Static stylesheet for "websafe" fonts that may be unavailable or inconsistent from the system -->
     <link rel="stylesheet" type="text/css"

@@ -98,6 +98,16 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         // Apply all substitutions that can run synchronously on the calling (UI) thread.
         // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
         // decorView.rootWindowInsets) — snapshot it here while we are still on the main thread.
+        //
+        // The JS bridge script is inlined rather than referenced via file:// because Android
+        // WebView blocks file:// resource loads when the page is loaded with an HTTPS base URL
+        // (loadDataWithBaseURL uses allowedOrigin as the base URL). Inlining avoids that
+        // restriction while keeping the bridge script in a single maintainable asset file.
+        val bridgeScript = Registry.config.applicationContext.assets
+            .open("klaviyo-js-bridge.js")
+            .bufferedReader()
+            .use(BufferedReader::readText)
+
         val partialHtml = Registry.config.applicationContext.assets
             .open("InAppFormsTemplate.html")
             .bufferedReader()
@@ -111,6 +121,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             // Raw JSON is safe inside the single-quoted HTML attribute because JSONObject emits
             // double-quoted strings.
             .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
+            .replace("BRIDGE_SCRIPT", bridgeScript)
 
         initJob = scope.safeLaunch {
             loadTemplateWithAuthToken(webView, partialHtml, nativeBridge)
