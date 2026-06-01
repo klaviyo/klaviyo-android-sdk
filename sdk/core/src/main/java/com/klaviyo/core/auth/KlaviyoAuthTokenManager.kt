@@ -66,10 +66,10 @@ internal class KlaviyoAuthTokenManager(
         }
     }
 
-    override suspend fun currentToken(): String {
+    override suspend fun currentToken(): ValidatedToken {
         val cached = cachedToken
         if (cached != null && isStillValid(cached)) {
-            return cached.rawToken
+            return cached
         }
 
         val jwt = invokeProvider()
@@ -79,7 +79,7 @@ internal class KlaviyoAuthTokenManager(
         Registry.log.info(
             "Auth token acquired (exp=${token.expiresAtEpochSeconds}, iat=${token.issuedAtEpochSeconds})"
         )
-        return token.rawToken
+        return token
     }
 
     private suspend fun invokeProvider(): String = suspendCancellableCoroutine { continuation ->

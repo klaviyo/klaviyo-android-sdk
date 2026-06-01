@@ -15,7 +15,11 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenException
+import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.bridge.DeviceInfoProvider
@@ -27,6 +31,10 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Manages the [KlaviyoWebView] instance that powers In-App Forms behavior, triggering, rendering and display,
@@ -46,17 +54,38 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     private var webView: KlaviyoWebView? by WeakReferenceDelegate()
 
     /**
-     * Initialize a webview instance, with protection against duplication
-     * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head
+     * Retained across [destroyWebView] so the client can be reinitialized. Individual jobs
+     * (currently [initJob]) are cancelled in [destroyWebView]; future `safeLaunch` callers must
+     * track their own [Job] or migrate to `scope.coroutineContext.cancelChildren()`.
      */
-    override fun initializeWebView(): Unit = webView?.let {
-        Registry.log.debug("Klaviyo webview is already initialized")
-    } ?: KlaviyoWebView().let { webView ->
+    private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
+
+    private var initJob: Job? = null
+
+    private companion object {
+        const val JWT_TOKEN_PLACEHOLDER = "JWT_TOKEN"
+    }
+
+    /**
+     * Initialize a webview instance, with protection against duplication
+     * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head.
+     *
+     * Template substitutions that don't require async work (SDK metadata, bridge config, device
+     * info) are applied synchronously on the calling (UI) thread. Auth token injection requires
+     * an async provider call, so the final [KlaviyoWebView.loadTemplate] invocation is deferred
+     * to a background coroutine that calls [AuthTokenManager.currentToken] and then dispatches
+     * back to the UI thread.
+     */
+    override fun initializeWebView() {
+        if (webView != null) {
+            Registry.log.debug("Klaviyo webview is already initialized")
+            return
+        }
+
+        val webView = KlaviyoWebView().also { this.webView = it }
         val nativeBridge = Registry.get<NativeBridge>()
         val jsBridge = Registry.get<JsBridge>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
-
-        this.webView = webView
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
             .buildUpon()
@@ -66,7 +95,10 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .appendAssetSource()
             .build()
 
-        Registry.config.applicationContext.assets
+        // Apply all substitutions that can run synchronously on the calling (UI) thread.
+        // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
+        // decorView.rootWindowInsets) — snapshot it here while we are still on the main thread.
+        val partialHtml = Registry.config.applicationContext.assets
             .open("InAppFormsTemplate.html")
             .bufferedReader()
             .use(BufferedReader::readText)
@@ -79,14 +111,85 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             // Raw JSON is safe inside the single-quoted HTML attribute because JSONObject emits
             // double-quoted strings.
             .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
-            .let { html ->
+
+        initJob = scope.safeLaunch {
+            loadTemplateWithAuthToken(webView, partialHtml, nativeBridge)
+        }
+    }
+
+    /**
+     * Fetch the auth token, then dispatch back to the UI thread to inject the (escaped) JWT into
+     * [partialHtml], load it, and log the auth outcome. [webView] is the locally-captured
+     * reference from [initializeWebView]; the body re-checks `this.webView !== webView` after the
+     * dispatch because the field is held weakly and may be cleared by destroy or GC mid-fetch.
+     */
+    private suspend fun loadTemplateWithAuthToken(
+        webView: KlaviyoWebView,
+        partialHtml: String,
+        nativeBridge: NativeBridge
+    ) {
+        // TODO: [MAGE-628] AuthTokenManager will enforce its own 500ms best-effort deadline.
+        // TODO: [MAGE-630] Subscribe to AuthTokenManager.onTokenRefresh for live updates.
+        // NoProviderRegistered is split out from generic fetch failures: the former is the
+        // expected state for apps not using JWT auth (logged at debug), the latter is degraded
+        // functionality with a fallback (logged at warning). Matches the AuthTokenException
+        // KDoc intent — "treat NoProviderRegistered as 'auth is not enabled' rather than 'auth
+        // failed.'"
+        val outcome: AuthOutcome = try {
+            AuthOutcome.Success(Registry.get<AuthTokenManager>().currentToken())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: AuthTokenException.NoProviderRegistered) {
+            AuthOutcome.NotEnabled
+        } catch (_: Exception) {
+            AuthOutcome.FetchFailed
+        }
+
+        Registry.threadHelper.runOnUiThread {
+            if (this.webView !== webView) {
+                Registry.log.debug("Skipping IAF template load: WebView no longer current")
+                return@runOnUiThread
+            }
+            val token = (outcome as? AuthOutcome.Success)?.token
+            val jwtValue = token?.rawToken?.let(::escapeForHtmlAttribute).orEmpty()
+            partialHtml.replace(JWT_TOKEN_PLACEHOLDER, jwtValue).let { html ->
                 webView.loadTemplate(html, this, nativeBridge)
+                when (outcome) {
+                    is AuthOutcome.Success ->
+                        Registry.log.debug("Auth token injected at load")
+                    AuthOutcome.NotEnabled ->
+                        Registry.log.debug("Auth not enabled — proceeding without token")
+                    AuthOutcome.FetchFailed ->
+                        Registry.log.warning("Auth token fetch failed — proceeding without token")
+                }
                 handshakeTimer?.cancel()
                 handshakeTimer = Registry.clock.schedule(
                     Registry.config.networkTimeout.toLong(),
                     ::onJsHandshakeTimeout
                 )
             }
+        }
+    }
+
+    /**
+     * Defense-in-depth escape for the single-quoted `data-klaviyo-jwt` attribute. Valid JWTs
+     * cannot contain these characters, but a custom `AuthTokenProvider` could bypass validation.
+     */
+    private fun escapeForHtmlAttribute(value: String): String =
+        value
+            .replace("&", "&amp;") // must escape first to avoid double-encoding entities below
+            .replace("'", "&#x27;")
+            .replace("<", "&lt;")
+
+    /**
+     * Three-way result of the auth-token fetch in [loadTemplateWithAuthToken]. Lets the call site
+     * differentiate "auth not enabled" (debug-level log) from "auth fetch failed" (warning-level
+     * log) without re-throwing or re-checking exception types after the catch block.
+     */
+    private sealed interface AuthOutcome {
+        data class Success(val token: ValidatedToken) : AuthOutcome
+        data object NotEnabled : AuthOutcome
+        data object FetchFailed : AuthOutcome
     }
 
     override fun onLocalJsReady() {
@@ -149,6 +252,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      */
     override fun destroyWebView() = apply {
         handshakeTimer?.cancel()
+        initJob?.cancel()
+        initJob = null
         Registry.get<JsBridgeObserverCollection>().stopObservers()
         webView?.let { webView ->
             Registry.threadHelper.runOnUiThread {

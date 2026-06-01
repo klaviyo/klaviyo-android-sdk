@@ -44,7 +44,9 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
 
         val result = manager.currentToken()
 
-        assertEquals(token, result)
+        assertEquals(token, result.rawToken)
+        assertEquals(EXP_SECONDS, result.expiresAtEpochSeconds)
+        assertEquals(IAT_SECONDS, result.issuedAtEpochSeconds)
     }
 
     @Test
@@ -59,7 +61,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
 
         val result = manager.currentToken()
 
-        assertEquals(token, result)
+        assertEquals(token, result.rawToken)
         assertEquals(callsAfterRegister, provider.callCount)
     }
 
@@ -79,7 +81,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         val result = manager.currentToken()
-        assertEquals(secondToken, result)
+        assertEquals(secondToken, result.rawToken)
     }
 
     @Test
@@ -187,7 +189,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         val result = manager.currentToken()
-        assertEquals(token, result)
+        assertEquals(token, result.rawToken)
     }
 
     // MARK: - Helpers
