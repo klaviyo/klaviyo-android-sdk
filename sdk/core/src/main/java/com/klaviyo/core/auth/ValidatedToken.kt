@@ -1,6 +1,14 @@
 package com.klaviyo.core.auth
 
-internal data class ValidatedToken(
+/**
+ * A JWT that has been parsed and validated by [JWTParser]. Returned by
+ * [AuthTokenManager.currentToken] so consumers get both the raw token (for transport/injection)
+ * and the parsed claim metadata (`exp`, `iat`) without re-parsing.
+ *
+ * Public so cross-module consumers (e.g. the forms module's WebView injection layer) can read
+ * the metadata; [toString] is redacted to keep the raw token out of accidental log statements.
+ */
+data class ValidatedToken(
     val rawToken: String,
     val expiresAtEpochSeconds: Long,
     val issuedAtEpochSeconds: Long
