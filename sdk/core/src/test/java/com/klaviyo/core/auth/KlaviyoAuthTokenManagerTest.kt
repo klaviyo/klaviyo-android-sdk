@@ -6,9 +6,11 @@ import java.util.Base64
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -24,7 +26,9 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `currentToken throws NoProviderRegistered when no provider registered`() = runTest {
+    fun `currentToken throws NoProviderRegistered when no provider registered`() = runTest(
+        dispatcher
+    ) {
         val manager = KlaviyoAuthTokenManager()
 
         try {
@@ -36,7 +40,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `currentToken returns provider token on first fetch`() = runTest {
+    fun `currentToken returns provider token on first fetch`() = runTest(dispatcher) {
         val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
         val manager = KlaviyoAuthTokenManager()
         manager.registerProvider(SuccessProvider(token))
@@ -50,7 +54,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `currentToken returns cached token without re-invoking provider`() = runTest {
+    fun `currentToken returns cached token without re-invoking provider`() = runTest(dispatcher) {
         val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
         val provider = SuccessProvider(token)
         val manager = KlaviyoAuthTokenManager()
@@ -66,7 +70,9 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `registerProvider replaces previous provider and discards cached token`() = runTest {
+    fun `registerProvider replaces previous provider and discards cached token`() = runTest(
+        dispatcher
+    ) {
         val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
         val secondToken = makeJwt(EXP_SECONDS + 1, IAT_SECONDS + 1)
         val firstProvider = SuccessProvider(firstToken)
@@ -85,7 +91,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `registerProvider triggers eager fetch`() = runTest {
+    fun `registerProvider triggers eager fetch`() = runTest(dispatcher) {
         val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
         val provider = SuccessProvider(token)
         val manager = KlaviyoAuthTokenManager()
@@ -100,7 +106,9 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `registerProvider cancellation during eager fetch does not log warning`() = runTest {
+    fun `registerProvider cancellation during eager fetch does not log warning`() = runTest(
+        dispatcher
+    ) {
         val provider = DeferredProvider()
         val manager = KlaviyoAuthTokenManager()
 
@@ -116,7 +124,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `currentToken throws when provider invokes onFailure`() = runTest {
+    fun `currentToken throws when provider invokes onFailure`() = runTest(dispatcher) {
         val failure = RuntimeException("network down")
         val manager = KlaviyoAuthTokenManager()
         // Use a provider that fails on the explicit currentToken() call. The eager fetch
@@ -133,7 +141,9 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `currentToken throws ValidationFailed and logs error when returned jwt is malformed`() = runTest {
+    fun `currentToken throws ValidationFailed and logs error when returned jwt is malformed`() = runTest(
+        dispatcher
+    ) {
         val manager = KlaviyoAuthTokenManager()
         manager.registerProvider(SuccessProvider("not-a-jwt"))
         dispatcher.scheduler.advanceUntilIdle()
@@ -159,7 +169,9 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `currentToken throws ValidationFailed when returned jwt is expired on receipt`() = runTest {
+    fun `currentToken throws ValidationFailed when returned jwt is expired on receipt`() = runTest(
+        dispatcher
+    ) {
         // exp within leeway of NOW → ExpiredOnReceipt
         val expired = makeJwt(NOW_SECONDS, IAT_SECONDS)
         val manager = KlaviyoAuthTokenManager()
@@ -175,7 +187,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `currentToken does not invoke onFailure-and-then-onSuccess twice`() = runTest {
+    fun `currentToken does not invoke onFailure-and-then-onSuccess twice`() = runTest(dispatcher) {
         // Late callback resolution should be harmlessly ignored (isActive guard).
         val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
         val provider = AuthTokenProvider { callback ->
@@ -190,6 +202,142 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
 
         val result = manager.currentToken()
         assertEquals(token, result.rawToken)
+    }
+
+    // MARK: - MAGE-628: Deduplication and Timeouts
+
+    @Test
+    fun `concurrent callers share a single provider invocation`() = runTest(dispatcher) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val provider = ResolvableProvider()
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        // Hold off on advancing — keep the eager fetch pending so all callers race the same deferred.
+
+        val results = mutableListOf<ValidatedToken>()
+        val jobs = (1..5).map {
+            launch { results.add(manager.currentToken()) }
+        }
+
+        // Let all coroutines start and reach their await() on the shared deferred.
+        dispatcher.scheduler.runCurrent()
+
+        // One provider resolution satisfies the deferred and all awaiting callers.
+        provider.resolve(token)
+        dispatcher.scheduler.advanceUntilIdle()
+        jobs.forEach { it.join() }
+
+        assertEquals(1, provider.callCount)
+        assertEquals(5, results.size)
+        assertTrue(results.all { it.rawToken == token })
+    }
+
+    @Test
+    fun `currentToken throws TimedOut when provider does not respond within timeout`() = runTest(
+        dispatcher
+    ) {
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(DeferredProvider())
+        dispatcher.scheduler.runCurrent() // start eager fetch (also waiting on provider)
+
+        var caught: AuthTokenException.TimedOut? = null
+        val job = launch {
+            try {
+                manager.currentToken(timeoutMs = 100)
+            } catch (e: AuthTokenException.TimedOut) {
+                caught = e
+            }
+        }
+        dispatcher.scheduler.runCurrent()
+        dispatcher.scheduler.advanceTimeBy(101)
+        dispatcher.scheduler.runCurrent()
+        job.join()
+
+        assertNotNull("Expected TimedOut to be thrown", caught)
+        verify {
+            spyLog.error(
+                match { it.contains("timed out", ignoreCase = true) },
+                any<AuthTokenException.TimedOut>()
+            )
+        }
+    }
+
+    @Test
+    fun `timeout does not cancel underlying fetch so later callers still benefit`() = runTest(
+        dispatcher
+    ) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val provider = ResolvableProvider()
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent() // eager fetch starts and suspends on provider
+
+        // First caller times out after 100ms.
+        var timedOut = false
+        val firstJob = launch {
+            try {
+                manager.currentToken(timeoutMs = 100)
+            } catch (_: AuthTokenException.TimedOut) {
+                timedOut = true
+            }
+        }
+        dispatcher.scheduler.runCurrent()
+        dispatcher.scheduler.advanceTimeBy(101)
+        dispatcher.scheduler.runCurrent()
+        firstJob.join()
+        assertTrue("First caller should have timed out", timedOut)
+
+        // Underlying fetch is still alive — resolve the provider now.
+        provider.resolve(token)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Second caller gets the token from cache populated by the completed underlying fetch.
+        val result = manager.currentToken()
+        assertEquals(token, result.rawToken)
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
+    fun `failure clears in-flight slot so next call re-invokes provider`() = runTest(dispatcher) {
+        val failure = RuntimeException("fetch failed")
+        val provider = CountingFailureProvider(failure)
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle() // eager fetch fails (callCount = 1)
+
+        try { manager.currentToken() } catch (_: Exception) {}
+        val countAfterFirst = provider.callCount // eager + 1 explicit
+
+        try { manager.currentToken() } catch (_: Exception) {}
+
+        // Each call after a failure must re-invoke the provider (slot was cleared by invokeOnCompletion).
+        assertEquals(countAfterFirst + 1, provider.callCount)
+    }
+
+    @Test
+    fun `provider swap cancels in-flight fetch so stale token cannot poison cache`() = runTest(
+        dispatcher
+    ) {
+        val staleToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val freshToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val providerA = ResolvableProvider()
+        val providerB = SuccessProvider(freshToken)
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(providerA)
+        dispatcher.scheduler.runCurrent() // eager fetch for A starts, awaits provider
+
+        // Swap provider while A's fetch is in-flight; B's eager fetch resolves immediately.
+        manager.registerProvider(providerB)
+        dispatcher.scheduler.advanceUntilIdle() // B's eager fetch completes → cache = freshToken
+
+        // A calls back late — its continuation is inactive (deferred was cancelled on swap).
+        providerA.resolve(staleToken)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Cache should hold freshToken, not staleToken.
+        val result = manager.currentToken()
+        assertEquals(freshToken, result.rawToken)
     }
 
     // MARK: - Helpers
@@ -234,4 +382,36 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
 
     private fun base64UrlEncode(bytes: ByteArray): String =
         Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+
+    /**
+     * Provider that captures the callback so tests can resolve it manually, enabling
+     * deterministic control over when the provider "responds".
+     */
+    private class ResolvableProvider : AuthTokenProvider {
+        var callCount: Int = 0
+            private set
+        private var pendingCallback: AuthTokenProvider.Callback? = null
+
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callCount++
+            pendingCallback = callback
+        }
+
+        fun resolve(jwt: String) = pendingCallback?.onSuccess(jwt)
+        fun reject(error: Throwable) = pendingCallback?.onFailure(error)
+    }
+
+    /**
+     * Failure provider that exposes an invocation counter for asserting that the in-flight slot
+     * is cleared on failure (so each new call re-invokes the provider).
+     */
+    private class CountingFailureProvider(private val error: Throwable) : AuthTokenProvider {
+        var callCount: Int = 0
+            private set
+
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callCount++
+            callback.onFailure(error)
+        }
+    }
 }

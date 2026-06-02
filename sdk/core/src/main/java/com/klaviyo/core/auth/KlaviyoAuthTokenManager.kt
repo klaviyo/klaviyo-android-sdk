@@ -10,9 +10,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * @param lifecycleMonitor declared in the constructor to lock the signature for MAGE-629's
@@ -26,8 +28,8 @@ internal class KlaviyoAuthTokenManager(
     // when calling currentToken(), binding auth work to the correct lifecycle.
     internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
 
-    // Mutex retained for currentToken's read-validate-write transition; MAGE-628 will replace
-    // this with Deferred-based deduplication.
+    // Guards the read-validate-write transition on both cachedToken and inFlightFetch, ensuring
+    // exactly one Deferred is created when multiple callers miss the cache simultaneously.
     private val mutex = Mutex()
 
     // @Volatile so reads in invokeProvider (outside the mutex) always observe the latest write
@@ -36,9 +38,10 @@ internal class KlaviyoAuthTokenManager(
 
     @Volatile private var cachedToken: ValidatedToken? = null
 
-    // Reserved for MAGE-628 (concurrent-caller deduplication).
-    @Suppress("unused")
-    private var inFlightFetch: Deferred<String>? = null
+    // Shared in-flight fetch deferred. All concurrent callers that miss the cache await this
+    // single Deferred rather than each invoking the provider independently. Cleared (via
+    // invokeOnCompletion) on both success and failure so the next request starts a fresh fetch.
+    private var inFlightFetch: Deferred<ValidatedToken>? = null
 
     // Reserved for MAGE-630 (onTokenRefresh/offTokenRefresh observers). Matches the established
     // SDK observer-collection pattern (CopyOnWriteArrayList for thread-safe iteration while
@@ -47,6 +50,11 @@ internal class KlaviyoAuthTokenManager(
     private val refreshObservers = CopyOnWriteArrayList<TokenRefreshObserver>()
 
     override fun registerProvider(provider: AuthTokenProvider) {
+        // Cancel any in-flight fetch for the old provider before swapping. The isActive guard in
+        // invokeProvider's suspendCancellableCoroutine ensures a late onSuccess/onFailure from the
+        // cancelled coroutine is harmlessly dropped.
+        inFlightFetch?.cancel()
+        inFlightFetch = null
         cachedToken = null
         this.provider = provider
         Registry.log.info("AuthTokenProvider registered")
@@ -55,26 +63,56 @@ internal class KlaviyoAuthTokenManager(
 
     private suspend fun tryEagerFetch() {
         try {
-            currentToken()
+            currentToken(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS)
         } catch (e: CancellationException) {
             // Preserve structured concurrency by rethrowing cancellation.
             throw e
         } catch (_: Exception) {
-            // The failure is already logged at ERROR by validateOrThrow (or surfaced by the
-            // provider's own onFailure). Avoid double-logging at WARNING here.
+            // The failure is already logged at ERROR by validateOrThrow, by the timeout path, or
+            // surfaced by the provider's own onFailure. Avoid double-logging at WARNING here.
             Registry.log.debug("Eager auth token fetch failed")
         }
     }
 
-    override suspend fun currentToken(): ValidatedToken {
+    override suspend fun currentToken(timeoutMs: Long): ValidatedToken {
+        // Optimistic read of @Volatile field — no lock needed for the fast path.
         val cached = cachedToken
-        if (cached != null && isStillValid(cached)) {
-            return cached
+        if (cached != null && isStillValid(cached)) return cached
+
+        // Atomic read-or-create of the in-flight deferred. The mutex ensures exactly one
+        // scope.async { } is launched when multiple callers miss the cache simultaneously.
+        val deferred: Deferred<ValidatedToken> = mutex.withLock {
+            // Re-check under the lock; a concurrent caller may have populated the cache while
+            // we waited. Non-local return from this inline lambda exits currentToken() directly.
+            val freshenedCache = cachedToken
+            if (freshenedCache != null && isStillValid(freshenedCache)) return freshenedCache
+
+            inFlightFetch ?: scope.async { doFetch() }.also { d ->
+                inFlightFetch = d
+                // Reference-identity check: prevents a stale deferred's completion handler from
+                // clearing a freshly-created deferred after a concurrent provider swap.
+                d.invokeOnCompletion { if (inFlightFetch === d) inFlightFetch = null }
+            }
         }
 
+        // Each caller races its own timeout budget against the shared deferred. Timing out does
+        // NOT cancel the underlying task — other callers with a larger budget still benefit if
+        // the provider eventually responds.
+        return withTimeoutOrNull(timeoutMs) { deferred.await() } ?: run {
+            val error = AuthTokenException.TimedOut
+            Registry.log.error(requireNotNull(error.message), error)
+            throw error
+        }
+    }
+
+    /**
+     * Invoke the provider, validate the returned JWT, write to the cache, and return the token.
+     * Runs inside [scope].async so failures (provider error, validation error) are captured by
+     * the Deferred and re-thrown to all awaiting callers.
+     */
+    private suspend fun doFetch(): ValidatedToken {
         val jwt = invokeProvider()
         val token = validateOrThrow(jwt)
-
         mutex.withLock { cachedToken = token }
         Registry.log.info(
             "Auth token acquired (exp=${token.expiresAtEpochSeconds}, iat=${token.issuedAtEpochSeconds})"

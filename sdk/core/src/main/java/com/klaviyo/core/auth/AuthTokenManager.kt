@@ -17,6 +17,21 @@ internal typealias TokenRefreshObserver = (token: ValidatedToken) -> Unit
  */
 interface AuthTokenManager {
 
+    companion object {
+        /**
+         * Timeout budget for proactive / background fetches (registration-time warm-up, scheduled
+         * refresh). Matches iOS `FetchMode.background`.
+         */
+        const val BACKGROUND_FETCH_TIMEOUT_MS = 5_000L
+
+        /**
+         * Best-effort timeout budget used at form-display time, where latency is user-visible.
+         * A timeout here degrades gracefully — the form loads without a token rather than blocking.
+         * Matches iOS `FetchMode.interactive`.
+         */
+        const val INTERACTIVE_FETCH_TIMEOUT_MS = 500L
+    }
+
     /**
      * Replace the registered [AuthTokenProvider] (if any), discard any cached token, and
      * asynchronously pre-warm the cache with a fresh token via the new provider.
@@ -34,9 +49,18 @@ interface AuthTokenManager {
      * directly. [ValidatedToken.toString] is redacted, so the wrapper is safer to handle than
      * the raw string.
      *
+     * Concurrent callers that arrive while a provider fetch is already in-flight share the result
+     * of that single fetch rather than each triggering a new provider invocation. Each caller's
+     * [timeoutMs] budget is enforced independently — a caller that times out does not cancel the
+     * underlying fetch, so a later caller with a larger budget can still receive the result.
+     *
+     * @param timeoutMs Maximum milliseconds to wait for the provider to return a token.
+     *   Defaults to [BACKGROUND_FETCH_TIMEOUT_MS]. Pass [INTERACTIVE_FETCH_TIMEOUT_MS] at
+     *   form-display time for a best-effort, non-blocking fetch.
      * @throws [AuthTokenException.NoProviderRegistered] if no provider has been registered.
      * @throws [AuthTokenException.ValidationFailed] if the returned token fails validation.
+     * @throws [AuthTokenException.TimedOut] if the provider does not respond within [timeoutMs].
      * @throws Throwable whatever error the provider passed to [AuthTokenProvider.Callback.onFailure].
      */
-    suspend fun currentToken(): ValidatedToken
+    suspend fun currentToken(timeoutMs: Long = BACKGROUND_FETCH_TIMEOUT_MS): ValidatedToken
 }

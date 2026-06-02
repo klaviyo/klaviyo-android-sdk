@@ -132,7 +132,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Registry.register<NativeBridge>(mockBridge)
         // Default: no provider registered — form loads without auth token (JWT_TOKEN → "").
         // Tests that need a fetch-failure outcome override this with a different exception type.
-        coEvery { mockAuthTokenManager.currentToken() } throws AuthTokenException.NoProviderRegistered
+        coEvery { mockAuthTokenManager.currentToken(any()) } throws AuthTokenException.NoProviderRegistered
         Registry.register<AuthTokenManager>(mockAuthTokenManager)
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
@@ -518,7 +518,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @Test
     fun `initializeWebView injects auth token into data-klaviyo-jwt when token is available`() {
         val fakeToken = "header.payload.signature"
-        coEvery { mockAuthTokenManager.currentToken() } returns validatedToken(fakeToken)
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken(fakeToken)
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
@@ -537,7 +537,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @Test
     fun `initializeWebView does not log injected token when stale webview skips template load`() {
         val fakeToken = "header.payload.signature"
-        coEvery { mockAuthTokenManager.currentToken() } returns validatedToken(fakeToken)
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken(fakeToken)
 
         val client = KlaviyoWebViewClient()
         var firstUiDispatch = true
@@ -586,7 +586,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         // Provider IS registered but its fetch fails — degraded functionality with fallback,
         // appropriate for a warning. ValidationFailed stands in for any non-NoProviderRegistered
         // AuthTokenException; a plain RuntimeException would hit the same branch.
-        coEvery { mockAuthTokenManager.currentToken() } throws
+        coEvery { mockAuthTokenManager.currentToken(any()) } throws
             AuthTokenException.ValidationFailed("Malformed")
 
         val client = KlaviyoWebViewClient()
@@ -607,7 +607,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @Test
     fun `initializeWebView HTML-escapes special characters in auth token value`() {
         val mischievousToken = "a&b'c<d"
-        coEvery { mockAuthTokenManager.currentToken() } returns validatedToken(mischievousToken)
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken(
+            mischievousToken
+        )
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
@@ -628,12 +630,12 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @Test
     fun `destroyWebView cancels in-flight initJob during auth token fetch`() {
         val tokenCompletion = CompletableDeferred<ValidatedToken>()
-        coEvery { mockAuthTokenManager.currentToken() } coAnswers { tokenCompletion.await() }
+        coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers { tokenCompletion.await() }
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
         dispatcher.scheduler.runCurrent()
-        coVerify(exactly = 1) { mockAuthTokenManager.currentToken() }
+        coVerify(exactly = 1) { mockAuthTokenManager.currentToken(any()) }
 
         client.destroyWebView()
         tokenCompletion.complete(validatedToken("would-be-token"))
@@ -653,6 +655,6 @@ class KlaviyoWebViewClientTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(inverse = true) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
-        coVerify(exactly = 0) { mockAuthTokenManager.currentToken() }
+        coVerify(exactly = 0) { mockAuthTokenManager.currentToken(any()) }
     }
 }
