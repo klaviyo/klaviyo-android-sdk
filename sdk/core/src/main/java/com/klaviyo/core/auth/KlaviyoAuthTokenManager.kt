@@ -11,6 +11,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -57,8 +59,8 @@ internal class KlaviyoAuthTokenManager(
         //   1. If the cancelled coroutine is still inside invokeProvider(), the isActive check in
         //      suspendCancellableCoroutine drops any late onSuccess/onFailure callback.
         //   2. If the callback already fired and doFetch() is past invokeProvider() but hasn't
-        //      written the cache yet, the next suspension point (mutex.withLock in doFetch)
-        //      will observe the cancellation and throw CancellationException before the write.
+        //      written the cache yet, ensureActive() in doFetch will throw CancellationException
+        //      before the write — even when mutex.withLock acquires the lock uncontended.
         inFlightFetch?.cancel()
         inFlightFetch = null
         cachedToken = null
@@ -75,12 +77,14 @@ internal class KlaviyoAuthTokenManager(
             throw e
         } catch (_: Exception) {
             // The failure is already logged at ERROR by validateOrThrow, by the timeout path, or
-            // surfaced by the provider's own onFailure. Avoid double-logging at WARNING here.
-            Registry.log.debug("Eager auth token fetch failed")
+            // surfaced by the provider's own onFailure. Nothing more to log here.
         }
     }
 
     override suspend fun currentToken(timeoutMs: Long): ValidatedToken {
+        require(timeoutMs > 0L) { "timeoutMs must be positive, but was $timeoutMs" }
+        if (provider == null) throw AuthTokenException.NoProviderRegistered
+
         // Optimistic read of @Volatile field — no lock needed for the fast path.
         val cached = cachedToken
         if (cached != null && isStillValid(cached)) return cached
@@ -119,6 +123,11 @@ internal class KlaviyoAuthTokenManager(
     private suspend fun doFetch(): ValidatedToken {
         val jwt = invokeProvider()
         val token = validateOrThrow(jwt)
+        // Non-suspending cancellation check: if this deferred was cancelled (e.g. by a provider
+        // swap) after invokeProvider() returned but before we write the cache, bail out now.
+        // mutex.withLock does NOT check cancellation when the lock is uncontended, so this guard
+        // is required even when the mutex is free.
+        currentCoroutineContext().ensureActive()
         mutex.withLock { cachedToken = token }
         Registry.log.info(
             "Auth token acquired (exp=${token.expiresAtEpochSeconds}, iat=${token.issuedAtEpochSeconds})"

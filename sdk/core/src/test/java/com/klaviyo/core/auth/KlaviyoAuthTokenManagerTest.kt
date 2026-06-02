@@ -340,6 +340,37 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         assertEquals(freshToken, result.rawToken)
     }
 
+    @Test
+    fun `provider swap does not write stale token when callback fires before cancellation`() = runTest(
+        dispatcher
+    ) {
+        // Regression test for the uncontended-mutex cancellation gap:
+        // If invokeProvider() already returned a value before the deferred is cancelled,
+        // ensureActive() in doFetch() must throw CancellationException before the cache write —
+        // even though mutex.withLock would acquire an uncontended lock without suspending.
+        val staleToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val freshToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val providerA = ResolvableProvider()
+        val providerB = SuccessProvider(freshToken)
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(providerA)
+        dispatcher.scheduler.runCurrent() // A's eager fetch starts and suspends on provider
+
+        // Resolve A's callback now — this schedules A's coroutine to resume with staleToken.
+        // A's doFetch() has not yet run past invokeProvider().
+        providerA.resolve(staleToken)
+
+        // Swap to B *before* the scheduler runs A's resumed coroutine. Without ensureActive(),
+        // A's doFetch() would proceed through validateOrThrow and write staleToken to the cache
+        // on an uncontended mutex.withLock (no suspension → no cancellation check there).
+        manager.registerProvider(providerB)
+        dispatcher.scheduler.advanceUntilIdle() // A hits ensureActive() and aborts; B completes
+
+        val result = manager.currentToken()
+        assertEquals(freshToken, result.rawToken)
+    }
+
     // MARK: - Helpers
 
     private class SuccessProvider(private val jwt: String) : AuthTokenProvider {
@@ -384,21 +415,23 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
 
     /**
-     * Provider that captures the callback so tests can resolve it manually, enabling
-     * deterministic control over when the provider "responds".
+     * Provider that captures callbacks so tests can resolve them manually, enabling
+     * deterministic control over when the provider "responds". Callbacks are queued so
+     * concurrent invocations (e.g. eager fetch + explicit caller) can each be resolved
+     * independently without the second call clobbering the first.
      */
     private class ResolvableProvider : AuthTokenProvider {
         var callCount: Int = 0
             private set
-        private var pendingCallback: AuthTokenProvider.Callback? = null
+        private val pendingCallbacks = ArrayDeque<AuthTokenProvider.Callback>()
 
         override fun fetchToken(callback: AuthTokenProvider.Callback) {
             callCount++
-            pendingCallback = callback
+            pendingCallbacks.addLast(callback)
         }
 
-        fun resolve(jwt: String) = pendingCallback?.onSuccess(jwt)
-        fun reject(error: Throwable) = pendingCallback?.onFailure(error)
+        fun resolve(jwt: String) = pendingCallbacks.removeFirstOrNull()?.onSuccess(jwt)
+        fun reject(error: Throwable) = pendingCallbacks.removeFirstOrNull()?.onFailure(error)
     }
 
     /**
