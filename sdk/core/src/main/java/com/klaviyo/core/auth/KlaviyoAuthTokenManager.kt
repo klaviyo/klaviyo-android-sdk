@@ -6,11 +6,13 @@ import com.klaviyo.core.safeLaunch
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -56,9 +58,9 @@ internal class KlaviyoAuthTokenManager(
         // Two complementary guards prevent a stale token from reaching the cache:
         //   1. If the cancelled coroutine is still inside invokeProvider(), the isActive check in
         //      suspendCancellableCoroutine drops any late onSuccess/onFailure callback.
-        //   2. If the callback already fired and doFetch() is past invokeProvider() but hasn't
-        //      written the cache yet, the next suspension point (mutex.withLock in doFetch)
-        //      will observe the cancellation and throw CancellationException before the write.
+        //   2. If the callback already fired and doFetch() is past invokeProvider(), an explicit
+        //      ensureActive check runs immediately before acquiring mutex.withLock so cancellation
+        //      is observed even when lock acquisition takes the uncontended fast path.
         inFlightFetch?.cancel()
         inFlightFetch = null
         cachedToken = null
@@ -119,6 +121,7 @@ internal class KlaviyoAuthTokenManager(
     private suspend fun doFetch(): ValidatedToken {
         val jwt = invokeProvider()
         val token = validateOrThrow(jwt)
+        coroutineContext.ensureActive()
         mutex.withLock { cachedToken = token }
         Registry.log.info(
             "Auth token acquired (exp=${token.expiresAtEpochSeconds}, iat=${token.issuedAtEpochSeconds})"
