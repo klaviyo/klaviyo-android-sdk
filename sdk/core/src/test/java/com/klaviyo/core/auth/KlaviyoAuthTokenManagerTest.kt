@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -255,7 +256,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
 
         assertNotNull("Expected TimedOut to be thrown", caught)
         verify {
-            spyLog.error(
+            spyLog.warning(
                 match { it.contains("timed out", ignoreCase = true) },
                 any<AuthTokenException.TimedOut>()
             )
@@ -338,6 +339,45 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         // Cache should hold freshToken, not staleToken.
         val result = manager.currentToken()
         assertEquals(freshToken, result.rawToken)
+    }
+
+    @Test
+    fun `caller waiting on in-flight fetch receives new provider token after provider swap`() = runTest(
+        dispatcher
+    ) {
+        // Regression: when registerProvider() cancels the in-flight deferred, deferred.await()
+        // throws CancellationException. Without the ensureActive() + retry fix in currentToken(),
+        // this propagates to the caller as if their coroutine was cancelled, breaking callers like
+        // KlaviyoWebViewClient that rethrow CancellationException for structured concurrency.
+        val freshToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val providerA = ResolvableProvider()
+        val providerB = SuccessProvider(freshToken)
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(providerA)
+        dispatcher.scheduler.runCurrent() // A's eager fetch starts, suspends on provider
+
+        // Caller joins the in-flight deferred from provider A.
+        var result: ValidatedToken? = null
+        var caught: Throwable? = null
+        val callerJob = launch {
+            try {
+                result = manager.currentToken(timeoutMs = 5_000)
+            } catch (e: Throwable) {
+                caught = e
+            }
+        }
+        dispatcher.scheduler.runCurrent() // caller reaches deferred.await()
+
+        // Swap to B while caller is suspended — A's deferred is cancelled, which would throw
+        // CancellationException to the caller without the fix. With the fix the caller retries
+        // and transparently picks up B's token.
+        manager.registerProvider(providerB)
+        dispatcher.scheduler.advanceUntilIdle() // B completes; caller's retry finds the cache
+
+        callerJob.join()
+        assertNull("Caller should not have thrown but got: $caught", caught)
+        assertEquals(freshToken, result?.rawToken)
     }
 
     @Test

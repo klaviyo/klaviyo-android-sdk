@@ -108,9 +108,23 @@ internal class KlaviyoAuthTokenManager(
         // Each caller races its own timeout budget against the shared deferred. Timing out does
         // NOT cancel the underlying task — other callers with a larger budget still benefit if
         // the provider eventually responds.
-        return withTimeoutOrNull(timeoutMs) { deferred.await() } ?: run {
+        //
+        // CancellationException handling: Deferred.await() throws CancellationException if the
+        // deferred is cancelled externally (e.g. by registerProvider swapping the provider). This
+        // would otherwise propagate to callers as if THEIR coroutine was cancelled, which breaks
+        // structured-concurrency semantics. We catch it, use ensureActive() to distinguish "our
+        // coroutine was cancelled" (rethrow — normal teardown) from "the deferred was cancelled
+        // by a provider swap" (retry — pick up the new provider's fetch transparently).
+        return withTimeoutOrNull(timeoutMs) {
+            try {
+                deferred.await()
+            } catch (e: CancellationException) {
+                currentCoroutineContext().ensureActive()
+                currentToken(timeoutMs)
+            }
+        } ?: run {
             val error = AuthTokenException.TimedOut
-            Registry.log.error(requireNotNull(error.message), error)
+            Registry.log.warning(requireNotNull(error.message), error)
             throw error
         }
     }
