@@ -1,8 +1,11 @@
 package com.klaviyo.core.auth
 
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Clock
+import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.safeLaunch
+import com.klaviyo.core.utils.takeIf
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -18,17 +21,17 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
-/**
- * @param lifecycleMonitor declared in the constructor to lock the signature for MAGE-629's
- *   lifecycle-aware refresh work; unused by code in this PR.
- */
 internal class KlaviyoAuthTokenManager(
-    @Suppress("unused") private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
+    private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
 ) : AuthTokenManager {
 
     // Internal (not on the interface) so MAGE-619 consumers are forced to use their own scope
     // when calling currentToken(), binding auth work to the correct lifecycle.
     internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
+
+    init {
+        lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
+    }
 
     // Guards the read-validate-write transition on both cachedToken and inFlightFetch, ensuring
     // exactly one Deferred is created when multiple callers miss the cache simultaneously.
@@ -47,6 +50,12 @@ internal class KlaviyoAuthTokenManager(
     // mutex; @Volatile ensures those writes are visible to the mutex-protected read in currentToken.
     @Volatile private var inFlightFetch: Deferred<ValidatedToken>? = null
 
+    // NOT cleared in the timer callback on firing — a failed refresh leaves this pointing at a
+    // past target so handleForegroundTransition() case 2 can detect the miss and retry once.
+    @Volatile private var refreshJob: Clock.Cancellable? = null
+
+    @Volatile private var refreshAtWallClockMs: Long? = null
+
     // Reserved for MAGE-630 (onTokenRefresh/offTokenRefresh observers). Matches the established
     // SDK observer-collection pattern (CopyOnWriteArrayList for thread-safe iteration while
     // observers add/remove themselves on arbitrary threads).
@@ -63,6 +72,9 @@ internal class KlaviyoAuthTokenManager(
         //      before the write — even when mutex.withLock acquires the lock uncontended.
         inFlightFetch?.cancel()
         inFlightFetch = null
+        refreshJob?.cancel()
+        refreshJob = null
+        refreshAtWallClockMs = null
         cachedToken = null
         this.provider = provider
         Registry.log.info("AuthTokenProvider registered")
@@ -148,7 +160,10 @@ internal class KlaviyoAuthTokenManager(
         // mutex.withLock does NOT check cancellation when the lock is uncontended, so this guard
         // is required even when the mutex is free.
         currentCoroutineContext().ensureActive()
-        mutex.withLock { cachedToken = token }
+        mutex.withLock {
+            cachedToken = token
+            scheduleRefresh(token)
+        }
         Registry.log.info(
             "Auth token acquired (exp=${token.expiresAtEpochSeconds}, iat=${token.issuedAtEpochSeconds})"
         )
@@ -184,5 +199,96 @@ internal class KlaviyoAuthTokenManager(
     private fun isStillValid(token: ValidatedToken): Boolean {
         val now = Registry.clock.currentTimeMillis() / 1000L
         return now < token.expiresAtEpochSeconds - JWTParser.DEFAULT_LEEWAY_SECONDS
+    }
+
+    // Called under mutex (from doFetch). Non-suspending; safe inside withLock.
+    private fun scheduleRefresh(token: ValidatedToken) {
+        val nowMs = Registry.clock.currentTimeMillis()
+        val targetMs = computeRefreshTarget(token, nowMs)
+        refreshJob?.cancel()
+        refreshAtWallClockMs = targetMs
+        refreshJob = Registry.clock.schedule((targetMs - nowMs).coerceAtLeast(0)) {
+            scope.safeLaunch { performScheduledRefresh() }
+        }
+        Registry.log.info(
+            "Proactive token refresh scheduled (target=${Registry.clock.isoTime(targetMs)})"
+        )
+    }
+
+    // Forces a fresh provider invocation and routes through the standard dedup + timeout path.
+    // Clears the cache first so currentToken()'s optimistic read falls through to the mutex
+    // block, where it either joins an existing in-flight fetch or starts a new one. Any
+    // concurrent caller that arrives between the clear and the fetch completion shares the
+    // single in-flight Deferred automatically.
+    // Logs at WARNING on failure — the still-valid cached token remains for live consumers.
+    // On failure does NOT reschedule; one foreground-transition retry is possible if
+    // refreshAtWallClockMs was not yet cleared (timer fired but fetch failed).
+    // TODO (MAGE-630): emit onTokenRefresh notification to observers on success.
+    private suspend fun performScheduledRefresh() {
+        if (provider == null) return
+        Registry.log.info("Proactive token refresh fired")
+        mutex.withLock { cachedToken = null }
+        try {
+            currentToken(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS)
+            Registry.log.info("Proactive token refresh succeeded")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
+        }
+    }
+
+    private fun onLifecycleEvent(event: ActivityEvent) {
+        event.takeIf<ActivityEvent.FirstStarted>() ?: return
+        scope.safeLaunch { handleForegroundTransition() }
+    }
+
+    // Reconciles cache and scheduled-refresh state on foreground transition.
+    // safeLaunch is non-suspending, so the mutex is released before any launched
+    // coroutine runs — no re-entrancy risk with currentToken()'s own withLock call.
+    private suspend fun handleForegroundTransition() {
+        val nowMs = Registry.clock.currentTimeMillis()
+        mutex.withLock {
+            val cached = cachedToken
+            val targetMs = refreshAtWallClockMs
+            when {
+                cached != null && !isStillValid(cached) -> {
+                    cachedToken = null
+                    refreshJob?.cancel(); refreshJob = null; refreshAtWallClockMs = null
+                    Registry.log.info(
+                        "AuthTokenManager: foreground transition (case=expired-cached-token)"
+                    )
+                    scope.safeLaunch { tryEagerFetch() }
+                }
+                targetMs != null && nowMs >= targetMs -> {
+                    refreshJob?.cancel(); refreshJob = null; refreshAtWallClockMs = null
+                    Registry.log.info(
+                        "AuthTokenManager: foreground transition (case=missed-refresh)"
+                    )
+                    scope.safeLaunch { performScheduledRefresh() }
+                }
+                else -> Registry.log.info(
+                    "AuthTokenManager: foreground transition (case=still-valid)"
+                )
+            }
+        }
+    }
+
+    companion object {
+        /**
+         * Computes the absolute wall-clock target (epoch ms) for the next proactive refresh.
+         *
+         * Ideal: iat + 0.9 * (exp - iat). Clamped to [now + 5s, exp - leeway]:
+         * - Upper bound: refresh fires before the token is considered stale.
+         * - Lower bound: prevents tight loops for tokens issued near their own expiry.
+         */
+        internal fun computeRefreshTarget(token: ValidatedToken, nowMs: Long): Long {
+            val iatMs = token.issuedAtEpochSeconds * 1000L
+            val expMs = token.expiresAtEpochSeconds * 1000L
+            val idealMs = iatMs + (0.9 * (expMs - iatMs)).toLong()
+            val upperBoundMs = expMs - JWTParser.DEFAULT_LEEWAY_SECONDS * 1000L
+            val lowerBoundMs = nowMs + 5_000L
+            return maxOf(lowerBoundMs, minOf(idealMs, upperBoundMs))
+        }
     }
 }
