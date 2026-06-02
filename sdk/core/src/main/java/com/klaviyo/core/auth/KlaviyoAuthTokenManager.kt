@@ -41,7 +41,9 @@ internal class KlaviyoAuthTokenManager(
     // Shared in-flight fetch deferred. All concurrent callers that miss the cache await this
     // single Deferred rather than each invoking the provider independently. Cleared (via
     // invokeOnCompletion) on both success and failure so the next request starts a fresh fetch.
-    private var inFlightFetch: Deferred<ValidatedToken>? = null
+    // @Volatile because registerProvider and invokeOnCompletion clear it without holding the
+    // mutex; @Volatile ensures those writes are visible to the mutex-protected read in currentToken.
+    @Volatile private var inFlightFetch: Deferred<ValidatedToken>? = null
 
     // Reserved for MAGE-630 (onTokenRefresh/offTokenRefresh observers). Matches the established
     // SDK observer-collection pattern (CopyOnWriteArrayList for thread-safe iteration while
@@ -50,9 +52,13 @@ internal class KlaviyoAuthTokenManager(
     private val refreshObservers = CopyOnWriteArrayList<TokenRefreshObserver>()
 
     override fun registerProvider(provider: AuthTokenProvider) {
-        // Cancel any in-flight fetch for the old provider before swapping. The isActive guard in
-        // invokeProvider's suspendCancellableCoroutine ensures a late onSuccess/onFailure from the
-        // cancelled coroutine is harmlessly dropped.
+        // Cancel any in-flight fetch for the old provider before swapping.
+        // Two complementary guards prevent a stale token from reaching the cache:
+        //   1. If the cancelled coroutine is still inside invokeProvider(), the isActive check in
+        //      suspendCancellableCoroutine drops any late onSuccess/onFailure callback.
+        //   2. If the callback already fired and doFetch() is past invokeProvider() but hasn't
+        //      written the cache yet, the next suspension point (mutex.withLock in doFetch)
+        //      will observe the cancellation and throw CancellationException before the write.
         inFlightFetch?.cancel()
         inFlightFetch = null
         cachedToken = null
