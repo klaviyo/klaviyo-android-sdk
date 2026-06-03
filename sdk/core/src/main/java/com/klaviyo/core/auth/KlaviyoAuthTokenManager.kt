@@ -94,20 +94,32 @@ internal class KlaviyoAuthTokenManager(
     }
 
     override suspend fun currentToken(timeoutMs: Long): ValidatedToken {
+        return currentTokenInternal(timeoutMs = timeoutMs, allowCachedToken = true)
+    }
+
+    private suspend fun currentTokenInternal(
+        timeoutMs: Long,
+        allowCachedToken: Boolean
+    ): ValidatedToken {
         require(timeoutMs > 0L) { "timeoutMs must be positive, but was $timeoutMs" }
         if (provider == null) throw AuthTokenException.NoProviderRegistered
 
-        // Optimistic read of @Volatile field — no lock needed for the fast path.
-        val cached = cachedToken
-        if (cached != null && isStillValid(cached)) return cached
+        if (allowCachedToken) {
+            // Optimistic read of @Volatile field — no lock needed for the fast path.
+            val cached = cachedToken
+            if (cached != null && isStillValid(cached)) return cached
+        }
 
         // Atomic read-or-create of the in-flight deferred. The mutex ensures exactly one
         // scope.async { } is launched when multiple callers miss the cache simultaneously.
         val deferred: Deferred<ValidatedToken> = mutex.withLock {
             // Re-check under the lock; a concurrent caller may have populated the cache while
-            // we waited. Non-local return from this inline lambda exits currentToken() directly.
+            // we waited. Non-local return from this inline lambda exits currentTokenInternal()
+            // directly.
             val freshenedCache = cachedToken
-            if (freshenedCache != null && isStillValid(freshenedCache)) return freshenedCache
+            if (allowCachedToken && freshenedCache != null && isStillValid(freshenedCache)) {
+                return freshenedCache
+            }
 
             inFlightFetch ?: scope.async { doFetch() }.also { d ->
                 inFlightFetch = d
@@ -132,7 +144,7 @@ internal class KlaviyoAuthTokenManager(
                 deferred.await()
             } catch (e: CancellationException) {
                 currentCoroutineContext().ensureActive()
-                currentToken(timeoutMs)
+                currentTokenInternal(timeoutMs = timeoutMs, allowCachedToken = allowCachedToken)
             }
         } ?: run {
             val error = AuthTokenException.TimedOut
@@ -210,9 +222,9 @@ internal class KlaviyoAuthTokenManager(
     }
 
     // Forces a fresh provider invocation and routes through the standard dedup + timeout path.
-    // Clears the cache first so currentToken()'s optimistic read falls through to the mutex
-    // block, where it either joins an existing in-flight fetch or starts a new one. Any
-    // concurrent caller that arrives between the clear and the fetch completion shares the
+    // Leaves the existing cache intact so callers can keep using it while refresh is in-flight,
+    // even if the refresh attempt fails. Any
+    // concurrent caller that arrives while refresh is in-flight shares the
     // single in-flight Deferred automatically.
     // Logs at WARNING on failure — the still-valid cached token remains for live consumers.
     // On failure does NOT reschedule; one foreground-transition retry is possible if
@@ -221,9 +233,11 @@ internal class KlaviyoAuthTokenManager(
     private suspend fun performScheduledRefresh() {
         if (provider == null) return
         Registry.log.info("Proactive token refresh fired")
-        mutex.withLock { cachedToken = null }
         try {
-            currentToken(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS)
+            currentTokenInternal(
+                timeoutMs = AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,
+                allowCachedToken = false
+            )
             Registry.log.info("Proactive token refresh succeeded")
         } catch (e: CancellationException) {
             throw e

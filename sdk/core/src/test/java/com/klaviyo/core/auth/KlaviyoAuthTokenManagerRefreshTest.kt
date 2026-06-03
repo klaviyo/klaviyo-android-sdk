@@ -108,6 +108,37 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     @Test
+    fun `failed scheduled refresh keeps prior cached token for callers`() = runTest(dispatcher) {
+        val token = makeJwt()
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(token),
+                    Result.failure(RuntimeException("refresh failed"))
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("scheduled refresh should attempt one additional provider call", 2, provider.callCount)
+
+        val cached = manager.currentToken()
+        assertEquals(token, cached.rawToken)
+        assertEquals(
+            "callers should keep using the prior cached token after refresh failure",
+            2,
+            provider.callCount
+        )
+    }
+
+    @Test
     fun `registerProvider cancels pending refresh job`() = runTest(dispatcher) {
         val tokenA = makeJwt()
         val tokenB = makeJwt(EXP_SECONDS + 1, IAT_SECONDS + 1)
@@ -220,6 +251,23 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         override fun fetchToken(callback: AuthTokenProvider.Callback) {
             callCount++
             callback.onSuccess(jwt)
+        }
+    }
+
+    private class ScriptedProvider(
+        private val results: ArrayDeque<Result<String>>
+    ) : AuthTokenProvider {
+        var callCount = 0
+            private set
+
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callCount++
+            val result = results.removeFirstOrNull()
+                ?: error("No scripted provider result for call #$callCount")
+            result.fold(
+                onSuccess = callback::onSuccess,
+                onFailure = callback::onFailure
+            )
         }
     }
 }
