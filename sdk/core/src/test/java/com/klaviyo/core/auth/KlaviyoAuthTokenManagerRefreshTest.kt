@@ -80,6 +80,15 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         assertEquals(1_005_000L, targetMs)
     }
 
+    @Test
+    fun `computeRefreshTarget clamps to lowerBound when token lifetime is shorter than leeway`() {
+        // Degenerate: iat=0s, exp=4s, now=0s → ideal=3.6s, upper=-26s (exp-leeway < 0)
+        // Both ideal and upper fall below lowerBound (5s) → lowerBound wins
+        val token = ValidatedToken("", expiresAtEpochSeconds = 4L, issuedAtEpochSeconds = 0L)
+        val targetMs = KlaviyoAuthTokenManager.computeRefreshTarget(token, nowMs = 0L)
+        assertEquals(5_000L, targetMs)
+    }
+
     // MARK: - Scheduling integration
 
     @Test
@@ -270,7 +279,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     fun `foreground racing with fired timer only launches one scheduled refresh`() = runTest(
         dispatcher
     ) {
-        val racingClock = CancelRunsTaskClock(TIME, ISO_TIME)
+        val racingClock = FireOnCancelClock(TIME, ISO_TIME)
         every { Registry.clock } returns racingClock
         val provider = CountingSuccessProvider(makeJwt())
         val manager = KlaviyoAuthTokenManager()
@@ -348,7 +357,16 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
 
     // MARK: - Helpers
 
-    private class CancelRunsTaskClock(
+    /**
+     * A test [Clock] that fires a scheduled task synchronously when its [Clock.Cancellable.cancel]
+     * is called, modelling the race where a timer fires at the exact instant it is being cancelled.
+     * Used only by [foreground racing with fired timer only launches one scheduled refresh] to
+     * verify the generation-based deduplication guard.
+     *
+     * Note: [Clock.Cancellable.runNow] and [Clock.Cancellable.cancel] have the same effect —
+     * this is intentional; "cancel" here means "cancel the pending delay and run immediately."
+     */
+    private class FireOnCancelClock(
         var time: Long,
         private val formatted: String
     ) : Clock {
@@ -418,7 +436,9 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         override fun fetchToken(callback: AuthTokenProvider.Callback) {
             callCount++
             val result = results.removeFirstOrNull()
-                ?: error("No scripted provider result for call #$callCount")
+                ?: throw AssertionError(
+                    "ScriptedProvider: unexpected call #$callCount — no more scripted results"
+                )
             result.fold(
                 onSuccess = callback::onSuccess,
                 onFailure = callback::onFailure

@@ -7,6 +7,7 @@ import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
@@ -52,17 +53,24 @@ internal class KlaviyoAuthTokenManager(
 
     // NOT cleared in the timer callback on firing — a failed refresh leaves this pointing at a
     // past target so handleForegroundTransition() case 2 can detect the miss and retry once.
+    // @Volatile because registerProvider writes without holding the mutex; @Volatile ensures those
+    // writes are visible to subsequent mutex-protected reads in handleForegroundTransition().
     @Volatile private var refreshJob: Clock.Cancellable? = null
 
+    // @Volatile for the same reason as refreshJob: registerProvider clears without holding mutex.
     @Volatile private var refreshAtWallClockMs: Long? = null
 
     // Set by the timer callback while holding [mutex] before refresh work begins. This prevents a
     // foreground transition from treating an already-fired timer as a Doze-style miss while the
     // scheduled refresh coroutine is still queued or in-flight.
+    // @Volatile because registerProvider resets without holding the mutex.
     @Volatile private var refreshTimerFired = false
 
     // Monotonic token used to ignore callbacks from refresh jobs cancelled by a later schedule.
-    @Volatile private var refreshGeneration = 0L
+    // AtomicLong rather than @Volatile Long so that registerProvider's non-mutex increment
+    // (refreshGeneration.incrementAndGet()) is truly atomic and cannot race with scheduleRefresh's
+    // mutex-held increment to produce a lost update.
+    private val refreshGeneration = AtomicLong(0L)
 
     // Reserved for MAGE-630 (onTokenRefresh/offTokenRefresh observers). Matches the established
     // SDK observer-collection pattern (CopyOnWriteArrayList for thread-safe iteration while
@@ -84,7 +92,7 @@ internal class KlaviyoAuthTokenManager(
         refreshJob = null
         refreshAtWallClockMs = null
         refreshTimerFired = false
-        refreshGeneration += 1
+        refreshGeneration.incrementAndGet()
         cachedToken = null
         this.provider = provider
         Registry.log.info("AuthTokenProvider registered")
@@ -227,9 +235,10 @@ internal class KlaviyoAuthTokenManager(
     private fun scheduleRefresh(token: ValidatedToken) {
         val nowMs = Registry.clock.currentTimeMillis()
         val targetMs = computeRefreshTarget(token, nowMs)
-        val generation = refreshGeneration + 1
+        // Bump the generation before cancelling so that if cancel() synchronously fires the old
+        // task (e.g. FireOnCancelClock in tests), the task sees a stale generation and self-aborts.
+        val generation = refreshGeneration.incrementAndGet()
         refreshJob?.cancel()
-        refreshGeneration = generation
         refreshTimerFired = false
         refreshAtWallClockMs = targetMs
         refreshJob = Registry.clock.schedule((targetMs - nowMs).coerceAtLeast(0)) {
@@ -246,16 +255,15 @@ internal class KlaviyoAuthTokenManager(
 
     private suspend fun markRefreshTimerFired(generation: Long): Boolean =
         mutex.withLock {
-            if (refreshGeneration != generation) return@withLock false
+            if (refreshGeneration.get() != generation) return@withLock false
             refreshTimerFired = true
             true
         }
 
     // Forces a fresh provider invocation and routes through the standard dedup + timeout path.
     // Leaves the existing cache intact so callers can keep using it while refresh is in-flight,
-    // even if the refresh attempt fails. Any
-    // concurrent caller that arrives while refresh is in-flight shares the
-    // single in-flight Deferred automatically.
+    // even if the refresh attempt fails; any concurrent caller that arrives while refresh is
+    // in-flight shares the single in-flight Deferred automatically.
     // Logs at WARNING on failure — the still-valid cached token remains for live consumers.
     // On failure does NOT reschedule; one foreground-transition retry is possible if
     // refreshAtWallClockMs was not yet cleared (timer fired but fetch failed).
@@ -279,7 +287,7 @@ internal class KlaviyoAuthTokenManager(
 
     private suspend fun clearFiredFlagForFailedRefresh(timerGeneration: Long) {
         mutex.withLock {
-            if (refreshGeneration == timerGeneration) {
+            if (refreshGeneration.get() == timerGeneration) {
                 refreshTimerFired = false
             }
         }
@@ -293,6 +301,11 @@ internal class KlaviyoAuthTokenManager(
     // Reconciles cache and scheduled-refresh state on foreground transition.
     // safeLaunch is non-suspending, so the mutex is released before any launched
     // coroutine runs — no re-entrancy risk with currentToken()'s own withLock call.
+    //
+    // Case 1 uses tryEagerFetch() (allowCachedToken = true) because cachedToken is explicitly
+    // nulled before the launch, guaranteeing a cache miss without needing to bypass the cache.
+    // Case 2 uses performScheduledRefresh() (allowCachedToken = false) because the cached token
+    // is still valid and must NOT be returned — we need a fresh provider call despite the hit.
     private suspend fun handleForegroundTransition() {
         val nowMs = Registry.clock.currentTimeMillis()
         mutex.withLock {
@@ -305,7 +318,7 @@ internal class KlaviyoAuthTokenManager(
                     refreshJob = null
                     refreshAtWallClockMs = null
                     refreshTimerFired = false
-                    refreshGeneration += 1
+                    refreshGeneration.incrementAndGet()
                     Registry.log.info(
                         "AuthTokenManager: foreground transition (case=expired-cached-token)"
                     )
@@ -316,7 +329,7 @@ internal class KlaviyoAuthTokenManager(
                     refreshJob = null
                     refreshAtWallClockMs = null
                     refreshTimerFired = false
-                    refreshGeneration += 1
+                    refreshGeneration.incrementAndGet()
                     Registry.log.info(
                         "AuthTokenManager: foreground transition (case=missed-refresh)"
                     )
