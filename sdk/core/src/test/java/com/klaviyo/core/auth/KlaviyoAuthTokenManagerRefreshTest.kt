@@ -5,6 +5,7 @@ import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.slot
+import io.mockk.verify
 import java.util.Base64
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -225,6 +226,74 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     @Test
+    fun `foreground after timer fires while refresh is in-flight is not treated as missed`() = runTest(
+        dispatcher
+    ) {
+        val initialToken = makeJwt()
+        val refreshedToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val provider = InitialThenResolvableProvider(initialToken)
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        dispatcher.scheduler.runCurrent()
+        assertEquals("scheduled refresh should be in-flight", 2, provider.callCount)
+
+        observerSlot.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
+        dispatcher.scheduler.runCurrent()
+
+        verify(inverse = true) {
+            spyLog.info(match { it.contains("case=missed-refresh") })
+        }
+
+        provider.resolve(refreshedToken)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "foreground should not enqueue another forced provider fetch after timer success",
+            2,
+            provider.callCount
+        )
+    }
+
+    @Test
+    fun `foreground retries after scheduled timer refresh fails`() = runTest(dispatcher) {
+        val initialToken = makeJwt()
+        val retryToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(initialToken),
+                    Result.failure(RuntimeException("refresh failed")),
+                    Result.success(retryToken)
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("scheduled refresh should have failed", 2, provider.callCount)
+
+        manager.fireFirstStarted()
+
+        assertEquals(
+            "failed scheduled refresh should leave one foreground retry available",
+            3,
+            provider.callCount
+        )
+    }
+
+    @Test
     fun `foreground with expired token clears cache and eager-fetches`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
         val manager = KlaviyoAuthTokenManager()
@@ -252,6 +321,24 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             callCount++
             callback.onSuccess(jwt)
         }
+    }
+
+    private class InitialThenResolvableProvider(private val initialJwt: String) : AuthTokenProvider {
+        var callCount = 0
+            private set
+
+        private val pendingCallbacks = ArrayDeque<AuthTokenProvider.Callback>()
+
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callCount++
+            if (callCount == 1) {
+                callback.onSuccess(initialJwt)
+            } else {
+                pendingCallbacks.addLast(callback)
+            }
+        }
+
+        fun resolve(jwt: String) = pendingCallbacks.removeFirstOrNull()?.onSuccess(jwt)
     }
 
     private class ScriptedProvider(

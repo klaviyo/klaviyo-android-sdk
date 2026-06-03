@@ -56,6 +56,14 @@ internal class KlaviyoAuthTokenManager(
 
     @Volatile private var refreshAtWallClockMs: Long? = null
 
+    // Set synchronously by the timer callback before refresh work is dispatched. This prevents a
+    // foreground transition from treating an already-fired timer as a Doze-style miss while the
+    // scheduled refresh coroutine is still queued or in-flight.
+    @Volatile private var refreshTimerFired = false
+
+    // Monotonic token used to ignore callbacks from refresh jobs cancelled by a later schedule.
+    @Volatile private var refreshGeneration = 0L
+
     // Reserved for MAGE-630 (onTokenRefresh/offTokenRefresh observers). Matches the established
     // SDK observer-collection pattern (CopyOnWriteArrayList for thread-safe iteration while
     // observers add/remove themselves on arbitrary threads).
@@ -75,6 +83,8 @@ internal class KlaviyoAuthTokenManager(
         refreshJob?.cancel()
         refreshJob = null
         refreshAtWallClockMs = null
+        refreshTimerFired = false
+        refreshGeneration += 1
         cachedToken = null
         this.provider = provider
         Registry.log.info("AuthTokenProvider registered")
@@ -211,14 +221,25 @@ internal class KlaviyoAuthTokenManager(
     private fun scheduleRefresh(token: ValidatedToken) {
         val nowMs = Registry.clock.currentTimeMillis()
         val targetMs = computeRefreshTarget(token, nowMs)
+        val generation = refreshGeneration + 1
         refreshJob?.cancel()
+        refreshGeneration = generation
+        refreshTimerFired = false
         refreshAtWallClockMs = targetMs
         refreshJob = Registry.clock.schedule((targetMs - nowMs).coerceAtLeast(0)) {
-            scope.safeLaunch { performScheduledRefresh() }
+            if (markRefreshTimerFired(generation)) {
+                scope.safeLaunch { performScheduledRefresh(generation) }
+            }
         }
         Registry.log.info(
             "Proactive token refresh scheduled (target=${Registry.clock.isoTime(targetMs)})"
         )
+    }
+
+    private fun markRefreshTimerFired(generation: Long): Boolean {
+        if (refreshGeneration != generation) return false
+        refreshTimerFired = true
+        return true
     }
 
     // Forces a fresh provider invocation and routes through the standard dedup + timeout path.
@@ -230,7 +251,7 @@ internal class KlaviyoAuthTokenManager(
     // On failure does NOT reschedule; one foreground-transition retry is possible if
     // refreshAtWallClockMs was not yet cleared (timer fired but fetch failed).
     // TODO (MAGE-630): emit onTokenRefresh notification to observers on success.
-    private suspend fun performScheduledRefresh() {
+    private suspend fun performScheduledRefresh(timerGeneration: Long? = null) {
         if (provider == null) return
         Registry.log.info("Proactive token refresh fired")
         try {
@@ -242,6 +263,9 @@ internal class KlaviyoAuthTokenManager(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            if (timerGeneration != null && refreshGeneration == timerGeneration) {
+                refreshTimerFired = false
+            }
             Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
         }
     }
@@ -262,14 +286,22 @@ internal class KlaviyoAuthTokenManager(
             when {
                 cached != null && !isStillValid(cached) -> {
                     cachedToken = null
-                    refreshJob?.cancel(); refreshJob = null; refreshAtWallClockMs = null
+                    refreshJob?.cancel()
+                    refreshJob = null
+                    refreshAtWallClockMs = null
+                    refreshTimerFired = false
+                    refreshGeneration += 1
                     Registry.log.info(
                         "AuthTokenManager: foreground transition (case=expired-cached-token)"
                     )
                     scope.safeLaunch { tryEagerFetch() }
                 }
-                targetMs != null && nowMs >= targetMs -> {
-                    refreshJob?.cancel(); refreshJob = null; refreshAtWallClockMs = null
+                targetMs != null && nowMs >= targetMs && !refreshTimerFired -> {
+                    refreshJob?.cancel()
+                    refreshJob = null
+                    refreshAtWallClockMs = null
+                    refreshTimerFired = false
+                    refreshGeneration += 1
                     Registry.log.info(
                         "AuthTokenManager: foreground transition (case=missed-refresh)"
                     )
