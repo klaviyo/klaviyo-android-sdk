@@ -1,5 +1,7 @@
 package com.klaviyo.core.auth
 
+import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
@@ -265,6 +267,35 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     @Test
+    fun `foreground racing with fired timer only launches one scheduled refresh`() = runTest(
+        dispatcher
+    ) {
+        val racingClock = CancelRunsTaskClock(TIME, ISO_TIME)
+        every { Registry.clock } returns racingClock
+        val provider = CountingSuccessProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        val timerTask = racingClock.scheduledTasks.first()
+        racingClock.time = timerTask.time + 1_000L
+
+        manager.fireFirstStarted()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "racing timer and foreground handlers should share one provider fetch",
+            2,
+            provider.callCount
+        )
+        verify(exactly = 1) {
+            spyLog.info("Proactive token refresh fired")
+        }
+    }
+
+    @Test
     fun `foreground retries after scheduled timer refresh fails`() = runTest(dispatcher) {
         val initialToken = makeJwt()
         val retryToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
@@ -316,6 +347,39 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     // MARK: - Helpers
+
+    private class CancelRunsTaskClock(
+        var time: Long,
+        private val formatted: String
+    ) : Clock {
+        val scheduledTasks = mutableListOf<ScheduledTask>()
+
+        override fun currentTimeMillis(): Long = time
+
+        override fun isoTime(milliseconds: Long): String = formatted
+
+        override fun schedule(delay: Long, task: () -> Unit): Clock.Cancellable {
+            val scheduledTask = ScheduledTask(currentTimeMillis() + delay, task)
+            scheduledTasks.add(scheduledTask)
+            return object : Clock.Cancellable {
+                override fun runNow() {
+                    if (scheduledTasks.remove(scheduledTask)) {
+                        task()
+                    }
+                }
+
+                override fun cancel(): Boolean {
+                    val removed = scheduledTasks.remove(scheduledTask)
+                    if (removed) {
+                        task()
+                    }
+                    return removed
+                }
+            }
+        }
+
+        class ScheduledTask(val time: Long, val task: () -> Unit)
+    }
 
     private class CountingSuccessProvider(private val jwt: String) : AuthTokenProvider {
         var callCount = 0

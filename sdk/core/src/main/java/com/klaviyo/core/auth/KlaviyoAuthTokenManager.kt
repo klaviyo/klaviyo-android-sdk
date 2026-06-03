@@ -56,7 +56,7 @@ internal class KlaviyoAuthTokenManager(
 
     @Volatile private var refreshAtWallClockMs: Long? = null
 
-    // Set synchronously by the timer callback before refresh work is dispatched. This prevents a
+    // Set by the timer callback while holding [mutex] before refresh work begins. This prevents a
     // foreground transition from treating an already-fired timer as a Doze-style miss while the
     // scheduled refresh coroutine is still queued or in-flight.
     @Volatile private var refreshTimerFired = false
@@ -227,8 +227,10 @@ internal class KlaviyoAuthTokenManager(
         refreshTimerFired = false
         refreshAtWallClockMs = targetMs
         refreshJob = Registry.clock.schedule((targetMs - nowMs).coerceAtLeast(0)) {
-            if (markRefreshTimerFired(generation)) {
-                scope.safeLaunch { performScheduledRefresh(generation) }
+            scope.safeLaunch {
+                if (markRefreshTimerFired(generation)) {
+                    performScheduledRefresh(generation)
+                }
             }
         }
         Registry.log.info(
@@ -236,11 +238,12 @@ internal class KlaviyoAuthTokenManager(
         )
     }
 
-    private fun markRefreshTimerFired(generation: Long): Boolean {
-        if (refreshGeneration != generation) return false
-        refreshTimerFired = true
-        return true
-    }
+    private suspend fun markRefreshTimerFired(generation: Long): Boolean =
+        mutex.withLock {
+            if (refreshGeneration != generation) return@withLock false
+            refreshTimerFired = true
+            true
+        }
 
     // Forces a fresh provider invocation and routes through the standard dedup + timeout path.
     // Leaves the existing cache intact so callers can keep using it while refresh is in-flight,
@@ -263,10 +266,16 @@ internal class KlaviyoAuthTokenManager(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (timerGeneration != null && refreshGeneration == timerGeneration) {
+            if (timerGeneration != null) clearFiredFlagForFailedRefresh(timerGeneration)
+            Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
+        }
+    }
+
+    private suspend fun clearFiredFlagForFailedRefresh(timerGeneration: Long) {
+        mutex.withLock {
+            if (refreshGeneration == timerGeneration) {
                 refreshTimerFired = false
             }
-            Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
         }
     }
 
