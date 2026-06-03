@@ -128,7 +128,11 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val timerTask = staticClock.scheduledTasks.first()
         staticClock.execute(timerTask.time - staticClock.time)
         dispatcher.scheduler.advanceUntilIdle()
-        assertEquals("scheduled refresh should attempt one additional provider call", 2, provider.callCount)
+        assertEquals(
+            "scheduled refresh should attempt one additional provider call",
+            2,
+            provider.callCount
+        )
 
         val cached = manager.currentToken()
         assertEquals(token, cached.rawToken)
