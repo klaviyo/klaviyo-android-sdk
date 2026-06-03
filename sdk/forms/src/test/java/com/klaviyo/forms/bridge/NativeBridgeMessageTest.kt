@@ -430,10 +430,6 @@ class NativeBridgeMessageTest : BaseTest() {
                     "version": 2
                   },
                   {
-                    "type": "openExternalUrl",
-                    "version": 1
-                  },
-                  {
                     "type": "formDisappeared",
                     "version": 1
                   },
@@ -445,53 +441,5 @@ class NativeBridgeMessageTest : BaseTest() {
             """.replace("\\s".toRegex(), ""),
             NativeBridgeMessage.handShakeData.compileJson()
         )
-    }
-
-    @Test
-    fun `decodes openExternalUrl with all fields`() {
-        val message = """
-            {
-              "type": "openExternalUrl",
-              "data": {
-                "url": "https://example.com",
-                "formId": "form123",
-                "formName": "Test Form",
-                "buttonLabel": "Click Me"
-              }
-            }
-        """.trimIndent()
-
-        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenExternalUrl
-
-        assertEquals("https://example.com", result.url)
-        assertEquals("form123", result.formId)
-        assertEquals("Test Form", result.formName)
-        assertEquals("Click Me", result.buttonLabel)
-    }
-
-    @Test
-    fun `decodeWebviewMessage throws on openExternalUrl with missing url`() {
-        val message = """
-            {
-              "type": "openExternalUrl",
-              "data": {
-                "formId": "form123",
-                "formName": "Test Form",
-                "buttonLabel": "Click Me"
-              }
-            }
-        """.trimIndent()
-
-        assertThrows(Exception::class.java) {
-            NativeBridgeMessage.decodeWebviewMessage(message)
-        }
-    }
-
-    @Test
-    fun `handShakeData includes openExternalUrl at version 1`() {
-        val openExternalUrlSpec = NativeBridgeMessage.handShakeData.find { it.type == "openExternalUrl" }
-
-        assert(openExternalUrlSpec != null)
-        assertEquals(1, openExternalUrlSpec?.version)
     }
 }
