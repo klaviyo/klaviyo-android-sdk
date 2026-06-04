@@ -205,7 +205,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         assertEquals(token, result.rawToken)
     }
 
-    // MARK: - MAGE-628: Deduplication and Timeouts
+    // MARK: - Deduplication and Timeouts
 
     @Test
     fun `concurrent callers share a single provider invocation`() = runTest(dispatcher) {
