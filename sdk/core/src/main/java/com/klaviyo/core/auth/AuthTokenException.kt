@@ -30,7 +30,6 @@ sealed class AuthTokenException(message: String) : RuntimeException(message) {
      * The underlying provider invocation may still be in-flight; a later caller with a longer
      * budget can still receive the result without triggering a second provider call.
      *
-     * Mirrors iOS `AuthTokenError.timedOut`.
      */
     data object TimedOut : AuthTokenException("Auth token request timed out")
 }
