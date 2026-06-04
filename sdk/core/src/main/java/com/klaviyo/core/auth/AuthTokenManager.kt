@@ -20,7 +20,7 @@ interface AuthTokenManager {
     companion object {
         /**
          * Timeout budget for proactive / background fetches (registration-time warm-up, scheduled
-         * refresh). Matches iOS `FetchMode.background`.
+         * refresh).
          */
         const val BACKGROUND_FETCH_TIMEOUT_MS = 5_000L
 
