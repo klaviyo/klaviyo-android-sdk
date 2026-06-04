@@ -128,7 +128,6 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         partialHtml: String,
         nativeBridge: NativeBridge
     ) {
-        // TODO: [MAGE-628] AuthTokenManager will enforce its own 500ms best-effort deadline.
         // TODO: [MAGE-630] Subscribe to AuthTokenManager.onTokenRefresh for live updates.
         // NoProviderRegistered is split out from generic fetch failures: the former is the
         // expected state for apps not using JWT auth (logged at debug), the latter is degraded
@@ -136,7 +135,10 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         // KDoc intent — "treat NoProviderRegistered as 'auth is not enabled' rather than 'auth
         // failed.'"
         val outcome: AuthOutcome = try {
-            AuthOutcome.Success(Registry.get<AuthTokenManager>().currentToken())
+            AuthOutcome.Success(
+                Registry.get<AuthTokenManager>()
+                    .currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (_: AuthTokenException.NoProviderRegistered) {
