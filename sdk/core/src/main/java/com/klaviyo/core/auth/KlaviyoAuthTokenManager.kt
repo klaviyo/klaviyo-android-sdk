@@ -115,6 +115,24 @@ internal class KlaviyoAuthTokenManager(
         return currentTokenInternal(timeoutMs = timeoutMs, allowCachedToken = true)
     }
 
+    /**
+     * Shared implementation behind [currentToken]. Split out so the
+     * `allowCachedToken` knob stays off the public [AuthTokenManager] interface —
+     * external callers always get the cache-honoring behavior.
+     *
+     * @param allowCachedToken When `true` (the [currentToken] path), a still-valid
+     *   cached token short-circuits both the optimistic pre-lock read and the
+     *   double-checked read under the mutex. When `false`, both reads are skipped
+     *   and the call always resolves through the in-flight fetch, forcing a fresh
+     *   provider invocation even if the cache is currently valid.
+     *
+     *   Only the proactive-refresh path ([performScheduledRefresh]) passes `false`:
+     *   a refresh fires *because* the cached token is aging, so returning that
+     *   still-valid token would make the refresh a no-op. Note this only bypasses
+     *   the *read* — dedup still applies (a concurrent fetch is joined, not
+     *   duplicated, via [inFlightFetch]), and the existing cache is left intact so
+     *   demand callers keep getting the valid token while the refresh runs.
+     */
     private suspend fun currentTokenInternal(
         timeoutMs: Long,
         allowCachedToken: Boolean
