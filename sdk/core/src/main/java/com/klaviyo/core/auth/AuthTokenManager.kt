@@ -54,10 +54,8 @@ interface AuthTokenManager {
      * underlying fetch, so a later caller with a larger budget can still receive the result.
      *
      * @param timeoutMs Maximum milliseconds to wait for the provider to return a token. Must be
-     *   positive. Defaults to [BACKGROUND_FETCH_TIMEOUT_MS] (note: Swift's default is
-     *   [INTERACTIVE_FETCH_TIMEOUT_MS] — pass the desired budget explicitly when cross-platform
-     *   parity matters). Pass [INTERACTIVE_FETCH_TIMEOUT_MS] at form-display time for a
-     *   best-effort, non-blocking fetch.
+     *   positive. Defaults to [BACKGROUND_FETCH_TIMEOUT_MS], pass [INTERACTIVE_FETCH_TIMEOUT_MS] 
+     *  at form-display time for a best-effort, non-blocking fetch.
      * @throws [AuthTokenException.NoProviderRegistered] if no provider has been registered.
      * @throws [AuthTokenException.ValidationFailed] if the returned token fails validation.
      * @throws [AuthTokenException.TimedOut] if the provider does not respond within [timeoutMs].
