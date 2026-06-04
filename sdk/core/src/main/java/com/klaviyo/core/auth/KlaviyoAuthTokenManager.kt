@@ -115,6 +115,12 @@ internal class KlaviyoAuthTokenManager(
         // structured-concurrency semantics. We catch it, use ensureActive() to distinguish "our
         // coroutine was cancelled" (rethrow — normal teardown) from "the deferred was cancelled
         // by a provider swap" (retry — pick up the new provider's fetch transparently).
+        //
+        // Budget: the retry calls currentToken(timeoutMs) inside this same withTimeoutOrNull block,
+        // so the caller's original deadline governs the total wait end-to-end. The recursive call
+        // creates a fresh inner withTimeoutOrNull(timeoutMs) starting from the current time, but
+        // the outer one fires first if the budget is nearly exhausted. This is intentional — the
+        // caller asked for a response within timeoutMs of their call site, not of the swap.
         return withTimeoutOrNull(timeoutMs) {
             try {
                 deferred.await()

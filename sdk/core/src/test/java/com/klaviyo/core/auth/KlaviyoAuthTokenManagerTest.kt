@@ -381,6 +381,50 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
+    fun `outer timeout budget is respected when provider swap triggers retry`() = runTest(
+        dispatcher
+    ) {
+        // When the in-flight deferred is cancelled by a provider swap, currentToken() retries
+        // inside the SAME withTimeoutOrNull block. The retry creates a fresh inner
+        // withTimeoutOrNull(timeoutMs) starting from the current time, but the outer one was
+        // set at original call-time and fires first if the budget is nearly exhausted — so the
+        // caller's original deadline governs the total wait end-to-end.
+        val providerA = DeferredProvider() // never resolves
+        val providerB = DeferredProvider() // never resolves
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(providerA)
+        dispatcher.scheduler.runCurrent() // A's eager fetch starts and suspends
+
+        // Caller has a 100ms total budget.
+        var caught: AuthTokenException.TimedOut? = null
+        val callerJob = launch {
+            try {
+                manager.currentToken(timeoutMs = 100)
+            } catch (e: AuthTokenException.TimedOut) {
+                caught = e
+            }
+        }
+        dispatcher.scheduler.runCurrent() // caller awaits A's deferred
+
+        // Swap at t=80ms — only 20ms of the original 100ms budget remains.
+        dispatcher.scheduler.advanceTimeBy(80)
+        manager.registerProvider(providerB)
+        // Retry starts and awaits B. Inner withTimeoutOrNull(100) would fire at t=180;
+        // outer withTimeoutOrNull(100) fires first at t=100.
+        dispatcher.scheduler.runCurrent()
+
+        dispatcher.scheduler.advanceTimeBy(21) // t=101ms — past the outer 100ms deadline
+        dispatcher.scheduler.runCurrent()
+        callerJob.join()
+
+        assertNotNull(
+            "Outer 100ms deadline should fire; inner retry budget must not extend it",
+            caught
+        )
+    }
+
+    @Test
     fun `provider swap does not write stale token when callback fires before cancellation`() = runTest(
         dispatcher
     ) {
