@@ -27,7 +27,6 @@ interface AuthTokenManager {
         /**
          * Best-effort timeout budget used at form-display time, where latency is user-visible.
          * A timeout here degrades gracefully — the form loads without a token rather than blocking.
-         * Matches iOS `FetchMode.interactive`.
          */
         const val INTERACTIVE_FETCH_TIMEOUT_MS = 500L
     }
