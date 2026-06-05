@@ -38,7 +38,6 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationCount
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationPriority
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationTag
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.openAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.sound
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
@@ -75,8 +74,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val NOTIFICATION_TAG = "notification_tag"
         internal const val KEY_VALUE_PAIRS_KEY = Constants.KEY_VALUE_PAIRS
         internal const val ACTION_BUTTONS_KEY = "action_buttons"
-        internal const val OPEN_ACTION_KEY = "open_action"
-        internal const val OPEN_ACTION_OPEN_URL = "open_url"
+        internal const val WEB_URL_KEY = "web_url"
         private const val DOWNLOAD_TIMEOUT_MS = 5_000
         private const val ACTION_REQUEST_CODE_OFFSET = 1
 
@@ -240,23 +238,15 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
     /**
      * Create the appropriate intent to send when the notification is tapped.
-     * For open_url actions, routes to the default browser without package scoping.
-     * For deep links, routes within the host app.
-     * Falls back to launching the app if no URL is present.
+     * If a web_url is present (and parseable as an http/https URL), routes to the default browser.
+     * Otherwise, routes a deep link within the host app, or falls back to launching the app.
      */
     private fun makeOpenedIntent(context: Context): Intent? {
-        if (message.openAction == OPEN_ACTION_OPEN_URL) {
-            val webUrl = message.webUrl
-            if (webUrl != null) {
-                // Route through the trampoline so handlePush tracks $opened_push
-                // and dismisses the notification — the browser would otherwise swallow the intent.
-                return KlaviyoBrowserTrampolineActivity.makeIntent(context, webUrl.toString()).apply {
-                    appendKlaviyoExtras(message)
-                }
-            }
-            Registry.log.warning("Push message has open_url action but missing url")
-            return DeepLinking.makeLaunchIntent(context)?.apply {
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val webUrl = message.webUrl
+        if (webUrl != null) {
+            // Route through the trampoline so handlePush tracks $opened_push
+            // and dismisses the notification — the browser would otherwise swallow the intent.
+            return KlaviyoBrowserTrampolineActivity.makeIntent(context, webUrl.toString()).apply {
                 appendKlaviyoExtras(message)
             }
         }

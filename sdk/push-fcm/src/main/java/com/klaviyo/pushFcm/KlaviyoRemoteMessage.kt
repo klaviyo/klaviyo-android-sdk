@@ -134,19 +134,25 @@ object KlaviyoRemoteMessage {
     val RemoteMessage.body: String? get() = this.data[KlaviyoNotification.BODY_KEY]
 
     /**
-     * Parse the open_action payload field if present
-     */
-    val RemoteMessage.openAction: String?
-        get() = this.data[KlaviyoNotification.OPEN_ACTION_KEY]
-
-    /**
-     * Parse URL as a web URL when open_action is open_url, else null
+     * Parse the external web URL from the payload, if present.
+     *
+     * Reads the `web_url` field. The presence of this field indicates the tap should open
+     * the URL in the system browser rather than route through the app's deep link handling.
+     * Returns null if the field is absent, blank, or the URL's scheme is not http(s) —
+     * non-web schemes are rejected to prevent routing back into the app via Intent dispatch.
      */
     val RemoteMessage.webUrl: Uri?
-        get() = if (openAction == KlaviyoNotification.OPEN_ACTION_OPEN_URL) {
-            this.data[KlaviyoNotification.URL_KEY]?.toUri()
-        } else {
-            null
+        get() {
+            val urlString = this.data[KlaviyoNotification.WEB_URL_KEY]?.takeIf { it.isNotBlank() }
+                ?: return null
+            val parsed = urlString.toUri()
+            val scheme = parsed.scheme?.lowercase()
+            return if (scheme == "http" || scheme == "https") {
+                parsed
+            } else {
+                Registry.log.warning("web_url '$urlString' has non-web scheme; ignoring.")
+                null
+            }
         }
 
     /**
@@ -278,17 +284,26 @@ object KlaviyoRemoteMessage {
                             }
                         }
                         ActionButton.TYPE_OPEN_URL -> {
-                            jsonObject.optNonBlankString("url")?.let { url ->
-                                ActionButton.OpenUrl(
+                            val urlString = jsonObject.optNonBlankString("url")
+                            val scheme = urlString?.toUri()?.scheme?.lowercase()
+                            when {
+                                urlString == null -> {
+                                    Registry.log.warning(
+                                        "Skipping OPEN_URL action button $i: missing required url"
+                                    )
+                                    null
+                                }
+                                scheme != "http" && scheme != "https" -> {
+                                    Registry.log.warning(
+                                        "Skipping OPEN_URL action button $i: url '$urlString' has non-web scheme"
+                                    )
+                                    null
+                                }
+                                else -> ActionButton.OpenUrl(
                                     id = id,
                                     label = label,
-                                    url = url
+                                    url = urlString
                                 )
-                            } ?: run {
-                                Registry.log.warning(
-                                    "Skipping OPEN_URL action button $i: missing required url"
-                                )
-                                null
                             }
                         }
                         ActionButton.TYPE_OPEN_APP -> {

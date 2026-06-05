@@ -12,10 +12,8 @@ import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
-import com.klaviyo.pushFcm.KlaviyoNotification.Companion.OPEN_ACTION_OPEN_URL
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.TITLE_KEY
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.openAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
 import io.mockk.every
 import io.mockk.mockk
@@ -106,7 +104,6 @@ class KlaviyoNotificationTest : BaseTest() {
         }
 
         with(KlaviyoRemoteMessage) {
-            every { mockRemoteMessage.openAction } returns null
             every { mockRemoteMessage.webUrl } returns null
         }
     }
@@ -702,7 +699,6 @@ class KlaviyoNotificationTest : BaseTest() {
         every { mockWebUri.toString() } returns "https://example.com"
 
         with(KlaviyoRemoteMessage) {
-            every { mockRemoteMessage.openAction } returns KlaviyoNotification.OPEN_ACTION_OPEN_URL
             every { mockRemoteMessage.webUrl } returns mockWebUri
             every { mockRemoteMessage.deepLink } returns null
         }
@@ -723,12 +719,11 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
-    fun `open_url tap with missing webUrl falls back to launch intent with CLEAR_TOP`() {
+    fun `tap with no webUrl and no deepLink falls back to launch intent with CLEAR_TOP`() {
         val mockLaunchIntent = mockk<Intent>(relaxed = true)
         val intentSlot = slot<Intent>()
 
         with(KlaviyoRemoteMessage) {
-            every { mockRemoteMessage.openAction } returns KlaviyoNotification.OPEN_ACTION_OPEN_URL
             every { mockRemoteMessage.webUrl } returns null
             every { mockRemoteMessage.deepLink } returns null
         }

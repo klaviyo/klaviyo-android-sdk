@@ -14,7 +14,6 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.hasKlaviyoKeyValuePairs
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.keyValuePairs
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.openAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
 import io.mockk.every
 import io.mockk.mockk
@@ -527,33 +526,15 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
-    fun `openAction returns value when open_action key is set`() {
-        val msg = mockk<RemoteMessage>()
-        every { msg.data } returns stubMessage.toMutableMap().apply {
-            put(KlaviyoNotification.OPEN_ACTION_KEY, "open_url")
-        }
-
-        assert(msg.openAction == "open_url")
-    }
-
-    @Test
-    fun `openAction returns null when key is missing`() {
-        val msg = mockk<RemoteMessage>()
-        every { msg.data } returns stubMessage
-
-        assert(msg.openAction == null)
-    }
-
-    @Test
-    fun `webUrl returns Uri when open_action is open_url and url is set`() {
+    fun `webUrl returns Uri when web_url is an https URL`() {
         val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "https"
         mockkStatic(android.net.Uri::class)
         every { android.net.Uri.parse("https://example.com") } returns mockUri
 
         val msg = mockk<RemoteMessage>()
         every { msg.data } returns stubMessage.toMutableMap().apply {
-            put(KlaviyoNotification.OPEN_ACTION_KEY, "open_url")
-            put(KlaviyoNotification.URL_KEY, "https://example.com")
+            put(KlaviyoNotification.WEB_URL_KEY, "https://example.com")
         }
 
         val webUrl = msg.webUrl
@@ -564,28 +545,82 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
-    fun `webUrl returns null when open_action is deep_link`() {
+    fun `webUrl returns Uri when web_url is an http URL`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "http"
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("http://example.com") } returns mockUri
+
         val msg = mockk<RemoteMessage>()
         every { msg.data } returns stubMessage.toMutableMap().apply {
-            put(KlaviyoNotification.OPEN_ACTION_KEY, "deep_link")
-            put(KlaviyoNotification.URL_KEY, "myapp://home")
+            put(KlaviyoNotification.WEB_URL_KEY, "http://example.com")
+        }
+
+        assert(msg.webUrl != null)
+
+        unmockkStatic(android.net.Uri::class)
+    }
+
+    @Test
+    fun `webUrl returns null when web_url is missing`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage
+
+        assert(msg.webUrl == null)
+    }
+
+    @Test
+    fun `webUrl returns null when web_url is blank`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            put(KlaviyoNotification.WEB_URL_KEY, "")
         }
 
         assert(msg.webUrl == null)
     }
 
     @Test
-    fun `webUrl returns null when open_action is missing`() {
+    fun `webUrl returns null when web_url has a non-web scheme`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "myapp"
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("myapp://home") } returns mockUri
+
         val msg = mockk<RemoteMessage>()
         every { msg.data } returns stubMessage.toMutableMap().apply {
-            put(KlaviyoNotification.URL_KEY, "https://example.com")
+            put(KlaviyoNotification.WEB_URL_KEY, "myapp://home")
         }
 
         assert(msg.webUrl == null)
+
+        unmockkStatic(android.net.Uri::class)
+    }
+
+    @Test
+    fun `webUrl takes precedence over url field`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "https"
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("https://example.com") } returns mockUri
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            put(KlaviyoNotification.WEB_URL_KEY, "https://example.com")
+            put(KlaviyoNotification.URL_KEY, "myapp://home")
+        }
+
+        assert(msg.webUrl != null)
+
+        unmockkStatic(android.net.Uri::class)
     }
 
     @Test
     fun `actionButtons parses open_url variant with url`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "https"
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("https://example.com") } returns mockUri
+
         val actionButtonsData = listOf(
             mapOf(
                 "id" to "open.url",
@@ -610,6 +645,35 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         assert(button?.id == "open.url")
         assert(button?.label == "Open Website")
         assert((button as? ActionButton.OpenUrl)?.url == "https://example.com")
+
+        unmockkStatic(android.net.Uri::class)
+    }
+
+    @Test
+    fun `actionButtons skips open_url with non-web scheme`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "myapp"
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("myapp://home") } returns mockUri
+
+        val actionButtonsData = listOf(
+            mapOf(
+                "id" to "open.url",
+                "label" to "Open Website",
+                "action" to "open_url",
+                "url" to "myapp://home"
+            )
+        )
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, JSONArray(actionButtonsData).toString())
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        assert(msg.actionButtons == null)
+
+        unmockkStatic(android.net.Uri::class)
     }
 
     @Test
