@@ -30,17 +30,17 @@ class KlaviyoTrampolineActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleTrampolineIntent(intent, this)
-        // Xiaomi-safe ordering: startActivity (inside handleTrampolineIntent) has already
-        // been invoked before this finish() call. See OneSignal's NotificationOpenedActivityBase
-        // and Braze's NotificationTrampolineActivity for the same constraint.
-        finish()
+        // Post finish() to the next UI-thread frame so the OS has processed the startActivity()
+        // call before this Activity disappears — prevents Xiaomi MIUI from failing to foreground
+        // the destination. Matches OneSignal's NotificationOpenedActivityBase pattern.
+        runOnUiThread { finish() }
     }
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         // launchMode="singleTask" means a rapid second tap can re-enter an existing instance.
         handleTrampolineIntent(intent, this)
-        finish()
+        runOnUiThread { finish() }
     }
 
     internal companion object {

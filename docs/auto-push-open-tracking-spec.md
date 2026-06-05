@@ -64,8 +64,12 @@ Notification tap
                     ├─► Klaviyo.handlePush(intent)        // tracks Opened Push
                     ├─► intent.putExtra(AUTO_TRACKED_EXTRA, true)   // dedup stamp
                     └─► startDestination(context, intent) // launch real destination
-            └─► finish()                                  // trampoline disappears
+            └─► runOnUiThread { finish() }                // trampoline disappears next frame
 ```
+
+`finish()` is posted to the next UI-thread frame (via `runOnUiThread`) rather than called
+synchronously. This gives the OS time to process the `startActivity()` call before the
+trampoline disappears — required on Xiaomi MIUI devices. Matches OneSignal's approach.
 
 `onNewIntent` mirrors `onCreate` to handle the case where `launchMode="singleTask"` re-enters
 an existing trampoline instance on a rapid second tap.
@@ -76,14 +80,22 @@ The trampoline inspects `intent.data` to decide where to send the user:
 
 ```
 intent.data != null (deep link present)
-    └─► DeepLinking.makeDeepLinkIntent(uri, context, copyIntent = intent)
-            ├─► resolveActivity != null  →  launch deep link Activity
-            └─► resolveActivity == null  →  fall back to launcher Activity
+    ├─► DeepLinking.isHandlerRegistered == false
+    │       └─► DeepLinking.makeDeepLinkIntent(uri, context, copyIntent = intent)
+    │               ├─► resolveActivity != null  →  launch deep link Activity
+    │               └─► resolveActivity == null  →  fall back to launcher Activity
+    └─► DeepLinking.isHandlerRegistered == true
+            └─► DeepLinking.makeLaunchIntent(context, intent.extras)
+                    └─► foreground app (handler already navigated inside handlePush)
 
 intent.data == null
     └─► DeepLinking.makeLaunchIntent(context, intent.extras)
             └─► launch app's main launcher Activity
 ```
+
+When a `DeepLinkHandler` is registered, `handlePush` already dispatched it inside the
+trampoline. Launching an `ACTION_VIEW` intent on top would double-deliver the navigation,
+so `makeLaunchIntent` is used instead to simply foreground the host app.
 
 All Klaviyo extras (tracking data, button properties) are copied forward into the destination
 intent so they are available in the host Activity's `onCreate`/`onNewIntent` if needed.
