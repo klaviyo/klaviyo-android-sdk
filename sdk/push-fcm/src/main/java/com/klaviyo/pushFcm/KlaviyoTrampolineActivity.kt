@@ -81,20 +81,28 @@ class KlaviyoTrampolineActivity : Activity() {
 
         private fun startDestination(context: Context, intent: Intent) {
             val deepLink = intent.data
-            val destination = if (deepLink != null) {
-                // Mirror KlaviyoNotification.makeResolvedDeepLinkIntent: prefer the deep-link
-                // ACTION_VIEW intent if it resolves to a host Activity, else fall back to
-                // launching the host. The original intent's extras are copied forward so the
-                // dedup flag (and any Klaviyo extras) reach the host.
+            val destination = if (deepLink != null && !DeepLinking.isHandlerRegistered) {
+                // No handler registered — use an ACTION_VIEW intent so the OS routes the user
+                // to the Activity that handles this deep link. Extras (including the dedup flag)
+                // are copied forward via copyIntent.
+                // Fall back to the launcher if the deep link doesn't resolve.
                 DeepLinking.makeDeepLinkIntent(deepLink, context, copyIntent = intent)
                     .takeIf { it.resolveActivity(context.packageManager) != null }
                     ?: DeepLinking.makeLaunchIntent(context, intent.extras)
             } else {
+                // Handler registered: handlePush already invoked the DeepLinkHandler above;
+                // launching an additional ACTION_VIEW would double-deliver the navigation.
+                // Just foreground the app via the launcher so the handler's navigation lands
+                // in a live Activity. Also covers the no-deep-link case.
                 DeepLinking.makeLaunchIntent(context, intent.extras)
             }
 
             destination?.apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                // NEW_TASK: required because the trampoline has taskAffinity="" so the
+                // destination must be routed into the host app's own task.
+                // SINGLE_TOP: prevents a duplicate instance if the Activity is already at
+                // the top of the stack (makeDeepLinkIntent / makeLaunchIntent also set this).
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }?.startActivityIfResolved(context)
                 ?: Registry.log.error(
                     "KlaviyoTrampolineActivity could not resolve a destination for intent: $intent"

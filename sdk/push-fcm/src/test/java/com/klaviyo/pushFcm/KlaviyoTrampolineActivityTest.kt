@@ -125,11 +125,10 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
     }
 
     @Test
-    fun `handleTrampolineIntent with deep link and registered handler still launches destination`() {
-        // Cold-start integrity: if the host has no foregrounded Activity, skipping the
-        // destination launch would leave the user staring at the home screen after tapping
-        // a notification. The dedup guard (AUTO_TRACKED_EXTRA) prevents the handler from
-        // firing twice when the destination intent reaches the host.
+    fun `handleTrampolineIntent with deep link and registered handler foregrounds app without ACTION_VIEW`() {
+        // When a DeepLinkHandler is registered, handlePush already invoked it above.
+        // Launching an additional ACTION_VIEW would double-deliver the navigation, so the
+        // trampoline uses makeLaunchIntent instead to simply foreground the host app.
         val uri = mockk<Uri>(relaxed = true)
         val intent = klaviyoIntent(uri = uri)
         every { DeepLinking.isHandlerRegistered } returns true
@@ -137,7 +136,8 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
         verify(exactly = 1) { Klaviyo.handlePush(intent) }
-        verify(exactly = 1) { DeepLinking.makeDeepLinkIntent(uri, mockTrampolineContext, intent) }
+        verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any(), any()) }
+        verify(exactly = 1) { DeepLinking.makeLaunchIntent(mockTrampolineContext, any()) }
     }
 
     @Test
