@@ -242,9 +242,6 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * [KlaviyoTrampolineActivity], which tracks the `Opened Push` event and forwards
      * the user to the real destination. Otherwise (the default), the tap targets the
      * destination directly and the host Activity is expected to call [Klaviyo.handlePush].
-     *
-     * Action button intents are NOT routed through the trampoline in this iteration —
-     * they continue to target the host directly. See follow-up Linear ticket.
      */
     private fun makeOpenedIntent(context: Context) =
         if (isAutomaticPushOpenTrackingEnabled) {
@@ -265,6 +262,25 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         message.deepLink?.let { data = it }
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         appendKlaviyoExtras(message)
+    }
+
+    /**
+     * Build a trampoline intent for an action button tap. The trampoline tracks `Opened Push`
+     * (including button-specific properties) and forwards the user to the button's destination.
+     *
+     * [Constants.NOTIFICATION_TAG_EXTRA] is included so [Klaviyo.handlePush] can dismiss
+     * the notification — action button taps don't trigger [android.app.Notification.setAutoCancel].
+     */
+    private fun makeTrampolineIntentForButton(
+        context: Context,
+        button: ActionButton,
+        notificationTag: String
+    ) = Intent(context, KlaviyoTrampolineActivity::class.java).apply {
+        if (button is ActionButton.DeepLink) data = button.url.toUri()
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        putExtra(Constants.NOTIFICATION_TAG_EXTRA, notificationTag)
+        appendKlaviyoExtras(message)
+        appendActionButtonExtras(button)
     }
 
     /**
@@ -335,7 +351,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
     }
 
     /**
-     * Create a notification action that either opens the app or navigates to a deep link
+     * Create a notification action that either opens the app or navigates to a deep link.
+     *
+     * When [isAutomaticPushOpenTrackingEnabled], routes through [KlaviyoTrampolineActivity]
+     * so the tap is tracked automatically. Otherwise targets the host Activity directly.
      */
     private fun createButtonAction(
         context: Context,
@@ -344,23 +363,27 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         button: ActionButton,
         notificationTag: String
     ): NotificationCompat.Action? {
-        val intent = when (button) {
-            is ActionButton.DeepLink -> {
-                val uri = button.url.toUri()
-                makeResolvedDeepLinkIntent(
-                    context,
-                    uri,
-                    "Action button $index contained unsupported deep link: $uri"
-                )
-            }
-            is ActionButton.OpenApp -> {
-                DeepLinking.makeLaunchIntent(context)
-            }
-        }?.apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            putExtra(Constants.NOTIFICATION_TAG_EXTRA, notificationTag)
-        }?.appendKlaviyoExtras(message)
-            ?.appendActionButtonExtras(button)
+        val intent: Intent? = if (isAutomaticPushOpenTrackingEnabled) {
+            makeTrampolineIntentForButton(context, button, notificationTag)
+        } else {
+            when (button) {
+                is ActionButton.DeepLink -> {
+                    val uri = button.url.toUri()
+                    makeResolvedDeepLinkIntent(
+                        context,
+                        uri,
+                        "Action button $index contained unsupported deep link: $uri"
+                    )
+                }
+                is ActionButton.OpenApp -> {
+                    DeepLinking.makeLaunchIntent(context)
+                }
+            }?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                putExtra(Constants.NOTIFICATION_TAG_EXTRA, notificationTag)
+            }?.appendKlaviyoExtras(message)
+                ?.appendActionButtonExtras(button)
+        }
 
         if (intent == null) {
             Registry.log.warning(

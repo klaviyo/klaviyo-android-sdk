@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.core.Constants
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
@@ -21,6 +22,7 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.spyk
+import io.mockk.unmockkConstructor
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.junit.After
@@ -685,5 +687,139 @@ class KlaviyoNotificationTest : BaseTest() {
                 any<String>()
             )
         }
+    }
+
+    // ---- Automatic push open tracking: action button path ----
+
+    private fun enableAutoTracking() {
+        every {
+            mockConfig.getManifestBoolean(
+                KlaviyoPushService.METADATA_AUTOMATIC_PUSH_OPEN_TRACKING,
+                false
+            )
+        } returns true
+    }
+
+    /**
+     * Sets up mocking for Intent construction used in trampoline paths and stubs the putExtra
+     * overloads that appendKlaviyoExtras / appendActionButtonExtras call.
+     */
+    private fun setupTrampolineIntentMocking(): MockIntent {
+        val mockIntent = MockIntent.setupIntentMocking()
+        every { anyConstructed<Intent>().putExtra(any<String>(), any<String>()) } returns mockIntent.intent
+        every { anyConstructed<Intent>().putExtra(any<String>(), any<Boolean>()) } returns mockIntent.intent
+        return mockIntent
+    }
+
+    @Test
+    fun `action button OpenApp targets trampoline when auto-tracking enabled`() {
+        enableAutoTracking()
+        setupTrampolineIntentMocking()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.OpenApp(id = "open", label = "Open")
+            )
+        }
+
+        notification.displayNotification(mockContext)
+
+        // Trampoline is constructed directly; DeepLinking.makeLaunchIntent is never called
+        verify(exactly = 0) { DeepLinking.makeLaunchIntent(any()) }
+        verify(exactly = 1) {
+            anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>())
+        }
+
+        unmockkConstructor(Intent::class)
+    }
+
+    @Test
+    fun `action button DeepLink targets trampoline when auto-tracking enabled`() {
+        enableAutoTracking()
+        setupTrampolineIntentMocking()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.DeepLink(
+                    id = "link",
+                    label = "View",
+                    url = "https://example.com/order"
+                )
+            )
+        }
+
+        notification.displayNotification(mockContext)
+
+        // Deep link resolution is deferred to tap time inside the trampoline
+        verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any()) }
+        verify(exactly = 1) {
+            anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>())
+        }
+
+        unmockkConstructor(Intent::class)
+    }
+
+    @Test
+    fun `trampoline action button intent includes button extras and notification tag`() {
+        enableAutoTracking()
+        setupTrampolineIntentMocking()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.notificationTag } returns "test_tag"
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.OpenApp(id = "open-id", label = "Open App")
+            )
+        }
+
+        notification.displayNotification(mockContext)
+
+        // putExtra calls go through anyConstructed<Intent>() since the Intent is built
+        // directly via Intent(context, KlaviyoTrampolineActivity::class.java)
+        verify { anyConstructed<Intent>().putExtra(Constants.NOTIFICATION_TAG_EXTRA, any<String>()) }
+        verify { anyConstructed<Intent>().putExtra("com.klaviyo.Button ID", "open-id") }
+        verify { anyConstructed<Intent>().putExtra("com.klaviyo.Button Label", "Open App") }
+
+        unmockkConstructor(Intent::class)
+    }
+
+    @Test
+    fun `trampoline action button sets deep link URI as intent data for DeepLink buttons`() {
+        enableAutoTracking()
+        val mockIntent = setupTrampolineIntentMocking()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.DeepLink(id = "link", label = "View", url = "myapp://orders/123")
+            )
+        }
+
+        notification.displayNotification(mockContext)
+
+        // data setter was called with the button's URI
+        assertTrue("Expected intent data to be set for DeepLink button", mockIntent.data.isCaptured)
+
+        unmockkConstructor(Intent::class)
+    }
+
+    @Test
+    fun `trampoline action button does not set intent data for OpenApp buttons`() {
+        enableAutoTracking()
+        val mockIntent = setupTrampolineIntentMocking()
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.OpenApp(id = "open", label = "Open")
+            )
+        }
+
+        notification.displayNotification(mockContext)
+
+        // data setter should not be called for OpenApp buttons
+        assertFalse(
+            "Expected intent data not to be set for OpenApp button",
+            mockIntent.data.isCaptured
+        )
+
+        unmockkConstructor(Intent::class)
     }
 }
