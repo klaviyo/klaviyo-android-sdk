@@ -1,22 +1,20 @@
 package com.klaviyo.forms.bridge
 
-import kotlinx.coroutines.CompletableDeferred
-
 /**
  * Manages the collection of observers that inject data into the webview
  */
 internal class KlaviyoObserverCollection : JsBridgeObserverCollection {
-    // Shared deferred that JwtObserver completes (or cancels) after delivering the JWT.
-    // ProfileMutationObserver awaits it before its initial profile injection, ensuring the
-    // JWT attribute is set before profile identifiers arrive in the onsite JS module.
-    private val jwtReady = CompletableDeferred<Unit>()
+    // JwtObserver owns its jwtReady deferred and creates a fresh one on each startObserver call.
+    // ProfileMutationObserver reads jwtReady from this reference at its own startObserver time,
+    // so it always awaits the deferred for the current WebView session rather than a stale one.
+    private val jwtObserver = JwtObserver()
 
     override val observers: List<JsBridgeObserver> by lazy {
         listOf(
             CompanyObserver(),
             LifecycleObserver(),
-            JwtObserver(jwtReady),
-            ProfileMutationObserver(jwtReady),
+            jwtObserver,
+            ProfileMutationObserver(jwtObserver),
             ProfileEventObserver()
         )
     }

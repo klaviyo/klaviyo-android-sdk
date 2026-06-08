@@ -7,13 +7,12 @@ import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
 /**
- * Tests for [ProfileMutationObserver] behaviour when a [jwtReady] deferred is provided —
+ * Tests for [ProfileMutationObserver] behaviour when a [JwtObserver] is provided —
  * i.e. the coordination path used by [KlaviyoObserverCollection] to prevent profile injection
  * from racing ahead of JWT delivery.
  */
@@ -41,15 +40,17 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
 
     @Test
     fun `startObserver awaits jwtReady before injecting profile`() {
-        val jwtReady = CompletableDeferred<Unit>()
-        ProfileMutationObserver(jwtReady).startObserver()
+        // JwtObserver created but not started — jwtReady is the initial incomplete deferred,
+        // which we complete manually below to simulate JWT delivery.
+        val jwtObserver = JwtObserver()
+        ProfileMutationObserver(jwtObserver).startObserver()
         dispatcher.scheduler.runCurrent()
 
         // JWT not yet delivered — profile must not have been injected
         verify(inverse = true) { mockBridge.profileMutation(any()) }
 
         // JWT arrives — profile injection should now proceed
-        jwtReady.complete(Unit)
+        jwtObserver.jwtReady.complete(Unit)
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
@@ -57,15 +58,34 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
 
     @Test
     fun `startObserver does not inject profile if jwtReady is cancelled`() {
-        val jwtReady = CompletableDeferred<Unit>()
-        val observer = ProfileMutationObserver(jwtReady)
+        val jwtObserver = JwtObserver()
+        val observer = ProfileMutationObserver(jwtObserver)
         observer.startObserver()
         dispatcher.scheduler.runCurrent()
 
         // WebView destroyed before JWT delivered — deferred is cancelled
-        jwtReady.cancel()
+        jwtObserver.jwtReady.cancel()
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(inverse = true) { mockBridge.profileMutation(any()) }
+    }
+
+    @Test
+    fun `startObserver works on reinit after stop — scope must not be permanently cancelled`() {
+        // Regression test: the old implementation called scope.cancel() in stopObserver(),
+        // which permanently destroyed the scope and made subsequent startObserver calls a no-op.
+        val jwtObserver = JwtObserver()
+        val observer = ProfileMutationObserver(jwtObserver)
+
+        // First session: start and immediately stop
+        observer.startObserver()
+        observer.stopObserver()
+
+        // Second session: should work even though stopObserver was previously called
+        observer.startObserver()
+        jwtObserver.jwtReady.complete(Unit)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
     }
 }

@@ -11,8 +11,8 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -41,7 +41,7 @@ class JwtObserverTest : BaseTest() {
 
     @Test
     fun `startOn defaults to JsReady so JWT is delivered before profile`() {
-        assertEquals(NativeBridgeMessage.JsReady, JwtObserver().startOn)
+        assert(JwtObserver().startOn == NativeBridgeMessage.JsReady)
     }
 
     @Test
@@ -98,36 +98,62 @@ class JwtObserverTest : BaseTest() {
 
     @Test
     fun `startObserver completes jwtReady after successful injection`() {
-        val jwtReady = CompletableDeferred<Unit>()
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("token")
 
-        JwtObserver(jwtReady).startObserver()
+        val observer = JwtObserver()
+        observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertTrue(jwtReady.isCompleted)
-        assertFalse(jwtReady.isCancelled)
+        assertTrue(observer.jwtReady.isCompleted)
+        assertFalse(observer.jwtReady.isCancelled)
     }
 
     @Test
     fun `startObserver completes jwtReady even when auth is not enabled`() {
-        val jwtReady = CompletableDeferred<Unit>()
         coEvery { mockAuthTokenManager.currentToken(any()) } throws
             AuthTokenException.NoProviderRegistered
 
-        JwtObserver(jwtReady).startObserver()
+        val observer = JwtObserver()
+        observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertTrue(jwtReady.isCompleted)
-        assertFalse(jwtReady.isCancelled)
+        assertTrue(observer.jwtReady.isCompleted)
+        assertFalse(observer.jwtReady.isCancelled)
     }
 
     @Test
-    fun `stopObserver cancels jwtReady so ProfileMutationObserver awaiter is unblocked`() {
-        val jwtReady = CompletableDeferred<Unit>()
+    fun `startObserver creates a fresh jwtReady each session so reinit is not broken`() {
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-1")
+        val observer = JwtObserver()
+        val initialDeferred = observer.jwtReady
 
-        JwtObserver(jwtReady).stopObserver()
+        // First session
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        val firstSessionDeferred = observer.jwtReady
+        assertNotSame(
+            "startObserver must replace jwtReady with a new deferred",
+            initialDeferred,
+            firstSessionDeferred
+        )
+        assertTrue(firstSessionDeferred.isCompleted)
 
-        assertTrue(jwtReady.isCancelled)
+        observer.stopObserver()
+
+        // Second session — must get a fresh, non-cancelled deferred
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-2")
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        val secondSessionDeferred = observer.jwtReady
+        assertNotSame(
+            "second startObserver must replace jwtReady again",
+            firstSessionDeferred,
+            secondSessionDeferred
+        )
+        assertTrue(secondSessionDeferred.isCompleted)
+        assertFalse(secondSessionDeferred.isCancelled)
+        verify(exactly = 1) { mockJsBridge.jwtMutation("session-1") }
+        verify(exactly = 1) { mockJsBridge.jwtMutation("session-2") }
     }
 
     @Test

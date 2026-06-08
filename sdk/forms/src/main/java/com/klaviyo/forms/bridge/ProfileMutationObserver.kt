@@ -7,18 +7,21 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.safeLaunch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 
 /**
  * Observe [State] in the analytics package to synchronize profile identifiers with the webview
  */
 internal class ProfileMutationObserver(
-    private val jwtReady: Deferred<Unit>? = null
+    private val jwtObserver: JwtObserver? = null
 ) : JsBridgeObserver, StateChangeObserver {
 
+    // Scope is intentionally long-lived and never cancelled — cancelling the scope permanently
+    // prevents future startObserver calls from launching coroutines. Per-session cleanup is done
+    // by cancelling initJob in stopObserver instead.
     private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
+    private var initJob: Job? = null
 
     /**
      * Start on [NativeBridgeMessage.HandShook] rather than the default [NativeBridgeMessage.JsReady]
@@ -28,16 +31,19 @@ internal class ProfileMutationObserver(
      * JWT and profile identifiers are present. If profile is injected before the JWT, the module
      * sees identifiers with no token and never makes the authenticated fetch.
      *
-     * When [jwtReady] is provided, the initial [injectProfile] call additionally awaits that
-     * deferred before injecting, eliminating the residual race where a slow async token fetch
-     * completes after [NativeBridgeMessage.HandShook] fires.
+     * When [jwtObserver] is provided, the initial [injectProfile] call additionally awaits
+     * [JwtObserver.jwtReady] before injecting, eliminating the residual race where a slow async
+     * token fetch completes after [NativeBridgeMessage.HandShook] fires. Reading [jwtReady] from
+     * the observer (rather than capturing it at construction) ensures we always await the deferred
+     * that [JwtObserver.startObserver] created for the current WebView session.
      */
     override val startOn: NativeBridgeMessage get() = NativeBridgeMessage.HandShook
 
     override fun startObserver() {
-        val deferred = jwtReady
+        val deferred = jwtObserver?.jwtReady
         if (deferred != null) {
-            scope.safeLaunch {
+            initJob?.cancel()
+            initJob = scope.safeLaunch {
                 try {
                     deferred.await()
                 } catch (e: CancellationException) {
@@ -51,7 +57,8 @@ internal class ProfileMutationObserver(
     }
 
     override fun stopObserver() {
-        scope.cancel()
+        initJob?.cancel()
+        initJob = null
         Registry.get<State>().offStateChange(this)
     }
 
