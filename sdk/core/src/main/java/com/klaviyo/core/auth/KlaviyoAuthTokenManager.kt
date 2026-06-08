@@ -60,7 +60,7 @@ internal class KlaviyoAuthTokenManager(
     // @Volatile for the same reason as refreshJob: registerProvider clears without holding mutex.
     @Volatile private var refreshAtWallClockMs: Long? = null
 
-    // Set by the timer callback while holding [mutex] before refresh work begins. This prevents a
+    // Set by the timer callback while holding mutex before refresh work begins. This prevents a
     // foreground transition from treating an already-fired timer as a Doze-style miss while the
     // scheduled refresh coroutine is still queued or in-flight.
     // @Volatile because registerProvider resets without holding the mutex.
@@ -112,7 +112,7 @@ internal class KlaviyoAuthTokenManager(
     }
 
     override suspend fun currentToken(timeoutMs: Long): ValidatedToken {
-        return currentTokenInternal(timeoutMs = timeoutMs, allowCachedToken = true)
+        return getOrFetchToken(timeoutMs = timeoutMs, allowCachedToken = true)
     }
 
     /**
@@ -133,7 +133,7 @@ internal class KlaviyoAuthTokenManager(
      *   duplicated, via [inFlightFetch]), and the existing cache is left intact so
      *   demand callers keep getting the valid token while the refresh runs.
      */
-    private suspend fun currentTokenInternal(
+    private suspend fun getOrFetchToken(
         timeoutMs: Long,
         allowCachedToken: Boolean
     ): ValidatedToken {
@@ -186,7 +186,7 @@ internal class KlaviyoAuthTokenManager(
                 deferred.await()
             } catch (e: CancellationException) {
                 currentCoroutineContext().ensureActive()
-                currentTokenInternal(timeoutMs = timeoutMs, allowCachedToken = allowCachedToken)
+                getOrFetchToken(timeoutMs = timeoutMs, allowCachedToken = allowCachedToken)
             }
         } ?: run {
             val error = AuthTokenException.TimedOut
@@ -249,7 +249,9 @@ internal class KlaviyoAuthTokenManager(
         return now < token.expiresAtEpochSeconds - JWTParser.DEFAULT_LEEWAY_SECONDS
     }
 
-    // Called under mutex (from doFetch). Non-suspending; safe inside withLock.
+    /**
+     * Called under mutex (from [doFetch]). Non-suspending; safe inside withLock.
+     */
     private fun scheduleRefresh(token: ValidatedToken) {
         val nowMs = Registry.clock.currentTimeMillis()
         val targetMs = computeRefreshTarget(token, nowMs)
@@ -278,19 +280,23 @@ internal class KlaviyoAuthTokenManager(
             true
         }
 
-    // Forces a fresh provider invocation and routes through the standard dedup + timeout path.
-    // Leaves the existing cache intact so callers can keep using it while refresh is in-flight,
-    // even if the refresh attempt fails; any concurrent caller that arrives while refresh is
-    // in-flight shares the single in-flight Deferred automatically.
-    // Logs at WARNING on failure — the still-valid cached token remains for live consumers.
-    // On failure does NOT reschedule; one foreground-transition retry is possible if
-    // refreshAtWallClockMs was not yet cleared (timer fired but fetch failed).
-    // TODO (MAGE-630): emit onTokenRefresh notification to observers on success.
+    /**
+     * Forces a fresh provider invocation and routes through the standard dedup + timeout path.
+     * Leaves the existing cache intact so callers can keep using it while refresh is in-flight,
+     * even if the refresh attempt fails; any concurrent caller that arrives while refresh is
+     * in-flight shares the single in-flight Deferred automatically.
+     *
+     * Logs at WARNING on failure — the still-valid cached token remains for live consumers.
+     * On failure does NOT reschedule; one foreground-transition retry is possible if
+     * [refreshAtWallClockMs] was not yet cleared (timer fired but fetch failed).
+     *
+     * TODO (MAGE-630): emit onTokenRefresh notification to observers on success.
+     */
     private suspend fun performScheduledRefresh(timerGeneration: Long? = null) {
         if (provider == null) return
         Registry.log.info("Proactive token refresh fired")
         try {
-            currentTokenInternal(
+            getOrFetchToken(
                 timeoutMs = AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,
                 allowCachedToken = false
             )
@@ -316,14 +322,16 @@ internal class KlaviyoAuthTokenManager(
         scope.safeLaunch { handleForegroundTransition() }
     }
 
-    // Reconciles cache and scheduled-refresh state on foreground transition.
-    // safeLaunch is non-suspending, so the mutex is released before any launched
-    // coroutine runs — no re-entrancy risk with currentToken()'s own withLock call.
-    //
-    // Case 1 uses tryEagerFetch() (allowCachedToken = true) because cachedToken is explicitly
-    // nulled before the launch, guaranteeing a cache miss without needing to bypass the cache.
-    // Case 2 uses performScheduledRefresh() (allowCachedToken = false) because the cached token
-    // is still valid and must NOT be returned — we need a fresh provider call despite the hit.
+    /**
+     * Reconciles cache and scheduled-refresh state on foreground transition.
+     * [safeLaunch] is non-suspending, so the mutex is released before any launched
+     * coroutine runs — no re-entrancy risk with [currentToken]'s own withLock call.
+     *
+     * Case 1 uses [tryEagerFetch] (`allowCachedToken = true`) because [cachedToken] is explicitly
+     * nulled before the launch, guaranteeing a cache miss without needing to bypass the cache.
+     * Case 2 uses [performScheduledRefresh] (`allowCachedToken = false`) because the cached token
+     * is still valid and must NOT be returned — we need a fresh provider call despite the hit.
+     */
     private suspend fun handleForegroundTransition() {
         val nowMs = Registry.clock.currentTimeMillis()
         mutex.withLock {
