@@ -1,0 +1,11 @@
+reviews:
+  profile: assertive
+  path_filters:
+    - "!**/build/**"
+    - "!**/.gradle/**"
+    - "!**/*.iml"
+    - "!sample/**"
+  auto_review:
+    drafts: false
+    base_branches:
+      - ".*"
