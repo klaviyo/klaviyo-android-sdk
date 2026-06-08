@@ -4,7 +4,6 @@ reviews:
     - "!**/build/**"
     - "!**/.gradle/**"
     - "!**/*.iml"
-    - "!sample/**"
   auto_review:
     drafts: false
     base_branches:
