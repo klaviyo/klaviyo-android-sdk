@@ -5,6 +5,7 @@ import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.safeLaunch
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -18,9 +19,15 @@ import kotlinx.coroutines.SupervisorJob
  * fetch when both a JWT and profile identifiers are present. Delivering the JWT at JsReady (before
  * profile at HandShook) guarantees the token is in place when identifiers arrive.
  *
+ * [jwtReady] is completed after the JWT is injected (or cancelled on [stopObserver]) so that
+ * [ProfileMutationObserver] can await it before injecting profile identifiers, eliminating the
+ * residual race where a slow async token fetch outlasts the JsReady→HandShook window.
+ *
  * Live token refresh delivery on rotation is tracked in MAGE-630.
  */
-internal class JwtObserver : JsBridgeObserver {
+internal class JwtObserver(
+    internal val jwtReady: CompletableDeferred<Unit> = CompletableDeferred()
+) : JsBridgeObserver {
     // startOn defaults to NativeBridgeMessage.JsReady — intentionally earlier than
     // ProfileMutationObserver (HandShook) so the JWT is set before profile identifiers.
 
@@ -46,6 +53,7 @@ internal class JwtObserver : JsBridgeObserver {
 
             Registry.threadHelper.runOnUiThread {
                 Registry.get<JsBridge>().jwtMutation(token ?: "")
+                jwtReady.complete(Unit)
             }
         }
     }
@@ -53,5 +61,8 @@ internal class JwtObserver : JsBridgeObserver {
     override fun stopObserver() {
         fetchJob?.cancel()
         fetchJob = null
+        // Cancel the deferred so ProfileMutationObserver doesn't hang if the WebView is
+        // destroyed before the token fetch completes.
+        jwtReady.cancel()
     }
 }

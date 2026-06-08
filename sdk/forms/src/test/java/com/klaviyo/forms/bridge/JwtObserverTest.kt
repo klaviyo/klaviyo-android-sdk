@@ -12,6 +12,8 @@ import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -92,6 +94,40 @@ class JwtObserverTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(inverse = true) { mockJsBridge.jwtMutation(any()) }
+    }
+
+    @Test
+    fun `startObserver completes jwtReady after successful injection`() {
+        val jwtReady = CompletableDeferred<Unit>()
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("token")
+
+        JwtObserver(jwtReady).startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(jwtReady.isCompleted)
+        assertFalse(jwtReady.isCancelled)
+    }
+
+    @Test
+    fun `startObserver completes jwtReady even when auth is not enabled`() {
+        val jwtReady = CompletableDeferred<Unit>()
+        coEvery { mockAuthTokenManager.currentToken(any()) } throws
+            AuthTokenException.NoProviderRegistered
+
+        JwtObserver(jwtReady).startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(jwtReady.isCompleted)
+        assertFalse(jwtReady.isCancelled)
+    }
+
+    @Test
+    fun `stopObserver cancels jwtReady so ProfileMutationObserver awaiter is unblocked`() {
+        val jwtReady = CompletableDeferred<Unit>()
+
+        JwtObserver(jwtReady).stopObserver()
+
+        assertTrue(jwtReady.isCancelled)
     }
 
     @Test
