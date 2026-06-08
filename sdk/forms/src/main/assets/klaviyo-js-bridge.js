@@ -124,7 +124,7 @@ window.setSafeArea = function(left, top, right, bottom) {
  * ordering: the JWT is set at jsReady, before profile identifiers are injected at handshake,
  * which is what the onsite personalization module needs to trigger the authenticated fetch.
  *
- * @param token - JWT string, or null if auth is not enabled / token fetch failed
+ * @param token - JWT string, or empty string if auth is not enabled / token fetch failed
  * @returns {boolean}
  */
 window.jwtMutation = function (token) {

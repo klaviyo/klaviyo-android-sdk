@@ -86,7 +86,7 @@ internal class KlaviyoJsBridge : JsBridge {
             bottom.toString()
         )
 
-    override fun jwtMutation(token: String?) = evaluateJavascript(
+    override fun jwtMutation(token: String) = evaluateJavascript(
         HelperFunction.jwtMutation,
         token
     )

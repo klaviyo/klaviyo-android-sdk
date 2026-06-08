@@ -28,6 +28,7 @@ internal class JwtObserver : JsBridgeObserver {
     private var fetchJob: Job? = null
 
     override fun startObserver() {
+        fetchJob?.cancel() // guard against double-start without an intervening stopObserver
         fetchJob = scope.safeLaunch {
             val token = try {
                 Registry.get<AuthTokenManager>()
@@ -36,15 +37,15 @@ internal class JwtObserver : JsBridgeObserver {
             } catch (e: CancellationException) {
                 throw e // Propagate coroutine cancellation
             } catch (_: AuthTokenException.NoProviderRegistered) {
-                Registry.log.debug("Auth not enabled — injecting null JWT")
+                Registry.log.debug("Auth not enabled — injecting empty JWT")
                 null
             } catch (_: Exception) {
-                Registry.log.warning("Auth token fetch failed — injecting null JWT")
+                Registry.log.warning("Auth token fetch failed — injecting empty JWT")
                 null
             }
 
             Registry.threadHelper.runOnUiThread {
-                Registry.get<JsBridge>().jwtMutation(token)
+                Registry.get<JsBridge>().jwtMutation(token ?: "")
             }
         }
     }

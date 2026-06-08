@@ -59,8 +59,8 @@ internal interface JsBridge {
     /**
      * Inject the auth token into the webview as a data attribute.
      *
-     * A null [token] indicates auth is not enabled or the token fetch failed; the onsite JS
+     * An empty [token] indicates auth is not enabled or the token fetch failed; the onsite JS
      * module treats a missing/empty token as "unauthenticated" and skips the authenticated fetch.
      */
-    fun jwtMutation(token: String?)
+    fun jwtMutation(token: String)
 }

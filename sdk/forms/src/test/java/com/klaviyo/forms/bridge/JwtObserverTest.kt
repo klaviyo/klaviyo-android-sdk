@@ -54,26 +54,26 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
-    fun `startObserver injects null and logs debug when no provider registered`() {
+    fun `startObserver injects empty string and logs debug when no provider registered`() {
         coEvery { mockAuthTokenManager.currentToken(any()) } throws
             AuthTokenException.NoProviderRegistered
 
         JwtObserver().startObserver()
         dispatcher.scheduler.advanceUntilIdle()
 
-        verify { mockJsBridge.jwtMutation(null) }
+        verify { mockJsBridge.jwtMutation("") }
         verify { spyLog.debug(match { it.contains("Auth not enabled") }) }
     }
 
     @Test
-    fun `startObserver injects null and logs warning when fetch fails`() {
+    fun `startObserver injects empty string and logs warning when fetch fails`() {
         coEvery { mockAuthTokenManager.currentToken(any()) } throws
             AuthTokenException.ValidationFailed("Malformed")
 
         JwtObserver().startObserver()
         dispatcher.scheduler.advanceUntilIdle()
 
-        verify { mockJsBridge.jwtMutation(null) }
+        verify { mockJsBridge.jwtMutation("") }
         verify { spyLog.warning(match { it.contains("Auth token fetch failed") }) }
     }
 
@@ -92,5 +92,26 @@ class JwtObserverTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(inverse = true) { mockJsBridge.jwtMutation(any()) }
+    }
+
+    @Test
+    fun `double startObserver cancels previous in-flight fetch`() {
+        val firstCompletion = CompletableDeferred<ValidatedToken>()
+        val secondToken = "second.token.value"
+        coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers { firstCompletion.await() }
+
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.runCurrent()
+
+        // Second start before first fetch completes — should cancel the first job
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken(secondToken)
+        observer.startObserver()
+        firstCompletion.complete(validatedToken("first.token.value"))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Only the second token should be injected
+        verify(exactly = 1) { mockJsBridge.jwtMutation(secondToken) }
+        verify(inverse = true) { mockJsBridge.jwtMutation("first.token.value") }
     }
 }

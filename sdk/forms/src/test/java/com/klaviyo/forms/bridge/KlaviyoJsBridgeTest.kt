@@ -255,16 +255,16 @@ class KlaviyoJsBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `jwtMutation with null token calls JS evaluator with null`() {
+    fun `jwtMutation with empty token calls JS evaluator with empty string`() {
         every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
             secondArg<(Boolean) -> Unit>().invoke(true)
         }
 
-        bridge.jwtMutation(null)
+        bridge.jwtMutation("")
 
         verify {
             jsEvaluator.evaluateJavascript(
-                eq("""window.jwtMutation(null)"""),
+                eq("""window.jwtMutation("")"""),
                 any()
             )
         }
