@@ -237,4 +237,36 @@ class KlaviyoJsBridgeTest : BaseTest() {
             )
         }
     }
+
+    @Test
+    fun `jwtMutation calls JS evaluator with correct JS`() {
+        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
+            secondArg<(Boolean) -> Unit>().invoke(true)
+        }
+
+        bridge.jwtMutation("jwt.token.value")
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                eq("""window.jwtMutation("jwt.token.value")"""),
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun `jwtMutation with null token calls JS evaluator with null`() {
+        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
+            secondArg<(Boolean) -> Unit>().invoke(true)
+        }
+
+        bridge.jwtMutation(null)
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                eq("""window.jwtMutation(null)"""),
+                any()
+            )
+        }
+    }
 }

@@ -10,6 +10,16 @@ import com.klaviyo.core.Registry
  */
 internal class ProfileMutationObserver : JsBridgeObserver, StateChangeObserver {
 
+    /**
+     * Start on [NativeBridgeMessage.HandShook] rather than the default [NativeBridgeMessage.JsReady]
+     * so the initial profile injection fires *after* [JwtObserver] has delivered the JWT at JsReady.
+     *
+     * The onsite personalization module only triggers the authenticated profile fetch when both a
+     * JWT and profile identifiers are present. If profile is injected before the JWT, the module
+     * sees identifiers with no token and never makes the authenticated fetch.
+     */
+    override val startOn: NativeBridgeMessage get() = NativeBridgeMessage.HandShook
+
     override fun startObserver() {
         // Set initial profile identifiers on startup
         injectProfile()
