@@ -711,7 +711,7 @@ class KlaviyoNotificationTest : BaseTest() {
 
         // Intent should target the trampoline with the URL as an extra, not the browser directly
         verify {
-            anyConstructed<Intent>().putExtra("com.klaviyo.browser_url", "https://example.com")
+            anyConstructed<Intent>().putExtra("_klaviyo.browser_url", "https://example.com")
         }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
         verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any()) }
@@ -761,7 +761,7 @@ class KlaviyoNotificationTest : BaseTest() {
         notification.displayNotification(mockContext)
 
         verify {
-            anyConstructed<Intent>().putExtra("com.klaviyo.browser_url", "https://example.com")
+            anyConstructed<Intent>().putExtra("_klaviyo.browser_url", "https://example.com")
         }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
     }
