@@ -9,6 +9,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.Constants.INTERNAL_PREFIX
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.startActivityIfResolved
 
 /**
  * Internal activity that handles `open_url` push taps and `OpenUrl` action button taps.
@@ -24,29 +25,8 @@ import com.klaviyo.core.Registry
 internal class KlaviyoBrowserTrampolineActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handleTrampolineIntent()
+        handleTrampolineIntent(intent, this)
         finish()
-    }
-
-    /**
-     * Handles the intent that triggered this trampoline: tracks `$opened_push`,
-     * dismisses the notification, and dispatches the browser intent.
-     *
-     * Extracted from [onCreate] so unit tests can exercise it without an Android runtime.
-     */
-    internal fun handleTrampolineIntent() {
-        // Track $opened_push and dismiss the notification via Klaviyo.handlePush.
-        // The trampoline intent carries all the same extras as a normal opened intent
-        // (NOTIFICATION_TAG_EXTRA, tracking metadata, action button extras).
-        Klaviyo.handlePush(intent)
-
-        intent?.getStringExtra(BROWSER_URL_EXTRA)?.let { url ->
-            startActivity(DeepLinking.makeBrowserIntent(url.toUri()))
-        } ?: run {
-            Registry.log.warning(
-                "KlaviyoBrowserTrampolineActivity launched without browser URL extra"
-            )
-        }
     }
 
     companion object {
@@ -62,12 +42,37 @@ internal class KlaviyoBrowserTrampolineActivity : Activity() {
 
         /**
          * Construct an intent that targets this trampoline activity with the given web URL.
+         *
+         * Uses [Intent.setClassName] instead of the `Intent(Context, Class)` constructor so
+         * the JVM unit-test environment (which can't satisfy the native ComponentName
+         * resolution inside the 2-arg constructor) can mock the construction.
          */
         internal fun makeIntent(
             context: Context,
             url: String
-        ): Intent = Intent(context, KlaviyoBrowserTrampolineActivity::class.java).apply {
+        ): Intent = Intent().apply {
+            setClassName(context.packageName, KlaviyoBrowserTrampolineActivity::class.java.name)
             putExtra(BROWSER_URL_EXTRA, url)
+        }
+
+        /**
+         * Run the trampoline behavior: track `$opened_push`, dismiss the notification,
+         * then dispatch the browser intent. Extracted from [onCreate] so unit tests can
+         * exercise it without instantiating an Android [Activity].
+         *
+         * Uses [startActivityIfResolved] so a device without a browser fails safely with a
+         * log line instead of throwing `ActivityNotFoundException`.
+         */
+        internal fun handleTrampolineIntent(intent: Intent?, context: Context) {
+            Klaviyo.handlePush(intent)
+
+            intent?.getStringExtra(BROWSER_URL_EXTRA)?.let { url ->
+                DeepLinking.makeBrowserIntent(url.toUri()).startActivityIfResolved(context)
+            } ?: run {
+                Registry.log.warning(
+                    "KlaviyoBrowserTrampolineActivity launched without browser URL extra"
+                )
+            }
         }
     }
 }
