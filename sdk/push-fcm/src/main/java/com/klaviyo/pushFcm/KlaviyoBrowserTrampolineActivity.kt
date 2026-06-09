@@ -7,7 +7,6 @@ import android.os.Bundle
 import androidx.core.net.toUri
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
-import com.klaviyo.core.Constants.INTERNAL_PREFIX
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.startActivityIfResolved
 
@@ -33,12 +32,12 @@ internal class KlaviyoBrowserTrampolineActivity : Activity() {
         /**
          * Intent extra key for the browser URL to dispatch after handling the tap.
          *
-         * Uses [INTERNAL_PREFIX] so the URL doesn't leak into `$opened_push` analytics
-         * via [com.klaviyo.analytics.model.Event.appendKlaviyoExtras], which sweeps every
-         * intent extra prefixed with `com.klaviyo.`. This extra is purely internal routing
-         * between the notification PendingIntent and this activity.
+         * Uses the `_klaviyo.` prefix (matching [com.klaviyo.core.Constants.NOTIFICATION_TAG_EXTRA])
+         * so this internal routing extra doesn't leak into `$opened_push` analytics —
+         * [com.klaviyo.analytics.model.Event.appendKlaviyoExtras] sweeps everything prefixed
+         * with `com.klaviyo.`.
          */
-        internal const val BROWSER_URL_EXTRA = INTERNAL_PREFIX + "browser_url"
+        internal const val BROWSER_URL_EXTRA = "_klaviyo.browser_url"
 
         /**
          * Construct an intent that targets this trampoline activity with the given web URL.

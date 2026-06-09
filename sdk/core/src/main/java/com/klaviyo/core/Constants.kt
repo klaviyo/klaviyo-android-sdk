@@ -20,18 +20,13 @@ object Constants {
     const val TRACKING_PARAMETER = "_k"
 
     /**
-     * Prefix for SDK-internal intent extras that must NOT be swept into analytics event
-     * properties by [appendKlaviyoExtras] (which sweeps everything with [PACKAGE_PREFIX]).
-     *
-     * Use this for any extra that's purely for internal routing between SDK components
-     * (e.g. notification tag for dismissal, browser URL for the trampoline activity).
-     */
-    const val INTERNAL_PREFIX = "_klaviyo."
-
-    /**
      * Intent extra key for the notification tag, used to dismiss the notification
      * when an action button is tapped and [handlePush] processes the intent.
+     *
+     * Uses the `_klaviyo.` prefix instead of [PACKAGE_PREFIX] to avoid being swept into
+     * analytics event properties by [appendKlaviyoExtras].
      */
+    private const val INTERNAL_PREFIX = "_klaviyo."
     const val NOTIFICATION_TAG_EXTRA = INTERNAL_PREFIX + "notification_tag"
 
     /**
