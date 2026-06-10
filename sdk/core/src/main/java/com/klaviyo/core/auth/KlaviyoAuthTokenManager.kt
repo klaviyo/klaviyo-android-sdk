@@ -73,10 +73,17 @@ internal class KlaviyoAuthTokenManager(
     private val refreshGeneration = AtomicLong(0L)
 
     // Tracks profile lifecycle events: registerProvider(), invalidate(), and clearTokenState().
-    // Deliberately separate from refreshGeneration (which scheduleRefresh() also bumps) so that
-    // performScheduledRefresh can tell the difference between a normal re-schedule and a profile
-    // reset, without scheduleRefresh's routine increments producing false negatives.
+    // Used by clearTokenState(expectedGeneration) to detect whether registerProvider() ran between
+    // the invalidate() call and the async clear, so a late clear doesn't wipe the new session.
+    // Deliberately separate from refreshGeneration (which scheduleRefresh() also bumps).
     private val profileGeneration = AtomicLong(0L)
+
+    // Set to true by invalidate() and reset to false by registerProvider() and clearTokenState().
+    // Read by performScheduledRefresh just before notifying observers: if a profile reset is
+    // pending (i.e. invalidate() was called but clearTokenState() hasn't finished yet), the
+    // refresh must not broadcast the now-stale token. @Volatile because it is written on the
+    // calling thread (main) and read on the dispatcher (IO) with no other synchronisation.
+    @Volatile private var profileResetPending = false
 
     // CopyOnWriteArrayList for thread-safe iteration while observers add/remove on arbitrary threads
     // (established SDK observer-collection pattern, matches StateChangeObserver, ActivityObserver).
@@ -101,6 +108,8 @@ internal class KlaviyoAuthTokenManager(
         // prior resetProfile() sees the generation mismatch and skips, preserving this new
         // session's token state.
         profileGeneration.incrementAndGet()
+        // Clear the reset-pending flag: the new provider supersedes any in-progress logout reset.
+        profileResetPending = false
         cachedToken = null
         this.provider = provider
         Registry.log.info("AuthTokenProvider registered")
@@ -115,7 +124,12 @@ internal class KlaviyoAuthTokenManager(
         refreshObservers.remove(observer)
     }
 
-    override fun invalidate(): Long = profileGeneration.incrementAndGet()
+    override fun invalidate(): Long {
+        // Set the flag before bumping the generation so that any performScheduledRefresh that
+        // reads the flag after this call (regardless of when its fetch started) will skip observers.
+        profileResetPending = true
+        return profileGeneration.incrementAndGet()
+    }
 
     override suspend fun clearTokenState(expectedGeneration: Long) {
         var cleared = false
@@ -138,9 +152,10 @@ internal class KlaviyoAuthTokenManager(
             refreshGeneration.incrementAndGet()
             // TODO (MAGE-684): connectivityWaitJob?.cancel(); connectivityWaitJob = null
             cachedToken = null
-            // Signal that a clear occurred so performScheduledRefresh's profileGeneration guard
-            // correctly skips observer dispatch for any refresh that was in-flight during the clear.
             profileGeneration.incrementAndGet()
+            // Clear the reset-pending flag so the next successful refresh (from a new or retained
+            // provider) can notify observers normally.
+            profileResetPending = false
             cleared = true
         }
         if (cleared) Registry.log.info("Token state cleared")
@@ -333,10 +348,12 @@ internal class KlaviyoAuthTokenManager(
      * even if the refresh attempt fails; any concurrent caller that arrives while refresh is
      * in-flight shares the single in-flight Deferred automatically.
      *
-     * On success, notifies registered [TokenRefreshObserver]s with the new JWT, subject to a
-     * stale-token guard: a concurrent [clearTokenState] may have cleared the cache while the
-     * fetch was suspended, so we only dispatch if the returned token is still the live cached
-     * value. Dispatch is best-effort — see [notifyRefreshObservers].
+     * On success, notifies registered [TokenRefreshObserver]s with the new JWT, subject to two
+     * guards: (1) the returned token is still the live cached value (clears can null the cache
+     * mid-flight), and (2) no profile reset is pending ([profileResetPending] is false). The
+     * reset-pending flag is set synchronously by [invalidate] so that any refresh completing
+     * in the window between [invalidate] and [clearTokenState] is suppressed. Dispatch is
+     * best-effort — see [notifyRefreshObservers].
      *
      * Logs at WARNING on failure — the still-valid cached token remains for live consumers.
      * On failure does NOT reschedule; one foreground-transition retry is possible if
@@ -344,10 +361,6 @@ internal class KlaviyoAuthTokenManager(
      */
     private suspend fun performScheduledRefresh(timerGeneration: Long? = null) {
         if (provider == null) return
-        // Capture profile generation before the fetch. If invalidate() or clearTokenState() or
-        // registerProvider() runs during the fetch (advancing profileGeneration), the post-fetch
-        // check below prevents dispatching the now-stale token to observers.
-        val capturedProfileGen = profileGeneration.get()
         Registry.log.info("Proactive token refresh fired")
         try {
             val token = getOrFetchToken(
@@ -355,13 +368,16 @@ internal class KlaviyoAuthTokenManager(
                 allowCachedToken = false
             )
             // Two-part stale guard before notifying observers:
-            // 1. Cache check: clearTokenState() may have nulled cachedToken after the fetch.
-            // 2. Profile-generation check: invalidate() may have been called synchronously
-            //    by resetProfile() before clearTokenState() ran — the generation mismatch
-            //    prevents dispatching a logged-out user's token to active observers even in the
-            //    window between invalidate() and clearTokenState() completing.
-            // Both are @Volatile / AtomicLong reads — safe without holding the mutex.
-            if (cachedToken?.rawToken == token.rawToken && profileGeneration.get() == capturedProfileGen) {
+            // 1. Cache check (@Volatile read): clearTokenState() may have nulled cachedToken
+            //    while the fetch was suspended; skip if this token is no longer the live value.
+            // 2. Reset-pending check (@Volatile read): invalidate() sets this flag synchronously
+            //    from resetProfile() before the async clearTokenState() runs. Any refresh that
+            //    completes while a logout reset is pending must not broadcast to observers —
+            //    regardless of whether the refresh started before or after invalidate() was called.
+            //    The flag is cleared by clearTokenState() and registerProvider().
+            // Dispatch is best-effort; the small TOCTOU window on these volatile reads is
+            // acceptable (see notifyRefreshObservers KDoc).
+            if (cachedToken?.rawToken == token.rawToken && !profileResetPending) {
                 notifyRefreshObservers(token.rawToken)
             }
             Registry.log.info("Proactive token refresh succeeded")

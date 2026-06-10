@@ -818,11 +818,11 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         }
 
     @Test
-    fun `invalidate prevents observer notification from in-flight refresh after profile reset`() =
+    fun `invalidate prevents observer notification when refresh is in-flight at time of reset`() =
         runTest(dispatcher) {
-            // Scenario: performScheduledRefresh is in-flight when resetProfile() calls invalidate()
-            // synchronously (before the async clearTokenState runs). The profile generation check
-            // in performScheduledRefresh must see the mismatch and skip observer dispatch.
+            // Scenario A: performScheduledRefresh is already in-flight when resetProfile() calls
+            // invalidate() synchronously. The profileResetPending flag is set while the fetch
+            // is suspended; the post-fetch guard reads it and skips observer dispatch.
             val initialToken = makeJwt()
             val refreshedToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
             val provider = InitialThenResolvableProvider(initialToken)
@@ -835,14 +835,14 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals(1, provider.callCount)
 
-            // Fire the scheduled refresh; provider hangs on call #2 (capturedProfileGen captured)
+            // Fire the scheduled refresh; provider hangs on call #2 while fetch is suspended
             val timerTask = staticClock.scheduledTasks.first()
             staticClock.execute(timerTask.time - staticClock.time)
             dispatcher.scheduler.runCurrent()
             assertEquals("scheduled refresh is in-flight", 2, provider.callCount)
 
             // Synchronous invalidate() — simulates the sync step of resetProfile().
-            // The async clearTokenState() has NOT run yet; only profileGeneration is bumped.
+            // clearTokenState() has NOT yet run; only profileResetPending is set.
             manager.invalidate()
 
             // Resolve the still-running provider callback (fetch completes after invalidate)
@@ -851,6 +851,40 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
 
             assertEquals(
                 "observer must not fire after invalidate() even before clearTokenState runs",
+                0,
+                received.size
+            )
+        }
+
+    @Test
+    fun `invalidate prevents observer notification when refresh starts after profile reset`() =
+        runTest(dispatcher) {
+            // Scenario B (the gap bugbot found): the scheduled timer fires AFTER invalidate() runs.
+            // performScheduledRefresh never had a "pre-invalidate" state to compare against — the
+            // old captured-generation approach failed here because it captured the post-invalidate
+            // generation and the check passed. profileResetPending fixes this: the flag is already
+            // true when the refresh starts, so the post-fetch guard correctly skips observers.
+            val jwt = makeJwt()
+            val provider = CountingSuccessProvider(jwt)
+            val manager = KlaviyoAuthTokenManager()
+
+            val received = mutableListOf<String>()
+            manager.onTokenRefresh { received.add(it) }
+
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(1, provider.callCount)
+
+            // Synchronous invalidate() fires BEFORE the refresh timer
+            manager.invalidate()
+
+            // Now fire the refresh timer — performScheduledRefresh starts after invalidate()
+            val timerTask = staticClock.scheduledTasks.first()
+            staticClock.execute(timerTask.time - staticClock.time)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                "observer must not fire when refresh starts after invalidate()",
                 0,
                 received.size
             )
