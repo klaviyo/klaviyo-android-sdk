@@ -23,7 +23,7 @@ object Constants {
      * Intent extra key for the notification tag, used to dismiss the notification
      * when an action button is tapped and [handlePush] processes the intent.
      *
-     * Uses the `_klaviyo.` prefix instead of [PACKAGE_PREFIX] to avoid being swept into
+     * Uses [INTERNAL_PREFIX] instead of [PACKAGE_PREFIX] to avoid being swept into
      * analytics event properties by [appendKlaviyoExtras].
      */
     private const val INTERNAL_PREFIX = "_klaviyo."
