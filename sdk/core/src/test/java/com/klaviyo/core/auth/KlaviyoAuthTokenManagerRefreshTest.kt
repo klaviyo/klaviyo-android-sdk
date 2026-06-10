@@ -779,6 +779,83 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             )
         }
 
+    @Test
+    fun `clearTokenState with stale expectedGeneration is a no-op after new provider registers`() =
+        runTest(dispatcher) {
+            // Scenario mirrors resetProfile() followed immediately by registerAuthTokenProvider():
+            // invalidate() captures gen=N, registerProvider() advances gen to N+1, then the
+            // async clearTokenState(gen=N) fires and must NOT wipe the new session's state.
+            val initialJwt = makeJwt()
+            val newJwt = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+            val provider1 = CountingSuccessProvider(initialJwt)
+            val provider2 = CountingSuccessProvider(newJwt)
+            val manager = KlaviyoAuthTokenManager()
+
+            manager.registerProvider(provider1)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("first eager fetch", 1, provider1.callCount)
+
+            // Step 1: invalidate() — simulates the sync part of resetProfile()
+            val gen = manager.invalidate()
+
+            // Step 2: registerProvider() for the new user — advances profileGeneration past gen
+            manager.registerProvider(provider2)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("new provider eager fetch", 1, provider2.callCount)
+
+            // Step 3: clearTokenState(gen) — simulates the async part of resetProfile();
+            // because profileGeneration > gen, this must be a no-op.
+            manager.clearTokenState(expectedGeneration = gen)
+
+            // New session's cache is intact: currentToken() must NOT invoke provider2 again.
+            manager.currentToken()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(
+                "clearTokenState must not wipe new session when provider was re-registered",
+                1,
+                provider2.callCount
+            )
+        }
+
+    @Test
+    fun `invalidate prevents observer notification from in-flight refresh after profile reset`() =
+        runTest(dispatcher) {
+            // Scenario: performScheduledRefresh is in-flight when resetProfile() calls invalidate()
+            // synchronously (before the async clearTokenState runs). The profile generation check
+            // in performScheduledRefresh must see the mismatch and skip observer dispatch.
+            val initialToken = makeJwt()
+            val refreshedToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+            val provider = InitialThenResolvableProvider(initialToken)
+            val manager = KlaviyoAuthTokenManager()
+
+            val received = mutableListOf<String>()
+            manager.onTokenRefresh { received.add(it) }
+
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(1, provider.callCount)
+
+            // Fire the scheduled refresh; provider hangs on call #2 (capturedProfileGen captured)
+            val timerTask = staticClock.scheduledTasks.first()
+            staticClock.execute(timerTask.time - staticClock.time)
+            dispatcher.scheduler.runCurrent()
+            assertEquals("scheduled refresh is in-flight", 2, provider.callCount)
+
+            // Synchronous invalidate() — simulates the sync step of resetProfile().
+            // The async clearTokenState() has NOT run yet; only profileGeneration is bumped.
+            manager.invalidate()
+
+            // Resolve the still-running provider callback (fetch completes after invalidate)
+            provider.resolve(refreshedToken)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                "observer must not fire after invalidate() even before clearTokenState runs",
+                0,
+                received.size
+            )
+        }
+
     // MARK: - Helpers
 
     /**

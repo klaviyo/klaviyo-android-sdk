@@ -306,20 +306,26 @@ object Klaviyo {
     @JvmStatic
     fun resetProfile() = safeApply {
         Registry.get<State>().reset()
-        // Clear the auth-token cache and cancel any scheduled refresh tied to the outgoing profile.
-        // The provider is retained — see AuthTokenManager.clearTokenState() for rationale.
+        // Two-step auth cleanup for the outgoing profile:
         //
-        // Fire-and-forget: the clear is intentionally async and does not block the caller.
-        // A host that immediately calls setProfile()/registerAuthTokenProvider() after resetProfile()
-        // may have the clear land after the new provider's eager fetch; that's benign because
-        // registerProvider() bumps refreshGeneration and fully resets token state itself, so any
-        // late clearTokenState() becomes a no-op against the new generation's cached token.
+        // Step 1 — invalidate() is SYNCHRONOUS. It immediately bumps the auth manager's profile
+        // generation, causing any in-flight proactive refresh to skip its observer notification
+        // even before the async clear has had a chance to run. This closes the race where a
+        // scheduled refresh completes in the window between State.reset() and clearTokenState().
+        //
+        // Step 2 — clearTokenState(gen) is ASYNC (fire-and-forget). It discards the cached token
+        // and cancels the scheduled refresh job. Passing the generation captured from invalidate()
+        // makes the clear conditional: if registerAuthTokenProvider() is called before the
+        // coroutine runs, profileGeneration advances past gen and the clear is skipped, preserving
+        // the new session's token state (registerProvider does its own full reset).
         //
         // Scope: KlaviyoAuthTokenManager.scope is internal and unreachable from this module, so
         // we create a short-lived scope (matching the pattern in KlaviyoApiClient / DeepLinking).
         // clearTokenState() is fast (mutex + cancellations), so the scope is GC'd promptly.
+        val auth = Registry.get<AuthTokenManager>()
+        val gen = auth.invalidate()
         CoroutineScope(Registry.dispatcher).safeLaunch {
-            Registry.get<AuthTokenManager>().clearTokenState()
+            auth.clearTokenState(expectedGeneration = gen)
         }
     }
 

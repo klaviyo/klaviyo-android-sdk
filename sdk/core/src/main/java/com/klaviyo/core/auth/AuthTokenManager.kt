@@ -89,6 +89,22 @@ interface AuthTokenManager {
     fun offTokenRefresh(observer: TokenRefreshObserver)
 
     /**
+     * Synchronously mark the current profile as stale, preventing any in-flight proactive refresh
+     * from dispatching its result to registered [TokenRefreshObserver]s.
+     *
+     * This method is intentionally non-suspending so it can be called on any thread (including the
+     * main thread from `Klaviyo.resetProfile()`) without blocking. The actual token-state cleanup
+     * is deferred to [clearTokenState], which callers should dispatch asynchronously after calling
+     * this method.
+     *
+     * @return The new profile generation value, which should be passed to [clearTokenState] as
+     *   [clearTokenState]'s `expectedGeneration` argument. If a new provider is registered before
+     *   [clearTokenState] runs, the generation will have advanced and [clearTokenState] will skip
+     *   the clear to preserve the new session's state.
+     */
+    fun invalidate(): Long
+
+    /**
      * Clear all token-acquisition state tied to the current user, called from
      * `Klaviyo.resetProfile()` on logout. Discards the cached token, cancels the scheduled
      * proactive refresh and its wall-clock target, and cancels any in-flight fetch. Does **not**
@@ -103,10 +119,15 @@ interface AuthTokenManager {
      * - Registered [TokenRefreshObserver]s — active form displays should keep their subscriptions
      *   alive across a reset; the stream simply goes quiet until the next successful refresh.
      *
+     * @param expectedGeneration When non-negative, the clear is skipped if the profile generation
+     *   has advanced past this value (indicating a new provider was registered between [invalidate]
+     *   and this call). Pass the value returned by [invalidate], or omit / pass `-1` for an
+     *   unconditional clear. Callers that do not use [invalidate] should always use the default.
+     *
      * NOTE: This method's behavior may change in a future revision. The current design ("Option B")
      * retains the provider across resets. An alternative ("Option A") would fully unregister the
      * provider on reset, requiring the host to re-register after each login. If we switch to
      * Option A, this method's name and behavior will change.
      */
-    suspend fun clearTokenState()
+    suspend fun clearTokenState(expectedGeneration: Long = -1L)
 }
