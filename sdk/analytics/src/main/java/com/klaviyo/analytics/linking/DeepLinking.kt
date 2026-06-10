@@ -130,21 +130,6 @@ object DeepLinking {
     }
 
     /**
-     * Send a browser intent to open a URL in the default browser.
-     *
-     * Mirrors [sendDeepLinkIntent] but without package scoping.
-     *
-     * @param uri The web URL to open
-     */
-    fun sendBrowserIntent(uri: Uri) {
-        Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
-            ACTIVITY_TRANSITION_GRACE_PERIOD
-        ) { context ->
-            makeBrowserIntent(uri).startActivityIfResolved(context)
-        }
-    }
-
-    /**
      * Create an intent to view a deep link within the host application.
      *
      * @param uri The deep link URI to be opened
