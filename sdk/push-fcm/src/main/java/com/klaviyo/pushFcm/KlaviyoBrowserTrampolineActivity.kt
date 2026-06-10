@@ -24,8 +24,13 @@ import com.klaviyo.core.utils.startActivityIfResolved
 internal class KlaviyoBrowserTrampolineActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handleTrampolineIntent(intent, this)
-        finish()
+        try {
+            handleTrampolineIntent(intent, this)
+        } finally {
+            // Always finish — leaving a translucent activity onscreen after an exception
+            // would look like a stuck blank screen to the user.
+            finish()
+        }
     }
 
     companion object {
@@ -63,15 +68,18 @@ internal class KlaviyoBrowserTrampolineActivity : Activity() {
          * log line instead of throwing `ActivityNotFoundException`.
          */
         internal fun handleTrampolineIntent(intent: Intent?, context: Context) {
-            Klaviyo.handlePush(intent)
-
-            intent?.getStringExtra(BROWSER_URL_EXTRA)?.let { url ->
-                DeepLinking.makeBrowserIntent(url.toUri()).startActivityIfResolved(context)
-            } ?: run {
+            val url = intent?.getStringExtra(BROWSER_URL_EXTRA)
+            if (url == null) {
+                // Defensive: trampoline should only ever be invoked with a URL extra.
+                // Skip handlePush so we don't fire phantom $opened_push events when this
+                // branch is reached only via a code bug or unexpected re-entry.
                 Registry.log.warning(
                     "KlaviyoBrowserTrampolineActivity launched without browser URL extra"
                 )
+                return
             }
+            Klaviyo.handlePush(intent)
+            DeepLinking.makeBrowserIntent(url.toUri()).startActivityIfResolved(context)
         }
     }
 }

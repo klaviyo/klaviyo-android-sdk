@@ -11,7 +11,10 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
+import io.mockk.unmockkObject
+import io.mockk.unmockkStatic
 import io.mockk.verify
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
@@ -41,6 +44,15 @@ class KlaviyoBrowserTrampolineActivityTest : BaseTest() {
         every { mockBrowserIntent.resolveActivity(any()) } returns mockk()
     }
 
+    @After
+    override fun cleanup() {
+        unmockkStatic(Uri::class)
+        unmockkObject(DeepLinking)
+        unmockkObject(Klaviyo)
+        unmockkStatic(Klaviyo::class)
+        super.cleanup()
+    }
+
     @Test
     fun `handleTrampolineIntent calls handlePush and launches browser intent`() {
         val mockIntent = mockk<Intent>(relaxed = true)
@@ -56,7 +68,7 @@ class KlaviyoBrowserTrampolineActivityTest : BaseTest() {
     }
 
     @Test
-    fun `handleTrampolineIntent without URL extra logs warning and does not launch`() {
+    fun `handleTrampolineIntent without URL extra logs warning and does not launch or track`() {
         val mockIntent = mockk<Intent>(relaxed = true)
         every {
             mockIntent.getStringExtra(KlaviyoBrowserTrampolineActivity.BROWSER_URL_EXTRA)
@@ -64,17 +76,17 @@ class KlaviyoBrowserTrampolineActivityTest : BaseTest() {
 
         KlaviyoBrowserTrampolineActivity.handleTrampolineIntent(mockIntent, mockTrampolineContext)
 
-        verify { Klaviyo.handlePush(mockIntent) }
+        verify(exactly = 0) { Klaviyo.handlePush(any()) }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
         verify(exactly = 0) { mockTrampolineContext.startActivity(any()) }
         verify { spyLog.warning(any(), null) }
     }
 
     @Test
-    fun `handleTrampolineIntent with null intent logs warning`() {
+    fun `handleTrampolineIntent with null intent logs warning and does not track`() {
         KlaviyoBrowserTrampolineActivity.handleTrampolineIntent(null, mockTrampolineContext)
 
-        verify { Klaviyo.handlePush(null) }
+        verify(exactly = 0) { Klaviyo.handlePush(any()) }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
         verify(exactly = 0) { mockTrampolineContext.startActivity(any()) }
         verify { spyLog.warning(any(), null) }

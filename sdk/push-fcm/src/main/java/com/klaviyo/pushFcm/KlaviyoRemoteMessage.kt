@@ -67,10 +67,8 @@ object KlaviyoRemoteMessage {
         }
         putExtra(PACKAGE_PREFIX + "Button Action", actionName)
 
-        when (button) {
-            is ActionButton.DeepLink -> putExtra(PACKAGE_PREFIX + "Button Link", button.url)
-            is ActionButton.OpenUrl -> putExtra(PACKAGE_PREFIX + "Button Link", button.url)
-            is ActionButton.OpenApp -> Unit
+        (button as? ActionButton.UrlBearing)?.let {
+            putExtra(PACKAGE_PREFIX + "Button Link", it.url)
         }
     }
 
@@ -141,19 +139,25 @@ object KlaviyoRemoteMessage {
      * Returns null if the field is absent, blank, or the URL's scheme is not http(s) —
      * non-web schemes are rejected to prevent routing back into the app via Intent dispatch.
      */
-    val RemoteMessage.webUrl: Uri?
+    val RemoteMessage.webUrl: String?
         get() {
             val urlString = this.data[KlaviyoNotification.WEB_URL_KEY]?.takeIf { it.isNotBlank() }
                 ?: return null
-            val parsed = urlString.toUri()
-            val scheme = parsed.scheme?.lowercase()
-            return if (scheme == "http" || scheme == "https") {
-                parsed
+            return if (urlString.isWebUrl()) {
+                urlString
             } else {
                 Registry.log.warning("web_url '$urlString' has non-web scheme; ignoring.")
                 null
             }
         }
+
+    /**
+     * True if the string parses as a Uri with http or https scheme.
+     */
+    internal fun String.isWebUrl(): Boolean {
+        val scheme = this.toUri().scheme?.lowercase()
+        return scheme == "http" || scheme == "https"
+    }
 
     /**
      * Parse deep link into a [Uri] if present
@@ -225,7 +229,7 @@ object KlaviyoRemoteMessage {
      * Maximum of 3 buttons are supported - additional buttons beyond this limit are ignored.
      *
      * Expected structure:
-     * [{"id":"...", "label":"...", "action":"deep_link|open_app", "url":"..."}]
+     * [{"id":"...", "label":"...", "action":"deep_link|open_app|open_url", "url":"..."}]
      */
     val RemoteMessage.actionButtons: List<ActionButton>?
         get() = this.data[KlaviyoNotification.ACTION_BUTTONS_KEY]?.let { jsonString ->
@@ -285,7 +289,6 @@ object KlaviyoRemoteMessage {
                         }
                         ActionButton.TYPE_OPEN_URL -> {
                             val urlString = jsonObject.optNonBlankString("url")
-                            val scheme = urlString?.toUri()?.scheme?.lowercase()
                             when {
                                 urlString == null -> {
                                     Registry.log.warning(
@@ -293,7 +296,7 @@ object KlaviyoRemoteMessage {
                                     )
                                     null
                                 }
-                                scheme != "http" && scheme != "https" -> {
+                                !urlString.isWebUrl() -> {
                                     Registry.log.warning(
                                         "Skipping OPEN_URL action button $i: url '$urlString' has non-web scheme"
                                     )
@@ -341,6 +344,13 @@ object KlaviyoRemoteMessage {
         abstract val label: String
 
         /**
+         * Marker for action button variants that carry a destination URL.
+         */
+        interface UrlBearing {
+            val url: String
+        }
+
+        /**
          * Button that opens the app without navigating to a specific destination
          */
         data class OpenApp(
@@ -354,8 +364,8 @@ object KlaviyoRemoteMessage {
         data class DeepLink(
             override val id: String,
             override val label: String,
-            val url: String
-        ) : ActionButton()
+            override val url: String
+        ) : ActionButton(), UrlBearing
 
         /**
          * Button that opens a URL in the default browser
@@ -363,8 +373,8 @@ object KlaviyoRemoteMessage {
         data class OpenUrl(
             override val id: String,
             override val label: String,
-            val url: String
-        ) : ActionButton()
+            override val url: String
+        ) : ActionButton(), UrlBearing
 
         companion object {
             /**

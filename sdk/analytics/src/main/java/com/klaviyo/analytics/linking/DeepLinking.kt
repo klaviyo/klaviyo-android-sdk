@@ -126,6 +126,7 @@ object DeepLinking {
      * @return An intent configured to open the URL in the default browser
      */
     fun makeBrowserIntent(uri: Uri) = Intent(Intent.ACTION_VIEW, uri).apply {
+        addCategory(Intent.CATEGORY_BROWSABLE)
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 

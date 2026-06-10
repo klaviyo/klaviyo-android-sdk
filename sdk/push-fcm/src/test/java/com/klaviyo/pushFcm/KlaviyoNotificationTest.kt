@@ -704,11 +704,8 @@ class KlaviyoNotificationTest : BaseTest() {
 
     @Test
     fun `open_url tap routes through trampoline activity with browser URL`() {
-        val mockWebUri = mockk<Uri>(relaxed = true)
-        every { mockWebUri.toString() } returns "https://example.com"
-
         with(KlaviyoRemoteMessage) {
-            every { mockRemoteMessage.webUrl } returns mockWebUri
+            every { mockRemoteMessage.webUrl } returns "https://example.com"
             every { mockRemoteMessage.deepLink } returns null
         }
 

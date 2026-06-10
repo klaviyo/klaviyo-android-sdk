@@ -240,13 +240,21 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * Create the appropriate intent to send when the notification is tapped.
      * If a web_url is present (and parseable as an http/https URL), routes to the default browser.
      * Otherwise, routes a deep link within the host app, or falls back to launching the app.
+     *
+     * When both `web_url` and `url` (deep_link) are present, `web_url` wins and the deep link
+     * is ignored — we warn so misconfigured campaigns are debuggable.
      */
     private fun makeOpenedIntent(context: Context): Intent? {
         val webUrl = message.webUrl
         if (webUrl != null) {
+            if (message.data[URL_KEY] != null) {
+                Registry.log.warning(
+                    "Both web_url and url are present; web_url takes precedence and url is ignored."
+                )
+            }
             // Route through the trampoline so handlePush tracks $opened_push
             // and dismisses the notification — the browser would otherwise swallow the intent.
-            return KlaviyoBrowserTrampolineActivity.makeIntent(context, webUrl.toString()).apply {
+            return KlaviyoBrowserTrampolineActivity.makeIntent(context, webUrl).apply {
                 appendKlaviyoExtras(message)
             }
         }
@@ -269,11 +277,12 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * Parse action buttons from message data and add them to the notification
      *
      * Expected format (iOS-aligned):
-     * [{"id":"...", "label":"...", "action":"deep_link|open_app", "url":"..."}]
+     * [{"id":"...", "label":"...", "action":"deep_link|open_app|open_url", "url":"..."}]
      *
      * Supported action types:
      * - "deep_link": Opens app with deep link or URL
      * - "open_app": Opens app
+     * - "open_url": Opens URL in default browser
      *
      * Note: Icons are not supported on Android (iOS only).
      */
@@ -292,15 +301,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             val action = createButtonAction(context, index, requestCode, button, notificationTag) ?: return@forEachIndexed
             addAction(action)
 
-            val actionType = when (button) {
-                is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK
-                is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP
-                is ActionButton.OpenUrl -> ActionButton.DISPLAY_NAME_OPEN_URL
-            }
-            val destination = when (button) {
-                is ActionButton.DeepLink -> " -> ${button.url}"
-                is ActionButton.OpenApp -> ""
-                is ActionButton.OpenUrl -> " -> ${button.url}"
+            val (actionType, destination) = when (button) {
+                is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK to " -> ${button.url}"
+                is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP to ""
+                is ActionButton.OpenUrl -> ActionButton.DISPLAY_NAME_OPEN_URL to " -> ${button.url}"
             }
             Registry.log.verbose(
                 "Added action button $index: '${button.label}' ($actionType)$destination"
