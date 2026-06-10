@@ -27,6 +27,9 @@ class KlaviyoBrowserTrampolineActivityTest : BaseTest() {
     @Before
     override fun setup() {
         super.setup()
+        // mockkStatic must precede mockkObject so @JvmStatic methods like
+        // Klaviyo.handlePush get intercepted, not dispatched to the real impl.
+        mockkStatic(Klaviyo::class)
         mockkObject(Klaviyo)
         mockkObject(DeepLinking)
         mockkStatic(Uri::class)
