@@ -11,9 +11,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
-import io.mockk.unmockkAll
 import io.mockk.verify
-import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
@@ -38,12 +36,6 @@ class KlaviyoBrowserTrampolineActivityTest : BaseTest() {
         // Make the browser intent appear resolvable so startActivityIfResolved
         // actually dispatches to context.startActivity (vs logging an error).
         every { mockBrowserIntent.resolveActivity(any()) } returns mockk()
-    }
-
-    @After
-    override fun cleanup() {
-        super.cleanup()
-        unmockkAll()
     }
 
     @Test
@@ -72,7 +64,7 @@ class KlaviyoBrowserTrampolineActivityTest : BaseTest() {
         verify { Klaviyo.handlePush(mockIntent) }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
         verify(exactly = 0) { mockTrampolineContext.startActivity(any()) }
-        verify { spyLog.warning(any()) }
+        verify { spyLog.warning(any(), null) }
     }
 
     @Test
@@ -82,6 +74,6 @@ class KlaviyoBrowserTrampolineActivityTest : BaseTest() {
         verify { Klaviyo.handlePush(null) }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
         verify(exactly = 0) { mockTrampolineContext.startActivity(any()) }
-        verify { spyLog.warning(any()) }
+        verify { spyLog.warning(any(), null) }
     }
 }
