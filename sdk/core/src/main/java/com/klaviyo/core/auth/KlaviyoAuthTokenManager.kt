@@ -72,10 +72,8 @@ internal class KlaviyoAuthTokenManager(
     // mutex-held increment to produce a lost update.
     private val refreshGeneration = AtomicLong(0L)
 
-    // Reserved for MAGE-630 (onTokenRefresh/offTokenRefresh observers). Matches the established
-    // SDK observer-collection pattern (CopyOnWriteArrayList for thread-safe iteration while
-    // observers add/remove themselves on arbitrary threads).
-    @Suppress("unused")
+    // CopyOnWriteArrayList for thread-safe iteration while observers add/remove on arbitrary threads
+    // (established SDK observer-collection pattern, matches StateChangeObserver, ActivityObserver).
     private val refreshObservers = CopyOnWriteArrayList<TokenRefreshObserver>()
 
     override fun registerProvider(provider: AuthTokenProvider) {
@@ -97,6 +95,29 @@ internal class KlaviyoAuthTokenManager(
         this.provider = provider
         Registry.log.info("AuthTokenProvider registered")
         scope.safeLaunch { tryEagerFetch() }
+    }
+
+    override fun onTokenRefresh(observer: TokenRefreshObserver) {
+        refreshObservers.add(observer)
+    }
+
+    override fun offTokenRefresh(observer: TokenRefreshObserver) {
+        refreshObservers.remove(observer)
+    }
+
+    override suspend fun clearTokenState() {
+        mutex.withLock {
+            inFlightFetch?.cancel()
+            inFlightFetch = null
+            refreshJob?.cancel()
+            refreshJob = null
+            refreshAtWallClockMs = null
+            refreshTimerFired = false
+            refreshGeneration.incrementAndGet()
+            // TODO (MAGE-684): connectivityWaitJob?.cancel(); connectivityWaitJob = null
+            cachedToken = null
+        }
+        Registry.log.info("Token state cleared")
     }
 
     private suspend fun tryEagerFetch() {
@@ -286,26 +307,59 @@ internal class KlaviyoAuthTokenManager(
      * even if the refresh attempt fails; any concurrent caller that arrives while refresh is
      * in-flight shares the single in-flight Deferred automatically.
      *
+     * On success, notifies registered [TokenRefreshObserver]s with the new JWT, subject to a
+     * stale-token guard: a concurrent [clearTokenState] may have cleared the cache while the
+     * fetch was suspended, so we only dispatch if the returned token is still the live cached
+     * value. Dispatch is best-effort — see [notifyRefreshObservers].
+     *
      * Logs at WARNING on failure — the still-valid cached token remains for live consumers.
      * On failure does NOT reschedule; one foreground-transition retry is possible if
      * [refreshAtWallClockMs] was not yet cleared (timer fired but fetch failed).
-     *
-     * TODO (MAGE-630): emit onTokenRefresh notification to observers on success.
      */
     private suspend fun performScheduledRefresh(timerGeneration: Long? = null) {
         if (provider == null) return
         Registry.log.info("Proactive token refresh fired")
         try {
-            getOrFetchToken(
+            val token = getOrFetchToken(
                 timeoutMs = AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,
                 allowCachedToken = false
             )
+            // Stale-token guard: a concurrent clearTokenState() may have landed while the fetch
+            // was in-flight, clearing cachedToken. Only broadcast if this token is still the live
+            // cached value so we never dispatch a stale-profile token to active refresh observers.
+            // cachedToken is @Volatile — the read is safe without holding the mutex.
+            if (cachedToken?.rawToken == token.rawToken) {
+                notifyRefreshObservers(token.rawToken)
+            }
             Registry.log.info("Proactive token refresh succeeded")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             if (timerGeneration != null) clearFiredFlagForFailedRefresh(timerGeneration)
             Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
+        }
+    }
+
+    /**
+     * Iterates [refreshObservers] and invokes each with [jwt]. Best-effort: if an observer throws,
+     * the exception is logged at WARNING and the remaining observers are still called.
+     */
+    private fun notifyRefreshObservers(jwt: String) {
+        refreshObservers.forEach { observer ->
+            try {
+                observer(jwt)
+            } catch (e: CancellationException) {
+                // Structured-concurrency contract: CancellationException must never be swallowed.
+                throw e
+            } catch (e: Throwable) {
+                // Best-effort dispatch: log and continue so a misbehaving observer cannot block
+                // others from receiving the token. Catching Throwable (not just Exception) ensures
+                // an observer throwing an Error (e.g. AssertionError) also doesn't escape the loop.
+                Registry.log.warning(
+                    "TokenRefreshObserver threw ${e.javaClass.simpleName} — skipping",
+                    e
+                )
+            }
         }
     }
 

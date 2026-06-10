@@ -30,11 +30,13 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.JSONUtil.toHashMap
 import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
+import kotlinx.coroutines.CoroutineScope
 import org.json.JSONObject
 
 /**
@@ -302,7 +304,24 @@ object Klaviyo {
      * (e.g. after a logout)
      */
     @JvmStatic
-    fun resetProfile() = safeApply { Registry.get<State>().reset() }
+    fun resetProfile() = safeApply {
+        Registry.get<State>().reset()
+        // Clear the auth-token cache and cancel any scheduled refresh tied to the outgoing profile.
+        // The provider is retained — see AuthTokenManager.clearTokenState() for rationale.
+        //
+        // Fire-and-forget: the clear is intentionally async and does not block the caller.
+        // A host that immediately calls setProfile()/registerAuthTokenProvider() after resetProfile()
+        // may have the clear land after the new provider's eager fetch; that's benign because
+        // registerProvider() bumps refreshGeneration and fully resets token state itself, so any
+        // late clearTokenState() becomes a no-op against the new generation's cached token.
+        //
+        // Scope: KlaviyoAuthTokenManager.scope is internal and unreachable from this module, so
+        // we create a short-lived scope (matching the pattern in KlaviyoApiClient / DeepLinking).
+        // clearTokenState() is fast (mutex + cancellations), so the scope is GC'd promptly.
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            Registry.get<AuthTokenManager>().clearTokenState()
+        }
+    }
 
     /**
      * Creates an [Event] associated with the currently tracked profile

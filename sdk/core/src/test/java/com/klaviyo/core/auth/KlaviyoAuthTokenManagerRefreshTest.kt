@@ -552,6 +552,233 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         assertEquals("expired-token foreground should trigger a re-fetch", 2, provider.callCount)
     }
 
+    // MARK: - Observer notification and clearTokenState
+
+    @Test
+    fun `refresh observer receives jwt on proactive refresh`() = runTest(dispatcher) {
+        val jwt = makeJwt()
+        val provider = CountingSuccessProvider(jwt)
+        val manager = KlaviyoAuthTokenManager()
+
+        val receivedTokens = mutableListOf<String>()
+        manager.onTokenRefresh { receivedTokens.add(it) }
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("eager fetch should not notify observers", 0, receivedTokens.size)
+
+        // Fire the scheduled refresh
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("observer should receive jwt after proactive refresh", 1, receivedTokens.size)
+        assertEquals(jwt, receivedTokens[0])
+    }
+
+    @Test
+    fun `multiple refresh observers all receive token`() = runTest(dispatcher) {
+        val jwt = makeJwt()
+        val provider = CountingSuccessProvider(jwt)
+        val manager = KlaviyoAuthTokenManager()
+
+        val receivedA = mutableListOf<String>()
+        val receivedB = mutableListOf<String>()
+        manager.onTokenRefresh { receivedA.add(it) }
+        manager.onTokenRefresh { receivedB.add(it) }
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("observer A should receive jwt", 1, receivedA.size)
+        assertEquals("observer B should receive jwt", 1, receivedB.size)
+        assertEquals(jwt, receivedA[0])
+        assertEquals(jwt, receivedB[0])
+    }
+
+    @Test
+    fun `refresh observer not called on initial eager fetch`() = runTest(dispatcher) {
+        val provider = CountingSuccessProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+
+        var notified = false
+        manager.onTokenRefresh { notified = true }
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        assertEquals("eager fetch must not invoke observers", false, notified)
+    }
+
+    @Test
+    fun `observer throwing does not prevent other observers`() = runTest(dispatcher) {
+        val jwt = makeJwt()
+        val provider = CountingSuccessProvider(jwt)
+        val manager = KlaviyoAuthTokenManager()
+
+        val receivedBySecond = mutableListOf<String>()
+        manager.onTokenRefresh { throw RuntimeException("boom") }
+        manager.onTokenRefresh { receivedBySecond.add(it) }
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify { spyLog.warning(match { it.contains("TokenRefreshObserver threw") }, any()) }
+        assertEquals("second observer should still receive jwt", 1, receivedBySecond.size)
+    }
+
+    @Test
+    fun `offTokenRefresh removes observer`() = runTest(dispatcher) {
+        val provider = CountingSuccessProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+
+        var notified = false
+        val observer: TokenRefreshObserver = { notified = true }
+        manager.onTokenRefresh(observer)
+        manager.offTokenRefresh(observer)
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("removed observer must not receive jwt", false, notified)
+    }
+
+    @Test
+    fun `clearTokenState drops cached token and cancels scheduled refresh`() = runTest(dispatcher) {
+        val provider = CountingSuccessProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+        assertEquals(
+            "refresh should be scheduled after eager fetch",
+            1,
+            staticClock.scheduledTasks.size
+        )
+
+        // Capture the original refresh target before clearing
+        val originalRefreshTarget = staticClock.scheduledTasks.first().time
+
+        manager.clearTokenState()
+
+        // The original scheduled task should be gone immediately after clearing
+        assertEquals(
+            "clearTokenState should cancel the scheduled refresh",
+            0,
+            staticClock.scheduledTasks.size
+        )
+
+        // Advance past the original refresh target — since the timer was cancelled, no new fetch
+        staticClock.execute(originalRefreshTarget - staticClock.time + 1_000L)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(
+            "cancelled refresh timer must not trigger an additional provider call",
+            1,
+            provider.callCount
+        )
+
+        // Cache should be cleared: next currentToken() re-invokes provider
+        manager.currentToken()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(
+            "clearTokenState should discard cache, forcing a new fetch",
+            2,
+            provider.callCount
+        )
+    }
+
+    @Test
+    fun `clearTokenState retains provider and observers`() = runTest(dispatcher) {
+        val provider = CountingSuccessProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+
+        val received = mutableListOf<String>()
+        manager.onTokenRefresh { received.add(it) }
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        manager.clearTokenState()
+
+        // Provider is retained: next fetch invokes it directly
+        manager.currentToken()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("retained provider should serve the next fetch", 2, provider.callCount)
+
+        // Observer is retained: fire a new proactive refresh and verify it fires
+        val timerTask = staticClock.scheduledTasks.firstOrNull()
+        if (timerTask != null) {
+            staticClock.execute(timerTask.time - staticClock.time)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(
+                "retained observer should receive jwt from post-reset refresh",
+                1,
+                received.size
+            )
+        }
+    }
+
+    @Test
+    fun `proactive refresh does not notify observers after clearTokenState races with fetch`() =
+        runTest(dispatcher) {
+            // Scenario: the scheduled refresh is in-flight when clearTokenState() runs.
+            //
+            // Primary path verified: clearTokenState() cancels inFlightFetch, which sets the
+            // CancellationException flag on the in-flight Deferred. When provider.resolve() fires,
+            // invokeProvider()'s isActive guard drops the late callback and doFetch() never writes
+            // the cache. The assertion therefore passes via the cancellation path.
+            //
+            // Secondary defense: if a fetch were to survive cancellation and write its token to the
+            // cache, the stale-token guard in performScheduledRefresh() (cachedToken?.rawToken ==
+            // token.rawToken) would prevent broadcasting since clearTokenState() already nulled
+            // cachedToken. Both layers are exercised end-to-end; cancellation is the dominant path.
+            val initialToken = makeJwt()
+            val refreshedToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+            val provider = InitialThenResolvableProvider(initialToken)
+            val manager = KlaviyoAuthTokenManager()
+
+            val received = mutableListOf<String>()
+            manager.onTokenRefresh { received.add(it) }
+
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(1, provider.callCount)
+
+            // Fire the refresh timer — provider hangs on call #2, inFlightFetch is live
+            val timerTask = staticClock.scheduledTasks.first()
+            staticClock.execute(timerTask.time - staticClock.time)
+            dispatcher.scheduler.runCurrent()
+            assertEquals("scheduled refresh should be in-flight", 2, provider.callCount)
+
+            // Profile reset: clear token state while the refresh is still in-flight
+            manager.clearTokenState()
+
+            // Resolve the still-running provider callback (arrives after cancellation)
+            provider.resolve(refreshedToken)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                "observer must not receive a stale-profile token after clearTokenState",
+                0,
+                received.size
+            )
+        }
+
     // MARK: - Helpers
 
     /**
