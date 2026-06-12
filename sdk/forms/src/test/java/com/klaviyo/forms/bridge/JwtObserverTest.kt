@@ -7,12 +7,14 @@ import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -122,38 +124,47 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
-    fun `startObserver creates a fresh jwtReady each session so reinit is not broken`() {
+    fun `startObserver allocates a fresh jwtReady on reinit after the previous completed`() {
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-1")
         val observer = JwtObserver()
-        val initialDeferred = observer.jwtReady
 
-        // First session
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
         val firstSessionDeferred = observer.jwtReady
-        assertNotSame(
-            "startObserver must replace jwtReady with a new deferred",
-            initialDeferred,
-            firstSessionDeferred
-        )
         assertTrue(firstSessionDeferred.isCompleted)
 
         observer.stopObserver()
 
-        // Second session — must get a fresh, non-cancelled deferred
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-2")
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
         val secondSessionDeferred = observer.jwtReady
-        assertNotSame(
-            "second startObserver must replace jwtReady again",
-            firstSessionDeferred,
-            secondSessionDeferred
-        )
+        assertNotSame(firstSessionDeferred, secondSessionDeferred)
         assertTrue(secondSessionDeferred.isCompleted)
         assertFalse(secondSessionDeferred.isCancelled)
         verify(exactly = 1) { mockJsBridge.jwtMutation("session-1") }
         verify(exactly = 1) { mockJsBridge.jwtMutation("session-2") }
+    }
+
+    @Test
+    fun `startObserver reuses jwtReady when previous session is still in flight`() {
+        val firstCompletion = CompletableDeferred<ValidatedToken>()
+        coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers { firstCompletion.await() }
+
+        val observer = JwtObserver()
+        val initialDeferred = observer.jwtReady
+
+        observer.startObserver()
+        dispatcher.scheduler.runCurrent()
+        assertSame(initialDeferred, observer.jwtReady)
+
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("second")
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertSame(initialDeferred, observer.jwtReady)
+        assertTrue(observer.jwtReady.isCompleted)
+        verify(exactly = 1) { mockJsBridge.jwtMutation("second") }
     }
 
     @Test
@@ -175,5 +186,31 @@ class JwtObserverTest : BaseTest() {
         // Only the second token should be injected
         verify(exactly = 1) { mockJsBridge.jwtMutation(secondToken) }
         verify(inverse = true) { mockJsBridge.jwtMutation("first.token.value") }
+    }
+
+    @Test
+    fun `queued ui callback from a superseded fetch does not inject its stale token`() {
+        // In prod, runOnUiThread posts to the real UI thread. If currentToken returns synchronously
+        // (cached) the first fetch can queue its UI callback before the second startObserver runs.
+        // Override the relaxed runOnUiThread answer with a manual queue so the test can observe the
+        // queued ordering.
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers {
+            uiQueue.add(firstArg())
+        }
+
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("stale")
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("fresh")
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        uiQueue.forEach { it.invoke() }
+
+        verify(inverse = true) { mockJsBridge.jwtMutation("stale") }
+        verify(exactly = 1) { mockJsBridge.jwtMutation("fresh") }
     }
 }
