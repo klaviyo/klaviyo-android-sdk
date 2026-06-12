@@ -22,6 +22,7 @@ import com.klaviyo.forms.bridge.DeviceInfoProvider
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
+import com.klaviyo.forms.bridge.JwtObserver
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
@@ -51,7 +52,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      *
      * All template substitutions (SDK metadata, bridge config, device info) run synchronously on
      * the calling (UI) thread. The auth token is no longer injected into the template here — it is
-     * delivered after load via [com.klaviyo.forms.bridge.JwtObserver] over the JS bridge, so the
+     * delivered after load via [JwtObserver] over the JS bridge, so the
      * SDK can control JWT/profile ordering and push live token refreshes (MAGE-630).
      */
     override fun initializeWebView() {

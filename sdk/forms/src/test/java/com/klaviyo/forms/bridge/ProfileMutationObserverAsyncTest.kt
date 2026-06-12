@@ -3,11 +3,15 @@ package com.klaviyo.forms.bridge
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.After
+import org.junit.Assert.assertNotSame
 import org.junit.Before
 import org.junit.Test
 
@@ -87,5 +91,38 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
+    }
+
+    @Test
+    fun `startObserver reads jwtReady fresh each session — regression for capture-at-construction`() {
+        val jwtObserver = JwtObserver()
+        val observer = ProfileMutationObserver(jwtObserver)
+        val sessionOneDeferred = jwtObserver.jwtReady
+
+        observer.startObserver()
+        sessionOneDeferred.cancel()
+        dispatcher.scheduler.advanceUntilIdle()
+        verify(inverse = true) { mockBridge.profileMutation(any()) }
+        observer.stopObserver()
+
+        val mockAuth = mockk<AuthTokenManager>()
+        coEvery { mockAuth.currentToken(any()) } returns ValidatedToken(
+            rawToken = "tok",
+            expiresAtEpochSeconds = 0L,
+            issuedAtEpochSeconds = 0L
+        )
+        Registry.register<AuthTokenManager>(mockAuth)
+        try {
+            jwtObserver.startObserver()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNotSame(sessionOneDeferred, jwtObserver.jwtReady)
+
+            observer.startObserver()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
+        } finally {
+            Registry.unregister<AuthTokenManager>()
+        }
     }
 }
