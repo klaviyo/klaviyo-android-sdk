@@ -4,8 +4,13 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.LifecycleMonitor
+import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
@@ -13,6 +18,7 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
@@ -89,6 +95,19 @@ internal class KlaviyoAuthTokenManager(
     // (established SDK observer-collection pattern, matches StateChangeObserver, ActivityObserver).
     private val refreshObservers = CopyOnWriteArrayList<TokenRefreshObserver>()
 
+    // A pending coroutine that waits for connectivity to be restored before retrying
+    // performScheduledRefresh. At most one is active at a time; any existing job is cancelled before
+    // arming a new one (prevents job accumulation on rapid flap). Cleared once the wait resolves or
+    // is cancelled. Guarded by mutex writes inside clearTokenState; @Volatile for reads in
+    // armConnectivityWaitJob (outside the mutex) so cancel() is visible to the newly-starting job.
+    // Internal (not private) so tests in this module can inspect job state without reflection.
+    @Volatile internal var connectivityWaitJob: Job? = null
+
+    // Monotonic counter bumped each time armConnectivityWaitJob() arms a new job. Used by the
+    // job's finally block to detect whether a newer arm replaced it; if so the old job must not
+    // null out the new job's reference. AtomicLong for the same reason as refreshGeneration.
+    private val connectivityWaitGeneration = AtomicLong(0L)
+
     override fun registerProvider(provider: AuthTokenProvider) {
         // Cancel any in-flight fetch for the old provider before swapping.
         // Two complementary guards prevent a stale token from reaching the cache:
@@ -103,6 +122,8 @@ internal class KlaviyoAuthTokenManager(
         refreshJob = null
         refreshAtWallClockMs = null
         refreshTimerFired = false
+        connectivityWaitJob?.cancel()
+        connectivityWaitJob = null
         refreshGeneration.incrementAndGet()
         // Advance profileGeneration so any pending clearTokenState(expectedGeneration) from a
         // prior resetProfile() sees the generation mismatch and skips, preserving this new
@@ -150,7 +171,8 @@ internal class KlaviyoAuthTokenManager(
             refreshAtWallClockMs = null
             refreshTimerFired = false
             refreshGeneration.incrementAndGet()
-            // TODO (MAGE-684): connectivityWaitJob?.cancel(); connectivityWaitJob = null
+            connectivityWaitJob?.cancel()
+            connectivityWaitJob = null
             cachedToken = null
             profileGeneration.incrementAndGet()
             // Clear the reset-pending flag so the next successful refresh (from a new or retained
@@ -386,6 +408,9 @@ internal class KlaviyoAuthTokenManager(
         } catch (e: Exception) {
             if (timerGeneration != null) clearFiredFlagForFailedRefresh(timerGeneration)
             Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
+            if (isNetworkException(e)) {
+                armConnectivityWaitJob()
+            }
         }
     }
 
@@ -416,6 +441,73 @@ internal class KlaviyoAuthTokenManager(
         mutex.withLock {
             if (refreshGeneration.get() == timerGeneration) {
                 refreshTimerFired = false
+            }
+        }
+    }
+
+    /**
+     * Returns `true` for exceptions that indicate genuine offline conditions:
+     * [IOException] and its subtypes [UnknownHostException], [SocketTimeoutException], and
+     * [ConnectException]. HTTP errors, validation failures, and server-side bugs return `false`
+     * and must not trigger a connectivity retry (they won't resolve by waiting for the network).
+     */
+    private fun isNetworkException(e: Exception): Boolean =
+        e is UnknownHostException ||
+            e is SocketTimeoutException ||
+            e is ConnectException ||
+            e is IOException
+
+    /**
+     * Arms [connectivityWaitJob]: a single coroutine on [scope] that suspends until the next
+     * "connectivity available" notification from [Registry.networkMonitor], then triggers a
+     * proactive refresh via [performScheduledRefresh].
+     *
+     * At most one job is active at a time — any existing job is cancelled before the new one
+     * starts, preventing job accumulation on rapid flap. The job self-clears [connectivityWaitJob]
+     * when it completes (success, failure, or cancellation).
+     *
+     * Only invoked from the proactive-refresh failure path ([performScheduledRefresh]); demand
+     * callers via [currentToken] are not retried here — they surface the error to their own caller.
+     */
+    private fun armConnectivityWaitJob() {
+        connectivityWaitJob?.cancel()
+        Registry.log.info(
+            "AuthTokenManager: network failure — waiting for connectivity to retry refresh"
+        )
+        // Capture the wait generation before launching. The finally block uses this to determine
+        // whether to clear connectivityWaitJob: if armConnectivityWaitJob() was called again
+        // while this job was running (re-arm on repeated network failure), the generation will
+        // have advanced and this job must NOT null out the new job.
+        val waitGeneration = connectivityWaitGeneration.incrementAndGet()
+        connectivityWaitJob = scope.safeLaunch {
+            try {
+                suspendCancellableCoroutine { continuation ->
+                    // Use a ref box so the lambda can capture and de-register itself.
+                    val observerRef = arrayOfNulls<NetworkObserver>(1)
+                    val observer: NetworkObserver = { isConnected ->
+                        if (isConnected) {
+                            // De-register immediately — we only want to fire once per arming.
+                            observerRef[0]?.let { Registry.networkMonitor.offNetworkChange(it) }
+                            if (continuation.isActive) continuation.resume(Unit)
+                        }
+                    }
+                    observerRef[0] = observer
+                    continuation.invokeOnCancellation {
+                        Registry.networkMonitor.offNetworkChange(observer)
+                    }
+                    Registry.networkMonitor.onNetworkChange(observer)
+                }
+                Registry.log.info(
+                    "AuthTokenManager: connectivity restored — retrying proactive refresh"
+                )
+                performScheduledRefresh()
+            } finally {
+                // Only clear the field if the generation still matches — armConnectivityWaitJob()
+                // may have already replaced this job with a newer one (retry also failed with a
+                // network error). If replaced, leave the new job in place.
+                if (connectivityWaitGeneration.get() == waitGeneration) {
+                    connectivityWaitJob = null
+                }
             }
         }
     }
