@@ -52,8 +52,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      *
      * All template substitutions (SDK metadata, bridge config, device info) run synchronously on
      * the calling (UI) thread. The auth token is no longer injected into the template here — it is
-     * delivered after load via [JwtObserver] over the JS bridge, so the
-     * SDK can control JWT/profile ordering and push live token refreshes (MAGE-630).
+     * delivered after load via [JwtObserver] over the JS bridge so the SDK can control
+     * JWT/profile ordering. Live token refresh remains out of scope here.
      */
     override fun initializeWebView() {
         if (webView != null) {
