@@ -107,9 +107,9 @@ class KlaviyoNotificationTest : BaseTest() {
         // MockIntent.setupIntentMocking(), so an `Intent()` no-arg call inside makeIntent would
         // hit the Android stub and throw "Stub! Not implemented." Per-test specs override this
         // default to capture the URL passed through.
-        mockkObject(KlaviyoBrowserTrampolineActivity)
+        mockkObject(KlaviyoTrampolineActivity)
         every {
-            KlaviyoBrowserTrampolineActivity.makeIntent(any(), any())
+            KlaviyoTrampolineActivity.forBrowserUrl(any(), any())
         } returns mockk(relaxed = true)
 
         with(KlaviyoRemoteMessage) {
@@ -718,7 +718,7 @@ class KlaviyoNotificationTest : BaseTest() {
         // Body tap PendingIntent targets the trampoline with the URL passed through,
         // not the browser directly.
         verify {
-            KlaviyoBrowserTrampolineActivity.makeIntent(mockContext, "https://example.com")
+            KlaviyoTrampolineActivity.forBrowserUrl(mockContext, "https://example.com")
         }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
         verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any()) }
@@ -768,7 +768,7 @@ class KlaviyoNotificationTest : BaseTest() {
         notification.displayNotification(mockContext)
 
         verify {
-            KlaviyoBrowserTrampolineActivity.makeIntent(mockContext, "https://example.com")
+            KlaviyoTrampolineActivity.forBrowserUrl(mockContext, "https://example.com")
         }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
     }
@@ -777,7 +777,7 @@ class KlaviyoNotificationTest : BaseTest() {
     fun `open_url action button intent includes tracking extras`() {
         val mockTrampolineIntent = mockk<Intent>(relaxed = true)
         every {
-            KlaviyoBrowserTrampolineActivity.makeIntent(any(), any())
+            KlaviyoTrampolineActivity.forBrowserUrl(any(), any())
         } returns mockTrampolineIntent
 
         with(KlaviyoRemoteMessage) {

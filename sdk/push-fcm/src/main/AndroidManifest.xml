@@ -10,8 +10,9 @@
             </intent-filter>
         </service>
         <activity
-            android:name="com.klaviyo.pushFcm.KlaviyoBrowserTrampolineActivity"
+            android:name="com.klaviyo.pushFcm.KlaviyoTrampolineActivity"
             android:exported="false"
+            android:excludeFromRecents="true"
             android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>

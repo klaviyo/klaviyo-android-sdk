@@ -254,7 +254,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             }
             // Route through the trampoline so handlePush tracks $opened_push
             // and dismisses the notification — the browser would otherwise swallow the intent.
-            return KlaviyoBrowserTrampolineActivity.makeIntent(context, webUrl).apply {
+            return KlaviyoTrampolineActivity.forBrowserUrl(context, webUrl).apply {
                 appendKlaviyoExtras(message)
             }
         }
@@ -338,7 +338,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             is ActionButton.OpenUrl -> {
                 // Route through the trampoline so handlePush tracks $opened_push
                 // and dismisses the notification — the browser would otherwise swallow the intent.
-                KlaviyoBrowserTrampolineActivity.makeIntent(context, button.url)
+                KlaviyoTrampolineActivity.forBrowserUrl(context, button.url)
             }
         }?.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

@@ -6,6 +6,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.core.Constants.PACKAGE_PREFIX
+import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
@@ -18,7 +20,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
-class KlaviyoBrowserTrampolineActivityTest : BaseTest() {
+class KlaviyoTrampolineActivityTest : BaseTest() {
 
     private val mockBrowserIntent = mockk<Intent>(relaxed = true)
     private val trampolineContextPackageManager = mockk<PackageManager>(relaxed = true)
@@ -53,28 +55,50 @@ class KlaviyoBrowserTrampolineActivityTest : BaseTest() {
         super.cleanup()
     }
 
+    /**
+     * Build a mock Intent that looks like a Klaviyo notification tap intent.
+     * Has `com.klaviyo._k` extra so `isKlaviyoNotificationIntent` returns true.
+     */
+    private fun klaviyoIntent(): Intent = mockk(relaxed = true) {
+        every { getStringExtra(PACKAGE_PREFIX + TRACKING_PARAMETER) } returns "tracking-id"
+    }
+
     @Test
     fun `handleTrampolineIntent calls handlePush and launches browser intent`() {
-        val mockIntent = mockk<Intent>(relaxed = true)
+        val intent = klaviyoIntent()
         every {
-            mockIntent.getStringExtra(KlaviyoBrowserTrampolineActivity.BROWSER_URL_EXTRA)
+            intent.getStringExtra(KlaviyoTrampolineActivity.BROWSER_URL_EXTRA)
         } returns "https://example.com"
 
-        KlaviyoBrowserTrampolineActivity.handleTrampolineIntent(mockIntent, mockTrampolineContext)
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
-        verify { Klaviyo.handlePush(mockIntent) }
+        verify { Klaviyo.handlePush(intent) }
         verify { DeepLinking.makeBrowserIntent(any()) }
         verify { mockTrampolineContext.startActivity(mockBrowserIntent) }
     }
 
     @Test
-    fun `handleTrampolineIntent without URL extra logs warning and does not launch or track`() {
-        val mockIntent = mockk<Intent>(relaxed = true)
+    fun `handleTrampolineIntent with Klaviyo intent but no dispatch extra tracks open and warns`() {
+        val intent = klaviyoIntent()
         every {
-            mockIntent.getStringExtra(KlaviyoBrowserTrampolineActivity.BROWSER_URL_EXTRA)
+            intent.getStringExtra(KlaviyoTrampolineActivity.BROWSER_URL_EXTRA)
         } returns null
 
-        KlaviyoBrowserTrampolineActivity.handleTrampolineIntent(mockIntent, mockTrampolineContext)
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        // handlePush still runs for any Klaviyo notification intent — only dispatch is skipped.
+        verify { Klaviyo.handlePush(intent) }
+        verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
+        verify(exactly = 0) { mockTrampolineContext.startActivity(any()) }
+        verify { spyLog.warning(any(), null) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent ignores non-Klaviyo intent`() {
+        val intent = mockk<Intent>(relaxed = true)
+        every { intent.getStringExtra(any()) } returns null
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
         verify(exactly = 0) { Klaviyo.handlePush(any()) }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
@@ -83,8 +107,8 @@ class KlaviyoBrowserTrampolineActivityTest : BaseTest() {
     }
 
     @Test
-    fun `handleTrampolineIntent with null intent logs warning and does not track`() {
-        KlaviyoBrowserTrampolineActivity.handleTrampolineIntent(null, mockTrampolineContext)
+    fun `handleTrampolineIntent ignores null intent`() {
+        KlaviyoTrampolineActivity.handleTrampolineIntent(null, mockTrampolineContext)
 
         verify(exactly = 0) { Klaviyo.handlePush(any()) }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
