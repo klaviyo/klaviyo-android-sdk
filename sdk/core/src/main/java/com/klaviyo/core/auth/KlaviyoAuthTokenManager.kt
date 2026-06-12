@@ -72,10 +72,21 @@ internal class KlaviyoAuthTokenManager(
     // mutex-held increment to produce a lost update.
     private val refreshGeneration = AtomicLong(0L)
 
-    // Reserved for MAGE-630 (onTokenRefresh/offTokenRefresh observers). Matches the established
-    // SDK observer-collection pattern (CopyOnWriteArrayList for thread-safe iteration while
-    // observers add/remove themselves on arbitrary threads).
-    @Suppress("unused")
+    // Tracks profile lifecycle events: registerProvider(), invalidate(), and clearTokenState().
+    // Used by clearTokenState(expectedGeneration) to detect whether registerProvider() ran between
+    // the invalidate() call and the async clear, so a late clear doesn't wipe the new session.
+    // Deliberately separate from refreshGeneration (which scheduleRefresh() also bumps).
+    private val profileGeneration = AtomicLong(0L)
+
+    // Set to true by invalidate() and reset to false by registerProvider() and clearTokenState().
+    // Read by performScheduledRefresh just before notifying observers: if a profile reset is
+    // pending (i.e. invalidate() was called but clearTokenState() hasn't finished yet), the
+    // refresh must not broadcast the now-stale token. @Volatile because it is written on the
+    // calling thread (main) and read on the dispatcher (IO) with no other synchronisation.
+    @Volatile private var profileResetPending = false
+
+    // CopyOnWriteArrayList for thread-safe iteration while observers add/remove on arbitrary threads
+    // (established SDK observer-collection pattern, matches StateChangeObserver, ActivityObserver).
     private val refreshObservers = CopyOnWriteArrayList<TokenRefreshObserver>()
 
     override fun registerProvider(provider: AuthTokenProvider) {
@@ -93,10 +104,61 @@ internal class KlaviyoAuthTokenManager(
         refreshAtWallClockMs = null
         refreshTimerFired = false
         refreshGeneration.incrementAndGet()
+        // Advance profileGeneration so any pending clearTokenState(expectedGeneration) from a
+        // prior resetProfile() sees the generation mismatch and skips, preserving this new
+        // session's token state.
+        profileGeneration.incrementAndGet()
+        // Clear the reset-pending flag: the new provider supersedes any in-progress logout reset.
+        profileResetPending = false
         cachedToken = null
         this.provider = provider
         Registry.log.info("AuthTokenProvider registered")
         scope.safeLaunch { tryEagerFetch() }
+    }
+
+    override fun onTokenRefresh(observer: TokenRefreshObserver) {
+        refreshObservers.add(observer)
+    }
+
+    override fun offTokenRefresh(observer: TokenRefreshObserver) {
+        refreshObservers.remove(observer)
+    }
+
+    override fun invalidate(): Long {
+        // Set the flag before bumping the generation so that any performScheduledRefresh that
+        // reads the flag after this call (regardless of when its fetch started) will skip observers.
+        profileResetPending = true
+        return profileGeneration.incrementAndGet()
+    }
+
+    override suspend fun clearTokenState(expectedGeneration: Long) {
+        var cleared = false
+        mutex.withLock {
+            // If the caller captured a generation via invalidate() and a new provider has since
+            // been registered (profileGeneration advanced), skip the clear to avoid wiping the
+            // new session's token cache and refresh schedule.
+            if (expectedGeneration >= 0L && profileGeneration.get() != expectedGeneration) {
+                Registry.log.verbose(
+                    "clearTokenState: skipped — provider re-registered since reset"
+                )
+                return@withLock
+            }
+            inFlightFetch?.cancel()
+            inFlightFetch = null
+            refreshJob?.cancel()
+            refreshJob = null
+            refreshAtWallClockMs = null
+            refreshTimerFired = false
+            refreshGeneration.incrementAndGet()
+            // TODO (MAGE-684): connectivityWaitJob?.cancel(); connectivityWaitJob = null
+            cachedToken = null
+            profileGeneration.incrementAndGet()
+            // Clear the reset-pending flag so the next successful refresh (from a new or retained
+            // provider) can notify observers normally.
+            profileResetPending = false
+            cleared = true
+        }
+        if (cleared) Registry.log.info("Token state cleared")
     }
 
     private suspend fun tryEagerFetch() {
@@ -286,26 +348,67 @@ internal class KlaviyoAuthTokenManager(
      * even if the refresh attempt fails; any concurrent caller that arrives while refresh is
      * in-flight shares the single in-flight Deferred automatically.
      *
+     * On success, notifies registered [TokenRefreshObserver]s with the new JWT, subject to two
+     * guards: (1) the returned token is still the live cached value (clears can null the cache
+     * mid-flight), and (2) no profile reset is pending ([profileResetPending] is false). The
+     * reset-pending flag is set synchronously by [invalidate] so that any refresh completing
+     * in the window between [invalidate] and [clearTokenState] is suppressed. Dispatch is
+     * best-effort — see [notifyRefreshObservers].
+     *
      * Logs at WARNING on failure — the still-valid cached token remains for live consumers.
      * On failure does NOT reschedule; one foreground-transition retry is possible if
      * [refreshAtWallClockMs] was not yet cleared (timer fired but fetch failed).
-     *
-     * TODO (MAGE-630): emit onTokenRefresh notification to observers on success.
      */
     private suspend fun performScheduledRefresh(timerGeneration: Long? = null) {
         if (provider == null) return
         Registry.log.info("Proactive token refresh fired")
         try {
-            getOrFetchToken(
+            val token = getOrFetchToken(
                 timeoutMs = AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,
                 allowCachedToken = false
             )
+            // Two-part stale guard before notifying observers:
+            // 1. Cache check (@Volatile read): clearTokenState() may have nulled cachedToken
+            //    while the fetch was suspended; skip if this token is no longer the live value.
+            // 2. Reset-pending check (@Volatile read): invalidate() sets this flag synchronously
+            //    from resetProfile() before the async clearTokenState() runs. Any refresh that
+            //    completes while a logout reset is pending must not broadcast to observers —
+            //    regardless of whether the refresh started before or after invalidate() was called.
+            //    The flag is cleared by clearTokenState() and registerProvider().
+            // Dispatch is best-effort; the small TOCTOU window on these volatile reads is
+            // acceptable (see notifyRefreshObservers KDoc).
+            if (cachedToken?.rawToken == token.rawToken && !profileResetPending) {
+                notifyRefreshObservers(token.rawToken)
+            }
             Registry.log.info("Proactive token refresh succeeded")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             if (timerGeneration != null) clearFiredFlagForFailedRefresh(timerGeneration)
             Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
+        }
+    }
+
+    /**
+     * Iterates [refreshObservers] and invokes each with [jwt]. Best-effort: if an observer throws,
+     * the exception is logged at WARNING and the remaining observers are still called.
+     */
+    private fun notifyRefreshObservers(jwt: String) {
+        refreshObservers.forEach { observer ->
+            try {
+                observer(jwt)
+            } catch (e: CancellationException) {
+                // Structured-concurrency contract: CancellationException must never be swallowed.
+                throw e
+            } catch (e: Exception) {
+                // Best-effort dispatch: log and continue so a misbehaving observer cannot block
+                // others from receiving the token. JVM-fatal Errors (OOM, StackOverflowError, etc.)
+                // are intentionally NOT caught here — they should propagate.
+                Registry.log.warning(
+                    "TokenRefreshObserver threw ${e.javaClass.simpleName} — skipping",
+                    e
+                )
+            }
         }
     }
 
