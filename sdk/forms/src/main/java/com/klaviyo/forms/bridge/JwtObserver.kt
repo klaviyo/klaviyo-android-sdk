@@ -30,11 +30,15 @@ internal class JwtObserver : JsBridgeObserver {
 
     @Volatile private var stopped = false
 
+    @Volatile private var latestFetch: Any? = null
+
     private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
     private var fetchJob: Job? = null
 
     override fun startObserver() {
         stopped = false
+        val thisFetch = Any()
+        latestFetch = thisFetch
         val currentJwtReady = if (jwtReady.isCompleted) {
             CompletableDeferred<Unit>().also { jwtReady = it }
         } else {
@@ -58,7 +62,7 @@ internal class JwtObserver : JsBridgeObserver {
             }
 
             Registry.threadHelper.runOnUiThread {
-                if (!currentJwtReady.isCompleted && !stopped) {
+                if (latestFetch === thisFetch && !stopped) {
                     Registry.get<JsBridge>().jwtMutation(token ?: "")
                     currentJwtReady.complete(Unit)
                 }

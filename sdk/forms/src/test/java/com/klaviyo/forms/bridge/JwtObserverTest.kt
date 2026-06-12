@@ -7,6 +7,7 @@ import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
@@ -185,5 +186,31 @@ class JwtObserverTest : BaseTest() {
         // Only the second token should be injected
         verify(exactly = 1) { mockJsBridge.jwtMutation(secondToken) }
         verify(inverse = true) { mockJsBridge.jwtMutation("first.token.value") }
+    }
+
+    @Test
+    fun `queued ui callback from a superseded fetch does not inject its stale token`() {
+        // In prod, runOnUiThread posts to the real UI thread. If currentToken returns synchronously
+        // (cached) the first fetch can queue its UI callback before the second startObserver runs.
+        // Override the relaxed runOnUiThread answer with a manual queue so the test can observe the
+        // queued ordering.
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers {
+            uiQueue.add(firstArg())
+        }
+
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("stale")
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("fresh")
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        uiQueue.forEach { it.invoke() }
+
+        verify(inverse = true) { mockJsBridge.jwtMutation("stale") }
+        verify(exactly = 1) { mockJsBridge.jwtMutation("fresh") }
     }
 }
