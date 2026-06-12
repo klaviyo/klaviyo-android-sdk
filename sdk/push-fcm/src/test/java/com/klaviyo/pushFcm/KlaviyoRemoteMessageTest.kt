@@ -14,8 +14,11 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.hasKlaviyoKeyValuePairs
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.keyValuePairs
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.json.JSONArray
 import org.json.JSONObject
@@ -520,5 +523,214 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         assert(buttons?.get(1)?.label == "Valid 2")
         assert(buttons?.get(2)?.id == "valid3")
         assert(buttons?.get(2)?.label == "Valid 3")
+    }
+
+    @Test
+    fun `webUrl returns Uri when web_url is an https URL`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "https"
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("https://example.com") } returns mockUri
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            put(KlaviyoNotification.WEB_URL_KEY, "https://example.com")
+        }
+
+        val webUrl = msg.webUrl
+        assert(webUrl != null)
+        verify { android.net.Uri.parse("https://example.com") }
+
+        unmockkStatic(android.net.Uri::class)
+    }
+
+    @Test
+    fun `webUrl returns Uri when web_url is an http URL`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "http"
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("http://example.com") } returns mockUri
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            put(KlaviyoNotification.WEB_URL_KEY, "http://example.com")
+        }
+
+        assert(msg.webUrl != null)
+
+        unmockkStatic(android.net.Uri::class)
+    }
+
+    @Test
+    fun `webUrl returns null when web_url is missing`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage
+
+        assert(msg.webUrl == null)
+    }
+
+    @Test
+    fun `webUrl returns null when web_url is blank`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            put(KlaviyoNotification.WEB_URL_KEY, "")
+        }
+
+        assert(msg.webUrl == null)
+    }
+
+    @Test
+    fun `webUrl returns null when web_url has a non-web scheme`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "myapp"
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("myapp://home") } returns mockUri
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            put(KlaviyoNotification.WEB_URL_KEY, "myapp://home")
+        }
+
+        assert(msg.webUrl == null)
+
+        unmockkStatic(android.net.Uri::class)
+    }
+
+    @Test
+    fun `webUrl takes precedence over url field`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "https"
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("https://example.com") } returns mockUri
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            put(KlaviyoNotification.WEB_URL_KEY, "https://example.com")
+            put(KlaviyoNotification.URL_KEY, "myapp://home")
+        }
+
+        assert(msg.webUrl != null)
+
+        unmockkStatic(android.net.Uri::class)
+    }
+
+    @Test
+    fun `actionButtons parses open_url variant with url`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "https"
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("https://example.com") } returns mockUri
+
+        val actionButtonsData = listOf(
+            mapOf(
+                "id" to "open.url",
+                "label" to "Open Website",
+                "action" to "open_url",
+                "url" to "https://example.com"
+            )
+        )
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, JSONArray(actionButtonsData).toString())
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        val buttons = msg.actionButtons
+        assert(buttons != null)
+        assert(buttons?.size == 1)
+
+        val button = buttons?.get(0)
+        assert(button is ActionButton.OpenUrl)
+        assert(button?.id == "open.url")
+        assert(button?.label == "Open Website")
+        assert((button as? ActionButton.OpenUrl)?.url == "https://example.com")
+
+        unmockkStatic(android.net.Uri::class)
+    }
+
+    @Test
+    fun `actionButtons skips open_url with non-web scheme`() {
+        val mockUri = mockk<android.net.Uri>(relaxed = true)
+        every { mockUri.scheme } returns "myapp"
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse("myapp://home") } returns mockUri
+
+        val actionButtonsData = listOf(
+            mapOf(
+                "id" to "open.url",
+                "label" to "Open Website",
+                "action" to "open_url",
+                "url" to "myapp://home"
+            )
+        )
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, JSONArray(actionButtonsData).toString())
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        assert(msg.actionButtons == null)
+
+        unmockkStatic(android.net.Uri::class)
+    }
+
+    @Test
+    fun `actionButtons skips open_url with missing url`() {
+        val actionButtonsData = listOf(
+            mapOf(
+                "id" to "open.url",
+                "label" to "Open Website",
+                "action" to "open_url"
+            )
+        )
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, JSONArray(actionButtonsData).toString())
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        assert(msg.actionButtons == null)
+    }
+
+    @Test
+    fun `actionButtons skips open_url with blank url`() {
+        val actionButtonsJson = JSONArray().put(
+            JSONObject()
+                .put("id", "open.url")
+                .put("label", "Open Website")
+                .put("action", "open_url")
+                .put("url", JSONObject.NULL)
+        ).toString()
+
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, actionButtonsJson)
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        assert(msg.actionButtons == null)
+    }
+
+    @Test
+    fun `appendActionButtonExtras for OpenUrl includes link and display name`() {
+        val intent = mockk<Intent>(relaxed = true)
+        val button = ActionButton.OpenUrl(
+            id = "open.url",
+            label = "Open Website",
+            url = "https://example.com"
+        )
+
+        every { intent.putExtra(any<String>(), any<String>()) } returns intent
+
+        intent.appendActionButtonExtras(button)
+
+        verify { intent.putExtra("com.klaviyo.Button ID", "open.url") }
+        verify { intent.putExtra("com.klaviyo.Button Label", "Open Website") }
+        verify { intent.putExtra("com.klaviyo.Button Action", "Open URL") }
+        verify { intent.putExtra("com.klaviyo.Button Link", "https://example.com") }
     }
 }
