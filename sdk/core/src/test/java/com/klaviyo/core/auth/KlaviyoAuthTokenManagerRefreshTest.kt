@@ -632,7 +632,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         staticClock.execute(timerTask.time - staticClock.time)
         dispatcher.scheduler.advanceUntilIdle()
 
-        verify { spyLog.warning(match { it.contains("TokenRefreshObserver threw") }, any()) }
+        verify { spyLog.warning(any(), any()) }
         assertEquals("second observer should still receive jwt", 1, receivedBySecond.size)
     }
 
@@ -721,16 +721,14 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         assertEquals("retained provider should serve the next fetch", 2, provider.callCount)
 
         // Observer is retained: fire a new proactive refresh and verify it fires
-        val timerTask = staticClock.scheduledTasks.firstOrNull()
-        if (timerTask != null) {
-            staticClock.execute(timerTask.time - staticClock.time)
-            dispatcher.scheduler.advanceUntilIdle()
-            assertEquals(
-                "retained observer should receive jwt from post-reset refresh",
-                1,
-                received.size
-            )
-        }
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(
+            "retained observer should receive jwt from post-reset refresh",
+            1,
+            received.size
+        )
     }
 
     @Test

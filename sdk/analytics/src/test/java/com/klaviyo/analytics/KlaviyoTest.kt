@@ -505,7 +505,7 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.resetProfile()
         dispatcher.scheduler.advanceUntilIdle()
         verify(exactly = 1) { mockAuthTokenManager.invalidate() }
-        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(any()) }
+        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
     }
 
     @Test
