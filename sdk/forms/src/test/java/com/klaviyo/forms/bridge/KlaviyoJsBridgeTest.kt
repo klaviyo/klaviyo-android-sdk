@@ -35,7 +35,7 @@ class KlaviyoJsBridgeTest : BaseTest() {
     fun `compileJson returns correct JSON for supported functions`() {
         val expectedJson = KlaviyoJsBridge().handshake.compileJson()
         val actualJson = """
-           [{"type":"profileMutation","version":1},{"type":"lifecycleEvent","version":1},{"type":"closeForm","version":1},{"type":"profileEvent","version":1}]
+           [{"type":"profileMutation","version":1},{"type":"lifecycleEvent","version":1},{"type":"closeForm","version":1},{"type":"profileEvent","version":1},{"type":"jwtMutation","version":1}]
         """.trimIndent()
         assertEquals(actualJson, expectedJson)
     }
@@ -233,6 +233,38 @@ class KlaviyoJsBridgeTest : BaseTest() {
         verify {
             jsEvaluator.evaluateJavascript(
                 eq("""window.setSafeArea("10.0","20.0","30.0","40.0")"""),
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun `jwtMutation calls JS evaluator with correct JS`() {
+        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
+            secondArg<(Boolean) -> Unit>().invoke(true)
+        }
+
+        bridge.jwtMutation("jwt.token.value")
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                eq("""window.jwtMutation("jwt.token.value")"""),
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun `jwtMutation with empty token calls JS evaluator with empty string`() {
+        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
+            secondArg<(Boolean) -> Unit>().invoke(true)
+        }
+
+        bridge.jwtMutation("")
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                eq("""window.jwtMutation("")"""),
                 any()
             )
         }

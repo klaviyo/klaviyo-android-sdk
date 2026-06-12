@@ -22,6 +22,7 @@ import com.klaviyo.forms.bridge.DeviceInfoProvider
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
+import com.klaviyo.forms.bridge.JwtObserver
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
@@ -47,16 +48,23 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
 
     /**
      * Initialize a webview instance, with protection against duplication
-     * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head
+     * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head.
+     *
+     * All template substitutions (SDK metadata, bridge config, device info) run synchronously on
+     * the calling (UI) thread. The auth token is no longer injected into the template here — it is
+     * delivered after load via [JwtObserver] over the JS bridge so the SDK can control
+     * JWT/profile ordering. Live token refresh remains out of scope here.
      */
-    override fun initializeWebView(): Unit = webView?.let {
-        Registry.log.debug("Klaviyo webview is already initialized")
-    } ?: KlaviyoWebView().let { webView ->
+    override fun initializeWebView() {
+        if (webView != null) {
+            Registry.log.debug("Klaviyo webview is already initialized")
+            return
+        }
+
+        val webView = KlaviyoWebView().also { this.webView = it }
         val nativeBridge = Registry.get<NativeBridge>()
         val jsBridge = Registry.get<JsBridge>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
-
-        this.webView = webView
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
             .buildUpon()
@@ -66,7 +74,10 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .appendAssetSource()
             .build()
 
-        Registry.config.applicationContext.assets
+        // Apply all substitutions that can run synchronously on the calling (UI) thread.
+        // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
+        // decorView.rootWindowInsets) — snapshot it here while we are still on the main thread.
+        val partialHtml = Registry.config.applicationContext.assets
             .open("InAppFormsTemplate.html")
             .bufferedReader()
             .use(BufferedReader::readText)
@@ -79,14 +90,13 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             // Raw JSON is safe inside the single-quoted HTML attribute because JSONObject emits
             // double-quoted strings.
             .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
-            .let { html ->
-                webView.loadTemplate(html, this, nativeBridge)
-                handshakeTimer?.cancel()
-                handshakeTimer = Registry.clock.schedule(
-                    Registry.config.networkTimeout.toLong(),
-                    ::onJsHandshakeTimeout
-                )
-            }
+
+        webView.loadTemplate(partialHtml, this, nativeBridge)
+        handshakeTimer?.cancel()
+        handshakeTimer = Registry.clock.schedule(
+            Registry.config.networkTimeout.toLong(),
+            ::onJsHandshakeTimeout
+        )
     }
 
     override fun onLocalJsReady() {
