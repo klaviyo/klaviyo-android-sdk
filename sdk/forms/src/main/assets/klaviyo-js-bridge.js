@@ -117,6 +117,21 @@ window.setSafeArea = function(left, top, right, bottom) {
     return true;
  }
 
+/**
+ * Updates the data-klaviyo-jwt attribute on the document head.
+ *
+ * Delivered via the JS bridge (rather than a static HTML attribute) so the SDK controls
+ * ordering: the JWT is set at jsReady, before profile identifiers are injected at handshake,
+ * which is what the onsite personalization module needs to trigger the authenticated fetch.
+ *
+ * @param token - JWT string, or empty string if auth is not enabled / token fetch failed
+ * @returns {boolean}
+ */
+window.jwtMutation = function (token) {
+    document.head.setAttribute("data-klaviyo-jwt", token)
+    return true
+}
+
 // Notify the SDK over the native bridge that these local JS scripts are initialized
 var bridgeName = document.head.getAttribute("data-native-bridge-name") || ""
 
