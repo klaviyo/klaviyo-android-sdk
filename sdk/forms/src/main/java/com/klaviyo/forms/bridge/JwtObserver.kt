@@ -19,11 +19,11 @@ import kotlinx.coroutines.SupervisorJob
  * fetch when both a JWT and profile identifiers are present. Delivering the JWT at JsReady (before
  * profile at HandShook) guarantees the token is in place when identifiers arrive.
  *
- * [jwtReady] is a fresh [CompletableDeferred] created on each [startObserver] call. It is
- * completed after the JWT is injected so that [ProfileMutationObserver] can await it before
- * injecting profile identifiers, eliminating the residual race where a slow async token fetch
- * outlasts the JsReady→HandShook window. A new deferred is created each session so that reinit
- * after [stopObserver] always starts from a clean state.
+ * [jwtReady] is a [CompletableDeferred] that completes after the JWT is injected so
+ * [ProfileMutationObserver] can await it before injecting profile identifiers, eliminating the
+ * residual race where a slow async token fetch outlasts the JsReady→HandShook window. A fresh
+ * deferred is allocated only when the previous one has settled; a still-pending deferred is reused
+ * across [startObserver] calls so any waiter that captured it is not orphaned by a double-start.
  *
  * Live token refresh delivery on rotation is tracked in MAGE-630.
  */
@@ -33,8 +33,9 @@ internal class JwtObserver : JsBridgeObserver {
 
     /**
      * Deferred that completes once the JWT has been delivered for the current WebView session.
-     * Replaced with a fresh instance on every [startObserver] call, so [ProfileMutationObserver]
-     * always awaits the deferred that corresponds to the active session.
+     * Reused across [startObserver] calls while still pending so [ProfileMutationObserver] waiters
+     * that captured an earlier reference are not orphaned. Replaced with a fresh instance only
+     * after the previous deferred has settled (completed or cancelled).
      */
     @Volatile
     internal var jwtReady: CompletableDeferred<Unit> = CompletableDeferred()
@@ -50,10 +51,16 @@ internal class JwtObserver : JsBridgeObserver {
 
     override fun startObserver() {
         stopped = false
-        // Fresh deferred for this WebView session. ProfileMutationObserver reads jwtReady via
-        // its JwtObserver reference in its own startObserver, so it always gets this new instance.
-        val currentJwtReady = CompletableDeferred<Unit>()
-        jwtReady = currentJwtReady
+        // Reuse jwtReady if still pending. Replacing it would orphan any ProfileMutationObserver
+        // waiter that captured the previous instance during the JsReady→HandShook window. The
+        // fetchJob cancellation below ensures only the newest fetch's token completes the deferred:
+        // the prior fetch either bails at a suspension point (cancellation) or no-ops on the
+        // !isCompleted guard inside the UI callback.
+        val currentJwtReady = if (jwtReady.isCompleted) {
+            CompletableDeferred<Unit>().also { jwtReady = it }
+        } else {
+            jwtReady
+        }
 
         fetchJob?.cancel() // guard against double-start without an intervening stopObserver
         fetchJob = scope.safeLaunch {
@@ -72,11 +79,12 @@ internal class JwtObserver : JsBridgeObserver {
             }
 
             Registry.threadHelper.runOnUiThread {
-                // Double-guard: check both that this session's deferred is still current (i.e.
-                // startObserver hasn't been called again) and that stop wasn't requested. This
-                // prevents a stale runOnUiThread callback — queued after currentToken returned
-                // but before stopObserver ran — from injecting into a destroyed or new WebView.
-                if (jwtReady === currentJwtReady && !stopped) {
+                // !isCompleted: a later fetch may have already completed this deferred (race
+                // between two queued UI callbacks when the deferred is reused across starts).
+                // !stopped: stopObserver may have run while we were suspended on currentToken.
+                // Together these prevent a stale callback from injecting into a destroyed or
+                // superseded WebView session.
+                if (!currentJwtReady.isCompleted && !stopped) {
                     Registry.get<JsBridge>().jwtMutation(token ?: "")
                     currentJwtReady.complete(Unit)
                 }

@@ -13,6 +13,7 @@ import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -122,31 +123,24 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
-    fun `startObserver creates a fresh jwtReady each session so reinit is not broken`() {
+    fun `startObserver allocates a fresh jwtReady on reinit after the previous completed`() {
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-1")
         val observer = JwtObserver()
-        val initialDeferred = observer.jwtReady
 
-        // First session
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
         val firstSessionDeferred = observer.jwtReady
-        assertNotSame(
-            "startObserver must replace jwtReady with a new deferred",
-            initialDeferred,
-            firstSessionDeferred
-        )
         assertTrue(firstSessionDeferred.isCompleted)
 
         observer.stopObserver()
 
-        // Second session — must get a fresh, non-cancelled deferred
+        // Second session — previous deferred is settled, so a fresh one must be allocated
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-2")
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
         val secondSessionDeferred = observer.jwtReady
         assertNotSame(
-            "second startObserver must replace jwtReady again",
+            "second startObserver must replace jwtReady once the previous one has settled",
             firstSessionDeferred,
             secondSessionDeferred
         )
@@ -154,6 +148,38 @@ class JwtObserverTest : BaseTest() {
         assertFalse(secondSessionDeferred.isCancelled)
         verify(exactly = 1) { mockJsBridge.jwtMutation("session-1") }
         verify(exactly = 1) { mockJsBridge.jwtMutation("session-2") }
+    }
+
+    @Test
+    fun `startObserver reuses jwtReady when previous session is still in flight`() {
+        // Regression guard for MAGE-724 CodeRabbit feedback: if a second startObserver runs before
+        // the first fetch settles, the in-flight deferred must be reused so any
+        // ProfileMutationObserver waiter that captured it is not orphaned.
+        val firstCompletion = CompletableDeferred<ValidatedToken>()
+        coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers { firstCompletion.await() }
+
+        val observer = JwtObserver()
+        val initialDeferred = observer.jwtReady
+
+        observer.startObserver()
+        dispatcher.scheduler.runCurrent()
+        assertSame(
+            "first start must not replace a still-pending jwtReady",
+            initialDeferred,
+            observer.jwtReady
+        )
+
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("second")
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertSame(
+            "second start must reuse the pending deferred so waiters are not orphaned",
+            initialDeferred,
+            observer.jwtReady
+        )
+        assertTrue(observer.jwtReady.isCompleted)
+        verify(exactly = 1) { mockJsBridge.jwtMutation("second") }
     }
 
     @Test

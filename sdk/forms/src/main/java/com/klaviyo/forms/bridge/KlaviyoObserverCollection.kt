@@ -4,9 +4,9 @@ package com.klaviyo.forms.bridge
  * Manages the collection of observers that inject data into the webview
  */
 internal class KlaviyoObserverCollection : JsBridgeObserverCollection {
-    // JwtObserver owns its jwtReady deferred and creates a fresh one on each startObserver call.
-    // ProfileMutationObserver reads jwtReady from this reference at its own startObserver time,
-    // so it always awaits the deferred for the current WebView session rather than a stale one.
+    // JwtObserver owns its jwtReady deferred. ProfileMutationObserver reads jwtReady from this
+    // reference at its own startObserver time, so it always awaits whichever deferred is current
+    // for the active WebView session rather than one captured at construction.
     private val jwtObserver = JwtObserver()
 
     override val observers: List<JsBridgeObserver> by lazy {
