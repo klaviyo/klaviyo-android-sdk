@@ -400,10 +400,10 @@ internal class KlaviyoAuthTokenManager(
             } catch (e: CancellationException) {
                 // Structured-concurrency contract: CancellationException must never be swallowed.
                 throw e
-            } catch (e: Throwable) {
+            } catch (e: Exception) {
                 // Best-effort dispatch: log and continue so a misbehaving observer cannot block
-                // others from receiving the token. Catching Throwable (not just Exception) ensures
-                // an observer throwing an Error (e.g. AssertionError) also doesn't escape the loop.
+                // others from receiving the token. JVM-fatal Errors (OOM, StackOverflowError, etc.)
+                // are intentionally NOT caught here — they should propagate.
                 Registry.log.warning(
                     "TokenRefreshObserver threw ${e.javaClass.simpleName} — skipping",
                     e

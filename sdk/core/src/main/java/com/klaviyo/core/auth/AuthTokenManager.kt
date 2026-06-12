@@ -73,8 +73,9 @@ interface AuthTokenManager {
      *
      * Multiple observers are supported. Each is invoked on the manager's internal dispatcher
      * (IO); the observer is responsible for any thread handoff it needs (e.g. hopping to the UI
-     * thread for WebView calls). Dispatch is best-effort: if an observer throws, the exception is
-     * logged at WARNING and remaining observers are still called.
+     * thread for WebView calls). Dispatch is best-effort: if an observer throws an [Exception], it
+     * is logged at WARNING and remaining observers are still called.
+     * [kotlinx.coroutines.CancellationException] is rethrown per structured-concurrency contract.
      *
      * Registration is by reference — pass the same lambda instance to [offTokenRefresh] to
      * unregister. Duplicate registrations (same instance) add the observer twice.
