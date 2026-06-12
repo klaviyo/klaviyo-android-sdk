@@ -95,24 +95,16 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
 
     @Test
     fun `startObserver reads jwtReady fresh each session — regression for capture-at-construction`() {
-        // Regression guard for MAGE-724 CodeRabbit feedback: if ProfileMutationObserver captured
-        // jwtReady at construction instead of reading it fresh on each startObserver, this test
-        // would fail because session 2's await would target the cancelled session-1 deferred.
         val jwtObserver = JwtObserver()
         val observer = ProfileMutationObserver(jwtObserver)
         val sessionOneDeferred = jwtObserver.jwtReady
 
-        // Session 1: observer awaits the initial deferred, which is then cancelled (WebView torn
-        // down before JWT delivery). No profile should be injected.
         observer.startObserver()
         sessionOneDeferred.cancel()
         dispatcher.scheduler.advanceUntilIdle()
         verify(inverse = true) { mockBridge.profileMutation(any()) }
         observer.stopObserver()
 
-        // Session 2: drive jwtObserver through a real start so it allocates a fresh deferred
-        // (the previous one is cancelled, so JwtObserver replaces it). ProfileMutationObserver's
-        // startObserver must read this fresh reference, not the cancelled one.
         val mockAuth = mockk<AuthTokenManager>()
         coEvery { mockAuth.currentToken(any()) } returns ValidatedToken(
             rawToken = "tok",
@@ -123,12 +115,7 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
         try {
             jwtObserver.startObserver()
             dispatcher.scheduler.advanceUntilIdle()
-            val sessionTwoDeferred = jwtObserver.jwtReady
-            assertNotSame(
-                "JwtObserver must allocate a fresh deferred after the previous was cancelled",
-                sessionOneDeferred,
-                sessionTwoDeferred
-            )
+            assertNotSame(sessionOneDeferred, jwtObserver.jwtReady)
 
             observer.startObserver()
             dispatcher.scheduler.advanceUntilIdle()

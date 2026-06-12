@@ -134,16 +134,11 @@ class JwtObserverTest : BaseTest() {
 
         observer.stopObserver()
 
-        // Second session — previous deferred is settled, so a fresh one must be allocated
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-2")
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
         val secondSessionDeferred = observer.jwtReady
-        assertNotSame(
-            "second startObserver must replace jwtReady once the previous one has settled",
-            firstSessionDeferred,
-            secondSessionDeferred
-        )
+        assertNotSame(firstSessionDeferred, secondSessionDeferred)
         assertTrue(secondSessionDeferred.isCompleted)
         assertFalse(secondSessionDeferred.isCancelled)
         verify(exactly = 1) { mockJsBridge.jwtMutation("session-1") }
@@ -152,9 +147,6 @@ class JwtObserverTest : BaseTest() {
 
     @Test
     fun `startObserver reuses jwtReady when previous session is still in flight`() {
-        // Regression guard for MAGE-724 CodeRabbit feedback: if a second startObserver runs before
-        // the first fetch settles, the in-flight deferred must be reused so any
-        // ProfileMutationObserver waiter that captured it is not orphaned.
         val firstCompletion = CompletableDeferred<ValidatedToken>()
         coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers { firstCompletion.await() }
 
@@ -163,21 +155,13 @@ class JwtObserverTest : BaseTest() {
 
         observer.startObserver()
         dispatcher.scheduler.runCurrent()
-        assertSame(
-            "first start must not replace a still-pending jwtReady",
-            initialDeferred,
-            observer.jwtReady
-        )
+        assertSame(initialDeferred, observer.jwtReady)
 
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("second")
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertSame(
-            "second start must reuse the pending deferred so waiters are not orphaned",
-            initialDeferred,
-            observer.jwtReady
-        )
+        assertSame(initialDeferred, observer.jwtReady)
         assertTrue(observer.jwtReady.isCompleted)
         verify(exactly = 1) { mockJsBridge.jwtMutation("second") }
     }
