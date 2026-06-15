@@ -69,7 +69,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private val flushIntervalWifi = 10_000L
     private val flushIntervalCell = 20_000L
     private val flushIntervalOffline = 30_000L
-    private val queueDepth = 10
     private var postedJob: KlaviyoApiClient.NetworkRunnable? = null
     private val mockQueueScheduler = mockk<QueueScheduler>(relaxed = true)
 
@@ -97,7 +96,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
             flushIntervalCell,
             flushIntervalOffline
         )
-        every { mockConfig.networkFlushDepth } returns queueDepth
         every { mockNetworkMonitor.isNetworkConnected() } returns false
         every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
         every { mockLifecycleMonitor.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
@@ -446,18 +444,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Flushes queue when configured size is reached`() {
-        repeat(queueDepth) {
-            KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
-            assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
-        }
-
-        postedJob!!.run()
-
-        assertEquals(0, KlaviyoApiClient.getQueueSize())
-    }
-
-    @Test
     fun `Flushes queue when configured time has elapsed`() {
         val requestMock = mockRequest()
 
@@ -471,20 +457,19 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Does not flush queue if no criteria is met`() {
-        repeat(queueDepth - 1) {
-            KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
-            assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
-        }
+    fun `Does not flush queue if flush interval has not elapsed`() {
+        KlaviyoApiClient.enqueueRequest(mockRequest("uuid-0"))
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
 
+        // Time has not advanced, so flush interval has not elapsed
         postedJob!!.run()
 
-        assertEquals(queueDepth - 1, KlaviyoApiClient.getQueueSize())
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
     }
 
     @Test
-    fun `Flushes queue if forced when no criteria is met`() {
-        repeat(queueDepth - 1) {
+    fun `Flushes queue if forced when flush interval has not elapsed`() {
+        repeat(5) {
             KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
             assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
         }
@@ -492,6 +477,35 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.flushQueue()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Queue cap evicts oldest request on overflow and emits warning log`() {
+        // Fill the queue to capacity
+        repeat(KlaviyoApiClient.MAX_QUEUE_SIZE) {
+            KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
+        }
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // The oldest request (uuid-0) is at the front of the deque
+        val oldestUuid = "uuid-0"
+        assertNotNull(spyDataStore.fetch(oldestUuid))
+
+        // Enqueue one more request — should evict uuid-0
+        val newestRequest = mockRequest("uuid-newest")
+        KlaviyoApiClient.enqueueRequest(newestRequest)
+
+        // Queue size stays at the cap
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // Oldest was evicted from the datastore
+        assertNull(spyDataStore.fetch(oldestUuid))
+
+        // Newest request is present in the datastore
+        assertNotNull(spyDataStore.fetch("uuid-newest"))
+
+        // A warning log was emitted for the eviction
+        verify(atLeast = 1) { spyLog.warning(any(), null) }
     }
 
     @Test

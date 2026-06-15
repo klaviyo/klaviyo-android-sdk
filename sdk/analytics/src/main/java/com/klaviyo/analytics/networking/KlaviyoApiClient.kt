@@ -38,6 +38,17 @@ import org.json.JSONObject
 internal object KlaviyoApiClient : ApiClient {
     internal const val QUEUE_KEY = "klaviyo_api_request_queue"
 
+    /**
+     * Maximum number of requests that can sit in the API queue at one time.
+     *
+     * Matches the iOS SDK cap (200) for behavioural parity across platforms.
+     * When the queue reaches this limit, the oldest request (front of deque) is evicted
+     * to make room for the incoming one. This prevents the queue from growing unbounded during
+     * request storms — for example, a push-token registration loop that floods the queue and
+     * blocks legitimate new requests from ever reaching the network.
+     */
+    internal const val MAX_QUEUE_SIZE: Int = 200
+
     private var handlerThread = Registry.threadHelper.getHandlerThread(
         KlaviyoApiClient::class.simpleName
     )
@@ -204,6 +215,13 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }.forEach { request ->
             if (!apiQueue.contains(request)) {
+                while (apiQueue.size >= MAX_QUEUE_SIZE) {
+                    val evicted = apiQueue.pollFirst() ?: break
+                    Registry.dataStore.clear(evicted.uuid)
+                    Registry.log.warning(
+                        "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${evicted.type}"
+                    )
+                }
                 Registry.dataStore.store(request.uuid, request.toString())
                 if (headOfLine) {
                     apiQueue.offerFirst(request)
@@ -489,8 +507,6 @@ internal object KlaviyoApiClient : ApiClient {
 
         private var flushInterval: Long = defaultFlushInterval
 
-        private val flushDepth: Int = Registry.config.networkFlushDepth
-
         /**
          * Send queued requests serially
          * The queue will flush whenever the triggers specified in config are met
@@ -499,7 +515,7 @@ internal object KlaviyoApiClient : ApiClient {
         override fun run() {
             val queueTimePassed = Registry.clock.currentTimeMillis() - enqueuedTime
 
-            if (getQueueSize() < flushDepth && queueTimePassed < flushInterval && !force) {
+            if (queueTimePassed < flushInterval && !force) {
                 return requeue()
             }
 
