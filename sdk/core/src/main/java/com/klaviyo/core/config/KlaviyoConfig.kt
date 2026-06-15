@@ -75,14 +75,6 @@ object KlaviyoConfig : Config {
     private const val NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT = 60_000L
 
     /**
-     * How many API requests can be enqueued before flush
-     *
-     * Reasoning: The goal of depth control is to limit duration that radios are active
-     * if a typical request takes 1-3 seconds, this should ideally limit us to 30-90 seconds
-     */
-    private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 25
-
-    /**
      * How many retries to allow an API request before permanent failure
      *
      * Reasoning: Most likely the rate limit should be cleared within 2-3 retries with exp backoff.
@@ -131,8 +123,6 @@ object KlaviyoConfig : Config {
         NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT
     )
         private set
-    override var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
-        private set
     override var networkMaxAttempts = NETWORK_MAX_ATTEMPTS_DEFAULT
         private set
     override var networkMaxRetryInterval = NETWORK_MAX_RETRY_INTERVAL_DEFAULT
@@ -167,7 +157,6 @@ object KlaviyoConfig : Config {
             NETWORK_FLUSH_INTERVAL_CELL_DEFAULT,
             NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT
         )
-        private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private var networkMaxAttempts = NETWORK_MAX_ATTEMPTS_DEFAULT
         private var networkMaxRetryInterval = NETWORK_MAX_RETRY_INTERVAL_DEFAULT
 
@@ -247,16 +236,6 @@ object KlaviyoConfig : Config {
             }
         }
 
-        override fun networkFlushDepth(networkFlushDepth: Int) = apply {
-            if (networkFlushDepth > 0) {
-                this.networkFlushDepth = networkFlushDepth
-            } else {
-                Registry.log.error(
-                    "${KlaviyoConfig::networkFlushDepth.name} must be greater than 0"
-                )
-            }
-        }
-
         override fun networkMaxAttempts(networkMaxAttempts: Int) = apply {
             if (networkMaxAttempts >= 0) {
                 this.networkMaxAttempts = networkMaxAttempts
@@ -305,7 +284,6 @@ object KlaviyoConfig : Config {
             KlaviyoConfig.networkTimeout = networkTimeout
             KlaviyoConfig.uxNetworkTimeout = uxNetworkTimeout
             KlaviyoConfig.networkFlushIntervals = networkFlushIntervals
-            KlaviyoConfig.networkFlushDepth = networkFlushDepth
             KlaviyoConfig.networkMaxAttempts = networkMaxAttempts
             KlaviyoConfig.networkMaxRetryInterval = networkMaxRetryInterval
 
