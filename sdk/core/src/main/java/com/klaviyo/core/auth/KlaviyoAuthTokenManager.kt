@@ -203,9 +203,11 @@ internal class KlaviyoAuthTokenManager(
         if (provider == null) throw AuthTokenException.NoProviderRegistered
 
         if (allowCachedToken) {
-            // Optimistic read of @Volatile field — no lock needed for the fast path.
+            // Optimistic read of @Volatile fields — no lock needed for the fast path.
+            // Skip the cache while a profile reset is pending: invalidate() has fired but
+            // clearTokenState() hasn't run yet, so cachedToken still holds the outgoing JWT.
             val cached = cachedToken
-            if (cached != null && isStillValid(cached)) return cached
+            if (cached != null && isStillValid(cached) && !profileResetPending) return cached
         }
 
         // Atomic read-or-create of the in-flight deferred. The mutex ensures exactly one
@@ -215,7 +217,7 @@ internal class KlaviyoAuthTokenManager(
             // we waited. Non-local return from this inline lambda exits currentTokenInternal()
             // directly.
             val freshenedCache = cachedToken
-            if (allowCachedToken && freshenedCache != null && isStillValid(freshenedCache)) {
+            if (allowCachedToken && freshenedCache != null && isStillValid(freshenedCache) && !profileResetPending) {
                 return freshenedCache
             }
 

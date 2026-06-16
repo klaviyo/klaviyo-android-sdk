@@ -816,6 +816,31 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         }
 
     @Test
+    fun `invalidate causes currentToken to bypass cache and trigger new fetch`() =
+        runTest(dispatcher) {
+            val jwt = makeJwt()
+            val provider = CountingSuccessProvider(jwt)
+            val manager = KlaviyoAuthTokenManager()
+
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("eager fetch on register", 1, provider.callCount)
+
+            // Warm-cache sanity check: currentToken() should serve from cache without calling provider.
+            manager.currentToken()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("cache hit — provider not called again", 1, provider.callCount)
+
+            // invalidate() sets profileResetPending; cachedToken is still non-null at this point.
+            manager.invalidate()
+
+            // currentToken() must not return the stale cached value — falls through to a fetch.
+            manager.currentToken()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("invalidate forces a new provider fetch", 2, provider.callCount)
+        }
+
+    @Test
     fun `invalidate prevents observer notification when refresh is in-flight at time of reset`() =
         runTest(dispatcher) {
             // Scenario A: performScheduledRefresh is already in-flight when resetProfile() calls
