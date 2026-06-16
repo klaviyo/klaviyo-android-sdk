@@ -69,16 +69,21 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         every {
             intent.getStringExtra(KlaviyoTrampolineActivity.BROWSER_URL_EXTRA)
         } returns "https://example.com"
+        val parsedUri = mockk<Uri>(relaxed = true)
+        every { Uri.parse("https://example.com") } returns parsedUri
 
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
         verify { Klaviyo.handlePush(intent) }
-        verify { DeepLinking.makeBrowserIntent(any()) }
+        // Assert the exact URL from the extra round-trips through Uri.parse and into
+        // makeBrowserIntent — catches regressions where a string is mangled, swallowed,
+        // or replaced silently with something else.
+        verify { DeepLinking.makeBrowserIntent(parsedUri) }
         verify { mockTrampolineContext.startActivity(mockBrowserIntent) }
     }
 
     @Test
-    fun `handleTrampolineIntent with Klaviyo intent but no dispatch extra tracks open and warns`() {
+    fun `handleTrampolineIntent with Klaviyo intent but no dispatch extra tracks open and logs wtf`() {
         val intent = klaviyoIntent()
         every {
             intent.getStringExtra(KlaviyoTrampolineActivity.BROWSER_URL_EXTRA)
@@ -90,7 +95,8 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         verify { Klaviyo.handlePush(intent) }
         verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
         verify(exactly = 0) { mockTrampolineContext.startActivity(any()) }
-        verify { spyLog.warning(any(), null) }
+        // wtf, not warning: reaching this branch is an internal contract break.
+        verify { spyLog.wtf(any(), null) }
     }
 
     @Test

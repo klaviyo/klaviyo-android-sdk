@@ -82,7 +82,10 @@ internal class KlaviyoTrampolineActivity : Activity() {
                 return
             }
             // Add additional dispatch branches here as new routing extras are introduced.
-            Registry.log.warning(
+            // Reaching this point means a Klaviyo notification intent targeted the trampoline
+            // without any recognized dispatch extra — an internal SDK contract break, not
+            // graceful degradation. Log `wtf` to flag the bug.
+            Registry.log.wtf(
                 "KlaviyoTrampolineActivity launched without a recognized dispatch extra"
             )
         }
