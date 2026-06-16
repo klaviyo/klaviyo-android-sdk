@@ -726,6 +726,32 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
+    fun `tap with both deepLink and webUrl prefers deepLink and warns`() {
+        val mockDeepLinkUri = mockk<Uri>(relaxed = true)
+        val mockDeepLinkIntent = mockk<Intent>(relaxed = true).apply {
+            every { resolveActivity(any()) } returns mockk()
+        }
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.webUrl } returns "https://example.com"
+            every { mockRemoteMessage.deepLink } returns mockDeepLinkUri
+        }
+
+        every { DeepLinking.makeDeepLinkIntent(any(), any()) } returns mockDeepLinkIntent
+
+        every {
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        // Deep link wins; trampoline is never invoked despite webUrl being set.
+        verify { DeepLinking.makeDeepLinkIntent(eq(mockDeepLinkUri), any()) }
+        verify(exactly = 0) { KlaviyoTrampolineActivity.forBrowserUrl(any(), any()) }
+        verify { spyLog.warning(any(), null) }
+    }
+
+    @Test
     fun `tap with no webUrl and no deepLink falls back to launch intent with CLEAR_TOP`() {
         val mockLaunchIntent = mockk<Intent>(relaxed = true)
         val intentSlot = slot<Intent>()

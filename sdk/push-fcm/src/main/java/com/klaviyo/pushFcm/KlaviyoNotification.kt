@@ -238,38 +238,46 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
     /**
      * Create the appropriate intent to send when the notification is tapped.
-     * If a web_url is present (and parseable as an http/https URL), routes to the default browser.
-     * Otherwise, routes a deep link within the host app, or falls back to launching the app.
+     * Routes a deep link within the host app if `url` is present, otherwise opens the
+     * default browser with `web_url`, otherwise falls back to launching the app.
      *
-     * When both `web_url` and `url` (deep_link) are present, `web_url` wins and the deep link
-     * is ignored — we warn so misconfigured campaigns are debuggable.
+     * When both `url` (deep link) and `web_url` are present, the deep link wins so the
+     * user stays in the host app. The composer UI enforces a single action type at
+     * creation, so this is only reachable via direct API calls or test tooling — we
+     * warn so the misconfiguration is debuggable.
      */
     private fun makeOpenedIntent(context: Context): Intent? {
+        val deepLink = message.deepLink
         val webUrl = message.webUrl
-        if (webUrl != null) {
-            if (message.data[URL_KEY] != null) {
-                Registry.log.warning(
-                    "Both web_url and url are present; web_url takes precedence and url is ignored."
-                )
+
+        if (deepLink != null && webUrl != null) {
+            Registry.log.warning(
+                "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
+            )
+        }
+
+        if (deepLink != null) {
+            return makeResolvedDeepLinkIntent(
+                context,
+                deepLink,
+                "Push message contained unsupported deep link: $deepLink"
+            )?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                appendKlaviyoExtras(message)
             }
+        }
+
+        if (webUrl != null) {
             // Route through the trampoline so handlePush tracks $opened_push
             // and dismisses the notification — the browser would otherwise swallow the intent.
             return KlaviyoTrampolineActivity.forBrowserUrl(context, webUrl).apply {
                 appendKlaviyoExtras(message)
             }
         }
-        return message.deepLink.let { deepLink ->
-            when {
-                deepLink is Uri -> makeResolvedDeepLinkIntent(
-                    context,
-                    deepLink,
-                    "Push message contained unsupported deep link: $deepLink"
-                )
-                else -> DeepLinking.makeLaunchIntent(context)
-            }?.apply {
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                appendKlaviyoExtras(message)
-            }
+
+        return DeepLinking.makeLaunchIntent(context)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            appendKlaviyoExtras(message)
         }
     }
 

@@ -597,7 +597,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
-    fun `webUrl takes precedence over url field`() {
+    fun `webUrl returns parsed URL even when url field is also present`() {
         val mockUri = mockk<android.net.Uri>(relaxed = true)
         every { mockUri.scheme } returns "https"
         mockkStatic(android.net.Uri::class)
