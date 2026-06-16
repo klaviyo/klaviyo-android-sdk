@@ -1,12 +1,16 @@
 package com.klaviyo.core.auth
 
 /**
- * Callback invoked whenever the cached auth token is refreshed.
+ * Callback invoked whenever the auth token is proactively refreshed.
  *
- * Internal for now — the public `Klaviyo.onTokenRefresh` / `offTokenRefresh` surface lands with
- * MAGE-630, at which point this typealias and its parameter type will be promoted as needed.
+ * Receives the raw JWT string. Observers must not retain the string beyond their immediate use —
+ * for the full [ValidatedToken] wrapper (exp/iat metadata) callers should use
+ * [AuthTokenManager.currentToken].
+ *
+ * Observers are invoked on the manager's internal dispatcher (IO). If a thread handoff is needed
+ * (e.g. for a WebView call that must run on the UI thread), the observer is responsible for it.
  */
-internal typealias TokenRefreshObserver = (token: ValidatedToken) -> Unit
+typealias TokenRefreshObserver = (jwt: String) -> Unit
 
 /**
  * Manages the lifecycle of the host-supplied [AuthTokenProvider] and the resulting JWTs used by
@@ -63,4 +67,68 @@ interface AuthTokenManager {
      * @throws Throwable whatever error the provider passed to [AuthTokenProvider.Callback.onFailure].
      */
     suspend fun currentToken(timeoutMs: Long = BACKGROUND_FETCH_TIMEOUT_MS): ValidatedToken
+
+    /**
+     * Register an observer that will be invoked each time the auth token is proactively refreshed.
+     *
+     * Multiple observers are supported. Each is invoked on the manager's internal dispatcher
+     * (IO); the observer is responsible for any thread handoff it needs (e.g. hopping to the UI
+     * thread for WebView calls). Dispatch is best-effort: if an observer throws an [Exception], it
+     * is logged at WARNING and remaining observers are still called.
+     * [kotlinx.coroutines.CancellationException] is rethrown per structured-concurrency contract.
+     *
+     * Registration is by reference — pass the same lambda instance to [offTokenRefresh] to
+     * unregister. Duplicate registrations (same instance) add the observer twice.
+     */
+    fun onTokenRefresh(observer: TokenRefreshObserver)
+
+    /**
+     * Remove a previously registered [TokenRefreshObserver]. The [observer] must be the same
+     * instance (by reference) as the one passed to [onTokenRefresh]. Has no effect if the observer
+     * is not currently registered.
+     */
+    fun offTokenRefresh(observer: TokenRefreshObserver)
+
+    /**
+     * Synchronously mark the current profile as stale, preventing any in-flight proactive refresh
+     * from dispatching its result to registered [TokenRefreshObserver]s.
+     *
+     * This method is intentionally non-suspending so it can be called on any thread (including the
+     * main thread from `Klaviyo.resetProfile()`) without blocking. The actual token-state cleanup
+     * is deferred to [clearTokenState], which callers should dispatch asynchronously after calling
+     * this method.
+     *
+     * @return The new profile generation value, which should be passed to [clearTokenState] as
+     *   [clearTokenState]'s `expectedGeneration` argument. If a new provider is registered before
+     *   [clearTokenState] runs, the generation will have advanced and [clearTokenState] will skip
+     *   the clear to preserve the new session's state.
+     */
+    fun invalidate(): Long
+
+    /**
+     * Clear all token-acquisition state tied to the current user, called from
+     * `Klaviyo.resetProfile()` on logout. Discards the cached token, cancels the scheduled
+     * proactive refresh and its wall-clock target, and cancels any in-flight fetch. Does **not**
+     * eagerly re-invoke the provider — the next call to [currentToken] drives the next acquisition.
+     *
+     * Deliberately retains:
+     * - The registered [AuthTokenProvider] — it is host integration code ("how to ask my auth
+     *   system for a token"), not user identity. The provider is expected to read the current user
+     *   fresh on each invocation, so the same provider correctly serves the next identified profile.
+     * - The lifecycle observer — safe to leave running across profile resets; its handler is a
+     *   no-op when no cached token or scheduled refresh exists.
+     * - Registered [TokenRefreshObserver]s — active form displays should keep their subscriptions
+     *   alive across a reset; the stream simply goes quiet until the next successful refresh.
+     *
+     * @param expectedGeneration When non-negative, the clear is skipped if the profile generation
+     *   has advanced past this value (indicating a new provider was registered between [invalidate]
+     *   and this call). Pass the value returned by [invalidate], or omit / pass `-1` for an
+     *   unconditional clear. Callers that do not use [invalidate] should always use the default.
+     *
+     * NOTE: This method's behavior may change in a future revision. The current design ("Option B")
+     * retains the provider across resets. An alternative ("Option A") would fully unregister the
+     * provider on reset, requiring the host to re-register after each login. If we switch to
+     * Option A, this method's name and behavior will change.
+     */
+    suspend fun clearTokenState(expectedGeneration: Long = -1L)
 }
