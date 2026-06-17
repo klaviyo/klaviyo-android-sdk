@@ -311,8 +311,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
             val (actionType, destination) = when (button) {
                 is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK to " -> ${button.url}"
-                is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP to ""
                 is ActionButton.OpenUrl -> ActionButton.DISPLAY_NAME_OPEN_URL to " -> ${button.url}"
+                is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP to ""
             }
             Registry.log.verbose(
                 "Added action button $index: '${button.label}' ($actionType)$destination"
@@ -340,13 +340,13 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                     "Action button $index contained unsupported deep link: $uri"
                 )
             }
-            is ActionButton.OpenApp -> {
-                DeepLinking.makeLaunchIntent(context)
-            }
             is ActionButton.OpenUrl -> {
                 // Route through the trampoline so handlePush tracks $opened_push
                 // and dismisses the notification — the browser would otherwise swallow the intent.
                 KlaviyoTrampolineActivity.forBrowserUrl(context, button.url)
+            }
+            is ActionButton.OpenApp -> {
+                DeepLinking.makeLaunchIntent(context)
             }
         }?.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
