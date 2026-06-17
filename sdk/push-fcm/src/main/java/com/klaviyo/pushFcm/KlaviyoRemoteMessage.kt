@@ -62,8 +62,8 @@ object KlaviyoRemoteMessage {
 
         val actionName = when (button) {
             is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK
-            is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP
             is ActionButton.OpenUrl -> ActionButton.DISPLAY_NAME_OPEN_URL
+            is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP
         }
         putExtra(PACKAGE_PREFIX + "Button Action", actionName)
 
