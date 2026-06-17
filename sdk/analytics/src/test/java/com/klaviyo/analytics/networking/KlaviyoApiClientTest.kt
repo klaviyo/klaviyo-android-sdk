@@ -23,6 +23,7 @@ import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
+import com.klaviyo.core.networking.CircuitBreaker
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.core.utils.takeIf
@@ -1200,5 +1201,49 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // Verify that scheduleFlush was NOT called for custom events
         verify(exactly = 0) { mockQueueScheduler.scheduleFlush() }
+    }
+
+    @Test
+    fun `Circuit breaker opens after consecutive failures, holds the queue, then probes`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 3
+        every { mockConfig.circuitBreakerBaseOpenInterval } returns 30_000L
+        every { mockConfig.circuitBreakerMaxOpenInterval } returns 300_000L
+
+        val request = mockRequest("cb-uuid", KlaviyoApiRequest.Status.PendingRetry, 503)
+        every { request.computeRetryInterval() } returns 1_000L
+        KlaviyoApiClient.enqueueRequest(request)
+
+        // Three consecutive failed flushes trip the breaker
+        repeat(3) { assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete) }
+        verify(exactly = 3) { request.send(any()) }
+        assertEquals(CircuitBreaker.State.OPEN, KlaviyoApiClient.circuitBreaker.state())
+
+        // While open, the queue is held intact and no further sends occur
+        assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete)
+        verify(exactly = 3) { request.send(any()) }
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        // Once the open interval elapses, exactly one probe is permitted through
+        staticClock.time += 30_000L
+        assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete)
+        verify(exactly = 4) { request.send(any()) }
+    }
+
+    @Test
+    fun `Circuit breaker is not tripped by 403 load-shed responses`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 3
+
+        // Three 403s would exceed the threshold if they were (incorrectly) counted as failures
+        KlaviyoApiClient.enqueueRequest(
+            mockRequest("cb-403-1", KlaviyoApiRequest.Status.Failed, 403),
+            mockRequest("cb-403-2", KlaviyoApiRequest.Status.Failed, 403),
+            mockRequest("cb-403-3", KlaviyoApiRequest.Status.Failed, 403)
+        )
+
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+
+        assert(outcome is FlushOutcome.Complete)
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
     }
 }

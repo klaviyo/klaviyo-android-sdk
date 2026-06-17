@@ -89,6 +89,24 @@ object KlaviyoConfig : Config {
      */
     private const val NETWORK_MAX_RETRY_INTERVAL_DEFAULT: Long = 300_000
 
+    /**
+     * Number of consecutive transient failures that trip the network circuit breaker.
+     *
+     * Reasoning: A handful of consecutive failures is a strong signal the server is unreachable
+     * (rather than a one-off blip), at which point we should stop draining and go dormant.
+     */
+    private const val CIRCUIT_BREAKER_FAILURE_THRESHOLD_DEFAULT: Int = 5
+
+    /**
+     * Initial dormancy interval the circuit breaker holds the queue once tripped, in milliseconds.
+     */
+    private const val CIRCUIT_BREAKER_BASE_OPEN_INTERVAL_DEFAULT: Long = 30_000
+
+    /**
+     * Ceiling on the circuit breaker's exponential dormancy backoff, in milliseconds (5 minutes).
+     */
+    private const val CIRCUIT_BREAKER_MAX_OPEN_INTERVAL_DEFAULT: Long = 300_000
+
     override val isDebugBuild = BuildConfig.DEBUG
 
     override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
@@ -129,6 +147,13 @@ object KlaviyoConfig : Config {
     override var networkMaxRetryInterval = NETWORK_MAX_RETRY_INTERVAL_DEFAULT
         private set
     override val networkJitterRange = 0..10
+
+    // Circuit breaker tuning is currently fixed (not Builder-customizable); the failure threshold
+    // doubles as a kill-switch (set <= 0 to disable). Promoting these to Builder setters is a
+    // follow-up if integrators need to tune them.
+    override val circuitBreakerFailureThreshold = CIRCUIT_BREAKER_FAILURE_THRESHOLD_DEFAULT
+    override val circuitBreakerBaseOpenInterval = CIRCUIT_BREAKER_BASE_OPEN_INTERVAL_DEFAULT
+    override val circuitBreakerMaxOpenInterval = CIRCUIT_BREAKER_MAX_OPEN_INTERVAL_DEFAULT
 
     override fun getManifestInt(key: String, defaultValue: Int): Int =
         if (!this::applicationContext.isInitialized) {

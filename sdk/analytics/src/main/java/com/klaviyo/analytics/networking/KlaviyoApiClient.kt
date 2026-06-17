@@ -22,8 +22,10 @@ import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.networking.CircuitBreaker
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
+import java.net.HttpURLConnection
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
@@ -58,6 +60,20 @@ internal object KlaviyoApiClient : ApiClient {
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
     private var queueInitialized = false
 
+    /**
+     * Failure-count circuit breaker. When the server appears hard-down it trips and we hold the
+     * persisted queue intact rather than fast-draining it against an unreachable backend. Tuning
+     * (including the kill-switch) is resolved lazily from [Registry.config] so tests and remote
+     * config can adjust it without rebuilding the client.
+     */
+    internal val circuitBreaker = CircuitBreaker(
+        failureThreshold = { Registry.config.circuitBreakerFailureThreshold },
+        baseOpenInterval = { Registry.config.circuitBreakerBaseOpenInterval },
+        maxOpenInterval = { Registry.config.circuitBreakerMaxOpenInterval },
+        clock = { Registry.clock.currentTimeMillis() },
+        jitter = { Registry.config.networkJitterRange.random().times(1_000L) }
+    )
+
     private val scheduler get() = Registry.getOrNull<QueueScheduler>()
         ?: WorkManagerQueueScheduler(Registry.config.applicationContext).also {
             Registry.register<QueueScheduler>(it)
@@ -77,6 +93,8 @@ internal object KlaviyoApiClient : ApiClient {
 
         Registry.networkMonitor.offNetworkChange(::onNetworkChange)
         Registry.networkMonitor.onNetworkChange(::onNetworkChange)
+
+        circuitBreaker.reset()
 
         restoreQueue(forceRestore = false)
 
@@ -456,9 +474,22 @@ internal object KlaviyoApiClient : ApiClient {
         var retryAfter: Long? = null
 
         while (apiQueue.isNotEmpty()) {
+            // Circuit breaker gate: when open, hold the persisted queue intact and back off
+            // instead of draining against an unreachable server. Half-open permits one probe.
+            if (!circuitBreaker.allowRequest()) {
+                retryAfter = circuitBreaker.remainingOpenInterval()
+                Registry.log.warning(
+                    "Circuit breaker open; holding ${apiQueue.size} requests for $retryAfter ms"
+                )
+                break
+            }
+
             val request = apiQueue.poll() ?: continue
 
-            when (request.sendAndBroadcast()) {
+            val status = request.sendAndBroadcast()
+            updateCircuitBreaker(request, status)
+
+            when (status) {
                 Status.Unsent -> {
                     // Incomplete state: put it back on the queue and break out of serial queue
                     apiQueue.offerFirst(request)
@@ -495,6 +526,39 @@ internal object KlaviyoApiClient : ApiClient {
         } else {
             Registry.log.verbose("Incomplete send: ${apiQueue.size} requests remain")
             FlushOutcome.Incomplete(retryAfter)
+        }
+    }
+
+    /**
+     * Translate a completed send attempt into a circuit-breaker outcome.
+     *
+     * The breaker trips on *unreachable* failures (retryable 5xx, network/IO errors, or a `429`
+     * with no usable `Retry-After`). Any response that proves the server is reachable — `2xx`, a
+     * deliberate `403` load-shed, a `429` carrying a `Retry-After`, or any other `4xx` — resets the
+     * breaker so dormancy never engages while the backend is merely rejecting or throttling us.
+     * Unsent (network unavailable) and Inflight (impossible) outcomes are not counted at all.
+     */
+    private fun updateCircuitBreaker(request: KlaviyoApiRequest, status: Status) {
+        when (status) {
+            Status.Unsent, Status.Inflight -> return
+            else -> Unit
+        }
+
+        when (request.responseCode) {
+            // No HTTP response despite an attempt: the server was unreachable.
+            null -> circuitBreaker.recordFailure()
+            in HttpURLConnection.HTTP_OK until HttpURLConnection.HTTP_MULT_CHOICE ->
+                circuitBreaker.recordSuccess()
+            // Deliberate load-shed: server is reachable, so bypass dormancy (do not count it).
+            HttpURLConnection.HTTP_FORBIDDEN -> circuitBreaker.recordSuccess()
+            KlaviyoApiRequest.HTTP_RETRY -> if (request.hasRetryAfterHeader) {
+                circuitBreaker.recordSuccess()
+            } else {
+                circuitBreaker.recordFailure()
+            }
+            in 500..599 -> circuitBreaker.recordFailure()
+            // Other 4xx: reachable, non-retryable.
+            else -> circuitBreaker.recordSuccess()
         }
     }
 

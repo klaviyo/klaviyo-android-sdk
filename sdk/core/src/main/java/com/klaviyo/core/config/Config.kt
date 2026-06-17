@@ -25,6 +25,22 @@ interface Config {
     val networkMaxRetryInterval: Long
     val networkJitterRange: IntRange
 
+    /**
+     * Number of consecutive transient failures that trip the network circuit breaker into a
+     * dormant state. A value `<= 0` disables the breaker (kill-switch).
+     */
+    val circuitBreakerFailureThreshold: Int
+
+    /**
+     * Initial dormancy interval (milliseconds) the circuit breaker holds the queue once tripped.
+     */
+    val circuitBreakerBaseOpenInterval: Long
+
+    /**
+     * Maximum dormancy interval (milliseconds) for the circuit breaker's exponential backoff.
+     */
+    val circuitBreakerMaxOpenInterval: Long
+
     fun getManifestInt(key: String, defaultValue: Int): Int
 
     interface Builder {

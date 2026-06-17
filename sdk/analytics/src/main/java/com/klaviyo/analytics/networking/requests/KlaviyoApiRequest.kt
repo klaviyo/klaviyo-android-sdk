@@ -509,6 +509,15 @@ internal open class KlaviyoApiRequest(
     }
 
     /**
+     * Whether the latest response carried a usable (non-empty) `Retry-After` header.
+     *
+     * Used by the circuit breaker to distinguish a deliberate, server-directed throttle (which
+     * proves the server is reachable) from an ambiguous failure that should count toward dormancy.
+     */
+    val hasRetryAfterHeader: Boolean
+        get() = responseHeaders[HEADER_RETRY_AFTER]?.getOrNull(0)?.isNotEmpty() == true
+
+    /**
      * Clear a mutable map and add new key value pairs
      * Utility to replace all headers
      */

@@ -87,6 +87,11 @@ abstract class BaseTest {
         every { networkTimeout } returns 1000
         every { uxNetworkTimeout } returns 100
         every { networkMaxRetryInterval } returns 300_000L
+        // Circuit breaker disabled by default so existing retry/flush tests are unaffected;
+        // tests that exercise the breaker override circuitBreakerFailureThreshold explicitly.
+        every { circuitBreakerFailureThreshold } returns 0
+        every { circuitBreakerBaseOpenInterval } returns 30_000L
+        every { circuitBreakerMaxOpenInterval } returns 300_000L
         every { networkFlushIntervals } returns longArrayOf(10_000, 30_000, 60_000)
         every { networkJitterRange } returns 0..0
         every { baseUrl } returns "https://test.fake-klaviyo.com"
