@@ -761,6 +761,38 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     @Test
+    fun `522 Cloudflare response code returns PendingRetry when under max attempts`() {
+        // 522 (connection timed out) is a Cloudflare edge code outside the legacy allowlist
+        // and was one of the codes observed during the cannot-access-klaviyo-com incident.
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 522
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `525 Cloudflare response code returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 525
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `599 upper-bound 5xx response code returns PendingRetry when under max attempts`() {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 599
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
     fun `5xx response code after max attempts returns Failed`() {
         val connectionMock = withConnectionMock(URL(expectedFullUrl))
         every { connectionMock.responseCode } returns 500

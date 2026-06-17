@@ -432,8 +432,12 @@ internal open class KlaviyoApiRequest(
 
         status = when (responseCode) {
             in successCodes -> Status.Complete
-            // 429 rate limit, 500, 502, 503 and 504 are all treated as retryable
-            HTTP_RETRY, 500, in 502..504 -> {
+            // 429 rate limit plus the entire 5xx range (500–599) are treated as retryable.
+            // Widening from the legacy {500,502,503,504} allowlist to the full range covers
+            // transient CDN/edge failures such as Cloudflare's 520–527 codes, which were the
+            // codes observed during the cannot-access-klaviyo-com incident. 4xx codes
+            // (including 403 load-shed) remain non-retryable so the backend can shed load.
+            HTTP_RETRY, in 500..599 -> {
                 if (attempts < maxAttempts) {
                     Status.PendingRetry
                 } else {
