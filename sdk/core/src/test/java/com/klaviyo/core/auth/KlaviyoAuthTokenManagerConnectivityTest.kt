@@ -63,7 +63,8 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
     /** Fires the first pending clock task and advances the test dispatcher until idle. */
     private fun executeScheduledRefresh() {
-        val task = staticClock.scheduledTasks.first()
+        val task = staticClock.scheduledTasks.firstOrNull()
+            ?: throw AssertionError("Expected at least one scheduled refresh task")
         staticClock.execute(task.time - staticClock.time)
         dispatcher.scheduler.advanceUntilIdle()
     }
