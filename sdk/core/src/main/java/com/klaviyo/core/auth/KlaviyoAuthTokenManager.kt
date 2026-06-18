@@ -85,6 +85,13 @@ internal class KlaviyoAuthTokenManager(
     // Deliberately separate from refreshGeneration (which scheduleRefresh() also bumps).
     private val profileGeneration = AtomicLong(0L)
 
+    // Tracks logout/reset events only: incremented by invalidate() and clearTokenState(), but NOT
+    // by registerProvider(). Used by shouldArmConnectivityRetry to distinguish a stale failure from
+    // a logout-triggered reset vs. a benign mid-fetch provider swap. profileGeneration is too coarse
+    // for this check because registerProvider() also bumps it, which would wrongly block
+    // connectivity retry for the new session when a provider is swapped mid-fetch.
+    private val resetGeneration = AtomicLong(0L)
+
     // Set to true by invalidate() and reset to false by registerProvider() and clearTokenState().
     // Read by performScheduledRefresh just before notifying observers: if a profile reset is
     // pending (i.e. invalidate() was called but clearTokenState() hasn't finished yet), the
@@ -160,6 +167,9 @@ internal class KlaviyoAuthTokenManager(
         // Set the flag before bumping the generation so that any performScheduledRefresh that
         // reads the flag after this call (regardless of when its fetch started) will skip observers.
         profileResetPending = true
+        // Also bump resetGeneration so shouldArmConnectivityRetry can detect a logout-triggered
+        // failure even after clearTokenState() has cleared profileResetPending.
+        resetGeneration.incrementAndGet()
         return profileGeneration.incrementAndGet()
     }
 
@@ -185,6 +195,10 @@ internal class KlaviyoAuthTokenManager(
             cancelConnectivityWaitJob()
             cachedToken = null
             profileGeneration.incrementAndGet()
+            // Also advance resetGeneration so that any performScheduledRefresh that started before
+            // this clear cannot arm a zombie connectivity job even when profileResetPending has been
+            // cleared by the time its catch block executes.
+            resetGeneration.incrementAndGet()
             // Clear the reset-pending flag so the next successful refresh (from a new or retained
             // provider) can notify observers normally.
             profileResetPending = false
@@ -400,11 +414,13 @@ internal class KlaviyoAuthTokenManager(
         timerGeneration: Long? = null,
         allowImmediateConnectivityRetry: Boolean = true
     ) {
-        // Snapshot the profile generation before we suspend into the network fetch. If a profile
-        // transition (registerProvider / invalidate / clearTokenState) fires while we are awaiting
-        // the network response, the catch block below must not arm a connectivity job on behalf of
-        // the now-stale session. Comparing against the snapshot lets us detect that case cheaply.
-        val profileGenerationAtStart = profileGeneration.get()
+        // Snapshot the reset generation before suspending into the network fetch. If a logout or
+        // token-state clear (invalidate / clearTokenState) fires while the fetch is in progress,
+        // the catch block must not arm a connectivity retry for the now-stale session. We use
+        // resetGeneration rather than profileGeneration so that a benign provider swap
+        // (registerProvider without a logout) does not falsely suppress the retry for the new
+        // session — registerProvider does not bump resetGeneration.
+        val resetGenerationAtStart = resetGeneration.get()
         if (provider == null) return
         Registry.log.info("Proactive token refresh fired")
         try {
@@ -431,7 +447,7 @@ internal class KlaviyoAuthTokenManager(
         } catch (e: Exception) {
             if (timerGeneration != null) clearFiredFlagForFailedRefresh(timerGeneration)
             Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
-            if (shouldArmConnectivityRetry(e, profileGenerationAtStart)) {
+            if (shouldArmConnectivityRetry(e, resetGenerationAtStart)) {
                 armConnectivityWaitJob(
                     resumeImmediatelyIfConnected = allowImmediateConnectivityRetry
                 )
@@ -443,17 +459,22 @@ internal class KlaviyoAuthTokenManager(
      * Returns true when a proactive-refresh failure should trigger a connectivity wait job.
      *
      * All four conditions must hold:
-     * - [profileGeneration] matches [generationAtStart]: no profile transition (registerProvider /
-     *   invalidate / clearTokenState) occurred while the refresh was suspended. Without this check,
-     *   a stale failure could arm a retry job for an already-replaced session.
+     * - [resetGeneration] matches [resetGenerationAtStart]: no logout or state-clear
+     *   (invalidate / clearTokenState) occurred while the refresh was suspended. We use
+     *   [resetGeneration] rather than [profileGeneration] so that a benign provider swap
+     *   (registerProvider without a logout) does not falsely suppress retry — registerProvider
+     *   does not bump [resetGeneration].
      * - The exception is a transient network error ([isNetworkException]): server errors and
      *   validation failures should not trigger a connectivity retry.
      * - [provider] is still set: a concurrent teardown may have cleared it.
      * - No profile reset is pending ([profileResetPending]): guards against the window between
      *   invalidate() and clearTokenState() where the flag is still true.
      */
-    private fun shouldArmConnectivityRetry(exception: Exception, generationAtStart: Long): Boolean =
-        profileGeneration.get() == generationAtStart &&
+    private fun shouldArmConnectivityRetry(
+        exception: Exception,
+        resetGenerationAtStart: Long
+    ): Boolean =
+        resetGeneration.get() == resetGenerationAtStart &&
             isNetworkException(exception) &&
             provider != null &&
             !profileResetPending
