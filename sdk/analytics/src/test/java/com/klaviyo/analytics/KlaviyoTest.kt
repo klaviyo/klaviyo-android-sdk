@@ -129,8 +129,8 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     private val mockAuthTokenManager = mockk<AuthTokenManager>().apply {
-        every { invalidate() } returns 1L
-        coEvery { clearTokenState(any()) } returns Unit
+        every { invalidate() } returns Unit
+        coEvery { clearTokenState() } returns Unit
     }
 
     private val capturedProfile = slot<Profile>()
@@ -505,7 +505,7 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.resetProfile()
         dispatcher.scheduler.advanceUntilIdle()
         verify(exactly = 1) { mockAuthTokenManager.invalidate() }
-        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
+        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState() }
     }
 
     @Test

@@ -673,6 +673,8 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         // Capture the original refresh target before clearing
         val originalRefreshTarget = staticClock.scheduledTasks.first().time
 
+        // invalidate() sets profileResetPending so the subsequent clear proceeds (mirrors resetProfile)
+        manager.invalidate()
         manager.clearTokenState()
 
         // The original scheduled task should be gone immediately after clearing
@@ -713,6 +715,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals(1, provider.callCount)
 
+        manager.invalidate()
         manager.clearTokenState()
 
         // Provider is retained: next fetch invokes it directly
@@ -764,6 +767,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             assertEquals("scheduled refresh should be in-flight", 2, provider.callCount)
 
             // Profile reset: clear token state while the refresh is still in-flight
+            manager.invalidate()
             manager.clearTokenState()
 
             // Resolve the still-running provider callback (arrives after cancellation)
@@ -778,11 +782,11 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         }
 
     @Test
-    fun `clearTokenState with stale expectedGeneration is a no-op after new provider registers`() =
+    fun `clearTokenState is a no-op after new provider registers since reset`() =
         runTest(dispatcher) {
             // Scenario mirrors resetProfile() followed immediately by registerAuthTokenProvider():
-            // invalidate() captures gen=N, registerProvider() advances gen to N+1, then the
-            // async clearTokenState(gen=N) fires and must NOT wipe the new session's state.
+            // invalidate() sets profileResetPending, registerProvider() clears it, then the async
+            // clearTokenState() fires and must NOT wipe the new session's state.
             val initialJwt = makeJwt()
             val newJwt = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
             val provider1 = CountingSuccessProvider(initialJwt)
@@ -794,16 +798,16 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             assertEquals("first eager fetch", 1, provider1.callCount)
 
             // Step 1: invalidate() — simulates the sync part of resetProfile()
-            val gen = manager.invalidate()
+            manager.invalidate()
 
-            // Step 2: registerProvider() for the new user — advances profileGeneration past gen
+            // Step 2: registerProvider() for the new user — clears profileResetPending
             manager.registerProvider(provider2)
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals("new provider eager fetch", 1, provider2.callCount)
 
-            // Step 3: clearTokenState(gen) — simulates the async part of resetProfile();
-            // because profileGeneration > gen, this must be a no-op.
-            manager.clearTokenState(expectedGeneration = gen)
+            // Step 3: clearTokenState() — simulates the async part of resetProfile();
+            // because profileResetPending was cleared by registerProvider, this must be a no-op.
+            manager.clearTokenState()
 
             // New session's cache is intact: currentToken() must NOT invoke provider2 again.
             manager.currentToken()
