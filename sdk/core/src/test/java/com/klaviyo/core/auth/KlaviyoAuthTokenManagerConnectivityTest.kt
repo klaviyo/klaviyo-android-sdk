@@ -510,6 +510,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         assertNotNull("job must be armed before clear", armedJob)
 
         // Clear token state (simulates logout / resetProfile)
+        manager.invalidate()
         manager.clearTokenState()
 
         assertNull(
@@ -530,7 +531,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     }
 
     @Test
-    fun `clearTokenState with stale generation does not cancel connectivity wait job`() = runTest(
+    fun `clearTokenState after new provider registers does not cancel connectivity wait job`() = runTest(
         dispatcher
     ) {
         val initialToken = makeJwt()
@@ -551,16 +552,17 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         executeScheduledRefresh()
 
-        // Capture generation before registering new provider
-        val gen = manager.invalidate()
+        // Mark a pending reset, then register a new provider which clears profileResetPending
+        manager.invalidate()
 
         // New provider registration clears connectivityWaitJob
         manager.registerProvider(secondProvider)
         dispatcher.scheduler.advanceUntilIdle()
         assertNull("registerProvider cleared connectivity job", manager.connectivityWaitJob)
 
-        // A late clearTokenState with the old generation is a no-op — must not wipe new state
-        manager.clearTokenState(expectedGeneration = gen)
+        // A late clearTokenState is a no-op since registerProvider cleared the reset flag —
+        // must not wipe new state
+        manager.clearTokenState()
         dispatcher.scheduler.advanceUntilIdle()
 
         // New session is still healthy

@@ -308,13 +308,13 @@ object Klaviyo {
         // invalidate() runs first (synchronous) so any in-flight proactive refresh completing in
         // the gap before State.reset() sees profileResetPending=true and skips observer dispatch.
         val auth = Registry.get<AuthTokenManager>()
-        val gen = auth.invalidate()
+        auth.invalidate()
         Registry.get<State>().reset()
-        // clearTokenState(gen) is fire-and-forget. Passing the captured generation makes it
-        // conditional: if registerAuthTokenProvider() runs first, profileGeneration has advanced
-        // and the clear is skipped, preserving the new session's token state.
+        // clearTokenState() is fire-and-forget. It is conditional on profileResetPending: if
+        // registerAuthTokenProvider() runs first it clears that flag, and the clear is skipped,
+        // preserving the new session's token state.
         CoroutineScope(Registry.dispatcher).safeLaunch {
-            auth.clearTokenState(expectedGeneration = gen)
+            auth.clearTokenState()
         }
     }
 
