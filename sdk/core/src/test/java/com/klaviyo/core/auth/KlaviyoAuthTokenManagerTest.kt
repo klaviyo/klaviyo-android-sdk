@@ -537,7 +537,10 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         manager.unregisterProvider()
-        staticClock.scheduledTasks.clear() // clear any residual tasks before re-register
+        // unregisterProvider cancels the refresh job (removes it from scheduledTasks). An explicit
+        // clear is defensive in case the cancel path leaves an entry; see the dedicated
+        // "unregisterProvider cancels pending refresh job" test for the canonical assertion.
+        staticClock.scheduledTasks.clear()
 
         manager.registerProvider(secondProvider)
         dispatcher.scheduler.advanceUntilIdle()

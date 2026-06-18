@@ -156,9 +156,14 @@ internal class KlaviyoAuthTokenManager(
     }
 
     override fun unregisterProvider() {
+        // Fast path: nothing to do if no provider is registered.
+        if (provider == null) return
         // Mirror registerProvider's synchronous teardown path, but null out the provider rather
         // than setting a new one, and skip the eager fetch. All @Volatile writes here are safe
-        // without the mutex because they only need to be visible, not read-modify-written atomically.
+        // without the mutex for the same reason as registerProvider: they only need to be visible,
+        // not read-modify-written atomically. The same narrow doFetch cache-write window that
+        // exists for registerProvider applies here; the inFlightFetch?.cancel() + ensureActive()
+        // guards reduce it to a negligible race and the residual is an accepted trade-off.
         inFlightFetch?.cancel()
         inFlightFetch = null
         refreshJob?.cancel()
