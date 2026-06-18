@@ -1,0 +1,27 @@
+# Built application files
+*.apk
+*.aar
+*.aab
+
+# Delvik VM files
+*.dex
+
+Class files for any Java work
+*.class
+
+# Generated files
+.gradle/
+build/
+
+# Local config
+local.properties
+
+IntelliJ files
+.idea/
+*.iml
+google-services.json
+
+# Mac OS files
+.DS_Store
+
+.claude/

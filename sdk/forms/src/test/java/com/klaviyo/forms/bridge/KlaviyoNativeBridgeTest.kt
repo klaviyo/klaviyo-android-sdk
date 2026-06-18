@@ -1,0 +1,473 @@
+package com.klaviyo.forms.bridge
+
+import android.net.Uri
+import androidx.webkit.WebMessageCompat
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.requests.AggregateEventPayload
+import com.klaviyo.analytics.state.State
+import com.klaviyo.core.Registry
+import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.mockDeviceProperties
+import com.klaviyo.fixtures.unmockDeviceProperties
+import com.klaviyo.forms.FormLifecycleEvent
+import com.klaviyo.forms.FormLifecycleHandler
+import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.presentation.PresentationState
+import com.klaviyo.forms.unregisterFromInAppForms
+import com.klaviyo.forms.webview.WebViewClient
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.mockkStatic
+import io.mockk.slot
+import io.mockk.unmockkAll
+import io.mockk.verify
+import org.json.JSONException
+import org.json.JSONObject
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Before
+import org.junit.Test
+
+/**
+ * @see KlaviyoNativeBridge
+ */
+internal class KlaviyoNativeBridgeTest : BaseTest() {
+
+    private val mockApiClient: ApiClient = mockk(relaxed = true)
+    private val mockState: State = mockk(relaxed = true)
+    private val mockWebViewClient: WebViewClient = mockk(relaxed = true)
+    private val mockPresentationManager: PresentationManager = mockk(relaxed = true)
+
+    private val mockUri = mockk<Uri>(relaxed = true)
+
+    private lateinit var bridgeMessageHandler: KlaviyoNativeBridge
+
+    @Before
+    override fun setup() {
+        super.setup()
+        mockDeviceProperties()
+        mockkStatic("com.klaviyo.forms.InAppFormsKt") // Mock the extension function
+        Registry.register<ApiClient>(mockApiClient)
+        Registry.register<State>(mockState)
+        Registry.register<WebViewClient>(mockWebViewClient)
+        Registry.register<PresentationManager>(mockPresentationManager)
+
+        every {
+            mockPresentationManager.presentationState
+        } returns PresentationState.Presented(null)
+
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockUri
+
+        bridgeMessageHandler = KlaviyoNativeBridge()
+    }
+
+    @After
+    override fun cleanup() {
+        unmockDeviceProperties()
+        unmockkAll()
+        Registry.unregister<ApiClient>()
+        Registry.unregister<State>()
+        Registry.unregister<WebViewClient>()
+        Registry.unregister<PresentationManager>()
+        super.cleanup()
+    }
+
+    private fun postMessage(message: String?) {
+        bridgeMessageHandler.onPostMessage(
+            mockk(relaxed = true),
+            WebMessageCompat(message, null),
+            mockk(relaxed = true),
+            true,
+            mockk(relaxed = true)
+        )
+    }
+
+    @Test
+    fun `allowed origin returns the base URL`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.allowedOrigin
+         */
+        val expected = setOf(Registry.config.baseUrl)
+        assertEquals(expected, bridgeMessageHandler.allowedOrigin)
+    }
+
+    @Test
+    fun `jsReady triggers client onLocalJsReady`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.jsReady
+         */
+        postMessage("""{"type":"jsReady"}""")
+        verify { mockWebViewClient.onLocalJsReady() }
+    }
+
+    @Test
+    fun `handShook triggers client onJsHandshakeCompleted`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.handShook
+         */
+        postMessage("""{"type":"handShook"}""")
+        verify { mockWebViewClient.onJsHandshakeCompleted() }
+    }
+
+    @Test
+    fun `formWillAppear with no data still presents but skips lifecycle callback`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
+         */
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+        postMessage("""{"type":"formWillAppear"}""")
+        verify { mockPresentationManager.present(any(), any()) }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify { spyLog.warning(any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `formWillAppear triggers show with IDs`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.show
+         */
+        postMessage(
+            """{"type":"formWillAppear", "data":{"formId":"64CjgW","formName":"Test Form"}}"""
+        )
+        verify { mockPresentationManager.present("64CjgW", any()) }
+    }
+
+    @Test
+    fun `formWillAppear with missing formId still presents but skips lifecycle callback`() {
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+        postMessage("""{"type":"formWillAppear","data":{"formName":"Test Form"}}""")
+        verify { mockPresentationManager.present(any(), any()) }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify { spyLog.warning(any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `trackAggregateEvent enqueues API request`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.createAggregateEvent
+         */
+        val aggregateMessage = """
+            {
+              "type": "trackAggregateEvent",
+              "data": {
+                "metric_group": "signup-forms",
+                "events": [
+                  {
+                    "metric": "stepSubmit",
+                    "log_to_statsd": true,
+                    "log_to_s3": true,
+                    "log_to_metrics_service": true,
+                    "metric_service_event_name": "submitted_form_step",
+                    "event_details": {
+                      "form_version_c_id": "1",
+                      "is_client": true,
+                      "submitted_fields": {
+                        "source": "Local Form",
+                        "email": "local@local.com",
+                        "consent_method": "Klaviyo Form",
+                        "consent_form_id": "aPiKeY",
+                        "consent_form_version": 3,
+                        "sent_identifiers": {},
+                        "sms_consent": true,
+                        "step_name": "Email Opt-In"
+                      },
+                      "step_name": "Email Opt-In",
+                      "step_number": 1,
+                      "action_type": "Submit Step",
+                      "form_id": "aPiKeY",
+                      "form_version_id": 3,
+                      "form_type": "POPUP",
+                      "device_type": "DESKTOP",
+                      "hostname": "localhost",
+                      "href": "http://localhost:4001/onsite/js/",
+                      "page_url": "http://localhost:4001/onsite/js/",
+                      "first_referrer": "http://localhost:4001/onsite/js/",
+                      "referrer": "http://localhost:4001/onsite/js/",
+                      "cid": "ODZjYjJmMjUtNjliMC00ZGVlLTllM2YtNDY5YTlmNjcwYmUz"
+                    }
+                  }
+                ]
+              }
+            }
+        """.trimIndent()
+
+        val expectedAggBody =
+            JSONObject(
+                """
+                    {
+                      "metric_group": "signup-forms",
+                      "events": [
+                        {
+                          "log_to_metrics_service": true,
+                          "metric": "stepSubmit",
+                          "log_to_statsd": true,
+                          "event_details": {
+                            "page_url": "http://localhost:4001/onsite/js/",
+                            "first_referrer": "http://localhost:4001/onsite/js/",
+                            "action_type": "Submit Step",
+                            "form_version_id": 3,
+                            "form_id": "aPiKeY",
+                            "device_type": "DESKTOP",
+                            "form_type": "POPUP",
+                            "referrer": "http://localhost:4001/onsite/js/",
+                            "submitted_fields": {
+                              "sms_consent": true,
+                              "consent_method": "Klaviyo Form",
+                              "consent_form_version": 3,
+                              "step_name": "Email Opt-In",
+                              "consent_form_id": "aPiKeY",
+                              "source": "Local Form",
+                              "email": "local@local.com",
+                              "sent_identifiers": {}
+                            },
+                            "hostname": "localhost",
+                            "step_number": 1,
+                            "form_version_c_id": "1",
+                            "step_name": "Email Opt-In",
+                            "is_client": true,
+                            "href": "http://localhost:4001/onsite/js/",
+                            "cid": "ODZjYjJmMjUtNjliMC00ZGVlLTllM2YtNDY5YTlmNjcwYmUz"
+                          },
+                          "metric_service_event_name": "submitted_form_step",
+                          "log_to_s3": true
+                        }
+                      ]
+                    }
+                """.trimIndent()
+            )
+
+        postMessage(aggregateMessage)
+        val slot = slot<AggregateEventPayload>()
+        verify { mockApiClient.enqueueAggregateEvent(capture(slot)) }
+        assertEquals(expectedAggBody.toString(), slot.captured.toString())
+    }
+
+    @Test
+    fun `trackProfileEvent enqueues API request`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.createProfileEvent
+         */
+        val eventMessage = """
+           {
+              "type": "trackProfileEvent",
+              "data": {
+                "metric": "Form completed by profile",
+                "properties": {}
+              }
+           }
+        """.trimIndent()
+        val expectedMetric = EventMetric.CUSTOM("Form completed by profile")
+
+        postMessage(eventMessage)
+
+        // required steps to the profile event
+        verify { mockState.getAsProfile() }
+        val slot = slot<Event>()
+        verify { mockState.createEvent(capture(slot), any()) }
+        assertEquals(expectedMetric, slot.captured.metric)
+    }
+
+    private val deeplinkMessage = """
+        {
+          "type": "openDeepLink",
+          "data": {
+            "ios": "klaviyotest://settings",
+            "android": "klaviyotest://settings",
+            "formId": "64CjgW",
+            "formName": "Test Form",
+            "buttonLabel": "Click Me"
+          }
+        }
+    """.trimIndent()
+
+    @Test
+    fun `openDeepLink broadcasts intent to start activity`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
+         */
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+        postMessage(deeplinkMessage)
+        verify { DeepLinking.handleDeepLink(mockUri) }
+    }
+
+    @Test
+    fun `openDeepLink with empty android route skips lifecycle callback and does not navigate`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
+         */
+        val emptyAndroidMessage = """
+            {
+              "type": "openDeepLink",
+              "data": {
+                "ios": "klaviyotest://settings",
+                "android": "",
+                "formId": "64CjgW",
+                "formName": "Test Form",
+                "buttonLabel": "Click Me"
+              }
+            }
+        """.trimIndent()
+
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+        postMessage(emptyAndroidMessage)
+
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
+        verify { spyLog.warning(any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `openDeepLink with missing buttonLabel still navigates and fires lifecycle callback`() {
+        val message = """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"64CjgW","formName":"Test Form"}}"""
+
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleHandler { event -> events.add(event) }
+        Registry.register<FormLifecycleHandler>(callback)
+
+        postMessage(message)
+
+        verify { DeepLinking.handleDeepLink(mockUri) }
+        assertEquals(1, events.size)
+        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaClicked
+        assertEquals("64CjgW", ctaEvent.formId)
+        assertEquals("Test Form", ctaEvent.formName)
+        assertEquals("", ctaEvent.buttonLabel)
+        assertEquals(mockUri, ctaEvent.deepLinkUrl)
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `formName flows through from dismiss and CTA events via bridge messages`() {
+        mockkObject(DeepLinking)
+        every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
+
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleHandler { event -> events.add(event) }
+        Registry.register<FormLifecycleHandler>(callback)
+
+        // Show — bridge fires FormShown
+        postMessage("""{"type":"formWillAppear","data":{"formId":"abc","formName":"My Form"}}""")
+        assertEquals(1, events.size)
+        val shownEvent = events[0] as FormLifecycleEvent.FormShown
+        assertEquals("My Form", shownEvent.formName)
+        assertEquals("abc", shownEvent.formId)
+
+        // Dismiss — bridge fires FormDismissed and delegates to PM
+        postMessage("""{"type":"formDisappeared","data":{"formId":"abc","formName":"My Form"}}""")
+        verify { mockPresentationManager.dismiss() }
+        assertEquals(2, events.size)
+        val dismissedEvent = events[1] as FormLifecycleEvent.FormDismissed
+        assertEquals("My Form", dismissedEvent.formName)
+        assertEquals("abc", dismissedEvent.formId)
+
+        // CTA — formId+formName come from the bridge message itself
+        postMessage(
+            """{"type":"openDeepLink","data":{"android":"klaviyotest://settings","formId":"abc","formName":"My Form","buttonLabel":"Shop Now"}}"""
+        )
+        assertEquals(3, events.size)
+        val ctaEvent = events[2] as FormLifecycleEvent.FormCtaClicked
+        assertEquals("My Form", ctaEvent.formName)
+        assertEquals("abc", ctaEvent.formId)
+        assertEquals(mockUri, ctaEvent.deepLinkUrl)
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `formDisappeared triggers dismiss with formContext`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
+         */
+        postMessage("""{"type":"formDisappeared","data":{"formId":"abc","formName":"My Form"}}""")
+        verify { mockPresentationManager.dismiss() }
+    }
+
+    @Test
+    fun `formDisappeared with no data still dismisses but skips lifecycle callback`() {
+        /**
+         * All message types use tolerant parsing (optString) so that SDK-internal actions
+         * always fire, preventing the user from getting stuck behind a full-screen overlay.
+         * Lifecycle callbacks are gated on valid metadata at the dispatch layer.
+         *
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.close
+         */
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+        postMessage("""{"type":"formDisappeared"}""")
+        verify { mockPresentationManager.dismiss() }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify { spyLog.warning(any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `formDisappeared with missing formId still dismisses but skips lifecycle callback`() {
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+        postMessage("""{"type":"formDisappeared","data":{"formName":"Test Form"}}""")
+        verify { mockPresentationManager.dismiss() }
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify { spyLog.warning(any()) }
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `abort triggers closes`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.abort
+         */
+        postMessage("""{"type":"abort"}""")
+        verify(exactly = 1) { Klaviyo.unregisterFromInAppForms() }
+        postMessage("""{"type":"abort", "reason":"Because the test requires it"}""")
+        verify(exactly = 2) { Klaviyo.unregisterFromInAppForms() }
+    }
+
+    @Test
+    fun `malformed message throws an error`() {
+        postMessage("sawr a warewolf with a chinese menu inhis hands")
+        verify { spyLog.error(any(), any<JSONException>()) }
+    }
+
+    @Test
+    fun `unknown type throws an error`() {
+        postMessage("""{"type":"unknown"}""")
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `null message logs warning`() {
+        postMessage(null)
+
+        verify { spyLog.warning(any(), null) }
+    }
+}

@@ -1,0 +1,76 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+            android:name="SampleApplication"
+            android:allowBackup="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:supportsRtl="true"
+            android:theme="@style/Theme.KlaviyoAndroidSdk"
+            android:usesCleartextTraffic="true"
+        >
+        <activity
+                android:name=".SampleActivity"
+                android:exported="true"
+                android:theme="@style/Theme.KlaviyoAndroidSdk">
+
+            <!-- Launch intent -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+            <!-- Sample Deep Linking Intent Filters -->
+
+            <!-- Custom URI scheme: -->
+            <intent-filter android:label="@string/deep_link_handler">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <!-- Accepts URIs that begin with "klaviyotest://" -->
+                <data android:scheme="klaviyotest" />
+            </intent-filter>
+
+            <!-- Verified App Link: -->
+            <intent-filter android:label="Your App Name" android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:host="your.domain.com" />
+            </intent-filter>
+
+            <!-- Klaviyo Universal Click Tracking: -->
+            <intent-filter android:label="Your App Name" android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="trk.your.domain.com" />
+                <!-- SETUP NOTE: path prefix for Klaviyo Universal Click Tracking should be /u/ or else unsupported tracking links may be routed to your app -->
+                <data android:pathPrefix="/u/" />
+            </intent-filter>
+        </activity>
+
+        <!-- Optional: Set the Klaviyo SDK logging level (1=verbose, 2=debug etc) -->
+        <meta-data
+                android:name="com.klaviyo.core.log_level"
+                android:value="1"/>
+
+        <!-- Optional: Specify the default icon for a notification received from Klaviyo -->
+        <meta-data android:name="com.klaviyo.push.default_notification_icon"
+                   android:resource="@drawable/ic_notification_icon"/>
+
+        <!-- Optional: Specify the icon color for a notification received from Klaviyo -->
+        <meta-data android:name="com.klaviyo.push.default_notification_color"
+                   android:resource="@color/teal_700"/>
+
+        <!-- Sample App Only: Google Maps API Key (for GoogleMaps UI testing) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${googleMapsApiKey}" />
+
+    </application>
+
+</manifest>
