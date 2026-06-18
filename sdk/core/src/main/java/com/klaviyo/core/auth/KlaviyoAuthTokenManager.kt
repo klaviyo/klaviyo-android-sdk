@@ -238,20 +238,15 @@ internal class KlaviyoAuthTokenManager(
             // Optimistic read of @Volatile fields — no lock needed for the fast path.
             // Skip the cache while a profile reset is pending: invalidate() has fired but
             // clearTokenState() hasn't run yet, so cachedToken still holds the outgoing JWT.
-            val cached = cachedToken
-            if (cached != null && isStillValid(cached) && !profileResetPending) return cached
+            usableCachedToken(cachedToken)?.let { return it }
         }
 
         // Atomic read-or-create of the in-flight deferred. The mutex ensures exactly one
         // scope.async { } is launched when multiple callers miss the cache simultaneously.
         val deferred: Deferred<ValidatedToken> = mutex.withLock {
             // Re-check under the lock; a concurrent caller may have populated the cache while
-            // we waited. Non-local return from this inline lambda exits currentTokenInternal()
-            // directly.
-            val freshenedCache = cachedToken
-            if (allowCachedToken && freshenedCache != null && isStillValid(freshenedCache) && !profileResetPending) {
-                return freshenedCache
-            }
+            // we waited. Non-local return exits getOrFetchToken() directly.
+            if (allowCachedToken) usableCachedToken(cachedToken)?.let { return it }
 
             inFlightFetch ?: scope.async { doFetch() }.also { d ->
                 inFlightFetch = d
@@ -339,6 +334,14 @@ internal class KlaviyoAuthTokenManager(
                 throw error
             }
         }
+
+    /**
+     * Returns [token] if it is non-null, still valid per [isStillValid], and no profile reset is
+     * pending; otherwise returns `null`. Centralizes the cache-eligibility gate used in both the
+     * optimistic pre-lock read and the mutex-protected double-check inside [getOrFetchToken].
+     */
+    private fun usableCachedToken(token: ValidatedToken?): ValidatedToken? =
+        if (token != null && isStillValid(token) && !profileResetPending) token else null
 
     private fun isStillValid(token: ValidatedToken): Boolean {
         val now = Registry.clock.currentTimeMillis() / 1000L
