@@ -431,17 +431,32 @@ internal class KlaviyoAuthTokenManager(
         } catch (e: Exception) {
             if (timerGeneration != null) clearFiredFlagForFailedRefresh(timerGeneration)
             Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
-            if (profileGeneration.get() == profileGenerationAtStart &&
-                isNetworkException(e) &&
-                provider != null &&
-                !profileResetPending
-            ) {
+            if (shouldArmConnectivityRetry(e, profileGenerationAtStart)) {
                 armConnectivityWaitJob(
                     resumeImmediatelyIfConnected = allowImmediateConnectivityRetry
                 )
             }
         }
     }
+
+    /**
+     * Returns true when a proactive-refresh failure should trigger a connectivity wait job.
+     *
+     * All four conditions must hold:
+     * - [profileGeneration] matches [generationAtStart]: no profile transition (registerProvider /
+     *   invalidate / clearTokenState) occurred while the refresh was suspended. Without this check,
+     *   a stale failure could arm a retry job for an already-replaced session.
+     * - The exception is a transient network error ([isNetworkException]): server errors and
+     *   validation failures should not trigger a connectivity retry.
+     * - [provider] is still set: a concurrent teardown may have cleared it.
+     * - No profile reset is pending ([profileResetPending]): guards against the window between
+     *   invalidate() and clearTokenState() where the flag is still true.
+     */
+    private fun shouldArmConnectivityRetry(exception: Exception, generationAtStart: Long): Boolean =
+        profileGeneration.get() == generationAtStart &&
+            isNetworkException(exception) &&
+            provider != null &&
+            !profileResetPending
 
     /**
      * Iterates [refreshObservers] and invokes each with [jwt]. Best-effort: if an observer throws,
