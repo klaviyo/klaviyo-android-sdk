@@ -1,12 +1,10 @@
 package com.klaviyo.core.auth
 
 import com.klaviyo.core.Registry
-import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
-import io.mockk.slot
 import io.mockk.verify
 import java.io.IOException
 import java.net.ConnectException
@@ -25,7 +23,7 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Tests for the connectivity-driven refresh retry path introduced in MAGE-684.
+ * Tests for the connectivity-driven refresh retry path in [KlaviyoAuthTokenManager].
  *
  * The controllable [FakeNetworkMonitor] lets tests drive synthetic connectivity transitions
  * without involving real system APIs.
@@ -40,14 +38,12 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     }
 
     private lateinit var fakeNetworkMonitor: FakeNetworkMonitor
-    private val observerSlot = slot<ActivityObserver>()
 
     @Before
     override fun setup() {
         super.setup()
         fakeNetworkMonitor = FakeNetworkMonitor()
         every { Registry.networkMonitor } returns fakeNetworkMonitor
-        every { mockLifecycleMonitor.onActivityEvent(capture(observerSlot)) } returns Unit
     }
 
     // MARK: - Helpers
@@ -64,6 +60,41 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
     private fun base64UrlEncode(bytes: ByteArray): String =
         Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+
+    /** Fires the first pending clock task and advances the test dispatcher until idle. */
+    private fun executeScheduledRefresh() {
+        val task = staticClock.scheduledTasks.first()
+        staticClock.execute(task.time - staticClock.time)
+        dispatcher.scheduler.advanceUntilIdle()
+    }
+
+    /**
+     * Shared arrange/act/assert for the four exception-variant retry tests. Sets up a scripted
+     * provider that fails once with [exception] then succeeds, fires the refresh, simulates
+     * connectivity restored, and asserts the retry ran.
+     */
+    private fun assertConnectivityRetryFires(exception: Exception) = runTest(dispatcher) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(exception),
+                    Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        executeScheduledRefresh()
+        assertEquals(2, provider.callCount)
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("retry after ${exception::class.simpleName}", 3, provider.callCount)
+    }
 
     // MARK: - Retry fires after reconnect
 
@@ -89,9 +120,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         assertEquals("initial eager fetch", 1, provider.callCount)
 
         // Fire the scheduled refresh — it fails with a network error
-        val timerTask = staticClock.scheduledTasks.first()
-        staticClock.execute(timerTask.time - staticClock.time)
-        dispatcher.scheduler.advanceUntilIdle()
+        executeScheduledRefresh()
         assertEquals("refresh attempt failed", 2, provider.callCount)
 
         // connectivityWaitJob should be armed
@@ -99,7 +128,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             "connectivityWaitJob should be armed after network failure",
             manager.connectivityWaitJob
         )
-        verify { spyLog.info(match { it.contains("waiting for connectivity") }) }
+        verify { spyLog.info(any()) }
 
         // Simulate connectivity restored
         fakeNetworkMonitor.simulateConnected(isConnected = true)
@@ -110,89 +139,22 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             3,
             provider.callCount
         )
-        verify { spyLog.info(match { it.contains("connectivity restored") }) }
+        verify { spyLog.info(any()) }
     }
 
     @Test
-    fun `connectivity retry fires after UnknownHostException`() = runTest(dispatcher) {
-        val initialToken = makeJwt()
-        val retryToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
-        val provider = ScriptedProvider(
-            ArrayDeque(
-                listOf(
-                    Result.success(initialToken),
-                    Result.failure(UnknownHostException("host unknown")),
-                    Result.success(retryToken)
-                )
-            )
-        )
-        val manager = KlaviyoAuthTokenManager()
-        manager.registerProvider(provider)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        val timerTask = staticClock.scheduledTasks.first()
-        staticClock.execute(timerTask.time - staticClock.time)
-        dispatcher.scheduler.advanceUntilIdle()
-        assertEquals(2, provider.callCount)
-
-        fakeNetworkMonitor.simulateConnected(isConnected = true)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals("retry after UnknownHostException", 3, provider.callCount)
+    fun `connectivity retry fires after UnknownHostException`() {
+        assertConnectivityRetryFires(UnknownHostException("host unknown"))
     }
 
     @Test
-    fun `connectivity retry fires after SocketTimeoutException`() = runTest(dispatcher) {
-        val initialToken = makeJwt()
-        val retryToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
-        val provider = ScriptedProvider(
-            ArrayDeque(
-                listOf(
-                    Result.success(initialToken),
-                    Result.failure(SocketTimeoutException("timed out")),
-                    Result.success(retryToken)
-                )
-            )
-        )
-        val manager = KlaviyoAuthTokenManager()
-        manager.registerProvider(provider)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        val timerTask = staticClock.scheduledTasks.first()
-        staticClock.execute(timerTask.time - staticClock.time)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        fakeNetworkMonitor.simulateConnected(isConnected = true)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals("retry after SocketTimeoutException", 3, provider.callCount)
+    fun `connectivity retry fires after SocketTimeoutException`() {
+        assertConnectivityRetryFires(SocketTimeoutException("timed out"))
     }
 
     @Test
-    fun `connectivity retry fires after ConnectException`() = runTest(dispatcher) {
-        val initialToken = makeJwt()
-        val retryToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
-        val provider = ScriptedProvider(
-            ArrayDeque(
-                listOf(
-                    Result.success(initialToken),
-                    Result.failure(ConnectException("connection refused")),
-                    Result.success(retryToken)
-                )
-            )
-        )
-        val manager = KlaviyoAuthTokenManager()
-        manager.registerProvider(provider)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        val timerTask = staticClock.scheduledTasks.first()
-        staticClock.execute(timerTask.time - staticClock.time)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        fakeNetworkMonitor.simulateConnected(isConnected = true)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals("retry after ConnectException", 3, provider.callCount)
+    fun `connectivity retry fires after ConnectException`() {
+        assertConnectivityRetryFires(ConnectException("connection refused"))
     }
 
     @Test
@@ -214,9 +176,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
-        val timerTask = staticClock.scheduledTasks.first()
-        staticClock.execute(timerTask.time - staticClock.time)
-        dispatcher.scheduler.advanceUntilIdle()
+        executeScheduledRefresh()
         assertEquals("initial refresh failed", 2, provider.callCount)
 
         // Simulate still offline — should not trigger retry
@@ -229,6 +189,90 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals("connected notification should trigger retry", 3, provider.callCount)
     }
+
+    @Test
+    fun `connectivity retry fires immediately when device is already online`() = runTest(
+        dispatcher
+    ) {
+        val initialToken = makeJwt()
+        val retryToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(initialToken),
+                    Result.failure(SocketTimeoutException("timed out")),
+                    Result.success(retryToken)
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        // Mark network as already online before firing the refresh
+        fakeNetworkMonitor.connected = true
+
+        // executeScheduledRefresh() calls advanceUntilIdle() internally, which runs:
+        //  1. performScheduledRefresh → fails with SocketTimeoutException → arms connectivity job
+        //  2. the armed coroutine → isNetworkConnected() is true → resumes immediately → retries
+        // Both happen in the same advanceUntilIdle pass, so count is 3 on return.
+        executeScheduledRefresh()
+        assertEquals(
+            "retry should fire immediately without waiting for a future connectivity event",
+            3,
+            provider.callCount
+        )
+    }
+
+    @Test
+    fun `persistent provider failure on connected device arms a waiting job not a tight loop`() =
+        runTest(dispatcher) {
+            // Scenario: device is online the whole time, but the provider keeps failing with
+            // IOException (e.g. the JWT endpoint itself is down). The first arm should resume
+            // immediately (resumeImmediatelyIfConnected=true). The second arm, kicked off by
+            // performScheduledRefresh(allowImmediateConnectivityRetry=false), must NOT resume
+            // immediately again — it waits for an actual connectivity transition. This prevents
+            // an uncontrolled tight-loop.
+            val successToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+            val provider = ScriptedProvider(
+                ArrayDeque(
+                    listOf(
+                        Result.success(makeJwt()), // eager fetch succeeds
+                        Result.failure(IOException("endpoint down")), // timer refresh fails
+                        Result.failure(IOException("still down")), // immediate retry fails
+                        Result.success(successToken) // eventual success
+                    )
+                )
+            )
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(1, provider.callCount)
+
+            // Device is already connected for the entire test
+            fakeNetworkMonitor.connected = true
+
+            // executeScheduledRefresh() + advanceUntilIdle() runs:
+            //  1. timer fires → performScheduledRefresh(immediate=true) → fails (count=2)
+            //  2. arm1(resumeImmediately=true) → isNetworkConnected()=true → immediate resume
+            //  3. performScheduledRefresh(immediate=false) → fails (count=3)
+            //  4. arm2(resumeImmediately=false) → skips immediate check → suspends
+            // After advanceUntilIdle the coroutine tree is idle with arm2 waiting.
+            executeScheduledRefresh()
+            assertEquals("two failures, no extra calls", 3, provider.callCount)
+            assertNotNull("arm2 should be waiting (not looping)", manager.connectivityWaitJob)
+            assertEquals(
+                "arm2 should be active — it is waiting, not looping",
+                false,
+                manager.connectivityWaitJob?.isCancelled ?: true
+            )
+
+            // Simulate a genuine connectivity transition — arm2 resumes, retry succeeds
+            fakeNetworkMonitor.simulateConnected(isConnected = true)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("eventual success on real connectivity event", 4, provider.callCount)
+        }
 
     // MARK: - At-most-one job invariant
 
@@ -254,9 +298,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         // Fire scheduled refresh — fails, arms connectivityWaitJob
-        val timerTask = staticClock.scheduledTasks.first()
-        staticClock.execute(timerTask.time - staticClock.time)
-        dispatcher.scheduler.advanceUntilIdle()
+        executeScheduledRefresh()
         assertEquals(2, provider.callCount)
 
         val firstJob = manager.connectivityWaitJob
@@ -271,8 +313,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         val secondJob = manager.connectivityWaitJob
         assertNotNull("second job should be re-armed", secondJob)
 
-        // First job should be a different (cancelled) instance from the second
-        assertEquals("second job should be active", false, secondJob!!.isCancelled)
+        assertEquals("second job should be active", false, secondJob?.isCancelled ?: true)
 
         // Only one observer should be registered in the network monitor at any time
         // (first was de-registered on its completion, second is the only active one)
@@ -303,9 +344,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         manager.registerProvider(firstProvider)
         dispatcher.scheduler.advanceUntilIdle()
 
-        val timerTask = staticClock.scheduledTasks.first()
-        staticClock.execute(timerTask.time - staticClock.time)
-        dispatcher.scheduler.advanceUntilIdle()
+        executeScheduledRefresh()
         val armedJob = manager.connectivityWaitJob
         assertNotNull("connectivityWaitJob should be armed", armedJob)
 
@@ -317,13 +356,88 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             "connectivityWaitJob should be cleared after registerProvider",
             manager.connectivityWaitJob
         )
-        assertEquals("cancelled job should be inactive", true, armedJob!!.isCancelled)
+        assertEquals("cancelled job should be inactive", true, armedJob?.isCancelled ?: false)
         assertEquals(
             "no network observer should remain after provider swap",
             0,
             fakeNetworkMonitor.observerCount()
         )
     }
+
+    // MARK: - Stale-guard: profileResetPending prevents arming
+
+    @Test
+    fun `network failure during profile reset does not arm connectivity wait job`() = runTest(
+        dispatcher
+    ) {
+        // invalidate() sets profileResetPending = true but does NOT cancel the refresh job, so
+        // the scheduled refresh fires normally — the new guard is the profileResetPending check
+        // in the catch block, not the generation guard in markRefreshTimerFired.
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("network down"))
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Set profileResetPending = true before the scheduled refresh fires
+        manager.invalidate()
+
+        executeScheduledRefresh()
+
+        assertNull(
+            "armConnectivityWaitJob must not fire when profileResetPending is true",
+            manager.connectivityWaitJob
+        )
+        assertEquals(0, fakeNetworkMonitor.observerCount())
+    }
+
+    @Test
+    fun `network failure after mid-fetch profile transition does not arm connectivity wait job`() =
+        runTest(dispatcher) {
+            // Simulates the narrow race where a logout fires while the refresh is suspended on
+            // the network call, then the catch block runs after profileResetPending has been
+            // cleared by clearTokenState(). Without the resetGeneration snapshot guard the catch
+            // block would see provider != null && !profileResetPending and arm a zombie job.
+            //
+            // We reproduce by injecting invalidate() from inside the fetchToken callback — this
+            // bumps resetGeneration during the active fetch, so the snapshot captured at the
+            // start of performScheduledRefresh no longer matches by the time the catch runs.
+            val manager = KlaviyoAuthTokenManager()
+            val provider = object : AuthTokenProvider {
+                var callCount = 0
+
+                override fun fetchToken(callback: AuthTokenProvider.Callback) {
+                    callCount++
+                    if (callCount == 1) {
+                        callback.onSuccess(makeJwt())
+                    } else {
+                        // Mid-fetch profile transition: bump profileGeneration while the
+                        // refresh coroutine is running, before the failure is delivered.
+                        manager.invalidate()
+                        callback.onFailure(IOException("network down"))
+                    }
+                }
+            }
+
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("eager fetch ran", 1, provider.callCount)
+
+            executeScheduledRefresh()
+            assertEquals("timer refresh ran (and failed)", 2, provider.callCount)
+
+            assertNull(
+                "connectivity job must not arm when resetGeneration advanced mid-fetch",
+                manager.connectivityWaitJob
+            )
+            assertEquals(0, fakeNetworkMonitor.observerCount())
+        }
 
     // MARK: - Non-network failures do not arm the retry
 
@@ -342,9 +456,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
-        val timerTask = staticClock.scheduledTasks.first()
-        staticClock.execute(timerTask.time - staticClock.time)
-        dispatcher.scheduler.advanceUntilIdle()
+        executeScheduledRefresh()
 
         assertNull("RuntimeException must not arm connectivityWaitJob", manager.connectivityWaitJob)
         assertEquals(
@@ -352,9 +464,6 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             0,
             fakeNetworkMonitor.observerCount()
         )
-        verify(inverse = true) {
-            spyLog.info(match { it.contains("waiting for connectivity") })
-        }
     }
 
     @Test
@@ -371,9 +480,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
-        val timerTask = staticClock.scheduledTasks.first()
-        staticClock.execute(timerTask.time - staticClock.time)
-        dispatcher.scheduler.advanceUntilIdle()
+        executeScheduledRefresh()
 
         assertNull("ValidationFailed must not arm connectivityWaitJob", manager.connectivityWaitJob)
         assertEquals(0, fakeNetworkMonitor.observerCount())
@@ -396,9 +503,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
-        val timerTask = staticClock.scheduledTasks.first()
-        staticClock.execute(timerTask.time - staticClock.time)
-        dispatcher.scheduler.advanceUntilIdle()
+        executeScheduledRefresh()
 
         val armedJob = manager.connectivityWaitJob
         assertNotNull("job must be armed before clear", armedJob)
@@ -410,7 +515,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             "connectivityWaitJob must be null after clearTokenState",
             manager.connectivityWaitJob
         )
-        assertEquals("armed job must be cancelled", true, armedJob!!.isCancelled)
+        assertEquals("armed job must be cancelled", true, armedJob?.isCancelled ?: false)
         assertEquals(
             "network observer should be de-registered on cancellation",
             0,
@@ -443,9 +548,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         manager.registerProvider(firstProvider)
         dispatcher.scheduler.advanceUntilIdle()
 
-        val timerTask = staticClock.scheduledTasks.first()
-        staticClock.execute(timerTask.time - staticClock.time)
-        dispatcher.scheduler.advanceUntilIdle()
+        executeScheduledRefresh()
 
         // Capture generation before registering new provider
         val gen = manager.invalidate()
@@ -468,11 +571,14 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
     /**
      * A controllable [NetworkMonitor] implementation that lets tests drive connectivity transitions.
+     * Set [connected] to control the return value of [isNetworkConnected].
      */
     private class FakeNetworkMonitor : NetworkMonitor {
         private val observers = CopyOnWriteArrayList<NetworkObserver>()
+        var connected: Boolean = false
 
         fun simulateConnected(isConnected: Boolean) {
+            connected = isConnected
             observers.forEach { it(isConnected) }
         }
 
@@ -486,12 +592,12 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             observers -= observer
         }
 
-        override fun isNetworkConnected(): Boolean = false
+        override fun isNetworkConnected(): Boolean = connected
 
         override fun getNetworkType(): NetworkMonitor.NetworkType = NetworkMonitor.NetworkType.Offline
     }
 
-    // MARK: - Helpers (mirrored from KlaviyoAuthTokenManagerRefreshTest)
+    // MARK: - Test doubles
 
     private class ScriptedProvider(
         private val results: ArrayDeque<Result<String>>

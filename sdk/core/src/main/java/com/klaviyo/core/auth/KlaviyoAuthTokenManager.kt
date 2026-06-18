@@ -12,6 +12,7 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -84,6 +85,13 @@ internal class KlaviyoAuthTokenManager(
     // Deliberately separate from refreshGeneration (which scheduleRefresh() also bumps).
     private val profileGeneration = AtomicLong(0L)
 
+    // Tracks logout/reset events only: incremented by invalidate() and clearTokenState(), but NOT
+    // by registerProvider(). Used by shouldArmConnectivityRetry to distinguish a stale failure from
+    // a logout-triggered reset vs. a benign mid-fetch provider swap. profileGeneration is too coarse
+    // for this check because registerProvider() also bumps it, which would wrongly block
+    // connectivity retry for the new session when a provider is swapped mid-fetch.
+    private val resetGeneration = AtomicLong(0L)
+
     // Set to true by invalidate() and reset to false by registerProvider() and clearTokenState().
     // Read by performScheduledRefresh just before notifying observers: if a profile reset is
     // pending (i.e. invalidate() was called but clearTokenState() hasn't finished yet), the
@@ -96,10 +104,9 @@ internal class KlaviyoAuthTokenManager(
     private val refreshObservers = CopyOnWriteArrayList<TokenRefreshObserver>()
 
     // A pending coroutine that waits for connectivity to be restored before retrying
-    // performScheduledRefresh. At most one is active at a time; any existing job is cancelled before
-    // arming a new one (prevents job accumulation on rapid flap). Cleared once the wait resolves or
-    // is cancelled. Guarded by mutex writes inside clearTokenState; @Volatile for reads in
-    // armConnectivityWaitJob (outside the mutex) so cancel() is visible to the newly-starting job.
+    // performScheduledRefresh. At most one is active at a time. All transitions to this field and
+    // to connectivityWaitGeneration are serialized via connectivityWaitLock. @Volatile for
+    // visibility to tests that read the field outside any lock.
     // Internal (not private) so tests in this module can inspect job state without reflection.
     @Volatile internal var connectivityWaitJob: Job? = null
 
@@ -107,6 +114,18 @@ internal class KlaviyoAuthTokenManager(
     // job's finally block to detect whether a newer arm replaced it; if so the old job must not
     // null out the new job's reference. AtomicLong for the same reason as refreshGeneration.
     private val connectivityWaitGeneration = AtomicLong(0L)
+
+    // JVM lock serializing all connectivityWaitJob + connectivityWaitGeneration transitions.
+    // Acquired without holding mutex (armConnectivityWaitJob) and while holding mutex
+    // (clearTokenState). Lock ordering is always: mutex → connectivityWaitLock.
+    private val connectivityWaitLock = Any()
+
+    private fun cancelConnectivityWaitJob() {
+        synchronized(connectivityWaitLock) {
+            connectivityWaitJob?.cancel()
+            connectivityWaitJob = null
+        }
+    }
 
     override fun registerProvider(provider: AuthTokenProvider) {
         // Cancel any in-flight fetch for the old provider before swapping.
@@ -122,8 +141,7 @@ internal class KlaviyoAuthTokenManager(
         refreshJob = null
         refreshAtWallClockMs = null
         refreshTimerFired = false
-        connectivityWaitJob?.cancel()
-        connectivityWaitJob = null
+        cancelConnectivityWaitJob()
         refreshGeneration.incrementAndGet()
         // Advance profileGeneration so any pending clearTokenState(expectedGeneration) from a
         // prior resetProfile() sees the generation mismatch and skips, preserving this new
@@ -149,6 +167,9 @@ internal class KlaviyoAuthTokenManager(
         // Set the flag before bumping the generation so that any performScheduledRefresh that
         // reads the flag after this call (regardless of when its fetch started) will skip observers.
         profileResetPending = true
+        // Also bump resetGeneration so shouldArmConnectivityRetry can detect a logout-triggered
+        // failure even after clearTokenState() has cleared profileResetPending.
+        resetGeneration.incrementAndGet()
         return profileGeneration.incrementAndGet()
     }
 
@@ -171,10 +192,13 @@ internal class KlaviyoAuthTokenManager(
             refreshAtWallClockMs = null
             refreshTimerFired = false
             refreshGeneration.incrementAndGet()
-            connectivityWaitJob?.cancel()
-            connectivityWaitJob = null
+            cancelConnectivityWaitJob()
             cachedToken = null
             profileGeneration.incrementAndGet()
+            // Also advance resetGeneration so that any performScheduledRefresh that started before
+            // this clear cannot arm a zombie connectivity job even when profileResetPending has been
+            // cleared by the time its catch block executes.
+            resetGeneration.incrementAndGet()
             // Clear the reset-pending flag so the next successful refresh (from a new or retained
             // provider) can notify observers normally.
             profileResetPending = false
@@ -228,20 +252,15 @@ internal class KlaviyoAuthTokenManager(
             // Optimistic read of @Volatile fields — no lock needed for the fast path.
             // Skip the cache while a profile reset is pending: invalidate() has fired but
             // clearTokenState() hasn't run yet, so cachedToken still holds the outgoing JWT.
-            val cached = cachedToken
-            if (cached != null && isStillValid(cached) && !profileResetPending) return cached
+            usableCachedToken(cachedToken)?.let { return it }
         }
 
         // Atomic read-or-create of the in-flight deferred. The mutex ensures exactly one
         // scope.async { } is launched when multiple callers miss the cache simultaneously.
         val deferred: Deferred<ValidatedToken> = mutex.withLock {
             // Re-check under the lock; a concurrent caller may have populated the cache while
-            // we waited. Non-local return from this inline lambda exits currentTokenInternal()
-            // directly.
-            val freshenedCache = cachedToken
-            if (allowCachedToken && freshenedCache != null && isStillValid(freshenedCache) && !profileResetPending) {
-                return freshenedCache
-            }
+            // we waited. Non-local return exits getOrFetchToken() directly.
+            if (allowCachedToken) usableCachedToken(cachedToken)?.let { return it }
 
             inFlightFetch ?: scope.async { doFetch() }.also { d ->
                 inFlightFetch = d
@@ -330,6 +349,14 @@ internal class KlaviyoAuthTokenManager(
             }
         }
 
+    /**
+     * Returns [token] if it is non-null, still valid per [isStillValid], and no profile reset is
+     * pending; otherwise returns `null`. Centralizes the cache-eligibility gate used in both the
+     * optimistic pre-lock read and the mutex-protected double-check inside [getOrFetchToken].
+     */
+    private fun usableCachedToken(token: ValidatedToken?): ValidatedToken? =
+        if (token != null && isStillValid(token) && !profileResetPending) token else null
+
     private fun isStillValid(token: ValidatedToken): Boolean {
         val now = Registry.clock.currentTimeMillis() / 1000L
         return now < token.expiresAtEpochSeconds - JWTParser.DEFAULT_LEEWAY_SECONDS
@@ -383,7 +410,17 @@ internal class KlaviyoAuthTokenManager(
      * On failure does NOT reschedule; one foreground-transition retry is possible if
      * [refreshAtWallClockMs] was not yet cleared (timer fired but fetch failed).
      */
-    private suspend fun performScheduledRefresh(timerGeneration: Long? = null) {
+    private suspend fun performScheduledRefresh(
+        timerGeneration: Long? = null,
+        allowImmediateConnectivityRetry: Boolean = true
+    ) {
+        // Snapshot the reset generation before suspending into the network fetch. If a logout or
+        // token-state clear (invalidate / clearTokenState) fires while the fetch is in progress,
+        // the catch block must not arm a connectivity retry for the now-stale session. We use
+        // resetGeneration rather than profileGeneration so that a benign provider swap
+        // (registerProvider without a logout) does not falsely suppress the retry for the new
+        // session — registerProvider does not bump resetGeneration.
+        val resetGenerationAtStart = resetGeneration.get()
         if (provider == null) return
         Registry.log.info("Proactive token refresh fired")
         try {
@@ -410,11 +447,37 @@ internal class KlaviyoAuthTokenManager(
         } catch (e: Exception) {
             if (timerGeneration != null) clearFiredFlagForFailedRefresh(timerGeneration)
             Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
-            if (isNetworkException(e)) {
-                armConnectivityWaitJob()
+            if (shouldArmConnectivityRetry(e, resetGenerationAtStart)) {
+                armConnectivityWaitJob(
+                    resumeImmediatelyIfConnected = allowImmediateConnectivityRetry
+                )
             }
         }
     }
+
+    /**
+     * Returns true when a proactive-refresh failure should trigger a connectivity wait job.
+     *
+     * All four conditions must hold:
+     * - [resetGeneration] matches [resetGenerationAtStart]: no logout or state-clear
+     *   (invalidate / clearTokenState) occurred while the refresh was suspended. We use
+     *   [resetGeneration] rather than [profileGeneration] so that a benign provider swap
+     *   (registerProvider without a logout) does not falsely suppress retry — registerProvider
+     *   does not bump [resetGeneration].
+     * - The exception is a transient network error ([isNetworkException]): server errors and
+     *   validation failures should not trigger a connectivity retry.
+     * - [provider] is still set: a concurrent teardown may have cleared it.
+     * - No profile reset is pending ([profileResetPending]): guards against the window between
+     *   invalidate() and clearTokenState() where the flag is still true.
+     */
+    private fun shouldArmConnectivityRetry(
+        exception: Exception,
+        resetGenerationAtStart: Long
+    ): Boolean =
+        resetGeneration.get() == resetGenerationAtStart &&
+            isNetworkException(exception) &&
+            provider != null &&
+            !profileResetPending
 
     /**
      * Iterates [refreshObservers] and invokes each with [jwt]. Best-effort: if an observer throws,
@@ -448,10 +511,12 @@ internal class KlaviyoAuthTokenManager(
     }
 
     /**
-     * Returns `true` for exceptions that indicate genuine offline conditions:
-     * [IOException] and its subtypes [UnknownHostException], [SocketTimeoutException], and
-     * [ConnectException]. HTTP errors, validation failures, and server-side bugs return `false`
-     * and must not trigger a connectivity retry (they won't resolve by waiting for the network).
+     * Returns `true` for exceptions that indicate genuine offline conditions.
+     * [UnknownHostException], [SocketTimeoutException], and [ConnectException] are all subtypes of
+     * [IOException]; they are listed explicitly to document the specific failure modes that warrant
+     * a connectivity-driven retry. HTTP errors, validation failures, and server-side bugs return
+     * `false` and must not trigger a connectivity retry (they won't resolve by waiting for the
+     * network).
      */
     private fun isNetworkException(e: Exception): Boolean =
         e is UnknownHostException ||
@@ -464,51 +529,84 @@ internal class KlaviyoAuthTokenManager(
      * "connectivity available" notification from [Registry.networkMonitor], then triggers a
      * proactive refresh via [performScheduledRefresh].
      *
-     * At most one job is active at a time — any existing job is cancelled before the new one
-     * starts, preventing job accumulation on rapid flap. The job self-clears [connectivityWaitJob]
-     * when it completes (success, failure, or cancellation).
+     * At most one job is active at a time. All [connectivityWaitJob] and
+     * [connectivityWaitGeneration] transitions are serialized via [connectivityWaitLock] so that
+     * concurrent calls (rapid flap) and racing teardown from [registerProvider]/[clearTokenState]
+     * cannot leave multiple active jobs or a stale assignment.
+     *
+     * @param resumeImmediatelyIfConnected When true (the default), the job resumes immediately if
+     * the device is already connected — [Registry.networkMonitor] does not replay state on observer
+     * registration. Pass false from the connectivity-retry path to prevent a tight loop: if the
+     * provider keeps failing with a network exception while the device stays online, a re-armed job
+     * with [resumeImmediatelyIfConnected]=false waits for an actual connectivity transition before
+     * retrying again.
      *
      * Only invoked from the proactive-refresh failure path ([performScheduledRefresh]); demand
      * callers via [currentToken] are not retried here — they surface the error to their own caller.
      */
-    private fun armConnectivityWaitJob() {
-        connectivityWaitJob?.cancel()
+    private fun armConnectivityWaitJob(resumeImmediatelyIfConnected: Boolean = true) {
         Registry.log.info(
             "AuthTokenManager: network failure — waiting for connectivity to retry refresh"
         )
-        // Capture the wait generation before launching. The finally block uses this to determine
-        // whether to clear connectivityWaitJob: if armConnectivityWaitJob() was called again
-        // while this job was running (re-arm on repeated network failure), the generation will
-        // have advanced and this job must NOT null out the new job.
-        val waitGeneration = connectivityWaitGeneration.incrementAndGet()
-        connectivityWaitJob = scope.safeLaunch {
-            try {
-                suspendCancellableCoroutine { continuation ->
-                    // Use a ref box so the lambda can capture and de-register itself.
-                    val observerRef = arrayOfNulls<NetworkObserver>(1)
-                    val observer: NetworkObserver = { isConnected ->
-                        if (isConnected) {
-                            // De-register immediately — we only want to fire once per arming.
-                            observerRef[0]?.let { Registry.networkMonitor.offNetworkChange(it) }
+        // Serialize cancel → generation increment → launch → assign under one lock so that
+        // concurrent calls to armConnectivityWaitJob() and racing registerProvider()/
+        // clearTokenState() cannot produce multiple active jobs or a stale null-out.
+        val waitGeneration: Long
+        synchronized(connectivityWaitLock) {
+            connectivityWaitJob?.cancel()
+            waitGeneration = connectivityWaitGeneration.incrementAndGet()
+            connectivityWaitJob = scope.safeLaunch {
+                try {
+                    suspendCancellableCoroutine { continuation ->
+                        val resumed = AtomicBoolean(false)
+                        // Use a ref box so the lambda can capture and de-register itself.
+                        val observerRef = arrayOfNulls<NetworkObserver>(1)
+                        val observer: NetworkObserver = { isConnected ->
+                            // One-shot guard: AtomicBoolean ensures exactly one connectivity
+                            // event (including the immediate check below) resumes the coroutine.
+                            if (isConnected && resumed.compareAndSet(false, true)) {
+                                observerRef[0]?.let { Registry.networkMonitor.offNetworkChange(it) }
+                                if (continuation.isActive) continuation.resume(Unit)
+                            }
+                        }
+                        observerRef[0] = observer
+                        Registry.networkMonitor.onNetworkChange(observer)
+                        // Install cancellation handler AFTER registration so the handler can
+                        // never try to remove an observer that hasn't been registered yet.
+                        continuation.invokeOnCancellation {
+                            Registry.networkMonitor.offNetworkChange(observer)
+                        }
+                        // Resume immediately if already online — networkMonitor does not replay
+                        // state on registration (handles SocketTimeoutException on live network).
+                        // Skip on re-arm (resumeImmediatelyIfConnected=false) to prevent a tight
+                        // loop when the provider keeps failing with IOException while the device
+                        // stays connected; in that case we wait for an actual connectivity event.
+                        if (resumeImmediatelyIfConnected &&
+                            Registry.networkMonitor.isNetworkConnected() &&
+                            resumed.compareAndSet(false, true)
+                        ) {
+                            Registry.networkMonitor.offNetworkChange(observer)
                             if (continuation.isActive) continuation.resume(Unit)
                         }
                     }
-                    observerRef[0] = observer
-                    continuation.invokeOnCancellation {
-                        Registry.networkMonitor.offNetworkChange(observer)
+                    Registry.log.info(
+                        "AuthTokenManager: connectivity restored — retrying proactive refresh"
+                    )
+                    // Cancellation checkpoint: registerProvider()/clearTokenState() may have
+                    // cancelled this job after the connectivity event fired but before we retry.
+                    currentCoroutineContext().ensureActive()
+                    // Pass allowImmediateConnectivityRetry=false so that if this retry also fails
+                    // with a network exception, the re-armed job will NOT immediately resume on an
+                    // already-connected device — avoiding a tight retry loop.
+                    performScheduledRefresh(allowImmediateConnectivityRetry = false)
+                } finally {
+                    // Only clear the field if the generation still matches — a concurrent
+                    // re-arm may have replaced this job; if so leave the new job in place.
+                    synchronized(connectivityWaitLock) {
+                        if (connectivityWaitGeneration.get() == waitGeneration) {
+                            connectivityWaitJob = null
+                        }
                     }
-                    Registry.networkMonitor.onNetworkChange(observer)
-                }
-                Registry.log.info(
-                    "AuthTokenManager: connectivity restored — retrying proactive refresh"
-                )
-                performScheduledRefresh()
-            } finally {
-                // Only clear the field if the generation still matches — armConnectivityWaitJob()
-                // may have already replaced this job with a newer one (retry also failed with a
-                // network error). If replaced, leave the new job in place.
-                if (connectivityWaitGeneration.get() == waitGeneration) {
-                    connectivityWaitJob = null
                 }
             }
         }
