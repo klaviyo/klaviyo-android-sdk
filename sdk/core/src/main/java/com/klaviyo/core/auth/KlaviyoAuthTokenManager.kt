@@ -400,6 +400,11 @@ internal class KlaviyoAuthTokenManager(
         timerGeneration: Long? = null,
         allowImmediateConnectivityRetry: Boolean = true
     ) {
+        // Snapshot the profile generation before we suspend into the network fetch. If a profile
+        // transition (registerProvider / invalidate / clearTokenState) fires while we are awaiting
+        // the network response, the catch block below must not arm a connectivity job on behalf of
+        // the now-stale session. Comparing against the snapshot lets us detect that case cheaply.
+        val profileGenerationAtStart = profileGeneration.get()
         if (provider == null) return
         Registry.log.info("Proactive token refresh fired")
         try {
@@ -426,7 +431,11 @@ internal class KlaviyoAuthTokenManager(
         } catch (e: Exception) {
             if (timerGeneration != null) clearFiredFlagForFailedRefresh(timerGeneration)
             Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
-            if (isNetworkException(e) && provider != null && !profileResetPending) {
+            if (profileGeneration.get() == profileGenerationAtStart &&
+                isNetworkException(e) &&
+                provider != null &&
+                !profileResetPending
+            ) {
                 armConnectivityWaitJob(
                     resumeImmediatelyIfConnected = allowImmediateConnectivityRetry
                 )

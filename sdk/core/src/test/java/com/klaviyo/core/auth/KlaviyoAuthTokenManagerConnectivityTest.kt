@@ -397,6 +397,48 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         assertEquals(0, fakeNetworkMonitor.observerCount())
     }
 
+    @Test
+    fun `network failure after mid-fetch profile transition does not arm connectivity wait job`() =
+        runTest(dispatcher) {
+            // Simulates the narrow race where profileGeneration advances while the refresh is
+            // suspended on the network call, then the catch block runs after profileResetPending
+            // has been cleared by clearTokenState(). Without the generation snapshot guard the
+            // catch block would see provider != null && !profileResetPending and arm a zombie job.
+            //
+            // We reproduce by injecting invalidate() from inside the fetchToken callback — this
+            // bumps profileGeneration during the active fetch, so the snapshot captured at the
+            // start of performScheduledRefresh no longer matches by the time the catch runs.
+            val manager = KlaviyoAuthTokenManager()
+            val provider = object : AuthTokenProvider {
+                var callCount = 0
+
+                override fun fetchToken(callback: AuthTokenProvider.Callback) {
+                    callCount++
+                    if (callCount == 1) {
+                        callback.onSuccess(makeJwt())
+                    } else {
+                        // Mid-fetch profile transition: bump profileGeneration while the
+                        // refresh coroutine is running, before the failure is delivered.
+                        manager.invalidate()
+                        callback.onFailure(IOException("network down"))
+                    }
+                }
+            }
+
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("eager fetch ran", 1, provider.callCount)
+
+            executeScheduledRefresh()
+            assertEquals("timer refresh ran (and failed)", 2, provider.callCount)
+
+            assertNull(
+                "connectivity job must not arm when profileGeneration advanced mid-fetch",
+                manager.connectivityWaitJob
+            )
+            assertEquals(0, fakeNetworkMonitor.observerCount())
+        }
+
     // MARK: - Non-network failures do not arm the retry
 
     @Test
