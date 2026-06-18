@@ -117,6 +117,20 @@ object DeepLinking {
     }
 
     /**
+     * Create an intent to open a URL in the default browser.
+     *
+     * Unlike [makeDeepLinkIntent], this intent is not scoped to the host application package,
+     * so the OS routes it to the default browser.
+     *
+     * @param uri The web URL to open
+     * @return An intent configured to open the URL in the default browser
+     */
+    fun makeBrowserIntent(uri: Uri) = Intent(Intent.ACTION_VIEW, uri).apply {
+        addCategory(Intent.CATEGORY_BROWSABLE)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    /**
      * Create an intent to view a deep link within the host application.
      *
      * @param uri The deep link URI to be opened
