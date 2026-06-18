@@ -160,6 +160,24 @@ object Klaviyo {
     }
 
     /**
+     * Detach the registered auth token provider and tear down all associated token state.
+     *
+     * Call this when the user logs out and the app can no longer supply a valid JWT. Cancels any
+     * in-flight token fetch, scheduled proactive refresh, and connectivity-retry job, then clears
+     * the cached token and the provider reference. Subsequent personalized form displays will
+     * render without authentication until a new provider is registered via
+     * [registerAuthTokenProvider].
+     *
+     * Has no effect if no provider is currently registered.
+     *
+     * @return Returns [Klaviyo] for call chaining
+     */
+    @JvmStatic
+    fun unregisterAuthTokenProvider() = safeApply {
+        Registry.get<AuthTokenManager>().unregisterProvider()
+    }
+
+    /**
      * Assign new identifiers and attributes to the currently tracked profile.
      * If a profile has already been identified, it will be overwritten by calling [resetProfile].
      *

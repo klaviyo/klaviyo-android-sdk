@@ -155,6 +155,33 @@ internal class KlaviyoAuthTokenManager(
         scope.safeLaunch { tryEagerFetch() }
     }
 
+    override fun unregisterProvider() {
+        // Mirror registerProvider's synchronous teardown path, but null out the provider rather
+        // than setting a new one, and skip the eager fetch. All @Volatile writes here are safe
+        // without the mutex because they only need to be visible, not read-modify-written atomically.
+        inFlightFetch?.cancel()
+        inFlightFetch = null
+        refreshJob?.cancel()
+        refreshJob = null
+        refreshAtWallClockMs = null
+        refreshTimerFired = false
+        cancelConnectivityWaitJob()
+        refreshGeneration.incrementAndGet()
+        // Advance profileGeneration so any pending clearTokenState(expectedGeneration) from a
+        // prior resetProfile() sees the generation mismatch and skips — the state was already
+        // cleared here.
+        profileGeneration.incrementAndGet()
+        // Bump resetGeneration to signal a logout-like event: any performScheduledRefresh that
+        // was in-flight when this ran will see a generation mismatch in shouldArmConnectivityRetry
+        // and skip arming a connectivity retry for the now-cleared session.
+        resetGeneration.incrementAndGet()
+        // Clear the reset-pending flag in case invalidate() was called just before unregister.
+        profileResetPending = false
+        cachedToken = null
+        provider = null
+        Registry.log.info("AuthTokenProvider unregistered")
+    }
+
     override fun onTokenRefresh(observer: TokenRefreshObserver) {
         refreshObservers.add(observer)
     }
