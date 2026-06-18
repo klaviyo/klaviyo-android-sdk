@@ -15,15 +15,13 @@ import com.klaviyo.core.networking.KlaviyoNetworkMonitor
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.utils.KlaviyoThreadHelper
 import com.klaviyo.core.utils.ThreadHelper
-import kotlin.reflect.KType
-import kotlin.reflect.typeOf
 import kotlinx.coroutines.Dispatchers
 
 class MissingConfig : KlaviyoException("Klaviyo SDK accessed before initializing")
-class MissingRegistration(type: KType) : KlaviyoException(
+class MissingRegistration(type: Class<*>) : KlaviyoException(
     "No service registered for $type. Typically caused by accessing SDK before initializing or providing app lifecycle/context."
 )
-class InvalidRegistration(type: KType) : KlaviyoException("Registered service does not match $type")
+class InvalidRegistration(type: Class<*>) : KlaviyoException("Registered service does not match $type")
 class MissingKlaviyoModule(moduleName: String) : RuntimeException(
     "$moduleName module not installed. Add 'com.klaviyo:$moduleName' dependency to enable this feature."
 )
@@ -83,13 +81,13 @@ object Registry {
      * Internal registry of registered service instances
      */
     @PublishedApi
-    internal val services = mutableMapOf<KType, Any>()
+    internal val services = mutableMapOf<Class<*>, Any>()
 
     /**
      * Internal registry of registered service lambdas
      */
     @PublishedApi
-    internal val registry = mutableMapOf<KType, Registration>()
+    internal val registry = mutableMapOf<Class<*>, Registration>()
 
     /**
      * Remove registered service by type, specified by generic parameter
@@ -97,8 +95,8 @@ object Registry {
      * @param T - Type, usually an interface, to register under
      */
     inline fun <reified T : Any> unregister() {
-        registry.remove(typeOf<T>())
-        services.remove(typeOf<T>())
+        registry.remove(T::class.java)
+        services.remove(T::class.java)
     }
 
     /**
@@ -109,7 +107,7 @@ object Registry {
      * @param service - The implementation
      */
     inline fun <reified T : Any> register(service: Any) {
-        val type = typeOf<T>()
+        val type = T::class.java
         unregister<T>()
         services[type] = service
     }
@@ -122,7 +120,7 @@ object Registry {
      * @param registration - Lambda that returns the implementation
      */
     inline fun <reified T : Any> register(noinline registration: Registration) {
-        val type = typeOf<T>()
+        val type = T::class.java
         unregister<T>()
         registry[type] = registration
     }
@@ -137,7 +135,7 @@ object Registry {
      */
     inline fun <reified T : Any> registerOnce(noinline registration: Registration) {
         if (!isRegistered<T>()) {
-            val type = typeOf<T>()
+            val type = T::class.java
             registry[type] = registration
         }
     }
@@ -148,7 +146,7 @@ object Registry {
      * @param T - Type, usually an interface, to register under
      * @return Whether service is registered
      */
-    inline fun <reified T : Any> isRegistered(): Boolean = typeOf<T>().let { type ->
+    inline fun <reified T : Any> isRegistered(): Boolean = T::class.java.let { type ->
         registry.containsKey(type) || services.containsKey(type)
     }
 
@@ -159,7 +157,7 @@ object Registry {
      * @return The instance of the service
      */
     inline fun <reified T : Any> getOrNull(): T? {
-        val type = typeOf<T>()
+        val type = T::class.java
         val service: Any? = services[type]
 
         if (service is T) return service
@@ -178,7 +176,7 @@ object Registry {
      * @throws MissingRegistration If no service is registered of that type
      */
     inline fun <reified T : Any> get(): T {
-        val type = typeOf<T>()
+        val type = T::class.java
         val service: Any? = services[type]
 
         if (service is T) return service
@@ -191,7 +189,7 @@ object Registry {
 
             is Any -> throw InvalidRegistration(type)
             else -> {
-                if (type == typeOf<Config>()) {
+                if (type == Config::class.java) {
                     throw MissingConfig()
                 } else {
                     throw MissingRegistration(type)
