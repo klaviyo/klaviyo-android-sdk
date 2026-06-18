@@ -225,6 +225,55 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         )
     }
 
+    @Test
+    fun `persistent provider failure on connected device arms a waiting job not a tight loop`() =
+        runTest(dispatcher) {
+            // Scenario: device is online the whole time, but the provider keeps failing with
+            // IOException (e.g. the JWT endpoint itself is down). The first arm should resume
+            // immediately (resumeImmediatelyIfConnected=true). The second arm, kicked off by
+            // performScheduledRefresh(allowImmediateConnectivityRetry=false), must NOT resume
+            // immediately again — it waits for an actual connectivity transition. This prevents
+            // an uncontrolled tight-loop.
+            val successToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+            val provider = ScriptedProvider(
+                ArrayDeque(
+                    listOf(
+                        Result.success(makeJwt()), // eager fetch succeeds
+                        Result.failure(IOException("endpoint down")), // timer refresh fails
+                        Result.failure(IOException("still down")), // immediate retry fails
+                        Result.success(successToken) // eventual success
+                    )
+                )
+            )
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(1, provider.callCount)
+
+            // Device is already connected for the entire test
+            fakeNetworkMonitor.connected = true
+
+            // executeScheduledRefresh() + advanceUntilIdle() runs:
+            //  1. timer fires → performScheduledRefresh(immediate=true) → fails (count=2)
+            //  2. arm1(resumeImmediately=true) → isNetworkConnected()=true → immediate resume
+            //  3. performScheduledRefresh(immediate=false) → fails (count=3)
+            //  4. arm2(resumeImmediately=false) → skips immediate check → suspends
+            // After advanceUntilIdle the coroutine tree is idle with arm2 waiting.
+            executeScheduledRefresh()
+            assertEquals("two failures, no extra calls", 3, provider.callCount)
+            assertNotNull("arm2 should be waiting (not looping)", manager.connectivityWaitJob)
+            assertEquals(
+                "arm2 should be active — it is waiting, not looping",
+                false,
+                manager.connectivityWaitJob?.isCancelled ?: true
+            )
+
+            // Simulate a genuine connectivity transition — arm2 resumes, retry succeeds
+            fakeNetworkMonitor.simulateConnected(isConnected = true)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("eventual success on real connectivity event", 4, provider.callCount)
+        }
+
     // MARK: - At-most-one job invariant
 
     @Test
@@ -487,6 +536,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         var connected: Boolean = false
 
         fun simulateConnected(isConnected: Boolean) {
+            connected = isConnected
             observers.forEach { it(isConnected) }
         }
 

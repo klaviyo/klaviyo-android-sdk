@@ -396,7 +396,10 @@ internal class KlaviyoAuthTokenManager(
      * On failure does NOT reschedule; one foreground-transition retry is possible if
      * [refreshAtWallClockMs] was not yet cleared (timer fired but fetch failed).
      */
-    private suspend fun performScheduledRefresh(timerGeneration: Long? = null) {
+    private suspend fun performScheduledRefresh(
+        timerGeneration: Long? = null,
+        allowImmediateConnectivityRetry: Boolean = true
+    ) {
         if (provider == null) return
         Registry.log.info("Proactive token refresh fired")
         try {
@@ -424,7 +427,9 @@ internal class KlaviyoAuthTokenManager(
             if (timerGeneration != null) clearFiredFlagForFailedRefresh(timerGeneration)
             Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
             if (isNetworkException(e) && provider != null && !profileResetPending) {
-                armConnectivityWaitJob()
+                armConnectivityWaitJob(
+                    resumeImmediatelyIfConnected = allowImmediateConnectivityRetry
+                )
             }
         }
     }
@@ -476,18 +481,25 @@ internal class KlaviyoAuthTokenManager(
 
     /**
      * Arms [connectivityWaitJob]: a single coroutine on [scope] that suspends until the next
-     * "connectivity available" notification from [Registry.networkMonitor] (or immediately if
-     * already connected), then triggers a proactive refresh via [performScheduledRefresh].
+     * "connectivity available" notification from [Registry.networkMonitor], then triggers a
+     * proactive refresh via [performScheduledRefresh].
      *
      * At most one job is active at a time. All [connectivityWaitJob] and
      * [connectivityWaitGeneration] transitions are serialized via [connectivityWaitLock] so that
      * concurrent calls (rapid flap) and racing teardown from [registerProvider]/[clearTokenState]
      * cannot leave multiple active jobs or a stale assignment.
      *
+     * @param resumeImmediatelyIfConnected When true (the default), the job resumes immediately if
+     * the device is already connected — [Registry.networkMonitor] does not replay state on observer
+     * registration. Pass false from the connectivity-retry path to prevent a tight loop: if the
+     * provider keeps failing with a network exception while the device stays online, a re-armed job
+     * with [resumeImmediatelyIfConnected]=false waits for an actual connectivity transition before
+     * retrying again.
+     *
      * Only invoked from the proactive-refresh failure path ([performScheduledRefresh]); demand
      * callers via [currentToken] are not retried here — they surface the error to their own caller.
      */
-    private fun armConnectivityWaitJob() {
+    private fun armConnectivityWaitJob(resumeImmediatelyIfConnected: Boolean = true) {
         Registry.log.info(
             "AuthTokenManager: network failure — waiting for connectivity to retry refresh"
         )
@@ -521,7 +533,11 @@ internal class KlaviyoAuthTokenManager(
                         }
                         // Resume immediately if already online — networkMonitor does not replay
                         // state on registration (handles SocketTimeoutException on live network).
-                        if (Registry.networkMonitor.isNetworkConnected() &&
+                        // Skip on re-arm (resumeImmediatelyIfConnected=false) to prevent a tight
+                        // loop when the provider keeps failing with IOException while the device
+                        // stays connected; in that case we wait for an actual connectivity event.
+                        if (resumeImmediatelyIfConnected &&
+                            Registry.networkMonitor.isNetworkConnected() &&
                             resumed.compareAndSet(false, true)
                         ) {
                             Registry.networkMonitor.offNetworkChange(observer)
@@ -534,7 +550,10 @@ internal class KlaviyoAuthTokenManager(
                     // Cancellation checkpoint: registerProvider()/clearTokenState() may have
                     // cancelled this job after the connectivity event fired but before we retry.
                     currentCoroutineContext().ensureActive()
-                    performScheduledRefresh()
+                    // Pass allowImmediateConnectivityRetry=false so that if this retry also fails
+                    // with a network exception, the re-armed job will NOT immediately resume on an
+                    // already-connected device — avoiding a tight retry loop.
+                    performScheduledRefresh(allowImmediateConnectivityRetry = false)
                 } finally {
                     // Only clear the field if the generation still matches — a concurrent
                     // re-arm may have replaced this job; if so leave the new job in place.
