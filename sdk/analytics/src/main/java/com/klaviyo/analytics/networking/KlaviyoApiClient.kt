@@ -486,8 +486,16 @@ internal object KlaviyoApiClient : ApiClient {
 
             val request = apiQueue.poll() ?: continue
 
+            val attemptsBefore = request.attempts
             val status = request.sendAndBroadcast()
-            updateCircuitBreaker(request, status)
+            if (request.attempts > attemptsBefore) {
+                // A real send attempt completed — feed its outcome to the breaker.
+                updateCircuitBreaker(request)
+            } else {
+                // No send actually occurred (e.g. network unavailable, so send() bailed early).
+                // Release any probe slot we reserved and don't count it as a failure.
+                circuitBreaker.releaseProbe()
+            }
 
             when (status) {
                 Status.Unsent -> {
@@ -530,20 +538,15 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Translate a completed send attempt into a circuit-breaker outcome.
+     * Translate a completed send attempt into a circuit-breaker outcome. Only call this when a real
+     * send actually occurred (an attempt was made); skipped sends are handled by the caller.
      *
      * The breaker trips on *unreachable* failures (retryable 5xx, network/IO errors, or a `429`
      * with no usable `Retry-After`). Any response that proves the server is reachable — `2xx`, a
      * deliberate `403` load-shed, a `429` carrying a `Retry-After`, or any other `4xx` — resets the
      * breaker so dormancy never engages while the backend is merely rejecting or throttling us.
-     * Unsent (network unavailable) and Inflight (impossible) outcomes are not counted at all.
      */
-    private fun updateCircuitBreaker(request: KlaviyoApiRequest, status: Status) {
-        when (status) {
-            Status.Unsent, Status.Inflight -> return
-            else -> Unit
-        }
-
+    private fun updateCircuitBreaker(request: KlaviyoApiRequest) {
         when (request.responseCode) {
             // No HTTP response despite an attempt: the server was unreachable.
             null -> circuitBreaker.recordFailure()

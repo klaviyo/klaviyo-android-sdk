@@ -128,6 +128,23 @@ class CircuitBreakerTest {
     }
 
     @Test
+    fun `releaseProbe frees an unused half-open slot so a later cycle can probe again`() {
+        val breaker = makeBreaker()
+        repeat(3) { breaker.recordFailure() }
+        now += 1_000L // half-open
+
+        assertTrue(breaker.allowRequest()) // probe slot taken
+        assertFalse(breaker.allowRequest()) // blocked while probe is "in flight"
+
+        // The probe was never actually used (e.g. send skipped while offline)
+        breaker.releaseProbe()
+
+        // The slot is available again, and no failure/open state changed
+        assertEquals(CircuitBreaker.State.HALF_OPEN, breaker.state())
+        assertTrue(breaker.allowRequest())
+    }
+
+    @Test
     fun `reset returns the breaker to a fully closed state`() {
         val breaker = makeBreaker()
         repeat(3) { breaker.recordFailure() }

@@ -1246,4 +1246,22 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
         assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
     }
+
+    @Test
+    fun `Circuit breaker does not count a skipped send where no attempt was made`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 3
+
+        // Simulate send() bailing out (e.g. network offline): status stays Unsent and no
+        // attempt is made (attempts is not incremented), so it must not count as a failure.
+        val request = mockRequest("cb-skip", KlaviyoApiRequest.Status.Unsent)
+        every { request.send(any()) } returns KlaviyoApiRequest.Status.Unsent
+
+        KlaviyoApiClient.enqueueRequest(request)
+
+        // Far more skipped flushes than the threshold — the breaker must remain closed
+        repeat(5) { KlaviyoApiClient.awaitFlushQueueOutcome() }
+
+        assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
 }

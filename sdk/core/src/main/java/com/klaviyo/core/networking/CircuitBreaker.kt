@@ -109,6 +109,16 @@ class CircuitBreaker(
     }
 
     /**
+     * Release a half-open probe slot that was reserved by [allowRequest] but never used — e.g. the
+     * send was skipped because the network was unavailable, so no real attempt occurred. This frees
+     * the breaker to probe again on a later cycle instead of being stuck half-open forever. It does
+     * not touch the failure counter or open window, since nothing actually failed or succeeded.
+     */
+    fun releaseProbe() {
+        probeInFlight = false
+    }
+
+    /**
      * Reset all breaker state. Intended to be called when the API client (re)starts.
      */
     fun reset() = recordSuccess()
