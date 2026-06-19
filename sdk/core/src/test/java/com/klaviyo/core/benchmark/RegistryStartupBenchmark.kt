@@ -1,7 +1,6 @@
 package com.klaviyo.core.benchmark
 
 import com.klaviyo.core.Registry
-import java.lang.management.ManagementFactory
 
 /**
  * A unique marker type used only to drive a first-of-its-kind reified Registry
@@ -23,11 +22,11 @@ private interface RegistryStartupBenchmarkMarker
  * - With the MAGE-805 fix the call routes through `T::class.java` (a direct class
  *   literal) and loads only a handful of classes — no reflection subsystem.
  *
- * The primary signal is the number of classes loaded during the call, captured via
- * [ManagementFactory]'s class-loading bean. Class count is deterministic and
- * hardware-independent, unlike wall-clock time (CI runners are far faster than the
- * low-end devices where the ANR reproduces), so it gives a stable red/green split.
- * Elapsed time is also reported for context.
+ * The primary signal is the number of classes loaded during the call (see
+ * [totalLoadedClasses]). Class count is deterministic and hardware-independent,
+ * unlike wall-clock time (CI runners are far faster than the low-end devices where
+ * the ANR reproduces), so it gives a stable red/green split. Elapsed time is also
+ * reported for context.
  *
  * A fresh JVM is required because the reflection subsystem is process-global and
  * warms up exactly once; the cost is invisible in the already-warmed test JVM.
@@ -35,13 +34,12 @@ private interface RegistryStartupBenchmarkMarker
  * Output contract (stdout): a `CLASSES_LOADED=<n>` line and an `ELAPSED_NS=<n>` line.
  */
 fun main() {
-    val classLoading = ManagementFactory.getClassLoadingMXBean()
+    // Warm up the measurement/printing machinery first (including the reflective
+    // ManagementFactory lookup) so the measured delta is attributable to the
+    // Registry call rather than incidental class loading.
+    println("WARMUP=${totalLoadedClasses()}")
 
-    // Warm up the measurement/printing machinery first so the measured delta is
-    // attributable to the Registry call rather than incidental class loading.
-    println("WARMUP=${classLoading.totalLoadedClassCount}")
-
-    val loadedBefore = classLoading.totalLoadedClassCount
+    val loadedBefore = totalLoadedClasses()
     val start = System.nanoTime()
     // First reified Registry call in this process — the cold-start hot path.
     // registerOnce -> isRegistered -> key derivation: typeOf<T>() on master
@@ -50,8 +48,26 @@ fun main() {
         object : RegistryStartupBenchmarkMarker {}
     }
     val elapsedNs = System.nanoTime() - start
-    val classesLoaded = classLoading.totalLoadedClassCount - loadedBefore
+    val classesLoaded = totalLoadedClasses() - loadedBefore
 
     println("CLASSES_LOADED=$classesLoaded")
     println("ELAPSED_NS=$elapsedNs")
+}
+
+/**
+ * Total number of classes this JVM has loaded so far, read from
+ * `java.lang.management.ClassLoadingMXBean`.
+ *
+ * Accessed reflectively on purpose: the `java.lang.management` package is NOT on
+ * the Android unit-test COMPILE classpath (Android's `android.jar` omits it), so a
+ * direct import does not compile. It IS present at RUNTIME in the forked JDK that
+ * runs this `main`, so reflection resolves it there. Methods are invoked via the
+ * exported `ClassLoadingMXBean` interface to avoid JPMS access issues with the
+ * (non-exported) bean implementation class.
+ */
+private fun totalLoadedClasses(): Long {
+    val managementFactory = Class.forName("java.lang.management.ManagementFactory")
+    val bean = managementFactory.getMethod("getClassLoadingMXBean").invoke(null)
+    val beanInterface = Class.forName("java.lang.management.ClassLoadingMXBean")
+    return (beanInterface.getMethod("getTotalLoadedClassCount").invoke(bean) as Int).toLong()
 }
