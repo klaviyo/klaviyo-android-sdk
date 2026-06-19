@@ -69,5 +69,5 @@ private fun totalLoadedClasses(): Long {
     val managementFactory = Class.forName("java.lang.management.ManagementFactory")
     val bean = managementFactory.getMethod("getClassLoadingMXBean").invoke(null)
     val beanInterface = Class.forName("java.lang.management.ClassLoadingMXBean")
-    return (beanInterface.getMethod("getTotalLoadedClassCount").invoke(bean) as Int).toLong()
+    return beanInterface.getMethod("getTotalLoadedClassCount").invoke(bean) as Long
 }
