@@ -183,9 +183,17 @@ internal class KlaviyoAuthTokenManager(
         // was in-flight when this ran will see a generation mismatch in shouldArmConnectivityRetry
         // and skip arming a connectivity retry for the now-cleared session.
         resetGeneration.incrementAndGet()
-        // Clear the reset-pending flag in case invalidate() was called just before unregister.
-        profileResetPending = false
+        // Null the cache BEFORE clearing profileResetPending. An in-flight performScheduledRefresh
+        // that has already fetched its token checks `cachedToken?.rawToken == token.rawToken &&
+        // !profileResetPending` before notifying observers. If invalidate() was called just before
+        // unregister (typical logout: resetProfile → unregisterAuthTokenProvider), profileResetPending
+        // is true — the suppression flag. Clearing it before nulling the cache opens a window where
+        // the in-flight refresh passes both guards and delivers a now-invalid JWT to observers.
+        // Nulling the cache first closes that window: the rawToken comparison fails (null != token),
+        // so the notify path is skipped regardless of profileResetPending. This matches the ordering
+        // in clearTokenState(), which also nulls cachedToken before clearing profileResetPending.
         cachedToken = null
+        profileResetPending = false
         Registry.log.info("AuthTokenProvider unregistered")
     }
 
