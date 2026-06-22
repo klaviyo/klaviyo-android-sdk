@@ -50,10 +50,8 @@ internal class KlaviyoTrampolineActivity : Activity() {
             handleTrampolineIntent(intent, this)
         } finally {
             // Always finish — leaving a translucent activity onscreen after an exception would look
-            // like a stuck blank screen. Post via the UI thread *after* dispatching the destination:
-            // some OEMs (Xiaomi MIUI) fail to foreground the destination if the trampoline finishes
-            // synchronously (matches OneSignal's trampoline handling).
-            Registry.threadHelper.runOnUiThread { finish() }
+            // like a stuck blank screen to the user.
+            finish()
         }
     }
 
