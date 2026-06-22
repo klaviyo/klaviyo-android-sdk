@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.R
 import com.klaviyo.core.Registry
@@ -220,5 +221,42 @@ internal class KlaviyoConfigTest : BaseTest() {
             PackageManager.GET_PERMISSIONS
         )
         verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) }
+    }
+
+    @Test
+    fun `getManifestBoolean reads metadata value when present, else returns default`() {
+        val mockMetadata = mockk<Bundle>()
+        mockApplicationInfo.metaData = mockMetadata
+        val key = "com.klaviyo.automatic_push_tracking"
+
+        // Tiramisu+ path resolves application info via the ApplicationInfoFlags overload.
+        mockkStatic(PackageManager.ApplicationInfoFlags::class)
+        val mockApplicationInfoFlags = mockk<PackageManager.ApplicationInfoFlags>()
+        every { PackageManager.ApplicationInfoFlags.of(any()) } returns mockApplicationInfoFlags
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
+        every {
+            mockPackageManager.getApplicationInfo(
+                BuildConfig.LIBRARY_PACKAGE_NAME,
+                mockApplicationInfoFlags
+            )
+        } returns mockApplicationInfo
+        every { mockMetadata.getBoolean(key, false) } returns true
+        assertEquals(true, mockContext.getManifestBoolean(key, false))
+
+        // Pre-Tiramisu path uses the simple getApplicationInfo(pkgName, flags) overload.
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
+        every {
+            @Suppress("DEPRECATION")
+            mockPackageManager.getApplicationInfo(
+                BuildConfig.LIBRARY_PACKAGE_NAME,
+                PackageManager.GET_META_DATA
+            )
+        } returns mockApplicationInfo
+        // Present + false
+        every { mockMetadata.getBoolean(key, true) } returns false
+        assertEquals(false, mockContext.getManifestBoolean(key, true))
+        // Absent → metadata returns the supplied default unchanged
+        every { mockMetadata.getBoolean("missing.key", true) } returns true
+        assertEquals(true, mockContext.getManifestBoolean("missing.key", true))
     }
 }

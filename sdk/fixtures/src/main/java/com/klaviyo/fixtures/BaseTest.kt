@@ -96,6 +96,8 @@ abstract class BaseTest {
         every { sdkName } returns "klaviyo-android-sdk"
         every { sdkVersion } returns "4.20.69"
         every { formEnvironment } returns FormEnvironment.IN_APP
+        // Default to the passed default (e.g. automatic push tracking off); override per-test to flip on
+        every { getManifestBoolean(any(), any()) } answers { secondArg() }
     }
 
     protected val mockActivity: Activity = mockk(relaxed = true)
