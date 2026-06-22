@@ -225,9 +225,19 @@ internal class KlaviyoConfigTest : BaseTest() {
 
     @Test
     fun `getManifestBoolean reads metadata value when present, else returns default`() {
-        val mockMetadata = mockk<Bundle>()
+        // Back the Bundle with a real map so getBoolean has genuine present/absent semantics
+        // (stored value wins, missing key returns the supplied default) rather than echoing a
+        // stubbed return — the latter would only restate the assertion.
+        val metadata = mutableMapOf(
+            "com.klaviyo.present_true" to true,
+            "com.klaviyo.present_false" to false
+        )
+        val mockMetadata = mockk<Bundle> {
+            every { getBoolean(any(), any()) } answers {
+                metadata[firstArg<String>()] ?: secondArg<Boolean>()
+            }
+        }
         mockApplicationInfo.metaData = mockMetadata
-        val key = "com.klaviyo.automatic_push_tracking"
 
         // Tiramisu+ path resolves application info via the ApplicationInfoFlags overload.
         mockkStatic(PackageManager.ApplicationInfoFlags::class)
@@ -240,8 +250,8 @@ internal class KlaviyoConfigTest : BaseTest() {
                 mockApplicationInfoFlags
             )
         } returns mockApplicationInfo
-        every { mockMetadata.getBoolean(key, false) } returns true
-        assertEquals(true, mockContext.getManifestBoolean(key, false))
+        // Reads the requested key from metadata, ignoring the (opposite) default.
+        assertEquals(true, mockContext.getManifestBoolean("com.klaviyo.present_true", false))
 
         // Pre-Tiramisu path uses the simple getApplicationInfo(pkgName, flags) overload.
         setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
@@ -252,11 +262,10 @@ internal class KlaviyoConfigTest : BaseTest() {
                 PackageManager.GET_META_DATA
             )
         } returns mockApplicationInfo
-        // Present + false
-        every { mockMetadata.getBoolean(key, true) } returns false
-        assertEquals(false, mockContext.getManifestBoolean(key, true))
-        // Absent → metadata returns the supplied default unchanged
-        every { mockMetadata.getBoolean("missing.key", true) } returns true
+        // Stored false wins over a true default.
+        assertEquals(false, mockContext.getManifestBoolean("com.klaviyo.present_false", true))
+        // Absent key falls back to whichever default is supplied (both directions).
         assertEquals(true, mockContext.getManifestBoolean("missing.key", true))
+        assertEquals(false, mockContext.getManifestBoolean("missing.key", false))
     }
 }

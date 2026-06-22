@@ -863,6 +863,9 @@ class KlaviyoNotificationTest : BaseTest() {
         // Deep link must NOT target the host directly when auto-tracking is on.
         verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any()) }
         assertEquals(mockTrampolineIntent, intentSlot.captured)
+        // Extras parity: the trampoline intent still carries the Klaviyo extras.
+        verify { mockTrampolineIntent.putExtra("com.klaviyo._k", "test_tracking_id") }
+        verify { mockTrampolineIntent.putExtra("com.klaviyo.title", "Test Title") }
     }
 
     @Test
@@ -888,12 +891,15 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
-    fun `automatic tracking on - deep_link action button routes through trampoline`() {
+    fun `automatic tracking on - deep_link action button routes through trampoline with extras`() {
         enableAutomaticTracking()
         val parsedUri = mockk<Uri>(relaxed = true)
         every { Uri.parse("klaviyotest://order/123") } returns parsedUri
+        val mockButtonIntent = mockk<Intent>(relaxed = true)
+        every { KlaviyoTrampolineActivity.forDestination(mockContext, parsedUri) } returns mockButtonIntent
 
         with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.notificationTag } returns "test_tag"
             every { mockRemoteMessage.actionButtons } returns listOf(
                 ActionButton.DeepLink(
                     id = "com.klaviyo.test.view",
@@ -908,15 +914,24 @@ class KlaviyoNotificationTest : BaseTest() {
 
         notification.displayNotification(mockContext)
 
+        // Routed through the trampoline, not a direct ACTION_VIEW…
         verify { KlaviyoTrampolineActivity.forDestination(mockContext, parsedUri) }
         verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any()) }
+        // …carrying the same extras the non-trampoline button intent does today.
+        verify { mockButtonIntent.putExtra("_klaviyo.notification_tag", "test_tag") }
+        verify { mockButtonIntent.putExtra("com.klaviyo._k", "test_tracking_id") }
+        verify { mockButtonIntent.putExtra("com.klaviyo.Button Label", "View Order") }
+        verify { mockButtonIntent.putExtra("com.klaviyo.Button Link", "klaviyotest://order/123") }
     }
 
     @Test
-    fun `automatic tracking on - open_app action button routes through trampoline`() {
+    fun `automatic tracking on - open_app action button routes through trampoline with extras`() {
         enableAutomaticTracking()
+        val mockButtonIntent = mockk<Intent>(relaxed = true)
+        every { KlaviyoTrampolineActivity.forDestination(mockContext, null) } returns mockButtonIntent
 
         with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.notificationTag } returns "test_tag"
             every { mockRemoteMessage.actionButtons } returns listOf(
                 ActionButton.OpenApp(id = "open", label = "Open")
             )
@@ -929,6 +944,9 @@ class KlaviyoNotificationTest : BaseTest() {
 
         verify { KlaviyoTrampolineActivity.forDestination(mockContext, null) }
         verify(exactly = 0) { DeepLinking.makeLaunchIntent(any()) }
+        // Extras parity: notification tag (for dismissal) + Klaviyo extras still applied.
+        verify { mockButtonIntent.putExtra("_klaviyo.notification_tag", "test_tag") }
+        verify { mockButtonIntent.putExtra("com.klaviyo._k", "test_tracking_id") }
     }
 
     @Test
