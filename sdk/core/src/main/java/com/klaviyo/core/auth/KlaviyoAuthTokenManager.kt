@@ -158,12 +158,15 @@ internal class KlaviyoAuthTokenManager(
     override fun unregisterProvider() {
         // Fast path: nothing to do if no provider is registered.
         if (provider == null) return
-        // Mirror registerProvider's synchronous teardown path, but null out the provider rather
-        // than setting a new one, and skip the eager fetch. All @Volatile writes here are safe
-        // without the mutex for the same reason as registerProvider: they only need to be visible,
-        // not read-modify-written atomically. The same narrow doFetch cache-write window that
-        // exists for registerProvider applies here; the inFlightFetch?.cancel() + ensureActive()
-        // guards reduce it to a negligible race and the residual is an accepted trade-off.
+        // Null the provider FIRST — before cancelling the in-flight fetch — so that any concurrent
+        // getOrFetchToken() path that races past the `if (provider == null)` guard lands in
+        // invokeProvider() and immediately receives NoProviderRegistered, rather than starting a
+        // fresh acquisition against the now-unregistered provider. This differs from
+        // registerProvider, where the new provider is set last (after teardown cancels the old
+        // fetch); here there is no replacement provider, so the guard must close as early as
+        // possible. All @Volatile writes below are safe without the mutex for the same reason as
+        // registerProvider: they only need to be visible, not read-modify-written atomically.
+        provider = null
         inFlightFetch?.cancel()
         inFlightFetch = null
         refreshJob?.cancel()
@@ -183,7 +186,6 @@ internal class KlaviyoAuthTokenManager(
         // Clear the reset-pending flag in case invalidate() was called just before unregister.
         profileResetPending = false
         cachedToken = null
-        provider = null
         Registry.log.info("AuthTokenProvider unregistered")
     }
 
