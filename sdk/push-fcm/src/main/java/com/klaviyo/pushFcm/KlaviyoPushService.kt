@@ -3,6 +3,7 @@ package com.klaviyo.pushFcm
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.hasKlaviyoKeyValuePairs
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
@@ -21,6 +22,19 @@ open class KlaviyoPushService : FirebaseMessagingService() {
     companion object {
         const val METADATA_DEFAULT_ICON = "com.klaviyo.push.default_notification_icon"
         const val METADATA_DEFAULT_COLOR = "com.klaviyo.push.default_notification_color"
+
+        /**
+         * Manifest `<meta-data>` key to opt into automatic push open tracking. When set, Klaviyo
+         * notification taps route through [KlaviyoTrampolineActivity], which tracks the open itself
+         * so the host app no longer needs to call `Klaviyo.handlePush(intent)` in its Activities:
+         *
+         * ```xml
+         * <meta-data
+         *     android:name="com.klaviyo.automatic_push_tracking"
+         *     android:value="true" />
+         * ```
+         */
+        const val METADATA_AUTOMATIC_PUSH_TRACKING = Constants.AUTOMATIC_PUSH_TRACKING
     }
 
     /**
