@@ -6,5 +6,7 @@ data class InboxMessage(
     val title: String,
     val body: String,
     val status: InboxStatus,
-    val source: InboxSource
+    val source: InboxSource,
+    /** True if this message also arrived as a push notification. */
+    val pushTied: Boolean = false
 )

@@ -40,7 +40,8 @@ internal class InboxRepositoryImpl(
                 title = message.title,
                 body = message.body,
                 status = preservedStatus ?: InboxStatus.UNREAD,
-                source = message.source
+                source = message.source,
+                pushTied = message.pushTied
             )
         }
 
@@ -50,13 +51,24 @@ internal class InboxRepositoryImpl(
 
     override suspend fun markRead(id: String) {
         dao.updateStatus(id, InboxStatus.READ)
+        reportToServer(id, InboxServerState.READ)
     }
 
     override suspend fun markHidden(id: String) {
         dao.updateStatus(id, InboxStatus.HIDDEN)
+        reportToServer(id, InboxServerState.DELETED)
     }
 
     override suspend fun upsertFromPush(entity: InboxMessageEntity) {
         dao.upsertMessages(listOf(entity))
+    }
+
+    private suspend fun reportToServer(id: String, state: InboxServerState) {
+        val params = profileParams()
+        if (!params.hasIdentifier) {
+            Registry.log.verbose("Skipping server state report for $id: no profile identifier")
+            return
+        }
+        apiService.reportState(id, state, params)
     }
 }

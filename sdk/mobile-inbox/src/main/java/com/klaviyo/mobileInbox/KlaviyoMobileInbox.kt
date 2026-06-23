@@ -2,6 +2,7 @@ package com.klaviyo.mobileInbox
 
 import android.content.Context
 import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
@@ -31,21 +32,24 @@ object KlaviyoMobileInbox {
     /**
      * Initializes the mobile inbox.
      *
-     * Must be called before any other [KlaviyoMobileInbox] methods. Sets up the local Room
-     * database, wires the remote API service, and registers a lifecycle observer that triggers
-     * a sync whenever the app resumes.
+     * Call after [com.klaviyo.analytics.Klaviyo.initialize]. Sets up the local Room database,
+     * wires the remote API service using the SDK's configured base URL, and registers a lifecycle
+     * observer that triggers a sync on every app resume.
      *
      * @param context Application context.
-     * @param inboxEndpointUrl Full URL of the remote inbox endpoint (placeholder until confirmed).
      */
     @JvmStatic
-    fun initialize(context: Context, inboxEndpointUrl: String) {
+    fun initialize(context: Context) {
         val db = InboxDatabase.getInstance(context)
         val dao = db.inboxMessageDao()
-        val apiService = InboxApiServiceImpl(inboxEndpointUrl)
+        val apiService = InboxApiServiceImpl()
         repository = InboxRepositoryImpl(dao, apiService) {
-            // TODO: populate from Klaviyo profile state once we confirm the identity API surface
-            InboxProfileParams()
+            InboxProfileParams(
+                email = Klaviyo.getEmail(),
+                externalId = Klaviyo.getExternalId(),
+                phoneNumber = Klaviyo.getPhoneNumber()
+                // anonymous_id: TODO — expose via Klaviyo public API once the accessor is confirmed
+            )
         }
 
         Registry.lifecycleMonitor.onActivityEvent { event ->
@@ -54,7 +58,7 @@ object KlaviyoMobileInbox {
             }
         }
 
-        Registry.log.info("KlaviyoMobileInbox initialized with endpoint: $inboxEndpointUrl")
+        Registry.log.info("KlaviyoMobileInbox initialized")
     }
 
     /**

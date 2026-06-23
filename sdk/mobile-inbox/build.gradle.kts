@@ -20,6 +20,7 @@ android {
 
 dependencies {
     implementation(project(":sdk:core"))
+    implementation(project(":sdk:analytics"))
     implementation(project(":sdk:push-fcm"))
     // Firebase is an impl dep of push-fcm, so not on our compile classpath — needed for KAPT stubs
     compileOnly(platform(Firebase.bom))

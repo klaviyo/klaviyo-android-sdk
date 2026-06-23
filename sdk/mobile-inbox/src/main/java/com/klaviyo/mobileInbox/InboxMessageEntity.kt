@@ -12,7 +12,8 @@ internal data class InboxMessageEntity(
     val title: String,
     val body: String,
     val status: InboxStatus = InboxStatus.UNREAD,
-    val source: InboxSource
+    val source: InboxSource,
+    val pushTied: Boolean = false
 ) {
     fun toInboxMessage() = InboxMessage(
         id = id,
@@ -20,6 +21,7 @@ internal data class InboxMessageEntity(
         title = title,
         body = body,
         status = status,
-        source = source
+        source = source,
+        pushTied = pushTied
     )
 }
