@@ -23,6 +23,8 @@ import kotlinx.coroutines.launch
  */
 object KlaviyoMobileInbox {
 
+    private const val SAVE_TO_INBOX_KEY = "_klaviyo_save_to_inbox"
+
     private var repository: InboxRepository? = null
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -67,6 +69,11 @@ object KlaviyoMobileInbox {
     fun handlePushMessage(message: RemoteMessage) {
         val repo = repository ?: run {
             Registry.log.warning("KlaviyoMobileInbox.handlePushMessage called before initialize")
+            return
+        }
+
+        if (message.data[SAVE_TO_INBOX_KEY] != "1") {
+            Registry.log.verbose("Skipping inbox storage: $SAVE_TO_INBOX_KEY not set to 1")
             return
         }
 

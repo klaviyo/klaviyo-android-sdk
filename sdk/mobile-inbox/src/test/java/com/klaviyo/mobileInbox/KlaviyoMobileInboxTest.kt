@@ -59,33 +59,74 @@ class KlaviyoMobileInboxTest : BaseTest() {
     }
 
     @Test
-    fun `handlePushMessage with null messageId generates fallback and logs warning`() {
+    fun `handlePushMessage skips save when save_to_inbox flag is absent`() {
+        withInitializedInbox {
+            val message = buildMockMessage(
+                messageId = "msg-1",
+                title = "T",
+                body = "B",
+                saveToInbox = false
+            )
+            KlaviyoMobileInbox.handlePushMessage(message)
+            verify { spyLog.verbose(match { it.contains("Skipping inbox storage") }) }
+        }
+    }
+
+    @Test
+    fun `handlePushMessage skips save when save_to_inbox is 0`() {
+        withInitializedInbox {
+            val message = buildMockMessage(
+                messageId = "msg-1",
+                title = "T",
+                body = "B",
+                saveToInboxValue = "0"
+            )
+            KlaviyoMobileInbox.handlePushMessage(message)
+            verify { spyLog.verbose(match { it.contains("Skipping inbox storage") }) }
+        }
+    }
+
+    @Test
+    fun `handlePushMessage with null messageId and save_to_inbox 1 generates fallback and logs warning`() {
+        withInitializedInbox {
+            val message = buildMockMessage(
+                messageId = null,
+                title = "T",
+                body = "B",
+                saveToInbox = true
+            )
+            KlaviyoMobileInbox.handlePushMessage(message)
+            verify { spyLog.warning(match { it.contains("messageId is null") }) }
+        }
+    }
+
+    private fun withInitializedInbox(block: () -> Unit) {
         mockkObject(InboxDatabase)
         val mockDb = mockk<InboxDatabase>(relaxed = true)
         val mockDao = mockk<InboxMessageDao>(relaxed = true)
         every { InboxDatabase.getInstance(any()) } returns mockDb
         every { mockDb.inboxMessageDao() } returns mockDao
-
         KlaviyoMobileInbox.initialize(mockContext, "https://inbox.example.com")
-
-        val message = buildMockMessage(messageId = null, title = "T", body = "B")
-        KlaviyoMobileInbox.handlePushMessage(message)
-
-        verify { spyLog.warning(match { it.contains("messageId is null") }) }
-
-        unmockkObject(InboxDatabase)
+        try {
+            block()
+        } finally {
+            unmockkObject(InboxDatabase)
+        }
     }
 
     private fun buildMockMessage(
         messageId: String?,
         title: String,
-        body: String
+        body: String,
+        saveToInbox: Boolean? = null,
+        saveToInboxValue: String? = null
     ): RemoteMessage = mockk<RemoteMessage>().apply {
         every { this@apply.messageId } returns messageId
-        every { data } returns mapOf(
-            "_k" to "",
-            "title" to title,
-            "body" to body
-        )
+        val data = mutableMapOf("_k" to "", "title" to title, "body" to body)
+        when {
+            saveToInboxValue != null -> data["_klaviyo_save_to_inbox"] = saveToInboxValue
+            saveToInbox == true -> data["_klaviyo_save_to_inbox"] = "1"
+        }
+        every { this@apply.data } returns data
     }
 }
