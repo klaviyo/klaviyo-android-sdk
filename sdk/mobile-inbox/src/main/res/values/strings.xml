@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="klaviyo_sdk_version_override" translatable="false">0.1.0</string>
+</resources>
