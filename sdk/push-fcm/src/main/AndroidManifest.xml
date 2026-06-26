@@ -9,6 +9,11 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+        <!--
+            Trampoline activity that tracks the push open then forwards the intent. Configured to be
+            invisible and transient: translucent theme (no UI), noHistory + excludeFromRecents (never
+            in the back stack or recents), taskAffinity="" + singleTask (no task of its own).
+        -->
         <activity
             android:name="com.klaviyo.pushFcm.KlaviyoTrampolineActivity"
             android:exported="false"

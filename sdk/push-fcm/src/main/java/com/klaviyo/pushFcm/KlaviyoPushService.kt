@@ -26,7 +26,9 @@ open class KlaviyoPushService : FirebaseMessagingService() {
         /**
          * Manifest `<meta-data>` key to opt into automatic push open tracking. When set, Klaviyo
          * notification taps route through [KlaviyoTrampolineActivity], which tracks the open itself
-         * so the host app no longer needs to call `Klaviyo.handlePush(intent)` in its Activities:
+         * so the host app no longer needs to call `Klaviyo.handlePush(intent)` in its Activities.
+         *
+         * Host apps opt in by adding this to their `AndroidManifest.xml`:
          *
          * ```xml
          * <meta-data

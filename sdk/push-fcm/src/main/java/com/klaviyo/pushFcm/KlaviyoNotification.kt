@@ -167,14 +167,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         notificationTag: String
     ): NotificationCompat.Builder {
         val requestCodeBase = generateId()
-        // When the host opts into automatic push tracking, body/deep_link/open_app taps route
-        // through KlaviyoTrampolineActivity so it can call handlePush itself. open_url already
-        // routes through the trampoline regardless (the browser would otherwise swallow the intent).
-        //
-        // Read the manifest flag from the build-time [context] rather than Registry.config, which
-        // returns the default until Klaviyo.initialize runs. FCM can build a notification before the
-        // host initializes (e.g. when init happens in an Activity, not Application), and the flag is
-        // static manifest data readable from any context — so reading it here keeps opt-in reliable.
+        // When the host opts into automatic push tracking, taps route through
+        // KlaviyoTrampolineActivity so it can call handlePush itself.
+        // Read the flag from the build-time context, not Registry.config, since FCM can build a
+        // notification before Klaviyo.initialize runs (e.g. init in an Activity, not Application).
         val autoTracking = context.getManifestBoolean(
             KlaviyoPushService.METADATA_AUTOMATIC_PUSH_TRACKING,
             false

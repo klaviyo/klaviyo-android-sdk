@@ -31,11 +31,9 @@ object Constants {
 
     /**
      * Manifest `<meta-data>` key a host app sets to opt into automatic push open tracking.
-     * When enabled, Klaviyo notification taps route through `KlaviyoTrampolineActivity`, which
-     * calls `Klaviyo.handlePush` itself — removing the need for `handlePush` in host Activities.
      *
      * Lives in core (not push-fcm) because telemetry's push token request must read it, and core
-     * cannot depend on push-fcm. Re-exposed as `KlaviyoPushService.METADATA_AUTOMATIC_PUSH_TRACKING`.
+     * cannot depend on push-fcm.
      */
     const val AUTOMATIC_PUSH_TRACKING = PACKAGE_PREFIX + "automatic_push_tracking"
 
