@@ -24,17 +24,9 @@ open class KlaviyoPushService : FirebaseMessagingService() {
         const val METADATA_DEFAULT_COLOR = "com.klaviyo.push.default_notification_color"
 
         /**
-         * Manifest `<meta-data>` key to opt into automatic push open tracking. When set, Klaviyo
-         * notification taps route through [KlaviyoTrampolineActivity], which tracks the open itself
-         * so the host app no longer needs to call `Klaviyo.handlePush(intent)` in its Activities.
-         *
-         * Host apps opt in by adding this to their `AndroidManifest.xml`:
-         *
-         * ```xml
-         * <meta-data
-         *     android:name="com.klaviyo.automatic_push_tracking"
-         *     android:value="true" />
-         * ```
+         * Manifest `<meta-data>` key (boolean) to opt into automatic push open tracking. When set to
+         * `true`, Klaviyo notification taps route through [KlaviyoTrampolineActivity], which tracks the
+         * open itself so the host app no longer needs to call `Klaviyo.handlePush(intent)` in its Activities.
          */
         const val METADATA_AUTOMATIC_PUSH_TRACKING = Constants.AUTOMATIC_PUSH_TRACKING
     }
