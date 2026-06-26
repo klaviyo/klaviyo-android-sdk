@@ -137,7 +137,7 @@ internal class KlaviyoTrampolineActivity : Activity() {
                         Registry.log.verbose("Trampoline dispatching deep link via VIEW")
                         viewIntent
                     } else {
-                        Registry.log.error(
+                        Registry.log.warning(
                             "Trampoline could not resolve deep link; falling back to launcher"
                         )
                         DeepLinking.makeLaunchIntent(context, intent.extras)

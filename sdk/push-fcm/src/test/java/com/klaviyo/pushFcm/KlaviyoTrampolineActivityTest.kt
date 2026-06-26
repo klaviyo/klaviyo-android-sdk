@@ -151,7 +151,8 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, any()) }
         verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
         verify(exactly = 0) { mockTrampolineContext.startActivity(mockDeepLinkIntent) }
-        verify { spyLog.error(any(), null) }
+        // Degraded-but-handled (fell back to launcher) → WARNING, not ERROR.
+        verify { spyLog.warning(any(), null) }
     }
 
     @Test
