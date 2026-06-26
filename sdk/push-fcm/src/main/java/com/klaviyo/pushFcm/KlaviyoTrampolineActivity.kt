@@ -109,7 +109,7 @@ internal class KlaviyoTrampolineActivity : Activity() {
 
         private fun dispatchDestination(intent: Intent, context: Context) {
             intent.getStringExtra(BROWSER_URL_EXTRA)?.let { url ->
-                Registry.log.verbose("Trampoline dispatching browser intent: $url")
+                Registry.log.verbose("Trampoline dispatching browser intent")
                 DeepLinking.makeBrowserIntent(url.toUri()).startActivityIfResolved(context)
                 return
             }
@@ -134,11 +134,11 @@ internal class KlaviyoTrampolineActivity : Activity() {
                         copyIntent = intent
                     )
                     if (viewIntent.activityResolved(context)) {
-                        Registry.log.verbose("Trampoline dispatching deep link via VIEW: $deepLink")
+                        Registry.log.verbose("Trampoline dispatching deep link via VIEW")
                         viewIntent
                     } else {
                         Registry.log.error(
-                            "Trampoline could not resolve deep link $deepLink; falling back to launcher"
+                            "Trampoline could not resolve deep link; falling back to launcher"
                         )
                         DeepLinking.makeLaunchIntent(context, intent.extras)
                     }
@@ -156,7 +156,15 @@ internal class KlaviyoTrampolineActivity : Activity() {
             }
 
             destination?.apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                // CLEAR_TOP mirrors the non-trampoline path (KlaviyoNotification adds it to the
+                // contentIntent, but it's consumed launching the trampoline rather than forwarded),
+                // preserving back-stack behavior. NEW_TASK is required here since we launch from the
+                // trampoline's own (taskAffinity="") task.
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP
+                )
             }?.startActivityIfResolved(context)
         }
     }
