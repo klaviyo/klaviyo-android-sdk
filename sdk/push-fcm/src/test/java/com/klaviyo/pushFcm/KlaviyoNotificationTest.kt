@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
@@ -114,8 +115,12 @@ class KlaviyoNotificationTest : BaseTest() {
         every {
             KlaviyoTrampolineActivity.forDestination(any(), any())
         } returns mockk(relaxed = true)
-        // Automatic push tracking is off by default (BaseTest mockConfig returns the passed default);
-        // flag-on tests override this explicitly.
+        // buildNotification reads the auto-tracking flag from the build-time context via the
+        // Context.getManifestBoolean extension. Default to off (return the passed default);
+        // flag-on tests override via enableAutomaticTracking().
+        mockkStatic("com.klaviyo.core.config.KlaviyoConfigKt")
+        // Extension fn: receiver is the first arg, so the default value is the third arg.
+        every { mockContext.getManifestBoolean(any(), any()) } answers { thirdArg() }
 
         with(KlaviyoRemoteMessage) {
             every { mockRemoteMessage.webUrl } returns null
@@ -126,6 +131,7 @@ class KlaviyoNotificationTest : BaseTest() {
     override fun cleanup() {
         MockIntent.unmockPendingIntent()
         unmockkStatic(Uri::class)
+        unmockkStatic("com.klaviyo.core.config.KlaviyoConfigKt")
         super.cleanup()
     }
 
@@ -834,8 +840,10 @@ class KlaviyoNotificationTest : BaseTest() {
 
     /** Opt into automatic push tracking for the duration of a test. */
     private fun enableAutomaticTracking() {
+        // Overrides the flag-off default stubbed in setup(); buildNotification reads this off the
+        // build-time context (not Registry.config), so it works pre-init.
         every {
-            mockConfig.getManifestBoolean(
+            mockContext.getManifestBoolean(
                 KlaviyoPushService.METADATA_AUTOMATIC_PUSH_TRACKING,
                 false
             )

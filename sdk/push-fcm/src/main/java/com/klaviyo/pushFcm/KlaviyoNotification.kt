@@ -20,6 +20,7 @@ import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
@@ -169,7 +170,12 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         // When the host opts into automatic push tracking, body/deep_link/open_app taps route
         // through KlaviyoTrampolineActivity so it can call handlePush itself. open_url already
         // routes through the trampoline regardless (the browser would otherwise swallow the intent).
-        val autoTracking = Registry.config.getManifestBoolean(
+        //
+        // Read the manifest flag from the build-time [context] rather than Registry.config, which
+        // returns the default until Klaviyo.initialize runs. FCM can build a notification before the
+        // host initializes (e.g. when init happens in an Activity, not Application), and the flag is
+        // static manifest data readable from any context — so reading it here keeps opt-in reliable.
+        val autoTracking = context.getManifestBoolean(
             KlaviyoPushService.METADATA_AUTOMATIC_PUSH_TRACKING,
             false
         )

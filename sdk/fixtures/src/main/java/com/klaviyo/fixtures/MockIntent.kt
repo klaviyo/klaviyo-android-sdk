@@ -2,6 +2,7 @@ package com.klaviyo.fixtures
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -66,9 +67,22 @@ data class MockIntent(
             every { anyConstructed<Intent>().flags } answers {
                 if (flags.isCaptured) flags.captured else 0
             }
-            // No setComponent is used in production (we set class via setClassName); stub the getter
-            // so reads (e.g. error logging) don't throw on the constructed mock.
-            every { anyConstructed<Intent>().component } returns null
+            // Mirror Android: setClassName(pkg, cls) makes getComponent() return the corresponding
+            // ComponentName. When only setPackage was used (e.g. deep-link intents), component is null.
+            every { anyConstructed<Intent>().component } answers {
+                if (className.isCaptured) {
+                    val capturedPkg = if (packageName.isCaptured) packageName.captured else ""
+                    val capturedCls = className.captured
+                    mockk<ComponentName>(relaxed = true) {
+                        every { getPackageName() } returns capturedPkg
+                        every { getClassName() } returns capturedCls
+                        every { flattenToShortString() } returns "$capturedPkg/$capturedCls"
+                        every { toString() } returns "ComponentInfo{$capturedPkg/$capturedCls}"
+                    }
+                } else {
+                    null
+                }
+            }
 
             return mockIntent
         }
