@@ -9,9 +9,11 @@ import androidx.core.net.toUri
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
 import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.core.utils.startActivityIfResolved
+import java.util.UUID
 
 /**
  * Transparent trampoline [Activity] used to intercept Klaviyo notification taps so the
@@ -85,10 +87,24 @@ internal class KlaviyoTrampolineActivity : Activity() {
          * Uses [Intent.setClassName] instead of the `Intent(Context, Class)` constructor — same test
          * seam as [forBrowserUrl]. Callers append their own Klaviyo extras for parity with the
          * non-trampoline intents they replace.
+         *
+         * Only ever called on the auto-tracking path (body / `deep_link` / `open_app` taps when the
+         * feature is enabled), so it stamps [Constants.NOTIFICATION_AUTO_TRACKED_EXTRA] to scope
+         * `handlePush`'s dedup guard to auto-tracked opens. `open_url` uses [forBrowserUrl] (which
+         * trampolines regardless of the flag) and is intentionally left unmarked — the host never
+         * receives a forwarded `open_url` tap, so there is nothing to deduplicate there.
+         *
+         * Also stamps a fresh [Constants.NOTIFICATION_UID_EXTRA] so the dedup guard has a
+         * per-notification key even when the `_k` payload carries no `tm` (local notifications,
+         * previews, non-campaign sends). A fresh UUID per built intent means distinct notifications
+         * never collide, while the value rides forward onto the host's destination intent so the
+         * trampoline's `handlePush` and a host's leftover manual call still dedupe to one open.
          */
         internal fun forDestination(context: Context, deepLink: Uri? = null): Intent = Intent().apply {
             setClassName(context.packageName, KlaviyoTrampolineActivity::class.java.name)
             deepLink?.let { data = it }
+            putExtra(Constants.NOTIFICATION_AUTO_TRACKED_EXTRA, true)
+            putExtra(Constants.NOTIFICATION_UID_EXTRA, UUID.randomUUID().toString())
         }
 
         /**
