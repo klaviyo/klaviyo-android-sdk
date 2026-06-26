@@ -155,6 +155,48 @@ internal class KlaviyoAuthTokenManager(
         scope.safeLaunch { tryEagerFetch() }
     }
 
+    override fun unregisterProvider() {
+        // Fast path: nothing to do if no provider is registered.
+        if (provider == null) return
+        // Null the provider FIRST — before cancelling the in-flight fetch — so that any concurrent
+        // getOrFetchToken() path that races past the `if (provider == null)` guard lands in
+        // invokeProvider() and immediately receives NoProviderRegistered, rather than starting a
+        // fresh acquisition against the now-unregistered provider. This differs from
+        // registerProvider, where the new provider is set last (after teardown cancels the old
+        // fetch); here there is no replacement provider, so the guard must close as early as
+        // possible. All @Volatile writes below are safe without the mutex for the same reason as
+        // registerProvider: they only need to be visible, not read-modify-written atomically.
+        provider = null
+        inFlightFetch?.cancel()
+        inFlightFetch = null
+        refreshJob?.cancel()
+        refreshJob = null
+        refreshAtWallClockMs = null
+        refreshTimerFired = false
+        cancelConnectivityWaitJob()
+        refreshGeneration.incrementAndGet()
+        // Advance profileGeneration so any pending clearTokenState(expectedGeneration) from a
+        // prior resetProfile() sees the generation mismatch and skips — the state was already
+        // cleared here.
+        profileGeneration.incrementAndGet()
+        // Bump resetGeneration to signal a logout-like event: any performScheduledRefresh that
+        // was in-flight when this ran will see a generation mismatch in shouldArmConnectivityRetry
+        // and skip arming a connectivity retry for the now-cleared session.
+        resetGeneration.incrementAndGet()
+        // Null the cache BEFORE clearing profileResetPending. An in-flight performScheduledRefresh
+        // that has already fetched its token checks `cachedToken?.rawToken == token.rawToken &&
+        // !profileResetPending` before notifying observers. If invalidate() was called just before
+        // unregister (typical logout: resetProfile → unregisterAuthTokenProvider), profileResetPending
+        // is true — the suppression flag. Clearing it before nulling the cache opens a window where
+        // the in-flight refresh passes both guards and delivers a now-invalid JWT to observers.
+        // Nulling the cache first closes that window: the rawToken comparison fails (null != token),
+        // so the notify path is skipped regardless of profileResetPending. This matches the ordering
+        // in clearTokenState(), which also nulls cachedToken before clearing profileResetPending.
+        cachedToken = null
+        profileResetPending = false
+        Registry.log.info("AuthTokenProvider unregistered")
+    }
+
     override fun onTokenRefresh(observer: TokenRefreshObserver) {
         refreshObservers.add(observer)
     }

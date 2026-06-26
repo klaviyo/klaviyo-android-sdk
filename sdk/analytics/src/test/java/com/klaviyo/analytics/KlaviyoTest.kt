@@ -30,9 +30,11 @@ import com.klaviyo.core.config.MissingAPIKey
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkObject
@@ -113,6 +115,7 @@ internal class KlaviyoTest : BaseTest() {
     private val mockAuthTokenManager = mockk<AuthTokenManager>().apply {
         every { invalidate() } returns 1L
         coEvery { clearTokenState(any()) } returns Unit
+        every { unregisterProvider() } just Runs
     }
 
     private val capturedProfile = slot<Profile>()
@@ -518,6 +521,12 @@ internal class KlaviyoTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
         verify(exactly = 1) { mockAuthTokenManager.invalidate() }
         coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
+    }
+
+    @Test
+    fun `unregisterAuthTokenProvider delegates to AuthTokenManager`() {
+        Klaviyo.unregisterAuthTokenProvider()
+        verify(exactly = 1) { mockAuthTokenManager.unregisterProvider() }
     }
 
     @Test

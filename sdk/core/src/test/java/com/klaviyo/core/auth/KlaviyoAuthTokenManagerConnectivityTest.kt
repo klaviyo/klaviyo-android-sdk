@@ -487,6 +487,42 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         assertEquals(0, fakeNetworkMonitor.observerCount())
     }
 
+    // MARK: - unregisterProvider cancels the connectivity wait job
+
+    @Test
+    fun `unregisterProvider cancels and clears connectivity wait job`() = runTest(dispatcher) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("network down"))
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        executeScheduledRefresh()
+
+        val armedJob = manager.connectivityWaitJob
+        assertNotNull("connectivityWaitJob should be armed after network failure", armedJob)
+
+        manager.unregisterProvider()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(
+            "connectivityWaitJob should be null after unregisterProvider",
+            manager.connectivityWaitJob
+        )
+        assertEquals("armed job must be cancelled", true, armedJob?.isCancelled ?: false)
+        assertEquals(
+            "network observer should be de-registered on cancellation",
+            0,
+            fakeNetworkMonitor.observerCount()
+        )
+    }
+
     // MARK: - clearTokenState cancels the connectivity wait job
 
     @Test

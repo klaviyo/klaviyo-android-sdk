@@ -326,6 +326,17 @@ public class KlaviyoJavaApiTest {
     }
 
     @Test
+    public void testUnregisterAuthTokenProvider() {
+        Klaviyo result1 = Klaviyo.INSTANCE.unregisterAuthTokenProvider();
+        assertEquals(Klaviyo.INSTANCE, result1);
+
+        Klaviyo result2 = Klaviyo.unregisterAuthTokenProvider();
+        assertEquals(Klaviyo.INSTANCE, result2);
+
+        KlaviyoMock.verifyUnregisterAuthTokenProviderCalled(2);
+    }
+
+    @Test
     @SuppressWarnings("deprecation")
     public void testIsKlaviyoIntent() {
         boolean result1 = Klaviyo.INSTANCE.isKlaviyoIntent(mockIntent);

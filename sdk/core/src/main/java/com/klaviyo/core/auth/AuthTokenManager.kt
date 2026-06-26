@@ -45,6 +45,19 @@ interface AuthTokenManager {
     fun registerProvider(provider: AuthTokenProvider)
 
     /**
+     * Detach the registered [AuthTokenProvider] and tear down all associated token state.
+     *
+     * Cancels any in-flight token fetch, scheduled proactive refresh, and connectivity-wait job,
+     * then clears the cached token and the provider reference. Subsequent calls to [currentToken]
+     * will throw [AuthTokenException.NoProviderRegistered] until a new provider is registered via
+     * [Klaviyo.registerAuthTokenProvider][com.klaviyo.analytics.Klaviyo.registerAuthTokenProvider].
+     *
+     * Has no effect if no provider is currently registered. This method returns immediately —
+     * all teardown is synchronous.
+     */
+    fun unregisterProvider()
+
+    /**
      * Return a currently-valid [ValidatedToken], fetching from the registered provider if no
      * cached token is available or the cached token has expired. Callers that only need the raw
      * JWT string should read [ValidatedToken.rawToken]; consumers that benefit from the parsed

@@ -455,6 +455,108 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         assertEquals(freshToken, result.rawToken)
     }
 
+    // MARK: - unregisterProvider
+
+    @Test
+    fun `unregisterProvider while idle clears provider and subsequent currentToken throws`() = runTest(
+        dispatcher
+    ) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(SuccessProvider(token))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        manager.unregisterProvider()
+
+        try {
+            manager.currentToken()
+            fail("Expected AuthTokenException.NoProviderRegistered after unregister")
+        } catch (_: AuthTokenException.NoProviderRegistered) { /* expected */ }
+    }
+
+    @Test
+    fun `unregisterProvider cancels pending refresh job`() = runTest(dispatcher) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(SuccessProvider(token))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(
+            "A refresh job should be scheduled after a successful token fetch",
+            staticClock.scheduledTasks.isNotEmpty()
+        )
+
+        manager.unregisterProvider()
+
+        assertTrue(
+            "Refresh job should be cancelled after unregisterProvider",
+            staticClock.scheduledTasks.isEmpty()
+        )
+    }
+
+    @Test
+    fun `unregisterProvider cancels in-flight fetch — concurrent currentToken callers receive error`() = runTest(
+        dispatcher
+    ) {
+        val provider = DeferredProvider()
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent() // eager fetch starts, suspends on provider
+
+        var caught: Throwable? = null
+        val callerJob = launch {
+            try {
+                manager.currentToken(timeoutMs = 5_000)
+            } catch (e: Throwable) {
+                caught = e
+            }
+        }
+        dispatcher.scheduler.runCurrent() // caller awaits the in-flight deferred
+
+        manager.unregisterProvider()
+        dispatcher.scheduler.advanceUntilIdle()
+        callerJob.join()
+
+        // The caller's retry after cancellation hits provider == null → NoProviderRegistered
+        assertTrue(
+            "Caller should receive NoProviderRegistered after unregister, got: $caught",
+            caught is AuthTokenException.NoProviderRegistered
+        )
+    }
+
+    @Test
+    fun `re-registering after unregister triggers fresh eager fetch and refresh schedule`() = runTest(
+        dispatcher
+    ) {
+        val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val secondToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val firstProvider = SuccessProvider(firstToken)
+        val secondProvider = SuccessProvider(secondToken)
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(firstProvider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        manager.unregisterProvider()
+        // unregisterProvider cancels the refresh job (removes it from scheduledTasks). An explicit
+        // clear is defensive in case the cancel path leaves an entry; see the dedicated
+        // "unregisterProvider cancels pending refresh job" test for the canonical assertion.
+        staticClock.scheduledTasks.clear()
+
+        manager.registerProvider(secondProvider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val result = manager.currentToken()
+        assertEquals(
+            "Re-register should use the new provider's token",
+            secondToken,
+            result.rawToken
+        )
+        assertTrue(
+            "Re-register should schedule a fresh proactive refresh",
+            staticClock.scheduledTasks.isNotEmpty()
+        )
+    }
+
     // MARK: - Helpers
 
     private class SuccessProvider(private val jwt: String) : AuthTokenProvider {
