@@ -10,9 +10,14 @@
             </intent-filter>
         </service>
         <!--
-            Trampoline activity that tracks the push open then forwards the intent. Configured to be
-            invisible and transient: translucent theme (no UI), noHistory + excludeFromRecents (never
-            in the back stack or recents), taskAffinity="" + singleTask (no task of its own).
+            Invisible, transient activity that routes notification taps (deep links, URLs, app opens).
+            Attribute reference:
+              exported="false"          - internal only; never launched by other apps
+              excludeFromRecents="true" - never appears in the recents/overview screen
+              launchMode="singleTask"   - reuses a single instance rather than stacking
+              noHistory="true"          - removed from the back stack as soon as it finishes
+              taskAffinity=""           - doesn't attach to or create the host app's task
+              theme="...Translucent..." - no visible UI while it runs
         -->
         <activity
             android:name="com.klaviyo.pushFcm.KlaviyoTrampolineActivity"
