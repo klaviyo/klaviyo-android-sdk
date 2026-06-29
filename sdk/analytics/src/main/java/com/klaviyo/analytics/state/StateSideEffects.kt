@@ -180,6 +180,8 @@ internal class StateSideEffects(
                 // Trigger the token in state to refresh overall push state, if changed
                 Klaviyo.setPushToken(it)
             }
+            // Re-pull the token on foreground so rotations while backgrounded are caught
+            Klaviyo.maybeRegisterPushTokenAutomatically()
         }
     }
 }

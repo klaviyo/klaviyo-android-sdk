@@ -46,6 +46,13 @@ object Constants {
     const val AUTOMATIC_PUSH_TRACKING = PACKAGE_PREFIX + "automatic_push_tracking"
 
     /**
+     * Manifest `<meta-data>` boolean to opt out of automatic push token forwarding while keeping
+     * automatic open tracking. Only consulted when [AUTOMATIC_PUSH_TRACKING] is `true`; defaults to
+     * `false`. For hosts that own their own push-token pipeline.
+     */
+    const val DISABLE_AUTOMATIC_TOKEN_FORWARDING = PACKAGE_PREFIX + "disable_automatic_token_forwarding"
+
+    /**
      * Fixed notification ID used in all notify/cancel calls.
      * Notifications are uniquely identified by their string tag, not this ID.
      */
