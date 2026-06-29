@@ -1,6 +1,7 @@
 package com.klaviyo.core.utils
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -133,16 +134,28 @@ class BoundedIdSetTest {
         try {
             val start = CountDownLatch(1)
             val done = CountDownLatch(threadCount)
+            val failures = ConcurrentLinkedQueue<Throwable>()
 
             repeat(threadCount) { i ->
                 pool.execute {
-                    start.await()
-                    worker(i)
-                    done.countDown()
+                    try {
+                        start.await()
+                        worker(i)
+                    } catch (t: Throwable) {
+                        failures.add(t)
+                    } finally {
+                        // Always count down so a worker failure surfaces via the assertion below
+                        // rather than as a misleading await() timeout that hides the real cause.
+                        done.countDown()
+                    }
                 }
             }
             start.countDown()
             assertTrue(done.await(timeoutSeconds, TimeUnit.SECONDS))
+            assertTrue(
+                failures.joinToString("\n") { it.stackTraceToString() },
+                failures.isEmpty()
+            )
         } finally {
             pool.shutdownNow()
         }
