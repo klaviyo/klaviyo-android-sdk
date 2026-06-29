@@ -94,56 +94,55 @@ class BoundedIdSetTest {
     @Test
     fun `concurrent markOnce on the same id reports exactly one winner`() {
         val set = BoundedIdSet()
-        val threads = 64
-        val pool = Executors.newFixedThreadPool(threads)
-        try {
-            val start = CountDownLatch(1)
-            val done = CountDownLatch(threads)
-            val winners = ConcurrentHashMap.newKeySet<Int>()
+        val winners = ConcurrentHashMap.newKeySet<Int>()
 
-            repeat(threads) { i ->
-                pool.execute {
-                    start.await()
-                    if (set.markOnce("shared")) winners.add(i)
-                    done.countDown()
-                }
-            }
-            // Release all workers at once to maximize contention on the same id.
-            start.countDown()
-            assertTrue(done.await(5, TimeUnit.SECONDS))
-
-            assertEquals(1, winners.size)
-        } finally {
-            pool.shutdownNow()
+        runConcurrently(threadCount = 64, timeoutSeconds = 5) { i ->
+            if (set.markOnce("shared")) winners.add(i)
         }
+
+        assertEquals(1, winners.size)
     }
 
     @Test
     fun `concurrent access does not throw and stays within capacity`() {
         val capacity = 128
         val set = BoundedIdSet(capacity = capacity)
-        val threads = 16
         val perThread = 1000
-        val pool = Executors.newFixedThreadPool(threads)
+
+        runConcurrently(threadCount = 16, timeoutSeconds = 10) { t ->
+            repeat(perThread) { i ->
+                set.markOnce("t$t-$i")
+                set.contains("t$t-$i")
+            }
+        }
+
+        assertEquals(capacity, set.size)
+    }
+
+    /**
+     * Run [worker] on [threadCount] threads that all start together (via a latch) to maximize
+     * overlap/contention, wait up to [timeoutSeconds] for completion, and always shut the pool down.
+     * Test-specific assertions stay in the caller.
+     */
+    private fun runConcurrently(
+        threadCount: Int,
+        timeoutSeconds: Long,
+        worker: (index: Int) -> Unit
+    ) {
+        val pool = Executors.newFixedThreadPool(threadCount)
         try {
             val start = CountDownLatch(1)
-            val done = CountDownLatch(threads)
+            val done = CountDownLatch(threadCount)
 
-            repeat(threads) { t ->
+            repeat(threadCount) { i ->
                 pool.execute {
                     start.await()
-                    repeat(perThread) { i ->
-                        set.markOnce("t$t-$i")
-                        set.contains("t$t-$i")
-                    }
+                    worker(i)
                     done.countDown()
                 }
             }
-            // Release all workers together so the operations actually overlap.
             start.countDown()
-            assertTrue(done.await(10, TimeUnit.SECONDS))
-
-            assertEquals(capacity, set.size)
+            assertTrue(done.await(timeoutSeconds, TimeUnit.SECONDS))
         } finally {
             pool.shutdownNow()
         }
