@@ -9,11 +9,23 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+        <!--
+            Invisible, transient activity that routes notification taps (deep links, URLs, app opens).
+            Attribute reference:
+              exported="false"          - internal only; never launched by other apps
+              excludeFromRecents="true" - never appears in the recents/overview screen
+              launchMode="singleTask"   - reuses a single instance rather than stacking
+              noHistory="true"          - removed from the back stack as soon as it finishes
+              taskAffinity=""           - doesn't attach to or create the host app's task
+              theme="...Translucent..." - no visible UI while it runs
+        -->
         <activity
             android:name="com.klaviyo.pushFcm.KlaviyoTrampolineActivity"
             android:exported="false"
             android:excludeFromRecents="true"
+            android:launchMode="singleTask"
             android:noHistory="true"
+            android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 </manifest>
