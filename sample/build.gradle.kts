@@ -133,7 +133,7 @@ dependencies {
 
     // Other app and testing dependencies (refreshVersions syntax)
     implementation(platform(AndroidX.compose.bom))
-    implementation(AndroidX.core.ktx)
+    implementation("androidx.core:core-ktx:1.17.0")
     implementation(AndroidX.lifecycle.runtime.ktx)
     implementation(AndroidX.lifecycle.viewModelCompose)
     implementation(AndroidX.activity.compose)

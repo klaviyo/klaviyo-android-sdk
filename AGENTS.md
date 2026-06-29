@@ -195,3 +195,9 @@ Logging should use `Registry.log` with these severity levels:
 By default, we only log warning+ in debug builds, and error+ in production.
 The developer can add a manifest property to view more verbose logging in their debug builds.
 During code reviews or pre-commit checks, check we're using appropriate levels for any new logs.
+
+## Code Review
+
+CodeRabbit is active on this repo and auto-reviews PRs. It reads this file as a code guidelines
+source. When performing code reviews, avoid re-surfacing findings CodeRabbit may have already flagged.
+If you notice patterns worth encoding as review guidance, suggest adding them to `.coderabbit.yaml`.

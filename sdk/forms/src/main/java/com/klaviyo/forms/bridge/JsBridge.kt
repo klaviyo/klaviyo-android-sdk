@@ -41,10 +41,9 @@ internal interface JsBridge {
     fun openForm(formId: FormId)
 
     /**
-     * Close a form in the webview by [FormId]
-     * If no ID provided, close any currently open forms.
+     * Close all currently open forms in the webview.
      */
-    fun closeForm(formId: FormId?)
+    fun closeForm()
 
     /**
      * Injects safe area insets into the webview

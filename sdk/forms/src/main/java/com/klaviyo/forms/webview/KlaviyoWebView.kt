@@ -6,7 +6,7 @@ import android.graphics.Color
 import android.util.AttributeSet
 import android.webkit.WebSettings
 import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.webkit.WebViewClient as AndroidWebViewClient
 import androidx.core.util.TypedValueCompat.pxToDp
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -34,7 +34,7 @@ internal class KlaviyoWebView : WebView {
 
     constructor(context: Context, attrs: AttributeSet?) : super(context, attrs, 0)
 
-    fun loadTemplate(html: String, client: WebViewClient, bridge: NativeBridge) = configure()
+    fun loadTemplate(html: String, client: AndroidWebViewClient, bridge: NativeBridge) = configure()
         .apply { webViewClient = client }
         .addBridge(bridge)
         .monitorSafeArea()
@@ -109,6 +109,10 @@ internal class KlaviyoWebView : WebView {
                     pxToDp(safeDrawingInsets.right.toFloat(), displayMetrics),
                     pxToDp(safeDrawingInsets.bottom.toFloat(), displayMetrics)
                 )
+
+                // Keep the `data-klaviyo-device` head attribute in sync with the latest
+                // insets — onsite-in-app reads this for pre-render layout decisions.
+                Registry.get<WebViewClient>().pushDeviceInfo()
 
                 WindowInsetsCompat.CONSUMED
             }

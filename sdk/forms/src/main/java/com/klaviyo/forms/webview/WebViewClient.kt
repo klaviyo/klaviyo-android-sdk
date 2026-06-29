@@ -1,6 +1,7 @@
 package com.klaviyo.forms.webview
 
 import android.app.Activity
+import android.view.View
 
 internal interface WebViewClient {
     /**
@@ -20,6 +21,11 @@ internal interface WebViewClient {
     fun onJsHandshakeCompleted()
 
     /**
+     * Get the underlying WebView instance, or null if not initialized
+     */
+    fun getWebView(): View?
+
+    /**
      * Attach the webview to the overlay activity
      */
     fun attachWebView(activity: Activity): WebViewClient
@@ -33,4 +39,11 @@ internal interface WebViewClient {
      * Destroy the webview and release the reference
      */
     fun destroyWebView(): WebViewClient
+
+    /**
+     * Push a fresh [com.klaviyo.forms.bridge.DeviceInfo] snapshot into the webview's
+     * `data-klaviyo-device` head attribute. Safe to call at any point after the webview
+     * is initialized — no-ops if the webview is not ready.
+     */
+    fun pushDeviceInfo()
 }

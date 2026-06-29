@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
 import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.linking.DeepLinking
@@ -17,6 +18,7 @@ import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Constants.KEY_VALUE_PAIRS
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
@@ -333,6 +335,15 @@ object Klaviyo {
 
             // Not using createEvent here to avoid nested safeApply calls
             Registry.get<State>().createEvent(event, Registry.get<State>().getAsProfile())
+        }?.safeApply {
+            // Dismiss the notification if opened via an action button.
+            // Body taps are handled by setAutoCancel(true) on the notification builder,
+            // but action button taps don't trigger auto-cancel (standard Android behavior).
+            intent?.getStringExtra(Constants.NOTIFICATION_TAG_EXTRA)?.let { tag ->
+                NotificationManagerCompat
+                    .from(Registry.config.applicationContext)
+                    .cancel(tag, Constants.NOTIFICATION_ID)
+            }
         }?.safeApply {
             // If a Klaviyo notification is deep linked, invoke the developer's deep link handler
             // if registered. If not, do nothing. The host already received the appropriate intent.
