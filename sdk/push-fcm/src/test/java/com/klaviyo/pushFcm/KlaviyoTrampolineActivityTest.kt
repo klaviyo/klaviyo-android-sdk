@@ -106,6 +106,20 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
     }
 
     @Test
+    fun `handleTrampolineIntent with no launch intent warns and starts nothing`() {
+        val intent = klaviyoIntent() // no browser extra, no deep link data
+        // Host app has no launcher activity → makeLaunchIntent yields null.
+        every { DeepLinking.makeLaunchIntent(any(), any()) } returns null
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify { Klaviyo.handlePush(intent) }
+        verify(exactly = 0) { mockTrampolineContext.startActivity(any()) }
+        // Mirrors the non-trampoline diagnostic so a missing launcher is still debuggable.
+        verify { spyLog.warning(any(), null) }
+    }
+
+    @Test
     fun `handleTrampolineIntent with deep link and no handler dispatches ACTION_VIEW into host`() {
         val intent = klaviyoIntent()
         val deepLink = mockk<Uri>(relaxed = true)

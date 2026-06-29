@@ -166,6 +166,7 @@ internal class KlaviyoTrampolineActivity : Activity() {
                         Intent.FLAG_ACTIVITY_CLEAR_TOP
                 )
             }?.startActivityIfResolved(context)
+                ?: Registry.log.warning("No launch intent found for host app; nothing to start")
         }
     }
 }
