@@ -469,32 +469,38 @@ internal open class KlaviyoApiRequest(
     /**
      * Compute a retry interval based on state of the request
      *
-     * If present, obey the Retry-After response header, plus some jitter.
-     * Absent the header, use an exponential backoff algorithm, with a
-     * floor set by current network connection, and ceiling set by the config.
+     * Always compute an exponential backoff interval, with a floor set by the
+     * current network connection and a ceiling set by the config. If the server
+     * sent a usable Retry-After response header, wait the GREATER of that header
+     * value and the exponential backoff (each plus the same jitter). Taking the
+     * greater of the two ensures a request deep in a rate-limit storm keeps
+     * backing off rather than retrying too soon just because the server's
+     * rate-limit window reset to a short Retry-After.
      */
     fun computeRetryInterval(): Long {
         val jitterSeconds = Registry.config.networkJitterRange.random()
-
-        try {
-            val retryAfter = this.responseHeaders[HEADER_RETRY_AFTER]?.getOrNull(0)
-
-            if (retryAfter?.isNotEmpty() == true) {
-                return (retryAfter.toInt() + jitterSeconds).times(1_000L)
-            }
-        } catch (e: NumberFormatException) {
-            Registry.log.warning("Invalid Retry-After header value", e)
-        }
 
         val networkType = Registry.networkMonitor.getNetworkType().position
         val minRetryInterval = Registry.config.networkFlushIntervals[networkType]
         val exponentialBackoff = (2.0.pow(attempts).toLong() + jitterSeconds).times(1_000L)
         val maxRetryInterval = Registry.config.networkMaxRetryInterval
-
-        return min(
+        val backoffInterval = min(
             max(minRetryInterval, exponentialBackoff),
             maxRetryInterval
         )
+
+        try {
+            val retryAfter = this.responseHeaders[HEADER_RETRY_AFTER]?.getOrNull(0)
+
+            if (retryAfter?.isNotEmpty() == true) {
+                val retryAfterInterval = (retryAfter.toInt() + jitterSeconds).times(1_000L)
+                return max(retryAfterInterval, backoffInterval)
+            }
+        } catch (e: NumberFormatException) {
+            Registry.log.warning("Invalid Retry-After header value", e)
+        }
+
+        return backoffInterval
     }
 
     /**
