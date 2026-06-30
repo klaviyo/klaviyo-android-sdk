@@ -49,17 +49,8 @@ object Klaviyo {
     private val preInitQueue: Queue<Operation<Unit>> = LinkedList()
 
     /**
-     * In-memory dedup guard over push *delivery* IDs already auto-tracked by [handlePush].
-     *
-     * Only auto-tracking-path intents engage this guard: the trampoline stamps
-     * [Constants.NOTIFICATION_AUTO_TRACKED_EXTRA] on its targeted intents and forwards the
-     * destination intent (carrying that marker and the `_k` payload) to the host. The trampoline's
-     * own `handlePush` marks the delivery first; a host that also left a manual `handlePush` call in
-     * place then short-circuits instead of tracking a second `$opened_push` for the same tap. It
-     * also dedupes trampoline `singleTask` re-entry with the same intent.
-     *
-     * Manual-only integrations (auto-tracking disabled) never carry the marker, so they never engage
-     * the guard and behave exactly as before it existed.
+     * Push delivery IDs already auto-tracked within this process, so a single tap records one
+     * `$opened_push`. See [handlePush] for how entries are matched and added.
      */
     private val handledPushDeliveries = BoundedIdSet()
 
@@ -346,55 +337,58 @@ object Klaviyo {
      */
     @JvmStatic
     fun handlePush(intent: Intent?): Klaviyo {
-        // Dedup guard (top of function), scoped to the automatic-tracking path only: a push delivery
-        // we've already auto-tracked means this is a re-delivery of the same tap — a host's leftover
-        // manual handlePush after the trampoline already tracked, or singleTask re-entry.
-        // Short-circuit fully: no event, no dismissal, no deep link dispatch. The marker is absent on
-        // manual-only integrations, so their behavior is unchanged. Unseen delivery → atomically mark
-        // it and proceed.
-        if (intent.isAutoTrackedOpen) {
-            intent.pushDeliveryId?.let { deliveryId ->
-                if (!handledPushDeliveries.markOnce(deliveryId)) {
-                    Registry.log.verbose(
-                        "Ignoring duplicate auto-tracked push open for delivery $deliveryId"
-                    )
-                    return this
-                }
+        // Dedup guard for the automatic-tracking path. The trampoline calls handlePush and then
+        // forwards the same intent to the host, so a leftover manual handlePush call (or singleTask
+        // re-entry) would otherwise track a second open for one tap. Record each delivery the first
+        // time it's seen; if it's already recorded, drop this call entirely — no event, dismissal, or
+        // deep link. Manual-only integrations carry no auto-tracked marker, so they're unaffected.
+        val deliveryId = intent.pushDeliveryId
+        if (
+            intent.isAutoTrackedOpen &&
+            deliveryId != null &&
+            !handledPushDeliveries.markOnce(deliveryId)
+        ) {
+            Registry.log.verbose("Ignoring duplicate auto-tracked push open")
+            return this
+        }
+
+        if (intent == null || !intent.isKlaviyoNotificationIntent) {
+            Registry.log.verbose("Non-Klaviyo intent ignored")
+            return this
+        }
+
+        // Create and enqueue an $opened_push. safeApply(preInitQueue) buffers this for replay if
+        // handlePush runs before initialize(), and guards against unexpected failures.
+        safeApply(preInitQueue) {
+            val state = Registry.get<State>()
+            val event = Event(EventMetric.OPENED_PUSH)
+            event.appendKlaviyoExtras(intent)
+            state.pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
+            // Not using Klaviyo.createEvent here to avoid nesting safeApply calls
+            state.createEvent(event, state.getAsProfile())
+        }
+
+        // Dismiss the notification if opened via an action button. Body taps auto-cancel via
+        // setAutoCancel(true) on the builder; action button taps don't (standard Android behavior).
+        safeApply {
+            val notificationTag = intent.getStringExtra(Constants.NOTIFICATION_TAG_EXTRA)
+            if (notificationTag != null) {
+                NotificationManagerCompat
+                    .from(Registry.config.applicationContext)
+                    .cancel(notificationTag, Constants.NOTIFICATION_ID)
+            }
+        }
+
+        // If the notification carries a deep link and a handler is registered, invoke it. Otherwise
+        // do nothing — the host already received the appropriate intent.
+        safeApply {
+            val deepLink = intent.data
+            if (deepLink != null && DeepLinking.isHandlerRegistered) {
+                DeepLinking.handleDeepLink(deepLink)
             }
         }
 
         return this
-            .takeIf { intent.isKlaviyoNotificationIntent }
-            ?.safeApply(preInitQueue) {
-                // Create and enqueue an $opened_push
-                val event = Event(EventMetric.OPENED_PUSH)
-                event.appendKlaviyoExtras(intent)
-
-                Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
-
-                // Not using createEvent here to avoid nested safeApply calls
-                Registry.get<State>().createEvent(event, Registry.get<State>().getAsProfile())
-            }?.safeApply {
-                // Dismiss the notification if opened via an action button.
-                // Body taps are handled by setAutoCancel(true) on the notification builder,
-                // but action button taps don't trigger auto-cancel (standard Android behavior).
-                intent?.getStringExtra(Constants.NOTIFICATION_TAG_EXTRA)?.let { tag ->
-                    NotificationManagerCompat
-                        .from(Registry.config.applicationContext)
-                        .cancel(tag, Constants.NOTIFICATION_ID)
-                }
-            }?.safeApply {
-                // If a Klaviyo notification is deep linked, invoke the developer's deep link handler
-                // if registered. If not, do nothing. The host already received the appropriate intent.
-                intent?.data?.takeIf {
-                    DeepLinking.isHandlerRegistered
-                }?.let { uri ->
-                    DeepLinking.handleDeepLink(uri)
-                }
-            }
-            ?: apply {
-                Registry.log.verbose("Non-Klaviyo intent ignored")
-            }
     }
 
     /**
@@ -475,20 +469,14 @@ object Klaviyo {
         get() = this?.getBooleanExtra(Constants.NOTIFICATION_AUTO_TRACKED_EXTRA, false) ?: false
 
     /**
-     * The dedup key identifying this intent's push delivery, or `null` if none is available.
+     * Dedup key for this intent's push delivery, or `null` if none is available. Prefers the `tm`
+     * field of the `_k` payload (a per-delivery ULID on campaign sends), else the SDK-generated
+     * [Constants.NOTIFICATION_UID_EXTRA]. Both are copied forward to the host's intent, so the
+     * trampoline call and a leftover manual call for the same tap resolve to the same key while
+     * distinct notifications stay distinct.
      *
-     * Prefers the `tm` field of the `_k` tracking payload — a ULID unique per delivery, present on
-     * real campaign sends. When `tm` is absent (local notifications, previews, non-campaign sends)
-     * it falls back to the SDK-generated [Constants.NOTIFICATION_UID_EXTRA] stamped on auto-tracked
-     * trampoline intents.
-     *
-     * Both keys are copied forward onto the host's destination intent, so the value is identical
-     * across the trampoline's `handlePush` call and a host's leftover manual call for the same tap —
-     * exactly what [handlePush]'s guard needs — while distinct notifications get distinct keys.
-     *
-     * There is deliberately no fallback to the raw `_k` payload: `_k` minus `tm` is per-message
-     * metadata shared by every delivery of the same campaign/message, so using it as a dedup key
-     * would drop legitimate opens across distinct deliveries.
+     * Deliberately not the raw `_k`: minus `tm` it is per-message metadata shared across deliveries,
+     * so it would collapse distinct opens.
      */
     private val Intent?.pushDeliveryId: String?
         get() {
