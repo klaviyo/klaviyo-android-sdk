@@ -69,6 +69,9 @@ internal open class KlaviyoApiRequest(
         const val HTTP_MULT_CHOICE = HttpURLConnection.HTTP_MULT_CHOICE
         const val HTTP_RETRY = 429 // oddly not a const in HttpURLConnection
         const val HTTP_BAD_REQUEST = HttpURLConnection.HTTP_BAD_REQUEST
+        const val HTTP_NOT_IMPLEMENTED = 501
+        const val HTTP_VERSION_NOT_SUPPORTED = 505
+        val HTTP_5XX_RETRYABLE_RANGE = 500..599
 
         // JSON keys for persistence
         const val TYPE_JSON_KEY = "request_type"
@@ -435,15 +438,16 @@ internal open class KlaviyoApiRequest(
             // 501 (Not Implemented) and 505 (HTTP Version Not Supported) are permanent,
             // deterministic server errors: retrying the identical request will always fail
             // the same way, so they are treated as non-retryable like a 4xx. This branch must
-            // precede the `in 500..599` branch below so these codes short-circuit out of it.
-            501, 505 -> Status.Failed
+            // precede the `in HTTP_5XX_RETRYABLE_RANGE` branch below so these codes short-circuit
+            // out of it.
+            HTTP_NOT_IMPLEMENTED, HTTP_VERSION_NOT_SUPPORTED -> Status.Failed
             // 429 rate limit plus the rest of the 5xx range (500–599, except 501/505 above)
             // are treated as retryable. Widening from the legacy {500,502,503,504} allowlist
             // to the full range covers transient CDN/edge failures such as Cloudflare's
             // 520–527 codes, which were the codes observed during the cannot-access-klaviyo-com
             // incident. 4xx codes (including 403 load-shed) remain non-retryable so the backend
             // can shed load.
-            HTTP_RETRY, in 500..599 -> {
+            HTTP_RETRY, in HTTP_5XX_RETRYABLE_RANGE -> {
                 if (attempts < maxAttempts) {
                     Status.PendingRetry
                 } else {
