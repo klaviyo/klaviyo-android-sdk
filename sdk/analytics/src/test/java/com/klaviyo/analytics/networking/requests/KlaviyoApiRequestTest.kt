@@ -772,17 +772,20 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     @Test
-    fun `501 response code returns Failed immediately`() {
-        // 501 (Not Implemented) is a permanent server error excluded from the retryable
-        // 5xx range: retrying the identical request will always fail the same way.
-        assertStatusForResponseCode(501, KlaviyoApiRequest.Status.Failed)
+    fun `501 response code returns PendingRetry when under max attempts`() {
+        // 501 (Not Implemented) is inside the full 5xx retryable range and we deliberately
+        // retry it: for the SDK's fixed request shapes a genuine origin 501 is effectively
+        // unreachable, so an observed 501 is almost certainly edge/proxy noise worth retrying.
+        assertStatusForResponseCode(501, KlaviyoApiRequest.Status.PendingRetry)
     }
 
     @Test
-    fun `505 response code returns Failed immediately`() {
-        // 505 (HTTP Version Not Supported) is a permanent server error excluded from the
-        // retryable 5xx range: retrying the identical request will always fail the same way.
-        assertStatusForResponseCode(505, KlaviyoApiRequest.Status.Failed)
+    fun `505 response code returns PendingRetry when under max attempts`() {
+        // 505 (HTTP Version Not Supported) is inside the full 5xx retryable range and we
+        // deliberately retry it: for the SDK's fixed request shapes a genuine origin 505 is
+        // effectively unreachable, so an observed 505 is almost certainly edge/proxy noise
+        // worth retrying.
+        assertStatusForResponseCode(505, KlaviyoApiRequest.Status.PendingRetry)
     }
 
     @Test
