@@ -126,7 +126,7 @@ internal class KlaviyoConfigTest : BaseTest() {
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Offline.position]
         )
         assertEquals(50, KlaviyoConfig.networkMaxAttempts)
-        assertEquals(180_000L, KlaviyoConfig.networkMaxRetryInterval)
+        assertEquals(300_000L, KlaviyoConfig.networkMaxRetryInterval)
         assertEquals("android", KlaviyoConfig.sdkName)
         assertEquals("9.9.9", KlaviyoConfig.sdkVersion)
     }
@@ -162,7 +162,7 @@ internal class KlaviyoConfigTest : BaseTest() {
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Offline.position]
         )
         assertEquals(50, KlaviyoConfig.networkMaxAttempts)
-        assertEquals(180_000, KlaviyoConfig.networkMaxRetryInterval)
+        assertEquals(300_000, KlaviyoConfig.networkMaxRetryInterval)
         assertEquals("android", KlaviyoConfig.sdkName)
         assertEquals("9.9.9", KlaviyoConfig.sdkVersion)
         // Each bad call should have generated an error log

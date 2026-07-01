@@ -82,11 +82,12 @@ object KlaviyoConfig : Config {
     private const val NETWORK_MAX_ATTEMPTS_DEFAULT: Int = 50
 
     /**
-     * Maximum interval between retries for the exponential backoff, in milliseconds (3 minutes)
+     * Maximum interval between retries for the exponential backoff, in milliseconds (5 minutes)
      *
-     * Reasoning: We don't want to wait so long that the user has left the app.
+     * Reasoning: We don't want to wait so long that the user has left the app, but 180s was more
+     * aggressive than comparable SDKs (Segment caps at 300s), so we align with 300s (MAGE-500).
      */
-    private const val NETWORK_MAX_RETRY_INTERVAL_DEFAULT: Long = 180_000
+    private const val NETWORK_MAX_RETRY_INTERVAL_DEFAULT: Long = 300_000
 
     override val isDebugBuild = BuildConfig.DEBUG
 
