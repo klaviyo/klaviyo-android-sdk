@@ -230,17 +230,33 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
     @Test
     fun `Uses exponential backoff interval when greater than Retry-After header`() {
-        // Retry-After is 2s but the Wifi backoff floor is 10s, so backoff wins. Jitter forced to 1s.
+        // Retry-After is 2s and the Wifi backoff floor is 10s; after 4 attempts,
+        // 16s exponential backoff wins.
         val expectedHeaders = mapOf("Retry-After" to listOf("2"))
         every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
-        every { mockConfig.networkJitterRange } returns 1..1
+        every { mockConfig.networkJitterRange } returns 0..0
         withConnectionMock(URL(expectedFullUrl)).also {
             every { it.headerFields } returns expectedHeaders
         }
 
         val request = makeTestRequest()
-        request.send()
-        assertEquals(10_000L, request.computeRetryInterval())
+        repeat(4) {
+            request.send()
+        }
+        assertEquals(16_000L, request.computeRetryInterval())
+    }
+
+    @Test
+    fun `Caps exponential backoff interval at configured maximum`() {
+        every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
+        every { mockConfig.networkJitterRange } returns 0..0
+        withConnectionMock(URL(expectedFullUrl))
+
+        val request = makeTestRequest()
+        repeat(9) {
+            request.send()
+        }
+        assertEquals(300_000L, request.computeRetryInterval())
     }
 
     @Test
