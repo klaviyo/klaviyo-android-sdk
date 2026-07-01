@@ -1230,6 +1230,103 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `Successful circuit breaker probe closes the breaker and resumes draining`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 2
+        every { mockConfig.circuitBreakerBaseOpenInterval } returns 30_000L
+        every { mockConfig.circuitBreakerMaxOpenInterval } returns 300_000L
+
+        val request = mockRequest("cb-probe-success", KlaviyoApiRequest.Status.Unsent)
+        every { request.state } answers {
+            when (request.attempts) {
+                0 -> KlaviyoApiRequest.Status.Unsent.name
+                1, 2 -> KlaviyoApiRequest.Status.PendingRetry.name
+                else -> KlaviyoApiRequest.Status.Complete.name
+            }
+        }
+        every { request.responseCode } answers {
+            if (request.attempts >= 3) {
+                HttpURLConnection.HTTP_ACCEPTED
+            } else {
+                HttpURLConnection.HTTP_UNAVAILABLE
+            }
+        }
+        every { request.computeRetryInterval() } returns 1_000L
+
+        KlaviyoApiClient.enqueueRequest(request)
+
+        repeat(2) {
+            assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete)
+        }
+        verify(exactly = 2) { request.send(any()) }
+        assertEquals(CircuitBreaker.State.OPEN, KlaviyoApiClient.circuitBreaker.state())
+
+        staticClock.time += 30_000L
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+
+        assert(outcome is FlushOutcome.Complete)
+        verify(exactly = 3) { request.send(any()) }
+        assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `429 with Retry-After resets circuit breaker failures`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 2
+
+        val request = mockRequest("cb-429-retry-after", KlaviyoApiRequest.Status.Unsent)
+        every { request.state } answers {
+            when (request.attempts) {
+                0 -> KlaviyoApiRequest.Status.Unsent.name
+                else -> KlaviyoApiRequest.Status.PendingRetry.name
+            }
+        }
+        every { request.responseCode } answers {
+            if (request.attempts == 2) {
+                KlaviyoApiRequest.HTTP_RETRY
+            } else {
+                HttpURLConnection.HTTP_UNAVAILABLE
+            }
+        }
+        every { request.responseHeaders } answers {
+            if (request.attempts == 2) {
+                mapOf("retry-after" to listOf("60"))
+            } else {
+                emptyMap()
+            }
+        }
+        every { request.computeRetryInterval() } returns 1_000L
+
+        KlaviyoApiClient.enqueueRequest(request)
+
+        repeat(3) {
+            assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete)
+        }
+
+        verify(exactly = 3) { request.send(any()) }
+        assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Null response code counts as a circuit breaker failure`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 2
+
+        val request = mockRequest("cb-null-response", KlaviyoApiRequest.Status.PendingRetry)
+        every { request.responseCode } returns null
+        every { request.computeRetryInterval() } returns 1_000L
+
+        KlaviyoApiClient.enqueueRequest(request)
+
+        repeat(2) {
+            assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete)
+        }
+
+        verify(exactly = 2) { request.send(any()) }
+        assertEquals(CircuitBreaker.State.OPEN, KlaviyoApiClient.circuitBreaker.state())
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
     fun `Circuit breaker is not tripped by 403 load-shed responses`() = runTest {
         every { mockConfig.circuitBreakerFailureThreshold } returns 3
 

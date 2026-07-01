@@ -261,6 +261,18 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     @Test
+    fun `Detects Retry-After header case-insensitively`() {
+        val expectedHeaders = mapOf("retry-after" to listOf("25"))
+        withConnectionMock(URL(expectedFullUrl)).also {
+            every { it.headerFields } returns expectedHeaders
+        }
+
+        val request = makeTestRequest()
+        request.send()
+        assertEquals(true, request.hasRetryAfterHeader)
+    }
+
+    @Test
     fun `Falls back on network interval without jitter when Retry-After header is missing or invalid`() {
         // Wifi interval is 10s, force jitter to be 1s
         every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
