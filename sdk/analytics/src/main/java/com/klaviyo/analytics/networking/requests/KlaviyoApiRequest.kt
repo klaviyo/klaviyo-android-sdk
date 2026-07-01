@@ -489,7 +489,12 @@ internal open class KlaviyoApiRequest(
         )
 
         try {
-            val retryAfter = this.responseHeaders[HEADER_RETRY_AFTER]?.getOrNull(0)
+            // Look up Retry-After case-insensitively: HTTP header names are case-insensitive and an
+            // HTTP/2 stack may deliver it lowercased, so a case-sensitive map lookup could miss it.
+            // headerFields can contain a null key (the status line), so compare from the constant.
+            val retryAfter = this.responseHeaders.entries
+                .firstOrNull { HEADER_RETRY_AFTER.equals(it.key, ignoreCase = true) }
+                ?.value?.getOrNull(0)
 
             if (retryAfter?.isNotEmpty() == true) {
                 val retryAfterInterval = (retryAfter.toInt() + jitterSeconds).times(1_000L)
