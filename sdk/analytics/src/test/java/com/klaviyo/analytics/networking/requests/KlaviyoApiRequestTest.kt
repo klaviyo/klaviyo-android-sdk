@@ -793,6 +793,52 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     @Test
+    fun `501 response code returns Failed immediately`() {
+        // 501 (Not Implemented) is a permanent server error excluded from the retryable
+        // 5xx range: retrying the identical request will always fail the same way.
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 501
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `505 response code returns Failed immediately`() {
+        // 505 (HTTP Version Not Supported) is a permanent server error excluded from the
+        // retryable 5xx range: retrying the identical request will always fail the same way.
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 505
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `499 response code returns Failed immediately`() {
+        // Lower-bound sanity: 499 sits just below the 5xx range and must stay non-retryable.
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 499
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
+    fun `600 response code returns Failed immediately`() {
+        // Upper-bound sanity: 600 sits just above the 5xx range and must stay non-retryable.
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns 600
+
+        val request = makeTestRequest()
+        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
+        assertEquals(1, request.attempts)
+    }
+
+    @Test
     fun `5xx response code after max attempts returns Failed`() {
         val connectionMock = withConnectionMock(URL(expectedFullUrl))
         every { connectionMock.responseCode } returns 500
