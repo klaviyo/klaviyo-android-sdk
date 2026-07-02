@@ -21,6 +21,9 @@ class BoundedIdSet(private val capacity: Int = DEFAULT_CAPACITY) {
     // LinkedHashSet preserves insertion order, so the iterator's first element is always the oldest.
     private val ids = LinkedHashSet<String>()
 
+    // Private monitor so external holders of this instance can't interfere with our locking.
+    private val lock = Any()
+
     /**
      * Atomically insert [id] and report whether it was newly added.
      *
@@ -30,8 +33,7 @@ class BoundedIdSet(private val capacity: Int = DEFAULT_CAPACITY) {
      *
      * @return `true` if [id] was not already present (now inserted), `false` if it was a duplicate.
      */
-    @Synchronized
-    fun markOnce(id: String): Boolean {
+    fun markOnce(id: String): Boolean = synchronized(lock) {
         if (!ids.add(id)) {
             // Already present: no-op, and crucially we do not move it to the end, so its eviction
             // order is unchanged.
@@ -45,11 +47,9 @@ class BoundedIdSet(private val capacity: Int = DEFAULT_CAPACITY) {
         return true
     }
 
-    @Synchronized
-    fun contains(id: String): Boolean = ids.contains(id)
+    fun contains(id: String): Boolean = synchronized(lock) { ids.contains(id) }
 
-    @get:Synchronized
-    val size: Int get() = ids.size
+    val size: Int get() = synchronized(lock) { ids.size }
 
     companion object {
         /**
