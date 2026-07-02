@@ -799,7 +799,8 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 
 > Form lifecycle events are available in SDK version 4.4.0 and higher.
 
-You can register a handler to receive callbacks whenever a form is shown, dismissed, or a CTA button is tapped.
+You can register a handler to receive callbacks whenever a form is shown, dismissed, or a CTA button is tapped
+(distinguishing in-app deep-link CTAs from CTAs that open an external URL in the browser).
 This is useful for forwarding engagement data to a third-party analytics platform such as Amplitude, Segment, or Mixpanel.
 
 The handler is invoked on the **main thread**, so avoid performing long-running or blocking work inside it.
@@ -810,6 +811,7 @@ The handler is invoked on the **main thread**, so avoid performing long-running 
    ```kotlin
    import com.klaviyo.analytics.Klaviyo
    import com.klaviyo.forms.FormLifecycleEvent.FormCtaClicked
+   import com.klaviyo.forms.FormLifecycleEvent.FormCtaExternalUrlClicked
    import com.klaviyo.forms.FormLifecycleEvent.FormDismissed
    import com.klaviyo.forms.FormLifecycleEvent.FormShown
    import com.klaviyo.forms.registerFormLifecycleHandler
@@ -829,6 +831,14 @@ The handler is invoked on the **main thread**, so avoid performing long-running 
                //     "formName" to event.formName,
                //     "buttonLabel" to event.buttonLabel,
                //     "deepLinkUrl" to event.deepLinkUrl.toString()
+               // ))
+           }
+           is FormCtaExternalUrlClicked -> {
+               // e.g. myAnalytics.track("Form External URL Clicked", mapOf(
+               //     "formId" to event.formId,
+               //     "formName" to event.formName,
+               //     "buttonLabel" to event.buttonLabel,
+               //     "externalUrl" to event.externalUrl.toString()
                // ))
            }
        }
@@ -853,6 +863,8 @@ The handler is invoked on the **main thread**, so avoid performing long-running 
            // e.g. myAnalytics.track("Form Dismissed", ...)
        } else if (event instanceof FormLifecycleEvent.FormCtaClicked ctaClicked) {
            // e.g. myAnalytics.track("Form CTA Clicked", ...)
+       } else if (event instanceof FormLifecycleEvent.FormCtaExternalUrlClicked externalUrlClicked) {
+           // e.g. myAnalytics.track("Form External URL Clicked", ...)
        }
    });
 

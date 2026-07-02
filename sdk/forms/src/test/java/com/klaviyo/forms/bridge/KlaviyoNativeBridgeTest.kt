@@ -1,5 +1,6 @@
 package com.klaviyo.forms.bridge
 
+import android.content.Intent
 import android.net.Uri
 import androidx.webkit.WebMessageCompat
 import com.klaviyo.analytics.Klaviyo
@@ -11,6 +12,7 @@ import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import com.klaviyo.forms.FormLifecycleEvent
@@ -20,9 +22,11 @@ import com.klaviyo.forms.presentation.PresentationState
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
+import io.mockk.runs
 import io.mockk.slot
 import io.mockk.unmockkAll
 import io.mockk.verify
@@ -395,6 +399,69 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         assertEquals("My Form", ctaEvent.formName)
         assertEquals("abc", ctaEvent.formId)
         assertEquals(mockUri, ctaEvent.deepLinkUrl)
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    private val openExternalUrlMessage = """
+        {
+          "type": "openExternalUrl",
+          "data": {
+            "url": "https://example.com",
+            "formId": "64CjgW",
+            "formName": "Test Form",
+            "buttonLabel": "Visit Site"
+          }
+        }
+    """.trimIndent()
+
+    @Test
+    fun `openExternalUrl launches browser intent without package and fires lifecycle callback`() {
+        /**
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.openExternalUrl
+         */
+        mockkObject(DeepLinking)
+        every { mockContext.startActivity(any()) } just runs
+        val mockIntent = MockIntent.setupIntentMocking()
+
+        val events = mutableListOf<FormLifecycleEvent>()
+        val callback = FormLifecycleHandler { event -> events.add(event) }
+        Registry.register<FormLifecycleHandler>(callback)
+
+        postMessage(openExternalUrlMessage)
+
+        // Browser intent: ACTION_VIEW with no setPackage, so the OS routes to the default browser
+        assertEquals(Intent.ACTION_VIEW, mockIntent.action.captured)
+        assertEquals(mockUri, mockIntent.data.captured)
+        assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, mockIntent.flags.captured)
+        assertEquals(false, mockIntent.packageName.isCaptured)
+        verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
+
+        assertEquals(1, events.size)
+        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaExternalUrlClicked
+        assertEquals("64CjgW", ctaEvent.formId)
+        assertEquals("Test Form", ctaEvent.formName)
+        assertEquals("Visit Site", ctaEvent.buttonLabel)
+        assertEquals(mockUri, ctaEvent.externalUrl)
+
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `openExternalUrl with missing formId still navigates but skips lifecycle callback`() {
+        val message = """{"type":"openExternalUrl","data":{"url":"https://example.com","formName":"Test Form","buttonLabel":"Visit"}}"""
+
+        every { mockContext.startActivity(any()) } just runs
+        val mockIntent = MockIntent.setupIntentMocking()
+
+        val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+        Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+        postMessage(message)
+
+        assertEquals(Intent.ACTION_VIEW, mockIntent.action.captured)
+        verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+        verify { spyLog.warning(any()) }
 
         Registry.unregister<FormLifecycleHandler>()
     }
