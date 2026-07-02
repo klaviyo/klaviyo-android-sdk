@@ -49,7 +49,7 @@ object Klaviyo {
     private val preInitQueue: Queue<Operation<Unit>> = LinkedList()
 
     /**
-     * Push delivery IDs already auto-tracked within this process, so a single tap records one
+     * Push delivery IDs already handled within this process, so a single tap records one
      * `$opened_push`. See [handlePush] for how entries are matched and added.
      */
     private val handledPushDeliveries = BoundedIdSet()
@@ -337,23 +337,19 @@ object Klaviyo {
      */
     @JvmStatic
     fun handlePush(intent: Intent?): Klaviyo {
-        // Dedup guard for the automatic-tracking path. The trampoline calls handlePush and then
-        // forwards the same intent to the host, so a leftover manual handlePush call (or singleTask
-        // re-entry) would otherwise track a second open for one tap. Record each delivery the first
-        // time it's seen; if it's already recorded, drop this call entirely — no event, dismissal, or
-        // deep link. Manual-only integrations carry no auto-tracked marker, so they're unaffected.
-        val deliveryId = intent.pushDeliveryId
-        if (
-            intent.isAutoTrackedOpen &&
-            deliveryId != null &&
-            !handledPushDeliveries.markOnce(deliveryId)
-        ) {
-            Registry.log.verbose("Ignoring duplicate auto-tracked push open")
+        if (intent == null || !intent.isKlaviyoNotificationIntent) {
+            Registry.log.verbose("Non-Klaviyo intent ignored")
             return this
         }
 
-        if (intent == null || !intent.isKlaviyoNotificationIntent) {
-            Registry.log.verbose("Non-Klaviyo intent ignored")
+        // Dedup guard: track each push delivery at most once per process. The trampoline calls
+        // handlePush and forwards the same intent to the host, so a leftover manual handlePush call
+        // (or singleTask re-entry) would otherwise double-track one tap. The first call to see a
+        // delivery records it and proceeds; a later call for the same delivery short-circuits — no
+        // event, dismissal, or deep link.
+        val deliveryId = intent.pushDeliveryId
+        if (deliveryId != null && !handledPushDeliveries.markOnce(deliveryId)) {
+            Registry.log.verbose("Ignoring duplicate push open")
             return this
         }
 
@@ -461,19 +457,11 @@ object Klaviyo {
     fun isKlaviyoNotificationIntent(intent: Intent?): Boolean = intent.isKlaviyoNotificationIntent
 
     /**
-     * Whether this intent was routed through the automatic-open-tracking trampoline, i.e. carries
-     * [Constants.NOTIFICATION_AUTO_TRACKED_EXTRA]. Gates [handlePush]'s dedup guard so it never
-     * affects manual-only integrations.
-     */
-    private val Intent?.isAutoTrackedOpen: Boolean
-        get() = this?.getBooleanExtra(Constants.NOTIFICATION_AUTO_TRACKED_EXTRA, false) ?: false
-
-    /**
      * Dedup key for this intent's push delivery, or `null` if none is available. Prefers the `tm`
      * field of the `_k` payload (a per-delivery ULID on campaign sends), else the SDK-generated
-     * [Constants.NOTIFICATION_UID_EXTRA]. Both are copied forward to the host's intent, so the
-     * trampoline call and a leftover manual call for the same tap resolve to the same key while
-     * distinct notifications stay distinct.
+     * [Constants.NOTIFICATION_UID_EXTRA] stamped on trampoline intents. Both are copied forward to
+     * the host's intent, so the trampoline call and a leftover manual call for the same tap resolve
+     * to the same key while distinct notifications stay distinct.
      *
      * Deliberately not the raw `_k`: minus `tm` it is per-message metadata shared across deliveries,
      * so it would collapse distinct opens.

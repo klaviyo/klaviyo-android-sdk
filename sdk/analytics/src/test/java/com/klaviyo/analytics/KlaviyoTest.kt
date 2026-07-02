@@ -705,7 +705,7 @@ internal class KlaviyoTest : BaseTest() {
         verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
     }
 
-    // --- Auto-tracked push-open dedup guard (`_k.tm`, gated by NOTIFICATION_AUTO_TRACKED_EXTRA) ---
+    // --- Push-open dedup guard (keyed on `_k.tm`, else the generated NOTIFICATION_UID_EXTRA) ---
     // Note: Klaviyo is an object, so its in-memory dedup set persists across tests in this class.
     // Each dedup test uses a distinct delivery ID to stay independent of execution order.
 
@@ -714,21 +714,27 @@ internal class KlaviyoTest : BaseTest() {
         "com.klaviyo._k" to """{"m":"01GK4P5W6AV4V3APTJ727JKSKQ","tm":"$deliveryId"}"""
     )
 
-    /** A Klaviyo intent stamped as auto-tracked, as the trampoline forwards it to the host. */
-    private fun autoTrackedIntent(deliveryId: String, uri: Uri? = null): Intent =
-        mockIntent(deliveryExtras(deliveryId), uri).also {
-            every { it.getBooleanExtra(Constants.NOTIFICATION_AUTO_TRACKED_EXTRA, any()) } returns true
-        }
+    private fun deliveryIntent(deliveryId: String, uri: Uri? = null): Intent =
+        mockIntent(deliveryExtras(deliveryId), uri)
+
+    /** A Klaviyo intent whose `_k` payload omits `tm`, relying on the generated uid as the key. */
+    private fun tmLessIntent(notificationUid: String): Intent =
+        mockIntent(
+            mapOf(
+                "com.klaviyo._k" to """{"m":"01GK4P5W6AV4V3APTJ727JKSKQ"}""",
+                Constants.NOTIFICATION_UID_EXTRA to notificationUid
+            )
+        )
 
     @Test
-    fun `handlePush tracks exactly one opened_push when an auto-tracked delivery is handled twice`() {
-        // Legacy-integrator scenario: the trampoline tracks first, then forwards the destination
-        // intent (same _k/tm, same marker) to a host that still calls handlePush manually.
+    fun `handlePush tracks exactly one opened_push when a delivery is handled twice`() {
+        // The trampoline tracks first, then forwards the same intent (same tm) to a host that still
+        // calls handlePush manually; only one open, dismissal, and deep link result.
         val (getCapturedUri) = setupDeepLinkHandler()
         val testUri = mockk<Uri>()
 
-        Klaviyo.handlePush(autoTrackedIntent("dedup-twice-distinct-intents", testUri))
-        Klaviyo.handlePush(autoTrackedIntent("dedup-twice-distinct-intents", testUri))
+        Klaviyo.handlePush(deliveryIntent("dedup-twice-distinct-intents", testUri))
+        Klaviyo.handlePush(deliveryIntent("dedup-twice-distinct-intents", testUri))
 
         verifyOpenedPushEventEnqueued()
         assertEquals(testUri, getCapturedUri())
@@ -736,8 +742,8 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `handlePush short-circuits a repeat call with the same auto-tracked intent`() {
-        val intent = autoTrackedIntent("dedup-same-intent-object")
+    fun `handlePush short-circuits a repeat call with the same intent`() {
+        val intent = deliveryIntent("dedup-same-intent-object")
 
         Klaviyo.handlePush(intent)
         Klaviyo.handlePush(intent)
@@ -746,47 +752,28 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `handlePush tracks distinct auto-tracked deliveries independently`() {
-        Klaviyo.handlePush(autoTrackedIntent("dedup-distinct-A"))
-        Klaviyo.handlePush(autoTrackedIntent("dedup-distinct-B"))
+    fun `handlePush tracks distinct deliveries independently`() {
+        Klaviyo.handlePush(deliveryIntent("dedup-distinct-A"))
+        Klaviyo.handlePush(deliveryIntent("dedup-distinct-B"))
 
         verify(exactly = 2) {
             mockApiClient.enqueueEvent(match { it.metric == EventMetric.OPENED_PUSH }, any())
         }
     }
 
-    /**
-     * An auto-tracked intent whose `_k` payload has no `tm`, carrying the SDK-generated
-     * [Constants.NOTIFICATION_UID_EXTRA] fallback key the trampoline stamps (local notifications,
-     * previews, non-campaign sends).
-     */
-    private fun autoTrackedIntentNoTm(notificationUid: String): Intent =
-        mockIntent(
-            mapOf(
-                // Valid _k payload that simply omits `tm`, e.g. a non-campaign send.
-                "com.klaviyo._k" to """{"m":"01GK4P5W6AV4V3APTJ727JKSKQ"}""",
-                Constants.NOTIFICATION_UID_EXTRA to notificationUid
-            )
-        ).also {
-            every { it.getBooleanExtra(Constants.NOTIFICATION_AUTO_TRACKED_EXTRA, any()) } returns true
-        }
-
     @Test
     fun `handlePush dedupes a tm-less delivery via the generated notification uid`() {
-        // Trampoline call + a host's leftover manual call for the same tap carry the same generated
-        // uid, so only one $opened_push is tracked.
-        Klaviyo.handlePush(autoTrackedIntentNoTm("uid-fallback-same"))
-        Klaviyo.handlePush(autoTrackedIntentNoTm("uid-fallback-same"))
+        Klaviyo.handlePush(tmLessIntent("uid-fallback-same"))
+        Klaviyo.handlePush(tmLessIntent("uid-fallback-same"))
 
         verifyOpenedPushEventEnqueued()
     }
 
     @Test
     fun `handlePush tracks distinct tm-less notifications independently`() {
-        // Regression: distinct notifications get distinct generated uids, so they must NOT collide
-        // (they previously did when falling back to the shared raw _k payload).
-        Klaviyo.handlePush(autoTrackedIntentNoTm("uid-fallback-A"))
-        Klaviyo.handlePush(autoTrackedIntentNoTm("uid-fallback-B"))
+        // Distinct notifications get distinct generated uids, so they must not collide.
+        Klaviyo.handlePush(tmLessIntent("uid-fallback-A"))
+        Klaviyo.handlePush(tmLessIntent("uid-fallback-B"))
 
         verify(exactly = 2) {
             mockApiClient.enqueueEvent(match { it.metric == EventMetric.OPENED_PUSH }, any())
@@ -795,31 +782,30 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `handlePush falls back to the generated uid when the _k payload is not valid JSON`() {
-        // Some notifications (e.g. local notifications) carry a non-JSON _k; tm parsing must fail
-        // gracefully and fall back to the generated uid rather than throwing.
-        val malformedKIntent = {
+        // A non-JSON _k must fail tm parsing gracefully and fall back to the generated uid.
+        val makeIntent = {
             mockIntent(
                 mapOf(
                     "com.klaviyo._k" to "not-json",
                     Constants.NOTIFICATION_UID_EXTRA to "uid-malformed-k"
                 )
-            ).also {
-                every { it.getBooleanExtra(Constants.NOTIFICATION_AUTO_TRACKED_EXTRA, any()) } returns true
-            }
+            )
         }
 
-        Klaviyo.handlePush(malformedKIntent())
-        Klaviyo.handlePush(malformedKIntent())
+        Klaviyo.handlePush(makeIntent())
+        Klaviyo.handlePush(makeIntent())
 
         verifyOpenedPushEventEnqueued()
     }
 
     @Test
-    fun `handlePush never dedupes manual (non auto-tracked) intents even for the same delivery`() {
-        // No auto-tracked marker → manual integration → guard must not engage (byte-identical to
-        // pre-guard behavior), even though both intents share the same _k/tm.
-        Klaviyo.handlePush(mockIntent(deliveryExtras("manual-not-deduped")))
-        Klaviyo.handlePush(mockIntent(deliveryExtras("manual-not-deduped")))
+    fun `handlePush does not dedupe when no delivery id is available`() {
+        // No `tm` and no generated uid: with no key to match on, each call tracks. We never fabricate
+        // a key from the shared `_k` metadata, which would collapse distinct deliveries.
+        val noKey = mapOf("com.klaviyo._k" to """{"m":"01GK4P5W6AV4V3APTJ727JKSKQ"}""")
+
+        Klaviyo.handlePush(mockIntent(noKey))
+        Klaviyo.handlePush(mockIntent(noKey))
 
         verify(exactly = 2) {
             mockApiClient.enqueueEvent(match { it.metric == EventMetric.OPENED_PUSH }, any())

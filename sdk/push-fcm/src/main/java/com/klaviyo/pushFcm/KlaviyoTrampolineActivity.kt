@@ -88,15 +88,12 @@ internal class KlaviyoTrampolineActivity : Activity() {
          * seam as [forBrowserUrl]. Callers append their own Klaviyo extras for parity with the
          * non-trampoline intents they replace.
          *
-         * Stamps the dedup extras read by `handlePush`: [Constants.NOTIFICATION_AUTO_TRACKED_EXTRA]
-         * to mark the auto-tracking path, and a fresh per-intent [Constants.NOTIFICATION_UID_EXTRA]
-         * as a fallback dedup key for payloads without a `tm`. `open_url` ([forBrowserUrl]) is left
-         * unmarked — the host never receives a forwarded `open_url` tap, so nothing to dedupe.
+         * Stamps a fresh per-intent [Constants.NOTIFICATION_UID_EXTRA] that `handlePush` uses as a
+         * fallback dedup key for payloads without a `tm` (e.g. local notifications, previews).
          */
         internal fun forDestination(context: Context, deepLink: Uri? = null): Intent = Intent().apply {
             setClassName(context.packageName, KlaviyoTrampolineActivity::class.java.name)
             deepLink?.let { data = it }
-            putExtra(Constants.NOTIFICATION_AUTO_TRACKED_EXTRA, true)
             putExtra(Constants.NOTIFICATION_UID_EXTRA, UUID.randomUUID().toString())
         }
 
