@@ -43,6 +43,7 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.sound
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
 import java.net.URL
+import java.util.UUID
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -175,8 +176,14 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             KlaviyoPushService.METADATA_AUTOMATIC_PUSH_TRACKING,
             false
         )
+        // One id per notification, stamped on the body and every action-button intent, so
+        // handlePush can dedupe a notification's opens even when the `_k` payload carries no `tm`.
+        // Distinct notifications get distinct ids; body and buttons of one notification share it.
+        val notificationUid = UUID.randomUUID().toString()
         return NotificationCompat.Builder(context, message.channel_id)
-            .setContentIntent(makePendingIntent(context, requestCodeBase, autoTracking))
+            .setContentIntent(
+                makePendingIntent(context, requestCodeBase, autoTracking, notificationUid)
+            )
             .setSmallIcon(message.getSmallIcon(context))
             .also { message.getColor(context)?.let { color -> it.setColor(color) } }
             .setContentTitle(message.title)
@@ -186,7 +193,13 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
-            .addActionButtons(context, requestCodeBase, notificationTag, autoTracking)
+            .addActionButtons(
+                context,
+                requestCodeBase,
+                notificationTag,
+                autoTracking,
+                notificationUid
+            )
     }
 
     private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
@@ -237,11 +250,16 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      *
      * @return [PendingIntent]
      */
-    private fun makePendingIntent(context: Context, requestCode: Int, autoTracking: Boolean) =
+    private fun makePendingIntent(
+        context: Context,
+        requestCode: Int,
+        autoTracking: Boolean,
+        notificationUid: String
+    ) =
         PendingIntent.getActivity(
             context,
             requestCode,
-            makeOpenedIntent(context, autoTracking),
+            makeOpenedIntent(context, autoTracking, notificationUid),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
         )
 
@@ -255,7 +273,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * creation, so this is only reachable via direct API calls or test tooling — we
      * warn so the misconfiguration is debuggable.
      */
-    private fun makeOpenedIntent(context: Context, autoTracking: Boolean): Intent? {
+    private fun makeOpenedIntent(context: Context, autoTracking: Boolean, notificationUid: String): Intent? {
         val deepLink = message.deepLink
         val webUrl = message.webUrl
 
@@ -284,6 +302,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             }
             return intent?.apply {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
                 appendKlaviyoExtras(message)
             }
         }
@@ -292,6 +311,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             // Route through the trampoline so handlePush tracks $opened_push
             // and dismisses the notification — the browser would otherwise swallow the intent.
             return KlaviyoTrampolineActivity.forBrowserUrl(context, webUrl).apply {
+                putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
                 appendKlaviyoExtras(message)
             }
         }
@@ -304,6 +324,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         }
         return intent?.apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
             appendKlaviyoExtras(message)
         }
     }
@@ -325,7 +346,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         context: Context,
         requestCodeBase: Int,
         notificationTag: String,
-        autoTracking: Boolean
+        autoTracking: Boolean,
+        notificationUid: String
     ): NotificationCompat.Builder {
         val actionButtons = message.actionButtons ?: return this
 
@@ -340,7 +362,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 requestCode,
                 button,
                 notificationTag,
-                autoTracking
+                autoTracking,
+                notificationUid
             )
                 ?: return@forEachIndexed
             addAction(action)
@@ -366,7 +389,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         requestCode: Int,
         button: ActionButton,
         notificationTag: String,
-        autoTracking: Boolean
+        autoTracking: Boolean,
+        notificationUid: String
     ): NotificationCompat.Action? {
         val intent = when (button) {
             is ActionButton.DeepLink -> {
@@ -400,6 +424,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         }?.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             putExtra(Constants.NOTIFICATION_TAG_EXTRA, notificationTag)
+            putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
         }?.appendKlaviyoExtras(message)
             ?.appendActionButtonExtras(button)
 

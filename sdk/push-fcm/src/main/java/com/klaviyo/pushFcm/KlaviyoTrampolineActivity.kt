@@ -9,11 +9,9 @@ import androidx.core.net.toUri
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
 import com.klaviyo.analytics.linking.DeepLinking
-import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.core.utils.startActivityIfResolved
-import java.util.UUID
 
 /**
  * Transparent trampoline [Activity] used to intercept Klaviyo notification taps so the
@@ -87,14 +85,10 @@ internal class KlaviyoTrampolineActivity : Activity() {
          * Uses [Intent.setClassName] instead of the `Intent(Context, Class)` constructor — same test
          * seam as [forBrowserUrl]. Callers append their own Klaviyo extras for parity with the
          * non-trampoline intents they replace.
-         *
-         * Stamps a fresh per-intent [Constants.NOTIFICATION_UID_EXTRA] that `handlePush` uses as a
-         * fallback dedup key for payloads without a `tm` (e.g. local notifications, previews).
          */
         internal fun forDestination(context: Context, deepLink: Uri? = null): Intent = Intent().apply {
             setClassName(context.packageName, KlaviyoTrampolineActivity::class.java.name)
             deepLink?.let { data = it }
-            putExtra(Constants.NOTIFICATION_UID_EXTRA, UUID.randomUUID().toString())
         }
 
         /**

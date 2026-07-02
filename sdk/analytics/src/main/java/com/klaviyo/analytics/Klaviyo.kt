@@ -459,9 +459,9 @@ object Klaviyo {
     /**
      * Dedup key for this intent's push delivery, or `null` if none is available. Prefers the `tm`
      * field of the `_k` payload (a per-delivery ULID on campaign sends), else the SDK-generated
-     * [Constants.NOTIFICATION_UID_EXTRA] stamped on trampoline intents. Both are copied forward to
-     * the host's intent, so the trampoline call and a leftover manual call for the same tap resolve
-     * to the same key while distinct notifications stay distinct.
+     * per-notification [Constants.NOTIFICATION_UID_EXTRA]. Both are copied forward to the host's
+     * intent, so a delivery handled by the trampoline and then a leftover manual call resolve to the
+     * same key, while distinct notifications stay distinct.
      *
      * Deliberately not the raw `_k`: minus `tm` it is per-message metadata shared across deliveries,
      * so it would collapse distinct opens.

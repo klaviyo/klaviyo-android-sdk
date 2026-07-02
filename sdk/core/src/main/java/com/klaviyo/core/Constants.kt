@@ -30,8 +30,9 @@ object Constants {
     const val NOTIFICATION_TAG_EXTRA = INTERNAL_PREFIX + "notification_tag"
 
     /**
-     * Intent extra carrying an SDK-generated, per-notification unique ID. Used by `Klaviyo.handlePush`
-     * as the dedup key when the `_k` tracking payload has no `tm`.
+     * Intent extra carrying an SDK-generated, per-notification unique ID stamped on every Klaviyo
+     * notification's tap intents (body and each action button). Used by `Klaviyo.handlePush` as the
+     * dedup key when the `_k` tracking payload has no `tm`.
      * Uses [INTERNAL_PREFIX] to stay out of analytics event properties, like [NOTIFICATION_TAG_EXTRA].
      */
     const val NOTIFICATION_UID_EXTRA = INTERNAL_PREFIX + "notification_uid"

@@ -974,4 +974,68 @@ class KlaviyoNotificationTest : BaseTest() {
         verify { KlaviyoTrampolineActivity.forBrowserUrl(mockContext, "https://example.com") }
         verify(exactly = 0) { KlaviyoTrampolineActivity.forDestination(any(), any()) }
     }
+
+    @Test
+    fun `stamps a dedup uid on the body intent even when auto-tracking is off`() {
+        // Non-trampoline path: the host receives the intent directly, but it must still carry a
+        // per-notification dedup uid so handlePush can dedupe tm-less opens (e.g. a host calling
+        // handlePush twice for one tap).
+        val mockBodyIntent = mockk<Intent>(relaxed = true)
+        every { DeepLinking.makeLaunchIntent(mockContext) } returns mockBodyIntent
+        val intentSlot = slot<Intent>()
+        every {
+            PendingIntent.getActivity(any(), any(), capture(intentSlot), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        assertEquals(mockBodyIntent, intentSlot.captured)
+        verify { mockBodyIntent.putExtra("_klaviyo.notification_uid", any<String>()) }
+    }
+
+    @Test
+    fun `body and action button share one dedup uid per notification`() {
+        // The dedup key must be per-notification, not per-intent: body and every action button
+        // carry the same uid so distinct targets on one notification collapse to a single open.
+        enableAutomaticTracking()
+        val bodyUri = mockk<Uri>(relaxed = true)
+        val buttonUri = mockk<Uri>(relaxed = true)
+        every { Uri.parse("klaviyotest://order/123") } returns buttonUri
+        val mockBodyIntent = mockk<Intent>(relaxed = true)
+        val mockButtonIntent = mockk<Intent>(relaxed = true)
+        val bodyUid = slot<String>()
+        val buttonUid = slot<String>()
+        every {
+            mockBodyIntent.putExtra("_klaviyo.notification_uid", capture(bodyUid))
+        } returns mockBodyIntent
+        every {
+            mockButtonIntent.putExtra("_klaviyo.notification_uid", capture(buttonUid))
+        } returns mockButtonIntent
+        every { KlaviyoTrampolineActivity.forDestination(mockContext, bodyUri) } returns mockBodyIntent
+        every { KlaviyoTrampolineActivity.forDestination(mockContext, buttonUri) } returns mockButtonIntent
+        every { PendingIntent.getActivity(any(), any(), any(), any()) } returns mockk(
+            relaxed = true
+        )
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.deepLink } returns bodyUri
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.DeepLink(
+                    id = "com.klaviyo.test.view",
+                    label = "View Order",
+                    url = "klaviyotest://order/123"
+                )
+            )
+        }
+
+        notification.displayNotification(mockContext)
+
+        assertTrue("body intent should carry a dedup uid", bodyUid.isCaptured)
+        assertTrue("button intent should carry a dedup uid", buttonUid.isCaptured)
+        assertTrue("dedup uid should be non-empty", bodyUid.captured.isNotEmpty())
+        assertEquals(
+            "body and button should share one per-notification uid",
+            bodyUid.captured,
+            buttonUid.captured
+        )
+    }
 }
