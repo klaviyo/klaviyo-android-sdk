@@ -41,6 +41,15 @@ interface Config {
         fun networkFlushInterval(networkFlushInterval: Long, type: NetworkMonitor.NetworkType): Builder
         fun networkMaxAttempts(networkMaxAttempts: Int): Builder
         fun networkMaxRetryInterval(networkMaxRetryInterval: Long): Builder
+
+        @Deprecated(
+            message = "Depth-triggered flushing has been removed. The queue now flushes only on " +
+                "the timer interval (see networkFlushInterval) and is internally bounded by a " +
+                "size cap. This setter has no effect and will be removed in a future major release.",
+            level = DeprecationLevel.WARNING
+        )
+        fun networkFlushDepth(networkFlushDepth: Int): Builder
+
         fun build(): Config
     }
 }

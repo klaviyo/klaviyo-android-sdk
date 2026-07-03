@@ -220,12 +220,18 @@ internal object KlaviyoApiClient : ApiClient {
                 while (apiQueue.size >= MAX_QUEUE_SIZE) {
                     // Evict the oldest request by enqueue timestamp, not the front of the deque —
                     // head-of-line requests are inserted at the front but are the newest.
+                    // The minByOrNull + remove pair is not atomic on the ConcurrentLinkedDeque, so a
+                    // concurrent enqueue could target the same victim. We gate the side effects on
+                    // remove()'s boolean: if another thread already evicted this request, remove()
+                    // returns false and the while-loop simply re-scans — a best-effort, self-healing
+                    // soft bound rather than a hard guarantee.
                     val evicted = apiQueue.minByOrNull { it.queuedTime } ?: break
-                    apiQueue.remove(evicted)
-                    Registry.dataStore.clear(evicted.uuid)
-                    Registry.log.warning(
-                        "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${evicted.type}"
-                    )
+                    if (apiQueue.remove(evicted)) {
+                        Registry.dataStore.clear(evicted.uuid)
+                        Registry.log.warning(
+                            "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${evicted.type}"
+                        )
+                    }
                 }
                 Registry.dataStore.store(request.uuid, request.toString())
                 if (headOfLine) {
