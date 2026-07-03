@@ -256,6 +256,17 @@ object KlaviyoConfig : Config {
             }
         }
 
+        @Deprecated(
+            message = "Depth-triggered flushing has been removed. The queue now flushes only on " +
+                "the timer interval (see networkFlushInterval) and is internally bounded by a " +
+                "size cap. This setter has no effect and will be removed in a future major release.",
+            level = DeprecationLevel.WARNING
+        )
+        override fun networkFlushDepth(networkFlushDepth: Int) = apply {
+            // No-op: depth-triggered flushing was removed; retained for one release as a
+            // deprecated setter so existing caller code keeps compiling.
+        }
+
         override fun build(): Config {
             val context = applicationContext ?: throw MissingContext()
             val packageInfo = context.packageManager.getPackageInfoCompat(
