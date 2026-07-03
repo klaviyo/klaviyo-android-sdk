@@ -735,7 +735,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         fun expectedBackoffInterval(startAttempts: Int) =
             expectedBackoffIntervals.getOrElse(startAttempts) {
-                300_000L // Max backoff time should be used from here on, because 512s > 300s
+                // Max backoff (cap) should be used from here on, because 512s > the configured cap
+                Registry.config.networkMaxRetryInterval
             }
 
         // First unsent request, which we will retry till max attempts
@@ -792,7 +793,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // First request should have been retried exactly 50 times
         assertEquals(50, request1.attempts)
-        assertEquals(300_000L, scheduledIntervals.maxOrNull() ?: 0L)
+        assertEquals(Registry.config.networkMaxRetryInterval, scheduledIntervals.maxOrNull() ?: 0L)
 
         // Upon final failure, request 1 should have been dropped from the queue
         assertEquals(1, KlaviyoApiClient.getQueueSize())
