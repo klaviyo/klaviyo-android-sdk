@@ -490,12 +490,7 @@ internal open class KlaviyoApiRequest(
         )
 
         try {
-            // Look up Retry-After case-insensitively: HTTP header names are case-insensitive and an
-            // HTTP/2 stack may deliver it lowercased, so a case-sensitive map lookup could miss it.
-            // headerFields can contain a null key (the status line), so compare from the constant.
-            val retryAfter = this.responseHeaders.entries
-                .firstOrNull { HEADER_RETRY_AFTER.equals(it.key, ignoreCase = true) }
-                ?.value?.getOrNull(0)
+            val retryAfter = retryAfterHeaderValue
 
             if (retryAfter?.isNotEmpty() == true) {
                 val retryAfterInterval = (retryAfter.toInt() + jitterSeconds).times(1_000L)
@@ -507,6 +502,20 @@ internal open class KlaviyoApiRequest(
 
         return backoffInterval
     }
+
+    /**
+     * Whether the latest response carried a usable (non-empty) `Retry-After` header.
+     *
+     * Used by the circuit breaker to distinguish a deliberate, server-directed throttle (which
+     * proves the server is reachable) from an ambiguous failure that should count toward dormancy.
+     */
+    val hasRetryAfterHeader: Boolean
+        get() = retryAfterHeaderValue?.isNotEmpty() == true
+
+    private val retryAfterHeaderValue: String?
+        get() = responseHeaders.entries
+            .firstOrNull { HEADER_RETRY_AFTER.equals(it.key, ignoreCase = true) }
+            ?.value?.getOrNull(0)
 
     /**
      * Clear a mutable map and add new key value pairs

@@ -23,6 +23,7 @@ import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
+import com.klaviyo.core.networking.CircuitBreaker
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.core.utils.takeIf
@@ -45,6 +46,7 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.ConcurrentLinkedDeque
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -75,6 +77,19 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private companion object {
         private val slotOnActivityEvent = slot<ActivityObserver>()
         private val slotOnNetworkChange = slot<NetworkObserver>()
+    }
+
+    private class NullPollQueue(
+        request: KlaviyoApiRequest
+    ) : ConcurrentLinkedDeque<KlaviyoApiRequest>() {
+        init {
+            offer(request)
+        }
+
+        override fun poll(): KlaviyoApiRequest? {
+            clear()
+            return null
+        }
     }
 
     @Before
@@ -1200,5 +1215,225 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // Verify that scheduleFlush was NOT called for custom events
         verify(exactly = 0) { mockQueueScheduler.scheduleFlush() }
+    }
+
+    @Test
+    fun `Circuit breaker opens after consecutive failures, holds the queue, then probes`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 3
+        every { mockConfig.circuitBreakerBaseOpenInterval } returns 30_000L
+        every { mockConfig.circuitBreakerMaxOpenInterval } returns 300_000L
+
+        val request = mockRequest("cb-uuid", KlaviyoApiRequest.Status.PendingRetry, 503)
+        every { request.computeRetryInterval() } returns 1_000L
+        KlaviyoApiClient.enqueueRequest(request)
+
+        // Three consecutive failed flushes trip the breaker
+        repeat(3) { assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete) }
+        verify(exactly = 3) { request.send(any()) }
+        assertEquals(CircuitBreaker.State.OPEN, KlaviyoApiClient.circuitBreaker.state())
+
+        // While open, the queue is held intact and no further sends occur
+        assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete)
+        verify(exactly = 3) { request.send(any()) }
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        // Once the open interval elapses, exactly one probe is permitted through
+        staticClock.time += 30_000L
+        assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete)
+        verify(exactly = 4) { request.send(any()) }
+    }
+
+    @Test
+    fun `Successful circuit breaker probe closes the breaker and resumes draining`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 2
+        every { mockConfig.circuitBreakerBaseOpenInterval } returns 30_000L
+        every { mockConfig.circuitBreakerMaxOpenInterval } returns 300_000L
+
+        val request = mockRequest("cb-probe-success", KlaviyoApiRequest.Status.Unsent)
+        every { request.state } answers {
+            when (request.attempts) {
+                0 -> KlaviyoApiRequest.Status.Unsent.name
+                1, 2 -> KlaviyoApiRequest.Status.PendingRetry.name
+                else -> KlaviyoApiRequest.Status.Complete.name
+            }
+        }
+        every { request.responseCode } answers {
+            if (request.attempts >= 3) {
+                HttpURLConnection.HTTP_ACCEPTED
+            } else {
+                HttpURLConnection.HTTP_UNAVAILABLE
+            }
+        }
+        every { request.computeRetryInterval() } returns 1_000L
+
+        KlaviyoApiClient.enqueueRequest(request)
+
+        repeat(2) {
+            assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete)
+        }
+        verify(exactly = 2) { request.send(any()) }
+        assertEquals(CircuitBreaker.State.OPEN, KlaviyoApiClient.circuitBreaker.state())
+
+        staticClock.time += 30_000L
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+
+        assert(outcome is FlushOutcome.Complete)
+        verify(exactly = 3) { request.send(any()) }
+        assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `429 with Retry-After resets circuit breaker failures`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 2
+
+        val request = mockRequest("cb-429-retry-after", KlaviyoApiRequest.Status.Unsent)
+        every { request.state } answers {
+            when (request.attempts) {
+                0 -> KlaviyoApiRequest.Status.Unsent.name
+                else -> KlaviyoApiRequest.Status.PendingRetry.name
+            }
+        }
+        every { request.responseCode } answers {
+            if (request.attempts == 2) {
+                KlaviyoApiRequest.HTTP_RETRY
+            } else {
+                HttpURLConnection.HTTP_UNAVAILABLE
+            }
+        }
+        every { request.responseHeaders } answers {
+            if (request.attempts == 2) {
+                mapOf("retry-after" to listOf("60"))
+            } else {
+                emptyMap()
+            }
+        }
+        every { request.computeRetryInterval() } returns 1_000L
+
+        KlaviyoApiClient.enqueueRequest(request)
+
+        repeat(3) {
+            assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete)
+        }
+
+        verify(exactly = 3) { request.send(any()) }
+        assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Null response code counts as a circuit breaker failure`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 2
+
+        val request = mockRequest("cb-null-response", KlaviyoApiRequest.Status.PendingRetry)
+        every { request.responseCode } returns null
+        every { request.computeRetryInterval() } returns 1_000L
+
+        KlaviyoApiClient.enqueueRequest(request)
+
+        repeat(2) {
+            assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete)
+        }
+
+        verify(exactly = 2) { request.send(any()) }
+        assertEquals(CircuitBreaker.State.OPEN, KlaviyoApiClient.circuitBreaker.state())
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Circuit breaker is not tripped by 403 load-shed responses`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 3
+
+        // Three 403s would exceed the threshold if they were (incorrectly) counted as failures
+        KlaviyoApiClient.enqueueRequest(
+            mockRequest("cb-403-1", KlaviyoApiRequest.Status.Failed, 403),
+            mockRequest("cb-403-2", KlaviyoApiRequest.Status.Failed, 403),
+            mockRequest("cb-403-3", KlaviyoApiRequest.Status.Failed, 403)
+        )
+
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+
+        assert(outcome is FlushOutcome.Complete)
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
+    }
+
+    @Test
+    fun `Circuit breaker is not tripped by deterministic reachable 501 and 505 responses`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 2
+
+        KlaviyoApiClient.enqueueRequest(
+            mockRequest(
+                "cb-501",
+                KlaviyoApiRequest.Status.Failed,
+                HttpURLConnection.HTTP_NOT_IMPLEMENTED
+            ),
+            mockRequest(
+                "cb-505",
+                KlaviyoApiRequest.Status.Failed,
+                HttpURLConnection.HTTP_VERSION
+            )
+        )
+
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+
+        assert(outcome is FlushOutcome.Complete)
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
+    }
+
+    @Test
+    fun `Circuit breaker does not count a skipped send where no attempt was made`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 3
+
+        // Simulate send() bailing out (e.g. network offline): status stays Unsent and no
+        // attempt is made (attempts is not incremented), so it must not count as a failure.
+        val request = mockRequest("cb-skip", KlaviyoApiRequest.Status.Unsent)
+        every { request.send(any()) } returns KlaviyoApiRequest.Status.Unsent
+
+        KlaviyoApiClient.enqueueRequest(request)
+
+        // Far more skipped flushes than the threshold — the breaker must remain closed
+        repeat(5) { KlaviyoApiClient.awaitFlushQueueOutcome() }
+
+        assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Circuit breaker releases half-open probe when queue poll returns null`() = runTest {
+        every { mockConfig.circuitBreakerFailureThreshold } returns 1
+        every { mockConfig.circuitBreakerBaseOpenInterval } returns 30_000L
+        every { mockConfig.circuitBreakerMaxOpenInterval } returns 300_000L
+
+        val failingRequest = mockRequest(
+            "cb-null-poll-open",
+            KlaviyoApiRequest.Status.PendingRetry,
+            HttpURLConnection.HTTP_UNAVAILABLE
+        )
+        every { failingRequest.computeRetryInterval() } returns 1_000L
+        KlaviyoApiClient.enqueueRequest(failingRequest)
+
+        assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Incomplete)
+        assertEquals(CircuitBreaker.State.OPEN, KlaviyoApiClient.circuitBreaker.state())
+
+        staticClock.time += 30_000L
+        val placeholder = mockRequest("cb-null-poll-placeholder")
+        KlaviyoApiClient.replaceQueueForTesting(NullPollQueue(placeholder))
+
+        assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Complete)
+        assertEquals(CircuitBreaker.State.HALF_OPEN, KlaviyoApiClient.circuitBreaker.state())
+
+        KlaviyoApiClient.replaceQueueForTesting(ConcurrentLinkedDeque())
+        val probeRequest = mockRequest(
+            "cb-null-poll-probe",
+            KlaviyoApiRequest.Status.Complete,
+            HttpURLConnection.HTTP_ACCEPTED
+        )
+        KlaviyoApiClient.enqueueRequest(probeRequest)
+
+        assert(KlaviyoApiClient.awaitFlushQueueOutcome() is FlushOutcome.Complete)
+        verify(exactly = 1) { probeRequest.send(any()) }
+        assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
     }
 }
