@@ -334,6 +334,10 @@ internal object KlaviyoApiClient : ApiClient {
      */
     fun getQueueSize(): Int = apiQueue.size
 
+    internal fun replaceQueueForTesting(queue: ConcurrentLinkedDeque<KlaviyoApiRequest>) {
+        apiQueue = queue
+    }
+
     /**
      * Reset the in-memory queue to the queue from data store
      *
@@ -484,7 +488,11 @@ internal object KlaviyoApiClient : ApiClient {
                 break
             }
 
-            val request = apiQueue.poll() ?: continue
+            val request = apiQueue.poll()
+            if (request == null) {
+                circuitBreaker.releaseProbe()
+                continue
+            }
 
             val attemptsBefore = request.attempts
             val status = request.sendAndBroadcast()
@@ -559,6 +567,8 @@ internal object KlaviyoApiClient : ApiClient {
             } else {
                 circuitBreaker.recordFailure()
             }
+            HttpURLConnection.HTTP_NOT_IMPLEMENTED,
+            HttpURLConnection.HTTP_VERSION -> circuitBreaker.recordSuccess()
             in 500..599 -> circuitBreaker.recordFailure()
             // Other 4xx: reachable, non-retryable.
             else -> circuitBreaker.recordSuccess()
