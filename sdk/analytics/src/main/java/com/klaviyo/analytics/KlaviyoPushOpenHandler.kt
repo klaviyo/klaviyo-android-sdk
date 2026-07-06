@@ -111,7 +111,7 @@ internal object KlaviyoPushOpenHandler {
     /**
      * Appends Klaviyo extras from an intent to this event, parsing special fields as needed
      */
-    internal fun Event.appendKlaviyoExtras(intent: Intent?) {
+    private fun Event.appendKlaviyoExtras(intent: Intent?) {
         intent?.extras?.keySet()?.forEach { key ->
             if (key.contains(PACKAGE_PREFIX)) {
                 val eventKey = EventKey.CUSTOM(key.replace(PACKAGE_PREFIX, ""))
