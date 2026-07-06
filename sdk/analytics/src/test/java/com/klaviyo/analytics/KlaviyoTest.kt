@@ -18,6 +18,7 @@ import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.ProfileEventObserver
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.Constants
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
@@ -702,6 +703,113 @@ internal class KlaviyoTest : BaseTest() {
 
         assertEquals(null, getCapturedUri())
         verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
+    }
+
+    // --- Push-open dedup guard (keyed on `_k.tm`, else the generated NOTIFICATION_UID_EXTRA) ---
+    // Note: Klaviyo is an object, so its in-memory dedup set persists across tests in this class.
+    // Each dedup test uses a distinct delivery ID to stay independent of execution order.
+
+    private fun deliveryExtras(deliveryId: String) = mapOf(
+        "com.klaviyo.body" to "Message body",
+        "com.klaviyo._k" to """{"m":"01GK4P5W6AV4V3APTJ727JKSKQ","tm":"$deliveryId"}"""
+    )
+
+    private fun deliveryIntent(deliveryId: String, uri: Uri? = null): Intent =
+        mockIntent(deliveryExtras(deliveryId), uri)
+
+    /** A Klaviyo intent whose `_k` payload omits `tm`, relying on the generated uid as the key. */
+    private fun tmLessIntent(notificationUid: String): Intent =
+        mockIntent(
+            mapOf(
+                "com.klaviyo._k" to """{"m":"01GK4P5W6AV4V3APTJ727JKSKQ"}""",
+                Constants.NOTIFICATION_UID_EXTRA to notificationUid
+            )
+        )
+
+    @Test
+    fun `handlePush tracks exactly one opened_push when a delivery is handled twice`() {
+        // The trampoline tracks first, then forwards the same intent (same tm) to a host that still
+        // calls handlePush manually; only one open, dismissal, and deep link result.
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val testUri = mockk<Uri>()
+
+        Klaviyo.handlePush(deliveryIntent("dedup-twice-distinct-intents", testUri))
+        Klaviyo.handlePush(deliveryIntent("dedup-twice-distinct-intents", testUri))
+
+        verifyOpenedPushEventEnqueued()
+        assertEquals(testUri, getCapturedUri())
+        verify(exactly = 1) { DeepLinking.handleDeepLink(testUri) }
+    }
+
+    @Test
+    fun `handlePush short-circuits a repeat call with the same intent`() {
+        val intent = deliveryIntent("dedup-same-intent-object")
+
+        Klaviyo.handlePush(intent)
+        Klaviyo.handlePush(intent)
+
+        verifyOpenedPushEventEnqueued()
+    }
+
+    @Test
+    fun `handlePush tracks distinct deliveries independently`() {
+        Klaviyo.handlePush(deliveryIntent("dedup-distinct-A"))
+        Klaviyo.handlePush(deliveryIntent("dedup-distinct-B"))
+
+        verify(exactly = 2) {
+            mockApiClient.enqueueEvent(match { it.metric == EventMetric.OPENED_PUSH }, any())
+        }
+    }
+
+    @Test
+    fun `handlePush dedupes a tm-less delivery via the generated notification uid`() {
+        Klaviyo.handlePush(tmLessIntent("uid-fallback-same"))
+        Klaviyo.handlePush(tmLessIntent("uid-fallback-same"))
+
+        verifyOpenedPushEventEnqueued()
+    }
+
+    @Test
+    fun `handlePush tracks distinct tm-less notifications independently`() {
+        // Distinct notifications get distinct generated uids, so they must not collide.
+        Klaviyo.handlePush(tmLessIntent("uid-fallback-A"))
+        Klaviyo.handlePush(tmLessIntent("uid-fallback-B"))
+
+        verify(exactly = 2) {
+            mockApiClient.enqueueEvent(match { it.metric == EventMetric.OPENED_PUSH }, any())
+        }
+    }
+
+    @Test
+    fun `handlePush falls back to the generated uid when the _k payload is not valid JSON`() {
+        // A non-JSON _k must fail tm parsing gracefully and fall back to the generated uid.
+        val makeIntent = {
+            mockIntent(
+                mapOf(
+                    "com.klaviyo._k" to "not-json",
+                    Constants.NOTIFICATION_UID_EXTRA to "uid-malformed-k"
+                )
+            )
+        }
+
+        Klaviyo.handlePush(makeIntent())
+        Klaviyo.handlePush(makeIntent())
+
+        verifyOpenedPushEventEnqueued()
+    }
+
+    @Test
+    fun `handlePush does not dedupe when no delivery id is available`() {
+        // No `tm` and no generated uid: with no key to match on, each call tracks. We never fabricate
+        // a key from the shared `_k` metadata, which would collapse distinct deliveries.
+        val noKey = mapOf("com.klaviyo._k" to """{"m":"01GK4P5W6AV4V3APTJ727JKSKQ"}""")
+
+        Klaviyo.handlePush(mockIntent(noKey))
+        Klaviyo.handlePush(mockIntent(noKey))
+
+        verify(exactly = 2) {
+            mockApiClient.enqueueEvent(match { it.metric == EventMetric.OPENED_PUSH }, any())
+        }
     }
 
     @Test
