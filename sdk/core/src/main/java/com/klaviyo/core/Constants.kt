@@ -10,6 +10,12 @@ object Constants {
     const val PACKAGE_PREFIX = "com.klaviyo."
 
     /**
+     * Prefix for push-related manifest `<meta-data>` keys, matching the existing
+     * `com.klaviyo.push.*` notification keys (e.g. default_notification_icon).
+     */
+    const val PUSH_PREFIX = PACKAGE_PREFIX + "push."
+
+    /**
      * Key-value pairs get special treatment in a few places across multiple packages
      */
     const val KEY_VALUE_PAIRS = "key_value_pairs"
@@ -43,14 +49,14 @@ object Constants {
      * Lives in core (not push-fcm) because telemetry's push token request must read it, and core
      * cannot depend on push-fcm.
      */
-    const val AUTOMATIC_PUSH_TRACKING = PACKAGE_PREFIX + "automatic_push_tracking"
+    const val AUTOMATIC_PUSH_TRACKING = PUSH_PREFIX + "automatic_push_tracking"
 
     /**
      * Manifest `<meta-data>` boolean to opt out of automatic push token forwarding while keeping
      * automatic open tracking. Only consulted when [AUTOMATIC_PUSH_TRACKING] is `true`; defaults to
      * `false`. For hosts that own their own push-token pipeline.
      */
-    const val DISABLE_AUTOMATIC_TOKEN_FORWARDING = PACKAGE_PREFIX + "disable_automatic_token_forwarding"
+    const val DISABLE_AUTOMATIC_TOKEN_FORWARDING = PUSH_PREFIX + "disable_automatic_token_forwarding"
 
     /**
      * Fixed notification ID used in all notify/cancel calls.
