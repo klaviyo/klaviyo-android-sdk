@@ -390,6 +390,28 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
+    fun `test decodeWebviewMessage decodes BadJWT type`() {
+        val badJwtMessage = """{"type": "BadJWT", "data": {}}"""
+
+        assertEquals(
+            NativeBridgeMessage.BadJwt,
+            NativeBridgeMessage.decodeWebviewMessage(badJwtMessage)
+        )
+    }
+
+    @Test
+    fun `test decodeWebviewMessage BadJWT match is case-sensitive`() {
+        // Fender sends the exact PascalCase "BadJWT" wire type, which deliberately breaks the
+        // lower-camelCase keyName convention. A differently-cased variant must fall through to the
+        // unrecognized-type branch rather than silently matching.
+        listOf("badJWT", "badJwt", "BADJWT").forEach { type ->
+            assertThrows(IllegalStateException::class.java) {
+                NativeBridgeMessage.decodeWebviewMessage("""{"type": "$type", "data": {}}""")
+            }
+        }
+    }
+
+    @Test
     fun `handshake field sends proper type`() {
         val deeplinkMessage = """
             {
