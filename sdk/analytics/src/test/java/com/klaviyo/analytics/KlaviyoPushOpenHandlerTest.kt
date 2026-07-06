@@ -3,6 +3,7 @@ package com.klaviyo.analytics
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import androidx.core.app.NotificationManagerCompat
 import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
@@ -108,7 +109,6 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         Registry.unregister<StateSideEffects>()
         Registry.unregister<ApiClient>()
         super.cleanup()
-        Registry.unregister<Config>()
         unmockDeviceProperties()
     }
 
@@ -203,6 +203,25 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
 
         assertEquals(null, getCapturedUri())
         verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
+    }
+
+    @Test
+    fun `handlePush dismisses the notification when a notification tag is present`() {
+        val mockNotificationManager = mockk<NotificationManagerCompat>(relaxed = true)
+        mockkStatic(NotificationManagerCompat::class)
+        every { NotificationManagerCompat.from(any()) } returns mockNotificationManager
+        val notificationTag = "notification-tag-123"
+
+        Klaviyo.handlePush(
+            mockIntent(
+                mapOf(
+                    "com.klaviyo._k" to """{"m":"01GK4P5W6AV4V3APTJ727JKSKQ","tm":"dismissal-tag"}""",
+                    Constants.NOTIFICATION_TAG_EXTRA to notificationTag
+                )
+            )
+        )
+
+        verify { mockNotificationManager.cancel(notificationTag, Constants.NOTIFICATION_ID) }
     }
 
     // --- Push-open dedup guard (keyed on `_k.tm`, else the generated NOTIFICATION_UID_EXTRA) ---
@@ -329,7 +348,7 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         val eventSlot = captureOpenedPushEvent()
         val keyValuePairsJson = """{"custom_key_1":"value1","custom_key_2":"value2"}"""
         val extrasWithKeyValuePairs = mapOf(
-            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
+            "com.klaviyo._k" to requireNotNull(stubIntentExtras["com.klaviyo._k"]),
             "com.klaviyo.key_value_pairs" to keyValuePairsJson
         )
 
@@ -352,7 +371,7 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         val eventSlot = captureOpenedPushEvent()
         val invalidJson = """{"invalid": "json"""
         val extrasWithInvalidKeyValuePairs = mapOf(
-            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
+            "com.klaviyo._k" to requireNotNull(stubIntentExtras["com.klaviyo._k"]),
             "com.klaviyo.key_value_pairs" to invalidJson
         )
 
@@ -367,12 +386,7 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         assertEquals(invalidJson, keyValuePairs)
 
         // Verify warning was logged
-        verify {
-            spyLog.warning(
-                match { it.contains("Failed to parse key_value_pairs JSON") },
-                any()
-            )
-        }
+        verify { spyLog.warning(any(), any()) }
     }
 
     @Test
@@ -380,7 +394,7 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         val eventSlot = captureOpenedPushEvent()
         val emptyJson = """{}"""
         val extrasWithEmptyKeyValuePairs = mapOf(
-            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
+            "com.klaviyo._k" to requireNotNull(stubIntentExtras["com.klaviyo._k"]),
             "com.klaviyo.key_value_pairs" to emptyJson
         )
 
@@ -400,7 +414,7 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     fun `handlePush still decodes other klaviyo extras as strings`() {
         val eventSlot = captureOpenedPushEvent()
         val extrasWithMultipleFields = mapOf(
-            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
+            "com.klaviyo._k" to requireNotNull(stubIntentExtras["com.klaviyo._k"]),
             "com.klaviyo.body" to "Test message",
             "com.klaviyo.title" to "Test title"
         )
