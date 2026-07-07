@@ -16,6 +16,7 @@ import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Operation
@@ -113,7 +114,7 @@ object Klaviyo {
         }
 
         // Optional side effect, kept last so it can never interfere with core initialization
-        maybeRegisterPushTokenAutomatically()
+        maybeAutoRegisterPushToken()
     }
 
     /**
@@ -122,7 +123,7 @@ object Klaviyo {
      * rotations are picked up. No-op when the flag is off, when forwarding is opted out via
      * [Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING], or when `push-fcm` is absent.
      */
-    internal fun maybeRegisterPushTokenAutomatically() {
+    internal fun maybeAutoRegisterPushToken() {
         val autoTrackingEnabled = Registry.config.getManifestBoolean(
             Constants.AUTOMATIC_PUSH_TRACKING,
             false

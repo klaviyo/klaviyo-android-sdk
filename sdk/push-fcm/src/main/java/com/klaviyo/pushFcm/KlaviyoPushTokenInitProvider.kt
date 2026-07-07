@@ -18,9 +18,24 @@ internal class KlaviyoPushTokenInitProvider : ContentProvider() {
         return true
     }
 
-    override fun query(u: Uri, p: Array<String>?, s: String?, a: Array<String>?, o: String?): Cursor? = null
+    override fun query(
+        uri: Uri,
+        projection: Array<String>?,
+        selection: String?,
+        selectionArgs: Array<String>?,
+        sortOrder: String?
+    ): Cursor? = null
+
     override fun getType(uri: Uri): String? = null
+
     override fun insert(uri: Uri, values: ContentValues?): Uri? = null
-    override fun delete(uri: Uri, s: String?, a: Array<String>?): Int = 0
-    override fun update(uri: Uri, v: ContentValues?, s: String?, a: Array<String>?): Int = 0
+
+    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int = 0
+
+    override fun update(
+        uri: Uri,
+        values: ContentValues?,
+        selection: String?,
+        selectionArgs: Array<String>?
+    ): Int = 0
 }

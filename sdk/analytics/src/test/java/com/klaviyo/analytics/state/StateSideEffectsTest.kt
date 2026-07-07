@@ -412,53 +412,39 @@ class StateSideEffectsTest : BaseTest() {
 
     @Test
     fun `Resumed lifecycle event triggers push permission refresh`() {
-        Registry.register<State>(stateMock)
-        every { stateMock.pushToken } returns "mocked_push_token"
-        every { stateMock.pushToken = any() } returns Unit
-        val capturedLifecycleObserver = slot<ActivityObserver>()
-        every { mockLifecycleMonitor.onActivityEvent(capture(capturedLifecycleObserver)) } returns Unit
-
-        StateSideEffects(
-            state = stateMock,
-            apiClient = apiClientMock,
-            lifecycleMonitor = mockLifecycleMonitor
-        )
-
-        capturedLifecycleObserver.captured(ActivityEvent.Resumed(mockk()))
+        fireResumedEvent()
 
         verify { stateMock.pushToken = "mocked_push_token" }
     }
 
     @Test
     fun `Resumed lifecycle event re-fetches push token when automatic forwarding is enabled`() {
-        Registry.register<State>(stateMock)
-        every { stateMock.pushToken } returns "mocked_push_token"
-        every { stateMock.pushToken = any() } returns Unit
         every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false) } returns true
-        val mockFetcher = mockk<PushTokenFetcher>(relaxed = true)
-        Registry.register<PushTokenFetcher>(mockFetcher)
-        val capturedLifecycleObserver = slot<ActivityObserver>()
-        every { mockLifecycleMonitor.onActivityEvent(capture(capturedLifecycleObserver)) } returns Unit
+        val mockFetcher = registerMockPushTokenFetcher()
 
-        StateSideEffects(
-            state = stateMock,
-            apiClient = apiClientMock,
-            lifecycleMonitor = mockLifecycleMonitor
-        )
-
-        capturedLifecycleObserver.captured(ActivityEvent.Resumed(mockk()))
+        fireResumedEvent()
 
         verify(exactly = 1) { mockFetcher.fetchAndSetPushToken() }
     }
 
     @Test
     fun `Resumed lifecycle event does not re-fetch push token when automatic forwarding is disabled`() {
+        // Automatic push tracking flag defaults to false via BaseTest's getManifestBoolean stub
+        val mockFetcher = registerMockPushTokenFetcher()
+
+        fireResumedEvent()
+
+        verify(inverse = true) { mockFetcher.fetchAndSetPushToken() }
+    }
+
+    private fun registerMockPushTokenFetcher(): PushTokenFetcher =
+        mockk<PushTokenFetcher>(relaxed = true).also { Registry.register<PushTokenFetcher>(it) }
+
+    // Registers stateMock, captures the lifecycle observer via a new StateSideEffects, and fires Resumed
+    private fun fireResumedEvent() {
         Registry.register<State>(stateMock)
         every { stateMock.pushToken } returns "mocked_push_token"
         every { stateMock.pushToken = any() } returns Unit
-        // Automatic push tracking flag defaults to false via BaseTest's getManifestBoolean stub
-        val mockFetcher = mockk<PushTokenFetcher>(relaxed = true)
-        Registry.register<PushTokenFetcher>(mockFetcher)
         val capturedLifecycleObserver = slot<ActivityObserver>()
         every { mockLifecycleMonitor.onActivityEvent(capture(capturedLifecycleObserver)) } returns Unit
 
@@ -469,7 +455,5 @@ class StateSideEffectsTest : BaseTest() {
         )
 
         capturedLifecycleObserver.captured(ActivityEvent.Resumed(mockk()))
-
-        verify(inverse = true) { mockFetcher.fetchAndSetPushToken() }
     }
 }
