@@ -437,9 +437,6 @@ class StateSideEffectsTest : BaseTest() {
         verify(inverse = true) { mockFetcher.fetchAndSetPushToken() }
     }
 
-    private fun registerMockPushTokenFetcher(): PushTokenFetcher =
-        mockk<PushTokenFetcher>(relaxed = true).also { Registry.register<PushTokenFetcher>(it) }
-
     // Registers stateMock, captures the lifecycle observer via a new StateSideEffects, and fires Resumed
     private fun fireResumedEvent() {
         Registry.register<State>(stateMock)

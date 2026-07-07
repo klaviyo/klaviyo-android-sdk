@@ -592,9 +592,6 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(Klaviyo.getPushToken(), PUSH_TOKEN)
     }
 
-    private fun registerMockPushTokenFetcher(): PushTokenFetcher =
-        mockk<PushTokenFetcher>(relaxed = true).also { Registry.register<PushTokenFetcher>(it) }
-
     private fun setAutomaticPushTracking(enabled: Boolean) = every {
         mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false)
     } returns enabled
