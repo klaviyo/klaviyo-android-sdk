@@ -90,9 +90,25 @@ internal sealed class NativeBridgeMessage {
         val reason: String
     ) : NativeBridgeMessage()
 
+    /**
+     * Sent from the onsite-in-app-forms when it rejects an injected JWT — e.g. a bad signature, or
+     * a token that does not resolve to a profile for the account.
+     *
+     * A rejected token is a normal, expected outcome rather than an SDK error, so this is handled
+     * as a graceful no-op (logged at warning) instead of throwing.
+     */
+    data object BadJwt : NativeBridgeMessage()
+
     companion object {
         private const val MESSAGE_TYPE_KEY = HandshakeSpec.SPEC_TYPE_KEY
         private const val MESSAGE_DATA_KEY = "data"
+
+        /**
+         * Wire type for [BadJwt]. Fender sends this in PascalCase ("BadJWT"), which does not follow
+         * the lower-camelCase [keyName] convention used by the other message types, so it is matched
+         * against this literal instead.
+         */
+        private const val BAD_JWT_TYPE = "BadJWT"
 
         /**
          * Convert a [NativeBridgeMessage] subclass to its "type" by convention (lower camel case)
@@ -162,6 +178,8 @@ internal sealed class NativeBridgeMessage {
                 keyName<Abort>() -> Abort(
                     reason = jsonData.optString("reason").ifEmpty { "Unknown" }
                 )
+
+                BAD_JWT_TYPE -> BadJwt
 
                 else -> throw IllegalStateException("Unrecognized message type $type")
             }
