@@ -15,6 +15,7 @@ import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.core.Constants.ALLOWED_OPEN_URL_SCHEMES
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Registry
@@ -132,32 +133,31 @@ object KlaviyoRemoteMessage {
     val RemoteMessage.body: String? get() = this.data[KlaviyoNotification.BODY_KEY]
 
     /**
-     * Parse the external web URL from the payload, if present.
+     * True if the string parses as a Uri whose scheme is in [ALLOWED_OPEN_URL_SCHEMES].
+     */
+    internal fun String.hasAllowedOpenUrlScheme(): Boolean =
+        this.toUri().scheme?.lowercase() in ALLOWED_OPEN_URL_SCHEMES
+
+    /**
+     * Parse the external URL from the payload, if present.
      *
      * Reads the `web_url` field. The presence of this field indicates the tap should open
-     * the URL in the system browser rather than route through the app's deep link handling.
-     * Returns null if the field is absent, blank, or the URL's scheme is not http(s) —
-     * non-web schemes are rejected to prevent routing back into the app via Intent dispatch.
+     * the URL externally rather than route through the app's deep link handling.
+     * Returns null if the field is absent, blank, or the URL's scheme is not in
+     * [ALLOWED_OPEN_URL_SCHEMES] — disallowed schemes are rejected to prevent routing
+     * dangerous URIs (e.g. intent:, javascript:, file:) through the SDK.
      */
     val RemoteMessage.webUrl: String?
         get() {
             val urlString = this.data[KlaviyoNotification.WEB_URL_KEY]?.takeIf { it.isNotBlank() }
                 ?: return null
-            return if (urlString.isWebUrl()) {
+            return if (urlString.hasAllowedOpenUrlScheme()) {
                 urlString
             } else {
-                Registry.log.warning("web_url '$urlString' has non-web scheme; ignoring.")
+                Registry.log.warning("web_url '$urlString' has a disallowed scheme; ignoring.")
                 null
             }
         }
-
-    /**
-     * True if the string parses as a Uri with http or https scheme.
-     */
-    internal fun String.isWebUrl(): Boolean {
-        val scheme = this.toUri().scheme?.lowercase()
-        return scheme == "http" || scheme == "https"
-    }
 
     /**
      * Parse deep link into a [Uri] if present
@@ -296,9 +296,10 @@ object KlaviyoRemoteMessage {
                                     )
                                     null
                                 }
-                                !urlString.isWebUrl() -> {
+                                !urlString.hasAllowedOpenUrlScheme() -> {
                                     Registry.log.warning(
-                                        "Skipping OPEN_URL action button $i: url '$urlString' has non-web scheme"
+                                        "Skipping OPEN_URL action button $i: url '$urlString' " +
+                                            "has a disallowed scheme"
                                     )
                                     null
                                 }

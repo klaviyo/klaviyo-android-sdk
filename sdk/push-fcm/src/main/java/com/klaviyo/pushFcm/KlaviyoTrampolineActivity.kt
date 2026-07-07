@@ -17,8 +17,10 @@ import com.klaviyo.core.utils.startActivityIfResolved
  * invoking the registered deep link handler) before forwarding the user to the actual
  * destination.
  *
- * Currently used for `open_url` push payloads — the destination is a browser intent
- * embedded as [BROWSER_URL_EXTRA]. Additional dispatch paths can be added to
+ * Currently used for `open_url` push payloads — the URL is embedded as [BROWSER_URL_EXTRA]
+ * and routed to the appropriate external handler via [DeepLinking.makeExternalIntent] — a
+ * browser for `http`/`https`, or the mail, dialer, or SMS app for
+ * `mailto:`/`tel:`/`sms:`/`smsto:` schemes. Additional dispatch paths can be added to
  * [dispatchDestination] as new use cases (e.g. automatic open tracking) introduce
  * their own routing extras.
  *
@@ -40,7 +42,7 @@ internal class KlaviyoTrampolineActivity : Activity() {
 
     companion object {
         /**
-         * Intent extra carrying a web URL to be launched in the default browser after
+         * Intent extra carrying an `open_url` URL to be dispatched to its external handler after
          * `Klaviyo.handlePush` runs. Uses the `_klaviyo.` prefix (matching
          * [com.klaviyo.core.Constants.NOTIFICATION_TAG_EXTRA]) so this internal routing
          * extra is skipped by the `com.klaviyo.*` extras sweep in
@@ -49,7 +51,8 @@ internal class KlaviyoTrampolineActivity : Activity() {
         internal const val BROWSER_URL_EXTRA = "_klaviyo.browser_url"
 
         /**
-         * Build a trampoline intent that dispatches to the default browser with [url].
+         * Build a trampoline intent that dispatches [url] to its external handler
+         * via [DeepLinking.makeExternalIntent].
          *
          * Uses [Intent.setClassName] instead of the `Intent(Context, Class)` constructor
          * so the JVM unit-test environment (which can't satisfy the native ComponentName
@@ -78,7 +81,7 @@ internal class KlaviyoTrampolineActivity : Activity() {
 
         private fun dispatchDestination(intent: Intent, context: Context) {
             intent.getStringExtra(BROWSER_URL_EXTRA)?.let { url ->
-                DeepLinking.makeBrowserIntent(url.toUri()).startActivityIfResolved(context)
+                DeepLinking.makeExternalIntent(url.toUri()).startActivityIfResolved(context)
                 return
             }
             // Add additional dispatch branches here as new routing extras are introduced.

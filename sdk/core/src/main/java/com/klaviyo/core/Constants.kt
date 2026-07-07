@@ -34,4 +34,28 @@ object Constants {
      * Notifications are uniquely identified by their string tag, not this ID.
      */
     const val NOTIFICATION_ID = 0
+
+    /**
+     * URI schemes routed to a web browser. External intents for these schemes add
+     * `Intent.CATEGORY_BROWSABLE` so the OS resolves them to a browser rather than
+     * a generic activity chooser.
+     */
+    val WEB_SCHEMES = setOf("http", "https")
+
+    /**
+     * URI schemes that compose a message, dispatched externally via `Intent.ACTION_SENDTO`.
+     */
+    val SENDTO_SCHEMES = setOf("mailto", "sms", "smsto")
+
+    /**
+     * URI scheme that opens the dialer, dispatched externally via `Intent.ACTION_DIAL`.
+     */
+    const val DIAL_SCHEME = "tel"
+
+    /**
+     * Full set of URI schemes accepted by the `web_url` field and `open_url` action buttons.
+     * Schemes outside this set are silently dropped to prevent routing dangerous or
+     * unintended URIs (e.g. intent:, javascript:, file:) through the SDK.
+     */
+    val ALLOWED_OPEN_URL_SCHEMES = WEB_SCHEMES + SENDTO_SCHEMES + DIAL_SCHEME
 }
