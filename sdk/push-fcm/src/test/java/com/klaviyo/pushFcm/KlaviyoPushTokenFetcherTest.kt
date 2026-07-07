@@ -86,4 +86,16 @@ class KlaviyoPushTokenFetcherTest : BaseTest() {
         verify(inverse = true) { Klaviyo.setPushToken(any()) }
         verify { spyLog.warning(any(), any()) }
     }
+
+    @Test
+    fun `fetchAndSetPushToken swallows unexpected synchronous failures`() {
+        every {
+            FirebaseMessaging.getInstance()
+        } throws RuntimeException("unexpected Firebase failure")
+
+        KlaviyoPushTokenFetcher().fetchAndSetPushToken()
+
+        verify(inverse = true) { Klaviyo.setPushToken(any()) }
+        verify { spyLog.warning(any(), any()) }
+    }
 }

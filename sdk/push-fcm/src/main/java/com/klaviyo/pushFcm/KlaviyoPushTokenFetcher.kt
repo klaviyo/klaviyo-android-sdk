@@ -16,8 +16,8 @@ internal class KlaviyoPushTokenFetcher : PushTokenFetcher {
                 .addOnFailureListener { e ->
                     Registry.log.warning("Failed to fetch push token for automatic registration", e)
                 }
-        } catch (e: IllegalStateException) {
-            // Thrown by getInstance() when no default FirebaseApp is configured in the host app
+        } catch (e: Exception) {
+            // Honor the must-not-throw contract (e.g. getInstance() with no default FirebaseApp)
             Registry.log.warning(
                 "Unable to access FirebaseMessaging for automatic push token registration",
                 e

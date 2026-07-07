@@ -10,8 +10,7 @@ object Constants {
     const val PACKAGE_PREFIX = "com.klaviyo."
 
     /**
-     * Prefix for push-related manifest `<meta-data>` keys, matching the existing
-     * `com.klaviyo.push.*` notification keys (e.g. default_notification_icon).
+     * Prefix for push-related manifest `<meta-data>` keys.
      */
     const val PUSH_PREFIX = PACKAGE_PREFIX + "push."
 
