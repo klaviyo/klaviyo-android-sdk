@@ -580,18 +580,47 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
-    fun `webUrl returns null when web_url has a non-web scheme`() {
+    fun `webUrl returns null when web_url has a blocked scheme`() {
         val mockUri = mockk<android.net.Uri>(relaxed = true)
-        every { mockUri.scheme } returns "myapp"
+        every { mockUri.scheme } returns "javascript"
         mockkStatic(android.net.Uri::class)
-        every { android.net.Uri.parse("myapp://home") } returns mockUri
+        every { android.net.Uri.parse("javascript:alert(1)") } returns mockUri
 
         val msg = mockk<RemoteMessage>()
         every { msg.data } returns stubMessage.toMutableMap().apply {
-            put(KlaviyoNotification.WEB_URL_KEY, "myapp://home")
+            put(KlaviyoNotification.WEB_URL_KEY, "javascript:alert(1)")
         }
 
         assert(msg.webUrl == null)
+
+        unmockkStatic(android.net.Uri::class)
+    }
+
+    @Test
+    fun `webUrl returns url when web_url has an allowlisted communication scheme`() {
+        mockkStatic(android.net.Uri::class)
+
+        val schemes = listOf(
+            "mailto" to "mailto:user@example.com",
+            "tel" to "tel:+15555550100",
+            "sms" to "sms:+15555550100",
+            "smsto" to "smsto:+15555550100"
+        )
+
+        for ((scheme, url) in schemes) {
+            val mockUri = mockk<android.net.Uri>(relaxed = true)
+            every { mockUri.scheme } returns scheme
+            every { android.net.Uri.parse(url) } returns mockUri
+
+            val msg = mockk<RemoteMessage>()
+            every { msg.data } returns stubMessage.toMutableMap().apply {
+                put(KlaviyoNotification.WEB_URL_KEY, url)
+            }
+
+            assert(msg.webUrl == url) {
+                "Expected webUrl to return '$url' for scheme $scheme"
+            }
+        }
 
         unmockkStatic(android.net.Uri::class)
     }
@@ -650,18 +679,18 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
-    fun `actionButtons skips open_url with non-web scheme`() {
+    fun `actionButtons skips open_url with blocked scheme`() {
         val mockUri = mockk<android.net.Uri>(relaxed = true)
-        every { mockUri.scheme } returns "myapp"
+        every { mockUri.scheme } returns "intent"
         mockkStatic(android.net.Uri::class)
-        every { android.net.Uri.parse("myapp://home") } returns mockUri
+        every { android.net.Uri.parse("intent://evil") } returns mockUri
 
         val actionButtonsData = listOf(
             mapOf(
                 "id" to "open.url",
                 "label" to "Open Website",
                 "action" to "open_url",
-                "url" to "myapp://home"
+                "url" to "intent://evil"
             )
         )
         val messageWithActions = stubMessage.toMutableMap().apply {
@@ -672,6 +701,51 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         every { msg.data } returns messageWithActions
 
         assert(msg.actionButtons == null)
+
+        unmockkStatic(android.net.Uri::class)
+    }
+
+    @Test
+    fun `actionButtons accepts open_url with allowlisted communication schemes`() {
+        mockkStatic(android.net.Uri::class)
+
+        val schemes = listOf(
+            "mailto" to "mailto:user@example.com",
+            "tel" to "tel:+15555550100",
+            "sms" to "sms:+15555550100",
+            "smsto" to "smsto:+15555550100"
+        )
+
+        for ((scheme, url) in schemes) {
+            val mockUri = mockk<android.net.Uri>(relaxed = true)
+            every { mockUri.scheme } returns scheme
+            every { android.net.Uri.parse(url) } returns mockUri
+
+            val actionButtonsData = listOf(
+                mapOf(
+                    "id" to "comms.button",
+                    "label" to "Contact",
+                    "action" to "open_url",
+                    "url" to url
+                )
+            )
+            val messageWithActions = stubMessage.toMutableMap().apply {
+                put(ACTION_BUTTONS_KEY, JSONArray(actionButtonsData).toString())
+            }
+
+            val msg = mockk<RemoteMessage>()
+            every { msg.data } returns messageWithActions
+
+            val buttons = msg.actionButtons
+            assert(buttons != null) { "Expected button for scheme $scheme to be accepted" }
+            assert(buttons?.size == 1) { "Expected 1 button for scheme $scheme" }
+            assert(buttons?.get(0) is ActionButton.OpenUrl) {
+                "Expected OpenUrl button for scheme $scheme"
+            }
+            assert((buttons?.get(0) as? ActionButton.OpenUrl)?.url == url) {
+                "Expected url $url for scheme $scheme"
+            }
+        }
 
         unmockkStatic(android.net.Uri::class)
     }

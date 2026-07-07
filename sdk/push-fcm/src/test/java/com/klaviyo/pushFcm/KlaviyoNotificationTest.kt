@@ -100,7 +100,7 @@ class KlaviyoNotificationTest : BaseTest() {
             mockkObject(DeepLinking)
             every { makeLaunchIntent(any()) } returns mockk(relaxed = true)
             every { makeDeepLinkIntent(any(), any()) } returns mockk(relaxed = true)
-            every { makeBrowserIntent(any()) } returns mockk(relaxed = true)
+            every { makeExternalIntent(any()) } returns mockk(relaxed = true)
         }
 
         // Mock makeIntent to avoid constructing a real Intent. This test class doesn't call
@@ -720,7 +720,7 @@ class KlaviyoNotificationTest : BaseTest() {
         verify {
             KlaviyoTrampolineActivity.forBrowserUrl(mockContext, "https://example.com")
         }
-        verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
+        verify(exactly = 0) { DeepLinking.makeExternalIntent(any()) }
         verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any()) }
         verify(exactly = 0) { DeepLinking.makeLaunchIntent(any()) }
     }
@@ -770,7 +770,7 @@ class KlaviyoNotificationTest : BaseTest() {
         notification.displayNotification(mockContext)
 
         verify { DeepLinking.makeLaunchIntent(mockContext) }
-        verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
+        verify(exactly = 0) { DeepLinking.makeExternalIntent(any()) }
         verify { mockLaunchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP) }
         assertEquals(mockLaunchIntent, intentSlot.captured)
     }
@@ -796,7 +796,7 @@ class KlaviyoNotificationTest : BaseTest() {
         verify {
             KlaviyoTrampolineActivity.forBrowserUrl(mockContext, "https://example.com")
         }
-        verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
+        verify(exactly = 0) { DeepLinking.makeExternalIntent(any()) }
     }
 
     @Test
