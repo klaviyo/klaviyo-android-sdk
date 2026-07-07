@@ -48,11 +48,13 @@ internal class JwtObserver : JsBridgeObserver {
     private val refreshObserver: TokenRefreshObserver = { jwt -> onTokenRefreshed(jwt) }
 
     /**
-     * Monotonic sequence assigned to each token as it becomes ready to inject. The initial one-shot
-     * fetch and the refresh stream inject on the UI thread independently, so without an ordering
-     * guard a slow initial fetch could resolve after a proactive refresh and clobber the fresher
-     * token with a stale cached one. Each injection applies only if it carries the highest sequence
-     * seen so far, so the newest token always wins regardless of UI-callback ordering.
+     * Monotonic sequence claimed by each token source when its injection is *requested*, not when it
+     * resolves. The initial one-shot fetch reserves its slot up front in [startObserver]; the refresh
+     * stream claims one each time it fires. Because the initial fetch takes its (lower) sequence
+     * before it awaits, a proactive refresh that lands while the fetch is still in flight always
+     * outranks it — so a slow or failed initial fetch can never clobber a fresher refreshed token.
+     * Each injection applies only if it carries the highest sequence seen so far, so the newest token
+     * always wins regardless of UI-callback ordering.
      */
     private val injectionSequence = AtomicLong(0L)
 
@@ -63,6 +65,10 @@ internal class JwtObserver : JsBridgeObserver {
         stopped = false
         val thisFetch = Any()
         latestFetch = thisFetch
+        // Reserve the initial fetch's place in the injection order now, at request time, so any
+        // refresh that fires while the fetch is still in flight outranks it. Assigning the sequence
+        // only once the token resolved let a slow or failed fetch clobber a fresher refreshed token.
+        val fetchSequence = injectionSequence.incrementAndGet()
         val currentJwtReady = if (jwtReady.isCompleted) {
             CompletableDeferred<Unit>().also { jwtReady = it }
         } else {
@@ -92,10 +98,9 @@ internal class JwtObserver : JsBridgeObserver {
                 null
             }
 
-            val sequence = injectionSequence.incrementAndGet()
             Registry.threadHelper.runOnUiThread {
                 if (latestFetch === thisFetch && !stopped) {
-                    injectIfLatest(sequence, token ?: "")
+                    injectIfLatest(fetchSequence, token ?: "")
                     currentJwtReady.complete(Unit)
                 }
             }
