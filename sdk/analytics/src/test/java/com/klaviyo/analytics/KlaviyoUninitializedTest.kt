@@ -110,7 +110,9 @@ internal class KlaviyoUninitializedTest {
 
     @Test
     fun `HandlePushToken is protected`() {
-        Klaviyo.handlePush(KlaviyoTest.mockIntent(KlaviyoTest.stubIntentExtras))
+        Klaviyo.handlePush(
+            KlaviyoPushOpenHandlerTest.mockIntent(KlaviyoPushOpenHandlerTest.stubIntentExtras)
+        )
         verify { spyLog.warning(any(), any<MissingConfig>()) }
     }
 }
