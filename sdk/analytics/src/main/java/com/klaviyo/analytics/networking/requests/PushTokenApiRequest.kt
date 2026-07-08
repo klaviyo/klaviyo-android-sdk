@@ -39,17 +39,25 @@ internal class PushTokenApiRequest(
     }
 
     init {
-        val autoTrackingEnabled = Registry.config.getManifestBoolean(
-            Constants.AUTOMATIC_PUSH_TRACKING,
-            false
-        )
-        val tokenForwardingEnabled = !Registry.config.getManifestBoolean(
-            Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING,
-            false
-        )
-        headers[HEADER_SDK_FEATURES] =
-            "auto_push_tracking=${autoTrackingEnabled.toFeatureFlag()}; " +
-            "auto_push_token_forwarding=${tokenForwardingEnabled.toFeatureFlag()};"
+        val features = buildList {
+            if (Registry.config.hasManifestKey(Constants.AUTOMATIC_PUSH_TRACKING)) {
+                val autoTrackingEnabled = Registry.config.getManifestBoolean(
+                    Constants.AUTOMATIC_PUSH_TRACKING,
+                    false
+                )
+                add("auto_push_tracking=${autoTrackingEnabled.toFeatureFlag()};")
+            }
+            if (Registry.config.hasManifestKey(Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING)) {
+                val tokenForwardingEnabled = !Registry.config.getManifestBoolean(
+                    Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING,
+                    false
+                )
+                add("auto_push_token_forwarding=${tokenForwardingEnabled.toFeatureFlag()};")
+            }
+        }
+        if (features.isNotEmpty()) {
+            headers[HEADER_SDK_FEATURES] = features.joinToString(" ")
+        }
     }
 
     override val type: String = "Push Token"

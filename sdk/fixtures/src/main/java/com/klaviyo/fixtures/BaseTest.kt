@@ -98,6 +98,8 @@ abstract class BaseTest {
         every { formEnvironment } returns FormEnvironment.IN_APP
         // Default to the passed default (e.g. automatic push tracking off); override per-test to flip on
         every { getManifestBoolean(any(), any()) } answers { secondArg() }
+        // Default to no manifest keys present; override per-test to simulate a host declaring one
+        every { hasManifestKey(any()) } returns false
     }
 
     protected val mockActivity: Activity = mockk(relaxed = true)

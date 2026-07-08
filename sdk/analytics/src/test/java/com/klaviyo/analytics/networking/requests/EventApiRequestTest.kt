@@ -238,6 +238,8 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
 
     @Test
     fun `Does not include the SDK features header even when the flags that would trigger it on PushTokenApiRequest are set`() {
+        every { mockConfig.hasManifestKey(Constants.AUTOMATIC_PUSH_TRACKING) } returns true
+        every { mockConfig.hasManifestKey(Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING) } returns true
         every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false) } returns true
         every { mockConfig.getManifestBoolean(Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING, false) } returns true
         val request = EventApiRequest(stubEvent, stubProfile)

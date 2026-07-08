@@ -268,4 +268,35 @@ internal class KlaviyoConfigTest : BaseTest() {
         assertEquals(true, mockContext.getManifestBoolean("missing.key", true))
         assertEquals(false, mockContext.getManifestBoolean("missing.key", false))
     }
+
+    @Test
+    fun `hasManifestKey reflects presence of the key, regardless of its value`() {
+        // Back the Bundle with a real map so containsKey has genuine present/absent semantics
+        // rather than echoing a stubbed return.
+        val metadata = mutableMapOf(
+            "com.klaviyo.present_true" to true,
+            "com.klaviyo.present_false" to false
+        )
+        val mockMetadata = mockk<Bundle> {
+            every { containsKey(any()) } answers { metadata.containsKey(firstArg()) }
+        }
+        mockApplicationInfo.metaData = mockMetadata
+
+        mockkStatic(PackageManager.ApplicationInfoFlags::class)
+        val mockApplicationInfoFlags = mockk<PackageManager.ApplicationInfoFlags>()
+        every { PackageManager.ApplicationInfoFlags.of(any()) } returns mockApplicationInfoFlags
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
+        every {
+            mockPackageManager.getApplicationInfo(
+                BuildConfig.LIBRARY_PACKAGE_NAME,
+                mockApplicationInfoFlags
+            )
+        } returns mockApplicationInfo
+
+        // Present regardless of whether the value is true or false.
+        assertEquals(true, mockContext.hasManifestKey("com.klaviyo.present_true"))
+        assertEquals(true, mockContext.hasManifestKey("com.klaviyo.present_false"))
+        // Absent key is reported as absent.
+        assertEquals(false, mockContext.hasManifestKey("missing.key"))
+    }
 }
