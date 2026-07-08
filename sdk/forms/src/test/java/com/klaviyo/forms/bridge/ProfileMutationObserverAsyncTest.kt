@@ -8,7 +8,9 @@ import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.coEvery
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertNotSame
@@ -111,6 +113,8 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
             expiresAtEpochSeconds = 0L,
             issuedAtEpochSeconds = 0L
         )
+        every { mockAuth.onTokenRefresh(any()) } just runs
+        every { mockAuth.offTokenRefresh(any()) } just runs
         Registry.register<AuthTokenManager>(mockAuth)
         try {
             jwtObserver.startObserver()
@@ -121,6 +125,8 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
             dispatcher.scheduler.advanceUntilIdle()
 
             verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
+
+            jwtObserver.stopObserver()
         } finally {
             Registry.unregister<AuthTokenManager>()
         }
