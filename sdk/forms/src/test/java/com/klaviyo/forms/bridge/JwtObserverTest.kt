@@ -244,6 +244,24 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
+    fun `identical token from initial fetch and refresh stream is injected only once`() {
+        // A fast initial fetch resolves within the interactive budget, and the manager also echoes
+        // the same value on its onTokenRefresh broadcast (which now fires on every acquisition).
+        // The webview should see the unchanged token only once.
+        val refreshObserver = captureRefreshObserver()
+        val token = "same.token.value"
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken(token)
+
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        refreshObserver.captured.invoke(token)
+
+        verify(exactly = 1) { mockJsBridge.jwtMutation(token) }
+    }
+
+    @Test
     fun `refresh after stopObserver does not inject the stale token`() {
         val refreshObserver = captureRefreshObserver()
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
