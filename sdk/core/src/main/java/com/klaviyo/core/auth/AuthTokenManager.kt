@@ -1,7 +1,8 @@
 package com.klaviyo.core.auth
 
 /**
- * Callback invoked whenever the auth token is proactively refreshed.
+ * Callback invoked whenever the auth token is acquired or refreshed — both the initial demand
+ * fetch and each subsequent proactive refresh.
  *
  * Receives the raw JWT string. Observers must not retain the string beyond their immediate use —
  * for the full [ValidatedToken] wrapper (exp/iat metadata) callers should use
@@ -82,7 +83,9 @@ interface AuthTokenManager {
     suspend fun currentToken(timeoutMs: Long = BACKGROUND_FETCH_TIMEOUT_MS): ValidatedToken
 
     /**
-     * Register an observer that will be invoked each time the auth token is proactively refreshed.
+     * Register an observer that will be invoked each time the auth token is acquired or refreshed,
+     * including the initial fetch — so a consumer that subscribes while the first fetch is still in
+     * flight (e.g. a form displayed before the token resolves) still receives it once it lands.
      *
      * Multiple observers are supported. Each is invoked on the manager's internal dispatcher
      * (IO); the observer is responsible for any thread handoff it needs (e.g. hopping to the UI

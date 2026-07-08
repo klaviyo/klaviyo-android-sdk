@@ -343,9 +343,15 @@ internal class KlaviyoAuthTokenManager(
     }
 
     /**
-     * Invoke the provider, validate the returned JWT, write to the cache, and return the token.
-     * Runs inside [scope].async so failures (provider error, validation error) are captured by
-     * the Deferred and re-thrown to all awaiting callers.
+     * Invoke the provider, validate the returned JWT, write to the cache, notify refresh
+     * observers, and return the token. Runs inside [scope].async so failures (provider error,
+     * validation error) are captured by the Deferred and re-thrown to all awaiting callers.
+     *
+     * Every token acquisition funnels through here — the initial demand fetch as well as a
+     * proactive refresh — so notifying observers here (rather than only from
+     * [performScheduledRefresh]) guarantees consumers such as the forms WebView pick up a token
+     * that resolves *after* their own interactive-timeout fetch already gave up. Fetch dedup means
+     * a single [doFetch] shared by multiple callers still notifies exactly once.
      */
     private suspend fun doFetch(): ValidatedToken {
         val jwt = invokeProvider()
@@ -362,6 +368,20 @@ internal class KlaviyoAuthTokenManager(
         Registry.log.info(
             "Auth token acquired (exp=${token.expiresAtEpochSeconds}, iat=${token.issuedAtEpochSeconds})"
         )
+        // Notify observers of the freshly acquired token, outside the mutex — an observer may
+        // re-enter the manager and the lock is non-reentrant. Two-part stale guard (both @Volatile
+        // reads):
+        // 1. Cache check: clearTokenState() may have nulled cachedToken while the fetch was
+        //    suspended; skip if this token is no longer the live value.
+        // 2. Reset-pending check: invalidate() sets profileResetPending synchronously (from
+        //    resetProfile()) before the async clearTokenState() runs. A fetch that completes while
+        //    a logout reset is pending must not broadcast to observers, regardless of whether it
+        //    started before or after invalidate(). The flag is cleared by clearTokenState() and
+        //    registerProvider(). Dispatch is best-effort; the small TOCTOU window on these volatile
+        //    reads is acceptable (see notifyRefreshObservers KDoc).
+        if (cachedToken?.rawToken == token.rawToken && !profileResetPending) {
+            notifyRefreshObservers(token.rawToken)
+        }
         return token
     }
 
@@ -441,12 +461,9 @@ internal class KlaviyoAuthTokenManager(
      * even if the refresh attempt fails; any concurrent caller that arrives while refresh is
      * in-flight shares the single in-flight Deferred automatically.
      *
-     * On success, notifies registered [TokenRefreshObserver]s with the new JWT, subject to two
-     * guards: (1) the returned token is still the live cached value (clears can null the cache
-     * mid-flight), and (2) no profile reset is pending ([profileResetPending] is false). The
-     * reset-pending flag is set synchronously by [invalidate] so that any refresh completing
-     * in the window between [invalidate] and [clearTokenState] is suppressed. Dispatch is
-     * best-effort — see [notifyRefreshObservers].
+     * On success, registered [TokenRefreshObserver]s are notified with the new JWT from within
+     * [doFetch] (the shared acquisition path this call resolves through), under its stale guard —
+     * so notification is not repeated here.
      *
      * Logs at WARNING on failure — the still-valid cached token remains for live consumers.
      * On failure does NOT reschedule; one foreground-transition retry is possible if
@@ -466,23 +483,13 @@ internal class KlaviyoAuthTokenManager(
         if (provider == null) return
         Registry.log.info("Proactive token refresh fired")
         try {
-            val token = getOrFetchToken(
+            // allowCachedToken = false always resolves through a doFetch (a fresh one, or a shared
+            // in-flight one), which broadcasts the refreshed token to observers under its stale
+            // guard — so there is no separate notify step here.
+            getOrFetchToken(
                 timeoutMs = AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,
                 allowCachedToken = false
             )
-            // Two-part stale guard before notifying observers:
-            // 1. Cache check (@Volatile read): clearTokenState() may have nulled cachedToken
-            //    while the fetch was suspended; skip if this token is no longer the live value.
-            // 2. Reset-pending check (@Volatile read): invalidate() sets this flag synchronously
-            //    from resetProfile() before the async clearTokenState() runs. Any refresh that
-            //    completes while a logout reset is pending must not broadcast to observers —
-            //    regardless of whether the refresh started before or after invalidate() was called.
-            //    The flag is cleared by clearTokenState() and registerProvider().
-            // Dispatch is best-effort; the small TOCTOU window on these volatile reads is
-            // acceptable (see notifyRefreshObservers KDoc).
-            if (cachedToken?.rawToken == token.rawToken && !profileResetPending) {
-                notifyRefreshObservers(token.rawToken)
-            }
             Registry.log.info("Proactive token refresh succeeded")
         } catch (e: CancellationException) {
             throw e
