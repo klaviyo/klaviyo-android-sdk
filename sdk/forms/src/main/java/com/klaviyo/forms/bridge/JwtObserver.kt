@@ -61,6 +61,15 @@ internal class JwtObserver : JsBridgeObserver {
     /** Highest sequence applied to the webview. Only read/written on the UI thread. */
     private var lastInjectedSequence = 0L
 
+    /**
+     * Last token value actually injected. Guards against re-injecting an identical token: a fast
+     * initial fetch that resolves within the interactive budget delivers the same token both as its
+     * own result and via the [AuthTokenManager.onTokenRefresh] broadcast that now fires on every
+     * acquisition. Null until the first injection, so an initial empty ("unauthenticated") token is
+     * still delivered. Only read/written on the UI thread.
+     */
+    private var lastInjectedToken: String? = null
+
     override fun startObserver() {
         stopped = false
         val thisFetch = Any()
@@ -131,12 +140,18 @@ internal class JwtObserver : JsBridgeObserver {
     /**
      * Inject [token] only if [sequence] is newer than any already applied, so an out-of-order
      * initial-fetch callback cannot overwrite a fresher token delivered via the refresh stream.
-     * Must be called on the UI thread, where [lastInjectedSequence] is exclusively accessed.
+     * Skips the bridge call when the value is unchanged from the last injection, so a token
+     * delivered twice (e.g. a fast initial fetch plus its refresh-stream echo) hits the webview
+     * once. Must be called on the UI thread, where [lastInjectedSequence] and [lastInjectedToken]
+     * are exclusively accessed.
      */
     private fun injectIfLatest(sequence: Long, token: String) {
         if (sequence > lastInjectedSequence) {
             lastInjectedSequence = sequence
-            Registry.get<JsBridge>().jwtMutation(token)
+            if (token != lastInjectedToken) {
+                lastInjectedToken = token
+                Registry.get<JsBridge>().jwtMutation(token)
+            }
         }
     }
 }
