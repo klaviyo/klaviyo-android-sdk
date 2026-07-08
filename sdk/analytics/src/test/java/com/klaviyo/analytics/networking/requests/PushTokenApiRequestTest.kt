@@ -1,9 +1,11 @@
 package com.klaviyo.analytics.networking.requests
 
+import com.klaviyo.core.Constants
 import io.mockk.every
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 internal class PushTokenApiRequestTest : BaseApiRequestTest<PushTokenApiRequest>() {
@@ -93,5 +95,33 @@ internal class PushTokenApiRequestTest : BaseApiRequestTest<PushTokenApiRequest>
 
         val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
         compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
+    }
+
+    @Test
+    fun `Does not include SDK features header when automatic push tracking is off`() {
+        val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        assertNull(request.headers["X-Klaviyo-Sdk-Features"])
+    }
+
+    @Test
+    fun `Does not include SDK features header when tracking is on but forwarding is not disabled`() {
+        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false) } returns true
+        val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        assertNull(request.headers["X-Klaviyo-Sdk-Features"])
+    }
+
+    @Test
+    fun `Does not include SDK features header when forwarding is disabled but tracking is off`() {
+        every { mockConfig.getManifestBoolean(Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING, false) } returns true
+        val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        assertNull(request.headers["X-Klaviyo-Sdk-Features"])
+    }
+
+    @Test
+    fun `Includes SDK features header when tracking is on and forwarding is disabled`() {
+        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false) } returns true
+        every { mockConfig.getManifestBoolean(Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING, false) } returns true
+        val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        assertEquals("auto_push_token_forwarding=0;", request.headers["X-Klaviyo-Sdk-Features"])
     }
 }

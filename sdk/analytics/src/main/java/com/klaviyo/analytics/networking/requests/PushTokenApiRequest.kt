@@ -1,6 +1,7 @@
 package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.core.Constants
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import org.json.JSONObject
@@ -33,6 +34,22 @@ internal class PushTokenApiRequest(
         const val BACKGROUND = "background"
         const val BG_AVAILABLE = "AVAILABLE"
         const val BG_UNAVAILABLE = "DENIED"
+
+        const val HEADER_SDK_FEATURES = "X-Klaviyo-Sdk-Features"
+    }
+
+    init {
+        val autoTrackingEnabled = Registry.config.getManifestBoolean(
+            Constants.AUTOMATIC_PUSH_TRACKING,
+            false
+        )
+        val tokenForwardingDisabled = autoTrackingEnabled && Registry.config.getManifestBoolean(
+            Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING,
+            false
+        )
+        if (tokenForwardingDisabled) {
+            headers[HEADER_SDK_FEATURES] = "auto_push_token_forwarding=0;"
+        }
     }
 
     override val type: String = "Push Token"

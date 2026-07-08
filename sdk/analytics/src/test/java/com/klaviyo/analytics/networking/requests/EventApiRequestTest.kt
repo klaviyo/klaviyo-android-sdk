@@ -4,6 +4,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.core.Constants
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
@@ -14,6 +15,7 @@ import io.mockk.unmockkStatic
 import java.util.UUID
 import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
@@ -232,5 +234,13 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
         stubEvent.setProperty("custom_value", "100")
 
         compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
+    }
+
+    @Test
+    fun `Does not include the SDK features header even when the flags that would trigger it on PushTokenApiRequest are set`() {
+        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false) } returns true
+        every { mockConfig.getManifestBoolean(Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING, false) } returns true
+        val request = EventApiRequest(stubEvent, stubProfile)
+        assertNull(request.headers["X-Klaviyo-Sdk-Features"])
     }
 }
