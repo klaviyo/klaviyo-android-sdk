@@ -185,11 +185,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
             return
         }
 
-        Intent().apply {
-            data = externalUri
-            action = Intent.ACTION_VIEW
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }.startActivityIfResolved(Registry.config.applicationContext)
+        makeExternalIntent(externalUri).startActivityIfResolved(Registry.config.applicationContext)
 
         if (message.formId.isEmpty() || message.formName.isEmpty()) {
             Registry.log.warning(
@@ -206,6 +202,29 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 externalUrl = externalUri
             )
         )
+    }
+
+    /**
+     * Create an intent to open a URI externally (browser, mail client, dialer, etc.).
+     *
+     * The action is chosen by scheme so the OS can resolve a handler reliably:
+     * [Intent.ACTION_DIAL] for `tel:`, [Intent.ACTION_SENDTO] for `mailto:`/`sms:`/`smsto:`,
+     * and [Intent.ACTION_VIEW] for web schemes. Mirrors the semantics of
+     * [com.klaviyo.analytics.linking.DeepLinking.makeExternalIntent] added for push in PUSH-834,
+     * implemented locally here since that branch is unmerged — consolidate into a shared utility
+     * once it lands.
+     */
+    private fun makeExternalIntent(uri: Uri): Intent {
+        val scheme = uri.scheme?.lowercase()
+        return Intent().apply {
+            data = uri
+            action = when (scheme) {
+                in SENDTO_SCHEMES -> Intent.ACTION_SENDTO
+                DIAL_SCHEME -> Intent.ACTION_DIAL
+                else -> Intent.ACTION_VIEW
+            }
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
     }
 
     /**
@@ -258,5 +277,17 @@ internal class KlaviyoNativeBridge : NativeBridge {
          * `javascript:`, `file:`) through the SDK.
          */
         val ALLOWED_OPEN_URL_SCHEMES = setOf("http", "https", "mailto", "tel", "sms", "smsto")
+
+        /**
+         * Schemes that compose a message and are resolved via [Intent.ACTION_SENDTO] in
+         * [makeExternalIntent].
+         */
+        val SENDTO_SCHEMES = setOf("mailto", "sms", "smsto")
+
+        /**
+         * Scheme that opens the dialer and is resolved via [Intent.ACTION_DIAL] in
+         * [makeExternalIntent].
+         */
+        const val DIAL_SCHEME = "tel"
     }
 }

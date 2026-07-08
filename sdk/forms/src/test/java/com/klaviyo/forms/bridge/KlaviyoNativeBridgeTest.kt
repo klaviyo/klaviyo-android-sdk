@@ -471,9 +471,16 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
     @Test
     fun `openExternalUrl dispatches for every allowlisted scheme and fires lifecycle callback`() {
-        val allowedSchemes = listOf("http", "https", "mailto", "tel", "sms", "smsto")
+        val schemeToExpectedAction = mapOf(
+            "http" to Intent.ACTION_VIEW,
+            "https" to Intent.ACTION_VIEW,
+            "mailto" to Intent.ACTION_SENDTO,
+            "tel" to Intent.ACTION_DIAL,
+            "sms" to Intent.ACTION_SENDTO,
+            "smsto" to Intent.ACTION_SENDTO
+        )
 
-        for (scheme in allowedSchemes) {
+        for ((scheme, expectedAction) in schemeToExpectedAction) {
             every { mockContext.startActivity(any()) } just runs
             every { mockUri.scheme } returns scheme
             val mockIntent = MockIntent.setupIntentMocking()
@@ -485,8 +492,8 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
             postMessage(openExternalUrlMessage)
 
             assertEquals(
-                "Expected intent to be dispatched for scheme $scheme",
-                Intent.ACTION_VIEW,
+                "Expected intent action $expectedAction to be dispatched for scheme $scheme",
+                expectedAction,
                 mockIntent.action.captured
             )
             assertEquals(
