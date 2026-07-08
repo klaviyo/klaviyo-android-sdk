@@ -262,6 +262,25 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
+    fun `unchanged token is re-injected into a fresh webview after a form restart`() {
+        // JwtObserver is a shared instance across form sessions, but each session loads a new
+        // webview with no JWT. The value-dedup must be scoped to the current webview: reopening a
+        // form while the same token is still valid must re-deliver it rather than skip it.
+        val token = "header.payload.signature"
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken(token)
+
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        observer.stopObserver()
+
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 2) { mockJsBridge.jwtMutation(token) }
+    }
+
+    @Test
     fun `refresh after stopObserver does not inject the stale token`() {
         val refreshObserver = captureRefreshObserver()
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")

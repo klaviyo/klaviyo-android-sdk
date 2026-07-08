@@ -62,16 +62,29 @@ internal class JwtObserver : JsBridgeObserver {
     private var lastInjectedSequence = 0L
 
     /**
-     * Last token value actually injected. Guards against re-injecting an identical token: a fast
-     * initial fetch that resolves within the interactive budget delivers the same token both as its
-     * own result and via the [AuthTokenManager.onTokenRefresh] broadcast that now fires on every
-     * acquisition. Null until the first injection, so an initial empty ("unauthenticated") token is
-     * still delivered. Only read/written on the UI thread.
+     * Last token value injected into the *current* webview. Guards against re-injecting an
+     * identical token within a session: a fast initial fetch that resolves within the interactive
+     * budget delivers the same value both as its own result and via the
+     * [AuthTokenManager.onTokenRefresh] echo that now fires on every acquisition. Null until the
+     * first injection of a session, so an initial empty ("unauthenticated") token is still
+     * delivered. Only read/written on the UI thread.
      */
     private var lastInjectedToken: String? = null
 
+    /**
+     * Set by [startObserver] so the next injection clears [lastInjectedToken] first. Each session
+     * loads a fresh webview with no JWT, so the value-dedup must not carry over from a previous
+     * session — otherwise a form reopened with an unchanged (still-valid) token would never receive
+     * it. `@Volatile` because [startObserver] may run off the UI thread while injections run on it;
+     * the flag is consumed on the UI thread so [lastInjectedToken] stays single-threaded.
+     */
+    @Volatile private var resetDedupOnNextInjection = false
+
     override fun startObserver() {
         stopped = false
+        // A new session loads a fresh webview; forget the previous session's injected value so an
+        // unchanged token is re-delivered rather than deduped away. Consumed on the UI thread.
+        resetDedupOnNextInjection = true
         val thisFetch = Any()
         latestFetch = thisFetch
         // Reserve the initial fetch's place in the injection order now, at request time, so any
@@ -140,12 +153,17 @@ internal class JwtObserver : JsBridgeObserver {
     /**
      * Inject [token] only if [sequence] is newer than any already applied, so an out-of-order
      * initial-fetch callback cannot overwrite a fresher token delivered via the refresh stream.
-     * Skips the bridge call when the value is unchanged from the last injection, so a token
-     * delivered twice (e.g. a fast initial fetch plus its refresh-stream echo) hits the webview
-     * once. Must be called on the UI thread, where [lastInjectedSequence] and [lastInjectedToken]
-     * are exclusively accessed.
+     * Within a session, skips the bridge call when the value is unchanged from the last injection,
+     * so a token delivered twice (e.g. a fast initial fetch plus its refresh-stream echo) hits the
+     * webview once; a new session first clears that baseline (see [resetDedupOnNextInjection]) so a
+     * reopened form still receives an unchanged token. Must be called on the UI thread, where
+     * [lastInjectedSequence] and [lastInjectedToken] are exclusively accessed.
      */
     private fun injectIfLatest(sequence: Long, token: String) {
+        if (resetDedupOnNextInjection) {
+            resetDedupOnNextInjection = false
+            lastInjectedToken = null
+        }
         if (sequence > lastInjectedSequence) {
             lastInjectedSequence = sequence
             if (token != lastInjectedToken) {
