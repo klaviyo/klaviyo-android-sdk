@@ -93,10 +93,10 @@ internal class KlaviyoAuthTokenManager(
     private val resetGeneration = AtomicLong(0L)
 
     // Set to true by invalidate() and reset to false by registerProvider() and clearTokenState().
-    // Read by performScheduledRefresh just before notifying observers: if a profile reset is
-    // pending (i.e. invalidate() was called but clearTokenState() hasn't finished yet), the
-    // refresh must not broadcast the now-stale token. @Volatile because it is written on the
-    // calling thread (main) and read on the dispatcher (IO) with no other synchronisation.
+    // Read by doFetch() just before notifying observers: if a profile reset is pending (i.e.
+    // invalidate() was called but clearTokenState() hasn't finished yet), the fetch must not
+    // broadcast the now-stale token. @Volatile because it is written on the calling thread (main)
+    // and read on the dispatcher (IO) with no other synchronisation.
     @Volatile private var profileResetPending = false
 
     // CopyOnWriteArrayList for thread-safe iteration while observers add/remove on arbitrary threads
@@ -183,12 +183,12 @@ internal class KlaviyoAuthTokenManager(
         // was in-flight when this ran will see a generation mismatch in shouldArmConnectivityRetry
         // and skip arming a connectivity retry for the now-cleared session.
         resetGeneration.incrementAndGet()
-        // Null the cache BEFORE clearing profileResetPending. An in-flight performScheduledRefresh
-        // that has already fetched its token checks `cachedToken?.rawToken == token.rawToken &&
+        // Null the cache BEFORE clearing profileResetPending. An in-flight doFetch() that has
+        // already fetched its token checks `cachedToken?.rawToken == token.rawToken &&
         // !profileResetPending` before notifying observers. If invalidate() was called just before
         // unregister (typical logout: resetProfile → unregisterAuthTokenProvider), profileResetPending
         // is true — the suppression flag. Clearing it before nulling the cache opens a window where
-        // the in-flight refresh passes both guards and delivers a now-invalid JWT to observers.
+        // the in-flight fetch passes both guards and delivers a now-invalid JWT to observers.
         // Nulling the cache first closes that window: the rawToken comparison fails (null != token),
         // so the notify path is skipped regardless of profileResetPending. This matches the ordering
         // in clearTokenState(), which also nulls cachedToken before clearing profileResetPending.
