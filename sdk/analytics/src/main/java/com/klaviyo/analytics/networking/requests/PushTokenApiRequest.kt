@@ -43,13 +43,13 @@ internal class PushTokenApiRequest(
             Constants.AUTOMATIC_PUSH_TRACKING,
             false
         )
-        val tokenForwardingDisabled = autoTrackingEnabled && Registry.config.getManifestBoolean(
+        val tokenForwardingEnabled = !Registry.config.getManifestBoolean(
             Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING,
             false
         )
-        if (tokenForwardingDisabled) {
-            headers[HEADER_SDK_FEATURES] = "auto_push_token_forwarding=0;"
-        }
+        headers[HEADER_SDK_FEATURES] =
+            "auto_push_tracking=${autoTrackingEnabled.toFeatureFlag()}; " +
+            "auto_push_token_forwarding=${tokenForwardingEnabled.toFeatureFlag()};"
     }
 
     override val type: String = "Push Token"
@@ -104,6 +104,8 @@ internal class PushTokenApiRequest(
         return body.toString().hashCode()
     }
 }
+
+private fun Boolean.toFeatureFlag(): String = if (this) "1" else "0"
 
 fun DeviceProperties.buildMetaData(): Map<String, String?> = mapOf(
     "device_id" to deviceId,

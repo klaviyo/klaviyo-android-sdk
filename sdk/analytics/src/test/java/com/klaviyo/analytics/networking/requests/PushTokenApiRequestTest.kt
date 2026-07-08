@@ -5,12 +5,15 @@ import io.mockk.every
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 internal class PushTokenApiRequestTest : BaseApiRequestTest<PushTokenApiRequest>() {
 
     override val expectedPath = "client/push-tokens"
+
+    override val expectedHeaders = super.expectedHeaders + mapOf(
+        "X-Klaviyo-Sdk-Features" to "auto_push_tracking=0; auto_push_token_forwarding=1;"
+    )
 
     override fun makeTestRequest(): PushTokenApiRequest =
         PushTokenApiRequest(PUSH_TOKEN, stubProfile)
@@ -98,30 +101,42 @@ internal class PushTokenApiRequestTest : BaseApiRequestTest<PushTokenApiRequest>
     }
 
     @Test
-    fun `Does not include SDK features header when automatic push tracking is off`() {
+    fun `SDK features header reflects tracking off and forwarding disable flag off`() {
         val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
-        assertNull(request.headers["X-Klaviyo-Sdk-Features"])
+        assertEquals(
+            "auto_push_tracking=0; auto_push_token_forwarding=1;",
+            request.headers["X-Klaviyo-Sdk-Features"]
+        )
     }
 
     @Test
-    fun `Does not include SDK features header when tracking is on but forwarding is not disabled`() {
-        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false) } returns true
-        val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
-        assertNull(request.headers["X-Klaviyo-Sdk-Features"])
-    }
-
-    @Test
-    fun `Does not include SDK features header when forwarding is disabled but tracking is off`() {
+    fun `SDK features header reflects tracking off and forwarding disable flag on`() {
         every { mockConfig.getManifestBoolean(Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING, false) } returns true
         val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
-        assertNull(request.headers["X-Klaviyo-Sdk-Features"])
+        assertEquals(
+            "auto_push_tracking=0; auto_push_token_forwarding=0;",
+            request.headers["X-Klaviyo-Sdk-Features"]
+        )
     }
 
     @Test
-    fun `Includes SDK features header when tracking is on and forwarding is disabled`() {
+    fun `SDK features header reflects tracking on with forwarding left at its default`() {
+        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false) } returns true
+        val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        assertEquals(
+            "auto_push_tracking=1; auto_push_token_forwarding=1;",
+            request.headers["X-Klaviyo-Sdk-Features"]
+        )
+    }
+
+    @Test
+    fun `SDK features header reflects tracking on with forwarding explicitly disabled`() {
         every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false) } returns true
         every { mockConfig.getManifestBoolean(Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING, false) } returns true
         val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
-        assertEquals("auto_push_token_forwarding=0;", request.headers["X-Klaviyo-Sdk-Features"])
+        assertEquals(
+            "auto_push_tracking=1; auto_push_token_forwarding=0;",
+            request.headers["X-Klaviyo-Sdk-Features"]
+        )
     }
 }
