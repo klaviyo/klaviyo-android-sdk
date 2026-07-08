@@ -262,6 +262,33 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
+    fun `a refresh queued in a previous session does not inject into the new webview`() {
+        // A proactive refresh dispatched during session 1 queues its UI callback, then the form is
+        // closed and reopened (session 2) before that callback runs. The stale refresh must not
+        // reach the fresh webview even though stopObserver/startObserver flipped `stopped` back.
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue.add(firstArg()) }
+
+        val refreshObserver = captureRefreshObserver()
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-1")
+
+        val observer = JwtObserver()
+        observer.startObserver() // session 1
+        dispatcher.scheduler.advanceUntilIdle() // session-1 fetch queues its inject
+        refreshObserver.captured.invoke("stale-refresh") // session-1 refresh queues its inject
+
+        observer.stopObserver()
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-2")
+        observer.startObserver() // session 2 (fresh webview)
+        dispatcher.scheduler.advanceUntilIdle() // session-2 fetch queues its inject
+
+        uiQueue.forEach { it.invoke() }
+
+        verify(inverse = true) { mockJsBridge.jwtMutation("stale-refresh") }
+        verify(exactly = 1) { mockJsBridge.jwtMutation("session-2") }
+    }
+
+    @Test
     fun `unchanged token is re-injected into a fresh webview after a form restart`() {
         // JwtObserver is a shared instance across form sessions, but each session loads a new
         // webview with no JWT. The value-dedup must be scoped to the current webview: reopening a

@@ -36,6 +36,13 @@ internal class JwtObserver : JsBridgeObserver {
 
     @Volatile private var stopped = false
 
+    /**
+     * Identity token for the current session, replaced on each [startObserver]. Both injection
+     * paths capture it and re-check it once they reach the UI thread, so a callback queued in a
+     * previous session (its fetch result, or a proactive-refresh echo) cannot inject into the fresh
+     * webview a later session loaded. `@Volatile` because it is written off the UI thread by
+     * [startObserver] and read on it.
+     */
     @Volatile private var latestFetch: Any? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
@@ -138,13 +145,16 @@ internal class JwtObserver : JsBridgeObserver {
 
     /**
      * Re-inject a proactively-refreshed token into the webview. The manager only notifies on a
-     * successful fetch, so [jwt] is always a real (non-empty) token here. Skips if the observer has
-     * been stopped to avoid touching a torn-down webview.
+     * successful fetch, so [jwt] is always a real (non-empty) token here. Captures the current
+     * [latestFetch] and re-checks it (plus [stopped]) on the UI thread: a refresh dispatched during
+     * a previous session could otherwise run after a stop/start cycle flipped [stopped] back to
+     * false and inject a stale token into the freshly loaded webview.
      */
     private fun onTokenRefreshed(jwt: String) {
         val sequence = injectionSequence.incrementAndGet()
+        val session = latestFetch
         Registry.threadHelper.runOnUiThread {
-            if (!stopped) {
+            if (!stopped && latestFetch === session) {
                 injectIfLatest(sequence, jwt)
             }
         }
