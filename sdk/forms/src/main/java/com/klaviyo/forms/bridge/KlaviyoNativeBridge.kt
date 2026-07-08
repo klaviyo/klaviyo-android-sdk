@@ -167,9 +167,23 @@ internal class KlaviyoNativeBridge : NativeBridge {
      * [com.klaviyo.forms.webview.KlaviyoWebViewClient.shouldOverrideUrlLoading]. The `NEW_TASK`
      * intent launches independently of the overlay activity, so no grace period is needed.
      * Fires [FormLifecycleEvent.FormCtaExternalUrlClicked] after dispatch.
+     *
+     * The URL's scheme is checked against [ALLOWED_OPEN_URL_SCHEMES] before dispatch — matching
+     * the allowlist gate applied to push's `open_url`/`web_url` fields (see
+     * [com.klaviyo.pushFcm.KlaviyoRemoteMessage], PUSH-834) — to avoid routing dangerous or
+     * unintended URIs (e.g. `intent:`, `javascript:`, `file:`) through the SDK. Unlike push,
+     * `smsto:` is included here for both platforms since Android has a handler for it (iOS omits
+     * it only because iOS Messages has no `smsto:` handler).
      */
     private fun openExternalUrl(message: OpenExternalUrl) {
         val externalUri = message.url.toUri()
+
+        if (externalUri.scheme?.lowercase() !in ALLOWED_OPEN_URL_SCHEMES) {
+            Registry.log.warning(
+                "openExternalUrl url '$externalUri' has a scheme not in the allowed list; ignoring."
+            )
+            return
+        }
 
         Intent().apply {
             data = externalUri
@@ -235,5 +249,14 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 }
             }
         }
+    }
+
+    private companion object {
+        /**
+         * Full set of URI schemes accepted by [openExternalUrl]. Schemes outside this set are
+         * silently dropped to prevent routing dangerous or unintended URIs (e.g. `intent:`,
+         * `javascript:`, `file:`) through the SDK.
+         */
+        val ALLOWED_OPEN_URL_SCHEMES = setOf("http", "https", "mailto", "tel", "sms", "smsto")
     }
 }

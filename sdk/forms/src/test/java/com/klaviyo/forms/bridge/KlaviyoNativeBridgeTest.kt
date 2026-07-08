@@ -29,6 +29,7 @@ import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.slot
 import io.mockk.unmockkAll
+import io.mockk.unmockkConstructor
 import io.mockk.verify
 import org.json.JSONException
 import org.json.JSONObject
@@ -422,6 +423,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
          */
         mockkObject(DeepLinking)
         every { mockContext.startActivity(any()) } just runs
+        every { mockUri.scheme } returns "https"
         val mockIntent = MockIntent.setupIntentMocking()
 
         val events = mutableListOf<FormLifecycleEvent>()
@@ -452,6 +454,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         val message = """{"type":"openExternalUrl","data":{"url":"https://example.com","formName":"Test Form","buttonLabel":"Visit"}}"""
 
         every { mockContext.startActivity(any()) } just runs
+        every { mockUri.scheme } returns "https"
         val mockIntent = MockIntent.setupIntentMocking()
 
         val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
@@ -464,6 +467,70 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         verify { spyLog.warning(any()) }
 
         Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `openExternalUrl dispatches for every allowlisted scheme and fires lifecycle callback`() {
+        val allowedSchemes = listOf("http", "https", "mailto", "tel", "sms", "smsto")
+
+        for (scheme in allowedSchemes) {
+            every { mockContext.startActivity(any()) } just runs
+            every { mockUri.scheme } returns scheme
+            val mockIntent = MockIntent.setupIntentMocking()
+
+            val events = mutableListOf<FormLifecycleEvent>()
+            val callback = FormLifecycleHandler { event -> events.add(event) }
+            Registry.register<FormLifecycleHandler>(callback)
+
+            postMessage(openExternalUrlMessage)
+
+            assertEquals(
+                "Expected intent to be dispatched for scheme $scheme",
+                Intent.ACTION_VIEW,
+                mockIntent.action.captured
+            )
+            assertEquals(
+                "Expected lifecycle callback to fire for scheme $scheme",
+                1,
+                events.size
+            )
+            assertEquals(
+                scheme,
+                (events[0] as FormLifecycleEvent.FormCtaExternalUrlClicked).externalUrl.scheme
+            )
+
+            Registry.unregister<FormLifecycleHandler>()
+            unmockkConstructor(Intent::class)
+        }
+    }
+
+    @Test
+    fun `openExternalUrl silently drops every disallowed scheme without intent or lifecycle callback`() {
+        val blockedSchemes = listOf("javascript", "intent", "android-app", "file", "data", "ftp")
+
+        for (scheme in blockedSchemes) {
+            every { mockUri.scheme } returns scheme
+            val mockIntent = MockIntent.setupIntentMocking()
+
+            val mockLifecycleHandler = mockk<FormLifecycleHandler>(relaxed = true)
+            Registry.register<FormLifecycleHandler>(mockLifecycleHandler)
+
+            postMessage(openExternalUrlMessage)
+
+            verify(exactly = 0) {
+                mockContext.startActivity(any())
+            }
+            assertEquals(
+                "Expected no intent action to be set for blocked scheme $scheme",
+                false,
+                mockIntent.action.isCaptured
+            )
+            verify(exactly = 0) { mockLifecycleHandler.onFormLifecycleEvent(any()) }
+            verify { spyLog.warning(any()) }
+
+            Registry.unregister<FormLifecycleHandler>()
+            unmockkConstructor(Intent::class)
+        }
     }
 
     @Test
