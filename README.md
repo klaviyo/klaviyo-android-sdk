@@ -25,6 +25,8 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
+  - [Option A — Automatic integration](#option-a--automatic-integration)
+  - [Option B — Manual integration](#option-b--manual-integration)
   - [Collecting Push Tokens](#collecting-push-tokens)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Rich Push](#rich-push)
@@ -393,6 +395,16 @@ Additional event properties can be specified as part of the `Event` object:
 - Klaviyo `analytics` and `push-fcm` packages
 - If you expect to use deep links in your push notifications, see the [deep linking](#deep-linking) section below.
 
+> **Which option should I use?**
+>
+> Choose **Option A — Automatic integration** for a minimal-boilerplate setup. With a single
+> manifest flag, the SDK tracks push opens automatically and registers the push token for you —
+> no `Klaviyo.handlePush()` calls and no manual token wiring.
+>
+> Choose **Option B — Manual integration** if you need direct control over token collection or
+> intent handling — for example, a custom `FirebaseMessagingService`, a bespoke deep-link/intent
+> flow, or an app that manages its own push-token pipeline.
+
 ### Setup
 
 To specify an icon and/or color for Klaviyo notifications, add the following optional metadata elements to the
@@ -414,12 +426,113 @@ will be used if present, else we fall back on the application's launcher icon, a
 </manifest>
 ```
 
+### Option A — Automatic integration
+
+With automatic push tracking enabled, the Klaviyo SDK handles the two pieces of push integration
+that otherwise require boilerplate in your app code:
+
+- **Push open tracking** — Klaviyo notification taps are routed through an internal trampoline
+  activity that records the `Opened Push` event for you, then forwards the user to their
+  destination. You do **not** need to call `Klaviyo.handlePush(intent)` anywhere.
+- **Push token registration** — the SDK fetches the current FCM token and registers it with
+  Klaviyo automatically, so you don't need to call `Klaviyo.setPushToken(...)` yourself.
+
+#### Step 1 — Enable automatic push tracking in `AndroidManifest.xml`
+
+Add the following meta-data to the `<application>` element. Note the `com.klaviyo.push.`
+namespace — it matches the existing Klaviyo notification meta-data keys. **The exact key is
+required**; a bare `com.klaviyo.automatic_push_tracking` (without the `push.` segment) is
+silently ignored.
+
+```xml
+<!-- AndroidManifest.xml -->
+<manifest>
+    <!-- ... -->
+    <application>
+        <!-- ... -->
+        <meta-data
+            android:name="com.klaviyo.push.automatic_push_tracking"
+            android:value="true" />
+    </application>
+</manifest>
+```
+
+#### Step 2 — Initialize the SDK
+
+```kotlin
+import com.klaviyo.analytics.Klaviyo
+
+Klaviyo.initialize("YOUR_PUBLIC_API_KEY", applicationContext)
+```
+
+That's it. With the flag set, `initialize()` covers both concerns above:
+
+- **Open tracking** is handled by the trampoline for every Klaviyo notification tap.
+- **Token registration** happens at `initialize()` **and** again on every app foreground, so
+  token rotations are always caught. Registration is de-duplicated — the SDK only calls the
+  Create Client Push Token API when the token has actually changed.
+
+> **Reminder:** `Klaviyo.initialize` is required before using any other Klaviyo SDK
+> functionality, even if you are only using the SDK for push notifications and not analytics.
+
+#### Deep links (optional)
+
+If your Klaviyo notifications carry deep links, you can register a `DeepLinkHandler` to route
+them into your app's navigation:
+
+```kotlin
+import com.klaviyo.analytics.Klaviyo
+
+Klaviyo.registerDeepLinkHandler { uri ->
+    // Route `uri` into your navigation stack
+}
+```
+
+The handler is invoked once per notification tap. If you **don't** register a handler, the deep
+link is delivered exactly as it is today — the SDK broadcasts an `Intent` with the deep-link URL
+back to your app, which your host `Activity`'s intent-filter receives. See the
+[Deep Linking](#deep-linking) section for details.
+
+#### Displaying notifications
+
+The automatic flag removes the manual **token wiring** and **`handlePush()`** calls — it does
+**not** remove the requirement to *receive and display* notifications. `KlaviyoPushService` is
+still what displays Klaviyo notifications, and it is registered automatically by the SDK unless
+your app provides its own `FirebaseMessagingService` (see [Advanced Setup](#advanced-setup)).
+
+If you run multiple push providers and don't register `KlaviyoPushService`, automatic **token
+registration** still works standalone — but Klaviyo message **display** requires the service.
+(Broadcast-based reception that would lift this requirement is tracked separately in
+[MAGE-708](https://linear.app/klaviyo/issue/MAGE-708).)
+
+#### Advanced: disable automatic token forwarding
+
+If your app owns its own push-token pipeline (for example, forwarding a single token to multiple
+providers) but you still want automatic open tracking, opt out of token forwarding with an
+additional meta-data flag. Open tracking is unaffected; the SDK simply stops auto-fetching and
+forwarding the token, and you register it yourself via `Klaviyo.setPushToken(...)` as in
+Option B.
+
+```xml
+<meta-data
+    android:name="com.klaviyo.push.disable_automatic_token_forwarding"
+    android:value="true" />
+```
+
+<!-- TODO(MAGE-770): once the sample app's `automatic` product flavor is merged, link it here as
+     the runnable reference for Option A, e.g. the `automatic` flavor under `sample/`. -->
+
+### Option B — Manual integration
+
 ### Collecting Push Tokens
 In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo.
 This is done via the `Klaviyo.setPushToken` method, which registers the push token and current authorization state
 via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
-The SDK's `KlaviyoPushService` will automatically receive *new* push tokens via the `onNewToken` method.
-We also recommend retrieving the latest token value on app startup and registering it with the Klaviyo SDK.
+`KlaviyoPushService` forwards **newly generated or rotated** tokens to Klaviyo via its
+`onNewToken` method. Note that `onNewToken` only fires when FCM *generates or rotates* a token —
+it does **not** fire for a token that already existed before the SDK was integrated, and it does
+not fire when FCM auto-init is disabled. For that reason, we recommend retrieving the latest
+token value on app startup and registering it with the Klaviyo SDK.
 Add the following to your application or main activity's `.onCreate()` method:
 
 <details open>
