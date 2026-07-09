@@ -1,6 +1,5 @@
 package com.klaviyo.forms.bridge
 
-import android.content.Intent
 import android.net.Uri
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -11,6 +10,7 @@ import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.core.Constants.ALLOWED_OPEN_URL_SCHEMES
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.FormLifecycleEvent
@@ -168,12 +168,13 @@ internal class KlaviyoNativeBridge : NativeBridge {
      * intent launches independently of the overlay activity, so no grace period is needed.
      * Fires [FormLifecycleEvent.FormCtaExternalUrlClicked] after dispatch.
      *
-     * The URL's scheme is checked against [ALLOWED_OPEN_URL_SCHEMES] before dispatch — matching
-     * the allowlist gate applied to push's `open_url`/`web_url` fields (see
+     * The URL's scheme is checked against [ALLOWED_OPEN_URL_SCHEMES] before dispatch — the same
+     * allowlist gate applied to push's `open_url`/`web_url` fields (see
      * [com.klaviyo.pushFcm.KlaviyoRemoteMessage], PUSH-834) — to avoid routing dangerous or
-     * unintended URIs (e.g. `intent:`, `javascript:`, `file:`) through the SDK. Unlike push,
-     * `smsto:` is included here for both platforms since Android has a handler for it (iOS omits
-     * it only because iOS Messages has no `smsto:` handler).
+     * unintended URIs (e.g. `intent:`, `javascript:`, `file:`) through the SDK. `smsto:` is
+     * included for both platforms since Android has a handler for it (iOS omits it only because
+     * iOS Messages has no `smsto:` handler). The intent itself is built by
+     * [DeepLinking.makeExternalIntent], shared with the push `open_url` path.
      */
     private fun openExternalUrl(message: OpenExternalUrl) {
         val externalUri = message.url.toUri()
@@ -185,7 +186,9 @@ internal class KlaviyoNativeBridge : NativeBridge {
             return
         }
 
-        makeExternalIntent(externalUri).startActivityIfResolved(Registry.config.applicationContext)
+        DeepLinking.makeExternalIntent(externalUri).startActivityIfResolved(
+            Registry.config.applicationContext
+        )
 
         if (message.formId.isEmpty() || message.formName.isEmpty()) {
             Registry.log.warning(
@@ -202,29 +205,6 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 externalUrl = externalUri
             )
         )
-    }
-
-    /**
-     * Create an intent to open a URI externally (browser, mail client, dialer, etc.).
-     *
-     * The action is chosen by scheme so the OS can resolve a handler reliably:
-     * [Intent.ACTION_DIAL] for `tel:`, [Intent.ACTION_SENDTO] for `mailto:`/`sms:`/`smsto:`,
-     * and [Intent.ACTION_VIEW] for web schemes. Mirrors the semantics of
-     * [com.klaviyo.analytics.linking.DeepLinking.makeExternalIntent] added for push in PUSH-834,
-     * implemented locally here since that branch is unmerged — consolidate into a shared utility
-     * once it lands.
-     */
-    private fun makeExternalIntent(uri: Uri): Intent {
-        val scheme = uri.scheme?.lowercase()
-        return Intent().apply {
-            data = uri
-            action = when (scheme) {
-                in SENDTO_SCHEMES -> Intent.ACTION_SENDTO
-                DIAL_SCHEME -> Intent.ACTION_DIAL
-                else -> Intent.ACTION_VIEW
-            }
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
     }
 
     /**
@@ -268,26 +248,5 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 }
             }
         }
-    }
-
-    private companion object {
-        /**
-         * Full set of URI schemes accepted by [openExternalUrl]. Schemes outside this set are
-         * silently dropped to prevent routing dangerous or unintended URIs (e.g. `intent:`,
-         * `javascript:`, `file:`) through the SDK.
-         */
-        val ALLOWED_OPEN_URL_SCHEMES = setOf("http", "https", "mailto", "tel", "sms", "smsto")
-
-        /**
-         * Schemes that compose a message and are resolved via [Intent.ACTION_SENDTO] in
-         * [makeExternalIntent].
-         */
-        val SENDTO_SCHEMES = setOf("mailto", "sms", "smsto")
-
-        /**
-         * Scheme that opens the dialer and is resolved via [Intent.ACTION_DIAL] in
-         * [makeExternalIntent].
-         */
-        const val DIAL_SCHEME = "tel"
     }
 }

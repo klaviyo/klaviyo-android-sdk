@@ -68,6 +68,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockUri
+        every { mockUri.normalizeScheme() } returns mockUri
 
         bridgeMessageHandler = KlaviyoNativeBridge()
     }
@@ -421,7 +422,6 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.openExternalUrl
          */
-        mockkObject(DeepLinking)
         every { mockContext.startActivity(any()) } just runs
         every { mockUri.scheme } returns "https"
         val mockIntent = MockIntent.setupIntentMocking()
@@ -436,8 +436,10 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         assertEquals(Intent.ACTION_VIEW, mockIntent.action.captured)
         assertEquals(mockUri, mockIntent.data.captured)
         assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, mockIntent.flags.captured)
+        // No setPackage call was ever captured, confirming this never routed through
+        // DeepLinking.handleDeepLink's package-scoped intent path
         assertEquals(false, mockIntent.packageName.isCaptured)
-        verify(exactly = 0) { DeepLinking.handleDeepLink(any<Uri>()) }
+        assertEquals(listOf(Intent.CATEGORY_BROWSABLE), mockIntent.categories)
 
         assertEquals(1, events.size)
         val ctaEvent = events[0] as FormLifecycleEvent.FormCtaExternalUrlClicked
@@ -479,6 +481,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
             "sms" to Intent.ACTION_SENDTO,
             "smsto" to Intent.ACTION_SENDTO
         )
+        val webSchemes = setOf("http", "https")
 
         for ((scheme, expectedAction) in schemeToExpectedAction) {
             every { mockContext.startActivity(any()) } just runs
@@ -495,6 +498,11 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
                 "Expected intent action $expectedAction to be dispatched for scheme $scheme",
                 expectedAction,
                 mockIntent.action.captured
+            )
+            assertEquals(
+                "Expected CATEGORY_BROWSABLE only for web scheme $scheme",
+                scheme in webSchemes,
+                Intent.CATEGORY_BROWSABLE in mockIntent.categories
             )
             assertEquals(
                 "Expected lifecycle callback to fire for scheme $scheme",
