@@ -16,9 +16,11 @@ import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Operation
+import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
@@ -110,6 +112,43 @@ object Klaviyo {
                 preInitQueue.poll()?.let { safeCall(null, it) }
             }
         }
+
+        // Optional side effect, kept last so it can never interfere with core initialization
+        maybeAutoRegisterPushToken()
+    }
+
+    /**
+     * Opt-in automatic push token registration (via [Constants.AUTOMATIC_PUSH_TRACKING]): pull the
+     * current token and forward it to Klaviyo. Called from [initialize] and on each app foreground so
+     * rotations are picked up. No-op when the flag is off, when forwarding is opted out via
+     * [Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING], or when `push-fcm` is absent.
+     */
+    internal fun maybeAutoRegisterPushToken() {
+        val autoTrackingEnabled = Registry.config.getManifestBoolean(
+            Constants.AUTOMATIC_PUSH_TRACKING,
+            false
+        )
+        // Avoid a second manifest read on the common flag-off path
+        val tokenForwardingDisabled = autoTrackingEnabled && Registry.config.getManifestBoolean(
+            Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING,
+            false
+        )
+        if (!autoTrackingEnabled || tokenForwardingDisabled) {
+            Registry.log.verbose(
+                "Skipping automatic push token registration " +
+                    "(automaticPushTracking=$autoTrackingEnabled, tokenForwardingDisabled=$tokenForwardingDisabled)"
+            )
+            return
+        }
+
+        Registry.getOrNull<PushTokenFetcher>()?.also { fetcher ->
+            Registry.log.debug("Automatically fetching push token")
+            // Contain any fetcher failure so this optional side effect cannot disrupt the caller
+            runCatching { fetcher.fetchAndSetPushToken() }
+                .onFailure { Registry.log.warning("Automatic push token fetch failed", it) }
+        } ?: Registry.log.verbose(
+            "No push token fetcher registered; skipping automatic registration"
+        )
     }
 
     /**

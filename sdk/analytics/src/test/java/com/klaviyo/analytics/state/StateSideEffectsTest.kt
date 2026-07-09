@@ -12,6 +12,8 @@ import com.klaviyo.analytics.networking.requests.KlaviyoErrorResponse
 import com.klaviyo.analytics.networking.requests.KlaviyoErrorSource
 import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
+import com.klaviyo.core.Constants
+import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
@@ -65,6 +67,7 @@ class StateSideEffectsTest : BaseTest() {
     @After
     override fun cleanup() {
         Registry.unregister<ApiClient>()
+        Registry.unregister<PushTokenFetcher>()
         super.cleanup()
     }
 
@@ -409,6 +412,33 @@ class StateSideEffectsTest : BaseTest() {
 
     @Test
     fun `Resumed lifecycle event triggers push permission refresh`() {
+        fireResumedEvent()
+
+        verify { stateMock.pushToken = "mocked_push_token" }
+    }
+
+    @Test
+    fun `Resumed lifecycle event re-fetches push token when automatic forwarding is enabled`() {
+        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false) } returns true
+        val mockFetcher = registerMockPushTokenFetcher()
+
+        fireResumedEvent()
+
+        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken() }
+    }
+
+    @Test
+    fun `Resumed lifecycle event does not re-fetch push token when automatic forwarding is disabled`() {
+        // Automatic push tracking flag defaults to false via BaseTest's getManifestBoolean stub
+        val mockFetcher = registerMockPushTokenFetcher()
+
+        fireResumedEvent()
+
+        verify(inverse = true) { mockFetcher.fetchAndSetPushToken() }
+    }
+
+    // Registers stateMock, captures the lifecycle observer via a new StateSideEffects, and fires Resumed
+    private fun fireResumedEvent() {
         Registry.register<State>(stateMock)
         every { stateMock.pushToken } returns "mocked_push_token"
         every { stateMock.pushToken = any() } returns Unit
@@ -422,7 +452,5 @@ class StateSideEffectsTest : BaseTest() {
         )
 
         capturedLifecycleObserver.captured(ActivityEvent.Resumed(mockk()))
-
-        verify { stateMock.pushToken = "mocked_push_token" }
     }
 }

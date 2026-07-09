@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import com.klaviyo.core.BuildConfig
+import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.FormEnvironment
@@ -205,4 +206,7 @@ abstract class BaseTest {
             throw e
         }
     }
+
+    protected fun registerMockPushTokenFetcher(): PushTokenFetcher =
+        mockk<PushTokenFetcher>(relaxed = true).also { Registry.register<PushTokenFetcher>(it) }
 }
