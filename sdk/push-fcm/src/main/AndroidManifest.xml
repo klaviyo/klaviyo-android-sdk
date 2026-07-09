@@ -27,5 +27,14 @@
             android:noHistory="true"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <!--
+            Registers the FCM-backed PushTokenFetcher at process start so analytics can pull the
+            current push token at initialize() without depending on push-fcm. Mirrors the forms
+            module's FormsInitProvider.
+        -->
+        <provider
+            android:name="com.klaviyo.pushFcm.KlaviyoPushTokenInitProvider"
+            android:authorities="${applicationId}.klaviyo.pushfcm.init"
+            android:exported="false" />
     </application>
 </manifest>
