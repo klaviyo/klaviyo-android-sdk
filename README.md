@@ -469,29 +469,7 @@ That's it. With the flag set, `initialize()` covers both concerns above:
 
 - **Open tracking** is handled by the trampoline for every Klaviyo notification tap.
 - **Token registration** happens at `initialize()` **and** again on every app foreground, so
-  token rotations are always caught. Registration is de-duplicated — the SDK only calls the
-  Create Client Push Token API when the token has actually changed.
-
-> **Reminder:** `Klaviyo.initialize` is required before using any other Klaviyo SDK
-> functionality, even if you are only using the SDK for push notifications and not analytics.
-
-#### Deep links (optional)
-
-If your Klaviyo notifications carry deep links, you can register a `DeepLinkHandler` to route
-them into your app's navigation:
-
-```kotlin
-import com.klaviyo.analytics.Klaviyo
-
-Klaviyo.registerDeepLinkHandler { uri ->
-    // Route `uri` into your navigation stack
-}
-```
-
-The handler is invoked once per notification tap. If you **don't** register a handler, the deep
-link is delivered exactly as it is today — the SDK broadcasts an `Intent` with the deep-link URL
-back to your app, which your host `Activity`'s intent-filter receives. See the
-[Deep Linking](#deep-linking) section for details.
+  token rotations are always caught.
 
 #### Displaying notifications
 
@@ -502,8 +480,6 @@ your app provides its own `FirebaseMessagingService` (see [Advanced Setup](#adva
 
 If you run multiple push providers and don't register `KlaviyoPushService`, automatic **token
 registration** still works standalone — but Klaviyo message **display** requires the service.
-(Broadcast-based reception that would lift this requirement is tracked separately in
-[MAGE-708](https://linear.app/klaviyo/issue/MAGE-708).)
 
 #### Advanced: disable automatic token forwarding
 
