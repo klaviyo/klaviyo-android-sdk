@@ -75,6 +75,20 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         return connectionSpy
     }
 
+    /**
+     * Sends a single request against a connection stubbed to return [responseCode] and asserts the
+     * resulting [KlaviyoApiRequest.Status] and that exactly one attempt was made. Shared by the
+     * single-send status-code tests to keep their boilerplate DRY.
+     */
+    private fun assertStatusForResponseCode(responseCode: Int, expected: KlaviyoApiRequest.Status) {
+        val connectionMock = withConnectionMock(URL(expectedFullUrl))
+        every { connectionMock.responseCode } returns responseCode
+
+        val request = makeTestRequest()
+        assertEquals(expected, request.send())
+        assertEquals(1, request.attempts)
+    }
+
     @Before
     override fun setup() {
         super.setup()
@@ -722,42 +736,68 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
     @Test
     fun `500 response code returns PendingRetry when under max attempts`() {
-        val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.responseCode } returns 500
-
-        val request = makeTestRequest()
-        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
-        assertEquals(1, request.attempts)
+        assertStatusForResponseCode(500, KlaviyoApiRequest.Status.PendingRetry)
     }
 
     @Test
     fun `502 response code returns PendingRetry when under max attempts`() {
-        val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.responseCode } returns 502
-
-        val request = makeTestRequest()
-        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
-        assertEquals(1, request.attempts)
+        assertStatusForResponseCode(502, KlaviyoApiRequest.Status.PendingRetry)
     }
 
     @Test
     fun `503 response code returns PendingRetry when under max attempts`() {
-        val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.responseCode } returns 503
-
-        val request = makeTestRequest()
-        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
-        assertEquals(1, request.attempts)
+        assertStatusForResponseCode(503, KlaviyoApiRequest.Status.PendingRetry)
     }
 
     @Test
     fun `504 response code returns PendingRetry when under max attempts`() {
-        val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.responseCode } returns 504
+        assertStatusForResponseCode(504, KlaviyoApiRequest.Status.PendingRetry)
+    }
 
-        val request = makeTestRequest()
-        assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
-        assertEquals(1, request.attempts)
+    @Test
+    fun `522 Cloudflare response code returns PendingRetry when under max attempts`() {
+        // 522 (connection timed out) is a Cloudflare edge code outside the legacy allowlist
+        // and was one of the codes observed during the cannot-access-klaviyo-com incident.
+        assertStatusForResponseCode(522, KlaviyoApiRequest.Status.PendingRetry)
+    }
+
+    @Test
+    fun `525 Cloudflare response code returns PendingRetry when under max attempts`() {
+        assertStatusForResponseCode(525, KlaviyoApiRequest.Status.PendingRetry)
+    }
+
+    @Test
+    fun `599 upper-bound 5xx response code returns PendingRetry when under max attempts`() {
+        assertStatusForResponseCode(599, KlaviyoApiRequest.Status.PendingRetry)
+    }
+
+    @Test
+    fun `501 response code returns PendingRetry when under max attempts`() {
+        // 501 (Not Implemented) is inside the full 5xx retryable range and we deliberately
+        // retry it: for the SDK's fixed request shapes a genuine origin 501 is effectively
+        // unreachable, so an observed 501 is almost certainly edge/proxy noise worth retrying.
+        assertStatusForResponseCode(501, KlaviyoApiRequest.Status.PendingRetry)
+    }
+
+    @Test
+    fun `505 response code returns PendingRetry when under max attempts`() {
+        // 505 (HTTP Version Not Supported) is inside the full 5xx retryable range and we
+        // deliberately retry it: for the SDK's fixed request shapes a genuine origin 505 is
+        // effectively unreachable, so an observed 505 is almost certainly edge/proxy noise
+        // worth retrying.
+        assertStatusForResponseCode(505, KlaviyoApiRequest.Status.PendingRetry)
+    }
+
+    @Test
+    fun `499 response code returns Failed immediately`() {
+        // Lower-bound sanity: 499 sits just below the 5xx range and must stay non-retryable.
+        assertStatusForResponseCode(499, KlaviyoApiRequest.Status.Failed)
+    }
+
+    @Test
+    fun `600 response code returns Failed immediately`() {
+        // Upper-bound sanity: 600 sits just above the 5xx range and must stay non-retryable.
+        assertStatusForResponseCode(600, KlaviyoApiRequest.Status.Failed)
     }
 
     @Test
@@ -778,41 +818,21 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
 
     @Test
     fun `400 response code returns Failed immediately`() {
-        val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.responseCode } returns 400
-
-        val request = makeTestRequest()
-        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
-        assertEquals(1, request.attempts)
+        assertStatusForResponseCode(400, KlaviyoApiRequest.Status.Failed)
     }
 
     @Test
     fun `401 response code returns Failed immediately`() {
-        val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.responseCode } returns 401
-
-        val request = makeTestRequest()
-        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
-        assertEquals(1, request.attempts)
+        assertStatusForResponseCode(401, KlaviyoApiRequest.Status.Failed)
     }
 
     @Test
     fun `403 response code returns Failed immediately`() {
-        val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.responseCode } returns 403
-
-        val request = makeTestRequest()
-        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
-        assertEquals(1, request.attempts)
+        assertStatusForResponseCode(403, KlaviyoApiRequest.Status.Failed)
     }
 
     @Test
     fun `404 response code returns Failed immediately`() {
-        val connectionMock = withConnectionMock(URL(expectedFullUrl))
-        every { connectionMock.responseCode } returns 404
-
-        val request = makeTestRequest()
-        assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
-        assertEquals(1, request.attempts)
+        assertStatusForResponseCode(404, KlaviyoApiRequest.Status.Failed)
     }
 }
