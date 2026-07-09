@@ -1,9 +1,10 @@
 package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.model.Profile
-import com.klaviyo.core.Constants
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
+import com.klaviyo.core.SdkFeatureScope
+import com.klaviyo.core.SdkFeatures
 import org.json.JSONObject
 
 /**
@@ -34,30 +35,11 @@ internal class PushTokenApiRequest(
         const val BACKGROUND = "background"
         const val BG_AVAILABLE = "AVAILABLE"
         const val BG_UNAVAILABLE = "DENIED"
-
-        const val HEADER_SDK_FEATURES = "X-Klaviyo-Sdk-Features"
     }
 
     init {
-        val features = buildList {
-            if (Registry.config.hasManifestKey(Constants.AUTOMATIC_PUSH_TRACKING)) {
-                val autoTrackingEnabled = Registry.config.getManifestBoolean(
-                    Constants.AUTOMATIC_PUSH_TRACKING,
-                    false
-                )
-                add("auto_push_tracking=${autoTrackingEnabled.toFeatureFlag()};")
-            }
-            if (Registry.config.hasManifestKey(Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING)) {
-                val tokenForwardingEnabled = !Registry.config.getManifestBoolean(
-                    Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING,
-                    false
-                )
-                add("auto_push_token_forwarding=${tokenForwardingEnabled.toFeatureFlag()};")
-            }
-        }
-        if (features.isNotEmpty()) {
-            headers[HEADER_SDK_FEATURES] = features.joinToString(" ")
-        }
+        SdkFeatures.headerValue(SdkFeatureScope.PUSH_TOKEN_REGISTRATION)
+            ?.let { headers[SdkFeatures.HEADER_NAME] = it }
     }
 
     override val type: String = "Push Token"
@@ -112,8 +94,6 @@ internal class PushTokenApiRequest(
         return body.toString().hashCode()
     }
 }
-
-private fun Boolean.toFeatureFlag(): String = if (this) "1" else "0"
 
 fun DeviceProperties.buildMetaData(): Map<String, String?> = mapOf(
     "device_id" to deviceId,
