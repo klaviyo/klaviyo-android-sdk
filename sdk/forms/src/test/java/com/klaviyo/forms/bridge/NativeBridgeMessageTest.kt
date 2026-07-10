@@ -363,6 +363,64 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
+    fun `test openExternalUrl decoding`() {
+        val message = """
+            {
+              "type": "openExternalUrl",
+              "data": {
+                "url": "https://example.com",
+                "formId": "abc123",
+                "formName": "Test Form",
+                "buttonLabel": "Visit Site"
+              }
+            }
+        """.trimIndent()
+
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenExternalUrl
+
+        assertEquals("https://example.com", result.url)
+        assertEquals("abc123", result.formId)
+        assertEquals("Test Form", result.formName)
+        assertEquals("Visit Site", result.buttonLabel)
+    }
+
+    @Test
+    fun `openExternalUrl without metadata fields parses with empty defaults`() {
+        val message = """
+            {
+              "type": "openExternalUrl",
+              "data": {
+                "url": "https://example.com"
+              }
+            }
+        """.trimIndent()
+
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenExternalUrl
+        assertEquals("https://example.com", result.url)
+        assertEquals("", result.formId)
+        assertEquals("", result.formName)
+        assertEquals("", result.buttonLabel)
+    }
+
+    @Test
+    fun `openExternalUrl with missing url throws`() {
+        val message = """
+            {
+              "type": "openExternalUrl",
+              "data": {
+                "formId": "abc123",
+                "formName": "Test Form",
+                "buttonLabel": "Visit Site"
+              }
+            }
+        """.trimIndent()
+
+        assertThrows(IllegalStateException::class.java) {
+            NativeBridgeMessage.decodeWebviewMessage(message)
+        }
+    }
+
+    @Test
     fun `abort message parses a reason, or falls back on unknown`() {
         val deeplinkMessage = """
             {
@@ -428,6 +486,10 @@ class NativeBridgeMessageTest : BaseTest() {
                   {
                     "type": "openDeepLink",
                     "version": 2
+                  },
+                  {
+                    "type": "openExternalUrl",
+                    "version": 1
                   },
                   {
                     "type": "formDisappeared",

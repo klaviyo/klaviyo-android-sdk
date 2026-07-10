@@ -10,7 +10,9 @@ import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.core.Constants.ALLOWED_OPEN_URL_SCHEMES
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
@@ -19,6 +21,7 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear
 import com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook
 import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
 import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
+import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenExternalUrl
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
 import com.klaviyo.forms.presentation.PresentationManager
@@ -73,6 +76,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 is TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
                 is TrackProfileEvent -> createProfileEvent(bridgeMessage)
                 is OpenDeepLink -> deepLink(bridgeMessage)
+                is OpenExternalUrl -> openExternalUrl(bridgeMessage)
                 is FormDisappeared -> close(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
             }
@@ -151,6 +155,54 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 formName = message.formName,
                 buttonLabel = message.buttonLabel,
                 deepLinkUrl = deepLinkUri
+            )
+        )
+    }
+
+    /**
+     * Handle an [OpenExternalUrl] message by opening the URL in the default browser.
+     *
+     * Unlike [deepLink], the intent is not package-scoped (no `setPackage`), so the OS routes it
+     * to the default browser, bypassing any registered deep link handler — mirroring
+     * [com.klaviyo.forms.webview.KlaviyoWebViewClient.shouldOverrideUrlLoading]. The `NEW_TASK`
+     * intent launches independently of the overlay activity, so no grace period is needed.
+     * Fires [FormLifecycleEvent.FormCtaExternalUrlClicked] after dispatch.
+     *
+     * The URL's scheme is checked against [ALLOWED_OPEN_URL_SCHEMES] before dispatch — the same
+     * allowlist gate applied to push's `open_url`/`web_url` fields (see
+     * [com.klaviyo.pushFcm.KlaviyoRemoteMessage], PUSH-834) — to avoid routing dangerous or
+     * unintended URIs (e.g. `intent:`, `javascript:`, `file:`) through the SDK. `smsto:` is
+     * included for both platforms since Android has a handler for it (iOS omits it only because
+     * iOS Messages has no `smsto:` handler). The intent itself is built by
+     * [DeepLinking.makeExternalIntent], shared with the push `open_url` path.
+     */
+    private fun openExternalUrl(message: OpenExternalUrl) {
+        val externalUri = message.url.toUri()
+
+        if (externalUri.scheme?.lowercase() !in ALLOWED_OPEN_URL_SCHEMES) {
+            Registry.log.warning(
+                "openExternalUrl url '$externalUri' has a scheme not in the allowed list; ignoring."
+            )
+            return
+        }
+
+        DeepLinking.makeExternalIntent(externalUri).startActivityIfResolved(
+            Registry.config.applicationContext
+        )
+
+        if (message.formId.isEmpty() || message.formName.isEmpty()) {
+            Registry.log.warning(
+                "OpenExternalUrl missing required fields, skipping lifecycle callback"
+            )
+            return
+        }
+
+        invokeFormLifecycleHandler(
+            FormLifecycleEvent.FormCtaExternalUrlClicked(
+                formId = message.formId,
+                formName = message.formName,
+                buttonLabel = message.buttonLabel,
+                externalUrl = externalUri
             )
         )
     }
