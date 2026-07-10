@@ -9,10 +9,41 @@ If you cannot isolate your issue and reproduce it with the sample app, the issue
 
 ## Code Reference
 Key parts of the code are annotated with `SETUP NOTE` comments. Refer to the following files in particular:
-- [build.gradle](./build.gradle) for installation, see `SETUP NOTE` comments.
+- [build.gradle](./build.gradle.kts) for installation, see `SETUP NOTE` comments.
 - [SampleApplication.kt](./src/main/java/com/klaviyo/sample/SampleApplication.kt) for initializing the Klaviyo SDK.
-- [SampleActivity.kt](./src/main/java/com/klaviyo/sample/SampleActivity.kt) for sample code to create/modify a profile, track events, and send push tokens to Klaviyo.
-- [Manifest](./src/main/AndroidManifest.xml) for push integration and other configurable settings. 
+- `SampleActivity.kt` for sample code to create/modify a profile, track events, and integrate push. This file
+  lives per product flavor — [manual](./src/manual/java/com/klaviyo/sample/SampleActivity.kt) and
+  [automatic](./src/automatic/java/com/klaviyo/sample/SampleActivity.kt) — see [Integration styles](#integration-styles-product-flavors) below.
+- [Manifest](./src/main/AndroidManifest.xml) for push integration and other configurable settings.
+
+## Integration styles (product flavors)
+The sample ships two product flavors (dimension `integration`) so both Klaviyo push integration styles are
+demonstrated side by side, mirroring the iOS examples (`SPMExample` alongside `SPMExampleAutomatic`):
+
+- **`manual`** — Manual integration (Option B). The app fetches the FCM token and calls `Klaviyo.setPushToken()`,
+  and calls `Klaviyo.handlePush(intent)` on notification taps. This is the classic path and matches the
+  behavior of prior sample releases.
+- **`automatic`** — Automatic integration (Option A). The app opts in with a single manifest flag
+  (`com.klaviyo.push.automatic_push_tracking="true"`, see [src/automatic/AndroidManifest.xml](./src/automatic/AndroidManifest.xml))
+  and the SDK does both for you: it auto-registers the push token at `initialize()` / every foreground, and
+  routes notification taps through `KlaviyoTrampolineActivity` to track opens — so the sample's `SampleActivity`
+  contains **zero** push boilerplate. Compare the two `SampleActivity.kt` copies to see exactly what code
+  disappears when you opt in.
+
+Everything except `SampleActivity.kt` is shared under `src/main`. To switch styles, pick the **Build Variants**
+panel in Android Studio (`manualDebug` vs `automaticDebug`), or from the CLI:
+
+```bash
+./gradlew :sample:installManualDebug
+./gradlew :sample:installAutomaticDebug
+```
+
+Both flavors share the same `applicationId` and `google-services.json`, so only one installs at a time. The
+`automatic` flavor still relies on the auto-registered `KlaviyoPushService` (from `:sdk:push-fcm`) to *display*
+notifications. To keep automatic open tracking while owning your own token pipeline, add
+`com.klaviyo.push.disable_automatic_token_forwarding="true"` to the manifest.
+
+See the main [README](../README.md) "Push Notifications" section for the full Option A / Option B write-up.
 
 ## Running the Sample App
 Follow these instructions to run the sample app on your own device or emulator.
