@@ -53,7 +53,7 @@ Follow these instructions to run the sample app on your own device or emulator.
   Or, replace `KLAVIYO_PUBLIC_KEY` in [SampleApplication.kt](./src/main/java/com/klaviyo/sample/SampleApplication.kt).
 - Add your `google-services.json` file to the [`sample`](.) directory. You can use the same file you use for your 
   own application, or register a new app in your project from the firebase console.
-- Open [build.gradle](./build.gradle) and replace `applicationId "${klaviyoGroupId}.sample"`
+- Open [build.gradle](./build.gradle.kts) and replace `applicationId "${klaviyoGroupId}.sample"`
   with your application ID as registered in the firebase console.
 - If you wish to send a test notification from Klaviyo, make sure you're using the correct authentication key
   in your account's [push settings](https://help.klaviyo.com/hc/en-us/articles/14750928993307).
