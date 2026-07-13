@@ -18,7 +18,7 @@ Key parts of the code are annotated with `SETUP NOTE` comments. Refer to the fol
 
 ## Integration styles (product flavors)
 The sample ships two product flavors (dimension `integration`) so both Klaviyo push integration styles are
-demonstrated side by side, mirroring the iOS examples (`SPMExample` alongside `SPMExampleAutomatic`):
+demonstrated side by side:
 
 - **`manual`** — Manual integration (Option B). The app fetches the FCM token and calls `Klaviyo.setPushToken()`,
   and calls `Klaviyo.handlePush(intent)` on notification taps. This is the classic path and matches the
