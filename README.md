@@ -25,13 +25,15 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
-  - [Collecting Push Tokens](#collecting-push-tokens)
-  - [Receiving Push Notifications](#receiving-push-notifications)
-    - [Rich Push](#rich-push)
-    - [Push Action Buttons](#push-action-buttons)
-    - [Tracking Open Events](#tracking-open-events)
-    - [Silent Push Notifications](#silent-push-notifications)
-    - [Custom Data](#custom-data)
+  - [Option A — Automatic integration](#option-a--automatic-integration)
+  - [Option B — Manual integration](#option-b--manual-integration)
+    - [Collecting Push Tokens](#collecting-push-tokens)
+    - [Receiving Push Notifications](#receiving-push-notifications)
+      - [Rich Push](#rich-push)
+      - [Push Action Buttons](#push-action-buttons)
+      - [Tracking Open Events](#tracking-open-events)
+      - [Silent Push Notifications](#silent-push-notifications)
+      - [Custom Data](#custom-data)
   - [Advanced Setup](#advanced-setup)
 - [In-App Forms](#in-app-forms)
   - [Prerequisites](#prerequisites-1)
@@ -393,6 +395,16 @@ Additional event properties can be specified as part of the `Event` object:
 - Klaviyo `analytics` and `push-fcm` packages
 - If you expect to use deep links in your push notifications, see the [deep linking](#deep-linking) section below.
 
+> **Which option should I use?**
+>
+> Choose **Option A — Automatic integration** for a minimal-boilerplate setup. With a single
+> manifest flag, the SDK tracks push opens automatically and registers the push token for you —
+> no `Klaviyo.handlePush()` calls and no manual token wiring.
+>
+> Choose **Option B — Manual integration** if you need direct control over token collection or
+> intent handling — for example, a custom `FirebaseMessagingService`, a bespoke deep-link/intent
+> flow, or an app that manages its own push-token pipeline.
+
 ### Setup
 
 To specify an icon and/or color for Klaviyo notifications, add the following optional metadata elements to the
@@ -414,12 +426,98 @@ will be used if present, else we fall back on the application's launcher icon, a
 </manifest>
 ```
 
-### Collecting Push Tokens
+### Option A — Automatic integration
+
+With automatic push tracking enabled, the Klaviyo SDK handles the two pieces of push integration
+that otherwise require boilerplate in your app code:
+
+- **Push open tracking** — Klaviyo notification taps are routed through an internal trampoline
+  activity that records the `Opened Push` event for you, then forwards the user to their
+  destination. You do **not** need to call `Klaviyo.handlePush(intent)` anywhere.
+- **Push token registration** — the SDK fetches the current FCM token and registers it with
+  Klaviyo automatically, so you don't need to call `Klaviyo.setPushToken(...)` yourself.
+
+#### Step 1 — Enable automatic push tracking in `AndroidManifest.xml`
+
+Add the following meta-data to the `<application>` element. Note the `com.klaviyo.push.`
+namespace — it matches the existing Klaviyo notification meta-data keys. **The exact key is
+required**; a bare `com.klaviyo.automatic_push_tracking` (without the `push.` segment) is
+silently ignored.
+
+```xml
+<!-- AndroidManifest.xml -->
+<manifest>
+    <!-- ... -->
+    <application>
+        <!-- ... -->
+        <meta-data
+            android:name="com.klaviyo.push.automatic_push_tracking"
+            android:value="true" />
+    </application>
+</manifest>
+```
+
+#### Step 2 — Initialize the SDK
+
+```kotlin
+import com.klaviyo.analytics.Klaviyo
+
+Klaviyo.initialize("YOUR_PUBLIC_API_KEY", applicationContext)
+```
+
+That's it. With the flag set, `initialize()` covers both concerns above:
+
+- **Open tracking** is handled by the trampoline for every Klaviyo notification tap.
+- **Token registration** happens at `initialize()` **and** again on every app foreground, so
+  token rotations are picked up on those events.
+
+#### Displaying notifications
+
+The automatic flag removes the manual **token wiring** and **`handlePush()`** calls — it does
+**not** remove the requirement to *receive and display* notifications. `KlaviyoPushService` is
+still what displays Klaviyo notifications, and it is registered automatically by the SDK unless
+your app provides its own `FirebaseMessagingService` (see [Advanced Setup](#advanced-setup)).
+
+If you run multiple push providers and don't register `KlaviyoPushService`, automatic **token
+registration** still works standalone — but Klaviyo message **display** requires the service.
+
+#### Advanced: disable automatic token forwarding
+
+If your app owns its own push-token pipeline (for example, forwarding a single token to multiple
+providers) but you still want automatic open tracking, opt out of token forwarding with an
+additional meta-data flag. Open tracking is unaffected; the SDK stops the automatic
+init/foreground token fetch, and you register the token yourself via `Klaviyo.setPushToken(...)`
+as in Option B.
+
+```xml
+<meta-data
+    android:name="com.klaviyo.push.disable_automatic_token_forwarding"
+    android:value="true" />
+```
+
+This flag gates only the automatic init/foreground fetch. If `KlaviyoPushService` remains your
+registered FCM service, its `onNewToken` will still forward newly generated or rotated tokens to
+Klaviyo. To fully own the token pipeline, register your own `FirebaseMessagingService` (see
+[Advanced Setup](#advanced-setup)) so `KlaviyoPushService.onNewToken` never runs.
+
+<!-- TODO(MAGE-770 — https://linear.app/klaviyo/issue/MAGE-770): once the sample app's `automatic`
+     product flavor is merged, link it here as the runnable reference for Option A (the
+     `automatic` flavor under `sample/`). -->
+
+### Option B — Manual integration
+
+#### Collecting Push Tokens
 In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo.
 This is done via the `Klaviyo.setPushToken` method, which registers the push token and current authorization state
 via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
-The SDK's `KlaviyoPushService` will automatically receive *new* push tokens via the `onNewToken` method.
-We also recommend retrieving the latest token value on app startup and registering it with the Klaviyo SDK.
+`KlaviyoPushService` forwards **newly generated or rotated** tokens to Klaviyo via its
+`onNewToken` method — but only when it is your registered FCM service. If your app supplies its
+own `FirebaseMessagingService`, call `Klaviyo.setPushToken()` from your own `onNewToken()` (see
+[Advanced Setup](#advanced-setup)), or rely on the startup fetch below. Note that `onNewToken`
+only fires when FCM *generates or rotates* a token — it does **not** fire for a token that
+already existed before the SDK was integrated, and it does not fire when FCM auto-init is
+disabled. For that reason, we recommend retrieving the latest token value on app startup and
+registering it with the Klaviyo SDK.
 Add the following to your application or main activity's `.onCreate()` method:
 
 <details open>
@@ -464,29 +562,29 @@ if you are only using the SDK for push notifications and not analytics.
  and the best user experience in the context of your application. The linked resources
  provide code examples for requesting permission and handling the user's response.
 
-#### Push tokens and multiple profiles
+##### Push tokens and multiple profiles
 Push tokens are automatically associated with new profiles when you call `setProfile` or `resetProfile`.
 No additional action is required. 
 
-### Receiving Push Notifications
+#### Receiving Push Notifications
 `KlaviyoPushService` will handle displaying all notifications via the `onMessageReceived` method regardless of
 whether the app is in the foreground or background. You can send test notifications to a specific token using
 the [push notification preview](https://help.klaviyo.com/hc/en-us/articles/18011985278875) feature in order
 to test your integration. If you wish to customize how notifications are displayed, see [Advanced Setup](#advanced-setup).
 
-#### Rich Push
+##### Rich Push
 [Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to
 push notification messages. No additional setup is needed to support rich push. Downloading the image and
 attaching it to the notification is handled within `KlaviyoPushService`. If an image fails to download
 (e.g. if the device has a poor network connection) the notification will be displayed without an image
 after the download times out.
 
-#### Push Action Buttons
+##### Push Action Buttons
 [Push Action Buttons](https://help.klaviyo.com/hc/en-us/article/46285872166683) provide the ability to add clickable buttons to
 push notification messages. These buttons can show custom text, and, when clicked, deep link or open your app.
 A notification can include up to 3 buttons. No additional SDK setup is required.
 
-#### Tracking Open Events
+##### Tracking Open Events
 To track push notification opens, you must call `Klaviyo.handlePush(intent)` when your app is launched from an intent.
 This method will check if the app was opened from a notification originating from Klaviyo and if so, create an 
 `Opened Push` event with required message tracking parameters. For example:
@@ -547,7 +645,7 @@ This method will check if the app was opened from a notification originating fro
 app's launch intent for a tapped notification. Adjust this example to your use-case, ensuring that 
 `Klaviyo.handlePush(intent)` is called whenever your app is opened from a notification.
 
-#### Silent Push Notifications
+##### Silent Push Notifications
 Silent push notifications (also known as background pushes) allow your app to receive payloads from Klaviyo without 
 displaying a visible alert to the user. These are typically used to trigger background behavior, such as displaying 
 content, personalizing the app interface, or downloading new information from a server. Silent push notifications 
@@ -556,7 +654,7 @@ extension properties, where a Klaviyo message is a silent push if `RemoteMessage
 `RemoteMessage.isKlaviyoNotification` is `false`. See `Custom Data` and `Advanced Setup` sections below for 
 additional information and setup examples.
 
-#### Custom Data
+##### Custom Data
 Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications.
 You can access these key-value pairs using the extension property `RemoteMessage.keyValuePairs` and check for their
 presence with the boolean extension property `RemoteMessage.hasKlaviyoKeyValuePairs`. This enables you to extract
