@@ -34,6 +34,12 @@ open class KlaviyoPushService : FirebaseMessagingService() {
     /**
      * Called when FCM SDK receives a newly registered token
      *
+     * Forwards the token to Klaviyo unconditionally — independent of the
+     * [Constants.AUTOMATIC_TOKEN_FORWARDING] and [METADATA_AUTOMATIC_PUSH_TRACKING] manifest flags,
+     * which gate only the `Klaviyo`-side automatic fetch. A host that wants to opt out of this
+     * always-on rotation forwarding must register its own [FirebaseMessagingService] instead of
+     * [KlaviyoPushService] (the same pattern used to integrate alongside Braze/Airship/Iterable).
+     *
      * @param newToken
      */
     override fun onNewToken(newToken: String) {

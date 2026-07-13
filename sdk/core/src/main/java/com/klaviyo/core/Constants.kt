@@ -51,11 +51,15 @@ object Constants {
     const val AUTOMATIC_PUSH_TRACKING = PUSH_PREFIX + "automatic_push_tracking"
 
     /**
-     * Manifest `<meta-data>` boolean to opt out of automatic push token forwarding while keeping
-     * automatic open tracking. Only consulted when [AUTOMATIC_PUSH_TRACKING] is `true`; defaults to
-     * `false`. For hosts that own their own push-token pipeline.
+     * Manifest `<meta-data>` key a host app sets to opt into automatic push token forwarding: the
+     * SDK pulls the current push token at initialize and on each foreground and forwards it to
+     * Klaviyo. Opt-in, absent → `false`.
+     *
+     * Fully independent of [AUTOMATIC_PUSH_TRACKING] — either flag may be set without the other.
+     * Lives in core (not push-fcm) for the same reason as [AUTOMATIC_PUSH_TRACKING]: telemetry's
+     * push token request must read it, and core cannot depend on push-fcm.
      */
-    const val DISABLE_AUTOMATIC_TOKEN_FORWARDING = PUSH_PREFIX + "disable_automatic_token_forwarding"
+    const val AUTOMATIC_TOKEN_FORWARDING = PUSH_PREFIX + "automatic_token_forwarding"
 
     /**
      * Fixed notification ID used in all notify/cancel calls.

@@ -23,12 +23,13 @@ demonstrated side by side:
 - **`manual`** — Manual integration (Option B). The app fetches the FCM token and calls `Klaviyo.setPushToken()`,
   and calls `Klaviyo.handlePush(intent)` on notification taps. This is the classic path and matches the
   behavior of prior sample releases.
-- **`automatic`** — Automatic integration (Option A). The app opts in with a single manifest flag
-  (`com.klaviyo.push.automatic_push_tracking="true"`, see [src/automatic/AndroidManifest.xml](./src/automatic/AndroidManifest.xml))
-  and the SDK does both for you: it auto-registers the push token at `initialize()` / every foreground, and
-  routes notification taps through `KlaviyoTrampolineActivity` to track opens — so the sample's `SampleActivity`
-  contains **zero** push boilerplate. Compare the two `SampleActivity.kt` copies to see exactly what code
-  disappears when you opt in.
+- **`automatic`** — Automatic integration (Option A). The app opts in with two independent manifest flags
+  (`com.klaviyo.push.automatic_push_tracking="true"` and `com.klaviyo.push.automatic_token_forwarding="true"`,
+  see [src/automatic/AndroidManifest.xml](./src/automatic/AndroidManifest.xml)) and the SDK does both for you:
+  `automatic_token_forwarding` auto-registers the push token at `initialize()` / every foreground, and
+  `automatic_push_tracking` routes notification taps through `KlaviyoTrampolineActivity` to track opens — so
+  the sample's `SampleActivity` contains **zero** push boilerplate. Compare the two `SampleActivity.kt` copies
+  to see exactly what code disappears when you opt in.
 
 Everything except `SampleActivity.kt` is shared under `src/main`. To switch styles, pick the **Build Variants**
 panel in Android Studio (`manualDebug` vs `automaticDebug`), or from the CLI:
@@ -40,8 +41,15 @@ panel in Android Studio (`manualDebug` vs `automaticDebug`), or from the CLI:
 
 Both flavors share the same `applicationId` and `google-services.json`, so only one installs at a time. The
 `automatic` flavor still relies on the auto-registered `KlaviyoPushService` (from `:sdk:push-fcm`) to *display*
-notifications. To keep automatic open tracking while owning your own token pipeline, add
-`com.klaviyo.push.disable_automatic_token_forwarding="true"` to the manifest.
+notifications. Because the two flags are independent, you can mix and match: set only
+`automatic_push_tracking="true"` to keep automatic open tracking while owning your own token pipeline (omit
+`automatic_token_forwarding`), or set only `automatic_token_forwarding="true"` to auto-forward tokens without
+automatic open tracking.
+
+Note that `KlaviyoPushService.onNewToken()` forwards token rotations to Klaviyo unconditionally whenever
+`KlaviyoPushService` is the registered `FirebaseMessagingService` — independent of both flags. To fully own
+the token pipeline, register your own `FirebaseMessagingService` instead of `KlaviyoPushService` (the same
+pattern used to integrate alongside Braze/Airship/Iterable).
 
 See the main [README](../README.md) "Push Notifications" section for the full Option A / Option B write-up.
 

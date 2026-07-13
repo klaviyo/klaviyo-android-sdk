@@ -35,7 +35,7 @@ class SampleActivity : ComponentActivity() {
 
         // SETUP NOTE (Manual / Option B): Fetch the current push token and register it with Klaviyo.
         // The `automatic` flavor omits this entirely — the SDK auto-registers the token at initialize()
-        // and on every foreground once com.klaviyo.push.automatic_push_tracking is enabled.
+        // and on every foreground once com.klaviyo.push.automatic_token_forwarding is enabled.
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
             // Dispatch to main for the UI update
             lifecycleScope.launch(Dispatchers.Main) {
