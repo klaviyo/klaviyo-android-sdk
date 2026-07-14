@@ -35,7 +35,7 @@ class SampleActivity : ComponentActivity() {
 
         // SETUP NOTE (Manual / Option B): Fetch the current push token and register it with Klaviyo.
         // The `automatic` flavor omits this entirely — the SDK auto-registers the token at initialize()
-        // and on every foreground once com.klaviyo.push.automatic_push_tracking is enabled.
+        // and on every foreground once com.klaviyo.push.automatic_token_forwarding is enabled.
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
             // Dispatch to main for the UI update
             lifecycleScope.launch(Dispatchers.Main) {
@@ -74,7 +74,7 @@ class SampleActivity : ComponentActivity() {
         // SETUP NOTE (Manual / Option B): Track an event when the user opens a notification.
         // If the notification is a deep link, the SDK will invoke your registered handler.
         // If not using a deep link handler, you should parse the URI from intent.data below.
-        // The `automatic` flavor omits this — KlaviyoTrampolineActivity calls handlePush() for you.
+        // The `automatic` flavor omits this — the SDK detects taps and calls handlePush() for you.
         if (intent.isKlaviyoNotificationIntent) {
             Klaviyo.handlePush(intent)
         }

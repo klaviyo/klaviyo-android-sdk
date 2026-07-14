@@ -118,25 +118,21 @@ object Klaviyo {
     }
 
     /**
-     * Opt-in automatic push token registration (via [Constants.AUTOMATIC_PUSH_TRACKING]): pull the
+     * Opt-in automatic push token registration (via [Constants.AUTOMATIC_TOKEN_FORWARDING]): pull the
      * current token and forward it to Klaviyo. Called from [initialize] and on each app foreground so
-     * rotations are picked up. No-op when the flag is off, when forwarding is opted out via
-     * [Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING], or when `push-fcm` is absent.
+     * rotations are picked up. No-op when the flag is off or when `push-fcm` is absent.
+     *
+     * Independent of [Constants.AUTOMATIC_PUSH_TRACKING] (which gates only automatic open tracking) —
+     * this flag alone controls token forwarding.
      */
     internal fun maybeAutoRegisterPushToken() {
-        val autoTrackingEnabled = Registry.config.getManifestBoolean(
-            Constants.AUTOMATIC_PUSH_TRACKING,
+        val tokenForwardingEnabled = Registry.config.getManifestBoolean(
+            Constants.AUTOMATIC_TOKEN_FORWARDING,
             false
         )
-        // Avoid a second manifest read on the common flag-off path
-        val tokenForwardingDisabled = autoTrackingEnabled && Registry.config.getManifestBoolean(
-            Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING,
-            false
-        )
-        if (!autoTrackingEnabled || tokenForwardingDisabled) {
+        if (!tokenForwardingEnabled) {
             Registry.log.verbose(
-                "Skipping automatic push token registration " +
-                    "(automaticPushTracking=$autoTrackingEnabled, tokenForwardingDisabled=$tokenForwardingDisabled)"
+                "Skipping automatic push token registration (automaticTokenForwarding=false)"
             )
             return
         }

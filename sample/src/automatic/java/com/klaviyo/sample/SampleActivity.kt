@@ -16,12 +16,14 @@ import com.klaviyo.analytics.model.EventMetric
 
 /**
  * SETUP NOTE: This is the `automatic` flavor's Activity, demonstrating automatic push integration (Option A).
- * By setting com.klaviyo.push.automatic_push_tracking="true" in the manifest (see src/automatic/AndroidManifest.xml),
- * the SDK takes over both push responsibilities, so there is *zero* push boilerplate here:
- *  - Push token: auto-registered at Klaviyo.initialize() and on every foreground (no FirebaseMessaging fetch,
- *    no Klaviyo.setPushToken() call). Contrast with the `manual` flavor's onCreate under src/manual.
- *  - Push opens: KlaviyoTrampolineActivity intercepts taps and calls Klaviyo.handlePush() for you, so there is
- *    no handlePush() call in onNewIntent. Contrast with the `manual` flavor's onNewIntent.
+ * By setting com.klaviyo.push.automatic_token_forwarding="true" and com.klaviyo.push.automatic_push_tracking="true"
+ * in the manifest (see src/automatic/AndroidManifest.xml), the SDK takes over both push responsibilities, so
+ * there is *zero* push boilerplate here:
+ *  - Push token (automatic_token_forwarding): auto-registered at Klaviyo.initialize() and on every foreground
+ *    (no FirebaseMessaging fetch, no Klaviyo.setPushToken() call). Contrast with the `manual` flavor's onCreate.
+ *  - Push opens (automatic_push_tracking): the SDK automatically detects when a user taps a push notification
+ *    and reports the open event via Klaviyo.handlePush() for you, so there is no handlePush() call in
+ *    onNewIntent. Contrast with the `manual` flavor's onNewIntent.
  * Displaying notifications still relies on the auto-registered KlaviyoPushService from :sdk:push-fcm.
  * See the main README's "Push Notifications" section (Option A) and sample/README.md.
  */
@@ -65,8 +67,8 @@ class SampleActivity : ComponentActivity() {
         }
 
         // SETUP NOTE (Automatic / Option A): No Klaviyo.handlePush(intent) here.
-        // Because com.klaviyo.push.automatic_push_tracking is enabled, notification taps route through
-        // KlaviyoTrampolineActivity, which tracks the open and invokes your deep link handler for you.
+        // Because com.klaviyo.push.automatic_push_tracking is enabled, the SDK automatically detects
+        // notification taps, reports the open, and invokes your deep link handler for you.
     }
 
     private val requestPermissionLauncher = registerForActivityResult(
