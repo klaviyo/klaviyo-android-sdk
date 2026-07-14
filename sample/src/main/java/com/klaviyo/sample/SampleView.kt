@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.DividerDefaults
@@ -33,6 +34,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -84,6 +90,7 @@ private object UiConstants {
     const val UNREGISTER = "Unregister"
     const val REQUEST_PERMISSION = "Request Notification Permission"
     const val PERMISSION_GRANTED = "Notification Permission Granted"
+    const val VIEW_PUSH_LOG = "Push Log"
 }
 
 @Composable
@@ -151,7 +158,19 @@ fun SampleView(
         }
     }
 
+    val pushLogEntries by PushLogStore.entries.collectAsState()
+    var showPushLog by remember { mutableStateOf(false) }
+
     KlaviyoAndroidSdkTheme {
+        if (showPushLog) {
+            PushLogView(
+                entries = pushLogEntries,
+                onClear = { PushLogStore.clear() },
+                onClose = { showPushLog = false }
+            )
+            return@KlaviyoAndroidSdkTheme
+        }
+
         Surface(
             modifier = Modifier
                 .fillMaxSize()
@@ -159,6 +178,8 @@ fun SampleView(
             color = MaterialTheme.colorScheme.background
         ) {
             SampleViewContent(
+                pushLogCount = pushLogEntries.size,
+                onOpenPushLog = { showPushLog = true },
                 externalId = viewModel.externalId,
                 email = viewModel.email,
                 phoneNumber = viewModel.phoneNumber,
@@ -228,6 +249,8 @@ fun SampleView(
 
 @Composable
 private fun SampleViewContent(
+    pushLogCount: Int = 0,
+    onOpenPushLog: () -> Unit = {},
     externalId: String,
     email: String,
     phoneNumber: String,
@@ -409,6 +432,22 @@ private fun SampleViewContent(
                 text = pushToken,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.semantics { testTag = SampleTestTags.TEXT_PUSH_TOKEN }
+            )
+        }
+        ViewRow {
+            ActionButton(
+                text = "${UiConstants.VIEW_PUSH_LOG} ($pushLogCount)",
+                onClick = onOpenPushLog,
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { testTag = SampleTestTags.BTN_VIEW_PUSH_LOG },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        tint = MaterialTheme.colorScheme.primary,
+                        contentDescription = "Push Log"
+                    )
+                }
             )
         }
 
