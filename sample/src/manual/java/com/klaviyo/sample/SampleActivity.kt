@@ -74,7 +74,7 @@ class SampleActivity : ComponentActivity() {
         // SETUP NOTE (Manual / Option B): Track an event when the user opens a notification.
         // If the notification is a deep link, the SDK will invoke your registered handler.
         // If not using a deep link handler, you should parse the URI from intent.data below.
-        // The `automatic` flavor omits this — KlaviyoTrampolineActivity calls handlePush() for you.
+        // The `automatic` flavor omits this — the SDK detects taps and calls handlePush() for you.
         if (intent.isKlaviyoNotificationIntent) {
             Klaviyo.handlePush(intent)
         }

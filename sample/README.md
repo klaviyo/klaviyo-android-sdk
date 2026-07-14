@@ -27,8 +27,8 @@ demonstrated side by side:
   (`com.klaviyo.push.automatic_push_tracking="true"` and `com.klaviyo.push.automatic_token_forwarding="true"`,
   see [src/automatic/AndroidManifest.xml](./src/automatic/AndroidManifest.xml)) and the SDK does both for you:
   `automatic_token_forwarding` auto-registers the push token at `initialize()` / every foreground, and
-  `automatic_push_tracking` routes notification taps through `KlaviyoTrampolineActivity` to track opens — so
-  the sample's `SampleActivity` contains **zero** push boilerplate. Compare the two `SampleActivity.kt` copies
+  `automatic_push_tracking` makes the SDK detect notification taps and report opens for you — so the
+  sample's `SampleActivity` contains **zero** push boilerplate. Compare the two `SampleActivity.kt` copies
   to see exactly what code disappears when you opt in.
 
 Everything except `SampleActivity.kt` is shared under `src/main`. To switch styles, pick the **Build Variants**

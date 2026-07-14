@@ -55,7 +55,6 @@ object Constants {
      * SDK pulls the current push token at initialize and on each foreground and forwards it to
      * Klaviyo. Opt-in, absent → `false`.
      *
-     * Fully independent of [AUTOMATIC_PUSH_TRACKING] — either flag may be set without the other.
      * Lives in core (not push-fcm) for the same reason as [AUTOMATIC_PUSH_TRACKING]: telemetry's
      * push token request must read it, and core cannot depend on push-fcm.
      */
