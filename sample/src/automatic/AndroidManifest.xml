@@ -17,10 +17,10 @@
     <application>
         <meta-data
             android:name="com.klaviyo.push.automatic_push_tracking"
-            android:value="false" />
+            android:value="true" />
         <meta-data
             android:name="com.klaviyo.push.automatic_token_forwarding"
-            android:value="false" />
+            android:value="true" />
     </application>
 
 </manifest>
