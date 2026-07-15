@@ -256,7 +256,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         repeat(9) {
             request.send()
         }
-        assertEquals(300_000L, request.computeRetryInterval())
+        assertEquals(mockConfig.networkMaxRetryInterval, request.computeRetryInterval())
     }
 
     @Test
