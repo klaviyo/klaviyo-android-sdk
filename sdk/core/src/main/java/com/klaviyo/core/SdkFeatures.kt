@@ -26,13 +26,12 @@ enum class SdkFeatureKey(
         scope = SdkFeatureScope.PUSH_TOKEN_REGISTRATION
     ),
 
-    // `disable_...` manifest key → reported as the inverse `auto_push_token_forwarding`. Reported
-    // independently of the master flag, so the backend sees how the host set each flag.
+    // `automatic_token_forwarding` opt-in flag, reported directly. Independent of the open-tracking
+    // flag, so the backend sees how the host set each flag.
     AUTO_PUSH_TOKEN_FORWARDING(
         wireName = "auto_push_token_forwarding",
-        manifestKey = Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING,
-        scope = SdkFeatureScope.PUSH_TOKEN_REGISTRATION,
-        reportedValue = { disabled -> !disabled }
+        manifestKey = Constants.AUTOMATIC_TOKEN_FORWARDING,
+        scope = SdkFeatureScope.PUSH_TOKEN_REGISTRATION
     )
 }
 

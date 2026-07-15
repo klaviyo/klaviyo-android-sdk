@@ -596,17 +596,17 @@ internal class KlaviyoTest : BaseTest() {
         mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false)
     } returns enabled
 
-    private fun setTokenForwardingDisabled(disabled: Boolean) = every {
-        mockConfig.getManifestBoolean(Constants.DISABLE_AUTOMATIC_TOKEN_FORWARDING, false)
-    } returns disabled
+    private fun setTokenForwardingEnabled(enabled: Boolean) = every {
+        mockConfig.getManifestBoolean(Constants.AUTOMATIC_TOKEN_FORWARDING, false)
+    } returns enabled
 
     private fun reinitialize() =
         Klaviyo.initialize(apiKey = API_KEY, applicationContext = mockContext)
 
     @Test
-    fun `initialize triggers automatic push token fetch when flag is on and fetcher is registered`() {
+    fun `initialize triggers automatic push token fetch when token forwarding is on and fetcher is registered`() {
         val mockFetcher = registerMockPushTokenFetcher()
-        setAutomaticPushTracking(true)
+        setTokenForwardingEnabled(true)
 
         reinitialize()
 
@@ -614,10 +614,21 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `initialize does not fetch push token when token forwarding is disabled`() {
+    fun `initialize fetches push token when token forwarding is on even if automatic push tracking is off`() {
+        // Independence: token forwarding no longer depends on the open-tracking flag
         val mockFetcher = registerMockPushTokenFetcher()
-        setAutomaticPushTracking(true)
-        setTokenForwardingDisabled(true)
+        setAutomaticPushTracking(false)
+        setTokenForwardingEnabled(true)
+
+        reinitialize()
+
+        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken() }
+    }
+
+    @Test
+    fun `initialize does not fetch push token when token forwarding is off`() {
+        val mockFetcher = registerMockPushTokenFetcher()
+        setTokenForwardingEnabled(false)
 
         reinitialize()
 
@@ -625,9 +636,11 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `initialize does not fetch push token when automatic tracking flag is off`() {
+    fun `initialize does not fetch push token when only automatic push tracking is on`() {
+        // Independence: automatic push tracking alone must not trigger token forwarding
         val mockFetcher = registerMockPushTokenFetcher()
-        setAutomaticPushTracking(false)
+        setAutomaticPushTracking(true)
+        setTokenForwardingEnabled(false)
 
         reinitialize()
 
@@ -637,7 +650,7 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `initialize does not crash and logs a warning when the push token fetch throws`() {
         val mockFetcher = registerMockPushTokenFetcher()
-        setAutomaticPushTracking(true)
+        setTokenForwardingEnabled(true)
         every { mockFetcher.fetchAndSetPushToken() } throws RuntimeException("fetch blew up")
 
         // runCatching around the fetch must contain the failure so initialize still completes
@@ -650,7 +663,7 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `initialize does not crash when flag is on but no push token fetcher is registered`() {
         Registry.unregister<PushTokenFetcher>()
-        setAutomaticPushTracking(true)
+        setTokenForwardingEnabled(true)
 
         // push-fcm absent: lookup is null and automatic registration is a graceful no-op
         reinitialize()

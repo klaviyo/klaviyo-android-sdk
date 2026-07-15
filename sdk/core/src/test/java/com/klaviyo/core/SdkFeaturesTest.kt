@@ -42,19 +42,19 @@ internal class SdkFeaturesTest : BaseTest() {
     }
 
     @Test
-    fun `Reports auto_push_token_forwarding as inverse of the disable flag when disable is true`() {
+    fun `Reports auto_push_token_forwarding directly when the flag is true`() {
         stubManifestKey(SdkFeatureKey.AUTO_PUSH_TOKEN_FORWARDING.manifestKey, true)
         assertEquals(
-            "auto_push_token_forwarding=0;",
+            "auto_push_token_forwarding=1;",
             SdkFeatures.headerValue(SdkFeatureScope.PUSH_TOKEN_REGISTRATION)
         )
     }
 
     @Test
-    fun `Reports auto_push_token_forwarding as inverse of the disable flag when disable is false`() {
+    fun `Reports auto_push_token_forwarding directly when the flag is false`() {
         stubManifestKey(SdkFeatureKey.AUTO_PUSH_TOKEN_FORWARDING.manifestKey, false)
         assertEquals(
-            "auto_push_token_forwarding=1;",
+            "auto_push_token_forwarding=0;",
             SdkFeatures.headerValue(SdkFeatureScope.PUSH_TOKEN_REGISTRATION)
         )
     }
@@ -64,7 +64,7 @@ internal class SdkFeaturesTest : BaseTest() {
         stubManifestKey(SdkFeatureKey.AUTO_PUSH_TRACKING.manifestKey, true)
         stubManifestKey(SdkFeatureKey.AUTO_PUSH_TOKEN_FORWARDING.manifestKey, true)
         assertEquals(
-            "auto_push_tracking=1; auto_push_token_forwarding=0;",
+            "auto_push_tracking=1; auto_push_token_forwarding=1;",
             SdkFeatures.headerValue(SdkFeatureScope.PUSH_TOKEN_REGISTRATION)
         )
     }
@@ -72,7 +72,7 @@ internal class SdkFeaturesTest : BaseTest() {
     @Test
     fun `Omits an absent key even when the other in-scope key is present`() {
         stubManifestKey(SdkFeatureKey.AUTO_PUSH_TRACKING.manifestKey, false)
-        // Forwarding-disable key left absent
+        // Token-forwarding key left absent
         assertEquals(
             "auto_push_tracking=0;",
             SdkFeatures.headerValue(SdkFeatureScope.PUSH_TOKEN_REGISTRATION)

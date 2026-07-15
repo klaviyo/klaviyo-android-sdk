@@ -11,14 +11,22 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.lifecycleScope
-import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
-import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
 import com.klaviyo.analytics.model.EventMetric
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
+/**
+ * SETUP NOTE: This is the `automatic` flavor's Activity, demonstrating automatic push integration (Option A).
+ * By setting com.klaviyo.push.automatic_token_forwarding="true" and com.klaviyo.push.automatic_push_tracking="true"
+ * in the manifest (see src/automatic/AndroidManifest.xml), the SDK takes over both push responsibilities, so
+ * there is *zero* push boilerplate here:
+ *  - Push token (automatic_token_forwarding): auto-registered at Klaviyo.initialize() and on every foreground
+ *    (no FirebaseMessaging fetch, no Klaviyo.setPushToken() call). Contrast with the `manual` flavor's onCreate.
+ *  - Push opens (automatic_push_tracking): the SDK automatically detects when a user taps a push notification
+ *    and reports the open event via Klaviyo.handlePush() for you, so there is no handlePush() call in
+ *    onNewIntent. Contrast with the `manual` flavor's onNewIntent.
+ * Displaying notifications still relies on the auto-registered KlaviyoPushService from :sdk:push-fcm.
+ * See the main README's "Push Notifications" section (Option A) and sample/README.md.
+ */
 class SampleActivity : ComponentActivity() {
     // Initialize ViewModel using the by viewModels() delegate
     private val viewModel: SampleViewModel by viewModels()
@@ -26,13 +34,8 @@ class SampleActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // SETUP NOTE: Fetch the current push token and register with Klaviyo Push-FCM
-        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-            // Dispatch to main for the UI update
-            lifecycleScope.launch(Dispatchers.Main) {
-                viewModel.updatePushToken(token)
-            }
-        }
+        // SETUP NOTE (Automatic / Option A): No push-token code here. The SDK auto-registers the token at
+        // initialize() and on every foreground. The UI reads it from Klaviyo.getPushToken().
 
         // Example analytics event to track "Opened App" event on launch
         Klaviyo.createEvent(EventMetric.OPENED_APP)
@@ -58,16 +61,14 @@ class SampleActivity : ComponentActivity() {
 
         // SETUP NOTE: Handle Universal Tracking Links. The SDK will resolve the destination URL
         // then either invoke your registered deep link handler or send another Intent to your app.
+        // (This is unrelated to push open tracking and is required in both integration styles.)
         if (Klaviyo.handleUniversalTrackingLink(intent)) {
             return
         }
 
-        // SETUP NOTE: Track an event when user opens a notification.
-        // If the notification is a deep link, the SDK will invoke your registered handler.
-        // If not using a deep link handler, you should parse the URI from intent.data below.
-        if (intent.isKlaviyoNotificationIntent) {
-            Klaviyo.handlePush(intent)
-        }
+        // SETUP NOTE (Automatic / Option A): No Klaviyo.handlePush(intent) here.
+        // Because com.klaviyo.push.automatic_push_tracking is enabled, the SDK automatically detects
+        // notification taps, reports the open, and invokes your deep link handler for you.
     }
 
     private val requestPermissionLauncher = registerForActivityResult(

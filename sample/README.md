@@ -9,10 +9,49 @@ If you cannot isolate your issue and reproduce it with the sample app, the issue
 
 ## Code Reference
 Key parts of the code are annotated with `SETUP NOTE` comments. Refer to the following files in particular:
-- [build.gradle](./build.gradle) for installation, see `SETUP NOTE` comments.
+- [build.gradle](./build.gradle.kts) for installation, see `SETUP NOTE` comments.
 - [SampleApplication.kt](./src/main/java/com/klaviyo/sample/SampleApplication.kt) for initializing the Klaviyo SDK.
-- [SampleActivity.kt](./src/main/java/com/klaviyo/sample/SampleActivity.kt) for sample code to create/modify a profile, track events, and send push tokens to Klaviyo.
-- [Manifest](./src/main/AndroidManifest.xml) for push integration and other configurable settings. 
+- `SampleActivity.kt` for sample code to create/modify a profile, track events, and integrate push. This file
+  lives per product flavor — [manual](./src/manual/java/com/klaviyo/sample/SampleActivity.kt) and
+  [automatic](./src/automatic/java/com/klaviyo/sample/SampleActivity.kt) — see [Integration styles](#integration-styles-product-flavors) below.
+- [Manifest](./src/main/AndroidManifest.xml) for push integration and other configurable settings.
+
+## Integration styles (product flavors)
+The sample ships two product flavors (dimension `integration`) so both Klaviyo push integration styles are
+demonstrated side by side:
+
+- **`manual`** — Manual integration (Option B). The app fetches the FCM token and calls `Klaviyo.setPushToken()`,
+  and calls `Klaviyo.handlePush(intent)` on notification taps. This is the classic path and matches the
+  behavior of prior sample releases.
+- **`automatic`** — Automatic integration (Option A). The app opts in with two independent manifest flags
+  (`com.klaviyo.push.automatic_push_tracking="true"` and `com.klaviyo.push.automatic_token_forwarding="true"`,
+  see [src/automatic/AndroidManifest.xml](./src/automatic/AndroidManifest.xml)) and the SDK does both for you:
+  `automatic_token_forwarding` auto-registers the push token at `initialize()` / every foreground, and
+  `automatic_push_tracking` makes the SDK detect notification taps and report opens for you — so the
+  sample's `SampleActivity` contains **zero** push boilerplate. Compare the two `SampleActivity.kt` copies
+  to see exactly what code disappears when you opt in.
+
+Everything except `SampleActivity.kt` is shared under `src/main`. To switch styles, pick the **Build Variants**
+panel in Android Studio (`manualDebug` vs `automaticDebug`), or from the CLI:
+
+```bash
+./gradlew :sample:installManualDebug
+./gradlew :sample:installAutomaticDebug
+```
+
+Both flavors share the same `applicationId` and `google-services.json`, so only one installs at a time. The
+`automatic` flavor still relies on the auto-registered `KlaviyoPushService` (from `:sdk:push-fcm`) to *display*
+notifications. Because the two flags are independent, you can mix and match: set only
+`automatic_push_tracking="true"` to keep automatic open tracking while owning your own token pipeline (omit
+`automatic_token_forwarding`), or set only `automatic_token_forwarding="true"` to auto-forward tokens without
+automatic open tracking.
+
+Note that `KlaviyoPushService.onNewToken()` forwards token rotations to Klaviyo unconditionally whenever
+`KlaviyoPushService` is the registered `FirebaseMessagingService` — independent of both flags. To fully own
+the token pipeline, register your own `FirebaseMessagingService` instead of `KlaviyoPushService` (the same
+pattern used to integrate alongside Braze/Airship/Iterable).
+
+See the main [README](../README.md) "Push Notifications" section for the full Option A / Option B write-up.
 
 ## Running the Sample App
 Follow these instructions to run the sample app on your own device or emulator.
@@ -22,7 +61,7 @@ Follow these instructions to run the sample app on your own device or emulator.
   Or, replace `KLAVIYO_PUBLIC_KEY` in [SampleApplication.kt](./src/main/java/com/klaviyo/sample/SampleApplication.kt).
 - Add your `google-services.json` file to the [`sample`](.) directory. You can use the same file you use for your 
   own application, or register a new app in your project from the firebase console.
-- Open [build.gradle](./build.gradle) and replace `applicationId "${klaviyoGroupId}.sample"`
+- Open [build.gradle](./build.gradle.kts) and replace `applicationId "${klaviyoGroupId}.sample"`
   with your application ID as registered in the firebase console.
 - If you wish to send a test notification from Klaviyo, make sure you're using the correct authentication key
   in your account's [push settings](https://help.klaviyo.com/hc/en-us/articles/14750928993307).

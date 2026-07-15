@@ -1,0 +1,26 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        SETUP NOTE (Automatic / Option A): This overlay is the ONLY difference in the automatic flavor's
+        manifest. It opts into both automatic behaviors via two independent flags:
+          - com.klaviyo.push.automatic_push_tracking="true" — automatic push OPEN tracking: the SDK
+            automatically detects notification taps and reports the open via Klaviyo.handlePush() for
+            you (no handlePush() call in your Activity), and
+          - com.klaviyo.push.automatic_token_forwarding="true" — automatic push TOKEN registration: the SDK
+            fetches and registers the token at Klaviyo.initialize() and on every foreground (no
+            FirebaseMessaging fetch / Klaviyo.setPushToken() in your app).
+        The two flags are fully independent — set either one without the other to opt into just that
+        behavior. The `manual` flavor omits this overlay entirely; absence of both flags is the manual
+        (Option B) path.
+        Note the keys' "com.klaviyo.push." prefix is required — the bare "com.klaviyo.*" form silently no-ops.
+    -->
+    <application>
+        <meta-data
+            android:name="com.klaviyo.push.automatic_push_tracking"
+            android:value="true" />
+        <meta-data
+            android:name="com.klaviyo.push.automatic_token_forwarding"
+            android:value="true" />
+    </application>
+
+</manifest>
