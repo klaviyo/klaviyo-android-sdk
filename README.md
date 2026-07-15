@@ -489,14 +489,7 @@ registration** still works standalone — but Klaviyo message **display** requir
 #### The two flags are independent
 
 `automatic_push_tracking` and `automatic_token_forwarding` are separate opt-ins — each defaults to
-`false` when absent, and either can be set without the other. All four combinations are valid:
-
-| `automatic_push_tracking` | `automatic_token_forwarding` | Behavior |
-|:---:|:---:|---|
-| `false` | `false` | No automatic behavior — integrate manually (Option B) |
-| `true`  | `false` | Automatic open tracking; you own the token pipeline (`Klaviyo.setPushToken(...)`) |
-| `false` | `true`  | Automatic token forwarding; you track opens via `Klaviyo.handlePush(intent)` |
-| `true`  | `true`  | Full automatic integration (the Option A setup above) |
+`false` when absent, and either can be set without the other.
 
 To keep automatic open tracking while owning your own push-token pipeline (for example, forwarding
 a single token to multiple providers), set only `automatic_push_tracking="true"` and omit
