@@ -24,10 +24,10 @@ demonstrated side by side:
   and calls `Klaviyo.handlePush(intent)` on notification taps. This is the classic path and matches the
   behavior of prior sample releases.
 - **`automatic`** — Automatic integration (Option A). The app opts in with two independent manifest flags
-  (`com.klaviyo.push.automatic_push_tracking="true"` and `com.klaviyo.push.automatic_token_forwarding="true"`,
+  (`com.klaviyo.push.automatic_push_open_tracking="true"` and `com.klaviyo.push.automatic_push_token_forwarding="true"`,
   see [src/automatic/AndroidManifest.xml](./src/automatic/AndroidManifest.xml)) and the SDK does both for you:
-  `automatic_token_forwarding` auto-registers the push token at `initialize()` / every foreground, and
-  `automatic_push_tracking` makes the SDK detect notification taps and report opens for you — so the
+  `automatic_push_token_forwarding` auto-registers the push token at `initialize()` / every foreground, and
+  `automatic_push_open_tracking` makes the SDK detect notification taps and report opens for you — so the
   sample's `SampleActivity` contains **zero** push boilerplate. Compare the two `SampleActivity.kt` copies
   to see exactly what code disappears when you opt in.
 
@@ -42,8 +42,8 @@ panel in Android Studio (`manualDebug` vs `automaticDebug`), or from the CLI:
 Both flavors share the same `applicationId` and `google-services.json`, so only one installs at a time. The
 `automatic` flavor still relies on the auto-registered `KlaviyoPushService` (from `:sdk:push-fcm`) to *display*
 notifications. Because the two flags are independent, you can mix and match: set only
-`automatic_push_tracking="true"` to keep automatic open tracking while owning your own token pipeline (omit
-`automatic_token_forwarding`), or set only `automatic_token_forwarding="true"` to auto-forward tokens without
+`automatic_push_open_tracking="true"` to keep automatic open tracking while owning your own token pipeline (omit
+`automatic_push_token_forwarding`), or set only `automatic_push_token_forwarding="true"` to auto-forward tokens without
 automatic open tracking.
 
 Note that `KlaviyoPushService.onNewToken()` forwards token rotations to Klaviyo unconditionally whenever

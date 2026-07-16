@@ -844,7 +844,7 @@ class KlaviyoNotificationTest : BaseTest() {
         // build-time context (not Registry.config), so it works pre-init.
         every {
             mockContext.getManifestBoolean(
-                KlaviyoPushService.METADATA_AUTOMATIC_PUSH_TRACKING,
+                KlaviyoPushService.METADATA_AUTOMATIC_PUSH_OPEN_TRACKING,
                 false
             )
         } returns true

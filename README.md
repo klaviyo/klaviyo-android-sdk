@@ -432,10 +432,10 @@ Automatic integration is controlled by two independent manifest flags. Enable bo
 zero-boilerplate setup, in which the Klaviyo SDK handles the two pieces of push integration that
 otherwise require code in your app:
 
-- **Push open tracking** (`automatic_push_tracking`) — the SDK detects when a user taps a Klaviyo
+- **Push open tracking** (`automatic_push_open_tracking`) — the SDK detects when a user taps a Klaviyo
   notification and records the `Opened Push` event for you. You do **not** need to call
   `Klaviyo.handlePush(intent)` anywhere.
-- **Push token registration** (`automatic_token_forwarding`) — the SDK fetches the current FCM
+- **Push token registration** (`automatic_push_token_forwarding`) — the SDK fetches the current FCM
   token and registers it with Klaviyo automatically, so you don't need to call
   `Klaviyo.setPushToken(...)` yourself.
 
@@ -443,7 +443,7 @@ otherwise require code in your app:
 
 Add the following meta-data to the `<application>` element. Note the `com.klaviyo.push.`
 namespace — it matches the existing Klaviyo notification meta-data keys. **The exact keys are
-required**; a bare `com.klaviyo.automatic_push_tracking` (without the `push.` segment) is
+required**; a bare `com.klaviyo.automatic_push_open_tracking` (without the `push.` segment) is
 silently ignored.
 
 ```xml
@@ -453,10 +453,10 @@ silently ignored.
     <application>
         <!-- ... -->
         <meta-data
-            android:name="com.klaviyo.push.automatic_push_tracking"
+            android:name="com.klaviyo.push.automatic_push_open_tracking"
             android:value="true" />
         <meta-data
-            android:name="com.klaviyo.push.automatic_token_forwarding"
+            android:name="com.klaviyo.push.automatic_push_token_forwarding"
             android:value="true" />
     </application>
 </manifest>
@@ -488,15 +488,15 @@ registration** still works standalone — but Klaviyo message **display** requir
 
 #### The two flags are independent
 
-`automatic_push_tracking` and `automatic_token_forwarding` are separate opt-ins — each defaults to
+`automatic_push_open_tracking` and `automatic_push_token_forwarding` are separate opt-ins — each defaults to
 `false` when absent, and either can be set without the other.
 
 To keep automatic open tracking while owning your own push-token pipeline (for example, forwarding
-a single token to multiple providers), set only `automatic_push_tracking="true"` and omit
-`automatic_token_forwarding`. Open tracking is unaffected, and you register the token yourself via
+a single token to multiple providers), set only `automatic_push_open_tracking="true"` and omit
+`automatic_push_token_forwarding`. Open tracking is unaffected, and you register the token yourself via
 `Klaviyo.setPushToken(...)` as in Option B.
 
-Note: `automatic_token_forwarding` gates only the automatic init/foreground token fetch. If
+Note: `automatic_push_token_forwarding` gates only the automatic init/foreground token fetch. If
 `KlaviyoPushService` remains your registered `FirebaseMessagingService`, its `onNewToken` still
 forwards newly generated or rotated tokens to Klaviyo regardless of either flag. To fully own the
 token pipeline, register your own `FirebaseMessagingService` (see [Advanced Setup](#advanced-setup)).

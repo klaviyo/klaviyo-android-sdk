@@ -22,15 +22,15 @@ enum class SdkFeatureKey(
 ) {
     AUTO_PUSH_TRACKING(
         wireName = "auto_push_tracking",
-        manifestKey = Constants.AUTOMATIC_PUSH_TRACKING,
+        manifestKey = Constants.AUTOMATIC_PUSH_OPEN_TRACKING,
         scope = SdkFeatureScope.PUSH_TOKEN_REGISTRATION
     ),
 
-    // `automatic_token_forwarding` opt-in flag, reported directly. Independent of the open-tracking
+    // `automatic_push_token_forwarding` opt-in flag, reported directly. Independent of the open-tracking
     // flag, so the backend sees how the host set each flag.
     AUTO_PUSH_TOKEN_FORWARDING(
         wireName = "auto_push_token_forwarding",
-        manifestKey = Constants.AUTOMATIC_TOKEN_FORWARDING,
+        manifestKey = Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
         scope = SdkFeatureScope.PUSH_TOKEN_REGISTRATION
     )
 }

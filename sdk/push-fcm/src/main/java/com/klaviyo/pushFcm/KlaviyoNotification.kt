@@ -173,7 +173,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         // Read the flag from the build-time context, not Registry.config, since FCM can build a
         // notification before Klaviyo.initialize runs (e.g. init in an Activity, not Application).
         val autoTracking = context.getManifestBoolean(
-            KlaviyoPushService.METADATA_AUTOMATIC_PUSH_TRACKING,
+            KlaviyoPushService.METADATA_AUTOMATIC_PUSH_OPEN_TRACKING,
             false
         )
         // One id per notification, stamped on the body and every action-button intent, so

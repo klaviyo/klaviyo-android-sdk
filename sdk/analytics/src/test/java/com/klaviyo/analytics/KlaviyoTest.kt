@@ -593,11 +593,11 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     private fun setAutomaticPushTracking(enabled: Boolean) = every {
-        mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false)
+        mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_OPEN_TRACKING, false)
     } returns enabled
 
     private fun setTokenForwardingEnabled(enabled: Boolean) = every {
-        mockConfig.getManifestBoolean(Constants.AUTOMATIC_TOKEN_FORWARDING, false)
+        mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, false)
     } returns enabled
 
     private fun reinitialize() =
