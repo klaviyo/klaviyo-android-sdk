@@ -397,8 +397,8 @@ Additional event properties can be specified as part of the `Event` object:
 
 > **Which option should I use?**
 >
-> Choose **Option A — Automatic integration** for a minimal-boilerplate setup. With a single
-> manifest flag, the SDK tracks push opens automatically and registers the push token for you —
+> Choose **Option A — Automatic integration** for a minimal-boilerplate setup. With two
+> manifest flags, the SDK tracks push opens automatically and registers the push token for you —
 > no `Klaviyo.handlePush()` calls and no manual token wiring.
 >
 > Choose **Option B — Manual integration** if you need direct control over token collection or
@@ -428,19 +428,21 @@ will be used if present, else we fall back on the application's launcher icon, a
 
 ### Option A — Automatic integration
 
-With automatic push tracking enabled, the Klaviyo SDK handles the two pieces of push integration
-that otherwise require boilerplate in your app code:
+Automatic integration is controlled by two independent manifest flags. Enable both for the
+zero-boilerplate setup, in which the Klaviyo SDK handles the two pieces of push integration that
+otherwise require code in your app:
 
-- **Push open tracking** — Klaviyo notification taps are routed through an internal trampoline
-  activity that records the `Opened Push` event for you, then forwards the user to their
-  destination. You do **not** need to call `Klaviyo.handlePush(intent)` anywhere.
-- **Push token registration** — the SDK fetches the current FCM token and registers it with
-  Klaviyo automatically, so you don't need to call `Klaviyo.setPushToken(...)` yourself.
+- **Push open tracking** (`automatic_push_tracking`) — the SDK detects when a user taps a Klaviyo
+  notification and records the `Opened Push` event for you. You do **not** need to call
+  `Klaviyo.handlePush(intent)` anywhere.
+- **Push token registration** (`automatic_token_forwarding`) — the SDK fetches the current FCM
+  token and registers it with Klaviyo automatically, so you don't need to call
+  `Klaviyo.setPushToken(...)` yourself.
 
-#### Step 1 — Enable automatic push tracking in `AndroidManifest.xml`
+#### Step 1 — Enable automatic push integration in `AndroidManifest.xml`
 
 Add the following meta-data to the `<application>` element. Note the `com.klaviyo.push.`
-namespace — it matches the existing Klaviyo notification meta-data keys. **The exact key is
+namespace — it matches the existing Klaviyo notification meta-data keys. **The exact keys are
 required**; a bare `com.klaviyo.automatic_push_tracking` (without the `push.` segment) is
 silently ignored.
 
@@ -452,6 +454,9 @@ silently ignored.
         <!-- ... -->
         <meta-data
             android:name="com.klaviyo.push.automatic_push_tracking"
+            android:value="true" />
+        <meta-data
+            android:name="com.klaviyo.push.automatic_token_forwarding"
             android:value="true" />
     </application>
 </manifest>
@@ -465,15 +470,15 @@ import com.klaviyo.analytics.Klaviyo
 Klaviyo.initialize("YOUR_PUBLIC_API_KEY", applicationContext)
 ```
 
-That's it. With the flag set, `initialize()` covers both concerns above:
+That's it. With both flags set, `initialize()` covers both concerns above:
 
-- **Open tracking** is handled by the trampoline for every Klaviyo notification tap.
+- **Open tracking** records an `Opened Push` event for every Klaviyo notification tap.
 - **Token registration** happens at `initialize()` **and** again on every app foreground, so
   token rotations are picked up on those events.
 
 #### Displaying notifications
 
-The automatic flag removes the manual **token wiring** and **`handlePush()`** calls — it does
+The automatic flags remove the manual **token wiring** and **`handlePush()`** calls — they do
 **not** remove the requirement to *receive and display* notifications. `KlaviyoPushService` is
 still what displays Klaviyo notifications, and it is registered automatically by the SDK unless
 your app provides its own `FirebaseMessagingService` (see [Advanced Setup](#advanced-setup)).
@@ -481,28 +486,24 @@ your app provides its own `FirebaseMessagingService` (see [Advanced Setup](#adva
 If you run multiple push providers and don't register `KlaviyoPushService`, automatic **token
 registration** still works standalone — but Klaviyo message **display** requires the service.
 
-#### Advanced: disable automatic token forwarding
+#### The two flags are independent
 
-If your app owns its own push-token pipeline (for example, forwarding a single token to multiple
-providers) but you still want automatic open tracking, opt out of token forwarding with an
-additional meta-data flag. Open tracking is unaffected; the SDK stops the automatic
-init/foreground token fetch, and you register the token yourself via `Klaviyo.setPushToken(...)`
-as in Option B.
+`automatic_push_tracking` and `automatic_token_forwarding` are separate opt-ins — each defaults to
+`false` when absent, and either can be set without the other.
 
-```xml
-<meta-data
-    android:name="com.klaviyo.push.disable_automatic_token_forwarding"
-    android:value="true" />
-```
+To keep automatic open tracking while owning your own push-token pipeline (for example, forwarding
+a single token to multiple providers), set only `automatic_push_tracking="true"` and omit
+`automatic_token_forwarding`. Open tracking is unaffected, and you register the token yourself via
+`Klaviyo.setPushToken(...)` as in Option B.
 
-This flag gates only the automatic init/foreground fetch. If `KlaviyoPushService` remains your
-registered FCM service, its `onNewToken` will still forward newly generated or rotated tokens to
-Klaviyo. To fully own the token pipeline, register your own `FirebaseMessagingService` (see
-[Advanced Setup](#advanced-setup)) so `KlaviyoPushService.onNewToken` never runs.
+Note: `automatic_token_forwarding` gates only the automatic init/foreground token fetch. If
+`KlaviyoPushService` remains your registered `FirebaseMessagingService`, its `onNewToken` still
+forwards newly generated or rotated tokens to Klaviyo regardless of either flag. To fully own the
+token pipeline, register your own `FirebaseMessagingService` (see [Advanced Setup](#advanced-setup)).
 
-<!-- TODO(MAGE-770 — https://linear.app/klaviyo/issue/MAGE-770): once the sample app's `automatic`
-     product flavor is merged, link it here as the runnable reference for Option A (the
-     `automatic` flavor under `sample/`). -->
+For a runnable reference, see the sample app's **`automatic`** product flavor
+([`sample/src/automatic/`](sample/src/automatic/)) and the
+[sample README](sample/README.md#integration-styles-product-flavors).
 
 ### Option B — Manual integration
 
