@@ -4,6 +4,7 @@ import android.os.Handler
 import androidx.annotation.WorkerThread
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
@@ -18,6 +19,7 @@ import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
 import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
+import com.klaviyo.analytics.networking.requests.SubscriptionApiRequest
 import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
@@ -80,6 +82,12 @@ internal object KlaviyoApiClient : ApiClient {
     override fun enqueuePushToken(token: String, profile: Profile): ApiRequest =
         PushTokenApiRequest(token, profile).also {
             Registry.log.verbose("Enqueuing Push Token request")
+            enqueueRequest(it)
+        }
+
+    override fun enqueueSubscription(subscription: Subscription, profile: Profile): ApiRequest? =
+        SubscriptionApiRequest.from(subscription, profile)?.also {
+            Registry.log.verbose("Enqueuing Subscription request")
             enqueueRequest(it)
         }
 
