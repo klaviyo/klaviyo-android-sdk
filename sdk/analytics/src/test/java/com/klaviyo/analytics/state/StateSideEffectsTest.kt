@@ -419,7 +419,7 @@ class StateSideEffectsTest : BaseTest() {
 
     @Test
     fun `Resumed lifecycle event re-fetches push token when automatic forwarding is enabled`() {
-        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_TOKEN_FORWARDING, false) } returns true
+        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, false) } returns true
         val mockFetcher = registerMockPushTokenFetcher()
 
         fireResumedEvent()

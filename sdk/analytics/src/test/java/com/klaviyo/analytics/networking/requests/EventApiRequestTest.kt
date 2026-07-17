@@ -238,10 +238,10 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
 
     @Test
     fun `Does not include the SDK features header even when the flags that would trigger it on PushTokenApiRequest are set`() {
-        every { mockConfig.hasManifestKey(Constants.AUTOMATIC_PUSH_TRACKING) } returns true
-        every { mockConfig.hasManifestKey(Constants.AUTOMATIC_TOKEN_FORWARDING) } returns true
-        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TRACKING, false) } returns true
-        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_TOKEN_FORWARDING, false) } returns true
+        every { mockConfig.hasManifestKey(Constants.AUTOMATIC_PUSH_OPEN_TRACKING) } returns true
+        every { mockConfig.hasManifestKey(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING) } returns true
+        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_OPEN_TRACKING, false) } returns true
+        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, false) } returns true
         val request = EventApiRequest(stubEvent, stubProfile)
         assertNull(request.headers["X-Klaviyo-Sdk-Features"])
     }

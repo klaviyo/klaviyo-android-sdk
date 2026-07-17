@@ -28,7 +28,7 @@ open class KlaviyoPushService : FirebaseMessagingService() {
          * `true`, Klaviyo notification taps route through [KlaviyoTrampolineActivity], which tracks the
          * open itself so the host app no longer needs to call `Klaviyo.handlePush(intent)` in its Activities.
          */
-        const val METADATA_AUTOMATIC_PUSH_TRACKING = Constants.AUTOMATIC_PUSH_TRACKING
+        const val METADATA_AUTOMATIC_PUSH_OPEN_TRACKING = Constants.AUTOMATIC_PUSH_OPEN_TRACKING
     }
 
     /**

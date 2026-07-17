@@ -48,17 +48,17 @@ object Constants {
      * Lives in core (not push-fcm) because telemetry's push token request must read it, and core
      * cannot depend on push-fcm.
      */
-    const val AUTOMATIC_PUSH_TRACKING = PUSH_PREFIX + "automatic_push_tracking"
+    const val AUTOMATIC_PUSH_OPEN_TRACKING = PUSH_PREFIX + "automatic_push_open_tracking"
 
     /**
      * Manifest `<meta-data>` key a host app sets to opt into automatic push token forwarding: the
      * SDK pulls the current push token at initialize and on each foreground and forwards it to
      * Klaviyo. Opt-in, absent → `false`.
      *
-     * Lives in core (not push-fcm) for the same reason as [AUTOMATIC_PUSH_TRACKING]: telemetry's
+     * Lives in core (not push-fcm) for the same reason as [AUTOMATIC_PUSH_OPEN_TRACKING]: telemetry's
      * push token request must read it, and core cannot depend on push-fcm.
      */
-    const val AUTOMATIC_TOKEN_FORWARDING = PUSH_PREFIX + "automatic_token_forwarding"
+    const val AUTOMATIC_PUSH_TOKEN_FORWARDING = PUSH_PREFIX + "automatic_push_token_forwarding"
 
     /**
      * Fixed notification ID used in all notify/cancel calls.
