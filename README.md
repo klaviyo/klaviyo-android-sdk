@@ -428,16 +428,18 @@ will be used if present, else we fall back on the application's launcher icon, a
 
 ### Option A — Automatic integration
 
-Automatic integration is controlled by two independent manifest flags. Enable both for the
-zero-boilerplate setup, in which the Klaviyo SDK handles the two pieces of push integration that
-otherwise require code in your app:
+Automatic integration is controlled by two independent manifest flags, covering the two pieces of
+push integration that otherwise require code in your app:
 
-- **Push open tracking** (`automatic_push_open_tracking`) — the SDK detects when a user taps a Klaviyo
-  notification and records the `Opened Push` event for you. You do **not** need to call
-  `Klaviyo.handlePush(intent)` anywhere.
-- **Push token registration** (`automatic_push_token_forwarding`) — the SDK fetches the current FCM
-  token and registers it with Klaviyo automatically, so you don't need to call
-  `Klaviyo.setPushToken(...)` yourself.
+- **Push open tracking** (`automatic_push_open_tracking`) — **opt-in** (off by default). Set it to
+  `true` and the SDK detects when a user taps a Klaviyo notification and records the `Opened Push`
+  event for you, so you do **not** need to call `Klaviyo.handlePush(intent)` anywhere.
+- **Push token registration** (`automatic_push_token_forwarding`) — **on by default**. The SDK
+  fetches the current FCM token and registers it with Klaviyo automatically, so you don't need to
+  call `Klaviyo.setPushToken(...)` yourself. Set it to `false` to opt out.
+
+Token forwarding is already on, so for the zero-boilerplate setup you only need to enable open
+tracking.
 
 #### Step 1 — Enable automatic push integration in `AndroidManifest.xml`
 
@@ -455,6 +457,8 @@ silently ignored.
         <meta-data
             android:name="com.klaviyo.push.automatic_push_open_tracking"
             android:value="true" />
+        <!-- Token forwarding is already ON by default; this line is optional and shown for
+             completeness. Set it to "false" to opt out. -->
         <meta-data
             android:name="com.klaviyo.push.automatic_push_token_forwarding"
             android:value="true" />
@@ -488,18 +492,18 @@ registration** still works standalone — but Klaviyo message **display** requir
 
 #### The two flags are independent
 
-`automatic_push_open_tracking` and `automatic_push_token_forwarding` are separate opt-ins — each defaults to
-`false` when absent, and either can be set without the other.
+`automatic_push_open_tracking` and `automatic_push_token_forwarding` are independent, and either can
+be set without the other. They differ in their defaults:
 
-To keep automatic open tracking while owning your own push-token pipeline (for example, forwarding
-a single token to multiple providers), set only `automatic_push_open_tracking="true"` and omit
-`automatic_push_token_forwarding`. Open tracking is unaffected, and you register the token yourself via
-`Klaviyo.setPushToken(...)` as in Option B.
+- `automatic_push_open_tracking` is **opt-in** — off unless you set it to `true`.
+- `automatic_push_token_forwarding` is **on by default** — set it to `false` to opt out.
 
-Note: `automatic_push_token_forwarding` gates only the automatic init/foreground token fetch. If
-`KlaviyoPushService` remains your registered `FirebaseMessagingService`, its `onNewToken` still
-forwards newly generated or rotated tokens to Klaviyo regardless of either flag. To fully own the
-token pipeline, register your own `FirebaseMessagingService` (see [Advanced Setup](#advanced-setup)).
+To own your own push-token pipeline (for example, forwarding a single token to multiple providers),
+set `automatic_push_token_forwarding="false"` and register the token yourself via
+`Klaviyo.setPushToken(...)` as in Option B. That single flag is a complete opt-out: it disables
+**both** the automatic init/foreground fetch **and** `KlaviyoPushService.onNewToken` forwarding — no
+custom `FirebaseMessagingService` required. Your explicit `Klaviyo.setPushToken(...)` calls always
+work, regardless of the flag.
 
 For a runnable reference, see the sample app's **`automatic`** product flavor
 ([`sample/src/automatic/`](sample/src/automatic/)) and the
@@ -511,14 +515,16 @@ For a runnable reference, see the sample app's **`automatic`** product flavor
 In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo.
 This is done via the `Klaviyo.setPushToken` method, which registers the push token and current authorization state
 via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
-`KlaviyoPushService` forwards **newly generated or rotated** tokens to Klaviyo via its
-`onNewToken` method — but only when it is your registered FCM service. If your app supplies its
-own `FirebaseMessagingService`, call `Klaviyo.setPushToken()` from your own `onNewToken()` (see
-[Advanced Setup](#advanced-setup)), or rely on the startup fetch below. Note that `onNewToken`
-only fires when FCM *generates or rotates* a token — it does **not** fire for a token that
-already existed before the SDK was integrated, and it does not fire when FCM auto-init is
-disabled. For that reason, we recommend retrieving the latest token value on app startup and
-registering it with the Klaviyo SDK.
+
+If you leave automatic token forwarding enabled (the default — see Option A), the SDK already handles this: it
+fetches the current token at startup and on each foreground, and `KlaviyoPushService.onNewToken` forwards newly
+generated or rotated tokens for you. The steps below apply when you've **opted out** with
+`automatic_push_token_forwarding="false"`, or when your app supplies its own `FirebaseMessagingService`.
+
+In that case, forward tokens yourself: call `Klaviyo.setPushToken()` from your own `onNewToken()` (see
+[Advanced Setup](#advanced-setup)), and also fetch the current token on startup — `onNewToken` only fires when FCM
+*generates or rotates* a token, so it does **not** fire for a token that already existed before the SDK was
+integrated, nor when FCM auto-init is disabled.
 Add the following to your application or main activity's `.onCreate()` method:
 
 <details open>

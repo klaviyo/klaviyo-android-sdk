@@ -21,8 +21,10 @@ The sample ships two product flavors (dimension `integration`) so both Klaviyo p
 demonstrated side by side:
 
 - **`manual`** — Manual integration (Option B). The app fetches the FCM token and calls `Klaviyo.setPushToken()`,
-  and calls `Klaviyo.handlePush(intent)` on notification taps. This is the classic path and matches the
-  behavior of prior sample releases.
+  and calls `Klaviyo.handlePush(intent)` on notification taps. Because automatic token forwarding is **on by
+  default**, this flavor opts out with `com.klaviyo.push.automatic_push_token_forwarding="false"` (see
+  [src/manual/AndroidManifest.xml](./src/manual/AndroidManifest.xml)) so it genuinely demonstrates owning the
+  token pipeline. This is the classic path and matches the behavior of prior sample releases.
 - **`automatic`** — Automatic integration (Option A). The app opts in with two independent manifest flags
   (`com.klaviyo.push.automatic_push_open_tracking="true"` and `com.klaviyo.push.automatic_push_token_forwarding="true"`,
   see [src/automatic/AndroidManifest.xml](./src/automatic/AndroidManifest.xml)) and the SDK does both for you:
@@ -41,15 +43,15 @@ panel in Android Studio (`manualDebug` vs `automaticDebug`), or from the CLI:
 
 Both flavors share the same `applicationId` and `google-services.json`, so only one installs at a time. The
 `automatic` flavor still relies on the auto-registered `KlaviyoPushService` (from `:sdk:push-fcm`) to *display*
-notifications. Because the two flags are independent, you can mix and match: set only
-`automatic_push_open_tracking="true"` to keep automatic open tracking while owning your own token pipeline (omit
-`automatic_push_token_forwarding`), or set only `automatic_push_token_forwarding="true"` to auto-forward tokens without
-automatic open tracking.
+notifications. Because the two flags are independent, you can mix and match: token forwarding is on by default,
+so to keep automatic open tracking while owning your own token pipeline set `automatic_push_open_tracking="true"`
+and `automatic_push_token_forwarding="false"`; open tracking is off by default, so to auto-forward tokens without
+automatic open tracking simply omit `automatic_push_open_tracking`.
 
-Note that `KlaviyoPushService.onNewToken()` forwards token rotations to Klaviyo unconditionally whenever
-`KlaviyoPushService` is the registered `FirebaseMessagingService` — independent of both flags. To fully own
-the token pipeline, register your own `FirebaseMessagingService` instead of `KlaviyoPushService` (the same
-pattern used to integrate alongside Braze/Airship/Iterable).
+Note that `automatic_push_token_forwarding` gates **both** of the SDK's automatic token paths — the
+`initialize()`/foreground fetch and `KlaviyoPushService.onNewToken()`. Setting it to `false` is a single, complete
+opt-out (no custom `FirebaseMessagingService` needed); explicit `Klaviyo.setPushToken()` calls always work,
+which is how you integrate alongside Braze/Airship/Iterable.
 
 See the main [README](../README.md) "Push Notifications" section for the full Option A / Option B write-up.
 

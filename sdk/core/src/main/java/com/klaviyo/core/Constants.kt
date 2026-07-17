@@ -51,9 +51,10 @@ object Constants {
     const val AUTOMATIC_PUSH_OPEN_TRACKING = PUSH_PREFIX + "automatic_push_open_tracking"
 
     /**
-     * Manifest `<meta-data>` key a host app sets to opt into automatic push token forwarding: the
-     * SDK pulls the current push token at initialize and on each foreground and forwards it to
-     * Klaviyo. Opt-in, absent → `false`.
+     * Manifest `<meta-data>` key governing the SDK's automatic push token forwarding. When enabled the
+     * SDK forwards the token to Klaviyo automatically via **both** paths it controls: the fetch at
+     * initialize / on each foreground, and `KlaviyoPushService.onNewToken`. Opt-OUT, absent → `true`;
+     * set `false` for a single, complete opt-out (the public `Klaviyo.setPushToken` API is unaffected).
      *
      * Lives in core (not push-fcm) for the same reason as [AUTOMATIC_PUSH_OPEN_TRACKING]: telemetry's
      * push token request must read it, and core cannot depend on push-fcm.

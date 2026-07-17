@@ -5,6 +5,7 @@ import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
+import com.klaviyo.core.isAutomaticPushTokenForwardingEnabled
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.hasKlaviyoKeyValuePairs
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
@@ -32,13 +33,25 @@ open class KlaviyoPushService : FirebaseMessagingService() {
     }
 
     /**
-     * Called when FCM SDK receives a newly registered token
+     * Called when FCM SDK receives a newly registered token.
+     *
+     * Automatic forwarding to Klaviyo is gated by [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING] (via
+     * the shared [isAutomaticPushTokenForwardingEnabled], default on) — the same flag that gates
+     * `Klaviyo.maybeAutoRegisterPushToken`, so `automatic_push_token_forwarding="false"` is a single,
+     * complete opt-out. The public `Klaviyo.setPushToken` API is unaffected: hosts owning their token
+     * pipeline can still forward tokens explicitly.
      *
      * @param newToken
      */
     override fun onNewToken(newToken: String) {
         super.onNewToken(newToken)
-        Klaviyo.setPushToken(newToken)
+        if (isAutomaticPushTokenForwardingEnabled()) {
+            Klaviyo.setPushToken(newToken)
+        } else {
+            Registry.log.verbose(
+                "Skipping automatic push token forwarding (automaticTokenForwarding=false)"
+            )
+        }
     }
 
     /**

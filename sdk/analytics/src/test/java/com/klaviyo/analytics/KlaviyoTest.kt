@@ -596,8 +596,9 @@ internal class KlaviyoTest : BaseTest() {
         mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_OPEN_TRACKING, false)
     } returns enabled
 
+    // Token forwarding now defaults ON, so production reads the flag with a default of `true`.
     private fun setAutomaticPushTokenForwardingEnabled(enabled: Boolean) = every {
-        mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, false)
+        mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, true)
     } returns enabled
 
     private fun reinitialize() =
@@ -607,6 +608,16 @@ internal class KlaviyoTest : BaseTest() {
     fun `initialize triggers automatic push token fetch when token forwarding is on and fetcher is registered`() {
         val mockFetcher = registerMockPushTokenFetcher()
         setAutomaticPushTokenForwardingEnabled(true)
+
+        reinitialize()
+
+        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken() }
+    }
+
+    @Test
+    fun `initialize fetches push token by default when the token forwarding flag is absent`() {
+        // Default ON: with no manifest key set (BaseTest returns the default), forwarding is enabled
+        val mockFetcher = registerMockPushTokenFetcher()
 
         reinitialize()
 
@@ -633,6 +644,16 @@ internal class KlaviyoTest : BaseTest() {
         reinitialize()
 
         verify(inverse = true) { mockFetcher.fetchAndSetPushToken() }
+    }
+
+    @Test
+    fun `explicit setPushToken still forwards when automatic token forwarding is off`() {
+        // The flag gates only automatic forwarding; explicit developer calls always work
+        setAutomaticPushTokenForwardingEnabled(false)
+
+        Klaviyo.setPushToken(PUSH_TOKEN)
+
+        verify(exactly = 1) { mockApiClient.enqueuePushToken(PUSH_TOKEN, any()) }
     }
 
     @Test

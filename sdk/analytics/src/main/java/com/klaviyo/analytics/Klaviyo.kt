@@ -24,6 +24,7 @@ import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
+import com.klaviyo.core.isAutomaticPushTokenForwardingEnabled
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.takeIf
@@ -118,19 +119,19 @@ object Klaviyo {
     }
 
     /**
-     * Opt-in automatic push token registration (via [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING]): pull the
-     * current token and forward it to Klaviyo. Called from [initialize] and on each app foreground so
-     * rotations are picked up. No-op when the flag is off or when `push-fcm` is absent.
+     * Automatic push token registration (via [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING], default on):
+     * pull the current token and forward it to Klaviyo. Called from [initialize] and on each app
+     * foreground so rotations are picked up. No-op when the flag is explicitly off or when `push-fcm`
+     * is absent.
+     *
+     * Reads the flag via [isAutomaticPushTokenForwardingEnabled], the shared gate that also governs
+     * `KlaviyoPushService.onNewToken`, so the two automatic-collection paths stay in lockstep.
      *
      * Independent of [Constants.AUTOMATIC_PUSH_OPEN_TRACKING] (which gates only automatic open tracking) —
      * this flag alone controls token forwarding.
      */
     internal fun maybeAutoRegisterPushToken() {
-        val tokenForwardingEnabled = Registry.config.getManifestBoolean(
-            Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
-            false
-        )
-        if (!tokenForwardingEnabled) {
+        if (!isAutomaticPushTokenForwardingEnabled()) {
             Registry.log.verbose(
                 "Skipping automatic push token registration (automaticTokenForwarding=false)"
             )

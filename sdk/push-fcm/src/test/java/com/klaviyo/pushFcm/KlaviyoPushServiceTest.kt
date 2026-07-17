@@ -2,6 +2,7 @@ package com.klaviyo.pushFcm
 
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.Constants
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.KEY_VALUE_PAIRS_KEY
@@ -54,9 +55,21 @@ class KlaviyoPushServiceTest : BaseTest() {
     }
 
     @Test
-    fun `FCM onNewToken persists the new token and enqueues API call`() {
+    fun `FCM onNewToken forwards the new token by default when the forwarding flag is absent`() {
+        // Default ON: BaseTest returns the manifest default (true) when the key is unset
         pushService.onNewToken(stubPushToken)
         verify { Klaviyo.setPushToken(stubPushToken) }
+    }
+
+    @Test
+    fun `FCM onNewToken does not forward the token when automatic token forwarding is off`() {
+        every {
+            mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, true)
+        } returns false
+
+        pushService.onNewToken(stubPushToken)
+
+        verify(inverse = true) { Klaviyo.setPushToken(any()) }
     }
 
     @Test
