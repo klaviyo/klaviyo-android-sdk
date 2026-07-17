@@ -29,6 +29,10 @@ object PushLogStore {
 
     private var prefs: SharedPreferences? = null
 
+    // record() runs on a background FCM thread while clear() runs on the UI thread; serialize each
+    // update-plus-save so a slower save() can't overwrite a newer one and drop entries after restart.
+    private val persistenceLock = Any()
+
     /**
      * Call once from Application.onCreate. Hydrates the in-memory list from disk (debug builds only).
      */
@@ -52,13 +56,17 @@ object PushLogStore {
             body = body,
             customData = customData
         )
-        _entries.update { current -> (listOf(entry) + current).take(MAX_ENTRIES) }
-        save()
+        synchronized(persistenceLock) {
+            _entries.update { current -> (listOf(entry) + current).take(MAX_ENTRIES) }
+            save()
+        }
     }
 
     fun clear() {
-        _entries.value = emptyList()
-        save()
+        synchronized(persistenceLock) {
+            _entries.value = emptyList()
+            save()
+        }
     }
 
     private fun save() {

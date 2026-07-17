@@ -445,7 +445,8 @@ private fun SampleViewContent(
                     Icon(
                         imageVector = Icons.Default.Notifications,
                         tint = MaterialTheme.colorScheme.primary,
-                        contentDescription = "Push Log"
+                        // Decorative: the button's text already announces the action.
+                        contentDescription = null
                     )
                 }
             )

@@ -55,6 +55,7 @@ class SamplePushService : KlaviyoPushService() {
             customData = customData
         )
 
-        Registry.log.info("Push Log recorded ${source.label} push: ${message.title}")
+        // Log only the source/type — never the payload (title/body/custom data can be sensitive).
+        Registry.log.info("Push Log recorded ${source.label} push")
     }
 }

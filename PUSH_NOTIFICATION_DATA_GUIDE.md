@@ -7,10 +7,13 @@ messages in your app's own inbox.
 ## How Klaviyo delivers push on Android
 
 Klaviyo formats every push as an FCM [data message](https://firebase.google.com/docs/cloud-messaging/android/receive)
-to retain full control over display formatting. As a result **every** Klaviyo push — visible or
-silent — is delivered to your `FirebaseMessagingService.onMessageReceived`, regardless of whether
-the app is in the foreground, background, or terminated. There is no separate foreground/background
-delivery path like iOS.
+to retain full control over display formatting. As a result Klaviyo pushes — visible or silent —
+are normally delivered to your `FirebaseMessagingService.onMessageReceived` whether the app is in
+the foreground, background, or terminated, rather than only through the notification tap like a
+notification-payload message. Delivery is still subject to normal FCM/Android limits: a
+[force-stopped](https://firebase.google.com/docs/cloud-messaging/android/receive) app receives
+nothing until the user relaunches it, [hibernated](https://developer.android.com/topic/performance/app-hibernation)
+(unused) apps on Android 12+ aren't woken, and delivery can be delayed by Doze/App Standby.
 
 | Type | Visible alert? | Where it arrives |
 |---|---|---|

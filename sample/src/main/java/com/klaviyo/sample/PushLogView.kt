@@ -37,6 +37,19 @@ import com.klaviyo.sample.ui.theme.KlaviyoAndroidSdkTheme
 import java.text.DateFormat
 import java.util.Date
 
+private object PushLogStrings {
+    const val TITLE = "Push Log"
+    const val CLOSE = "Close"
+    const val CLEAR = "Clear"
+    const val EMPTY_TITLE = "No Push Notifications Yet"
+    const val EMPTY_SUBTITLE =
+        "Received pushes will appear here with their title, body, and custom data."
+    const val NO_TITLE = "(no title)"
+    const val NO_BODY = "(no body)"
+}
+
+private fun formatKeyValue(key: String, value: String): String = "$key: $value"
+
 /**
  * Displays the list of push notifications the sample app has received — the title, body, and any
  * custom key-value pairs — matching the data extracted in [SamplePushService]. This is the Android
@@ -99,10 +112,10 @@ private fun PushLogHeader(
             onClick = onClose,
             modifier = Modifier.semantics { testTag = SampleTestTags.BTN_CLOSE_PUSH_LOG }
         ) {
-            Text("Close")
+            Text(PushLogStrings.CLOSE)
         }
         Text(
-            text = "Push Log",
+            text = PushLogStrings.TITLE,
             style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f)
@@ -112,7 +125,7 @@ private fun PushLogHeader(
             enabled = canClear,
             modifier = Modifier.semantics { testTag = SampleTestTags.BTN_CLEAR_PUSH_LOG }
         ) {
-            Text("Clear")
+            Text(PushLogStrings.CLEAR)
         }
     }
 }
@@ -133,12 +146,12 @@ private fun EmptyState() {
         )
         Spacer(Modifier.width(0.dp))
         Text(
-            text = "No Push Notifications Yet",
+            text = PushLogStrings.EMPTY_TITLE,
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 12.dp)
         )
         Text(
-            text = "Received pushes will appear here with their title, body, and custom data.",
+            text = PushLogStrings.EMPTY_SUBTITLE,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -165,12 +178,12 @@ private fun PushLogRow(entry: PushLogEntry) {
             )
         }
         Text(
-            text = entry.title.ifEmpty { "(no title)" },
+            text = entry.title.ifEmpty { PushLogStrings.NO_TITLE },
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 6.dp)
         )
         Text(
-            text = entry.body.ifEmpty { "(no body)" },
+            text = entry.body.ifEmpty { PushLogStrings.NO_BODY },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -178,7 +191,7 @@ private fun PushLogRow(entry: PushLogEntry) {
             Column(modifier = Modifier.padding(top = 6.dp)) {
                 entry.customData.toSortedMap().forEach { (key, value) ->
                     Text(
-                        text = "$key: $value",
+                        text = formatKeyValue(key, value),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
