@@ -386,6 +386,7 @@ Additional event properties can be specified as part of the `Event` object:
 </details>
 
 ## Subscriptions
+
 The SDK can subscribe the currently identified profile to a Klaviyo list and record marketing or
 transactional consent via the
 [Create Client Subscription API](https://developers.klaviyo.com/en/reference/create_client_subscription).

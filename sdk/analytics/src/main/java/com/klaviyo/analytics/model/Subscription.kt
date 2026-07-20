@@ -50,21 +50,25 @@ class Subscription private constructor(
      * (transactional email, open-tracking SMS) cannot be expressed.
      */
     class Channels @JvmOverloads constructor(
+        email: Set<Email>? = null,
+        sms: Set<Messaging>? = null,
+        whatsapp: Set<Messaging>? = null
+    ) {
         /**
          * Consent sub-types to request on the EMAIL channel, or `null` to leave EMAIL untouched.
          */
-        val email: Set<Email>? = null,
+        val email: Set<Email>? = email?.toSet()
 
         /**
          * Consent sub-types to request on the SMS channel, or `null` to leave SMS untouched.
          */
-        val sms: Set<Messaging>? = null,
+        val sms: Set<Messaging>? = sms?.toSet()
 
         /**
          * Consent sub-types to request on the WhatsApp channel, or `null` to leave WhatsApp untouched.
          */
-        val whatsapp: Set<Messaging>? = null
-    ) {
+        val whatsapp: Set<Messaging>? = whatsapp?.toSet()
+
         /**
          * Consent sub-types supported on the EMAIL channel.
          */

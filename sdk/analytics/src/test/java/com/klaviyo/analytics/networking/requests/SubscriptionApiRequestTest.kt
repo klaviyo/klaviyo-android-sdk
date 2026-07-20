@@ -159,8 +159,7 @@ internal class SubscriptionApiRequestTest : BaseApiRequestTest<SubscriptionApiRe
             Profile().setPhoneNumber(PHONE)
         )
 
-        assertNull(request)
-        verify { spyLog.warning(any<String>(), null) }
+        assertDropped(request)
     }
 
     @Test
@@ -174,8 +173,7 @@ internal class SubscriptionApiRequestTest : BaseApiRequestTest<SubscriptionApiRe
             Profile().setEmail(EMAIL)
         )
 
-        assertNull(request)
-        verify { spyLog.warning(any<String>(), null) }
+        assertDropped(request)
     }
 
     @Test
@@ -185,8 +183,7 @@ internal class SubscriptionApiRequestTest : BaseApiRequestTest<SubscriptionApiRe
             stubProfile
         )
 
-        assertNull(request)
-        verify { spyLog.warning(any<String>(), null) }
+        assertDropped(request)
     }
 
     @Test
@@ -196,8 +193,7 @@ internal class SubscriptionApiRequestTest : BaseApiRequestTest<SubscriptionApiRe
             Profile()
         )
 
-        assertNull(request)
-        verify { spyLog.warning(any<String>(), null) }
+        assertDropped(request)
     }
 
     @Test
@@ -209,6 +205,14 @@ internal class SubscriptionApiRequestTest : BaseApiRequestTest<SubscriptionApiRe
 
         assert(request != null)
         verify(exactly = 0) { spyLog.warning(any<String>(), any()) }
+    }
+
+    /**
+     * Asserts a subscription was dropped in validation: no request built, and a warning logged.
+     */
+    private fun assertDropped(request: SubscriptionApiRequest?) {
+        assertNull(request)
+        verify { spyLog.warning(any<String>(), null) }
     }
 
     /**
