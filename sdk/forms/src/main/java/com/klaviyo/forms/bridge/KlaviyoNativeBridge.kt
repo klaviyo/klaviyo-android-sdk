@@ -21,7 +21,6 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear
 import com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook
 import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
 import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
-import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenExternalUrl
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
 import com.klaviyo.forms.presentation.PresentationManager
@@ -75,8 +74,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 is FormWillAppear -> show(bridgeMessage)
                 is TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
                 is TrackProfileEvent -> createProfileEvent(bridgeMessage)
-                is OpenDeepLink -> deepLink(bridgeMessage)
-                is OpenExternalUrl -> openExternalUrl(bridgeMessage)
+                is OpenDeepLink -> openCtaUrl(bridgeMessage)
                 is FormDisappeared -> close(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
             }
@@ -126,21 +124,49 @@ internal class KlaviyoNativeBridge : NativeBridge {
         Klaviyo.createEvent(message.event)
 
     /**
-     * Handle a [OpenDeepLink] message by broadcasting an intent to the host app
-     * similar to how we handle deep links from a notification
+     * Handle an [OpenDeepLink] message by opening its URL. Both in-app deep links and external
+     * web/system URLs arrive here; [OpenDeepLink.openExternally] — not the scheme — decides how to
+     * open, preserving the marketer's chosen CTA action.
      *
-     * There is a brief window between our overlay activity pausing and the next activity resuming.
-     * We alleviate this race condition by postponing till next activity resumes if current activity is null.
+     * When [OpenDeepLink.openExternally] is false, the URL is routed as an in-app deep link (like a
+     * notification deep link). There is a brief window between our overlay activity pausing and the
+     * next activity resuming; [DeepLinking.handleDeepLink] alleviates that race by postponing until
+     * the next activity resumes if the current activity is null.
+     *
+     * When true, the URL is opened in the default browser via a non-package-scoped intent, bypassing
+     * any registered deep link handler — mirroring
+     * [com.klaviyo.forms.webview.KlaviyoWebViewClient.shouldOverrideUrlLoading]. The `NEW_TASK` intent
+     * launches independently of the overlay activity, so no grace period is needed. The scheme is
+     * checked against [ALLOWED_OPEN_URL_SCHEMES] first — the same allowlist gate applied to push's
+     * `open_url`/`web_url` fields (see [com.klaviyo.pushFcm.KlaviyoRemoteMessage], PUSH-834) — to
+     * avoid routing dangerous or unintended URIs (e.g. `intent:`, `javascript:`, `file:`). The intent
+     * is built by [DeepLinking.makeExternalIntent], shared with the push `open_url` path.
+     *
+     * Fires [FormLifecycleEvent.FormCtaClicked] after dispatch, with the URL carried in
+     * [FormLifecycleEvent.FormCtaClicked.deepLinkUrl].
      */
-    private fun deepLink(message: OpenDeepLink) {
-        val deepLinkUri = message.route?.toUri()
+    private fun openCtaUrl(message: OpenDeepLink) {
+        val uri = message.route?.toUri()
 
-        if (deepLinkUri == null) {
+        if (uri == null) {
             Registry.log.warning("Form CTA with no Android route configured: ${message.formId}")
             return
         }
 
-        DeepLinking.handleDeepLink(deepLinkUri)
+        if (message.openExternally) {
+            if (uri.scheme?.lowercase() !in ALLOWED_OPEN_URL_SCHEMES) {
+                Registry.log.warning(
+                    "Form CTA external url '$uri' has a scheme not in the allowed list; ignoring."
+                )
+                return
+            }
+
+            DeepLinking.makeExternalIntent(uri).startActivityIfResolved(
+                Registry.config.applicationContext
+            )
+        } else {
+            DeepLinking.handleDeepLink(uri)
+        }
 
         if (message.formId.isEmpty() || message.formName.isEmpty()) {
             Registry.log.warning(
@@ -154,55 +180,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 formId = message.formId,
                 formName = message.formName,
                 buttonLabel = message.buttonLabel,
-                deepLinkUrl = deepLinkUri
-            )
-        )
-    }
-
-    /**
-     * Handle an [OpenExternalUrl] message by opening the URL in the default browser.
-     *
-     * Unlike [deepLink], the intent is not package-scoped (no `setPackage`), so the OS routes it
-     * to the default browser, bypassing any registered deep link handler — mirroring
-     * [com.klaviyo.forms.webview.KlaviyoWebViewClient.shouldOverrideUrlLoading]. The `NEW_TASK`
-     * intent launches independently of the overlay activity, so no grace period is needed.
-     * Fires [FormLifecycleEvent.FormCtaExternalUrlClicked] after dispatch.
-     *
-     * The URL's scheme is checked against [ALLOWED_OPEN_URL_SCHEMES] before dispatch — the same
-     * allowlist gate applied to push's `open_url`/`web_url` fields (see
-     * [com.klaviyo.pushFcm.KlaviyoRemoteMessage], PUSH-834) — to avoid routing dangerous or
-     * unintended URIs (e.g. `intent:`, `javascript:`, `file:`) through the SDK. `smsto:` is
-     * included for both platforms since Android has a handler for it (iOS omits it only because
-     * iOS Messages has no `smsto:` handler). The intent itself is built by
-     * [DeepLinking.makeExternalIntent], shared with the push `open_url` path.
-     */
-    private fun openExternalUrl(message: OpenExternalUrl) {
-        val externalUri = message.url.toUri()
-
-        if (externalUri.scheme?.lowercase() !in ALLOWED_OPEN_URL_SCHEMES) {
-            Registry.log.warning(
-                "openExternalUrl url '$externalUri' has a scheme not in the allowed list; ignoring."
-            )
-            return
-        }
-
-        DeepLinking.makeExternalIntent(externalUri).startActivityIfResolved(
-            Registry.config.applicationContext
-        )
-
-        if (message.formId.isEmpty() || message.formName.isEmpty()) {
-            Registry.log.warning(
-                "OpenExternalUrl missing required fields, skipping lifecycle callback"
-            )
-            return
-        }
-
-        invokeFormLifecycleHandler(
-            FormLifecycleEvent.FormCtaExternalUrlClicked(
-                formId = message.formId,
-                formName = message.formName,
-                buttonLabel = message.buttonLabel,
-                externalUrl = externalUri
+                deepLinkUrl = uri
             )
         )
     }
