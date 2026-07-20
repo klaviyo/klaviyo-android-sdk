@@ -12,18 +12,3 @@ interface PushTokenFetcher {
      */
     fun fetchAndSetPushToken()
 }
-
-/**
- * Whether the SDK's automatic push-token forwarding is enabled, via
- * [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING]. Manifest opt-OUT: absent → `true`.
- *
- * Single source of truth for the flag key and its default, shared by
- * `Klaviyo.maybeAutoRegisterPushToken` (analytics) and `KlaviyoPushService.onNewToken` (push-fcm)
- * so the two automatic-collection paths can't drift. Lives in core because push-fcm and analytics
- * are separate modules and both must reach it.
- *
- * Independent of automatic open tracking. Note `SdkFeatures` telemetry reads the same manifest key
- * with its own default of `false` (only when the host explicitly declares it) and is unaffected.
- */
-fun isAutomaticPushTokenForwardingEnabled(): Boolean =
-    Registry.config.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, true)

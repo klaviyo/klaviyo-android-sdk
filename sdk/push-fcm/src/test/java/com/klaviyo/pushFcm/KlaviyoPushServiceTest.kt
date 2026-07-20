@@ -3,6 +3,7 @@ package com.klaviyo.pushFcm
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Constants
+import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.KEY_VALUE_PAIRS_KEY
@@ -46,12 +47,19 @@ class KlaviyoPushServiceTest : BaseTest() {
         mockkConstructor(KlaviyoNotification::class)
 
         every { anyConstructed<KlaviyoNotification>().displayNotification(any()) } returns true
+
+        // onNewToken reads the forwarding flag from the service Context (not Registry.config), so
+        // stub the Context.getManifestBoolean extension. Default: return the passed default (on).
+        every { pushService.applicationContext } returns mockContext
+        mockkStatic("com.klaviyo.core.config.KlaviyoConfigKt")
+        every { mockContext.getManifestBoolean(any(), any()) } answers { thirdArg() }
     }
 
     @After
     override fun cleanup() {
         super.cleanup()
         unmockkStatic(Klaviyo::class)
+        unmockkStatic("com.klaviyo.core.config.KlaviyoConfigKt")
     }
 
     @Test
@@ -64,7 +72,10 @@ class KlaviyoPushServiceTest : BaseTest() {
     @Test
     fun `FCM onNewToken does not forward the token when automatic token forwarding is off`() {
         every {
-            mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, true)
+            mockContext.getManifestBoolean(
+                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
+                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT
+            )
         } returns false
 
         pushService.onNewToken(stubPushToken)

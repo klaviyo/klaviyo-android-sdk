@@ -24,7 +24,6 @@ import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
-import com.klaviyo.core.isAutomaticPushTokenForwardingEnabled
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.takeIf
@@ -119,19 +118,25 @@ object Klaviyo {
     }
 
     /**
-     * Automatic push token registration (via [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING], default on):
-     * pull the current token and forward it to Klaviyo. Called from [initialize] and on each app
-     * foreground so rotations are picked up. No-op when the flag is explicitly off or when `push-fcm`
-     * is absent.
+     * Automatic push token registration (via [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING],
+     * default [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT]): pull the current token and forward
+     * it to Klaviyo. Called from [initialize] and on each app foreground so rotations are picked up.
+     * No-op when the flag is explicitly off or when `push-fcm` is absent.
      *
-     * Reads the flag via [isAutomaticPushTokenForwardingEnabled], the shared gate that also governs
-     * `KlaviyoPushService.onNewToken`, so the two automatic-collection paths stay in lockstep.
+     * Reads the flag and default that also govern `KlaviyoPushService.onNewToken` (which reads them
+     * from its own Context, safe before init), so the two automatic-collection paths can't drift.
      *
      * Independent of [Constants.AUTOMATIC_PUSH_OPEN_TRACKING] (which gates only automatic open tracking) —
      * this flag alone controls token forwarding.
      */
     internal fun maybeAutoRegisterPushToken() {
-        if (!isAutomaticPushTokenForwardingEnabled()) {
+        // Reading via Registry.config is safe here: this only runs from initialize() and on foreground,
+        // both post-initialization (unlike KlaviyoPushService.onNewToken, which uses its Context).
+        val forwardingEnabled = Registry.config.getManifestBoolean(
+            Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
+            Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT
+        )
+        if (!forwardingEnabled) {
             Registry.log.verbose(
                 "Skipping automatic push token registration (automaticTokenForwarding=false)"
             )

@@ -596,9 +596,12 @@ internal class KlaviyoTest : BaseTest() {
         mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_OPEN_TRACKING, false)
     } returns enabled
 
-    // Token forwarding now defaults ON, so production reads the flag with a default of `true`.
+    // Token forwarding now defaults ON; production reads via Registry.config with the shared default.
     private fun setAutomaticPushTokenForwardingEnabled(enabled: Boolean) = every {
-        mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, true)
+        mockConfig.getManifestBoolean(
+            Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
+            Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT
+        )
     } returns enabled
 
     private fun reinitialize() =
