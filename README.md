@@ -395,6 +395,9 @@ Identify the profile before subscribing (see [Profile Identification](#profile-i
 email address keys the email channel, and the phone number keys the SMS and WhatsApp channels. If a
 requested channel is missing its identifier, the request is dropped and a warning is logged.
 
+Subscriptions to push notifications are not created through this API — use the existing
+[`Klaviyo.setPushToken`](#collecting-push-tokens) registration path instead.
+
 Request consent for specific channels and sub-types. Email supports `MARKETING` and `OPEN_TRACKING`;
 SMS and WhatsApp support `MARKETING` and `TRANSACTIONAL`:
 
