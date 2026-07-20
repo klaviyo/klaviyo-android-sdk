@@ -390,6 +390,7 @@ Additional event properties can be specified as part of the `Event` object:
 The SDK can subscribe the currently identified profile to a Klaviyo list and record marketing or
 transactional consent via the
 [Create Client Subscription API](https://developers.klaviyo.com/en/reference/create_client_subscription).
+WhatsApp BSUID support is coming soon.
 
 Identify the profile before subscribing (see [Profile Identification](#profile-identification)): the
 email address keys the email channel, and the phone number keys the SMS and WhatsApp channels. If a
