@@ -4,6 +4,7 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.Subscription
 import io.mockk.verify
 import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -194,6 +195,22 @@ internal class SubscriptionApiRequestTest : BaseApiRequestTest<SubscriptionApiRe
         )
 
         assertDropped(request)
+    }
+
+    @Test
+    fun `Channels defensively copies consent sets`() {
+        val mutableEmail = mutableSetOf(Subscription.Channels.Email.MARKETING)
+        val channels = Subscription.Channels(email = mutableEmail)
+
+        // Mutating the caller's set after construction must not affect the model...
+        mutableEmail.add(Subscription.Channels.Email.OPEN_TRACKING)
+        assertEquals(setOf(Subscription.Channels.Email.MARKETING), channels.email)
+
+        // ...nor the serialized request payload
+        val request = SubscriptionApiRequest(Subscription(listId, channels), stubProfile)
+        val emailConsent = subscriptionsOf(request).getJSONObject("email")
+        assert(emailConsent.has("marketing"))
+        assert(!emailConsent.has("open_tracking"))
     }
 
     @Test

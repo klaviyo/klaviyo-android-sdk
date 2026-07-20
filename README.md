@@ -394,6 +394,7 @@ transactional consent via the
 Identify the profile before subscribing (see [Profile Identification](#profile-identification)): the
 email address keys the email channel, and the phone number keys the SMS and WhatsApp channels. If a
 requested channel is missing its identifier, the request is dropped and a warning is logged.
+WhatsApp BSUID support is coming soon.
 
 Request consent for specific channels and sub-types. Email supports `MARKETING` and `OPEN_TRACKING`;
 SMS and WhatsApp support `MARKETING` and `TRANSACTIONAL`:
