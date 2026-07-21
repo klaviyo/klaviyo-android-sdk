@@ -51,7 +51,7 @@ automatic open tracking simply omit `automatic_push_open_tracking`.
 Note that `automatic_push_token_forwarding` gates **both** of the SDK's automatic token paths — the
 `initialize()`/foreground fetch and `KlaviyoPushService.onNewToken()`. Setting it to `false` is a single, complete
 opt-out (no custom `FirebaseMessagingService` needed); explicit `Klaviyo.setPushToken()` calls always work,
-which is how you integrate alongside Braze/Airship/Iterable.
+which is how you integrate alongside other push providers.
 
 See the main [README](../README.md) "Push Notifications" section for the full Option A / Option B write-up.
 
