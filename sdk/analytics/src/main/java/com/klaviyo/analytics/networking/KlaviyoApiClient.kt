@@ -41,13 +41,9 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Maximum number of requests that can sit in the API queue at one time.
      *
-     * Matches the iOS SDK cap (200) for behavioural parity across platforms.
-     * When the queue reaches this limit, the oldest request (smallest [KlaviyoApiRequest.queuedTime])
-     * is evicted to make room for the incoming one. Evicting by enqueue timestamp — rather than
-     * the front of the deque — protects freshly-enqueued head-of-line requests, which are inserted
-     * at the front but are the newest. This prevents the queue from growing unbounded during
-     * request storms — for example, a push-token registration loop that floods the queue and
-     * blocks legitimate new requests from ever reaching the network.
+     * When the queue reaches this limit, the oldest request is evicted to make room.
+     * We evict by enqueued time, not simply queue position, to honor actual age.
+     * This prevents the queue from growing unbounded during request storms.
      */
     internal const val MAX_QUEUE_SIZE: Int = 200
 
