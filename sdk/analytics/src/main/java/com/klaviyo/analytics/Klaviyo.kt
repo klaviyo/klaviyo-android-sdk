@@ -320,14 +320,15 @@ object Klaviyo {
      *
      * The request is validated against the current profile's identifiers: if a requested channel
      * needs an identifier the profile is missing, or no consent sub-types are selected, the request
-     * is dropped and a warning is logged. Requests made before [initialize] are persisted and sent
-     * once the SDK is initialized, using the latest available identifiers.
+     * is dropped and a warning is logged. As with other profile methods, [initialize] must be called
+     * first; once enqueued, delivery is handled by the persisted request queue (including retries
+     * and offline replay).
      *
      * @param subscription The list and consent to request
      * @return Returns [Klaviyo] for call chaining
      */
     @JvmStatic
-    fun createSubscription(subscription: Subscription): Klaviyo = safeApply(preInitQueue) {
+    fun createSubscription(subscription: Subscription): Klaviyo = safeApply {
         Registry.get<ApiClient>().enqueueSubscription(
             subscription,
             Registry.get<State>().getAsProfile()

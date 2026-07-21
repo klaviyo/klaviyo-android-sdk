@@ -245,22 +245,20 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `createSubscription before initialization is buffered and replayed after init`() {
+    fun `createSubscription before initialization is safely ignored`() {
         // Simulate pre-initialization by removing the services initialize() registers
         Registry.unregister<State>()
         Registry.unregister<ApiClient>()
 
         val subscription = Subscription.allAvailableMarketing(listId = "listId")
+        // Must not crash the host even though the SDK is not initialized
         Klaviyo.createSubscription(subscription)
 
-        // Not enqueued yet: the SDK was not initialized when the call was made
-        verify(exactly = 0) { mockApiClient.enqueueSubscription(any(), any()) }
-
-        // Initializing drains the pre-init queue, replaying the buffered subscription
+        // Re-initialize: the pre-init call is dropped, not buffered/replayed (matches setProfile/setEmail)
         Registry.register<ApiClient>(mockApiClient)
         Klaviyo.initialize(apiKey = API_KEY, applicationContext = mockContext)
 
-        verify { mockApiClient.enqueueSubscription(subscription, any()) }
+        verify(exactly = 0) { mockApiClient.enqueueSubscription(any(), any()) }
     }
 
     @Test
