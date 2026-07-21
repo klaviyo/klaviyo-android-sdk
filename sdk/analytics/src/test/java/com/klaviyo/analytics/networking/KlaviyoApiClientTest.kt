@@ -69,7 +69,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private val flushIntervalWifi = 10_000L
     private val flushIntervalCell = 20_000L
     private val flushIntervalOffline = 30_000L
-    private val queueDepth = 10
     private var postedJob: KlaviyoApiClient.NetworkRunnable? = null
     private val mockQueueScheduler = mockk<QueueScheduler>(relaxed = true)
 
@@ -97,7 +96,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
             flushIntervalCell,
             flushIntervalOffline
         )
-        every { mockConfig.networkFlushDepth } returns queueDepth
         every { mockNetworkMonitor.isNetworkConnected() } returns false
         every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
         every { mockLifecycleMonitor.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
@@ -446,18 +444,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Flushes queue when configured size is reached`() {
-        repeat(queueDepth) {
-            KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
-            assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
-        }
-
-        postedJob!!.run()
-
-        assertEquals(0, KlaviyoApiClient.getQueueSize())
-    }
-
-    @Test
     fun `Flushes queue when configured time has elapsed`() {
         val requestMock = mockRequest()
 
@@ -471,20 +457,19 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Does not flush queue if no criteria is met`() {
-        repeat(queueDepth - 1) {
-            KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
-            assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
-        }
+    fun `Does not flush queue if flush interval has not elapsed`() {
+        KlaviyoApiClient.enqueueRequest(mockRequest("uuid-0"))
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
 
+        // Time has not advanced, so flush interval has not elapsed
         postedJob!!.run()
 
-        assertEquals(queueDepth - 1, KlaviyoApiClient.getQueueSize())
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
     }
 
     @Test
-    fun `Flushes queue if forced when no criteria is met`() {
-        repeat(queueDepth - 1) {
+    fun `Flushes queue if forced when flush interval has not elapsed`() {
+        repeat(5) {
             KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
             assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
         }
@@ -492,6 +477,75 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.flushQueue()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Queue cap evicts request with oldest queuedTime on overflow and emits warning log`() {
+        // Fill the queue to capacity, advancing the clock so each request captures a
+        // progressively later queuedTime — uuid-0 therefore holds the oldest queuedTime.
+        repeat(KlaviyoApiClient.MAX_QUEUE_SIZE) {
+            val request = mockRequest("uuid-$it") // queuedTime is captured from staticClock here
+            KlaviyoApiClient.enqueueRequest(request)
+            staticClock.time += 1
+        }
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // uuid-0 has the oldest queuedTime
+        val oldestUuid = "uuid-0"
+        assertNotNull(spyDataStore.fetch(oldestUuid))
+
+        // Enqueue one more request — should evict the request with the oldest queuedTime
+        val newestRequest = mockRequest("uuid-newest")
+        KlaviyoApiClient.enqueueRequest(newestRequest)
+
+        // Queue size stays at the cap
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // The oldest request by queuedTime was evicted from the datastore
+        assertNull(spyDataStore.fetch(oldestUuid))
+
+        // Newest request is present in the datastore
+        assertNotNull(spyDataStore.fetch("uuid-newest"))
+
+        // A warning log was emitted for the eviction
+        verify(atLeast = 1) { spyLog.warning(any(), null) }
+    }
+
+    @Test
+    fun `Queue cap protects freshly-enqueued head-of-line request and evicts oldest by queuedTime`() {
+        // Fill the queue with regular requests just under capacity, advancing the clock so
+        // uuid-0 holds the oldest queuedTime and sits at the front (head) of the deque.
+        repeat(KlaviyoApiClient.MAX_QUEUE_SIZE - 1) {
+            val request = mockRequest("uuid-$it") // queuedTime is captured from staticClock here
+            KlaviyoApiClient.enqueueRequest(request)
+            staticClock.time += 1
+        }
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE - 1, KlaviyoApiClient.getQueueSize())
+
+        // A head-of-line request is enqueued last, so it has the NEWEST queuedTime, and it is
+        // inserted at the FRONT of the deque via offerFirst. This is the exact shape that used to
+        // break: blindly evicting the front would remove this freshly-enqueued priority request.
+        val headOfLineRequest = mockRequest("hol-newest")
+        KlaviyoApiClient.enqueueRequest(headOfLineRequest, headOfLine = true)
+        staticClock.time += 1
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // Enqueuing one more request overflows the cap and triggers eviction.
+        val incomingRequest = mockRequest("uuid-incoming")
+        KlaviyoApiClient.enqueueRequest(incomingRequest)
+
+        // The oldest request by queuedTime (uuid-0) is evicted — NOT the front of the deque.
+        assertNull(spyDataStore.fetch("uuid-0"))
+
+        // The freshly-enqueued head-of-line request is protected because it is the newest.
+        assertNotNull(spyDataStore.fetch("hol-newest"))
+
+        // The incoming request was accepted and the queue stays bounded at the cap.
+        assertNotNull(spyDataStore.fetch("uuid-incoming"))
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // A warning log was emitted for the eviction
+        verify(atLeast = 1) { spyLog.warning(any(), null) }
     }
 
     @Test

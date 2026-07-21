@@ -21,7 +21,6 @@ interface Config {
     val networkTimeout: Int
     val uxNetworkTimeout: Int
     val networkFlushIntervals: LongArray
-    val networkFlushDepth: Int
     val networkMaxAttempts: Int
     val networkMaxRetryInterval: Long
     val networkJitterRange: IntRange
@@ -40,9 +39,18 @@ interface Config {
         fun networkTimeout(networkTimeout: Int): Builder
         fun uxNetworkTimeout(uxNetworkTimeout: Int): Builder
         fun networkFlushInterval(networkFlushInterval: Long, type: NetworkMonitor.NetworkType): Builder
-        fun networkFlushDepth(networkFlushDepth: Int): Builder
         fun networkMaxAttempts(networkMaxAttempts: Int): Builder
         fun networkMaxRetryInterval(networkMaxRetryInterval: Long): Builder
+
+        @Deprecated(
+            message = "Depth-triggered flushing has been removed. The queue now flushes on the " +
+                "timer interval (see networkFlushInterval) or when explicitly forced, and is " +
+                "internally bounded by a size cap. This setter has no effect and will be " +
+                "removed in a future major release.",
+            level = DeprecationLevel.WARNING
+        )
+        fun networkFlushDepth(networkFlushDepth: Int): Builder
+
         fun build(): Config
     }
 }
