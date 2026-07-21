@@ -58,36 +58,23 @@ internal sealed class NativeBridgeMessage {
     ) : NativeBridgeMessage()
 
     /**
-     * Sent from the onsite-in-app-forms when a deep link is opened
+     * Sent from the onsite-in-app-forms when a form CTA navigates to a URL. Carries both in-app
+     * deep links and external web/system URLs; [openExternally] distinguishes them (onsite
+     * openDeepLink v3).
      *
-     * @param route The deep link route to be opened (usually a URL), or null if no Android route is configured
-     * @param formId The form ID of the form that triggered the deep link
-     * @param formName The name of the form that triggered the deep link
+     * @param route The URL to open (from the platform `android` field), or null if none is configured
+     * @param formId The form ID of the form that triggered the CTA
+     * @param formName The name of the form that triggered the CTA
      * @param buttonLabel The text label of the CTA button that was clicked
+     * @param openExternally When true, open the URL in the default browser (bypassing any registered
+     * deep link handler), gated by the scheme allowlist. When false, route it as an in-app deep link.
      */
     data class OpenDeepLink(
         val route: String?,
         val formId: FormId,
         val formName: String,
-        val buttonLabel: String
-    ) : NativeBridgeMessage()
-
-    /**
-     * Sent from the onsite-in-app-forms when a CTA opens an external URL in the default browser.
-     *
-     * Unlike [OpenDeepLink], this routes to the default browser (no host-app package scoping)
-     * rather than through any registered deep link handler.
-     *
-     * @param url The web URL to open in the default browser
-     * @param formId The form ID of the form that triggered the action
-     * @param formName The name of the form that triggered the action
-     * @param buttonLabel The text label of the CTA button that was clicked
-     */
-    data class OpenExternalUrl(
-        val url: String,
-        val formId: FormId,
-        val formName: String,
-        val buttonLabel: String
+        val buttonLabel: String,
+        val openExternally: Boolean
     ) : NativeBridgeMessage()
 
     /**
@@ -127,9 +114,9 @@ internal sealed class NativeBridgeMessage {
                 HandshakeSpec(keyName<FormWillAppear>(), 2),
                 HandshakeSpec(keyName<TrackAggregateEvent>(), 1),
                 HandshakeSpec(keyName<TrackProfileEvent>(), 1),
-                // Version 2 issues deep link after closing the form (v1 was before close, causing a timing issue)
-                HandshakeSpec(keyName<OpenDeepLink>(), 2),
-                HandshakeSpec(keyName<OpenExternalUrl>(), 1),
+                // v2 issues deep link after closing the form (v1 was before close, causing a timing issue).
+                // v3 carries both deep links and external URLs in one message, keyed by `openExternally`.
+                HandshakeSpec(keyName<OpenDeepLink>(), 3),
                 HandshakeSpec(keyName<FormDisappeared>(), 1),
                 HandshakeSpec(keyName<Abort>(), 1)
             )
@@ -170,16 +157,8 @@ internal sealed class NativeBridgeMessage {
                     route = jsonData.getDeepLink(),
                     formId = jsonData.optString("formId"),
                     formName = jsonData.optString("formName"),
-                    buttonLabel = jsonData.optString("buttonLabel")
-                )
-
-                keyName<OpenExternalUrl>() -> OpenExternalUrl(
-                    url = jsonData.optString("url").ifEmpty {
-                        throw IllegalStateException("openExternalUrl message missing url")
-                    },
-                    formId = jsonData.optString("formId"),
-                    formName = jsonData.optString("formName"),
-                    buttonLabel = jsonData.optString("buttonLabel")
+                    buttonLabel = jsonData.optString("buttonLabel"),
+                    openExternally = jsonData.optBoolean("openExternally", false)
                 )
 
                 keyName<FormDisappeared>() -> FormDisappeared(

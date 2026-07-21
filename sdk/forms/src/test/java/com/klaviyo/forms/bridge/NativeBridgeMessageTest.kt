@@ -277,6 +277,8 @@ class NativeBridgeMessageTest : BaseTest() {
         assertEquals("abc123", result.formId)
         assertEquals("Test Form", result.formName)
         assertEquals("Click Me", result.buttonLabel)
+        // A deep link omits `openExternally`; it must default to false.
+        assertEquals(false, result.openExternally)
     }
 
     @Test
@@ -363,61 +365,69 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `test openExternalUrl decoding`() {
+    fun `external url decodes as openDeepLink with openExternally true`() {
+        // External web URLs now ride the openDeepLink message with openExternally: true,
+        // carrying the URL in the platform-split ios/android fields.
         val message = """
             {
-              "type": "openExternalUrl",
+              "type": "openDeepLink",
               "data": {
-                "url": "https://example.com",
+                "ios": "https://example.com",
+                "android": "https://example.com",
                 "formId": "abc123",
                 "formName": "Test Form",
-                "buttonLabel": "Visit Site"
+                "buttonLabel": "Visit Site",
+                "openExternally": true
               }
             }
         """.trimIndent()
 
-        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenExternalUrl
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenDeepLink
 
-        assertEquals("https://example.com", result.url)
+        assertEquals("https://example.com", result.route)
         assertEquals("abc123", result.formId)
         assertEquals("Test Form", result.formName)
         assertEquals("Visit Site", result.buttonLabel)
+        assertEquals(true, result.openExternally)
     }
 
     @Test
-    fun `openExternalUrl without metadata fields parses with empty defaults`() {
+    fun `external url without metadata fields parses with empty defaults`() {
         val message = """
             {
-              "type": "openExternalUrl",
+              "type": "openDeepLink",
               "data": {
-                "url": "https://example.com"
+                "android": "https://example.com",
+                "openExternally": true
               }
             }
         """.trimIndent()
 
-        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenExternalUrl
-        assertEquals("https://example.com", result.url)
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenDeepLink
+        assertEquals("https://example.com", result.route)
         assertEquals("", result.formId)
         assertEquals("", result.formName)
         assertEquals("", result.buttonLabel)
+        assertEquals(true, result.openExternally)
     }
 
     @Test
-    fun `openExternalUrl with missing url throws`() {
+    fun `external openDeepLink with missing route parses with null route`() {
         val message = """
             {
-              "type": "openExternalUrl",
+              "type": "openDeepLink",
               "data": {
                 "formId": "abc123",
                 "formName": "Test Form",
-                "buttonLabel": "Visit Site"
+                "buttonLabel": "Visit Site",
+                "openExternally": true
               }
             }
         """.trimIndent()
 
-        assertThrows(IllegalStateException::class.java) {
-            NativeBridgeMessage.decodeWebviewMessage(message)
-        }
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenDeepLink
+        assertNull(result.route)
+        assertEquals(true, result.openExternally)
     }
 
     @Test
@@ -485,11 +495,7 @@ class NativeBridgeMessageTest : BaseTest() {
                   },
                   {
                     "type": "openDeepLink",
-                    "version": 2
-                  },
-                  {
-                    "type": "openExternalUrl",
-                    "version": 1
+                    "version": 3
                   },
                   {
                     "type": "formDisappeared",

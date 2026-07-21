@@ -303,7 +303,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     @Test
     fun `openDeepLink broadcasts intent to start activity`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.openCtaUrl
          */
         mockkObject(DeepLinking)
         every { DeepLinking.handleDeepLink(any<Uri>()) } returns Unit
@@ -314,7 +314,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     @Test
     fun `openDeepLink with empty android route skips lifecycle callback and does not navigate`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.deepLink
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.openCtaUrl
          */
         val emptyAndroidMessage = """
             {
@@ -407,12 +407,14 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
     private val openExternalUrlMessage = """
         {
-          "type": "openExternalUrl",
+          "type": "openDeepLink",
           "data": {
-            "url": "https://example.com",
+            "ios": "https://example.com",
+            "android": "https://example.com",
             "formId": "64CjgW",
             "formName": "Test Form",
-            "buttonLabel": "Visit Site"
+            "buttonLabel": "Visit Site",
+            "openExternally": true
           }
         }
     """.trimIndent()
@@ -420,7 +422,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     @Test
     fun `openExternalUrl launches browser intent without package and fires lifecycle callback`() {
         /**
-         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.openExternalUrl
+         * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.openCtaUrl
          */
         every { mockContext.startActivity(any()) } just runs
         every { mockUri.scheme } returns "https"
@@ -442,18 +444,18 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         assertEquals(listOf(Intent.CATEGORY_BROWSABLE), mockIntent.categories)
 
         assertEquals(1, events.size)
-        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaExternalUrlClicked
+        val ctaEvent = events[0] as FormLifecycleEvent.FormCtaClicked
         assertEquals("64CjgW", ctaEvent.formId)
         assertEquals("Test Form", ctaEvent.formName)
         assertEquals("Visit Site", ctaEvent.buttonLabel)
-        assertEquals(mockUri, ctaEvent.externalUrl)
+        assertEquals(mockUri, ctaEvent.deepLinkUrl)
 
         Registry.unregister<FormLifecycleHandler>()
     }
 
     @Test
     fun `openExternalUrl with missing formId still navigates but skips lifecycle callback`() {
-        val message = """{"type":"openExternalUrl","data":{"url":"https://example.com","formName":"Test Form","buttonLabel":"Visit"}}"""
+        val message = """{"type":"openDeepLink","data":{"android":"https://example.com","formName":"Test Form","buttonLabel":"Visit","openExternally":true}}"""
 
         every { mockContext.startActivity(any()) } just runs
         every { mockUri.scheme } returns "https"
@@ -511,7 +513,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
             )
             assertEquals(
                 scheme,
-                (events[0] as FormLifecycleEvent.FormCtaExternalUrlClicked).externalUrl.scheme
+                (events[0] as FormLifecycleEvent.FormCtaClicked).deepLinkUrl.scheme
             )
 
             Registry.unregister<FormLifecycleHandler>()
