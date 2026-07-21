@@ -22,6 +22,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
 - [Initialization](#initialization)
 - [Profile Identification](#profile-identification)
 - [Event Tracking](#event-tracking)
+- [Subscriptions](#subscriptions)
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
@@ -383,6 +384,83 @@ Additional event properties can be specified as part of the `Event` object:
    Klaviyo.createEvent(event);
    ```
 </details>
+
+## Subscriptions
+
+The SDK can subscribe the currently identified profile to a Klaviyo list and record marketing or
+transactional consent via the
+[Create Client Subscription API](https://developers.klaviyo.com/en/reference/create_client_subscription).
+WhatsApp BSUID support is coming soon.
+
+Identify the profile before subscribing (see [Profile Identification](#profile-identification)): the
+email address keys the email channel, and the phone number keys the SMS and WhatsApp channels. If a
+requested channel is missing its identifier, the request is dropped and a warning is logged.
+
+Subscriptions to push notifications are not created through this API — use the existing
+[`Klaviyo.setPushToken`](#collecting-push-tokens) registration path instead.
+
+Request consent for specific channels and sub-types. Email supports `MARKETING` and `OPEN_TRACKING`;
+SMS and WhatsApp support `MARKETING` and `TRANSACTIONAL`:
+
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+   import com.klaviyo.analytics.model.Subscription
+
+   Klaviyo.setEmail("kermit@example.com").setPhoneNumber("+15005550006")
+
+   val subscription = Subscription(
+       listId = "YOUR_LIST_ID",
+       channels = Subscription.Channels(
+           email = setOf(Subscription.Channels.Email.MARKETING),
+           sms = setOf(Subscription.Channels.Messaging.MARKETING)
+       )
+   )
+   Klaviyo.createSubscription(subscription)
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.klaviyo.analytics.Klaviyo;
+   import com.klaviyo.analytics.model.Subscription;
+   import java.util.EnumSet;
+
+   Klaviyo.setEmail("kermit@example.com").setPhoneNumber("+15005550006");
+
+   Subscription.Channels channels = new Subscription.Channels(
+       EnumSet.of(Subscription.Channels.Email.MARKETING),
+       EnumSet.of(Subscription.Channels.Messaging.MARKETING),
+       null
+   );
+   Klaviyo.createSubscription(new Subscription("YOUR_LIST_ID", channels));
+   ```
+</details>
+
+Alternatively, grant marketing consent on every channel the profile has an identifier for and let
+Klaviyo apply its default channels:
+
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   Klaviyo.createSubscription(Subscription.allAvailableMarketing(listId = "YOUR_LIST_ID"))
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   Klaviyo.createSubscription(Subscription.allAvailableMarketing("YOUR_LIST_ID"));
+   ```
+</details>
+
+Both entry points accept an optional `customSource` label describing where the signup originated.
 
 ## Push Notifications
 

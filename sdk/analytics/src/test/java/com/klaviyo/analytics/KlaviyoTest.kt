@@ -12,6 +12,7 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.KlaviyoState
@@ -134,6 +135,7 @@ internal class KlaviyoTest : BaseTest() {
         every { enqueueProfile(capture(capturedProfile)) } returns mockk(relaxed = true)
         every { enqueueEvent(any(), any()) } returns mockk(relaxed = true)
         every { enqueuePushToken(any(), any()) } returns mockk(relaxed = true)
+        every { enqueueSubscription(any(), capture(capturedProfile)) } returns mockk(relaxed = true)
     }
 
     private val mockBuilder = mockk<Config.Builder>().apply {
@@ -229,6 +231,34 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.createEvent(testEvent)
         verify { mockApiClient.enqueueEvent(testEvent, any()) }
         assertEquals(count, 1)
+    }
+
+    @Test
+    fun `createSubscription enqueues a subscription for the current profile`() {
+        Klaviyo.setEmail(EMAIL)
+        val subscription = Subscription.allAvailableMarketing(listId = "listId")
+
+        Klaviyo.createSubscription(subscription)
+
+        verify { mockApiClient.enqueueSubscription(subscription, any()) }
+        assertEquals(EMAIL, capturedProfile.captured.email)
+    }
+
+    @Test
+    fun `createSubscription before initialization is safely ignored`() {
+        // Simulate pre-initialization by removing the services initialize() registers
+        Registry.unregister<State>()
+        Registry.unregister<ApiClient>()
+
+        val subscription = Subscription.allAvailableMarketing(listId = "listId")
+        // Must not crash the host even though the SDK is not initialized
+        Klaviyo.createSubscription(subscription)
+
+        // Re-initialize: the pre-init call is dropped, not buffered/replayed (matches setProfile/setEmail)
+        Registry.register<ApiClient>(mockApiClient)
+        Klaviyo.initialize(apiKey = API_KEY, applicationContext = mockContext)
+
+        verify(exactly = 0) { mockApiClient.enqueueSubscription(any(), any()) }
     }
 
     @Test

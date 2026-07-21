@@ -30,6 +30,7 @@ internal object KlaviyoApiRequestDecoder {
                 time,
                 uuid
             )
+            SubscriptionApiRequest::class.simpleName -> SubscriptionApiRequest(time, uuid)
             AggregateEventApiRequest::class.simpleName -> AggregateEventApiRequest(time, uuid)
             UniversalClickTrackRequest::class.simpleName -> UniversalClickTrackRequest(time, uuid)
             FetchGeofencesRequest::class.simpleName -> FetchGeofencesRequest(null, null, time, uuid)

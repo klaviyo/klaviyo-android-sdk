@@ -13,6 +13,7 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.analytics.state.KlaviyoState
@@ -312,6 +313,27 @@ object Klaviyo {
     @JvmOverloads
     fun createEvent(metric: EventMetric, value: Double? = null): Klaviyo =
         createEvent(Event(metric).setValue(value))
+
+    /**
+     * Subscribes the currently tracked profile to a Klaviyo list, requesting the consent described
+     * by the [Subscription].
+     *
+     * The request is validated against the current profile's identifiers: if a requested channel
+     * needs an identifier the profile is missing, or no consent sub-types are selected, the request
+     * is dropped and a warning is logged. As with other profile methods, [initialize] must be called
+     * first; once enqueued, delivery is handled by the persisted request queue (including retries
+     * and offline replay).
+     *
+     * @param subscription The list and consent to request
+     * @return Returns [Klaviyo] for call chaining
+     */
+    @JvmStatic
+    fun createSubscription(subscription: Subscription): Klaviyo = safeApply {
+        Registry.get<ApiClient>().enqueueSubscription(
+            subscription,
+            Registry.get<State>().getAsProfile()
+        )
+    }
 
     /**
      * From an opened push Intent, creates an [EventMetric.OPENED_PUSH] [Event]
