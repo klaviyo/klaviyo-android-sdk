@@ -214,8 +214,56 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
     }
 
     @Test
-    fun `Parses Retry-After header if present and adds jitter`() {
+    fun `Uses Retry-After header plus jitter when greater than exponential backoff`() {
+        // Retry-After is 25s; Wifi backoff floor is 10s, so Retry-After wins. Jitter forced to 1s.
         val expectedHeaders = mapOf("Retry-After" to listOf("25"))
+        every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
+        every { mockConfig.networkJitterRange } returns 1..1
+        withConnectionMock(URL(expectedFullUrl)).also {
+            every { it.headerFields } returns expectedHeaders
+        }
+
+        val request = makeTestRequest()
+        request.send()
+        assertEquals(26_000L, request.computeRetryInterval())
+    }
+
+    @Test
+    fun `Uses exponential backoff interval when greater than Retry-After header`() {
+        // Retry-After is 2s and the Wifi backoff floor is 10s; after 4 attempts,
+        // 16s exponential backoff wins.
+        val expectedHeaders = mapOf("Retry-After" to listOf("2"))
+        every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
+        every { mockConfig.networkJitterRange } returns 0..0
+        withConnectionMock(URL(expectedFullUrl)).also {
+            every { it.headerFields } returns expectedHeaders
+        }
+
+        val request = makeTestRequest()
+        repeat(4) {
+            request.send()
+        }
+        assertEquals(16_000L, request.computeRetryInterval())
+    }
+
+    @Test
+    fun `Caps exponential backoff interval at configured maximum`() {
+        every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
+        every { mockConfig.networkJitterRange } returns 0..0
+        withConnectionMock(URL(expectedFullUrl))
+
+        val request = makeTestRequest()
+        repeat(9) {
+            request.send()
+        }
+        assertEquals(mockConfig.networkMaxRetryInterval, request.computeRetryInterval())
+    }
+
+    @Test
+    fun `Reads Retry-After header case-insensitively`() {
+        // An HTTP/2 stack may deliver the header lowercased; the lookup must still find it.
+        val expectedHeaders = mapOf("retry-after" to listOf("25"))
+        every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
         every { mockConfig.networkJitterRange } returns 1..1
         withConnectionMock(URL(expectedFullUrl)).also {
             every { it.headerFields } returns expectedHeaders
