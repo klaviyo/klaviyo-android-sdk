@@ -13,6 +13,13 @@ import com.klaviyo.forms.registerFormLifecycleHandler
 import com.klaviyo.location.registerGeofencing
 
 class SampleApplication : Application() {
+
+    companion object {
+        // OPTIONAL SETUP NOTE: To demo list subscriptions, set a list ID from your account.
+        // Leave null to hide the subscribe toggle entirely.
+        val subscriptionListId: String? = null
+    }
+
     override fun onCreate() {
         super.onCreate()
 
