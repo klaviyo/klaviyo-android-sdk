@@ -2,6 +2,65 @@
 This document provides guidance on how to migrate from one version of the SDK to a newer version.
 It will be updated as new versions are released including deprecations or breaking changes.
 
+# 4.4.0
+
+## New Automatic Push Behaviors (Manifest Flags)
+
+SDK 4.4.0 introduces two new opt-in/opt-out behaviors for push notifications, controlled via
+`AndroidManifest.xml` metadata. No changes to your existing integration are required unless you
+want to use these new capabilities.
+
+### `automatic_push_open_tracking` (opt-in, default **off**)
+
+When enabled, the SDK automatically records push-open events without requiring you to call
+`Klaviyo.handlePush` manually in your notification interaction handler.
+
+To enable, add the following to the `<application>` element of your `AndroidManifest.xml`:
+
+```xml
+<meta-data
+    android:name="com.klaviyo.push.automatic_push_open_tracking"
+    android:value="true" />
+```
+
+This flag defaults to **off** in 4.4.0. It is expected to become the default (opt-out) in a future
+major release.
+
+### `automatic_push_token_forwarding` (default **on**) — ⚠️ Pending merge of #516
+
+> **Note:** This entry documents behavior shipping with
+> [klaviyo-android-sdk#516](https://github.com/klaviyo/klaviyo-android-sdk/pull/516)
+> (MAGE-937), which is still **open/unmerged**. Finalize this section upon merge and confirm
+> the target version number before releasing these docs.
+
+When this flag is enabled (which is the **default**), the SDK automatically registers the device's
+FCM push token with Klaviyo on your behalf — you no longer need to call `Klaviyo.setPushToken`
+manually on app startup.
+
+To opt out of automatic token forwarding and retain manual control, add the following to the
+`<application>` element of your `AndroidManifest.xml`:
+
+```xml
+<meta-data
+    android:name="com.klaviyo.push.automatic_push_token_forwarding"
+    android:value="false" />
+```
+
+### Rollout summary
+
+| Behavior | This release (4.4.0) | Future major release |
+|---|---|---|
+| `automatic_push_token_forwarding` | Default on (opt-out via manifest) ⚠️ pending #516 | Default on |
+| `automatic_push_open_tracking` | Opt-in (default off) | Default on (opt-out) |
+| iOS `klaviyo_automatic_push_token_forwarding` | Opt-in (default off) | Default on (opt-out) |
+| iOS `klaviyo_automatic_push_open_tracking` | Opt-in (default off) | Default on (opt-out) |
+
+> **Anonymous profiles:** When `automatic_push_token_forwarding` is enabled (the Android default),
+> the SDK will register a push token as soon as FCM delivers one — before you call `setProfile`,
+> `setEmail`, or `setPhoneNumber`. This results in an anonymous profile being created in Klaviyo
+> until you provide identifying information. This is expected behavior. See
+> [Anonymous Tracking](#anonymous-tracking) in the README.
+
 # 4.3.0
 
 ## New Modules for Cross-Platform Support
