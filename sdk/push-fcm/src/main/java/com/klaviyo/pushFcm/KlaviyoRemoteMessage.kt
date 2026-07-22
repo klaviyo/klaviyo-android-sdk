@@ -154,7 +154,9 @@ object KlaviyoRemoteMessage {
             return if (urlString.hasAllowedOpenUrlScheme()) {
                 urlString
             } else {
-                Registry.log.warning("web_url '$urlString' has a disallowed scheme; ignoring.")
+                Registry.log.warning(
+                    "web_url has a disallowed scheme ('${urlString.toUri().scheme}'); ignoring."
+                )
                 null
             }
         }
@@ -298,8 +300,8 @@ object KlaviyoRemoteMessage {
                                 }
                                 !urlString.hasAllowedOpenUrlScheme() -> {
                                     Registry.log.warning(
-                                        "Skipping OPEN_URL action button $i: url '$urlString' " +
-                                            "has a disallowed scheme"
+                                        "Skipping OPEN_URL action button $i: scheme " +
+                                            "'${urlString.toUri().scheme}' is not allowed"
                                     )
                                     null
                                 }
