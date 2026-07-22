@@ -156,7 +156,8 @@ internal class KlaviyoNativeBridge : NativeBridge {
         if (message.openExternally) {
             if (uri.scheme?.lowercase() !in ALLOWED_OPEN_URL_SCHEMES) {
                 Registry.log.warning(
-                    "Form CTA external url '$uri' has a scheme not in the allowed list; ignoring."
+                    "Form CTA external url has a scheme not in the allowed list " +
+                        "('${uri.scheme}'); ignoring."
                 )
                 return
             }
