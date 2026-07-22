@@ -26,12 +26,7 @@ To enable, add the following to the `<application>` element of your `AndroidMani
 This flag defaults to **off** in 4.4.0. It is expected to become the default (opt-out) in a future
 major release.
 
-### `automatic_push_token_forwarding` (default **on**) — ⚠️ Pending merge of #516
-
-> **Note:** This entry documents behavior shipping with
-> [klaviyo-android-sdk#516](https://github.com/klaviyo/klaviyo-android-sdk/pull/516)
-> (MAGE-937), which is still **open/unmerged**. Finalize this section upon merge and confirm
-> the target version number before releasing these docs.
+### `automatic_push_token_forwarding` (default **on**)
 
 When this flag is enabled (which is the **default**), the SDK automatically registers the device's
 FCM push token with Klaviyo on your behalf — you no longer need to call `Klaviyo.setPushToken`
@@ -50,7 +45,7 @@ To opt out of automatic token forwarding and retain manual control, add the foll
 
 | Behavior | This release (4.4.0) | Future major release |
 |---|---|---|
-| `automatic_push_token_forwarding` | Default on (opt-out via manifest) ⚠️ pending #516 | Default on |
+| `automatic_push_token_forwarding` | Default on (opt-out via manifest) | Default on |
 | `automatic_push_open_tracking` | Opt-in (default off) | Default on (opt-out) |
 | iOS `klaviyo_automatic_push_token_forwarding` | Opt-in (default off) | Default on (opt-out) |
 | iOS `klaviyo_automatic_push_open_tracking` | Opt-in (default off) | Default on (opt-out) |
