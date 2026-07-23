@@ -419,7 +419,7 @@ class StateSideEffectsTest : BaseTest() {
 
     @Test
     fun `Resumed lifecycle event re-fetches push token when automatic forwarding is enabled`() {
-        every { mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, false) } returns true
+        // Default ON: no explicit stub needed — BaseTest returns the manifest default (true)
         val mockFetcher = registerMockPushTokenFetcher()
 
         fireResumedEvent()
@@ -429,7 +429,12 @@ class StateSideEffectsTest : BaseTest() {
 
     @Test
     fun `Resumed lifecycle event does not re-fetch push token when automatic forwarding is disabled`() {
-        // Automatic token forwarding flag defaults to false via BaseTest's getManifestBoolean stub
+        every {
+            mockConfig.getManifestBoolean(
+                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
+                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT
+            )
+        } returns false
         val mockFetcher = registerMockPushTokenFetcher()
 
         fireResumedEvent()
