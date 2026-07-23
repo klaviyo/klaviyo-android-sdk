@@ -2,11 +2,11 @@
 This document provides guidance on how to migrate from one version of the SDK to a newer version.
 It will be updated as new versions are released including deprecations or breaking changes.
 
-# 4.4.0
+# 4.5.0
 
 ## New Automatic Push Behaviors (Manifest Flags)
 
-SDK 4.4.0 introduces two new opt-in/opt-out behaviors for push notifications, controlled via
+SDK 4.5.0 introduces two new opt-in/opt-out behaviors for push notifications, controlled via
 `AndroidManifest.xml` metadata. No changes to your existing integration are required unless you
 want to use these new capabilities.
 
@@ -23,7 +23,7 @@ To enable, add the following to the `<application>` element of your `AndroidMani
     android:value="true" />
 ```
 
-This flag defaults to **off** in 4.4.0. It is expected to become the default (opt-out) in a future
+This flag defaults to **off** in 4.5.0. It is expected to become the default (opt-out) in a future
 major release.
 
 ### `automatic_push_token_forwarding` (default **on**)
@@ -43,7 +43,7 @@ To opt out of automatic token forwarding and retain manual control, add the foll
 
 ### Rollout summary
 
-| Behavior | This release (4.4.0) | Future major release |
+| Behavior | This release (4.5.0) | Future major release |
 |---|---|---|
 | `automatic_push_token_forwarding` | Default on (opt-out via manifest) | Default on |
 | `automatic_push_open_tracking` | Opt-in (default off) | Default on (opt-out) |
