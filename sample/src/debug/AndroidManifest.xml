@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only manifest overlay. This source set is compiled into debug builds
+  ONLY, so release builds never see the networkSecurityConfig below. It opts
+  the sample into trusting user-added CA certs (see res/xml/network_security_config)
+  so an intercepting proxy (e.g. Proxyman) can MITM HTTPS during network testing.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:networkSecurityConfig="@xml/network_security_config" />
+</manifest>

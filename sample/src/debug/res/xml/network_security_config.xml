@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only source set: present in debug builds exclusively (never packaged
+  into release artifacts). Trust the system CA store plus user-added CAs so an
+  intercepting proxy (e.g. Proxyman) can decrypt the sample's HTTPS traffic for
+  network testing.
+-->
+<network-security-config>
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
