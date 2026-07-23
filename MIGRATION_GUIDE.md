@@ -54,7 +54,7 @@ To opt out of automatic token forwarding and retain manual control, add the foll
 > the SDK will register a push token as soon as FCM delivers one — before you call `setProfile`,
 > `setEmail`, or `setPhoneNumber`. This results in an anonymous profile being created in Klaviyo
 > until you provide identifying information. This is expected behavior. See
-> [Anonymous Tracking](#anonymous-tracking) in the README.
+> [Anonymous Tracking](./README.md#anonymous-tracking) in the README.
 
 # 4.3.0
 
