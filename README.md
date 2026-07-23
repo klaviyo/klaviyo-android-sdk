@@ -348,8 +348,9 @@ That way, you can collect push tokens and track events prior to collecting profi
 phone number. When an identifier is provided, Klaviyo will merge the anonymous user with an identified user.
 
 > **Automatic push token forwarding:** When `automatic_push_token_forwarding` is enabled (the
-> default in SDK 4.4.0+), the SDK registers the device's FCM push token with Klaviyo as soon as
-> FCM delivers one — before any call to `setProfile`, `setEmail`, or `setPhoneNumber`. This results
+> default in SDK 4.4.0+), the SDK registers the device's push token with Klaviyo automatically — at
+> initialization, when the app returns to the foreground, and whenever FCM issues a new token — which
+> can occur before any call to `setProfile`, `setEmail`, or `setPhoneNumber`. This results
 > in an anonymous profile being created in Klaviyo until you provide identifying information.
 > This is expected behavior. To opt out, see the
 > [Migration Guide](./MIGRATION_GUIDE.md#automatic_push_token_forwarding-default-on).

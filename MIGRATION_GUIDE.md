@@ -51,8 +51,9 @@ To opt out of automatic token forwarding and retain manual control, add the foll
 | iOS `klaviyo_automatic_push_open_tracking` | Opt-in (default off) | Default on (opt-out) |
 
 > **Anonymous profiles:** When `automatic_push_token_forwarding` is enabled (the Android default),
-> the SDK will register a push token as soon as FCM delivers one — before you call `setProfile`,
-> `setEmail`, or `setPhoneNumber`. This results in an anonymous profile being created in Klaviyo
+> the SDK registers the device's push token with Klaviyo automatically — at initialization, when the
+> app returns to the foreground, and whenever FCM issues a new token — which can occur before you call
+> `setProfile`, `setEmail`, or `setPhoneNumber`. This results in an anonymous profile being created in Klaviyo
 > until you provide identifying information. This is expected behavior. See
 > [Anonymous Tracking](./README.md#anonymous-tracking) in the README.
 
