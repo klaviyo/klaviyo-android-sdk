@@ -6,9 +6,11 @@ It will be updated as new versions are released including deprecations or breaki
 
 ## New Automatic Push Behaviors (Manifest Flags)
 
-SDK 4.5.0 introduces two new opt-in/opt-out behaviors for push notifications, controlled via
-`AndroidManifest.xml` metadata. No changes to your existing integration are required unless you
-want to use these new capabilities.
+SDK 4.5.0 introduces two push behaviors controlled via `AndroidManifest.xml` metadata:
+`automatic_push_open_tracking` (new, opt-in) and `automatic_push_token_forwarding` (**on by
+default**, formalizing the SDK's existing automatic token forwarding). No action is required to
+preserve your current behavior. If you manage push tokens manually and want to disable automatic
+forwarding, opt out as described below.
 
 ### `automatic_push_open_tracking` (opt-in, default **off**)
 
@@ -47,8 +49,6 @@ To opt out of automatic token forwarding and retain manual control, add the foll
 |---|---|---|
 | `automatic_push_token_forwarding` | Default on (opt-out via manifest) | Default on |
 | `automatic_push_open_tracking` | Opt-in (default off) | Default on (opt-out) |
-| iOS `klaviyo_automatic_push_token_forwarding` | Opt-in (default off) | Default on (opt-out) |
-| iOS `klaviyo_automatic_push_open_tracking` | Opt-in (default off) | Default on (opt-out) |
 
 > **Anonymous profiles:** When `automatic_push_token_forwarding` is enabled (the Android default),
 > the SDK registers the device's push token with Klaviyo automatically — at initialization, when the
