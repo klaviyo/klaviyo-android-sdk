@@ -66,8 +66,10 @@ internal sealed class NativeBridgeMessage {
      * @param formId The form ID of the form that triggered the CTA
      * @param formName The name of the form that triggered the CTA
      * @param buttonLabel The text label of the CTA button that was clicked
-     * @param openExternally When true, open the URL in the default browser (bypassing any registered
-     * deep link handler), gated by the scheme allowlist. When false, route it as an in-app deep link.
+     * @param openExternally When true, route the URL to its external handler (a browser for
+     * `http`/`https`, or the mail, dialer, or SMS app for `mailto:`/`tel:`/`sms:`/`smsto:`),
+     * bypassing any registered deep link handler, gated by the scheme allowlist. When false,
+     * route it as an in-app deep link.
      */
     data class OpenDeepLink(
         val route: String?,

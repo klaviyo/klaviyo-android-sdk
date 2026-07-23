@@ -33,6 +33,11 @@ internal class KlaviyoTrampolineActivity : Activity() {
         super.onCreate(savedInstanceState)
         try {
             handleTrampolineIntent(intent, this)
+        } catch (e: Exception) {
+            // Must not throw: this is an invisible entry point for notification taps —
+            // an uncaught exception here would crash the host app, which is worse than
+            // the stuck-screen risk the `finally` below already guards against.
+            Registry.log.error("KlaviyoTrampolineActivity failed to dispatch", e)
         } finally {
             // Always finish — leaving a translucent activity onscreen after an exception
             // would look like a stuck blank screen to the user.
