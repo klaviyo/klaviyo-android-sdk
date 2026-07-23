@@ -4,9 +4,15 @@
   into release artifacts). Trust the system CA store plus user-added CAs so an
   intercepting proxy (e.g. Proxyman) can decrypt the sample's HTTPS traffic for
   network testing.
+
+  cleartextTrafficPermitted="true": attaching ANY network-security-config makes
+  Android ignore android:usesCleartextTraffic from the manifest, and cleartext
+  defaults to disallowed on targetSdk 28+. Re-permitting it here (debug only)
+  preserves plain-HTTP endpoints in debug builds (e.g. a local backend/proxy over
+  http). Release trust/cleartext behavior is unchanged.
 -->
 <network-security-config>
-    <base-config>
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
             <certificates src="user" />
