@@ -42,7 +42,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockk(relaxed = true)
         every { Klaviyo.handlePush(any()) } returns Klaviyo
-        every { DeepLinking.makeBrowserIntent(any()) } returns mockBrowserIntent
+        every { DeepLinking.makeExternalIntent(any()) } returns mockBrowserIntent
         every { DeepLinking.makeDeepLinkIntent(any(), any(), any()) } returns mockDeepLinkIntent
         every { DeepLinking.makeLaunchIntent(any(), any()) } returns mockLaunchIntent
         // No deep link handler registered by default; flip per-test for the handler branch.
@@ -86,9 +86,9 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
 
         verify { Klaviyo.handlePush(intent) }
         // Assert the exact URL from the extra round-trips through Uri.parse and into
-        // makeBrowserIntent — catches regressions where a string is mangled, swallowed,
+        // makeExternalIntent — catches regressions where a string is mangled, swallowed,
         // or replaced silently with something else.
-        verify { DeepLinking.makeBrowserIntent(parsedUri) }
+        verify { DeepLinking.makeExternalIntent(parsedUri) }
         verify { mockTrampolineContext.startActivity(mockBrowserIntent) }
     }
 
@@ -99,7 +99,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
         verify { Klaviyo.handlePush(intent) }
-        verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
+        verify(exactly = 0) { DeepLinking.makeExternalIntent(any()) }
         verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any(), any()) }
         verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, any()) }
         verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
@@ -177,7 +177,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
         verify(exactly = 0) { Klaviyo.handlePush(any()) }
-        verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
+        verify(exactly = 0) { DeepLinking.makeExternalIntent(any()) }
         verify(exactly = 0) { mockTrampolineContext.startActivity(any()) }
         verify { spyLog.warning(any(), null) }
     }
@@ -187,8 +187,24 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         KlaviyoTrampolineActivity.handleTrampolineIntent(null, mockTrampolineContext)
 
         verify(exactly = 0) { Klaviyo.handlePush(any()) }
-        verify(exactly = 0) { DeepLinking.makeBrowserIntent(any()) }
+        verify(exactly = 0) { DeepLinking.makeExternalIntent(any()) }
         verify(exactly = 0) { mockTrampolineContext.startActivity(any()) }
         verify { spyLog.warning(any(), null) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent dispatches non-web scheme URL via makeExternalIntent`() {
+        val intent = klaviyoIntent()
+        every {
+            intent.getStringExtra(KlaviyoTrampolineActivity.BROWSER_URL_EXTRA)
+        } returns "mailto:user@example.com"
+        val parsedUri = mockk<Uri>(relaxed = true)
+        every { Uri.parse("mailto:user@example.com") } returns parsedUri
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify { Klaviyo.handlePush(intent) }
+        verify { DeepLinking.makeExternalIntent(parsedUri) }
+        verify { mockTrampolineContext.startActivity(mockBrowserIntent) }
     }
 }

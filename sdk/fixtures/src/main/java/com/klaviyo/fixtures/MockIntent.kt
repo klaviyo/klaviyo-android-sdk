@@ -24,7 +24,8 @@ data class MockIntent(
     val packageName: CapturingSlot<String> = slot(),
     val flags: CapturingSlot<Int> = slot(),
     val className: CapturingSlot<String> = slot(),
-    val bundle: Bundle = mockk<Bundle>()
+    val bundle: Bundle = mockk<Bundle>(),
+    val categories: MutableList<String> = mutableListOf()
 ) {
     companion object {
         /**
@@ -39,7 +40,7 @@ data class MockIntent(
             val mockIntent = MockIntent(mockk<Intent>(relaxed = true)).apply {
                 every { intent.addFlags(any()) } returns intent
             }
-            val (intent, action, data, packageName, flags, className, bundle) = mockIntent
+            val (intent, action, data, packageName, flags, className, bundle, categories) = mockIntent
 
             mockkConstructor(Intent::class)
 
@@ -50,7 +51,11 @@ data class MockIntent(
             every { anyConstructed<Intent>().setPackage(capture(packageName)) } returns intent
             every { anyConstructed<Intent>().setFlags(capture(flags)) } returns intent
             every { anyConstructed<Intent>().putExtras(any<Bundle>()) } returns intent
-            every { anyConstructed<Intent>().addFlags(any()) } returns intent
+            every { anyConstructed<Intent>().addFlags(capture(flags)) } returns intent
+            every { anyConstructed<Intent>().addCategory(any()) } answers {
+                categories.add(it.invocation.args[0] as String)
+                intent
+            }
             every { anyConstructed<Intent>().extras } returns bundle
             every { anyConstructed<Intent>().resolveActivity(any()) } returns mockk()
 

@@ -11,6 +11,8 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.hasAllowedOpenUrlScheme
+import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
@@ -72,7 +74,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 is FormWillAppear -> show(bridgeMessage)
                 is TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
                 is TrackProfileEvent -> createProfileEvent(bridgeMessage)
-                is OpenDeepLink -> deepLink(bridgeMessage)
+                is OpenDeepLink -> openCtaUrl(bridgeMessage)
                 is FormDisappeared -> close(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
             }
@@ -122,21 +124,52 @@ internal class KlaviyoNativeBridge : NativeBridge {
         Klaviyo.createEvent(message.event)
 
     /**
-     * Handle a [OpenDeepLink] message by broadcasting an intent to the host app
-     * similar to how we handle deep links from a notification
+     * Handle an [OpenDeepLink] message by opening its URL. Both in-app deep links and external
+     * web/system URLs arrive here; [OpenDeepLink.openExternally] — not the scheme — decides how to
+     * open, preserving the marketer's chosen CTA action.
      *
-     * There is a brief window between our overlay activity pausing and the next activity resuming.
-     * We alleviate this race condition by postponing till next activity resumes if current activity is null.
+     * When [OpenDeepLink.openExternally] is false, the URL is routed as an in-app deep link (like a
+     * notification deep link). There is a brief window between our overlay activity pausing and the
+     * next activity resuming; [DeepLinking.handleDeepLink] alleviates that race by postponing until
+     * the next activity resumes if the current activity is null.
+     *
+     * When true, the URL is routed to its external handler via a non-package-scoped intent —
+     * a browser for `http`/`https`, or the mail, dialer, or SMS app for
+     * `mailto:`/`tel:`/`sms:`/`smsto:` — bypassing any registered deep link handler and mirroring
+     * [com.klaviyo.forms.webview.KlaviyoWebViewClient.shouldOverrideUrlLoading]. The `NEW_TASK` intent
+     * launches independently of the overlay activity, so no grace period is needed. The scheme is
+     * checked via [com.klaviyo.core.utils.hasAllowedOpenUrlScheme] first — the same allowlist gate
+     * applied to push's `open_url`/`web_url` fields (see [com.klaviyo.pushFcm.KlaviyoRemoteMessage],
+     * PUSH-834) — to avoid routing dangerous or unintended URIs (e.g. `intent:`, `javascript:`,
+     * `file:`). The intent is built by [DeepLinking.makeExternalIntent], shared with the push
+     * `open_url` path.
+     *
+     * Fires [FormLifecycleEvent.FormCtaClicked] after dispatch, with the URL carried in
+     * [FormLifecycleEvent.FormCtaClicked.deepLinkUrl].
      */
-    private fun deepLink(message: OpenDeepLink) {
-        val deepLinkUri = message.route?.toUri()
+    private fun openCtaUrl(message: OpenDeepLink) {
+        val uri = message.route?.toUri()
 
-        if (deepLinkUri == null) {
+        if (uri == null) {
             Registry.log.warning("Form CTA with no Android route configured: ${message.formId}")
             return
         }
 
-        DeepLinking.handleDeepLink(deepLinkUri)
+        if (message.openExternally) {
+            if (!uri.hasAllowedOpenUrlScheme()) {
+                Registry.log.warning(
+                    "Form CTA external url has a scheme not in the allowed list " +
+                        "('${uri.scheme}'); ignoring."
+                )
+                return
+            }
+
+            DeepLinking.makeExternalIntent(uri).startActivityIfResolved(
+                Registry.config.applicationContext
+            )
+        } else {
+            DeepLinking.handleDeepLink(uri)
+        }
 
         if (message.formId.isEmpty() || message.formName.isEmpty()) {
             Registry.log.warning(
@@ -150,7 +183,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 formId = message.formId,
                 formName = message.formName,
                 buttonLabel = message.buttonLabel,
-                deepLinkUrl = deepLinkUri
+                deepLinkUrl = uri
             )
         )
     }

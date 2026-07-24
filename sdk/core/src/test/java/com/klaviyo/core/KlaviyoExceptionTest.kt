@@ -8,7 +8,6 @@ import io.mockk.spyk
 import io.mockk.unmockkObject
 import io.mockk.verify
 import java.util.concurrent.ConcurrentLinkedQueue
-import kotlin.reflect.typeOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -84,7 +83,7 @@ class KlaviyoExceptionTest {
         val result1 = safeCall<Unit> { throw MissingConfig() }
         assertNull(result1)
 
-        val result2 = safeCall<Unit> { throw MissingRegistration(typeOf<String>()) }
+        val result2 = safeCall<Unit> { throw MissingRegistration(String::class.java) }
         assertNull(result2)
 
         verify(exactly = 1) { spyLog.error(any(), match { it is MissingConfig }) }

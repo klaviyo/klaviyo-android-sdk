@@ -48,6 +48,11 @@ internal class KlaviyoTrampolineActivity : Activity() {
     private fun process(intent: Intent?) {
         try {
             handleTrampolineIntent(intent, this)
+        } catch (e: Exception) {
+            // Must not throw: this is an invisible entry point for notification taps —
+            // an uncaught exception here would crash the host app, which is worse than
+            // the stuck-screen risk the `finally` below already guards against.
+            Registry.log.error("KlaviyoTrampolineActivity failed to dispatch", e)
         } finally {
             // Always finish — leaving a translucent activity onscreen after an exception would look
             // like a stuck blank screen to the user.
@@ -57,7 +62,7 @@ internal class KlaviyoTrampolineActivity : Activity() {
 
     companion object {
         /**
-         * Intent extra carrying a web URL to be launched in the default browser after
+         * Intent extra carrying an `open_url` URL to be dispatched to its external handler after
          * `Klaviyo.handlePush` runs. Uses the `_klaviyo.` prefix (matching
          * [com.klaviyo.core.Constants.NOTIFICATION_TAG_EXTRA]) so this internal routing
          * extra is skipped by the `com.klaviyo.*` extras sweep in
@@ -66,7 +71,8 @@ internal class KlaviyoTrampolineActivity : Activity() {
         internal const val BROWSER_URL_EXTRA = "_klaviyo.browser_url"
 
         /**
-         * Build a trampoline intent that dispatches to the default browser with [url].
+         * Build a trampoline intent that dispatches [url] to its external handler
+         * via [DeepLinking.makeExternalIntent].
          *
          * Uses [Intent.setClassName] instead of the `Intent(Context, Class)` constructor
          * so the JVM unit-test environment (which can't satisfy the native ComponentName
@@ -109,8 +115,8 @@ internal class KlaviyoTrampolineActivity : Activity() {
 
         private fun dispatchDestination(intent: Intent, context: Context) {
             intent.getStringExtra(BROWSER_URL_EXTRA)?.let { url ->
-                Registry.log.verbose("Trampoline dispatching browser intent")
-                DeepLinking.makeBrowserIntent(url.toUri()).startActivityIfResolved(context)
+                Registry.log.verbose("Trampoline dispatching external intent")
+                DeepLinking.makeExternalIntent(url.toUri()).startActivityIfResolved(context)
                 return
             }
             startDestination(intent, context)

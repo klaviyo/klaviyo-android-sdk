@@ -369,8 +369,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             addAction(action)
 
             val (actionType, destination) = when (button) {
-                is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK to " -> ${button.url}"
-                is ActionButton.OpenUrl -> ActionButton.DISPLAY_NAME_OPEN_URL to " -> ${button.url}"
+                is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK to " (scheme: ${button.url.toUri().scheme})"
+                is ActionButton.OpenUrl -> ActionButton.DISPLAY_NAME_OPEN_URL to " (scheme: ${button.url.toUri().scheme})"
                 is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP to ""
             }
             Registry.log.verbose(
