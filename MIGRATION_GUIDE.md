@@ -2,6 +2,48 @@
 This document provides guidance on how to migrate from one version of the SDK to a newer version.
 It will be updated as new versions are released including deprecations or breaking changes.
 
+# 4.5.0
+
+## New Automatic Push Behaviors (Manifest Flags)
+
+SDK 4.5.0 introduces two push behaviors controlled via `AndroidManifest.xml` metadata:
+`automatic_push_open_tracking` (new, opt-in) and `automatic_push_token_forwarding` (**on by
+default**, formalizing the SDK's existing automatic token forwarding). No action is required to
+preserve your current behavior. If you manage push tokens manually and want to disable automatic
+forwarding, opt out as described below.
+
+### `automatic_push_open_tracking` (opt-in, default **off**)
+
+When enabled, the SDK automatically records push-open events without requiring you to call
+`Klaviyo.handlePush` manually in your notification interaction handler.
+
+This flag defaults to **off** in 4.5.0 and is expected to become the default (opt-out) in a future
+major release. For setup instructions, see
+[Option A — Automatic Integration](./README.md#option-a--automatic-integration) in the README.
+
+### `automatic_push_token_forwarding` (default **on**)
+
+When this flag is enabled (which is the **default**), the SDK automatically registers the device's
+FCM push token with Klaviyo on your behalf — you no longer need to call `Klaviyo.setPushToken`
+manually on app startup.
+
+To opt out and retain manual control, see
+[Option A — Automatic Integration](./README.md#option-a--automatic-integration) in the README.
+
+### Rollout summary
+
+| Behavior | This release (4.5.0) | Future major release |
+|---|---|---|
+| `automatic_push_token_forwarding` | Default on (opt-out via manifest) | Default on |
+| `automatic_push_open_tracking` | Opt-in (default off) | Default on (opt-out) |
+
+> **Anonymous profiles:** When `automatic_push_token_forwarding` is enabled (the Android default),
+> the SDK registers the device's push token with Klaviyo automatically — at initialization, when the
+> app returns to the foreground, and whenever FCM issues a new token — which can occur before you call
+> `setProfile`, `setEmail`, or `setPhoneNumber`. This results in an anonymous profile being created in Klaviyo
+> until you provide identifying information. This is expected behavior. See
+> [Anonymous Tracking](./README.md#anonymous-tracking) in the README.
+
 # 4.3.0
 
 ## New Modules for Cross-Platform Support
