@@ -1,0 +1,101 @@
+package com.klaviyo.pushFcm
+
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import androidx.core.net.toUri
+import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
+import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.startActivityIfResolved
+
+/**
+ * Transparent trampoline [Activity] used to intercept Klaviyo notification taps so the
+ * SDK can run side effects (e.g. tracking `$opened_push`, dismissing the notification,
+ * invoking the registered deep link handler) before forwarding the user to the actual
+ * destination.
+ *
+ * Currently used for `open_url` push payloads — the URL is embedded as [BROWSER_URL_EXTRA]
+ * and routed to the appropriate external handler via [DeepLinking.makeExternalIntent] — a
+ * browser for `http`/`https`, or the mail, dialer, or SMS app for
+ * `mailto:`/`tel:`/`sms:`/`smsto:` schemes. Additional dispatch paths can be added to
+ * [dispatchDestination] as new use cases (e.g. automatic open tracking) introduce
+ * their own routing extras.
+ *
+ * Declared `android:exported="false"`, `android:noHistory="true"`, and
+ * `android:excludeFromRecents="true"` with a translucent theme so it never appears
+ * in the recents UI or flashes onscreen.
+ */
+internal class KlaviyoTrampolineActivity : Activity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        try {
+            handleTrampolineIntent(intent, this)
+        } catch (e: Exception) {
+            // Must not throw: this is an invisible entry point for notification taps —
+            // an uncaught exception here would crash the host app, which is worse than
+            // the stuck-screen risk the `finally` below already guards against.
+            Registry.log.error("KlaviyoTrampolineActivity failed to dispatch", e)
+        } finally {
+            // Always finish — leaving a translucent activity onscreen after an exception
+            // would look like a stuck blank screen to the user.
+            finish()
+        }
+    }
+
+    companion object {
+        /**
+         * Intent extra carrying an `open_url` URL to be dispatched to its external handler after
+         * `Klaviyo.handlePush` runs. Uses the `_klaviyo.` prefix (matching
+         * [com.klaviyo.core.Constants.NOTIFICATION_TAG_EXTRA]) so this internal routing
+         * extra is skipped by the `com.klaviyo.*` extras sweep in
+         * `Event.appendKlaviyoExtras`.
+         */
+        internal const val BROWSER_URL_EXTRA = "_klaviyo.browser_url"
+
+        /**
+         * Build a trampoline intent that dispatches [url] to its external handler
+         * via [DeepLinking.makeExternalIntent].
+         *
+         * Uses [Intent.setClassName] instead of the `Intent(Context, Class)` constructor
+         * so the JVM unit-test environment (which can't satisfy the native ComponentName
+         * resolution inside the 2-arg constructor) can mock the construction.
+         */
+        internal fun forBrowserUrl(context: Context, url: String): Intent = Intent().apply {
+            setClassName(context.packageName, KlaviyoTrampolineActivity::class.java.name)
+            putExtra(BROWSER_URL_EXTRA, url)
+        }
+
+        /**
+         * Run the trampoline behavior: track `$opened_push`, dismiss the notification,
+         * then dispatch to the destination. Extracted from [onCreate] so unit tests can
+         * exercise it without instantiating an Android [Activity].
+         */
+        internal fun handleTrampolineIntent(intent: Intent?, context: Context) {
+            if (intent == null || !intent.isKlaviyoNotificationIntent) {
+                Registry.log.warning(
+                    "KlaviyoTrampolineActivity received non-Klaviyo intent; ignoring"
+                )
+                return
+            }
+            Klaviyo.handlePush(intent)
+            dispatchDestination(intent, context)
+        }
+
+        private fun dispatchDestination(intent: Intent, context: Context) {
+            intent.getStringExtra(BROWSER_URL_EXTRA)?.let { url ->
+                DeepLinking.makeExternalIntent(url.toUri()).startActivityIfResolved(context)
+                return
+            }
+            // Add additional dispatch branches here as new routing extras are introduced.
+            // Reaching this point means a Klaviyo notification intent targeted the trampoline
+            // without any recognized dispatch extra — an internal SDK contract break, not
+            // graceful degradation. Log `wtf` to flag the bug.
+            Registry.log.wtf(
+                "KlaviyoTrampolineActivity launched without a recognized dispatch extra"
+            )
+        }
+    }
+}
