@@ -10,8 +10,8 @@ import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
-import com.klaviyo.core.Constants.ALLOWED_OPEN_URL_SCHEMES
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.hasAllowedOpenUrlScheme
 import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.FormLifecycleHandler
@@ -133,14 +133,16 @@ internal class KlaviyoNativeBridge : NativeBridge {
      * next activity resuming; [DeepLinking.handleDeepLink] alleviates that race by postponing until
      * the next activity resumes if the current activity is null.
      *
-     * When true, the URL is opened in the default browser via a non-package-scoped intent, bypassing
-     * any registered deep link handler — mirroring
+     * When true, the URL is routed to its external handler via a non-package-scoped intent —
+     * a browser for `http`/`https`, or the mail, dialer, or SMS app for
+     * `mailto:`/`tel:`/`sms:`/`smsto:` — bypassing any registered deep link handler and mirroring
      * [com.klaviyo.forms.webview.KlaviyoWebViewClient.shouldOverrideUrlLoading]. The `NEW_TASK` intent
      * launches independently of the overlay activity, so no grace period is needed. The scheme is
-     * checked against [ALLOWED_OPEN_URL_SCHEMES] first — the same allowlist gate applied to push's
-     * `open_url`/`web_url` fields (see [com.klaviyo.pushFcm.KlaviyoRemoteMessage], PUSH-834) — to
-     * avoid routing dangerous or unintended URIs (e.g. `intent:`, `javascript:`, `file:`). The intent
-     * is built by [DeepLinking.makeExternalIntent], shared with the push `open_url` path.
+     * checked via [com.klaviyo.core.utils.hasAllowedOpenUrlScheme] first — the same allowlist gate
+     * applied to push's `open_url`/`web_url` fields (see [com.klaviyo.pushFcm.KlaviyoRemoteMessage],
+     * PUSH-834) — to avoid routing dangerous or unintended URIs (e.g. `intent:`, `javascript:`,
+     * `file:`). The intent is built by [DeepLinking.makeExternalIntent], shared with the push
+     * `open_url` path.
      *
      * Fires [FormLifecycleEvent.FormCtaClicked] after dispatch, with the URL carried in
      * [FormLifecycleEvent.FormCtaClicked.deepLinkUrl].
@@ -154,7 +156,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
         }
 
         if (message.openExternally) {
-            if (uri.scheme?.lowercase() !in ALLOWED_OPEN_URL_SCHEMES) {
+            if (!uri.hasAllowedOpenUrlScheme()) {
                 Registry.log.warning(
                     "Form CTA external url has a scheme not in the allowed list " +
                         "('${uri.scheme}'); ignoring."
