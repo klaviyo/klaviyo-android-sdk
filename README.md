@@ -352,8 +352,8 @@ phone number. When an identifier is provided, Klaviyo will merge the anonymous u
 > initialization, when the app returns to the foreground, and whenever FCM issues a new token — which
 > can occur before any call to `setProfile`, `setEmail`, or `setPhoneNumber`. This results
 > in an anonymous profile being created in Klaviyo until you provide identifying information.
-> This is expected behavior. To opt out, see the
-> [Migration Guide](./MIGRATION_GUIDE.md#automatic_push_token_forwarding-default-on).
+> This is expected behavior. To opt out, see
+> [Option A — Automatic Integration](#option-a--automatic-integration) below.
 
 ## Event Tracking
 The SDK provides tools for tracking analytics events via the
