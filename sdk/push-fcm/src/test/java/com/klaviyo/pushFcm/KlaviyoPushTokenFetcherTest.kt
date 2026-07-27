@@ -77,6 +77,32 @@ class KlaviyoPushTokenFetcherTest : BaseTest() {
     }
 
     @Test
+    fun `fetchAndSetPushToken contains a throwing onUnavailable on the async failure path`() {
+        // The failure listener fires after fetchAndSetPushToken has returned, so no guard on the
+        // caller's stack can catch a throwing callback — it must be contained here or it lands on
+        // whatever thread the provider completed on.
+        every { mockTask.addOnSuccessListener(any()) } returns mockTask
+        val failureSlot = slot<OnFailureListener>()
+        every { mockTask.addOnFailureListener(capture(failureSlot)) } answers {
+            failureSlot.captured.onFailure(RuntimeException("fetch failed"))
+            mockTask
+        }
+
+        KlaviyoPushTokenFetcher().fetchAndSetPushToken { throw RuntimeException("callback blew up") }
+
+        verify { spyLog.error(any(), any()) }
+    }
+
+    @Test
+    fun `fetchAndSetPushToken contains a throwing onUnavailable when FirebaseMessaging is unavailable`() {
+        every { FirebaseMessaging.getInstance() } throws IllegalStateException("no FirebaseApp")
+
+        KlaviyoPushTokenFetcher().fetchAndSetPushToken { throw RuntimeException("callback blew up") }
+
+        verify { spyLog.error(any(), any()) }
+    }
+
+    @Test
     fun `fetchAndSetPushToken logs a warning and does not crash when the fetch fails`() {
         every { mockTask.addOnSuccessListener(any()) } returns mockTask
         val failureSlot = slot<OnFailureListener>()

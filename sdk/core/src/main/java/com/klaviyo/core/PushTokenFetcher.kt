@@ -14,6 +14,11 @@ interface PushTokenFetcher {
      * synchronous or arrives later on the provider's callback. Lets the caller fall back to
      * refreshing push state from the token already in state, so device-property changes are still
      * picked up when the provider is unavailable. Never invoked once a token has been forwarded.
+     *
+     * May be invoked **asynchronously**, after this method has returned and off the caller's
+     * stack — so any guard wrapping the call site will no longer be in scope. Implementations
+     * must contain failures it raises to honor the must-not-throw contract above, and callers
+     * should not assume an enclosing `safeApply` will catch them.
      */
     fun fetchAndSetPushToken(onUnavailable: () -> Unit = {})
 
