@@ -9,12 +9,13 @@ import com.klaviyo.core.Registry
  * [PushTokenFetcher] backed by Firebase Cloud Messaging.
  */
 internal class KlaviyoPushTokenFetcher : PushTokenFetcher {
-    override fun fetchAndSetPushToken() {
+    override fun fetchAndSetPushToken(onUnavailable: () -> Unit) {
         try {
             FirebaseMessaging.getInstance().token
                 .addOnSuccessListener { token -> Klaviyo.setPushToken(token) }
                 .addOnFailureListener { e ->
                     Registry.log.warning("Failed to fetch push token for automatic registration", e)
+                    onUnavailable()
                 }
         } catch (e: Exception) {
             // Honor the must-not-throw contract (e.g. getInstance() with no default FirebaseApp)
@@ -22,6 +23,7 @@ internal class KlaviyoPushTokenFetcher : PushTokenFetcher {
                 "Unable to access FirebaseMessaging for automatic push token registration",
                 e
             )
+            onUnavailable()
         }
     }
 }

@@ -614,7 +614,7 @@ internal class KlaviyoTest : BaseTest() {
 
         reinitialize()
 
-        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken() }
+        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken(any()) }
     }
 
     @Test
@@ -624,7 +624,7 @@ internal class KlaviyoTest : BaseTest() {
 
         reinitialize()
 
-        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken() }
+        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken(any()) }
     }
 
     @Test
@@ -636,7 +636,7 @@ internal class KlaviyoTest : BaseTest() {
 
         reinitialize()
 
-        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken() }
+        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken(any()) }
     }
 
     @Test
@@ -646,7 +646,7 @@ internal class KlaviyoTest : BaseTest() {
 
         reinitialize()
 
-        verify(inverse = true) { mockFetcher.fetchAndSetPushToken() }
+        verify(inverse = true) { mockFetcher.fetchAndSetPushToken(any()) }
     }
 
     @Test
@@ -668,19 +668,19 @@ internal class KlaviyoTest : BaseTest() {
 
         reinitialize()
 
-        verify(inverse = true) { mockFetcher.fetchAndSetPushToken() }
+        verify(inverse = true) { mockFetcher.fetchAndSetPushToken(any()) }
     }
 
     @Test
     fun `initialize does not crash and logs a warning when the push token fetch throws`() {
         val mockFetcher = registerMockPushTokenFetcher()
         setAutomaticPushTokenForwardingEnabled(true)
-        every { mockFetcher.fetchAndSetPushToken() } throws RuntimeException("fetch blew up")
+        every { mockFetcher.fetchAndSetPushToken(any()) } throws RuntimeException("fetch blew up")
 
         // runCatching around the fetch must contain the failure so initialize still completes
         reinitialize()
 
-        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken() }
+        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken(any()) }
         verify { spyLog.warning(any(), any()) }
     }
 
