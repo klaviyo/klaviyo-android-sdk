@@ -1,5 +1,7 @@
 package com.klaviyo.core
 
+import android.content.Context
+
 /**
  * Compile-time constants shared across SDK modules
  */
@@ -67,7 +69,7 @@ object Constants {
      * `Klaviyo.maybeAutoRegisterPushToken` (analytics) and `KlaviyoPushService.onNewToken` (push-fcm) —
      * so their default can't drift, even though each reads the flag from its own source: the analytics
      * path via `Registry.config` (always post-initialization) and the push-fcm path via the service
-     * [android.content.Context] (safe before `Klaviyo.initialize`, which `Registry.config` is not).
+     * [Context] (safe before `Klaviyo.initialize`, which `Registry.config` is not).
      */
     const val AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT = true
 

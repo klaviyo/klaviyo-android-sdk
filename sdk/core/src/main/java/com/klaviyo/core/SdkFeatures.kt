@@ -26,7 +26,7 @@ enum class SdkFeatureKey(
         scope = SdkFeatureScope.PUSH_TOKEN_REGISTRATION
     ),
 
-    // `automatic_push_token_forwarding` opt-in flag, reported directly. Independent of the open-tracking
+    // `automatic_push_token_forwarding` opt-out flag, reported directly. Independent of the open-tracking
     // flag, so the backend sees how the host set each flag.
     AUTO_PUSH_TOKEN_FORWARDING(
         wireName = "auto_push_token_forwarding",

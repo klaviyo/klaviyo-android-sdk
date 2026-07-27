@@ -172,6 +172,7 @@ abstract class BaseTest {
 
     @After
     open fun cleanup() {
+        Registry.unregister<PushTokenFetcher>()
         unmockkObject(Registry)
     }
 

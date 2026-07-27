@@ -9,7 +9,7 @@ If you cannot isolate your issue and reproduce it with the sample app, the issue
 
 ## Code Reference
 Key parts of the code are annotated with `SETUP NOTE` comments. Refer to the following files in particular:
-- [build.gradle](./build.gradle.kts) for installation, see `SETUP NOTE` comments.
+- [build.gradle.kts](./build.gradle.kts) for installation, see `SETUP NOTE` comments.
 - [SampleApplication.kt](./src/main/java/com/klaviyo/sample/SampleApplication.kt) for initializing the Klaviyo SDK.
 - `SampleActivity.kt` for sample code to create/modify a profile, track events, and integrate push. This file
   lives per product flavor — [manual](./src/manual/java/com/klaviyo/sample/SampleActivity.kt) and

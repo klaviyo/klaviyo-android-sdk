@@ -582,7 +582,7 @@ Push tokens are automatically associated with new profiles when you call `setPro
 No additional action is required. 
 
 #### Receiving Push Notifications
-`KlaviyoPushService` will handle displaying all notifications via the `onMessageReceived` method regardless of
+When `KlaviyoPushService` is registered, it handles displaying Klaviyo notifications via the `onMessageReceived` method regardless of
 whether the app is in the foreground or background. You can send test notifications to a specific token using
 the [push notification preview](https://help.klaviyo.com/hc/en-us/articles/18011985278875) feature in order
 to test your integration. If you wish to customize how notifications are displayed, see [Advanced Setup](#advanced-setup).
