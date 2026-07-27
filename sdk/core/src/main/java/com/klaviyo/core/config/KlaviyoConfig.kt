@@ -265,8 +265,18 @@ object KlaviyoConfig : Config {
             level = DeprecationLevel.WARNING
         )
         override fun networkFlushDepth(networkFlushDepth: Int) = apply {
-            // No-op: depth-triggered flushing was removed; retained for one release as a
-            // deprecated setter so existing caller code keeps compiling.
+            // Depth-triggered flushing was removed; retained for one release as a deprecated
+            // setter so existing caller code keeps compiling. Warn at runtime in addition to the
+            // compile-time deprecation: callers who haven't migrated get a hint that their config
+            // is being ignored, and out-of-range values (which the old setter rejected explicitly)
+            // are no longer swallowed silently. The value is echoed back to make that concrete.
+            Registry.log.warning(
+                "networkFlushDepth($networkFlushDepth) is deprecated and has no effect: " +
+                    "depth-triggered flushing was removed. The queue flushes on the timer " +
+                    "interval (see networkFlushInterval) or when explicitly forced, and is " +
+                    "internally bounded by a size cap. Remove this call — the setter will be " +
+                    "deleted in a future major release."
+            )
         }
 
         override fun build(): Config {

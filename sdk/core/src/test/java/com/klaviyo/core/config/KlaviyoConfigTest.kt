@@ -170,6 +170,20 @@ internal class KlaviyoConfigTest : BaseTest() {
     }
 
     @Test
+    fun `KlaviyoConfig Builder warns that deprecated networkFlushDepth has no effect`() {
+        @Suppress("DEPRECATION")
+        KlaviyoConfig.Builder()
+            .apiKey(API_KEY)
+            .applicationContext(mockContext)
+            .networkFlushDepth(25)
+            .networkFlushDepth(-5) // out-of-range is warned too, not silently swallowed
+            .build()
+
+        // The setter is a no-op, but every call must hint to the caller that it has no effect
+        verify(exactly = 2) { spyLog.warning(any(), null) }
+    }
+
+    @Test
     fun `KlaviyoConfig Builder missing API key throws expected exception`() {
         assertThrows(MissingAPIKey::class.java) {
             KlaviyoConfig.Builder()
