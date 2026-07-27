@@ -69,7 +69,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private val flushIntervalWifi = 10_000L
     private val flushIntervalCell = 20_000L
     private val flushIntervalOffline = 30_000L
-    private val queueDepth = 10
     private var postedJob: KlaviyoApiClient.NetworkRunnable? = null
     private val mockQueueScheduler = mockk<QueueScheduler>(relaxed = true)
 
@@ -97,7 +96,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
             flushIntervalCell,
             flushIntervalOffline
         )
-        every { mockConfig.networkFlushDepth } returns queueDepth
         every { mockNetworkMonitor.isNetworkConnected() } returns false
         every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Wifi
         every { mockLifecycleMonitor.onActivityEvent(capture(slotOnActivityEvent)) } returns Unit
@@ -446,18 +444,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Flushes queue when configured size is reached`() {
-        repeat(queueDepth) {
-            KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
-            assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
-        }
-
-        postedJob!!.run()
-
-        assertEquals(0, KlaviyoApiClient.getQueueSize())
-    }
-
-    @Test
     fun `Flushes queue when configured time has elapsed`() {
         val requestMock = mockRequest()
 
@@ -471,20 +457,19 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Does not flush queue if no criteria is met`() {
-        repeat(queueDepth - 1) {
-            KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
-            assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
-        }
+    fun `Does not flush queue if flush interval has not elapsed`() {
+        KlaviyoApiClient.enqueueRequest(mockRequest("uuid-0"))
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
 
+        // Time has not advanced, so flush interval has not elapsed
         postedJob!!.run()
 
-        assertEquals(queueDepth - 1, KlaviyoApiClient.getQueueSize())
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
     }
 
     @Test
-    fun `Flushes queue if forced when no criteria is met`() {
-        repeat(queueDepth - 1) {
+    fun `Flushes queue if forced when flush interval has not elapsed`() {
+        repeat(5) {
             KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it"))
             assertEquals(it + 1, KlaviyoApiClient.getQueueSize())
         }
@@ -492,6 +477,75 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.flushQueue()
 
         assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Queue cap evicts request with oldest queuedTime on overflow and emits warning log`() {
+        // Fill the queue to capacity, advancing the clock so each request captures a
+        // progressively later queuedTime — uuid-0 therefore holds the oldest queuedTime.
+        repeat(KlaviyoApiClient.MAX_QUEUE_SIZE) {
+            val request = mockRequest("uuid-$it") // queuedTime is captured from staticClock here
+            KlaviyoApiClient.enqueueRequest(request)
+            staticClock.time += 1
+        }
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // uuid-0 has the oldest queuedTime
+        val oldestUuid = "uuid-0"
+        assertNotNull(spyDataStore.fetch(oldestUuid))
+
+        // Enqueue one more request — should evict the request with the oldest queuedTime
+        val newestRequest = mockRequest("uuid-newest")
+        KlaviyoApiClient.enqueueRequest(newestRequest)
+
+        // Queue size stays at the cap
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // The oldest request by queuedTime was evicted from the datastore
+        assertNull(spyDataStore.fetch(oldestUuid))
+
+        // Newest request is present in the datastore
+        assertNotNull(spyDataStore.fetch("uuid-newest"))
+
+        // A warning log was emitted for the eviction
+        verify(atLeast = 1) { spyLog.warning(any(), null) }
+    }
+
+    @Test
+    fun `Queue cap protects freshly-enqueued head-of-line request and evicts oldest by queuedTime`() {
+        // Fill the queue with regular requests just under capacity, advancing the clock so
+        // uuid-0 holds the oldest queuedTime and sits at the front (head) of the deque.
+        repeat(KlaviyoApiClient.MAX_QUEUE_SIZE - 1) {
+            val request = mockRequest("uuid-$it") // queuedTime is captured from staticClock here
+            KlaviyoApiClient.enqueueRequest(request)
+            staticClock.time += 1
+        }
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE - 1, KlaviyoApiClient.getQueueSize())
+
+        // A head-of-line request is enqueued last, so it has the NEWEST queuedTime, and it is
+        // inserted at the FRONT of the deque via offerFirst. This is the exact shape that used to
+        // break: blindly evicting the front would remove this freshly-enqueued priority request.
+        val headOfLineRequest = mockRequest("hol-newest")
+        KlaviyoApiClient.enqueueRequest(headOfLineRequest, headOfLine = true)
+        staticClock.time += 1
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // Enqueuing one more request overflows the cap and triggers eviction.
+        val incomingRequest = mockRequest("uuid-incoming")
+        KlaviyoApiClient.enqueueRequest(incomingRequest)
+
+        // The oldest request by queuedTime (uuid-0) is evicted — NOT the front of the deque.
+        assertNull(spyDataStore.fetch("uuid-0"))
+
+        // The freshly-enqueued head-of-line request is protected because it is the newest.
+        assertNotNull(spyDataStore.fetch("hol-newest"))
+
+        // The incoming request was accepted and the queue stays bounded at the cap.
+        assertNotNull(spyDataStore.fetch("uuid-incoming"))
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // A warning log was emitted for the eviction
+        verify(atLeast = 1) { spyLog.warning(any(), null) }
     }
 
     @Test
@@ -666,6 +720,24 @@ internal class KlaviyoApiClientTest : BaseTest() {
     fun `Rate limited requests are retried with backoff until max attempts in absence of Retry-After header`() {
         val defaultInterval =
             Registry.config.networkFlushIntervals[NetworkMonitor.NetworkType.Wifi.position]
+        val expectedBackoffIntervals = listOf(
+            defaultInterval, // First attempt starts after default interval
+            defaultInterval, // First RETRY starts after default interval bc 2s < 10s
+            defaultInterval, // Second RETRY starts after default interval bc 4s < 10s
+            defaultInterval, // Third RETRY starts after default interval bc 8s < 10s
+            16_000L, // Exp. backoff time should be used bc 16s > 10s
+            32_000L, // Exp. backoff time should be used bc 32s > 10s
+            64_000L, // Exp. backoff time should be used bc 64s > 10s
+            128_000L, // Exp. backoff time should be used bc 128s > 10s
+            256_000L // Exp. backoff time should be used bc 256s > 10s
+        )
+        val scheduledIntervals = mutableListOf<Long>()
+
+        fun expectedBackoffInterval(startAttempts: Int) =
+            expectedBackoffIntervals.getOrElse(startAttempts) {
+                // Max backoff (cap) should be used from here on, because 512s > the configured cap
+                Registry.config.networkMaxRetryInterval
+            }
 
         // First unsent request, which we will retry till max attempts
         val request1 = mockRequest("uuid-retry", KlaviyoApiRequest.Status.Unsent).also {
@@ -678,6 +750,14 @@ internal class KlaviyoApiClientTest : BaseTest() {
                 50 -> KlaviyoApiRequest.Status.Failed.name
                 else -> KlaviyoApiRequest.Status.PendingRetry.name
             }
+        }
+        every { request1.computeRetryInterval() } answers {
+            expectedBackoffInterval(request1.attempts - 1)
+        }
+        every { mockHandler.postDelayed(any(), any()) } answers {
+            postedJob = firstArg<KlaviyoApiClient.NetworkRunnable>()
+            scheduledIntervals += secondArg<Long>()
+            true
         }
 
         // Second unset request in queue to ensure which shouldn't sent until first has failed
@@ -696,22 +776,16 @@ internal class KlaviyoApiClientTest : BaseTest() {
             val startAttempts = request1.attempts
 
             // Advance the time with our expected backoff interval
-            staticClock.time += listOf(
-                defaultInterval, // First attempt starts after default interval
-                defaultInterval, // First RETRY starts after default interval bc 2s < 10s
-                defaultInterval, // Second RETRY starts after default interval bc 4s < 10s
-                defaultInterval, // Third RETRY starts after default interval bc 8s < 10s
-                16_000L, // Exp. backoff time should be used bc 16s > 10s
-                32_000L, // Exp. backoff time should be used bc 32s > 10s
-                64_000L, // Exp. backoff time should be used bc 64s > 10s
-                128_000L // Exp. backoff time should be used bc 128s > 10s
-            ).getOrElse(startAttempts) { 180_000L } // Max backoff time should be used from here on, because 256s > 180s
+            staticClock.time += expectedBackoffInterval(startAttempts)
 
             // Run after advancing the clock (this mimics how handler.postDelay would run jobs)
             postedJob!!.run()
 
             // It should have attempted one send if the correct time elapsed
             assertEquals(startAttempts + 1, request1.attempts)
+            if (request1.state != KlaviyoApiRequest.Status.Failed.name) {
+                assertEquals(expectedBackoffInterval(startAttempts), scheduledIntervals.last())
+            }
 
             // Fail test if we exceed max attempts
             assert(request1.attempts <= 50)
@@ -719,6 +793,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // First request should have been retried exactly 50 times
         assertEquals(50, request1.attempts)
+        assertEquals(Registry.config.networkMaxRetryInterval, scheduledIntervals.maxOrNull() ?: 0L)
 
         // Upon final failure, request 1 should have been dropped from the queue
         assertEquals(1, KlaviyoApiClient.getQueueSize())

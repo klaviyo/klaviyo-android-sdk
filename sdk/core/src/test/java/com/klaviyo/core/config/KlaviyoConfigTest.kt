@@ -70,7 +70,6 @@ internal class KlaviyoConfigTest : BaseTest() {
             .networkFlushInterval(1, NetworkMonitor.NetworkType.Wifi)
             .networkFlushInterval(3, NetworkMonitor.NetworkType.Cell)
             .networkFlushInterval(6, NetworkMonitor.NetworkType.Offline)
-            .networkFlushDepth(4)
             .networkMaxAttempts(5)
             .networkMaxRetryInterval(7)
             .baseCdnUrl("spider-water.com")
@@ -95,7 +94,6 @@ internal class KlaviyoConfigTest : BaseTest() {
             6,
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Offline.position]
         )
-        assertEquals(4, KlaviyoConfig.networkFlushDepth)
         assertEquals(5, KlaviyoConfig.networkMaxAttempts)
         assertEquals(7, KlaviyoConfig.networkMaxRetryInterval)
         assertEquals("android", KlaviyoConfig.sdkName)
@@ -127,9 +125,8 @@ internal class KlaviyoConfigTest : BaseTest() {
             60_000L,
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Offline.position]
         )
-        assertEquals(25, KlaviyoConfig.networkFlushDepth)
         assertEquals(50, KlaviyoConfig.networkMaxAttempts)
-        assertEquals(180_000L, KlaviyoConfig.networkMaxRetryInterval)
+        assertEquals(300_000L, KlaviyoConfig.networkMaxRetryInterval)
         assertEquals("android", KlaviyoConfig.sdkName)
         assertEquals("9.9.9", KlaviyoConfig.sdkVersion)
     }
@@ -145,7 +142,6 @@ internal class KlaviyoConfigTest : BaseTest() {
             .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Wifi)
             .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Cell)
             .networkFlushInterval(-5000, NetworkMonitor.NetworkType.Offline)
-            .networkFlushDepth(-10)
             .networkMaxAttempts(-10)
             .networkMaxRetryInterval(-1)
             .build()
@@ -165,13 +161,26 @@ internal class KlaviyoConfigTest : BaseTest() {
             60_000,
             KlaviyoConfig.networkFlushIntervals[NetworkMonitor.NetworkType.Offline.position]
         )
-        assertEquals(25, KlaviyoConfig.networkFlushDepth)
         assertEquals(50, KlaviyoConfig.networkMaxAttempts)
-        assertEquals(180_000, KlaviyoConfig.networkMaxRetryInterval)
+        assertEquals(300_000, KlaviyoConfig.networkMaxRetryInterval)
         assertEquals("android", KlaviyoConfig.sdkName)
         assertEquals("9.9.9", KlaviyoConfig.sdkVersion)
         // Each bad call should have generated an error log
-        verify(exactly = 9) { spyLog.error(any(), null) }
+        verify(exactly = 8) { spyLog.error(any(), null) }
+    }
+
+    @Test
+    fun `KlaviyoConfig Builder warns that deprecated networkFlushDepth has no effect`() {
+        @Suppress("DEPRECATION")
+        KlaviyoConfig.Builder()
+            .apiKey(API_KEY)
+            .applicationContext(mockContext)
+            .networkFlushDepth(25)
+            .networkFlushDepth(-5) // out-of-range is warned too, not silently swallowed
+            .build()
+
+        // The setter is a no-op, but every call must hint to the caller that it has no effect
+        verify(exactly = 2) { spyLog.warning(any(), null) }
     }
 
     @Test
