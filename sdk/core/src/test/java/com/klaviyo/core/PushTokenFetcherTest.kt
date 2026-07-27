@@ -44,6 +44,18 @@ internal class PushTokenFetcherTest : BaseTest() {
     }
 
     @Test
+    fun `maybeAutoRegisterPushToken reports no dispatch instead of throwing when uninitialized`() {
+        // Registry.config throws MissingConfig before Klaviyo.initialize. Contained inside the
+        // method so callers get a plain "nothing was dispatched" answer and can fall back, rather
+        // than each having to guard a side effect they only opted into.
+        val mockFetcher = registerMockPushTokenFetcher()
+        every { Registry.config } throws MissingConfig()
+
+        assertFalse(PushTokenFetcher.maybeAutoRegisterPushToken())
+        verify(inverse = true) { mockFetcher.fetchAndSetPushToken(any()) }
+    }
+
+    @Test
     fun `maybeAutoRegisterPushToken returns true on a normal dispatch`() {
         val mockFetcher = registerMockPushTokenFetcher()
         setAutomaticPushTokenForwardingEnabled(true)

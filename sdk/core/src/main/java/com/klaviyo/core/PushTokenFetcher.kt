@@ -35,8 +35,10 @@ interface PushTokenFetcher {
          * Independent of [Constants.AUTOMATIC_PUSH_OPEN_TRACKING] (which gates only automatic open tracking) —
          * this flag alone controls token forwarding.
          */
-        fun maybeAutoRegisterPushToken(onUnavailable: () -> Unit = {}): Boolean {
-            // Must be called after Klaviyo.initialize, so Registry.config is available
+        fun maybeAutoRegisterPushToken(onUnavailable: () -> Unit = {}): Boolean = safeCall {
+            // Reading Registry.config throws MissingConfig before Klaviyo.initialize. Contained
+            // here rather than at the call sites so this reports "nothing was dispatched" instead
+            // of making every caller guard a side effect it only opted into.
             val forwardingEnabled = Registry.config.getManifestBoolean(
                 Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
                 Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT
@@ -45,25 +47,28 @@ interface PushTokenFetcher {
                 Registry.log.verbose(
                     "Skipping automatic push token registration (automaticTokenForwarding=false)"
                 )
-                return false
+                return@safeCall false
             }
 
-            val fetcher = Registry.getOrNull<PushTokenFetcher>() ?: run {
+            val fetcher = Registry.getOrNull<PushTokenFetcher>()
+            if (fetcher == null) {
                 Registry.log.verbose(
                     "No push token fetcher registered; skipping automatic registration"
                 )
-                return false
+                return@safeCall false
             }
 
             Registry.log.debug("Automatically fetching push token")
-            // Contain any fetcher failure so this optional side effect cannot disrupt the caller
-            return runCatching {
+            // Deliberately a separate runCatching rather than leaning on the enclosing safeCall:
+            // safeCall re-throws non-Klaviyo exceptions in debug builds, and a fetcher failure
+            // must never disrupt the caller in any build — it is an optional side effect.
+            return@safeCall runCatching {
                 fetcher.fetchAndSetPushToken(onUnavailable)
                 true
             }.getOrElse {
                 Registry.log.warning("Automatic push token fetch failed", it)
                 false
             }
-        }
+        } ?: false
     }
 }

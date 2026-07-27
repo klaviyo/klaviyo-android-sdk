@@ -193,17 +193,10 @@ internal class StateSideEffects(
         // FirstStarted, not Resumed: Resumed broadcasts on every activity transition, whereas
         // FirstStarted is gated on activeActivities == 0, so this runs once per actual foreground.
         activity.takeIf<ActivityEvent.FirstStarted>()?.run {
-            safeApply {
-                // Self-guarded rather than relying on the enclosing safeApply: the fetcher may
-                // invoke this from its provider's asynchronous failure callback, by which point
-                // this call stack has already unwound. Rebuilding push state reads device
-                // properties over binder, so an exception there would otherwise escape onto
-                // whatever thread the provider completed on.
-                val refreshFromStoredToken: () -> Unit = { safeApply { state.refreshPushState() } }
+            val refreshFromStoredToken: () -> Unit = { safeApply { state.refreshPushState() } }
 
-                if (!PushTokenFetcher.maybeAutoRegisterPushToken(refreshFromStoredToken)) {
-                    refreshFromStoredToken()
-                }
+            if (!PushTokenFetcher.maybeAutoRegisterPushToken(refreshFromStoredToken)) {
+                refreshFromStoredToken()
             }
         }
     }
