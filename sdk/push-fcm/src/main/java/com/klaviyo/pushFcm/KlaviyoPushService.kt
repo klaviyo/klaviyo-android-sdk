@@ -37,7 +37,7 @@ open class KlaviyoPushService : FirebaseMessagingService() {
      *
      * Automatic forwarding to Klaviyo is gated by [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING]
      * (default [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT]) — the same flag and default that
-     * gate `Klaviyo.maybeAutoRegisterPushToken`, so `automatic_push_token_forwarding="false"` is a
+     * gate `PushTokenFetcher.maybeAutoRegisterPushToken`, so `automatic_push_token_forwarding="false"` is a
      * single, complete opt-out. The public `Klaviyo.setPushToken` API is unaffected: hosts owning
      * their token pipeline can still forward tokens explicitly.
      *

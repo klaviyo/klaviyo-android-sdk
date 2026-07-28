@@ -15,6 +15,8 @@ import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.junit.After
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -60,6 +62,47 @@ class KlaviyoPushTokenFetcherTest : BaseTest() {
     }
 
     @Test
+    fun `fetchAndSetPushToken does not invoke onUnavailable on success`() {
+        val successSlot = slot<OnSuccessListener<String>>()
+        every { mockTask.addOnSuccessListener(capture(successSlot)) } answers {
+            successSlot.captured.onSuccess(stubToken)
+            mockTask
+        }
+        every { mockTask.addOnFailureListener(any()) } returns mockTask
+        var onUnavailableInvoked = false
+
+        KlaviyoPushTokenFetcher().fetchAndSetPushToken { onUnavailableInvoked = true }
+
+        assertFalse(onUnavailableInvoked)
+    }
+
+    @Test
+    fun `fetchAndSetPushToken contains a throwing onUnavailable on the async failure path`() {
+        // The failure listener fires after fetchAndSetPushToken has returned, so no guard on the
+        // caller's stack can catch a throwing callback — it must be contained here or it lands on
+        // whatever thread the provider completed on.
+        every { mockTask.addOnSuccessListener(any()) } returns mockTask
+        val failureSlot = slot<OnFailureListener>()
+        every { mockTask.addOnFailureListener(capture(failureSlot)) } answers {
+            failureSlot.captured.onFailure(RuntimeException("fetch failed"))
+            mockTask
+        }
+
+        KlaviyoPushTokenFetcher().fetchAndSetPushToken { throw RuntimeException("callback blew up") }
+
+        verify { spyLog.error(any(), any()) }
+    }
+
+    @Test
+    fun `fetchAndSetPushToken contains a throwing onUnavailable when FirebaseMessaging is unavailable`() {
+        every { FirebaseMessaging.getInstance() } throws IllegalStateException("no FirebaseApp")
+
+        KlaviyoPushTokenFetcher().fetchAndSetPushToken { throw RuntimeException("callback blew up") }
+
+        verify { spyLog.error(any(), any()) }
+    }
+
+    @Test
     fun `fetchAndSetPushToken logs a warning and does not crash when the fetch fails`() {
         every { mockTask.addOnSuccessListener(any()) } returns mockTask
         val failureSlot = slot<OnFailureListener>()
@@ -72,6 +115,21 @@ class KlaviyoPushTokenFetcherTest : BaseTest() {
 
         verify(inverse = true) { Klaviyo.setPushToken(any()) }
         verify { spyLog.warning(any(), any()) }
+    }
+
+    @Test
+    fun `fetchAndSetPushToken invokes onUnavailable when the fetch fails`() {
+        every { mockTask.addOnSuccessListener(any()) } returns mockTask
+        val failureSlot = slot<OnFailureListener>()
+        every { mockTask.addOnFailureListener(capture(failureSlot)) } answers {
+            failureSlot.captured.onFailure(RuntimeException("fetch failed"))
+            mockTask
+        }
+        var onUnavailableInvoked = false
+
+        KlaviyoPushTokenFetcher().fetchAndSetPushToken { onUnavailableInvoked = true }
+
+        assertTrue(onUnavailableInvoked)
     }
 
     @Test
@@ -97,5 +155,17 @@ class KlaviyoPushTokenFetcherTest : BaseTest() {
 
         verify(inverse = true) { Klaviyo.setPushToken(any()) }
         verify { spyLog.warning(any(), any()) }
+    }
+
+    @Test
+    fun `fetchAndSetPushToken invokes onUnavailable when FirebaseMessaging is unavailable`() {
+        every {
+            FirebaseMessaging.getInstance()
+        } throws IllegalStateException("Firebase is not configured")
+        var onUnavailableInvoked = false
+
+        KlaviyoPushTokenFetcher().fetchAndSetPushToken { onUnavailableInvoked = true }
+
+        assertTrue(onUnavailableInvoked)
     }
 }

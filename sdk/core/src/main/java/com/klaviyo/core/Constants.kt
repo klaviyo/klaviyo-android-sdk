@@ -66,7 +66,7 @@ object Constants {
     /**
      * Default for [AUTOMATIC_PUSH_TOKEN_FORWARDING] when the host does not declare the manifest key:
      * automatic forwarding is **on** (opt-out). Shared by the two automatic-collection call sites —
-     * `Klaviyo.maybeAutoRegisterPushToken` (analytics) and `KlaviyoPushService.onNewToken` (push-fcm) —
+     * `PushTokenFetcher.maybeAutoRegisterPushToken` (core) and `KlaviyoPushService.onNewToken` (push-fcm) —
      * so their default can't drift, even though each reads the flag from its own source: the analytics
      * path via `Registry.config` (always post-initialization) and the push-fcm path via the service
      * [Context] (safe before `Klaviyo.initialize`, which `Registry.config` is not).
