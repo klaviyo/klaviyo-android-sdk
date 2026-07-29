@@ -59,9 +59,17 @@ internal class KlaviyoState : State {
         set(value) {
             // Set token should also update entire push state value
             _pushToken.setValue(this, ::_pushToken, value)
-            pushState = value?.let { PushTokenApiRequest(it, getAsProfile()).requestBody } ?: ""
+            refreshPushState()
         }
         get() = _pushToken.getValue(this, ::_pushToken)
+
+    override fun refreshPushState() {
+        // No-op without a token: PersistentObservableString rejects empty values outright, so
+        // assigning "" here could never clear push state anyway — it would only log a spurious
+        // "Empty string value will be ignored" warning on every foreground for integrators who
+        // have no push token at all.
+        pushToken?.let { pushState = PushTokenApiRequest(it, getAsProfile()).requestBody }
+    }
 
     /**
      * List of registered state change observers

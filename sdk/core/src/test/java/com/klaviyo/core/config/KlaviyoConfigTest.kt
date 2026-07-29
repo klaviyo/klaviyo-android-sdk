@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.R
 import com.klaviyo.core.Registry
@@ -229,5 +230,82 @@ internal class KlaviyoConfigTest : BaseTest() {
             PackageManager.GET_PERMISSIONS
         )
         verify { mockPackageManager.getPackageInfo(BuildConfig.LIBRARY_PACKAGE_NAME, any<Int>()) }
+    }
+
+    @Test
+    fun `getManifestBoolean reads metadata value when present, else returns default`() {
+        // Back the Bundle with a real map so getBoolean has genuine present/absent semantics
+        // (stored value wins, missing key returns the supplied default) rather than echoing a
+        // stubbed return — the latter would only restate the assertion.
+        val metadata = mutableMapOf(
+            "com.klaviyo.present_true" to true,
+            "com.klaviyo.present_false" to false
+        )
+        val mockMetadata = mockk<Bundle> {
+            every { getBoolean(any(), any()) } answers {
+                metadata[firstArg<String>()] ?: secondArg<Boolean>()
+            }
+        }
+        mockApplicationInfo.metaData = mockMetadata
+
+        // Tiramisu+ path resolves application info via the ApplicationInfoFlags overload.
+        mockkStatic(PackageManager.ApplicationInfoFlags::class)
+        val mockApplicationInfoFlags = mockk<PackageManager.ApplicationInfoFlags>()
+        every { PackageManager.ApplicationInfoFlags.of(any()) } returns mockApplicationInfoFlags
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
+        every {
+            mockPackageManager.getApplicationInfo(
+                BuildConfig.LIBRARY_PACKAGE_NAME,
+                mockApplicationInfoFlags
+            )
+        } returns mockApplicationInfo
+        // Reads the requested key from metadata, ignoring the (opposite) default.
+        assertEquals(true, mockContext.getManifestBoolean("com.klaviyo.present_true", false))
+
+        // Pre-Tiramisu path uses the simple getApplicationInfo(pkgName, flags) overload.
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 23)
+        every {
+            @Suppress("DEPRECATION")
+            mockPackageManager.getApplicationInfo(
+                BuildConfig.LIBRARY_PACKAGE_NAME,
+                PackageManager.GET_META_DATA
+            )
+        } returns mockApplicationInfo
+        // Stored false wins over a true default.
+        assertEquals(false, mockContext.getManifestBoolean("com.klaviyo.present_false", true))
+        // Absent key falls back to whichever default is supplied (both directions).
+        assertEquals(true, mockContext.getManifestBoolean("missing.key", true))
+        assertEquals(false, mockContext.getManifestBoolean("missing.key", false))
+    }
+
+    @Test
+    fun `hasManifestKey reflects presence of the key, regardless of its value`() {
+        // Back the Bundle with a real map so containsKey has genuine present/absent semantics
+        // rather than echoing a stubbed return.
+        val metadata = mutableMapOf(
+            "com.klaviyo.present_true" to true,
+            "com.klaviyo.present_false" to false
+        )
+        val mockMetadata = mockk<Bundle> {
+            every { containsKey(any()) } answers { metadata.containsKey(firstArg()) }
+        }
+        mockApplicationInfo.metaData = mockMetadata
+
+        mockkStatic(PackageManager.ApplicationInfoFlags::class)
+        val mockApplicationInfoFlags = mockk<PackageManager.ApplicationInfoFlags>()
+        every { PackageManager.ApplicationInfoFlags.of(any()) } returns mockApplicationInfoFlags
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 33)
+        every {
+            mockPackageManager.getApplicationInfo(
+                BuildConfig.LIBRARY_PACKAGE_NAME,
+                mockApplicationInfoFlags
+            )
+        } returns mockApplicationInfo
+
+        // Present regardless of whether the value is true or false.
+        assertEquals(true, mockContext.hasManifestKey("com.klaviyo.present_true"))
+        assertEquals(true, mockContext.hasManifestKey("com.klaviyo.present_false"))
+        // Absent key is reported as absent.
+        assertEquals(false, mockContext.hasManifestKey("missing.key"))
     }
 }

@@ -27,6 +27,10 @@ interface Config {
 
     fun getManifestInt(key: String, defaultValue: Int): Int
 
+    fun getManifestBoolean(key: String, defaultValue: Boolean): Boolean
+
+    fun hasManifestKey(key: String): Boolean
+
     interface Builder {
         fun apiKey(apiKey: String): Builder
         fun applicationContext(context: Context): Builder

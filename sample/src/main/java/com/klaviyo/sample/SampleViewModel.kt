@@ -170,6 +170,18 @@ class SampleViewModel : ViewModel() {
         pushToken = token
     }
 
+    /**
+     * Re-read the push token from the SDK to keep the UI in sync.
+     *
+     * The `automatic` flavor never calls [updatePushToken] — the SDK auto-registers the token
+     * asynchronously after launch — so the displayed token is refreshed from the SDK on resume.
+     * Only overwrite when the SDK has a token, to avoid clobbering a shown value with an empty one.
+     */
+    @UiThread
+    fun refreshPushToken() {
+        Klaviyo.getPushToken()?.let { pushToken = it }
+    }
+
     // Geofencing registration actions
     @UiThread
     fun registerForGeofencing() {

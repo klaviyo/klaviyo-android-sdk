@@ -112,6 +112,10 @@ fun SampleView(
                     viewModel.updateNotificationPermission(areNotificationsEnabled())
                 }
 
+                // Refresh the push token from the SDK. The `automatic` flavor registers the token
+                // automatically (no updatePushToken call), so re-read it here to reflect it in the UI.
+                viewModel.refreshPushToken()
+
                 // Update location permission state
                 ContextCompat.checkSelfPermission(
                     context,

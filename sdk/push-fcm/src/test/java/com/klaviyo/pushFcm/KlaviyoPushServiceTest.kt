@@ -2,6 +2,8 @@ package com.klaviyo.pushFcm
 
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.Constants
+import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.KEY_VALUE_PAIRS_KEY
@@ -45,18 +47,40 @@ class KlaviyoPushServiceTest : BaseTest() {
         mockkConstructor(KlaviyoNotification::class)
 
         every { anyConstructed<KlaviyoNotification>().displayNotification(any()) } returns true
+
+        // onNewToken reads the forwarding flag from the service Context (not Registry.config), so
+        // stub the Context.getManifestBoolean extension. Default: return the passed default (on).
+        every { pushService.applicationContext } returns mockContext
+        mockkStatic("com.klaviyo.core.config.KlaviyoConfigKt")
+        every { mockContext.getManifestBoolean(any(), any()) } answers { thirdArg() }
     }
 
     @After
     override fun cleanup() {
         super.cleanup()
         unmockkStatic(Klaviyo::class)
+        unmockkStatic("com.klaviyo.core.config.KlaviyoConfigKt")
     }
 
     @Test
-    fun `FCM onNewToken persists the new token and enqueues API call`() {
+    fun `FCM onNewToken forwards the new token by default when the forwarding flag is absent`() {
+        // Default ON: BaseTest returns the manifest default (true) when the key is unset
         pushService.onNewToken(stubPushToken)
         verify { Klaviyo.setPushToken(stubPushToken) }
+    }
+
+    @Test
+    fun `FCM onNewToken does not forward the token when automatic token forwarding is off`() {
+        every {
+            mockContext.getManifestBoolean(
+                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
+                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT
+            )
+        } returns false
+
+        pushService.onNewToken(stubPushToken)
+
+        verify(inverse = true) { Klaviyo.setPushToken(any()) }
     }
 
     @Test

@@ -137,6 +137,16 @@ object KlaviyoConfig : Config {
             applicationContext.getManifestInt(key, defaultValue)
         }
 
+    override fun getManifestBoolean(key: String, defaultValue: Boolean): Boolean =
+        if (!this::applicationContext.isInitialized) {
+            defaultValue
+        } else {
+            applicationContext.getManifestBoolean(key, defaultValue)
+        }
+
+    override fun hasManifestKey(key: String): Boolean =
+        this::applicationContext.isInitialized && applicationContext.hasManifestKey(key)
+
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
      */
@@ -364,4 +374,27 @@ fun Context.getManifestInt(key: String, defaultValue: Int): Int {
     val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
     val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
     return manifestMetadata.getInt(key, defaultValue)
+}
+
+/**
+ * Extension method to get a boolean value from the manifest metadata
+ */
+fun Context.getManifestBoolean(key: String, defaultValue: Boolean): Boolean {
+    val pkgName = packageName
+    val pkgManager = packageManager
+    val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
+    val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
+    return manifestMetadata.getBoolean(key, defaultValue)
+}
+
+/**
+ * Extension method to check whether a key is present in the manifest metadata at all,
+ * regardless of its value
+ */
+fun Context.hasManifestKey(key: String): Boolean {
+    val pkgName = packageName
+    val pkgManager = packageManager
+    val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
+    val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
+    return manifestMetadata.containsKey(key)
 }

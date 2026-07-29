@@ -4,12 +4,10 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
 import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
@@ -18,22 +16,19 @@ import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
-import com.klaviyo.core.Constants
-import com.klaviyo.core.Constants.KEY_VALUE_PAIRS
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Operation
+import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
-import com.klaviyo.core.utils.JSONUtil.toHashMap
 import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
-import org.json.JSONObject
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -116,6 +111,9 @@ object Klaviyo {
                 preInitQueue.poll()?.let { safeCall(null, it) }
             }
         }
+
+        // Optional side effect, kept last so it can never interfere with core initialization
+        PushTokenFetcher.maybeAutoRegisterPushToken()
     }
 
     /**
@@ -324,38 +322,10 @@ object Klaviyo {
      * @param intent the [Intent] from opening a notification
      */
     @JvmStatic
-    fun handlePush(intent: Intent?): Klaviyo = this
-        .takeIf { intent.isKlaviyoNotificationIntent }
-        ?.safeApply(preInitQueue) {
-            // Create and enqueue an $opened_push
-            val event = Event(EventMetric.OPENED_PUSH)
-            event.appendKlaviyoExtras(intent)
-
-            Registry.get<State>().pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
-
-            // Not using createEvent here to avoid nested safeApply calls
-            Registry.get<State>().createEvent(event, Registry.get<State>().getAsProfile())
-        }?.safeApply {
-            // Dismiss the notification if opened via an action button.
-            // Body taps are handled by setAutoCancel(true) on the notification builder,
-            // but action button taps don't trigger auto-cancel (standard Android behavior).
-            intent?.getStringExtra(Constants.NOTIFICATION_TAG_EXTRA)?.let { tag ->
-                NotificationManagerCompat
-                    .from(Registry.config.applicationContext)
-                    .cancel(tag, Constants.NOTIFICATION_ID)
-            }
-        }?.safeApply {
-            // If a Klaviyo notification is deep linked, invoke the developer's deep link handler
-            // if registered. If not, do nothing. The host already received the appropriate intent.
-            intent?.data?.takeIf {
-                DeepLinking.isHandlerRegistered
-            }?.let { uri ->
-                DeepLinking.handleDeepLink(uri)
-            }
-        }
-        ?: apply {
-            Registry.log.verbose("Non-Klaviyo intent ignored")
-        }
+    fun handlePush(intent: Intent?): Klaviyo {
+        KlaviyoPushOpenHandler.handle(intent, preInitQueue)
+        return this
+    }
 
     /**
      * Handles a universal link [Intent], by resolving the destination [Uri] asynchronously
@@ -455,33 +425,4 @@ object Klaviyo {
      */
     @JvmStatic
     fun isKlaviyoUniversalTrackingUri(uri: Uri): Boolean = uri.isKlaviyoUniversalTrackingUri
-
-    /**
-     * Appends Klaviyo extras from an intent to this event, parsing special fields as needed
-     */
-    internal fun Event.appendKlaviyoExtras(intent: Intent?) {
-        intent?.extras?.keySet()?.forEach { key ->
-            if (key.contains(PACKAGE_PREFIX)) {
-                val eventKey = EventKey.CUSTOM(key.replace(PACKAGE_PREFIX, ""))
-                val rawValue = intent.extras?.getString(key, "") ?: ""
-                val parsedValue = when (eventKey.name) {
-                    KEY_VALUE_PAIRS -> {
-                        try {
-                            JSONObject(rawValue).toHashMap()
-                        } catch (e: Exception) {
-                            Registry.log.warning(
-                                "Failed to parse $KEY_VALUE_PAIRS JSON: $rawValue",
-                                e
-                            )
-                            rawValue
-                        }
-                    }
-
-                    else -> rawValue
-                }
-
-                this[eventKey] = parsedValue
-            }
-        }
-    }
 }
