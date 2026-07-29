@@ -61,6 +61,10 @@ Follow these instructions to run the sample app on your own device or emulator.
 - Clone the repository and open the project in Android Studio.
 - Add your public Klaviyo API key to the `./local.properties` file in the root of the project: `klaviyoPublicApiKey=apiKey`
   Or, replace `KLAVIYO_PUBLIC_KEY` in [SampleApplication.kt](./src/main/java/com/klaviyo/sample/SampleApplication.kt).
+- To try the list-subscription demo, set `subscriptionListId` in
+  [SampleApplication.kt](./src/main/java/com/klaviyo/sample/SampleApplication.kt) to a list ID from your account.
+  Leaving it `null` hides the "Subscribe to email marketing" toggle. When set, toggle it on before tapping
+  **Set Profile** to subscribe the profile after its email is set.
 - Add your `google-services.json` file to the [`sample`](.) directory. You can use the same file you use for your 
   own application, or register a new app in your project from the firebase console.
 - Open [build.gradle](./build.gradle.kts) and replace `applicationId "${klaviyoGroupId}.sample"`

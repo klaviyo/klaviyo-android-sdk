@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -38,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.input.ImeAction
@@ -74,6 +76,7 @@ private object UiConstants {
     const val EMAIL_LABEL = "Email"
     const val PHONE_LABEL = "Phone Number"
     const val PUSH_TOKEN_LABEL = "Push Token"
+    const val SUBSCRIBE_TO_MARKETING = "Subscribe to email marketing"
 
     // Button Text
     const val SET_PROFILE = "Set Profile"
@@ -197,6 +200,9 @@ fun SampleView(
                     viewModel::resetProfile,
                     UiConstants.PROFILE_RESET
                 ),
+                isSubscriptionDemoEnabled = viewModel.isSubscriptionDemoEnabled,
+                subscribeToMarketing = viewModel.subscribeToMarketing,
+                onSubscribeToMarketingChange = viewModel::updateSubscribeToMarketing,
                 createTestEvent = executeWithToast(
                     viewModel::createTestEvent,
                     UiConstants.TEST_EVENT_CREATED
@@ -251,6 +257,9 @@ private fun SampleViewContent(
     setPhoneNumber: () -> Unit = {},
     setProfile: () -> Unit = {},
     resetProfile: () -> Unit = {},
+    isSubscriptionDemoEnabled: Boolean = false,
+    subscribeToMarketing: Boolean = false,
+    onSubscribeToMarketingChange: (Boolean) -> Unit = {},
     createTestEvent: () -> Unit = {},
     createViewedProductEvent: () -> Unit = {},
     registerForInAppForms: () -> Unit = {},
@@ -325,6 +334,20 @@ private fun SampleViewContent(
                 )
             }
         )
+        // Collect marketing consent at "sign up" (Set Profile), shown only when a list ID is configured
+        if (isSubscriptionDemoEnabled) {
+            ViewRow(horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(text = UiConstants.SUBSCRIBE_TO_MARKETING)
+                Switch(
+                    checked = subscribeToMarketing,
+                    onCheckedChange = onSubscribeToMarketingChange,
+                    modifier = Modifier.semantics {
+                        testTag = SampleTestTags.TOGGLE_SUBSCRIBE_MARKETING
+                        contentDescription = UiConstants.SUBSCRIBE_TO_MARKETING
+                    }
+                )
+            }
+        }
         ViewRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionButton(
                 text = UiConstants.SET_PROFILE,

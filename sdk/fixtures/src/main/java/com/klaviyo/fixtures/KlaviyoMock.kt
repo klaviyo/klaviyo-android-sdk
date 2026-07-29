@@ -60,6 +60,7 @@ object KlaviyoMock {
         every { Klaviyo.resetProfile() } returns Klaviyo
         every { Klaviyo.createEvent(any<Event>()) } returns Klaviyo
         every { Klaviyo.createEvent(any<EventMetric>(), any()) } returns Klaviyo
+        every { Klaviyo.createSubscription(any()) } returns Klaviyo
         every { Klaviyo.handlePush(any()) } returns Klaviyo
         every { Klaviyo.registerDeepLinkHandler(any()) } returns Klaviyo
         every { Klaviyo.unregisterDeepLinkHandler() } returns Klaviyo
@@ -166,6 +167,12 @@ object KlaviyoMock {
     @JvmOverloads
     fun verifyCreateEventWithMetricCalled(metric: EventMetric, count: Int = 1) {
         verify(exactly = count) { Klaviyo.createEvent(metric, any()) }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyCreateSubscriptionCalled(count: Int = 1) {
+        verify(exactly = count) { Klaviyo.createSubscription(any()) }
     }
 
     @JvmStatic

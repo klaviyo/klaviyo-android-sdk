@@ -12,6 +12,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.unregisterFromInAppForms
@@ -118,6 +119,11 @@ class SampleViewModel : ViewModel() {
             .setExternalId(externalId)
             .setEmail(email)
             .setPhoneNumber(phoneNumber)
+
+        // Collect marketing consent at "sign up": subscribe after the identifiers are set.
+        if (subscribeToMarketing) {
+            subscribeToList()
+        }
     }
 
     @UiThread
@@ -125,6 +131,8 @@ class SampleViewModel : ViewModel() {
         updateExternalId("")
         updateEmail("")
         updatePhoneNumber("")
+        // Clear consent intent so it isn't silently carried to the next profile
+        subscribeToMarketing = false
         Klaviyo.resetProfile()
     }
 
@@ -142,6 +150,36 @@ class SampleViewModel : ViewModel() {
             .setValue(99.99)
 
         Klaviyo.createEvent(event)
+    }
+
+    // Subscription demo state
+    var subscribeToMarketing by mutableStateOf(false)
+        private set
+
+    /** Whether the subscribe-to-list demo is configured (see [SampleApplication.subscriptionListId]). */
+    val isSubscriptionDemoEnabled: Boolean
+        get() = SampleApplication.subscriptionListId != null
+
+    @UiThread
+    fun updateSubscribeToMarketing(value: Boolean) {
+        subscribeToMarketing = value
+    }
+
+    /**
+     * Requests email marketing consent for the tracked profile. Requires an email on the profile;
+     * the SDK logs a warning and drops the request if one isn't set.
+     */
+    private fun subscribeToList() {
+        val listId = SampleApplication.subscriptionListId ?: return
+        Klaviyo.createSubscription(
+            Subscription(
+                listId = listId,
+                channels = Subscription.Channels(
+                    email = setOf(Subscription.Channels.Email.MARKETING)
+                ),
+                customSource = SUBSCRIPTION_SOURCE
+            )
+        )
     }
 
     // In-App Forms actions
@@ -242,5 +280,9 @@ class SampleViewModel : ViewModel() {
         // Clean up geofence sync subscription to prevent memory leak
         // Note: this is an advanced API used for demonstration, not necessary for a typical integration
         Registry.getOrNull<LocationManager>()?.offGeofenceSync(::refreshCurrentGeofencesOnSync)
+    }
+
+    companion object {
+        private const val SUBSCRIPTION_SOURCE = "Android Sample App"
     }
 }

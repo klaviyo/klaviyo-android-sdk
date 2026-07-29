@@ -2,6 +2,7 @@ package com.klaviyo.analytics.networking
 
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
@@ -97,6 +98,18 @@ interface ApiClient {
      * @return The API request that was enqueued
      */
     fun enqueueEvent(event: Event, profile: Profile): ApiRequest
+
+    /**
+     * Queue an API request to subscribe a [Profile] to a Klaviyo list
+     *
+     * The request is validated against the given [profile]'s identifiers when it is built; if the
+     * requested consent cannot be satisfied it is dropped and `null` is returned.
+     *
+     * @param subscription
+     * @param profile
+     * @return The API request that was enqueued, or `null` if it was dropped in validation
+     */
+    fun enqueueSubscription(subscription: Subscription, profile: Profile): ApiRequest?
 
     /**
      * For sending aggregate analytics for IAF - not to be called directly
