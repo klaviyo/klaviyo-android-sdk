@@ -65,12 +65,22 @@ object KlaviyoRemoteMessage {
             is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK
             is ActionButton.OpenUrl -> ActionButton.DISPLAY_NAME_OPEN_URL
             is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP
+            // Report what the sender declared, not the app-launch we degraded to.
+            is ActionButton.Degraded -> button.declaredAction
         }
         putExtra(PACKAGE_PREFIX + "Button Action", actionName)
 
-        (button as? ActionButton.UrlBearing)?.let {
-            putExtra(PACKAGE_PREFIX + "Button Link", it.url)
+        // Enumerated over the sealed arms rather than matching on [ActionButton.UrlBearing], so
+        // adding a variant is a compile error here instead of silently yielding no link.
+        // [ActionButton.UrlBearing] remains part of the public surface for consumers that want
+        // to test for a destination without enumerating variants themselves.
+        val link = when (button) {
+            is ActionButton.DeepLink -> button.url
+            is ActionButton.OpenUrl -> button.url
+            is ActionButton.Degraded -> button.declaredUrl
+            is ActionButton.OpenApp -> null
         }
+        link?.let { putExtra(PACKAGE_PREFIX + "Button Link", it) }
     }
 
     /**
@@ -227,9 +237,13 @@ object KlaviyoRemoteMessage {
     /**
      * Parse action buttons from the iOS-aligned format
      *
-     * Validates and filters buttons to ensure only valid instances are returned.
-     * Invalid buttons (missing required fields, invalid format) are skipped with warnings.
-     * Maximum of 3 buttons are supported - additional buttons beyond this limit are ignored.
+     * A button renders as long as it has a valid id, label, and recognized action type -
+     * buttons missing those, or with an unrecognized action type, are skipped with warnings.
+     * A URL-shaped action (deep_link, open_url) with an unusable url (missing, or - for
+     * open_url - a disallowed/missing scheme) degrades to an app-launch (OpenApp) button rather
+     * than being dropped, so the marketer's button is never silently discarded; a warning is
+     * logged so the degradation stays diagnosable. Maximum of 3 rendered buttons are supported -
+     * additional buttons beyond this limit are ignored.
      *
      * Expected structure:
      * [{"id":"...", "label":"...", "action":"deep_link|open_app|open_url", "url":"..."}]
@@ -274,7 +288,17 @@ object KlaviyoRemoteMessage {
 
                     val actionType = jsonObject.optString("action", ActionButton.TYPE_OPEN_APP)
 
-                    // Create appropriate sealed class instance based on action type
+                    // Create appropriate sealed class instance based on action type.
+                    //
+                    // Render eligibility != action validity: a button with a valid id, label, and
+                    // recognized action type always renders. A URL-shaped action (deep_link,
+                    // open_url) with an unusable url (missing, or - for open_url - a scheme
+                    // outside the allowlist) degrades to an OpenApp button instead of being
+                    // dropped, so a tap falls back to simply launching the app. The allowlist
+                    // itself is enforced here only to decide render vs. degrade - it is not
+                    // weakened on the actual tap/dispatch path (KlaviyoNotification, RemoteMessage
+                    // .webUrl, KlaviyoTrampolineActivity), which never even see a disallowed
+                    // scheme for an action button since it never becomes an OpenUrl instance.
                     when (actionType) {
                         ActionButton.TYPE_DEEP_LINK -> {
                             jsonObject.optNonBlankString("url")?.let { url ->
@@ -285,9 +309,15 @@ object KlaviyoRemoteMessage {
                                 )
                             } ?: run {
                                 Registry.log.warning(
-                                    "Skipping DEEP_LINK action button $i: missing required url"
+                                    "DEEP_LINK action button $i missing required url; " +
+                                        "rendering as an app-launch button instead"
                                 )
-                                null
+                                ActionButton.Degraded(
+                                    id = id,
+                                    label = label,
+                                    declaredAction = ActionButton.DISPLAY_NAME_DEEP_LINK,
+                                    declaredUrl = null
+                                )
                             }
                         }
                         ActionButton.TYPE_OPEN_URL -> {
@@ -295,16 +325,28 @@ object KlaviyoRemoteMessage {
                             when {
                                 urlString == null -> {
                                     Registry.log.warning(
-                                        "Skipping OPEN_URL action button $i: missing required url"
+                                        "OPEN_URL action button $i missing required url; " +
+                                            "rendering as an app-launch button instead"
                                     )
-                                    null
+                                    ActionButton.Degraded(
+                                        id = id,
+                                        label = label,
+                                        declaredAction = ActionButton.DISPLAY_NAME_OPEN_URL,
+                                        declaredUrl = null
+                                    )
                                 }
                                 !urlString.hasAllowedOpenUrlScheme() -> {
                                     Registry.log.warning(
-                                        "Skipping OPEN_URL action button $i: scheme " +
-                                            "'${urlString.toUri().scheme}' is not allowed"
+                                        "OPEN_URL action button $i has disallowed scheme " +
+                                            "'${urlString.toUri().scheme}'; rendering as an " +
+                                            "app-launch button instead"
                                     )
-                                    null
+                                    ActionButton.Degraded(
+                                        id = id,
+                                        label = label,
+                                        declaredAction = ActionButton.DISPLAY_NAME_OPEN_URL,
+                                        declaredUrl = urlString
+                                    )
                                 }
                                 else -> ActionButton.OpenUrl(
                                     id = id,
@@ -348,7 +390,11 @@ object KlaviyoRemoteMessage {
         abstract val label: String
 
         /**
-         * Marker for action button variants that carry a destination URL.
+         * Marker for action button variants that carry a guaranteed-dispatchable destination URL.
+         *
+         * Note [Degraded] deliberately does **not** implement this: its `declaredUrl` is the url
+         * the SDK refused to dispatch, so treating it as url-bearing would invite a caller to
+         * open it.
          */
         interface UrlBearing {
             val url: String
@@ -379,6 +425,28 @@ object KlaviyoRemoteMessage {
             override val label: String,
             override val url: String
         ) : ActionButton(), UrlBearing
+
+        /**
+         * Button whose declared action cannot be honored, so a tap simply launches the app.
+         *
+         * Produced when a url-shaped action's url is missing, or — for [TYPE_OPEN_URL] — uses a
+         * scheme outside [ALLOWED_OPEN_URL_SCHEMES]. The button still renders rather than being
+         * dropped, and [declaredAction]/[declaredUrl] preserve what the sender configured so
+         * `$opened_push` metadata stays faithful (and matches iOS, which reports the declared
+         * action and link in the same situation).
+         *
+         * Being a distinct variant rather than a flag on [OpenApp] means every `when` over
+         * [ActionButton] must handle it explicitly, so no dispatch site can mistake a degraded
+         * button for a dispatchable one.
+         */
+        data class Degraded(
+            override val id: String,
+            override val label: String,
+            /** Display name of the action the sender declared, e.g. [DISPLAY_NAME_OPEN_URL]. */
+            val declaredAction: String,
+            /** The declared destination, or `null` when the payload carried no url at all. */
+            val declaredUrl: String?
+        ) : ActionButton()
 
         companion object {
             /**

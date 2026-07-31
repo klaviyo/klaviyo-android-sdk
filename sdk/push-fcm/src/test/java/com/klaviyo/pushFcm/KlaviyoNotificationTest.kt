@@ -958,6 +958,39 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
+    fun `degraded action button routes to app launch and never to the browser`() {
+        // The security-critical guard: Android bakes the PendingIntent at render time, so this
+        // is the only place that decides whether a degraded button's unusable url can reach
+        // forBrowserUrl/makeExternalIntent. It must not.
+        enableAutomaticPushOpenTracking()
+        val mockButtonIntent = mockk<Intent>(relaxed = true)
+        every { KlaviyoTrampolineActivity.forDestination(mockContext, null) } returns mockButtonIntent
+
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.notificationTag } returns "test_tag"
+            every { mockRemoteMessage.actionButtons } returns listOf(
+                ActionButton.Degraded(
+                    id = "open.url",
+                    label = "Open Website",
+                    declaredAction = ActionButton.DISPLAY_NAME_OPEN_URL,
+                    declaredUrl = "javascript:alert(1)"
+                )
+            )
+        }
+        every {
+            PendingIntent.getActivity(any(), any(), any(), any())
+        } returns mockk(relaxed = true)
+
+        notification.displayNotification(mockContext)
+
+        verify { KlaviyoTrampolineActivity.forDestination(mockContext, null) }
+        verify(exactly = 0) { KlaviyoTrampolineActivity.forBrowserUrl(any(), any()) }
+        // The declared action and link still reach $opened_push metadata (iOS parity).
+        verify { mockButtonIntent.putExtra("com.klaviyo.Button Action", "Open URL") }
+        verify { mockButtonIntent.putExtra("com.klaviyo.Button Link", "javascript:alert(1)") }
+    }
+
+    @Test
     fun `open_url tap targets trampoline even with automatic tracking on`() {
         enableAutomaticPushOpenTracking()
         with(KlaviyoRemoteMessage) {

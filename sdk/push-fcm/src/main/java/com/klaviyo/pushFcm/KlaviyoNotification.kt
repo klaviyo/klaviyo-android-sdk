@@ -372,6 +372,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK to " (scheme: ${button.url.toUri().scheme})"
                 is ActionButton.OpenUrl -> ActionButton.DISPLAY_NAME_OPEN_URL to " (scheme: ${button.url.toUri().scheme})"
                 is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP to ""
+                is ActionButton.Degraded ->
+                    button.declaredAction to
+                        " (degraded to app launch${button.declaredUrl?.let { ": $it" } ?: ""})"
             }
             Registry.log.verbose(
                 "Added action button $index: '${button.label}' ($actionType)$destination"
@@ -414,7 +417,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 // and dismisses the notification — the browser would otherwise swallow the intent.
                 KlaviyoTrampolineActivity.forBrowserUrl(context, button.url)
             }
-            is ActionButton.OpenApp -> {
+            // A degraded button's declared destination is unusable, so it launches the app.
+            // Its declared action/url are still reported via appendActionButtonExtras.
+            is ActionButton.OpenApp, is ActionButton.Degraded -> {
                 if (autoTracking) {
                     KlaviyoTrampolineActivity.forDestination(context)
                 } else {

@@ -24,6 +24,7 @@ import io.mockk.verify
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -347,7 +348,11 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
-    fun `Test DEEP_LINK Action Button without URL is skipped`() {
+    fun `Test DEEP_LINK Action Button without URL renders as a degraded app-launch button`() {
+        // Previously this button was dropped entirely (encoding the render-eligibility-vs-action-
+        // validity bug from PUSH-1095). A DEEP_LINK button missing its url still has a valid id,
+        // label, and recognized action type, so it must render - degrading to an app-launch button
+        // rather than disappearing.
         val actionButtonsData = listOf(
             mapOf(
                 "id" to "deep.link",
@@ -366,11 +371,17 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         every { msg.data } returns messageWithActions
 
         val buttons = msg.actionButtons
-        assert(buttons == null)
+        assert(buttons != null)
+        assert(buttons?.size == 1)
+        val button = buttons?.get(0)
+        assert(button is ActionButton.Degraded)
+        assert(button?.id == "deep.link")
+        assert(button?.label == "Deep Link")
     }
 
     @Test
-    fun `Test DEEP_LINK Action Button with null URL is skipped`() {
+    fun `Test DEEP_LINK Action Button with null URL renders as a degraded app-launch button`() {
+        // Same relaxation as above for an explicit JSON null (as opposed to an absent key).
         val actionButtonsJson = JSONArray().put(
             JSONObject()
                 .put("id", "deep.link")
@@ -387,11 +398,16 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         every { msg.data } returns messageWithActions
 
         val buttons = msg.actionButtons
-        assert(buttons == null)
+        assert(buttons != null)
+        assert(buttons?.size == 1)
+        val button = buttons?.get(0)
+        assert(button is ActionButton.Degraded)
+        assert(button?.id == "deep.link")
+        assert(button?.label == "Deep Link")
     }
 
     @Test
-    fun `Test parser filters out invalid buttons but keeps valid ones`() {
+    fun `Test parser skips unrecoverable buttons, downgrades URL-invalid ones, and keeps valid ones`() {
         val actionButtonsData = listOf(
             mapOf(
                 "id" to "valid.deep.link",
@@ -400,6 +416,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
                 "url" to "test://valid"
             ),
             mapOf(
+                // No longer dropped: renders as OpenApp since id/label/action are still valid.
                 "id" to "invalid.deep.link",
                 "label" to "Invalid - deep link no url",
                 "action" to "deep_link"
@@ -431,11 +448,13 @@ class KlaviyoRemoteMessageTest : BaseTest() {
 
         val buttons = msg.actionButtons
         assert(buttons != null)
-        assert(buttons?.size == 2)
+        assert(buttons?.size == 3)
         assert(buttons?.get(0) is ActionButton.DeepLink)
         assert(buttons?.get(0)?.label == "Valid Deep Link")
-        assert(buttons?.get(1) is ActionButton.OpenApp)
-        assert(buttons?.get(1)?.label == "Valid Button")
+        assert(buttons?.get(1) is ActionButton.Degraded)
+        assert(buttons?.get(1)?.label == "Invalid - deep link no url")
+        assert(buttons?.get(2) is ActionButton.OpenApp)
+        assert(buttons?.get(2)?.label == "Valid Button")
     }
 
     @Test
@@ -516,7 +535,9 @@ class KlaviyoRemoteMessageTest : BaseTest() {
                 "action" to "deep_link",
                 "url" to "test://2"
             ), // Valid
-            mapOf("id" to "invalid2", "label" to "Invalid", "action" to "deep_link"), // Invalid - no url
+            // Invalid - unsupported action type (a deep_link with no url no longer counts as
+            // invalid post-PUSH-1095: it downgrades to a valid, rendered OpenApp button instead).
+            mapOf("id" to "invalid2", "label" to "Invalid", "action" to "unsupported_action"),
             mapOf("id" to "valid3", "label" to "Valid 3", "action" to "open_app"), // Valid
             mapOf("id" to "valid4", "label" to "Valid 4", "action" to "open_app") // Should be ignored (>3 valid)
         )
@@ -675,7 +696,11 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
-    fun `actionButtons skips open_url with blocked scheme`() {
+    fun `actionButtons downgrades open_url with blocked scheme to a degraded app-launch button`() {
+        // Previously this dropped the button entirely (PUSH-1095): a dispatch-time security
+        // allowlist was being misused as a render-time eligibility gate. The button must still
+        // render - id/label/action are all valid - but the disallowed-scheme URL degrades the
+        // action so a tap falls back to launching the app rather than ever reaching the browser.
         val mockUri = mockk<Uri>(relaxed = true)
         every { mockUri.scheme } returns "intent"
         every { Uri.parse("intent://evil") } returns mockUri
@@ -695,7 +720,55 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         val msg = mockk<RemoteMessage>()
         every { msg.data } returns messageWithActions
 
-        assert(msg.actionButtons == null)
+        val buttons = msg.actionButtons
+        assert(buttons != null)
+        assert(buttons?.size == 1)
+        val button = buttons?.get(0)
+        // Downgraded to OpenApp: it carries no url at all, so it is structurally impossible for
+        // the disallowed-scheme URL to ever reach the dispatch path (KlaviyoTrampolineActivity).
+        assert(button is ActionButton.Degraded)
+        assert(button?.id == "open.url")
+        assert(button?.label == "Open Website")
+    }
+
+    @Test
+    fun `actionButtons downgrades open_url with scheme-less url to a degraded app-launch button`() {
+        // Regression coverage for the exact PUSH-1095 repro: a scheme-less link like
+        // "www.cnn.com" parses to a null Uri.scheme, which is not in ALLOWED_OPEN_URL_SCHEMES.
+        // The button must still render.
+        val mockUri = mockk<Uri>(relaxed = true)
+        every { mockUri.scheme } returns null
+        every { Uri.parse("www.cnn.com") } returns mockUri
+
+        val actionButtonsData = listOf(
+            mapOf(
+                "id" to "open.url",
+                "label" to "Open Website",
+                "action" to "open_url",
+                "url" to "www.cnn.com"
+            )
+        )
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, JSONArray(actionButtonsData).toString())
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        val buttons = msg.actionButtons
+        assert(buttons != null)
+        assert(buttons?.size == 1)
+        val button = buttons?.get(0)
+        assert(button is ActionButton.Degraded)
+        assert(button?.id == "open.url")
+        assert(button?.label == "Open Website")
+        // The declared action and destination survive the downgrade so the $opened_push
+        // metadata matches iOS, which reports "Open URL" plus the raw link for this payload.
+        assertEquals(
+            ActionButton.DISPLAY_NAME_OPEN_URL,
+            (button as ActionButton.Degraded).declaredAction
+        )
+        assertEquals("www.cnn.com", button.declaredUrl)
     }
 
     @Test
@@ -740,7 +813,7 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
-    fun `actionButtons skips open_url with missing url`() {
+    fun `actionButtons downgrades open_url with missing url to a degraded app-launch button`() {
         val actionButtonsData = listOf(
             mapOf(
                 "id" to "open.url",
@@ -755,11 +828,47 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         val msg = mockk<RemoteMessage>()
         every { msg.data } returns messageWithActions
 
-        assert(msg.actionButtons == null)
+        val buttons = msg.actionButtons
+        assert(buttons != null)
+        assert(buttons?.size == 1)
+        val button = buttons?.get(0)
+        assert(button is ActionButton.Degraded)
+        assert(button?.id == "open.url")
+        assert(button?.label == "Open Website")
     }
 
     @Test
-    fun `actionButtons skips open_url with blank url`() {
+    fun `actionButtons downgrades open_url with blank url to a degraded app-launch button`() {
+        // optNonBlankString maps "" and null to the same result today; assert the blank case
+        // explicitly so a change to that helper cannot silently drop the button.
+        val actionButtonsData = listOf(
+            mapOf(
+                "id" to "open.url",
+                "label" to "Open Website",
+                "action" to "open_url",
+                "url" to "   "
+            )
+        )
+        val messageWithActions = stubMessage.toMutableMap().apply {
+            put(ACTION_BUTTONS_KEY, JSONArray(actionButtonsData).toString())
+        }
+
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns messageWithActions
+
+        val buttons = msg.actionButtons
+        assert(buttons?.size == 1)
+        val button = buttons?.get(0)
+        assert(button is ActionButton.Degraded)
+        assertEquals(
+            ActionButton.DISPLAY_NAME_OPEN_URL,
+            (button as ActionButton.Degraded).declaredAction
+        )
+        assertEquals(null, button.declaredUrl)
+    }
+
+    @Test
+    fun `actionButtons downgrades open_url with null url to a degraded app-launch button`() {
         val actionButtonsJson = JSONArray().put(
             JSONObject()
                 .put("id", "open.url")
@@ -775,7 +884,13 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         val msg = mockk<RemoteMessage>()
         every { msg.data } returns messageWithActions
 
-        assert(msg.actionButtons == null)
+        val buttons = msg.actionButtons
+        assert(buttons != null)
+        assert(buttons?.size == 1)
+        val button = buttons?.get(0)
+        assert(button is ActionButton.Degraded)
+        assert(button?.id == "open.url")
+        assert(button?.label == "Open Website")
     }
 
     @Test
@@ -795,5 +910,46 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         verify { intent.putExtra("com.klaviyo.Button Label", "Open Website") }
         verify { intent.putExtra("com.klaviyo.Button Action", "Open URL") }
         verify { intent.putExtra("com.klaviyo.Button Link", "https://example.com") }
+    }
+
+    @Test
+    fun `appendActionButtonExtras for Degraded reports the declared action and link`() {
+        // A downgraded button launches the app, but $opened_push must still report what the
+        // sender configured — otherwise the misconfiguration is invisible in analytics and
+        // Android disagrees with iOS about the same message.
+        val intent = mockk<Intent>(relaxed = true)
+        val button = ActionButton.Degraded(
+            id = "open.url",
+            label = "Open Website",
+            declaredAction = ActionButton.DISPLAY_NAME_OPEN_URL,
+            declaredUrl = "www.cnn.com"
+        )
+
+        every { intent.putExtra(any<String>(), any<String>()) } returns intent
+
+        intent.appendActionButtonExtras(button)
+
+        verify { intent.putExtra("com.klaviyo.Button ID", "open.url") }
+        verify { intent.putExtra("com.klaviyo.Button Label", "Open Website") }
+        verify { intent.putExtra("com.klaviyo.Button Action", "Open URL") }
+        verify { intent.putExtra("com.klaviyo.Button Link", "www.cnn.com") }
+    }
+
+    @Test
+    fun `appendActionButtonExtras for Degraded omits the link when the payload had none`() {
+        val intent = mockk<Intent>(relaxed = true)
+        val button = ActionButton.Degraded(
+            id = "deep.link",
+            label = "Shop Now",
+            declaredAction = ActionButton.DISPLAY_NAME_DEEP_LINK,
+            declaredUrl = null
+        )
+
+        every { intent.putExtra(any<String>(), any<String>()) } returns intent
+
+        intent.appendActionButtonExtras(button)
+
+        verify { intent.putExtra("com.klaviyo.Button Action", "Deep Link") }
+        verify(exactly = 0) { intent.putExtra("com.klaviyo.Button Link", any<String>()) }
     }
 }
