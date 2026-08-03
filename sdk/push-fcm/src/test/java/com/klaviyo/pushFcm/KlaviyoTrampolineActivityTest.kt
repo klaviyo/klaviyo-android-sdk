@@ -31,6 +31,16 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         every { startActivity(any()) } returns Unit
     }
 
+    /**
+     * Flags the trampoline adds to every destination it owns, mirroring the non-trampoline content
+     * intent. Spelled out here rather than referencing the production expression so a change there
+     * fails these tests. The one exception is a deep link with a handler registered, which must
+     * only bring the host task to the front — see the MAGE-1004 regression test below.
+     */
+    private val resetFlags = Intent.FLAG_ACTIVITY_NEW_TASK or
+        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+        Intent.FLAG_ACTIVITY_CLEAR_TOP
+
     @Before
     override fun setup() {
         super.setup()
@@ -103,6 +113,9 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any(), any()) }
         verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, any()) }
         verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
+        // No handler navigation to preserve on an open_app tap, so reset to root as before.
+        verify { mockLaunchIntent.addFlags(resetFlags) }
+        verify(exactly = 0) { mockLaunchIntent.setFlags(any()) }
     }
 
     @Test
@@ -132,10 +145,13 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         verify { DeepLinking.makeDeepLinkIntent(deepLink, mockTrampolineContext, intent) }
         verify { mockTrampolineContext.startActivity(mockDeepLinkIntent) }
         verify(exactly = 0) { DeepLinking.makeLaunchIntent(any(), any()) }
+        // The SDK owns this navigation, so it keeps the reset-to-root behavior.
+        verify { mockDeepLinkIntent.addFlags(resetFlags) }
+        verify(exactly = 0) { mockDeepLinkIntent.setFlags(any()) }
     }
 
     @Test
-    fun `handleTrampolineIntent with deep link but handler registered launches host without ACTION_VIEW`() {
+    fun `handleTrampolineIntent with deep link and handler registered brings host to front without clearing back stack`() {
         val intent = klaviyoIntent()
         val deepLink = mockk<Uri>(relaxed = true)
         every { intent.data } returns deepLink
@@ -148,6 +164,27 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any(), any()) }
         verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, any()) }
         verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
+        // The handler runs synchronously inside handlePush, so it may already have navigated:
+        // CLEAR_TOP would finish that destination and SINGLE_TOP would re-deliver an ACTION_MAIN
+        // intent to the launcher activity. Assigned, not added, because makeLaunchIntent bakes in
+        // SINGLE_TOP — see DeepLinkingTest's makeLaunchIntent coverage.
+        verify { mockLaunchIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        verify(exactly = 0) { mockLaunchIntent.addFlags(any()) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent with handler registered but no deep link still clears top`() {
+        val intent = klaviyoIntent() // open_app tap: handler registered, but no link to dispatch
+        every { DeepLinking.isHandlerRegistered } returns true
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        // Without a deep link the handler was never invoked, so there is no host navigation to
+        // preserve and this stays a plain launch — registering a handler must not change open_app.
+        verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, any()) }
+        verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
+        verify { mockLaunchIntent.addFlags(resetFlags) }
+        verify(exactly = 0) { mockLaunchIntent.setFlags(any()) }
     }
 
     @Test
@@ -165,6 +202,8 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, any()) }
         verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
         verify(exactly = 0) { mockTrampolineContext.startActivity(mockDeepLinkIntent) }
+        // No handler ran for this tap, so the fallback keeps the reset-to-root behavior.
+        verify { mockLaunchIntent.addFlags(resetFlags) }
         // Degraded-but-handled (fell back to launcher) → WARNING, not ERROR.
         verify { spyLog.warning(any(), null) }
     }

@@ -127,13 +127,23 @@ internal class KlaviyoTrampolineActivity : Activity() {
          *
          * - Deep link present and no [DeepLinkHandler][com.klaviyo.analytics.linking.DeepLinkHandler]
          *   registered → `ACTION_VIEW` into the host, falling back to the launcher if unresolvable.
-         * - Handler registered, or no deep link → launcher only. `handlePush` already dispatched the
-         *   handler, so an additional `ACTION_VIEW` would double-deliver navigation.
+         * - Deep link present and a handler registered → launcher intent flagged only to bring the
+         *   host's task to the front. `handlePush` already dispatched the handler, so an additional
+         *   `ACTION_VIEW` would double-deliver navigation, and clearing the back stack would undo it.
+         * - No deep link (`open_app`) → launcher intent with the same flags as the non-trampoline
+         *   content intent it replaces.
          */
         private fun startDestination(intent: Intent, context: Context) {
             val deepLink = intent.data
+            // Read once so the destination and its flags can't be decided from different state.
+            // `handlePush` above dispatches this link to the host's handler synchronously on the
+            // main thread, so by now the host may already have navigated. (A repeat tap of the
+            // same delivery is deduped inside `handlePush` and navigates nothing — still the right
+            // branch, since there is no reason to tear down what the first tap navigated to.)
+            val handlerOwnsNavigation = deepLink != null && DeepLinking.isHandlerRegistered
+
             val destination: Intent? = when {
-                deepLink != null && !DeepLinking.isHandlerRegistered -> {
+                deepLink != null && !handlerOwnsNavigation -> {
                     val viewIntent = DeepLinking.makeDeepLinkIntent(
                         deepLink,
                         context,
@@ -150,9 +160,9 @@ internal class KlaviyoTrampolineActivity : Activity() {
                     }
                 }
                 else -> {
-                    if (deepLink != null) {
+                    if (handlerOwnsNavigation) {
                         Registry.log.verbose(
-                            "Trampoline dispatching deep link via handler; launching host"
+                            "Trampoline dispatched deep link via handler; bringing host to front"
                         )
                     } else {
                         Registry.log.verbose("Trampoline dispatching launch intent")
@@ -162,15 +172,27 @@ internal class KlaviyoTrampolineActivity : Activity() {
             }
 
             destination?.apply {
-                // CLEAR_TOP mirrors the non-trampoline path (KlaviyoNotification adds it to the
-                // contentIntent, but it's consumed launching the trampoline rather than forwarded),
-                // preserving back-stack behavior. NEW_TASK is required here since we launch from the
-                // trampoline's own (taskAffinity="") task.
-                addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP
-                )
+                if (handlerOwnsNavigation) {
+                    // Launcher-icon semantics: resume the host's task exactly as the user left it.
+                    // The handler owns navigation, so CLEAR_TOP would finish whatever it just
+                    // navigated to, and SINGLE_TOP would re-deliver an ACTION_MAIN intent to the
+                    // launcher activity, resetting in-activity (Fragment/Compose) routing.
+                    //
+                    // Assigned rather than added because makeLaunchIntent bakes in SINGLE_TOP (see
+                    // DeepLinkingTest) and Intent.removeFlags requires API 26, above our minSdk.
+                    // getLaunchIntentForPackage sets exactly NEW_TASK, so nothing else is dropped.
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                } else {
+                    // CLEAR_TOP mirrors the non-trampoline path (KlaviyoNotification adds it to the
+                    // contentIntent, but it's consumed launching the trampoline rather than
+                    // forwarded), preserving back-stack behavior. NEW_TASK is required here since we
+                    // launch from the trampoline's own (taskAffinity="") task.
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    )
+                }
             }?.startActivityIfResolved(context)
                 ?: Registry.log.warning("No launch intent found for host app; nothing to start")
         }

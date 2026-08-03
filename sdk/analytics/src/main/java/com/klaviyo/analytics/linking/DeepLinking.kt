@@ -177,6 +177,9 @@ object DeepLinking {
     /**
      * Create an intent to launch the host application.
      *
+     * Note: callers that only need to bring an already-running host task to the front overwrite
+     * these flags rather than adding to them, so flags added here will not reach that path.
+     *
      * @param context The context used to access the package manager and set flags
      * @param extras Optional intent to copy extras from, useful for passing additional data
      */
