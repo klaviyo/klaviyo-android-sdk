@@ -8,6 +8,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.core.utils.takeIf
+import java.util.concurrent.atomic.AtomicBoolean
 
 typealias ActivityObserver = (activity: ActivityEvent) -> Unit
 
@@ -119,9 +120,18 @@ interface LifecycleMonitor {
      * Helper function to run a task immediately if there is a current activity,
      * or wait for the next resumed activity if resumed within the optional timeout.
      * Returns a token that can be used to cancel the pending task if needed.
+     *
+     * Exactly one of [job] and [onTimeout] is ever invoked: without [onTimeout], a job that
+     * outlives its timeout is dropped, so callers that must not lose the work should supply a
+     * best-effort fallback rather than relying on the resume arriving in time.
+     *
+     * @param timeout How long to wait for a resumed activity, or null to wait indefinitely
+     * @param onTimeout Invoked instead of [job] if [timeout] elapses with no resumed activity
+     * @param job Invoked with the current activity, or the next one to resume
      */
     fun runWithCurrentOrNextActivity(
         timeout: Long? = null,
+        onTimeout: (() -> Unit)? = null,
         job: (activity: Activity) -> Unit
     ): Clock.Cancellable? {
         currentActivity?.let { activity ->
@@ -129,19 +139,26 @@ interface LifecycleMonitor {
             return null
         }
 
+        // The timeout runs off the observer's thread, so claim the outcome atomically: a resume
+        // racing the timer must not fire both branches.
+        val settled = AtomicBoolean(false)
         var observer: ActivityObserver? = null
         val cancelToken: Clock.Cancellable? = timeout?.let { delay ->
             Registry.clock.schedule(delay) {
+                if (!settled.compareAndSet(false, true)) return@schedule
                 Registry.log.verbose("Removing postponed observer after timeout ${delay}ms")
                 observer?.let { offActivityEvent(it) }
+                onTimeout?.invoke()
             }
         }
         observer = { event ->
-            event.takeIf<ActivityEvent.Resumed>()?.let { event ->
-                Registry.log.verbose("Invoking postponed observer on resume")
-                job(event.activity)
-                observer?.let { offActivityEvent(it) }
-                cancelToken?.cancel()
+            event.takeIf<ActivityEvent.Resumed>()?.let { resumed ->
+                if (settled.compareAndSet(false, true)) {
+                    Registry.log.verbose("Invoking postponed observer on resume")
+                    observer?.let { offActivityEvent(it) }
+                    cancelToken?.cancel()
+                    job(resumed.activity)
+                }
             }
         }
         onActivityEvent(observer)
@@ -155,5 +172,13 @@ interface LifecycleMonitor {
          * In testing, this was rarely exceeds 10ms, allowing some extra time for safety.
          */
         const val ACTIVITY_TRANSITION_GRACE_PERIOD = 50L
+
+        /**
+         * Allow for a cold start to produce its first resumed activity: the host process has to
+         * fork, run `Application.onCreate`, and draw a frame, which is orders of magnitude beyond
+         * [ACTIVITY_TRANSITION_GRACE_PERIOD]. Generous on purpose — waiting costs nothing, whereas
+         * timing out early means falling back to a best-effort that cannot navigate.
+         */
+        const val COLD_START_GRACE_PERIOD = 10_000L
     }
 }

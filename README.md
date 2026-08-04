@@ -1149,12 +1149,17 @@ You should register this from your `Application` or main `Activity`'s `.onCreate
 the application lifecycle to handle any link that launches the app from a terminated state. This handler will be invoked for
 *any* deep link originating from the Klaviyo SDK, including push notifications, universal tracking links, or In-App Forms.
 
+The SDK invokes your handler once your app has a resumed `Activity`, so it is always safe to navigate from it — including
+when a notification tap cold-starts your app from a terminated state. As a result the callback may arrive slightly after
+the event that triggered it (for example at `onResume` rather than inline during `onCreate`).
+
 > **Push notification taps with automatic open tracking:** When `automatic_push_open_tracking` is enabled and you have
-> registered a handler, the SDK invokes your handler and then brings your app's existing task to the foreground **without**
-> clearing its back stack or delivering an intent to your launcher `Activity`. Whatever you navigate to from the handler —
-> another `Activity`, a `Fragment` transaction, a Compose `NavController` route — stays on top. Because no intent is delivered
-> on this path, do your routing in the handler callback rather than in `onNewIntent`. If no handler is registered, the SDK
-> instead sends your app an `ACTION_VIEW` intent carrying the link, which you should handle in `onCreate`/`onNewIntent`.
+> registered a handler, the SDK brings your app's existing task to the foreground — creating it if your app was not
+> running — **without** clearing its back stack or delivering an intent to your launcher `Activity`, then invokes your
+> handler. Whatever you navigate to from the handler — another `Activity`, a `Fragment` transaction, a Compose
+> `NavController` route — stays on top. Because no intent is delivered on this path, do your routing in the handler
+> callback rather than in `onNewIntent`. If no handler is registered, the SDK instead sends your app an `ACTION_VIEW`
+> intent carrying the link, which you should handle in `onCreate`/`onNewIntent`.
 
 <details open>
    <summary>Kotlin</summary>

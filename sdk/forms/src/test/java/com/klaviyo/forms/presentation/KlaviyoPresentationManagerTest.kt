@@ -416,7 +416,7 @@ class KlaviyoPresentationManagerTest : BaseTest() {
         // runWithCurrentOrNextActivity must return our host activity for floating window tests
         val slotJob = slot<(activity: Activity) -> Unit>()
         every {
-            mockLifecycleMonitor.runWithCurrentOrNextActivity(any(), capture(slotJob))
+            mockLifecycleMonitor.runWithCurrentOrNextActivity(any(), any(), capture(slotJob))
         } answers {
             slotJob.captured.invoke(mockHostActivity)
             null

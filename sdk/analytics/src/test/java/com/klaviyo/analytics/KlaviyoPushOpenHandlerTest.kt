@@ -1,5 +1,6 @@
 package com.klaviyo.analytics
 
+import android.app.Activity
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
@@ -169,6 +170,34 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         val testUri = mockk<Uri>()
 
         Klaviyo.handlePush(mockIntent(stubIntentExtras, testUri))
+
+        assertEquals(testUri, getCapturedUri())
+    }
+
+    @Test
+    fun `handlePush tracks and dismisses synchronously while postponing the deep link`() {
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val testUri = mockk<Uri>()
+        // Cold start: nothing is resumed yet, so the handler has nowhere to navigate. Capture the
+        // postponed job rather than running it, to prove the open is still tracked right away.
+        val job = slot<(Activity) -> Unit>()
+        every {
+            Registry.lifecycleMonitor.runWithCurrentOrNextActivity(any(), any(), capture(job))
+        } returns null
+
+        Klaviyo.handlePush(
+            mockIntent(
+                mapOf(
+                    "com.klaviyo._k" to """{"m":"01GK4P5W6AV4V3APTJ727JKSKQ","tm":"cold-start"}"""
+                ),
+                testUri
+            )
+        )
+
+        verifyOpenedPushEventEnqueued()
+        assertEquals(null, getCapturedUri())
+
+        job.captured.invoke(mockActivity)
 
         assertEquals(testUri, getCapturedUri())
     }

@@ -6,17 +6,23 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.KlaviyoConfig
+import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.COLD_START_GRACE_PERIOD
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
+import io.mockk.CapturingSlot
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
+import io.mockk.slot
 import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -76,16 +82,16 @@ internal class DeepLinkingTest : BaseTest() {
 
         assertEquals(mockUri, invokedUri)
         verify(exactly = 1) { mockThreadHelper.runOnUiThread(any()) }
+        // The two branches are mutually exclusive: a registered handler owns the navigation, so
+        // broadcasting an intent as well would deliver it twice.
+        verify(exactly = 0) { testActivity.startActivity(any()) }
+        verify(exactly = 0) { mockActivity.startActivity(any()) }
     }
 
     @Test
     fun `handleDeepLink broadcasts intent when no handler registered`() {
         every { testActivity.startActivity(any()) } returns Unit
-        every { Registry.lifecycleMonitor.runWithCurrentOrNextActivity(any(), any()) } answers {
-            val callback = secondArg<(Activity) -> Unit>()
-            callback(testActivity)
-            null
-        }
+        runWithActivityImmediately()
 
         DeepLinking.handleDeepLink(mockUri)
 
@@ -98,15 +104,99 @@ internal class DeepLinkingTest : BaseTest() {
         every { anyConstructed<Intent>().resolveActivity(any()) } returns null
 
         every { testActivity.startActivity(any()) } returns Unit
-        every { Registry.lifecycleMonitor.runWithCurrentOrNextActivity(any(), any()) } answers {
-            val callback = secondArg<(Activity) -> Unit>()
-            callback(testActivity)
-            null
-        }
+        runWithActivityImmediately()
 
         DeepLinking.handleDeepLink(mockUri)
 
         verify(inverse = true) { testActivity.startActivity(any()) }
+    }
+
+    @Test
+    fun `handleDeepLink postpones handler until an activity resumes`() {
+        var invokedUri: Uri? = null
+        Registry.register<DeepLinkHandler>(DeepLinkHandler { uri -> invokedUri = uri })
+        val job = capturePostponedJob()
+
+        DeepLinking.handleDeepLink(mockUri)
+
+        assertNull("Handler must not fire before an activity resumes", invokedUri)
+
+        job.captured.invoke(testActivity)
+
+        assertEquals(mockUri, invokedUri)
+    }
+
+    @Test
+    fun `handleDeepLink waits for the cold start grace period`() {
+        Registry.register<DeepLinkHandler>(mockk<DeepLinkHandler>(relaxed = true))
+        val timeout = slot<Long>()
+        every {
+            Registry.lifecycleMonitor.runWithCurrentOrNextActivity(capture(timeout), any(), any())
+        } returns null
+
+        DeepLinking.handleDeepLink(mockUri)
+
+        assertEquals(COLD_START_GRACE_PERIOD, timeout.captured)
+    }
+
+    @Test
+    fun `handleDeepLink invokes handler anyway when no activity resumes in time`() {
+        var invokedUri: Uri? = null
+        Registry.register<DeepLinkHandler>(DeepLinkHandler { uri -> invokedUri = uri })
+        val onTimeout = slot<() -> Unit>()
+        every {
+            Registry.lifecycleMonitor.runWithCurrentOrNextActivity(any(), capture(onTimeout), any())
+        } returns null
+
+        DeepLinking.handleDeepLink(mockUri)
+
+        assertNull("Handler must not fire before the timeout elapses", invokedUri)
+
+        onTimeout.captured.invoke()
+
+        assertEquals(mockUri, invokedUri)
+        verify { spyLog.warning(any(), any()) }
+    }
+
+    @Test
+    fun `handleDeepLink does not propagate an exception from the host handler`() {
+        Registry.register<DeepLinkHandler>(
+            DeepLinkHandler { throw RuntimeException("host handler blew up") }
+        )
+
+        // safeCall re-throws in debug builds to avoid development blindness, so this asserts the
+        // production behavior the guard exists for: a throwing handler must not crash the host.
+        mockkObject(KlaviyoConfig)
+        every { KlaviyoConfig.isDebugBuild } returns false
+
+        DeepLinking.handleDeepLink(mockUri)
+
+        verify { spyLog.error(any(), any<Exception>()) }
+    }
+
+    /**
+     * Stub the postponement helper to run its job immediately with [testActivity].
+     * [BaseTest] does this with its own `mockActivity`; these cases assert on `testActivity`.
+     */
+    private fun runWithActivityImmediately() {
+        every {
+            Registry.lifecycleMonitor.runWithCurrentOrNextActivity(any(), any(), any())
+        } answers {
+            thirdArg<(Activity) -> Unit>().invoke(testActivity)
+            null
+        }
+    }
+
+    /**
+     * Stub the postponement helper to capture its job without running it, standing in for a host
+     * with no resumed activity — a cold start, or an activity transition in progress.
+     */
+    private fun capturePostponedJob(): CapturingSlot<(Activity) -> Unit> {
+        val job = slot<(Activity) -> Unit>()
+        every {
+            Registry.lifecycleMonitor.runWithCurrentOrNextActivity(any(), any(), capture(job))
+        } returns null
+        return job
     }
 
     @Test

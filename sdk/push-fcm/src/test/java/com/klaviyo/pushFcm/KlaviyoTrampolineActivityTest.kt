@@ -8,6 +8,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
+import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
@@ -164,10 +165,29 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any(), any()) }
         verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, any()) }
         verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
-        // The handler runs synchronously inside handlePush, so it may already have navigated:
-        // CLEAR_TOP would finish that destination and SINGLE_TOP would re-deliver an ACTION_MAIN
-        // intent to the launcher activity. Assigned, not added, because makeLaunchIntent bakes in
-        // SINGLE_TOP — see DeepLinkingTest's makeLaunchIntent coverage.
+        // The handler either has navigated already or is postponed until this intent resumes the
+        // host: CLEAR_TOP would finish that destination and SINGLE_TOP would re-deliver an
+        // ACTION_MAIN intent to the launcher activity. Assigned, not added, because
+        // makeLaunchIntent bakes in SINGLE_TOP — see DeepLinkingTest's makeLaunchIntent coverage.
+        verify { mockLaunchIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        verify(exactly = 0) { mockLaunchIntent.addFlags(any()) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent with deep link and handler registered brings host to front on cold start`() {
+        val intent = klaviyoIntent()
+        val deepLink = mockk<Uri>(relaxed = true)
+        every { intent.data } returns deepLink
+        every { DeepLinking.isHandlerRegistered } returns true
+        // Cold start: no activity exists yet, so DeepLinking postpones the handler until the
+        // intent started here resumes the host. Dispatch must not depend on that state — this
+        // launch is what creates the task the handler will navigate on top of.
+        every { Registry.lifecycleMonitor.currentActivity } returns null
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, any()) }
+        verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
         verify { mockLaunchIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
         verify(exactly = 0) { mockLaunchIntent.addFlags(any()) }
     }

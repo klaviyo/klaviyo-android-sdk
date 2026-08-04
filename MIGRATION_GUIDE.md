@@ -30,6 +30,18 @@ manually on app startup.
 To opt out and retain manual control, see
 [Option A — Automatic Integration](./README.md#option-a--automatic-integration) in the README.
 
+### `DeepLinkHandler` callback timing
+
+A handler registered via `Klaviyo.registerDeepLinkHandler` is now invoked once your app has a
+resumed `Activity`, rather than immediately. This makes the callback safe to navigate from on a
+cold start — previously a notification tap that launched your app from a terminated state invoked
+the handler before any `Activity` existed, so a `NavController` or `Activity`-based route had
+nothing to navigate and the link was dropped.
+
+No action is required, but note that the callback can now arrive slightly later than the call that
+triggered it. Most visibly, if you call `Klaviyo.handlePush(intent)` from an `Activity`'s
+`onCreate`, your handler is invoked at `onResume` rather than inline.
+
 ### Rollout summary
 
 | Behavior | This release (4.5.0) | Future major release |

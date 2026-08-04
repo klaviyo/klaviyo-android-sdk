@@ -128,16 +128,20 @@ internal class KlaviyoTrampolineActivity : Activity() {
          * - Deep link present and no [DeepLinkHandler][com.klaviyo.analytics.linking.DeepLinkHandler]
          *   registered → `ACTION_VIEW` into the host, falling back to the launcher if unresolvable.
          * - Deep link present and a handler registered → launcher intent flagged only to bring the
-         *   host's task to the front. `handlePush` already dispatched the handler, so an additional
-         *   `ACTION_VIEW` would double-deliver navigation, and clearing the back stack would undo it.
+         *   host's task to the front (creating it on a cold start), which is what gives the deferred
+         *   handler an activity to navigate from. `handlePush` already routed the link to the
+         *   handler, so an additional `ACTION_VIEW` would double-deliver navigation, and clearing
+         *   the back stack would undo it.
          * - No deep link (`open_app`) → launcher intent with the same flags as the non-trampoline
          *   content intent it replaces.
          */
         private fun startDestination(intent: Intent, context: Context) {
             val deepLink = intent.data
             // Read once so the destination and its flags can't be decided from different state.
-            // `handlePush` above dispatches this link to the host's handler synchronously on the
-            // main thread, so by now the host may already have navigated. (A repeat tap of the
+            // `handlePush` above hands this link to the host's handler, which `DeepLinking` defers
+            // until an activity resumes — i.e. until the intent we start below has brought the host
+            // up. That ordering is why the launcher intent must not clear the task: it is what
+            // creates the destination the handler then navigates on top of. (A repeat tap of the
             // same delivery is deduped inside `handlePush` and navigates nothing — still the right
             // branch, since there is no reason to tear down what the first tap navigated to.)
             val handlerOwnsNavigation = deepLink != null && DeepLinking.isHandlerRegistered

@@ -109,9 +109,12 @@ abstract class BaseTest {
         every { offActivityEvent(any()) } returns Unit
         every { currentActivity } returns mockActivity
 
+        // Default: an activity is always available, so postponed jobs run immediately and the
+        // timeout fallback never fires. Tests exercising the deferred path re-stub this.
         val slotJob = slot<(activity: Activity) -> Unit>()
         every {
             runWithCurrentOrNextActivity(
+                any(),
                 any(),
                 capture(slotJob)
             )

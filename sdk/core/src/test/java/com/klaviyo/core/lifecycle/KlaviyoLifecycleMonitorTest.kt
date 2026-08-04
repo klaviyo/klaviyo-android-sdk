@@ -212,4 +212,57 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         KlaviyoLifecycleMonitor.onActivityResumed(mockk())
         assert(!called) { "Callback should not be called if timed out" }
     }
+
+    @Test
+    fun `runWithCurrentOrNextActivity invokes onTimeout if activity is not resumed in time`() {
+        var called = false
+        var timedOut = false
+
+        KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
+            timeout = 100,
+            onTimeout = { timedOut = true }
+        ) { _ ->
+            called = true
+        }
+
+        assert(!timedOut) { "Fallback should not be called yet" }
+        staticClock.execute(150)
+        assert(timedOut) { "Fallback should be called once timed out" }
+        assert(!called) { "Callback should not be called if timed out" }
+    }
+
+    @Test
+    fun `runWithCurrentOrNextActivity does not invoke onTimeout once the job has run`() {
+        var called = false
+        var timedOut = false
+
+        KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
+            timeout = 100,
+            onTimeout = { timedOut = true }
+        ) { _ ->
+            called = true
+        }
+
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+        staticClock.execute(150)
+
+        assert(called) { "Callback should be called after activity resumed" }
+        assert(!timedOut) { "Fallback should not be called after the job already ran" }
+    }
+
+    @Test
+    fun `runWithCurrentOrNextActivity runs the job at most once`() {
+        var callCount = 0
+
+        KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
+            timeout = 100
+        ) { _ ->
+            callCount++
+        }
+
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+
+        assertEquals(1, callCount)
+    }
 }
