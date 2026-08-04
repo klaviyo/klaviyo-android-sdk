@@ -155,7 +155,7 @@ internal class DeepLinkingTest : BaseTest() {
         onTimeout.captured.invoke()
 
         assertEquals(mockUri, invokedUri)
-        verify { spyLog.warning(any(), any()) }
+        verify { spyLog.warning(any(), null) }
     }
 
     @Test

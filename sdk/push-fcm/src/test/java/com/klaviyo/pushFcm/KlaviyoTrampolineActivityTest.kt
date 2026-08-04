@@ -181,7 +181,9 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         every { DeepLinking.isHandlerRegistered } returns true
         // Cold start: no activity exists yet, so DeepLinking postpones the handler until the
         // intent started here resumes the host. Dispatch must not depend on that state — this
-        // launch is what creates the task the handler will navigate on top of.
+        // launch is what creates the task the handler will navigate on top of. The assertions
+        // therefore match the warm-tap test above on purpose: that equivalence *is* the invariant,
+        // and it would break if dispatch ever started branching on activity state.
         every { Registry.lifecycleMonitor.currentActivity } returns null
 
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)

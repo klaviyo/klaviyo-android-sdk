@@ -161,6 +161,12 @@ interface LifecycleMonitor {
                 }
             }
         }
+
+        // The timeout runs on the clock's own thread, so it can beat us here and de-register an
+        // observer we have not registered yet. Registering afterwards would leave one that can
+        // never fire — settled is already claimed — and that nothing will ever remove.
+        if (settled.get()) return cancelToken
+
         onActivityEvent(observer)
 
         return cancelToken
