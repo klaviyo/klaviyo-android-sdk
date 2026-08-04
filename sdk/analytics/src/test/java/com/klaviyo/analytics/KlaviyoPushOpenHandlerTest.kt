@@ -175,7 +175,7 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     }
 
     @Test
-    fun `handlePush tracks and dismisses synchronously while postponing the deep link`() {
+    fun `handlePush tracks the open synchronously while postponing the deep link`() {
         val (getCapturedUri) = setupDeepLinkHandler()
         val testUri = mockk<Uri>()
         // Cold start: nothing is resumed yet, so the handler has nowhere to navigate. Capture the
@@ -194,7 +194,18 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
             )
         )
 
-        verifyOpenedPushEventEnqueued()
+        // Matched on this delivery rather than via verifyOpenedPushEventEnqueued's exactly-1: the
+        // pre-init queue lives on the Klaviyo object, so initialize() in setup can replay an
+        // opened_push queued by an earlier test in this class and inflate the count.
+        verify(exactly = 1) {
+            mockApiClient.enqueueEvent(
+                match { event ->
+                    event.metric == EventMetric.OPENED_PUSH &&
+                        event[EventKey.CUSTOM("_k")].toString().contains("cold-start")
+                },
+                any()
+            )
+        }
         assertEquals(null, getCapturedUri())
 
         job.captured.invoke(mockActivity)

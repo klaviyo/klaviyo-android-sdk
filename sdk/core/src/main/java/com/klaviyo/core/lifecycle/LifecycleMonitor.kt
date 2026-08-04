@@ -119,15 +119,19 @@ interface LifecycleMonitor {
     /**
      * Helper function to run a task immediately if there is a current activity,
      * or wait for the next resumed activity if resumed within the optional timeout.
-     * Returns a token that can be used to cancel the pending task if needed.
      *
-     * Exactly one of [job] and [onTimeout] is ever invoked: without [onTimeout], a job that
-     * outlives its timeout is dropped, so callers that must not lose the work should supply a
-     * best-effort fallback rather than relying on the resume arriving in time.
+     * Exactly one of [job] and [onTimeout] is invoked, unless the returned token cancels the wait
+     * first. Without [onTimeout], a job that outlives its timeout is dropped, so callers that must
+     * not lose the work should supply a best-effort fallback rather than relying on the resume
+     * arriving in time.
      *
      * @param timeout How long to wait for a resumed activity, or null to wait indefinitely
      * @param onTimeout Invoked instead of [job] if [timeout] elapses with no resumed activity
      * @param job Invoked with the current activity, or the next one to resume
+     * @return null if [job] already ran against the current activity, otherwise a token that
+     *  abandons the pending wait. Both [Clock.Cancellable.cancel] and [Clock.Cancellable.runNow]
+     *  abandon it — there is no way to "run now" a job that is waiting precisely because it has no
+     *  activity to run against — and neither runs [job] or [onTimeout].
      */
     fun runWithCurrentOrNextActivity(
         timeout: Long? = null,
@@ -139,11 +143,12 @@ interface LifecycleMonitor {
             return null
         }
 
-        // The timeout runs off the observer's thread, so claim the outcome atomically: a resume
-        // racing the timer must not fire both branches.
+        // The timeout fires on the clock's own thread, so claim the outcome atomically: a resume
+        // racing the timer — or a caller abandoning the wait — must not let two branches run.
         val settled = AtomicBoolean(false)
         var observer: ActivityObserver? = null
-        val cancelToken: Clock.Cancellable? = timeout?.let { delay ->
+
+        val timeoutTask: Clock.Cancellable? = timeout?.let { delay ->
             Registry.clock.schedule(delay) {
                 if (!settled.compareAndSet(false, true)) return@schedule
                 Registry.log.verbose("Removing postponed observer after timeout ${delay}ms")
@@ -151,25 +156,40 @@ interface LifecycleMonitor {
                 onTimeout?.invoke()
             }
         }
+
         observer = { event ->
             event.takeIf<ActivityEvent.Resumed>()?.let { resumed ->
                 if (settled.compareAndSet(false, true)) {
                     Registry.log.verbose("Invoking postponed observer on resume")
                     observer?.let { offActivityEvent(it) }
-                    cancelToken?.cancel()
+                    timeoutTask?.cancel()
                     job(resumed.activity)
                 }
             }
         }
 
-        // The timeout runs on the clock's own thread, so it can beat us here and de-register an
-        // observer we have not registered yet. Registering afterwards would leave one that can
-        // never fire — settled is already claimed — and that nothing will ever remove.
-        if (settled.get()) return cancelToken
-
         onActivityEvent(observer)
 
-        return cancelToken
+        // Reconcile with a timeout that fired while we were registering: its own de-registration
+        // was a no-op against an observer that did not exist yet, and it has already claimed
+        // `settled`, so without this the observer could neither fire nor ever be removed.
+        if (settled.get()) {
+            offActivityEvent(observer)
+        }
+
+        return object : Clock.Cancellable {
+            override fun cancel(): Boolean {
+                if (!settled.compareAndSet(false, true)) return false
+                Registry.log.verbose("Abandoning postponed observer")
+                offActivityEvent(observer)
+                timeoutTask?.cancel()
+                return true
+            }
+
+            override fun runNow() {
+                cancel()
+            }
+        }
     }
 
     companion object {
@@ -178,13 +198,5 @@ interface LifecycleMonitor {
          * In testing, this was rarely exceeds 10ms, allowing some extra time for safety.
          */
         const val ACTIVITY_TRANSITION_GRACE_PERIOD = 50L
-
-        /**
-         * Allow for a cold start to produce its first resumed activity: the host process has to
-         * fork, run `Application.onCreate`, and draw a frame, which is orders of magnitude beyond
-         * [ACTIVITY_TRANSITION_GRACE_PERIOD]. Generous on purpose — waiting costs nothing, whereas
-         * timing out early means falling back to a best-effort that cannot navigate.
-         */
-        const val COLD_START_GRACE_PERIOD = 10_000L
     }
 }

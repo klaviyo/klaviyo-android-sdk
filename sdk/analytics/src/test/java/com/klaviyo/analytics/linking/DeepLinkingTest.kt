@@ -7,7 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.KlaviyoConfig
-import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.COLD_START_GRACE_PERIOD
+import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION_GRACE_PERIOD
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import io.mockk.CapturingSlot
@@ -127,7 +127,7 @@ internal class DeepLinkingTest : BaseTest() {
     }
 
     @Test
-    fun `handleDeepLink waits for the cold start grace period`() {
+    fun `handleDeepLink waits long enough for a cold start, not just an activity transition`() {
         Registry.register<DeepLinkHandler>(mockk<DeepLinkHandler>(relaxed = true))
         val timeout = slot<Long>()
         every {
@@ -136,7 +136,13 @@ internal class DeepLinkingTest : BaseTest() {
 
         DeepLinking.handleDeepLink(mockUri)
 
-        assertEquals(COLD_START_GRACE_PERIOD, timeout.captured)
+        assertEquals(DeepLinking.COLD_START_GRACE_PERIOD, timeout.captured)
+        // The value, not just the constant: a cold start has to fork a process and draw a frame, so
+        // reusing the inter-activity grace period here would expire long before the host is up.
+        assertTrue(
+            "Expected a cold-start scale timeout, got ${timeout.captured}ms",
+            timeout.captured > ACTIVITY_TRANSITION_GRACE_PERIOD
+        )
     }
 
     @Test

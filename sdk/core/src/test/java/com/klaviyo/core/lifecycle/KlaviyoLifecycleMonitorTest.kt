@@ -265,4 +265,67 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
 
         assertEquals(1, callCount)
     }
+
+    @Test
+    fun `runWithCurrentOrNextActivity returns null when the job ran against the current activity`() {
+        @OptIn(AdvancedAPI::class)
+        KlaviyoLifecycleMonitor.assignCurrentActivity(mockk())
+
+        val token = KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(timeout = 100) { }
+
+        assertEquals(null, token)
+    }
+
+    @Test
+    fun `cancelling the returned token abandons the job without running either branch`() {
+        var called = false
+        var timedOut = false
+
+        val token = KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
+            timeout = 100,
+            onTimeout = { timedOut = true }
+        ) { _ ->
+            called = true
+        }
+
+        assert(token?.cancel() == true) { "Cancelling a pending job should report success" }
+
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+        staticClock.execute(150)
+
+        assert(!called) { "Callback should not run after cancellation" }
+        assert(!timedOut) { "Fallback should not run after cancellation — this is not a deadline" }
+    }
+
+    @Test
+    fun `runNow on the returned token abandons the job rather than invoking the fallback`() {
+        var called = false
+        var timedOut = false
+
+        // KlaviyoPresentationManager cancels a postponed present via runNow, so it must not be a
+        // back door into the timeout fallback.
+        val token = KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
+            timeout = 100,
+            onTimeout = { timedOut = true }
+        ) { _ ->
+            called = true
+        }
+
+        token?.runNow()
+
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+        staticClock.execute(150)
+
+        assert(!called) { "Callback should not run after runNow" }
+        assert(!timedOut) { "Fallback should not run after runNow" }
+    }
+
+    @Test
+    fun `cancelling the returned token after the job ran reports failure`() {
+        val token = KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(timeout = 100) { }
+
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+
+        assert(token?.cancel() == false) { "Cancelling a settled job should report failure" }
+    }
 }

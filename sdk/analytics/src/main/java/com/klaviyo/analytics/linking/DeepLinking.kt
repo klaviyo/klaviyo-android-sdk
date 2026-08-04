@@ -14,7 +14,6 @@ import com.klaviyo.core.Constants.SENDTO_SCHEMES
 import com.klaviyo.core.Constants.WEB_SCHEMES
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION_GRACE_PERIOD
-import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.COLD_START_GRACE_PERIOD
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.startActivityIfResolved
@@ -32,6 +31,17 @@ fun interface DeepLinkHandler {
  * Utility for handling any deep links into the host application originating from Klaviyo
  */
 object DeepLinking {
+
+    /**
+     * How long [handleDeepLink] waits for a resumed activity before invoking the host's handler
+     * anyway. Sized for a cold start, which has to fork the process, run `Application.onCreate`,
+     * and draw a frame — orders of magnitude beyond
+     * [ACTIVITY_TRANSITION_GRACE_PERIOD], which only has to bridge one activity handing off to the
+     * next. Generous on purpose: this is a deadline rather than a delay, since the job runs the
+     * moment an activity resumes, and expiring early means falling back to a best-effort
+     * invocation that cannot navigate.
+     */
+    internal const val COLD_START_GRACE_PERIOD = 10_000L
 
     /**
      * Shortcut to check if the developer has registered a [DeepLinkHandler].
