@@ -32,15 +32,21 @@ To opt out and retain manual control, see
 
 ### `DeepLinkHandler` callback timing
 
-A handler registered via `Klaviyo.registerDeepLinkHandler` is now invoked once your app has a
-resumed `Activity`, rather than immediately. This makes the callback safe to navigate from on a
-cold start — previously a notification tap that launched your app from a terminated state invoked
-the handler before any `Activity` existed, so a `NavController` or `Activity`-based route had
-nothing to navigate and the link was dropped.
+A handler registered via `Klaviyo.registerDeepLinkHandler` now waits for your app to have a resumed
+`Activity` before being invoked, rather than firing immediately. This makes the callback safe to
+navigate from on a cold start — previously a notification tap that launched your app from a
+terminated state invoked the handler before any `Activity` existed, so a `NavController` or
+`Activity`-based route had nothing to navigate and the link was dropped.
 
-No action is required, but note that the callback can now arrive slightly later than the call that
-triggered it. Most visibly, if you call `Klaviyo.handlePush(intent)` from an `Activity`'s
-`onCreate`, your handler is invoked at `onResume` rather than inline.
+No action is required, but note two things:
+
+- The callback can arrive slightly later than the call that triggered it. Most visibly, if you call
+  `Klaviyo.handlePush(intent)` from an `Activity`'s `onCreate`, your handler is invoked at
+  `onResume` rather than inline.
+- The wait is bounded. If no `Activity` resumes within a short grace period, the SDK invokes your
+  handler anyway as a best effort rather than dropping the link — so this is a "resume or timeout"
+  contract, not a guarantee that an `Activity` exists. A handler that depends on one should fail
+  gracefully if it is unavailable.
 
 ### Rollout summary
 

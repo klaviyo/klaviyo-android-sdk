@@ -1149,17 +1149,21 @@ You should register this from your `Application` or main `Activity`'s `.onCreate
 the application lifecycle to handle any link that launches the app from a terminated state. This handler will be invoked for
 *any* deep link originating from the Klaviyo SDK, including push notifications, universal tracking links, or In-App Forms.
 
-The SDK invokes your handler once your app has a resumed `Activity`, so it is always safe to navigate from it — including
-when a notification tap cold-starts your app from a terminated state. As a result the callback may arrive slightly after
-the event that triggered it (for example at `onResume` rather than inline during `onCreate`).
+The SDK waits for your app to have a resumed `Activity` before invoking your handler, so it is normally safe to navigate
+from it — including when a notification tap cold-starts your app from a terminated state. As a result the callback may
+arrive slightly after the event that triggered it (for example at `onResume` rather than inline during `onCreate`). If no
+`Activity` resumes within a short grace period, the SDK invokes your handler anyway as a best effort rather than dropping
+the link, so a handler that depends on an `Activity` should fail gracefully if none is available.
 
 > **Push notification taps with automatic open tracking:** When `automatic_push_open_tracking` is enabled and you have
-> registered a handler, the SDK brings your app's existing task to the foreground — creating it if your app was not
-> running — **without** clearing its back stack or delivering an intent to your launcher `Activity`, then invokes your
-> handler. Whatever you navigate to from the handler — another `Activity`, a `Fragment` transaction, a Compose
-> `NavController` route — stays on top. Because no intent is delivered on this path, do your routing in the handler
-> callback rather than in `onNewIntent`. If no handler is registered, the SDK instead sends your app an `ACTION_VIEW`
-> intent carrying the link, which you should handle in `onCreate`/`onNewIntent`.
+> registered a handler, the SDK brings your app's task to the foreground — creating it if your app was not running —
+> **without** clearing its back stack and **without** sending an `ACTION_VIEW` intent carrying the link, then invokes
+> your handler. Whatever you navigate to from the handler — another `Activity`, a `Fragment` transaction, a Compose
+> `NavController` route — stays on top. On a warm tap no new intent reaches your launcher `Activity` at all; on a cold
+> start it is created by the ordinary launch intent, which carries no deep link data. Either way the link reaches you
+> *only* through the handler, so do your routing in the callback rather than from `getIntent()` or `onNewIntent`. If no
+> handler is registered, the SDK instead sends your app an `ACTION_VIEW` intent carrying the link, which you should
+> handle in `onCreate`/`onNewIntent`.
 
 <details open>
    <summary>Kotlin</summary>

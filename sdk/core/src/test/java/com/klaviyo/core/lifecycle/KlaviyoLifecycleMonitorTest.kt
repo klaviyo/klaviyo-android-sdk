@@ -5,7 +5,9 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.core.utils.takeIf
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.After
@@ -318,6 +320,43 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
 
         assert(!called) { "Callback should not run after runNow" }
         assert(!timedOut) { "Fallback should not run after runNow" }
+    }
+
+    @Test
+    fun `runWithCurrentOrNextActivity picks up an activity that resumed while registering`() {
+        var called = false
+        var timedOut = false
+        val resumedActivity = mockk<Activity>()
+
+        // Stand in for a caller running off the main thread: an activity resumes and broadcasts
+        // between the initial currentActivity check and the observer's registration, so the
+        // observer never sees the event. Expressed as the two reads the implementation makes —
+        // null first, then present — since the interleaving itself can't be injected from a test.
+        // Without the post-registration recheck the job would wait out the whole timeout for a
+        // resume that already happened.
+        mockkObject(KlaviyoLifecycleMonitor)
+        try {
+            every { KlaviyoLifecycleMonitor.currentActivity } returnsMany listOf(
+                null,
+                resumedActivity
+            )
+
+            val token = KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
+                timeout = 100,
+                onTimeout = { timedOut = true }
+            ) { activity ->
+                called = true
+                assertEquals(resumedActivity, activity)
+            }
+
+            assert(called) { "Job should run against the activity that resumed during registration" }
+            assertEquals(null, token)
+
+            staticClock.execute(150)
+            assert(!timedOut) { "Fallback should not run after the job already ran" }
+        } finally {
+            unmockkObject(KlaviyoLifecycleMonitor)
+        }
     }
 
     @Test

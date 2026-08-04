@@ -170,11 +170,26 @@ interface LifecycleMonitor {
 
         onActivityEvent(observer)
 
-        // Reconcile with a timeout that fired while we were registering: its own de-registration
-        // was a no-op against an observer that did not exist yet, and it has already claimed
-        // `settled`, so without this the observer could neither fire nor ever be removed.
+        // Reconcile with whatever raced us while we were registering. Two racers: the timeout runs
+        // on the clock's own thread, and callers can be off the main thread while activity resumes
+        // broadcast on it.
         if (settled.get()) {
+            // The timeout claimed the outcome. Its own de-registration was a no-op against an
+            // observer that did not exist yet, so without this the observer could neither fire nor
+            // ever be removed.
             offActivityEvent(observer)
+        } else {
+            // An activity may have resumed and broadcast before the observer existed, which would
+            // otherwise leave us waiting out the whole timeout for a resume that already happened.
+            currentActivity?.let { activity ->
+                if (settled.compareAndSet(false, true)) {
+                    Registry.log.verbose("Activity resumed while registering postponed observer")
+                    offActivityEvent(observer)
+                    timeoutTask?.cancel()
+                    job(activity)
+                    return null
+                }
+            }
         }
 
         return object : Clock.Cancellable {
