@@ -54,7 +54,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockk(relaxed = true)
         every { Klaviyo.handlePush(any()) } returns Klaviyo
-        every { Klaviyo.handlePush(any(), any()) } returns Klaviyo
+        every { Klaviyo.handlePush(any(), any()) } returns true
         every { DeepLinking.makeExternalIntent(any()) } returns mockBrowserIntent
         every { DeepLinking.makeDeepLinkIntent(any(), any(), any()) } returns mockDeepLinkIntent
         every { DeepLinking.makeLaunchIntent(any(), any()) } returns mockLaunchIntent
@@ -202,6 +202,22 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         postponedDispatch?.invoke(mockActivity)
 
         verify(exactly = 1) { DeepLinking.handleDeepLink(deepLink) }
+    }
+
+    @Test
+    fun `duplicate delivery brings the host to the front without dispatching again`() {
+        // Dispatch moved out of handlePush, so it no longer sits behind that dedup guard. Without
+        // honoring the reported outcome, a re-delivered intent navigates the host a second time.
+        val deepLink = mockk<Uri>(relaxed = true)
+        val intent = handlerIntent(deepLink)
+        every { Klaviyo.handlePush(intent, false) } returns false
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify(exactly = 0) {
+            mockLifecycleMonitor.runWithCurrentOrNextActivity(any(), any(), any())
+        }
+        verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
     }
 
     @Test

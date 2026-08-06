@@ -108,16 +108,23 @@ object DeepLinking {
     /**
      * Sends a deep link intent to the host application.
      *
-     * Dispatched from the application context with [Intent.FLAG_ACTIVITY_NEW_TASK], so it does not
-     * depend on the host having a resumed activity.
+     * Uses the resumed activity when there is one, and the application context with
+     * [Intent.FLAG_ACTIVITY_NEW_TASK] otherwise, so a link is never dropped for want of an activity
+     * that this intent does not actually need — only a package name and package manager.
+     *
+     * Note that a dispatch from the application context while the host is in the background may be
+     * blocked by the platform's background activity launch restrictions.
      *
      * @param uri The deep link URI to be attached to the intent
      */
     private fun sendDeepLinkIntent(uri: Uri) {
-        val context = Registry.config.applicationContext
-        makeDeepLinkIntent(uri, context)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            .startActivityIfResolved(context)
+        Registry.lifecycleMonitor.currentActivity?.let { activity ->
+            makeDeepLinkIntent(uri, activity).startActivityIfResolved(activity)
+        } ?: Registry.config.applicationContext.let { context ->
+            makeDeepLinkIntent(uri, context)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .startActivityIfResolved(context)
+        }
     }
 
     /**

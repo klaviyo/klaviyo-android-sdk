@@ -45,10 +45,10 @@ internal object KlaviyoPushOpenHandler {
         intent: Intent?,
         preInitQueue: Queue<Operation<Unit>>,
         dispatchDeepLink: Boolean = true
-    ) {
+    ): Boolean {
         if (intent == null || !Klaviyo.isKlaviyoNotificationIntent(intent)) {
             Registry.log.verbose("Non-Klaviyo intent ignored")
-            return
+            return false
         }
 
         // Dedup guard: track each push delivery at most once per process. The trampoline calls
@@ -59,7 +59,7 @@ internal object KlaviyoPushOpenHandler {
         val deliveryId = intent.pushDeliveryId
         if (deliveryId != null && !handledPushDeliveries.markOnce(deliveryId)) {
             Registry.log.verbose("Ignoring duplicate push open")
-            return
+            return false
         }
 
         // Create and enqueue an $opened_push. safeApply(preInitQueue) buffers this for replay if
@@ -84,7 +84,7 @@ internal object KlaviyoPushOpenHandler {
             }
         }
 
-        if (!dispatchDeepLink) return
+        if (!dispatchDeepLink) return true
 
         // If the notification carries a deep link and a handler is registered, invoke it. Otherwise
         // do nothing — the host already received the appropriate intent.
@@ -94,6 +94,8 @@ internal object KlaviyoPushOpenHandler {
                 DeepLinking.handleDeepLink(deepLink)
             }
         }
+
+        return true
     }
 
     /**

@@ -79,21 +79,39 @@ internal class DeepLinkingTest : BaseTest() {
     }
 
     @Test
-    fun `handleDeepLink broadcasts intent when no handler registered`() {
-        val deepLinkIntent = MockIntent.setupIntentMocking()
+    fun `handleDeepLink broadcasts intent from the resumed activity when there is one`() {
+        MockIntent.setupIntentMocking()
+        every { mockLifecycleMonitor.currentActivity } returns testActivity
 
         DeepLinking.handleDeepLink(mockUri)
 
-        verify { mockContext.startActivity(deepLinkIntent.intent) }
+        verify(exactly = 1) { testActivity.startActivity(any()) }
+        verify(exactly = 0) { mockContext.startActivity(any()) }
         verify(exactly = 0) { mockThreadHelper.runOnUiThread(any()) }
-        // Dispatched from the application context, so it never waits on a resumed activity.
+        // Never waits: the intent needs a package name and package manager, not a resumed activity.
         verify(exactly = 0) {
             mockLifecycleMonitor.runWithCurrentOrNextActivity(any(), any())
         }
         verify(exactly = 0) {
             mockLifecycleMonitor.runWithCurrentOrNextActivity(any(), any(), any())
         }
+    }
+
+    @Test
+    fun `handleDeepLink broadcasts intent from application context when no activity is resumed`() {
+        val deepLinkIntent = MockIntent.setupIntentMocking()
+        every { mockLifecycleMonitor.currentActivity } returns null
+
+        DeepLinking.handleDeepLink(mockUri)
+
+        verify { mockContext.startActivity(deepLinkIntent.intent) }
         verify(exactly = 0) { testActivity.startActivity(any()) }
+        verify(exactly = 0) {
+            mockLifecycleMonitor.runWithCurrentOrNextActivity(any(), any())
+        }
+        verify(exactly = 0) {
+            mockLifecycleMonitor.runWithCurrentOrNextActivity(any(), any(), any())
+        }
         // NEW_TASK is required to start an activity from a non-activity context.
         assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, deepLinkIntent.flags.captured)
     }

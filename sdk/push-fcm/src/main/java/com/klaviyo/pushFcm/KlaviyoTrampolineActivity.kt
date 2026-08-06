@@ -127,17 +127,21 @@ internal class KlaviyoTrampolineActivity : Activity() {
             }
             // The trampoline owns deep link delivery from here: either as an ACTION_VIEW intent or,
             // when a handler is registered, postponed until the host has a resumed activity.
-            Klaviyo.handlePush(intent, dispatchDeepLink = false)
-            dispatchDestination(intent, context)
+            val isNewDelivery = Klaviyo.handlePush(intent, dispatchDeepLink = false)
+            dispatchDestination(intent, context, isNewDelivery)
         }
 
-        private fun dispatchDestination(intent: Intent, context: Context) {
+        private fun dispatchDestination(
+            intent: Intent,
+            context: Context,
+            isNewDelivery: Boolean
+        ) {
             intent.getStringExtra(BROWSER_URL_EXTRA)?.let { url ->
                 Registry.log.verbose("Trampoline dispatching external intent")
                 DeepLinking.makeExternalIntent(url.toUri()).startActivityIfResolved(context)
                 return
             }
-            startDestination(intent, context)
+            startDestination(intent, context, isNewDelivery)
         }
 
         /**
@@ -149,11 +153,15 @@ internal class KlaviyoTrampolineActivity : Activity() {
          *   to the launcher if unresolvable.
          * - No deep link (`open_app`) → launcher only.
          */
-        private fun startDestination(intent: Intent, context: Context) {
+        private fun startDestination(
+            intent: Intent,
+            context: Context,
+            isNewDelivery: Boolean
+        ) {
             val deepLink = intent.data
 
             if (deepLink != null && DeepLinking.isHandlerRegistered) {
-                dispatchToHandler(deepLink, intent, context)
+                dispatchToHandler(deepLink, intent, context, isNewDelivery)
                 return
             }
 
@@ -208,18 +216,29 @@ internal class KlaviyoTrampolineActivity : Activity() {
          * The link is dropped rather than delivered if no activity resumes within
          * [HANDLER_DISPATCH_TIMEOUT].
          */
-        private fun dispatchToHandler(deepLink: Uri, intent: Intent, context: Context) {
-            val pendingDispatch = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
-                HANDLER_DISPATCH_TIMEOUT,
-                onTimeout = {
-                    Registry.log.warning(
-                        "No activity resumed within ${HANDLER_DISPATCH_TIMEOUT}ms, dropping deep link"
-                    )
+        private fun dispatchToHandler(
+            deepLink: Uri,
+            intent: Intent,
+            context: Context,
+            isNewDelivery: Boolean
+        ) {
+            val pendingDispatch = if (isNewDelivery) {
+                Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
+                    HANDLER_DISPATCH_TIMEOUT,
+                    onTimeout = {
+                        Registry.log.warning(
+                            "No activity resumed within ${HANDLER_DISPATCH_TIMEOUT}ms, " +
+                                "dropping deep link"
+                        )
+                    }
+                ) {
+                    // Invoked from within the host's ActivityLifecycleCallbacks broadcast, so a
+                    // failure here must not escape into the host's own callbacks.
+                    safeApply { DeepLinking.handleDeepLink(deepLink) }
                 }
-            ) {
-                // Invoked from within the host's ActivityLifecycleCallbacks broadcast, so a failure
-                // here must not escape into the host's own callbacks.
-                safeApply { DeepLinking.handleDeepLink(deepLink) }
+            } else {
+                Registry.log.verbose("Duplicate push open; bringing host to front only")
+                null
             }
 
             val launchIntent = DeepLinking.makeLaunchIntent(context, intent.extras)

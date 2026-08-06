@@ -345,7 +345,9 @@ object Klaviyo {
      * @param intent the [Intent] from opening a notification
      */
     @JvmStatic
-    fun handlePush(intent: Intent?): Klaviyo = handlePush(intent, dispatchDeepLink = true)
+    fun handlePush(intent: Intent?): Klaviyo = apply {
+        handlePush(intent, dispatchDeepLink = true)
+    }
 
     /**
      * [handlePush] with control over the final deep-link dispatch stage, for SDK entry points that
@@ -360,13 +362,15 @@ object Klaviyo {
      *
      * @param intent the [Intent] from opening a notification
      * @param dispatchDeepLink whether to invoke a registered [DeepLinkHandler] with the link
+     * @return true if this call handled the delivery, false if [intent] was not a Klaviyo
+     *  notification or the delivery was already handled in this process. A caller that takes
+     *  ownership of delivering the link should skip that work when this is false, or a repeat
+     *  tap of the same notification navigates the host a second time.
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     @JvmSynthetic
-    fun handlePush(intent: Intent?, dispatchDeepLink: Boolean): Klaviyo {
+    fun handlePush(intent: Intent?, dispatchDeepLink: Boolean): Boolean =
         KlaviyoPushOpenHandler.handle(intent, preInitQueue, dispatchDeepLink)
-        return this
-    }
 
     /**
      * Handles a universal link [Intent], by resolving the destination [Uri] asynchronously
