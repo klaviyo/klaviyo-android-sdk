@@ -373,6 +373,41 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
     }
 
     @Test
+    fun `returns no token when the wait settles while registering`() {
+        var called = false
+        var timedOut = false
+
+        mockkObject(KlaviyoLifecycleMonitor)
+        var registeredObserver: ActivityObserver? = null
+        try {
+            every { KlaviyoLifecycleMonitor.currentActivity } returns null
+            // Settle the wait during registration, the way the clock's own thread can.
+            every { KlaviyoLifecycleMonitor.onActivityEvent(any()) } answers {
+                registeredObserver = firstArg()
+                callOriginal()
+                staticClock.execute(150)
+            }
+
+            val token = KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
+                timeout = 100,
+                onTimeout = { timedOut = true }
+            ) { called = true }
+
+            // A settled wait has nothing left to abandon, so handing back a token would let a
+            // caller treat it as still pending.
+            assertEquals(null, token)
+            assert(timedOut) { "Fallback should have run" }
+            assert(!called) { "Job should not run once the timeout claimed the outcome" }
+            registeredObserver?.let {
+                verify { KlaviyoLifecycleMonitor.offActivityEvent(it) }
+            }
+        } finally {
+            unmockkObject(KlaviyoLifecycleMonitor)
+            registeredObserver?.let { KlaviyoLifecycleMonitor.offActivityEvent(it) }
+        }
+    }
+
+    @Test
     fun `cancelling the returned token after the job ran reports failure`() {
         val token = KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(timeout = 100) { }
 

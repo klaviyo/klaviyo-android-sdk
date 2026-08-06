@@ -146,10 +146,10 @@ interface LifecycleMonitor {
      * @param timeout How long to wait for a resumed activity, or null to wait indefinitely
      * @param onTimeout Invoked instead of [job] if [timeout] elapses with no resumed activity
      * @param job Invoked with the current activity, or the next one to resume
-     * @return null if [job] already ran against the current activity, otherwise a token that
-     *  abandons the pending wait. Both [Clock.Cancellable.cancel] and [Clock.Cancellable.runNow]
-     *  abandon it — there is no way to "run now" a job that is waiting precisely because it has no
-     *  activity to run against — and neither runs [job] or [onTimeout].
+     * @return null if the wait already settled before returning, otherwise a token that abandons
+     *  the pending wait. Both [Clock.Cancellable.cancel] and [Clock.Cancellable.runNow] abandon it
+     *  — there is no way to "run now" a job that is waiting precisely because it has no activity to
+     *  run against — and neither runs [job] or [onTimeout].
      */
     fun runWithCurrentOrNextActivity(
         timeout: Long?,
@@ -192,18 +192,20 @@ interface LifecycleMonitor {
         // clock's own thread, and callers can be off the main thread while activity resumes
         // broadcast on it.
         if (settled.get()) {
-            // The timeout already claimed the outcome, and de-registered an observer that did not
-            // exist yet.
+            // Something claimed the outcome while we registered — a timeout that de-registered an
+            // observer that did not exist yet, or a resume that already ran the job. Either way the
+            // wait is over, so there is nothing left for a token to abandon.
             offActivityEvent(observer)
-        } else {
-            currentActivity?.let { activity ->
-                if (settled.compareAndSet(false, true)) {
-                    Registry.log.verbose("Activity resumed while registering postponed observer")
-                    offActivityEvent(observer)
-                    timeoutTask?.cancel()
-                    job(activity)
-                    return null
-                }
+            return null
+        }
+
+        currentActivity?.let { activity ->
+            if (settled.compareAndSet(false, true)) {
+                Registry.log.verbose("Activity resumed while registering postponed observer")
+                offActivityEvent(observer)
+                timeoutTask?.cancel()
+                job(activity)
+                return null
             }
         }
 
