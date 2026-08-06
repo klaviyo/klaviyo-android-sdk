@@ -35,8 +35,17 @@ internal object KlaviyoPushOpenHandler {
     /**
      * Core push-open handling: guards, event enqueue, notification dismissal, deep-link dispatch.
      * Called by [Klaviyo.handlePush]; not meant for direct use outside this module.
+     *
+     * @param dispatchDeepLink When false, every stage still runs except the final deep-link
+     *  dispatch — including recording the delivery in [handledPushDeliveries], so a later call for
+     *  the same delivery still short-circuits. Callers pass false when they take ownership of
+     *  delivering the link themselves.
      */
-    internal fun handle(intent: Intent?, preInitQueue: Queue<Operation<Unit>>) {
+    internal fun handle(
+        intent: Intent?,
+        preInitQueue: Queue<Operation<Unit>>,
+        dispatchDeepLink: Boolean = true
+    ) {
         if (intent == null || !Klaviyo.isKlaviyoNotificationIntent(intent)) {
             Registry.log.verbose("Non-Klaviyo intent ignored")
             return
@@ -74,6 +83,8 @@ internal object KlaviyoPushOpenHandler {
                     .cancel(notificationTag, Constants.NOTIFICATION_ID)
             }
         }
+
+        if (!dispatchDeepLink) return
 
         // If the notification carries a deep link and a handler is registered, invoke it. Otherwise
         // do nothing — the host already received the appropriate intent.

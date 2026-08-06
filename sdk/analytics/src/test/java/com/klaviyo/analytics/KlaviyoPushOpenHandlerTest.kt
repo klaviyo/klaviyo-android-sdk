@@ -271,6 +271,47 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     }
 
     @Test
+    fun `handlePush without deep link dispatch still tracks and dismisses`() {
+        val mockNotificationManager = mockk<NotificationManagerCompat>(relaxed = true)
+        mockkStatic(NotificationManagerCompat::class)
+        every { NotificationManagerCompat.from(any()) } returns mockNotificationManager
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val notificationTag = "no-dispatch-tag"
+
+        Klaviyo.handlePush(
+            mockIntent(
+                deliveryExtras("no-dispatch-tracks") +
+                    mapOf(Constants.NOTIFICATION_TAG_EXTRA to notificationTag),
+                mockk<Uri>()
+            ),
+            dispatchDeepLink = false
+        )
+
+        verifyOpenedPushEventEnqueued()
+        verify { mockNotificationManager.cancel(notificationTag, Constants.NOTIFICATION_ID) }
+        assertEquals(null, getCapturedUri())
+        verify(inverse = true) { DeepLinking.handleDeepLink(any()) }
+    }
+
+    @Test
+    fun `handlePush without deep link dispatch still records the delivery for dedup`() {
+        // The trampoline suppresses dispatch to deliver the link itself, so a leftover manual
+        // handlePush call from the host must still short-circuit rather than double-deliver.
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val testUri = mockk<Uri>()
+
+        Klaviyo.handlePush(
+            deliveryIntent("no-dispatch-dedup", testUri),
+            dispatchDeepLink = false
+        )
+        Klaviyo.handlePush(deliveryIntent("no-dispatch-dedup", testUri))
+
+        verifyOpenedPushEventEnqueued()
+        assertEquals(null, getCapturedUri())
+        verify(inverse = true) { DeepLinking.handleDeepLink(any()) }
+    }
+
+    @Test
     fun `handlePush tracks distinct deliveries independently`() {
         Klaviyo.handlePush(deliveryIntent("dedup-distinct-A"))
         Klaviyo.handlePush(deliveryIntent("dedup-distinct-B"))

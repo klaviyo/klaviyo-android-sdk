@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.annotation.RestrictTo
 import androidx.core.net.toUri
 import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.linking.DeepLinking
@@ -344,8 +345,26 @@ object Klaviyo {
      * @param intent the [Intent] from opening a notification
      */
     @JvmStatic
-    fun handlePush(intent: Intent?): Klaviyo {
-        KlaviyoPushOpenHandler.handle(intent, preInitQueue)
+    fun handlePush(intent: Intent?): Klaviyo = handlePush(intent, dispatchDeepLink = true)
+
+    /**
+     * [handlePush] with control over the final deep-link dispatch stage, for SDK entry points that
+     * deliver the link themselves.
+     *
+     * When [dispatchDeepLink] is false, the push open is still tracked and the notification still
+     * dismissed, and the delivery is still recorded for de-duplication, so a subsequent
+     * [handlePush] call for the same delivery short-circuits. Only the registered
+     * [DeepLinkHandler] invocation is suppressed.
+     *
+     * Public only to cross module boundaries within the SDK; not part of the supported API.
+     *
+     * @param intent the [Intent] from opening a notification
+     * @param dispatchDeepLink whether to invoke a registered [DeepLinkHandler] with the link
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    @JvmSynthetic
+    fun handlePush(intent: Intent?, dispatchDeepLink: Boolean): Klaviyo {
+        KlaviyoPushOpenHandler.handle(intent, preInitQueue, dispatchDeepLink)
         return this
     }
 
