@@ -8,6 +8,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.core.utils.takeIf
+import java.util.concurrent.atomic.AtomicBoolean
 
 typealias ActivityObserver = (activity: ActivityEvent) -> Unit
 
@@ -118,10 +119,41 @@ interface LifecycleMonitor {
     /**
      * Helper function to run a task immediately if there is a current activity,
      * or wait for the next resumed activity if resumed within the optional timeout.
-     * Returns a token that can be used to cancel the pending task if needed.
+     *
+     * A job that outlives its timeout is dropped. Callers that need a fallback should use the
+     * [onTimeout] overload rather than relying on the resume arriving in time.
+     *
+     * @param timeout How long to wait for a resumed activity, or null to wait indefinitely
+     * @param job Invoked with the current activity, or the next one to resume
+     * @return null if [job] already ran against the current activity, otherwise a token that
+     *  abandons the pending wait.
      */
     fun runWithCurrentOrNextActivity(
         timeout: Long? = null,
+        job: (activity: Activity) -> Unit
+    ): Clock.Cancellable? = runWithCurrentOrNextActivity(timeout, null, job)
+
+    /**
+     * Helper function to run a task immediately if there is a current activity, or wait for the
+     * next resumed activity, falling back to [onTimeout] if none resumes within [timeout].
+     *
+     * Exactly one of [job] and [onTimeout] is invoked, unless the returned token cancels the wait
+     * first.
+     *
+     * [onTimeout] has no default value, so a call supplying only a timeout and a trailing lambda
+     * resolves to the two-argument overload.
+     *
+     * @param timeout How long to wait for a resumed activity, or null to wait indefinitely
+     * @param onTimeout Invoked instead of [job] if [timeout] elapses with no resumed activity
+     * @param job Invoked with the current activity, or the next one to resume
+     * @return null if [job] already ran against the current activity, otherwise a token that
+     *  abandons the pending wait. Both [Clock.Cancellable.cancel] and [Clock.Cancellable.runNow]
+     *  abandon it — there is no way to "run now" a job that is waiting precisely because it has no
+     *  activity to run against — and neither runs [job] or [onTimeout].
+     */
+    fun runWithCurrentOrNextActivity(
+        timeout: Long?,
+        onTimeout: (() -> Unit)?,
         job: (activity: Activity) -> Unit
     ): Clock.Cancellable? {
         currentActivity?.let { activity ->
@@ -129,24 +161,65 @@ interface LifecycleMonitor {
             return null
         }
 
+        // The timeout fires on the clock's own thread, so claim the outcome atomically: a resume
+        // racing the timer — or a caller abandoning the wait — must not let two branches run.
+        val settled = AtomicBoolean(false)
         var observer: ActivityObserver? = null
-        val cancelToken: Clock.Cancellable? = timeout?.let { delay ->
+
+        val timeoutTask: Clock.Cancellable? = timeout?.let { delay ->
             Registry.clock.schedule(delay) {
+                if (!settled.compareAndSet(false, true)) return@schedule
                 Registry.log.verbose("Removing postponed observer after timeout ${delay}ms")
                 observer?.let { offActivityEvent(it) }
+                onTimeout?.invoke()
             }
         }
+
         observer = { event ->
-            event.takeIf<ActivityEvent.Resumed>()?.let { event ->
-                Registry.log.verbose("Invoking postponed observer on resume")
-                job(event.activity)
-                observer?.let { offActivityEvent(it) }
-                cancelToken?.cancel()
+            event.takeIf<ActivityEvent.Resumed>()?.let { resumed ->
+                if (settled.compareAndSet(false, true)) {
+                    Registry.log.verbose("Invoking postponed observer on resume")
+                    observer?.let { offActivityEvent(it) }
+                    timeoutTask?.cancel()
+                    job(resumed.activity)
+                }
             }
         }
+
         onActivityEvent(observer)
 
-        return cancelToken
+        // Reconcile with whatever raced us while we were registering. The timeout runs on the
+        // clock's own thread, and callers can be off the main thread while activity resumes
+        // broadcast on it.
+        if (settled.get()) {
+            // The timeout already claimed the outcome, and de-registered an observer that did not
+            // exist yet.
+            offActivityEvent(observer)
+        } else {
+            currentActivity?.let { activity ->
+                if (settled.compareAndSet(false, true)) {
+                    Registry.log.verbose("Activity resumed while registering postponed observer")
+                    offActivityEvent(observer)
+                    timeoutTask?.cancel()
+                    job(activity)
+                    return null
+                }
+            }
+        }
+
+        return object : Clock.Cancellable {
+            override fun cancel(): Boolean {
+                if (!settled.compareAndSet(false, true)) return false
+                Registry.log.verbose("Abandoning postponed observer")
+                offActivityEvent(observer)
+                timeoutTask?.cancel()
+                return true
+            }
+
+            override fun runNow() {
+                cancel()
+            }
+        }
     }
 
     companion object {
