@@ -33,6 +33,7 @@ class SampleApplication : Application() {
                 // OPTIONAL SETUP NOTE: Register a callback to handle any deep links from Klaviyo notifications, in-app forms, or universal tracking links
                 // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
                 showToast("Deep link to: $uri")
+                startActivity(SampleDetailActivity.intent(this, uri.toString()))
             }
             .registerFormLifecycleHandler { event ->
                 // OPTIONAL SETUP NOTE: Register a callback to receive form lifecycle events

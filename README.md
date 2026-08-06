@@ -1149,6 +1149,18 @@ You should register this from your `Application` or main `Activity`'s `.onCreate
 the application lifecycle to handle any link that launches the app from a terminated state. This handler will be invoked for
 *any* deep link originating from the Klaviyo SDK, including push notifications, universal tracking links, or In-App Forms.
 
+> **Push notification taps with automatic open tracking:** When `automatic_push_open_tracking` is enabled and you have
+> registered a handler, the SDK brings your app to the foreground if it is not already running, then invokes your handler
+> once your app has a resumed `Activity` — so it is safe to navigate from the callback even when the tap cold-starts your
+> app from a terminated state. Your back stack is never cleared, and the SDK does **not** send an `ACTION_VIEW` intent
+> carrying the link, so whatever you navigate to from the handler — another `Activity`, a `Fragment` transaction, a
+> Compose `NavController` route — stays on top. On a warm tap no new intent reaches your launcher `Activity` at all; on a
+> cold start it is created by the ordinary launch intent, which carries no deep link data. Either way the link reaches
+> you *only* through the handler, so do your routing in the callback rather than from `getIntent()` or `onNewIntent()`.
+> If your app fails to produce a resumed `Activity` within a couple of seconds, the link is dropped rather than delivered
+> to a handler that would have nothing to navigate. If no handler is registered, the SDK instead sends your app an
+> `ACTION_VIEW` intent carrying the link, which you should handle in `onCreate()`/`onNewIntent()`.
+
 <details open>
    <summary>Kotlin</summary>
 
