@@ -10,6 +10,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.core.Registry
+import com.klaviyo.core.safeApply
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.core.utils.startActivityIfResolved
 
@@ -30,6 +31,14 @@ import com.klaviyo.core.utils.startActivityIfResolved
  * flashes onscreen, or becomes the cold-start task root.
  */
 internal class KlaviyoTrampolineActivity : Activity() {
+    /**
+     * Dispatch must run from here, not [onResume], for the postponed deep link handler to observe
+     * the host's resume rather than this activity's. Two Android behaviors make that so:
+     * - `Application.ActivityLifecycleCallbacks.onActivityResumed` fires before an activity's own
+     *   `onResume` body, so by `onResume` this activity is already the tracked current activity.
+     * - [finish] during `onCreate` skips `onStart` and `onResume` entirely, so this activity never
+     *   broadcasts a resume of its own.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         process(intent)
@@ -71,6 +80,13 @@ internal class KlaviyoTrampolineActivity : Activity() {
         internal const val BROWSER_URL_EXTRA = "_klaviyo.browser_url"
 
         /**
+         * How long to wait for a host activity to resume before dropping a deep link bound for a
+         * registered [DeepLinkHandler][com.klaviyo.analytics.linking.DeepLinkHandler]. On-device
+         * cold starts resolved well inside this window.
+         */
+        internal const val HANDLER_DISPATCH_TIMEOUT = 2_000L
+
+        /**
          * Build a trampoline intent that dispatches [url] to its external handler
          * via [DeepLinking.makeExternalIntent].
          *
@@ -109,7 +125,9 @@ internal class KlaviyoTrampolineActivity : Activity() {
                 )
                 return
             }
-            Klaviyo.handlePush(intent)
+            // The trampoline owns deep link delivery from here: either as an ACTION_VIEW intent or,
+            // when a handler is registered, postponed until the host has a resumed activity.
+            Klaviyo.handlePush(intent, dispatchDeepLink = false)
             dispatchDestination(intent, context)
         }
 
@@ -125,15 +143,22 @@ internal class KlaviyoTrampolineActivity : Activity() {
         /**
          * Forward a body/`deep_link`/`open_app` tap into the host app.
          *
-         * - Deep link present and no [DeepLinkHandler][com.klaviyo.analytics.linking.DeepLinkHandler]
-         *   registered → `ACTION_VIEW` into the host, falling back to the launcher if unresolvable.
-         * - Handler registered, or no deep link → launcher only. `handlePush` already dispatched the
-         *   handler, so an additional `ACTION_VIEW` would double-deliver navigation.
+         * - Deep link present and a [DeepLinkHandler][com.klaviyo.analytics.linking.DeepLinkHandler]
+         *   registered → [dispatchToHandler].
+         * - Deep link present and no handler registered → `ACTION_VIEW` into the host, falling back
+         *   to the launcher if unresolvable.
+         * - No deep link (`open_app`) → launcher only.
          */
         private fun startDestination(intent: Intent, context: Context) {
             val deepLink = intent.data
+
+            if (deepLink != null && DeepLinking.isHandlerRegistered) {
+                dispatchToHandler(deepLink, intent, context)
+                return
+            }
+
             val destination: Intent? = when {
-                deepLink != null && !DeepLinking.isHandlerRegistered -> {
+                deepLink != null -> {
                     val viewIntent = DeepLinking.makeDeepLinkIntent(
                         deepLink,
                         context,
@@ -150,13 +175,7 @@ internal class KlaviyoTrampolineActivity : Activity() {
                     }
                 }
                 else -> {
-                    if (deepLink != null) {
-                        Registry.log.verbose(
-                            "Trampoline dispatching deep link via handler; launching host"
-                        )
-                    } else {
-                        Registry.log.verbose("Trampoline dispatching launch intent")
-                    }
+                    Registry.log.verbose("Trampoline dispatching launch intent")
                     DeepLinking.makeLaunchIntent(context, intent.extras)
                 }
             }
@@ -173,6 +192,48 @@ internal class KlaviyoTrampolineActivity : Activity() {
                 )
             }?.startActivityIfResolved(context)
                 ?: Registry.log.warning("No launch intent found for host app; nothing to start")
+        }
+
+        /**
+         * Deliver [deepLink] to the registered
+         * [DeepLinkHandler][com.klaviyo.analytics.linking.DeepLinkHandler] once the host has a
+         * resumed activity, bringing the host's task to the foreground first.
+         *
+         * The wait is registered before anything is started, so a resume cannot be missed.
+         *
+         * The launcher intent carries [Intent.FLAG_ACTIVITY_NEW_TASK] alone, which resumes the
+         * host's task as the user left it, creating it if the app was not running, without clearing
+         * the back stack the handler is about to navigate on top of.
+         *
+         * The link is dropped rather than delivered if no activity resumes within
+         * [HANDLER_DISPATCH_TIMEOUT].
+         */
+        private fun dispatchToHandler(deepLink: Uri, intent: Intent, context: Context) {
+            val pendingDispatch = Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
+                HANDLER_DISPATCH_TIMEOUT,
+                onTimeout = {
+                    Registry.log.warning(
+                        "No activity resumed within ${HANDLER_DISPATCH_TIMEOUT}ms, dropping deep link"
+                    )
+                }
+            ) {
+                // Invoked from within the host's ActivityLifecycleCallbacks broadcast, so a failure
+                // here must not escape into the host's own callbacks.
+                safeApply { DeepLinking.handleDeepLink(deepLink) }
+            }
+
+            val launchIntent = DeepLinking.makeLaunchIntent(context, intent.extras)
+            if (launchIntent == null) {
+                Registry.log.warning("No launch intent found for host app; nothing to start")
+                pendingDispatch?.cancel()
+                return
+            }
+
+            Registry.log.verbose("Trampoline launching host to dispatch deep link")
+            // Assigned rather than added because makeLaunchIntent bakes in SINGLE_TOP and
+            // Intent.removeFlags requires API 26, above our minSdk.
+            launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            launchIntent.startActivityIfResolved(context)
         }
     }
 }
