@@ -80,33 +80,32 @@ internal class DeepLinkingTest : BaseTest() {
 
     @Test
     fun `handleDeepLink broadcasts intent when no handler registered`() {
-        every { testActivity.startActivity(any()) } returns Unit
-        every { Registry.lifecycleMonitor.runWithCurrentOrNextActivity(any(), any()) } answers {
-            val callback = secondArg<(Activity) -> Unit>()
-            callback(testActivity)
-            null
-        }
+        val deepLinkIntent = MockIntent.setupIntentMocking()
 
         DeepLinking.handleDeepLink(mockUri)
 
-        verify { testActivity.startActivity(any()) }
+        verify { mockContext.startActivity(deepLinkIntent.intent) }
         verify(exactly = 0) { mockThreadHelper.runOnUiThread(any()) }
+        // Dispatched from the application context, so it never waits on a resumed activity.
+        verify(exactly = 0) {
+            mockLifecycleMonitor.runWithCurrentOrNextActivity(any(), any())
+        }
+        verify(exactly = 0) {
+            mockLifecycleMonitor.runWithCurrentOrNextActivity(any(), any(), any())
+        }
+        verify(exactly = 0) { testActivity.startActivity(any()) }
+        // NEW_TASK is required to start an activity from a non-activity context.
+        assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, deepLinkIntent.flags.captured)
     }
 
     @Test
     fun `handleDeepLink sends no intent if link is unsupported`() {
-        every { anyConstructed<Intent>().resolveActivity(any()) } returns null
-
-        every { testActivity.startActivity(any()) } returns Unit
-        every { Registry.lifecycleMonitor.runWithCurrentOrNextActivity(any(), any()) } answers {
-            val callback = secondArg<(Activity) -> Unit>()
-            callback(testActivity)
-            null
-        }
+        val deepLinkIntent = MockIntent.setupIntentMocking()
+        every { deepLinkIntent.intent.resolveActivity(any()) } returns null
 
         DeepLinking.handleDeepLink(mockUri)
 
-        verify(inverse = true) { testActivity.startActivity(any()) }
+        verify(inverse = true) { mockContext.startActivity(any()) }
     }
 
     @Test

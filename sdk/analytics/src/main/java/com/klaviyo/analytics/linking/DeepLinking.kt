@@ -13,7 +13,6 @@ import com.klaviyo.core.Constants.DIAL_SCHEME
 import com.klaviyo.core.Constants.SENDTO_SCHEMES
 import com.klaviyo.core.Constants.WEB_SCHEMES
 import com.klaviyo.core.Registry
-import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION_GRACE_PERIOD
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.startActivityIfResolved
 import kotlinx.coroutines.CoroutineScope
@@ -109,14 +108,16 @@ object DeepLinking {
     /**
      * Sends a deep link intent to the host application.
      *
+     * Dispatched from the application context with [Intent.FLAG_ACTIVITY_NEW_TASK], so it does not
+     * depend on the host having a resumed activity.
+     *
      * @param uri The deep link URI to be attached to the intent
      */
     private fun sendDeepLinkIntent(uri: Uri) {
-        Registry.lifecycleMonitor.runWithCurrentOrNextActivity(
-            ACTIVITY_TRANSITION_GRACE_PERIOD
-        ) { context ->
-            makeDeepLinkIntent(uri, context).startActivityIfResolved(context)
-        }
+        val context = Registry.config.applicationContext
+        makeDeepLinkIntent(uri, context)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .startActivityIfResolved(context)
     }
 
     /**
