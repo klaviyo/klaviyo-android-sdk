@@ -146,8 +146,8 @@ internal class KlaviyoTrampolineActivity : Activity() {
                         viewIntent
                     } else {
                         Registry.log.warning(
-                            "No activity resolves deep link $deepLink; " +
-                                "launching host with the link attached"
+                            "No activity resolves scheme '${deepLink.scheme}'; " +
+                                "launching host with the deep link attached"
                         )
                         DeepLinking.makeLaunchIntent(context, intent.extras)?.apply {
                             data = deepLink
