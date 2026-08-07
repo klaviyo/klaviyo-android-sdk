@@ -35,45 +35,59 @@ internal object KlaviyoPushOpenHandler {
     /**
      * Core push-open handling: guards, event enqueue, notification dismissal, deep-link dispatch.
      * Called by [Klaviyo.handlePush]; not meant for direct use outside this module.
+     *
+     * Tracking and dismissal happen at most once per delivery. Deep-link dispatch is not deduped:
+     * an SDK entry point that suppresses it may forward the same intent to the host, whose own
+     * [Klaviyo.handlePush] call must still reach a registered
+     * [DeepLinkHandler][com.klaviyo.analytics.linking.DeepLinkHandler].
+     *
+     * @param dispatchDeepLink Whether to invoke a registered handler with the intent's deep link.
+     *  Pass false when the caller delivers the link itself.
      */
-    internal fun handle(intent: Intent?, preInitQueue: Queue<Operation<Unit>>) {
+    internal fun handle(
+        intent: Intent?,
+        preInitQueue: Queue<Operation<Unit>>,
+        dispatchDeepLink: Boolean = true
+    ) {
         if (intent == null || !Klaviyo.isKlaviyoNotificationIntent(intent)) {
             Registry.log.verbose("Non-Klaviyo intent ignored")
             return
         }
 
-        // Dedup guard: track each push delivery at most once per process. The trampoline calls
-        // handlePush and forwards the same intent to the host, so a leftover manual handlePush call
-        // (or singleTask re-entry) would otherwise double-track one tap. The first call to see a
-        // delivery records it and proceeds; a later call for the same delivery short-circuits — no
-        // event, dismissal, or deep link.
+        // Track each push delivery at most once per process. The trampoline calls handlePush and
+        // forwards the same intent to the host, so a manual handlePush call (or singleTask
+        // re-entry) would otherwise double-track one tap. A delivery with no id is never deduped.
         val deliveryId = intent.pushDeliveryId
-        if (deliveryId != null && !handledPushDeliveries.markOnce(deliveryId)) {
-            Registry.log.verbose("Ignoring duplicate push open")
-            return
-        }
+        val isNewDelivery = deliveryId == null || handledPushDeliveries.markOnce(deliveryId)
 
-        // Create and enqueue an $opened_push. safeApply(preInitQueue) buffers this for replay if
-        // handlePush runs before initialize(), and guards against unexpected failures.
-        safeApply(preInitQueue) {
-            val state = Registry.get<State>()
-            val event = Event(EventMetric.OPENED_PUSH)
-            event.appendKlaviyoExtras(intent)
-            state.pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
-            // Not using Klaviyo.createEvent here to avoid nesting safeApply calls
-            state.createEvent(event, state.getAsProfile())
-        }
-
-        // Dismiss the notification if opened via an action button. Body taps auto-cancel via
-        // setAutoCancel(true) on the builder; action button taps don't (standard Android behavior).
-        safeApply {
-            val notificationTag = intent.getStringExtra(Constants.NOTIFICATION_TAG_EXTRA)
-            if (notificationTag != null) {
-                NotificationManagerCompat
-                    .from(Registry.config.applicationContext)
-                    .cancel(notificationTag, Constants.NOTIFICATION_ID)
+        if (isNewDelivery) {
+            // Create and enqueue an $opened_push. safeApply(preInitQueue) buffers this for replay
+            // if handlePush runs before initialize(), and guards against unexpected failures.
+            safeApply(preInitQueue) {
+                val state = Registry.get<State>()
+                val event = Event(EventMetric.OPENED_PUSH)
+                event.appendKlaviyoExtras(intent)
+                state.pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
+                // Not using Klaviyo.createEvent here to avoid nesting safeApply calls
+                state.createEvent(event, state.getAsProfile())
             }
+
+            // Dismiss the notification if opened via an action button. Body taps auto-cancel via
+            // setAutoCancel(true) on the builder; action button taps don't (standard Android
+            // behavior).
+            safeApply {
+                val notificationTag = intent.getStringExtra(Constants.NOTIFICATION_TAG_EXTRA)
+                if (notificationTag != null) {
+                    NotificationManagerCompat
+                        .from(Registry.config.applicationContext)
+                        .cancel(notificationTag, Constants.NOTIFICATION_ID)
+                }
+            }
+        } else {
+            Registry.log.verbose("Ignoring duplicate push open")
         }
+
+        if (!dispatchDeepLink) return
 
         // If the notification carries a deep link and a handler is registered, invoke it. Otherwise
         // do nothing — the host already received the appropriate intent.
