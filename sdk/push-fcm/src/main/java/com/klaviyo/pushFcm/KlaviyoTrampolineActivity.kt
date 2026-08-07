@@ -109,7 +109,9 @@ internal class KlaviyoTrampolineActivity : Activity() {
                 )
                 return
             }
-            Klaviyo.handlePush(intent)
+            // The deep link reaches the host on the intent forwarded below, so a registered
+            // handler is not invoked here. A host that also calls handlePush still gets one.
+            Klaviyo.handlePush(intent, dispatchDeepLink = false)
             dispatchDestination(intent, context)
         }
 
@@ -125,15 +127,15 @@ internal class KlaviyoTrampolineActivity : Activity() {
         /**
          * Forward a body/`deep_link`/`open_app` tap into the host app.
          *
-         * - Deep link present and no [DeepLinkHandler][com.klaviyo.analytics.linking.DeepLinkHandler]
-         *   registered → `ACTION_VIEW` into the host, falling back to the launcher if unresolvable.
-         * - Handler registered, or no deep link → launcher only. `handlePush` already dispatched the
-         *   handler, so an additional `ACTION_VIEW` would double-deliver navigation.
+         * - Deep link that an activity can handle → `ACTION_VIEW`, so the OS routes it.
+         * - Deep link with no matching intent filter → launcher intent carrying the link as its
+         *   data, which the host can still read from `getIntent()` or `onNewIntent`.
+         * - No deep link → launcher intent.
          */
         private fun startDestination(intent: Intent, context: Context) {
             val deepLink = intent.data
             val destination: Intent? = when {
-                deepLink != null && !DeepLinking.isHandlerRegistered -> {
+                deepLink != null -> {
                     val viewIntent = DeepLinking.makeDeepLinkIntent(
                         deepLink,
                         context,
@@ -144,19 +146,16 @@ internal class KlaviyoTrampolineActivity : Activity() {
                         viewIntent
                     } else {
                         Registry.log.warning(
-                            "Trampoline could not resolve deep link; falling back to launcher"
+                            "No activity resolves deep link $deepLink; " +
+                                "launching host with the link attached"
                         )
-                        DeepLinking.makeLaunchIntent(context, intent.extras)
+                        DeepLinking.makeLaunchIntent(context, intent.extras)?.apply {
+                            data = deepLink
+                        }
                     }
                 }
                 else -> {
-                    if (deepLink != null) {
-                        Registry.log.verbose(
-                            "Trampoline dispatching deep link via handler; launching host"
-                        )
-                    } else {
-                        Registry.log.verbose("Trampoline dispatching launch intent")
-                    }
+                    Registry.log.verbose("Trampoline dispatching launch intent")
                     DeepLinking.makeLaunchIntent(context, intent.extras)
                 }
             }

@@ -23,7 +23,8 @@ import com.klaviyo.analytics.model.EventMetric
  *    (no FirebaseMessaging fetch, no Klaviyo.setPushToken() call). Contrast with the `manual` flavor's onCreate.
  *  - Push opens (automatic_push_open_tracking): the SDK automatically detects when a user taps a push notification
  *    and reports the open event via Klaviyo.handlePush() for you, so there is no handlePush() call in
- *    onNewIntent. Contrast with the `manual` flavor's onNewIntent.
+ *    onNewIntent. Contrast with the `manual` flavor's onNewIntent. Deep links arrive as an Intent, which
+ *    this Activity reads in both onCreate and onNewIntent.
  * Displaying notifications still relies on the auto-registered KlaviyoPushService from :sdk:push-fcm.
  * See the main README's "Push Notifications" section (Option A) and sample/README.md.
  */
@@ -68,7 +69,17 @@ class SampleActivity : ComponentActivity() {
 
         // SETUP NOTE (Automatic / Option A): No Klaviyo.handlePush(intent) here.
         // Because com.klaviyo.push.automatic_push_open_tracking is enabled, the SDK automatically detects
-        // notification taps, reports the open, and invokes your deep link handler for you.
+        // notification taps and reports the open for you.
+
+        // SETUP NOTE (Automatic / Option A): A notification tap delivers its deep link here, on the
+        // intent's data, rather than to a registered deep link handler. Handle it in BOTH onCreate
+        // (via the call above) and onNewIntent: when your process has been killed but its task is
+        // still in recents, Android restores the original intent into onCreate and delivers the new
+        // one here.
+        intent?.data?.let { deepLink ->
+            showToast("Deep link from intent: $deepLink")
+            startActivity(SampleDetailActivity.intent(this, deepLink.toString()))
+        }
     }
 
     private val requestPermissionLauncher = registerForActivityResult(

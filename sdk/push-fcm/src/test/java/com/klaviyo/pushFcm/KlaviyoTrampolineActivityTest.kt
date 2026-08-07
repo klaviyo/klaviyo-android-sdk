@@ -41,12 +41,10 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         mockkObject(DeepLinking)
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockk(relaxed = true)
-        every { Klaviyo.handlePush(any()) } returns Klaviyo
+        every { Klaviyo.handlePush(any(), any()) } returns Klaviyo
         every { DeepLinking.makeExternalIntent(any()) } returns mockBrowserIntent
         every { DeepLinking.makeDeepLinkIntent(any(), any(), any()) } returns mockDeepLinkIntent
         every { DeepLinking.makeLaunchIntent(any(), any()) } returns mockLaunchIntent
-        // No deep link handler registered by default; flip per-test for the handler branch.
-        every { DeepLinking.isHandlerRegistered } returns false
         // Make intents appear resolvable so startActivityIfResolved actually dispatches to
         // context.startActivity (vs logging an error). Override per-test for the unresolvable case.
         every { mockBrowserIntent.resolveActivity(any()) } returns mockk()
@@ -84,7 +82,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
 
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
-        verify { Klaviyo.handlePush(intent) }
+        verify { Klaviyo.handlePush(intent, false) }
         // Assert the exact URL from the extra round-trips through Uri.parse and into
         // makeExternalIntent — catches regressions where a string is mangled, swallowed,
         // or replaced silently with something else.
@@ -98,7 +96,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
 
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
-        verify { Klaviyo.handlePush(intent) }
+        verify { Klaviyo.handlePush(intent, false) }
         verify(exactly = 0) { DeepLinking.makeExternalIntent(any()) }
         verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any(), any()) }
         verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, any()) }
@@ -113,41 +111,39 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
 
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
-        verify { Klaviyo.handlePush(intent) }
+        verify { Klaviyo.handlePush(intent, false) }
         verify(exactly = 0) { mockTrampolineContext.startActivity(any()) }
         // Mirrors the non-trampoline diagnostic so a missing launcher is still debuggable.
         verify { spyLog.warning(any(), null) }
     }
 
     @Test
-    fun `handleTrampolineIntent with deep link and no handler dispatches ACTION_VIEW into host`() {
+    fun `handleTrampolineIntent with a resolvable deep link dispatches ACTION_VIEW into host`() {
         val intent = klaviyoIntent()
         val deepLink = mockk<Uri>(relaxed = true)
         every { intent.data } returns deepLink
-        every { DeepLinking.isHandlerRegistered } returns false
-
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
-        verify { Klaviyo.handlePush(intent) }
+        verify { Klaviyo.handlePush(intent, false) }
         verify { DeepLinking.makeDeepLinkIntent(deepLink, mockTrampolineContext, intent) }
         verify { mockTrampolineContext.startActivity(mockDeepLinkIntent) }
         verify(exactly = 0) { DeepLinking.makeLaunchIntent(any(), any()) }
     }
 
     @Test
-    fun `handleTrampolineIntent with deep link but handler registered launches host without ACTION_VIEW`() {
+    fun `handleTrampolineIntent dispatches ACTION_VIEW even when a handler is registered`() {
         val intent = klaviyoIntent()
         val deepLink = mockk<Uri>(relaxed = true)
         every { intent.data } returns deepLink
-        // handlePush already dispatched the registered handler — a VIEW intent would double-deliver.
         every { DeepLinking.isHandlerRegistered } returns true
 
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
-        verify { Klaviyo.handlePush(intent) }
-        verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any(), any()) }
-        verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, any()) }
-        verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
+        // The link reaches the host on this intent, so the handler is not invoked here.
+        verify { Klaviyo.handlePush(intent, false) }
+        verify(exactly = 0) { DeepLinking.handleDeepLink(any()) }
+        verify { DeepLinking.makeDeepLinkIntent(deepLink, mockTrampolineContext, intent) }
+        verify { mockTrampolineContext.startActivity(mockDeepLinkIntent) }
     }
 
     @Test
@@ -155,7 +151,6 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         val intent = klaviyoIntent()
         val deepLink = mockk<Uri>(relaxed = true)
         every { intent.data } returns deepLink
-        every { DeepLinking.isHandlerRegistered } returns false
         // Deep link target cannot be resolved → fall back to the launcher.
         every { mockDeepLinkIntent.resolveActivity(any()) } returns null
 
@@ -167,6 +162,20 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         verify(exactly = 0) { mockTrampolineContext.startActivity(mockDeepLinkIntent) }
         // Degraded-but-handled (fell back to launcher) → WARNING, not ERROR.
         verify { spyLog.warning(any(), null) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent attaches an unresolvable deep link to the launcher intent`() {
+        val intent = klaviyoIntent()
+        val deepLink = mockk<Uri>(relaxed = true)
+        every { intent.data } returns deepLink
+        every { mockDeepLinkIntent.resolveActivity(any()) } returns null
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        // Without this the link would be dropped, since the launcher intent carries no data.
+        verify { mockLaunchIntent.data = deepLink }
+        verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
     }
 
     @Test
@@ -203,7 +212,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
 
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
-        verify { Klaviyo.handlePush(intent) }
+        verify { Klaviyo.handlePush(intent, false) }
         verify { DeepLinking.makeExternalIntent(parsedUri) }
         verify { mockTrampolineContext.startActivity(mockBrowserIntent) }
     }

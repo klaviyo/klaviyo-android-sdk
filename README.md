@@ -519,7 +519,9 @@ push integration that otherwise require code in your app:
 
 - **Push open tracking** (`automatic_push_open_tracking`) — **opt-in** (off by default). Set it to
   `true` and the SDK detects when a user taps a Klaviyo notification and records the `Opened Push`
-  event for you, so you do **not** need to call `Klaviyo.handlePush(intent)` anywhere.
+  event for you, so you do **not** need to call `Klaviyo.handlePush(intent)` anywhere. Notification
+  taps deliver the deep link to your app as an `Intent` — see
+  [Deep links with automatic open tracking](#deep-links-with-automatic-open-tracking) below.
 - **Push token registration** (`automatic_push_token_forwarding`) — **on by default**. The SDK
   fetches the current FCM token and registers it with Klaviyo automatically, so you don't need to
   call `Klaviyo.setPushToken(...)` yourself. Set it to `false` to opt out.
@@ -565,6 +567,40 @@ That's it. With both flags set, `initialize()` covers both concerns above:
 - **Open tracking** records an `Opened Push` event for every Klaviyo notification tap.
 - **Token registration** happens at `initialize()` **and** again on every app foreground, so
   token rotations are picked up on those events.
+
+#### Deep links with automatic open tracking
+
+A notification tap delivers the destination URL to your app as an `Intent`, with the URL on
+`intent.data` — the same shape the SDK sends in [Option B](#option-b--manual-integration). A
+registered `DeepLinkHandler` is **not** invoked for these taps; the intent is the delivery
+mechanism.
+
+Read the link in **both** `onCreate` and `onNewIntent`. Both are required: if your process has been
+killed while its task is still in the recents list, Android re-creates your activity from the saved
+task, so `onCreate` sees the *original* intent and the new one arrives at `onNewIntent`.
+
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   class MainActivity : ComponentActivity() {
+       override fun onCreate(savedInstanceState: Bundle?) {
+           super.onCreate(savedInstanceState)
+           intent?.data?.let(::handleDeepLink)
+       }
+
+       override fun onNewIntent(intent: Intent) {
+           super.onNewIntent(intent)
+           setIntent(intent)
+           intent.data?.let(::handleDeepLink)
+       }
+   }
+   ```
+</details>
+
+If you also call `Klaviyo.handlePush(intent)` — for example because you already had that wiring —
+it remains safe: the `Opened Push` event is recorded only once per notification, and your registered
+`DeepLinkHandler` is invoked by your call. Take care not to navigate twice in that case.
 
 #### Displaying notifications
 
@@ -1147,7 +1183,11 @@ you can centralize your logic and reduce duplication of code as you complete the
 **Optional**: register a deep link handler callback with `Klaviyo.registerDeepLinkHandler()`.
 You should register this from your `Application` or main `Activity`'s `.onCreate()` method, so that it is available early enough in
 the application lifecycle to handle any link that launches the app from a terminated state. This handler will be invoked for
-*any* deep link originating from the Klaviyo SDK, including push notifications, universal tracking links, or In-App Forms.
+deep links from In-App Forms, universal tracking links, and any push notification you pass to `Klaviyo.handlePush(intent)` yourself.
+
+> ⚠️ **With `automatic_push_open_tracking` enabled, notification taps deliver an `Intent` rather than invoking this handler.**
+> See [Option A — Automatic Integration](#option-a--automatic-integration). Your intent-handling code needs to work regardless,
+> since a link can always arrive that way, so route from the intent and treat this callback as an addition rather than a replacement.
 
 <details open>
    <summary>Kotlin</summary>
