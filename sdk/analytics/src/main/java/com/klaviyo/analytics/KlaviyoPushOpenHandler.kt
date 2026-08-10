@@ -2,6 +2,7 @@ package com.klaviyo.analytics
 
 import android.content.Intent
 import androidx.core.app.NotificationManagerCompat
+import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
@@ -44,9 +45,9 @@ internal object KlaviyoPushOpenHandler {
      * Called by [Klaviyo.handlePush]; not meant for direct use outside this module.
      *
      * Tracking/dismissal and deep-link dispatch each happen at most once per delivery, counted
-     * separately: an intent flagged with [Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA] records the open
-     * without consuming the dispatch, so the unflagged copy forwarded to the host still reaches a
-     * registered [DeepLinkHandler][com.klaviyo.analytics.linking.DeepLinkHandler].
+     * separately: an intent flagged with [Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA] records the
+     * open without consuming the dispatch, so the unflagged copy forwarded to the host still
+     * reaches a registered [DeepLinkHandler].
      */
     internal fun handle(intent: Intent?, preInitQueue: Queue<Operation<Unit>>) {
         if (intent == null || !Klaviyo.isKlaviyoNotificationIntent(intent)) {

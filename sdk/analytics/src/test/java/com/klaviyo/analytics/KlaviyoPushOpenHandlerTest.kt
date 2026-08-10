@@ -13,6 +13,7 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Constants
+import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
@@ -117,9 +118,9 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
 
     /**
      * Empty [Klaviyo]'s private pre-init queue between tests. A test that makes `enqueueEvent` throw
-     * a [com.klaviyo.core.config.KlaviyoException] leaves the operation queued for replay, and since
-     * [Klaviyo] is an object that queue outlives `unmockkAll`. The next `initialize` would drain it
-     * and enqueue that stale event against the following test's mock.
+     * a [KlaviyoException] leaves the operation queued for replay, and since [Klaviyo] is an object
+     * that queue outlives `unmockkAll`. The next `initialize` would drain it and enqueue that stale
+     * event against the following test's mock.
      */
     private fun drainPreInitQueue() = Klaviyo::class.java
         .getDeclaredField("preInitQueue")
@@ -316,12 +317,25 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     fun `handlePush on a suppressed intent tracks and dismisses without invoking the handler`() {
         val (getCapturedUri) = setupDeepLinkHandler()
         val testUri = mockk<Uri>()
+        val tag = "suppressed-dispatch-tag"
+        val notificationManager = mockk<NotificationManagerCompat>(relaxed = true)
+        mockkStatic(NotificationManagerCompat::class)
+        every { NotificationManagerCompat.from(any()) } returns notificationManager
+        val intent = suppressedIntent("suppressed-dispatch", testUri).apply {
+            every { getStringExtra(Constants.NOTIFICATION_TAG_EXTRA) } returns tag
+        }
 
-        Klaviyo.handlePush(suppressedIntent("suppressed-dispatch", testUri))
+        try {
+            Klaviyo.handlePush(intent)
 
-        verifyOpenedPushEventEnqueued()
-        assertEquals(null, getCapturedUri())
-        verify(exactly = 0) { DeepLinking.handleDeepLink(any()) }
+            // Suppression scopes to the handler only; the open and dismissal still happen.
+            verifyOpenedPushEventEnqueued()
+            verify(exactly = 1) { notificationManager.cancel(tag, Constants.NOTIFICATION_ID) }
+            assertEquals(null, getCapturedUri())
+            verify(exactly = 0) { DeepLinking.handleDeepLink(any()) }
+        } finally {
+            unmockkStatic(NotificationManagerCompat::class)
+        }
     }
 
     @Test
