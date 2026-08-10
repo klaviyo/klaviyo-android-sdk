@@ -251,12 +251,12 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         mockIntent(deliveryExtras(deliveryId), uri)
 
     /**
-     * A delivery intent flagged with [Constants.SUPPRESS_DEEP_LINK_EXTRA], as the trampoline stamps
-     * its own intents before forwarding an unflagged copy to the host.
+     * A delivery intent flagged with [Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA], as the trampoline
+     * stamps its own intents before forwarding an unflagged copy to the host.
      */
     private fun suppressedIntent(deliveryId: String, uri: Uri? = null): Intent =
         deliveryIntent(deliveryId, uri).apply {
-            every { getBooleanExtra(Constants.SUPPRESS_DEEP_LINK_EXTRA, false) } returns true
+            every { getBooleanExtra(Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA, false) } returns true
         }
 
     /** A Klaviyo intent whose `_k` payload omits `tm`, relying on the generated uid as the key. */
@@ -269,10 +269,8 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         )
 
     @Test
-    fun `handlePush tracks exactly one opened_push when a delivery is handled twice`() {
-        // The trampoline tracks first, then forwards the same intent (same tm) to a host that still
-        // calls handlePush manually. Tracking happens once; dispatch is not deduped, so the host's
-        // own call still reaches their handler.
+    fun `handlePush tracks and dispatches once when a delivery is handled twice`() {
+        // A host calling handlePush twice for one tap gets one event and one navigation.
         val (getCapturedUri) = setupDeepLinkHandler()
         val testUri = mockk<Uri>()
 
@@ -280,6 +278,36 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         Klaviyo.handlePush(deliveryIntent("dedup-twice-distinct-intents", testUri))
 
         verifyOpenedPushEventEnqueued()
+        assertEquals(testUri, getCapturedUri())
+        verify(exactly = 1) { DeepLinking.handleDeepLink(testUri) }
+    }
+
+    @Test
+    fun `handlePush dispatches once when a suppressed intent precedes two unflagged calls`() {
+        // The suppressed call must not consume the dispatch, and the two that follow must
+        // collapse to one navigation.
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val testUri = mockk<Uri>()
+
+        Klaviyo.handlePush(suppressedIntent("suppressed-then-two", testUri))
+        Klaviyo.handlePush(deliveryIntent("suppressed-then-two", testUri))
+        Klaviyo.handlePush(deliveryIntent("suppressed-then-two", testUri))
+
+        verifyOpenedPushEventEnqueued()
+        assertEquals(testUri, getCapturedUri())
+        verify(exactly = 1) { DeepLinking.handleDeepLink(testUri) }
+    }
+
+    @Test
+    fun `handlePush dispatches a deep link with no delivery id every time`() {
+        // No tm and no uid → nothing is deduped, matching the tracking stage's behavior.
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val testUri = mockk<Uri>()
+        val noKey = mapOf("com.klaviyo.body" to "Message body", "com.klaviyo._k" to "{}")
+
+        Klaviyo.handlePush(mockIntent(noKey, testUri))
+        Klaviyo.handlePush(mockIntent(noKey, testUri))
+
         assertEquals(testUri, getCapturedUri())
         verify(exactly = 2) { DeepLinking.handleDeepLink(testUri) }
     }

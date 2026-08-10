@@ -46,13 +46,14 @@ object Constants {
 
     /**
      * Intent extra marking an intent whose deep link is delivered to the host by another means, so
-     * `Klaviyo.handlePush` skips invoking a registered `DeepLinkHandler` for it. Absent → dispatch.
+     * `Klaviyo.handlePush` skips invoking a registered `DeepLinkHandler` for it. The link itself is
+     * still delivered — only the handler call is suppressed. Absent → handler is invoked.
      *
      * Set on the trampoline's own intents and removed before the intent is forwarded to the host, so
      * a host that calls `handlePush` itself still reaches its handler.
      * Uses [INTERNAL_PREFIX] to stay out of analytics event properties, like [NOTIFICATION_TAG_EXTRA].
      */
-    const val SUPPRESS_DEEP_LINK_EXTRA = INTERNAL_PREFIX + "suppress_deep_link"
+    const val SUPPRESS_DEEP_LINK_HANDLER_EXTRA = INTERNAL_PREFIX + "suppress_deep_link_handler"
 
     /**
      * Manifest `<meta-data>` key a host app sets to opt into automatic push open tracking.
