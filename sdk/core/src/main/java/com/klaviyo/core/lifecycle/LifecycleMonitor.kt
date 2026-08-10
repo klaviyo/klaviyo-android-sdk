@@ -138,18 +138,14 @@ interface LifecycleMonitor {
      * next resumed activity, falling back to [onTimeout] if none resumes within [timeout].
      *
      * Exactly one of [job] and [onTimeout] is invoked, unless the returned token cancels the wait
-     * first.
-     *
-     * [onTimeout] has no default value, so a call supplying only a timeout and a trailing lambda
-     * resolves to the two-argument overload.
+     * first. The timeout should be at least long enough to avoid race conditions between the
+     * scheduling of the tasks, e.g. min [ACTIVITY_TRANSITION_GRACE_PERIOD] milliseconds.
      *
      * @param timeout How long to wait for a resumed activity, or null to wait indefinitely
      * @param onTimeout Invoked instead of [job] if [timeout] elapses with no resumed activity
      * @param job Invoked with the current activity, or the next one to resume
-     * @return null if the wait already settled before returning, otherwise a token that abandons
-     *  the pending wait. Both [Clock.Cancellable.cancel] and [Clock.Cancellable.runNow] abandon it
-     *  — there is no way to "run now" a job that is waiting precisely because it has no activity to
-     *  run against — and neither runs [job] or [onTimeout].
+     * @return A token to cancel the pending wait or attempt to run immediately against the
+     * current activity and abandon the wait, or null if [job] ran immediately.
      */
     fun runWithCurrentOrNextActivity(
         timeout: Long?,
@@ -161,11 +157,11 @@ interface LifecycleMonitor {
             return null
         }
 
-        // The timeout fires on the clock's own thread, so claim the outcome atomically: a resume
-        // racing the timer — or a caller abandoning the wait — must not let two branches run.
+        // Track atomically whether the task or timeout have run
         val settled = AtomicBoolean(false)
         var observer: ActivityObserver? = null
 
+        // Cancel the task if a specified timeout elapses, and invoke the optional timeout callback
         val timeoutTask: Clock.Cancellable? = timeout?.let { delay ->
             Registry.clock.schedule(delay) {
                 if (!settled.compareAndSet(false, true)) return@schedule
@@ -175,41 +171,31 @@ interface LifecycleMonitor {
             }
         }
 
+        // Invoke the job when the next activity resumes, and cancel the timeout task
+        val waitingTask: (activity: Activity, reason: String) -> Unit = { activity, reason ->
+            if (settled.compareAndSet(false, true)) {
+                Registry.log.verbose("Invoking postponed observer on $reason")
+                observer?.let { offActivityEvent(it) }
+                timeoutTask?.cancel()
+                job(activity)
+            } else {
+                Registry.log.verbose("Postponed observer already settled, ignoring $reason")
+            }
+        }
+
         observer = { event ->
             event.takeIf<ActivityEvent.Resumed>()?.let { resumed ->
-                if (settled.compareAndSet(false, true)) {
-                    Registry.log.verbose("Invoking postponed observer on resume")
-                    observer?.let { offActivityEvent(it) }
-                    timeoutTask?.cancel()
-                    job(resumed.activity)
-                }
+                waitingTask(resumed.activity, "resume")
             }
         }
 
         onActivityEvent(observer)
 
-        // Reconcile with whatever raced us while we were registering. The timeout runs on the
-        // clock's own thread, and callers can be off the main thread while activity resumes
-        // broadcast on it.
-        if (settled.get()) {
-            // Something claimed the outcome while we registered — a timeout that de-registered an
-            // observer that did not exist yet, or a resume that already ran the job. Either way the
-            // wait is over, so there is nothing left for a token to abandon.
-            offActivityEvent(observer)
-            return null
-        }
-
-        currentActivity?.let { activity ->
-            if (settled.compareAndSet(false, true)) {
-                Registry.log.verbose("Activity resumed while registering postponed observer")
-                offActivityEvent(observer)
-                timeoutTask?.cancel()
-                job(activity)
-                return null
-            }
-        }
-
         return object : Clock.Cancellable {
+            /**
+             * Cancel the wait for the next resumed activity, and cancel the timeout task if any.
+             * [onTimeout] is not invoked automatically, caller can do that manually if needed.
+             */
             override fun cancel(): Boolean {
                 if (!settled.compareAndSet(false, true)) return false
                 Registry.log.verbose("Abandoning postponed observer")
@@ -218,8 +204,16 @@ interface LifecycleMonitor {
                 return true
             }
 
+            /**
+             * Contract correctness: an option to attempt to invoke immediately. Not recommended.
+             */
             override fun runNow() {
-                cancel()
+                currentActivity?.let { activity ->
+                    waitingTask(activity, "runNow")
+                } ?: run {
+                    Registry.log.verbose("Postponed observer has no current activity, abandoning")
+                    cancel()
+                }
             }
         }
     }

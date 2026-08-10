@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.view.View
 import android.view.WindowManager
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.lifecycle.LifecycleMonitor
@@ -278,6 +279,23 @@ class KlaviyoPresentationManagerTest : BaseTest() {
             PresentationState.Hidden,
             manager.presentationState
         )
+    }
+
+    @Test
+    fun `dismiss abandons a postponed presentation rather than running it`() {
+        // The postponed present is left pending, so dismiss has a live token to act on.
+        val pendingPresent = mockk<Clock.Cancellable>(relaxed = true)
+        every {
+            mockLifecycleMonitor.runWithCurrentOrNextActivity(any(), any())
+        } returns pendingPresent
+
+        val manager = KlaviyoPresentationManager()
+        manager.present(null)
+        manager.dismiss()
+
+        // runNow would invoke the job, presenting the form the user just dismissed.
+        verify { pendingPresent.cancel() }
+        verify(exactly = 0) { pendingPresent.runNow() }
     }
 
     @Test

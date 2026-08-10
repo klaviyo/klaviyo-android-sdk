@@ -5,9 +5,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.core.utils.takeIf
 import com.klaviyo.fixtures.BaseTest
-import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.After
@@ -299,13 +297,37 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         assert(!timedOut) { "Fallback should not run after cancellation — this is not a deadline" }
     }
 
+    @OptIn(AdvancedAPI::class)
     @Test
-    fun `runNow on the returned token abandons the job rather than invoking the fallback`() {
+    fun `runNow on the returned token invokes the job against the current activity`() {
+        var invokedWith: Activity? = null
+        var timedOut = false
+        val activity = mockk<Activity>()
+
+        val token = KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
+            timeout = 100,
+            onTimeout = { timedOut = true }
+        ) { resumed ->
+            invokedWith = resumed
+        }
+
+        KlaviyoLifecycleMonitor.assignCurrentActivity(activity)
+        token?.runNow()
+
+        assertEquals(activity, invokedWith)
+
+        // The wait is settled, so a later resume or the timeout must not run anything again.
+        KlaviyoLifecycleMonitor.onActivityResumed(mockk())
+        staticClock.execute(150)
+        assertEquals(activity, invokedWith)
+        assert(!timedOut) { "Fallback should not run after the job was invoked" }
+    }
+
+    @Test
+    fun `runNow abandons the wait when there is no current activity`() {
         var called = false
         var timedOut = false
 
-        // KlaviyoPresentationManager cancels a postponed present via runNow, so it must not be a
-        // back door into the timeout fallback.
         val token = KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
             timeout = 100,
             onTimeout = { timedOut = true }
@@ -318,93 +340,8 @@ class KlaviyoLifecycleMonitorTest : BaseTest() {
         KlaviyoLifecycleMonitor.onActivityResumed(mockk())
         staticClock.execute(150)
 
-        assert(!called) { "Callback should not run after runNow" }
-        assert(!timedOut) { "Fallback should not run after runNow" }
-    }
-
-    @Test
-    fun `runWithCurrentOrNextActivity picks up an activity that resumed while registering`() {
-        var called = false
-        var timedOut = false
-        val resumedActivity = mockk<Activity>()
-
-        // An activity resumes and broadcasts between the initial currentActivity check and the
-        // observer's registration, so the observer never sees the event. Driven through the two
-        // reads the implementation makes — null first, then present.
-        mockkObject(KlaviyoLifecycleMonitor)
-        // This registers a real observer on the monitor singleton. Capture it so the test removes
-        // it regardless of whether the code under test does; a leaked observer would otherwise fail
-        // unrelated tests in this class rather than this one.
-        var registeredObserver: ActivityObserver? = null
-        try {
-            every { KlaviyoLifecycleMonitor.currentActivity } returnsMany listOf(
-                null,
-                resumedActivity
-            )
-            every { KlaviyoLifecycleMonitor.onActivityEvent(any()) } answers {
-                registeredObserver = firstArg()
-                callOriginal()
-            }
-
-            val token = KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
-                timeout = 100,
-                onTimeout = { timedOut = true }
-            ) { activity ->
-                called = true
-                assertEquals(resumedActivity, activity)
-            }
-
-            assert(called) { "Job should run against the activity that resumed during registration" }
-            assertEquals(null, token)
-
-            staticClock.execute(150)
-            assert(!timedOut) { "Fallback should not run after the job already ran" }
-
-            // A settled wait must leave no observer behind, or a later resume runs the job again.
-            registeredObserver?.let {
-                verify { KlaviyoLifecycleMonitor.offActivityEvent(it) }
-            }
-        } finally {
-            unmockkObject(KlaviyoLifecycleMonitor)
-            // Defensive: if the assertion above ever fails, the leaked observer would otherwise
-            // fail unrelated tests in this class rather than this one.
-            registeredObserver?.let { KlaviyoLifecycleMonitor.offActivityEvent(it) }
-        }
-    }
-
-    @Test
-    fun `returns no token when the wait settles while registering`() {
-        var called = false
-        var timedOut = false
-
-        mockkObject(KlaviyoLifecycleMonitor)
-        var registeredObserver: ActivityObserver? = null
-        try {
-            every { KlaviyoLifecycleMonitor.currentActivity } returns null
-            // Settle the wait during registration, the way the clock's own thread can.
-            every { KlaviyoLifecycleMonitor.onActivityEvent(any()) } answers {
-                registeredObserver = firstArg()
-                callOriginal()
-                staticClock.execute(150)
-            }
-
-            val token = KlaviyoLifecycleMonitor.runWithCurrentOrNextActivity(
-                timeout = 100,
-                onTimeout = { timedOut = true }
-            ) { called = true }
-
-            // A settled wait has nothing left to abandon, so handing back a token would let a
-            // caller treat it as still pending.
-            assertEquals(null, token)
-            assert(timedOut) { "Fallback should have run" }
-            assert(!called) { "Job should not run once the timeout claimed the outcome" }
-            registeredObserver?.let {
-                verify { KlaviyoLifecycleMonitor.offActivityEvent(it) }
-            }
-        } finally {
-            unmockkObject(KlaviyoLifecycleMonitor)
-            registeredObserver?.let { KlaviyoLifecycleMonitor.offActivityEvent(it) }
-        }
+        assert(!called) { "Job should not run when runNow found no activity" }
+        assert(!timedOut) { "Fallback should not run once the wait was abandoned" }
     }
 
     @Test
