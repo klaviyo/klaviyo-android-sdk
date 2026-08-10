@@ -58,9 +58,8 @@ internal object KlaviyoPushOpenHandler {
         // forwards the same intent to the host, so a manual handlePush call (or singleTask
         // re-entry) would otherwise double-track one tap. A delivery with no id is never deduped.
         val deliveryId = intent.pushDeliveryId
-        val isNewDelivery = deliveryId == null || handledPushDeliveries.markOnce(deliveryId)
 
-        if (isNewDelivery) {
+        if (deliveryId == null || handledPushDeliveries.markOnce(deliveryId)) {
             // Create and enqueue an $opened_push. safeApply(preInitQueue) buffers this for replay
             // if handlePush runs before initialize(), and guards against unexpected failures.
             safeApply(preInitQueue) {
