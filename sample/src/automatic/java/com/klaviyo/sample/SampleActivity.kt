@@ -54,7 +54,11 @@ class SampleActivity : ComponentActivity() {
             )
         }
 
-        onNewIntent(intent)
+        // Only on a fresh start: after a configuration change the same intent is re-delivered,
+        // which would navigate a second time.
+        if (savedInstanceState == null) {
+            onNewIntent(intent)
+        }
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -73,7 +77,7 @@ class SampleActivity : ComponentActivity() {
 
         // SETUP NOTE (Automatic / Option A): A notification tap delivers its deep link here, on the
         // intent's data, rather than to a registered deep link handler. Handle it in BOTH onCreate
-        // (via the call above) and onNewIntent: when your process has been killed but its task is
+        // (via the call above) and onNewIntent: when the process has been killed but its task is
         // still in recents, Android restores the original intent into onCreate and delivers the new
         // one here.
         intent?.data?.let { deepLink ->
