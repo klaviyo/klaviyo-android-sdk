@@ -160,16 +160,7 @@ interface LifecycleMonitor {
         // Track atomically whether the task or timeout have run
         val settled = AtomicBoolean(false)
         var observer: ActivityObserver? = null
-
-        // Cancel the task if a specified timeout elapses, and invoke the optional timeout callback
-        val timeoutTask: Clock.Cancellable? = timeout?.let { delay ->
-            Registry.clock.schedule(delay) {
-                if (!settled.compareAndSet(false, true)) return@schedule
-                Registry.log.verbose("Removing postponed observer after timeout ${delay}ms")
-                observer?.let { offActivityEvent(it) }
-                onTimeout?.invoke()
-            }
-        }
+        var timeoutTask: Clock.Cancellable? = null
 
         // Invoke the job when the next activity resumes, and cancel the timeout task
         val waitingTask: (activity: Activity, reason: String) -> Unit = { activity, reason ->
@@ -190,6 +181,16 @@ interface LifecycleMonitor {
         }
 
         onActivityEvent(observer)
+
+        // Cancel the task if a specified timeout elapses, and invoke the optional timeout callback
+        timeoutTask = timeout?.let { delay ->
+            Registry.clock.schedule(delay) {
+                if (!settled.compareAndSet(false, true)) return@schedule
+                Registry.log.verbose("Removing postponed observer after timeout ${delay}ms")
+                offActivityEvent(observer)
+                onTimeout?.invoke()
+            }
+        }
 
         return object : Clock.Cancellable {
             /**
