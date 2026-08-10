@@ -45,6 +45,16 @@ object Constants {
     const val NOTIFICATION_UID_EXTRA = INTERNAL_PREFIX + "notification_uid"
 
     /**
+     * Intent extra marking an intent whose deep link is delivered to the host by another means, so
+     * `Klaviyo.handlePush` skips invoking a registered `DeepLinkHandler` for it. Absent → dispatch.
+     *
+     * Set on the trampoline's own intents and removed before the intent is forwarded to the host, so
+     * a host that calls `handlePush` itself still reaches its handler.
+     * Uses [INTERNAL_PREFIX] to stay out of analytics event properties, like [NOTIFICATION_TAG_EXTRA].
+     */
+    const val SUPPRESS_DEEP_LINK_EXTRA = INTERNAL_PREFIX + "suppress_deep_link"
+
+    /**
      * Manifest `<meta-data>` key a host app sets to opt into automatic push open tracking.
      *
      * Lives in core (not push-fcm) because telemetry's push token request must read it, and core

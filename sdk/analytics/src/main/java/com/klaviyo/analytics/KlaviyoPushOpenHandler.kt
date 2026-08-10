@@ -37,18 +37,11 @@ internal object KlaviyoPushOpenHandler {
      * Called by [Klaviyo.handlePush]; not meant for direct use outside this module.
      *
      * Tracking and dismissal happen at most once per delivery. Deep-link dispatch is not deduped:
-     * an SDK entry point that suppresses it may forward the same intent to the host, whose own
-     * [Klaviyo.handlePush] call must still reach a registered
+     * an intent flagged with [Constants.SUPPRESS_DEEP_LINK_EXTRA] may be forwarded to the host
+     * without the flag, so the host's own [Klaviyo.handlePush] call still reaches a registered
      * [DeepLinkHandler][com.klaviyo.analytics.linking.DeepLinkHandler].
-     *
-     * @param dispatchDeepLink Whether to invoke a registered handler with the intent's deep link.
-     *  Pass false when the caller delivers the link itself.
      */
-    internal fun handle(
-        intent: Intent?,
-        preInitQueue: Queue<Operation<Unit>>,
-        dispatchDeepLink: Boolean = true
-    ) {
+    internal fun handle(intent: Intent?, preInitQueue: Queue<Operation<Unit>>) {
         if (intent == null || !Klaviyo.isKlaviyoNotificationIntent(intent)) {
             Registry.log.verbose("Non-Klaviyo intent ignored")
             return
@@ -87,7 +80,10 @@ internal object KlaviyoPushOpenHandler {
             Registry.log.verbose("Ignoring duplicate push open")
         }
 
-        if (!dispatchDeepLink) return
+        if (intent.getBooleanExtra(Constants.SUPPRESS_DEEP_LINK_EXTRA, false)) {
+            Registry.log.verbose("Deep link delivered by intent; not invoking handler")
+            return
+        }
 
         // If the notification carries a deep link and a handler is registered, invoke it. Otherwise
         // do nothing — the host already received the appropriate intent.
