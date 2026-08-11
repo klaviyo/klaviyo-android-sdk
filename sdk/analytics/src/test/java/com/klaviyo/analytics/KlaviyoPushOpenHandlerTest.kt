@@ -13,6 +13,7 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Constants
+import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
@@ -29,6 +30,7 @@ import io.mockk.slot
 import io.mockk.unmockkAll
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import java.util.Queue
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -104,6 +106,7 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     @After
     override fun cleanup() {
         unmockkAll()
+        drainPreInitQueue()
         Registry.unregister<DeepLinkHandler>()
         Registry.unregister<Config>()
         Registry.unregister<State>()
@@ -112,6 +115,17 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         super.cleanup()
         unmockDeviceProperties()
     }
+
+    /**
+     * Empty [Klaviyo]'s private pre-init queue between tests. A test that makes `enqueueEvent` throw
+     * a [KlaviyoException] leaves the operation queued for replay, and since [Klaviyo] is an object
+     * that queue outlives `unmockkAll`. The next `initialize` would drain it and enqueue that stale
+     * event against the following test's mock.
+     */
+    private fun drainPreInitQueue() = Klaviyo::class.java
+        .getDeclaredField("preInitQueue")
+        .also { it.isAccessible = true }
+        .let { (it.get(Klaviyo) as Queue<*>).clear() }
 
     private fun verifyOpenedPushEventEnqueued() = verify(exactly = 1) {
         mockApiClient.enqueueEvent(
