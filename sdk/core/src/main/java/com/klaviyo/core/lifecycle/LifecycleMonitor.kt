@@ -145,7 +145,8 @@ interface LifecycleMonitor {
      * @param onTimeout Invoked instead of [job] if [timeout] elapses with no resumed activity
      * @param job Invoked with the current activity, or the next one to resume
      * @return A token to cancel the pending wait or attempt to run immediately against the
-     * current activity and abandon the wait, or null if [job] ran immediately.
+     * current activity and abandon the wait, or null if the wait already settled — [job] ran
+     * against the current activity, or a resume or the timeout claimed it during registration.
      */
     fun runWithCurrentOrNextActivity(
         timeout: Long?,
@@ -190,6 +191,15 @@ interface LifecycleMonitor {
                 offActivityEvent(observer)
                 onTimeout?.invoke()
             }
+        }
+
+        // Activity resumes broadcast on the main thread and the timeout runs on the clock's own
+        // thread, so either can settle the wait before this returns. A settled wait has nothing
+        // left to abandon, and a resume that beat the assignment above left the timeout scheduled.
+        if (settled.get()) {
+            offActivityEvent(observer)
+            timeoutTask?.cancel()
+            return null
         }
 
         return object : Clock.Cancellable {
