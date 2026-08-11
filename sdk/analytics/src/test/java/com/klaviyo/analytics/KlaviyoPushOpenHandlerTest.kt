@@ -577,6 +577,35 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     }
 
     @Test
+    fun `getKlaviyoDeepLink prefers the tapped button's link over the notification body's`() {
+        // An action button intent carries both: its own destination and, via appendKlaviyoExtras,
+        // the body's url. Returning the body's would navigate somewhere the user did not tap.
+        val buttonUri = mockk<Uri>()
+        every { Uri.parse("klaviyotest://order/123") } returns buttonUri
+        every { Uri.parse("klaviyotest://detail/1") } returns mockk()
+        val extras = mapOf(
+            "com.klaviyo._k" to requireNotNull(stubIntentExtras["com.klaviyo._k"]),
+            "com.klaviyo.url" to "klaviyotest://detail/1",
+            "com.klaviyo.Button Link" to "klaviyotest://order/123"
+        )
+
+        assertEquals(buttonUri, Klaviyo.getKlaviyoDeepLink(mockIntent(extras)))
+    }
+
+    @Test
+    fun `getKlaviyoDeepLink reads a button link when the notification body has no url`() {
+        // An open_app body with a deep_link button: there is no com.klaviyo.url to fall back on.
+        val buttonUri = mockk<Uri>()
+        every { Uri.parse("klaviyotest://order/123") } returns buttonUri
+        val extras = mapOf(
+            "com.klaviyo._k" to requireNotNull(stubIntentExtras["com.klaviyo._k"]),
+            "com.klaviyo.Button Link" to "klaviyotest://order/123"
+        )
+
+        assertEquals(buttonUri, Klaviyo.getKlaviyoDeepLink(mockIntent(extras)))
+    }
+
+    @Test
     fun `getKlaviyoDeepLink returns null for a klaviyo intent carrying no link`() {
         assertEquals(null, Klaviyo.getKlaviyoDeepLink(mockIntent(stubIntentExtras)))
     }
