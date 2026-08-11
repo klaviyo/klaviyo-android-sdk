@@ -13,6 +13,7 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Constants
+import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
@@ -27,7 +28,9 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.unmockkAll
+import io.mockk.unmockkStatic
 import io.mockk.verify
+import java.util.Queue
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -103,6 +106,7 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     @After
     override fun cleanup() {
         unmockkAll()
+        drainPreInitQueue()
         Registry.unregister<DeepLinkHandler>()
         Registry.unregister<Config>()
         Registry.unregister<State>()
@@ -111,6 +115,17 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         super.cleanup()
         unmockDeviceProperties()
     }
+
+    /**
+     * Empty [Klaviyo]'s private pre-init queue between tests. A test that makes `enqueueEvent` throw
+     * a [KlaviyoException] leaves the operation queued for replay, and since [Klaviyo] is an object
+     * that queue outlives `unmockkAll`. The next `initialize` would drain it and enqueue that stale
+     * event against the following test's mock.
+     */
+    private fun drainPreInitQueue() = Klaviyo::class.java
+        .getDeclaredField("preInitQueue")
+        .also { it.isAccessible = true }
+        .let { (it.get(Klaviyo) as Queue<*>).clear() }
 
     private fun verifyOpenedPushEventEnqueued() = verify(exactly = 1) {
         mockApiClient.enqueueEvent(
@@ -236,6 +251,15 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     private fun deliveryIntent(deliveryId: String, uri: Uri? = null): Intent =
         mockIntent(deliveryExtras(deliveryId), uri)
 
+    /**
+     * A delivery intent flagged with [Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA], as the trampoline
+     * stamps its own intents before forwarding an unflagged copy to the host.
+     */
+    private fun suppressedIntent(deliveryId: String, uri: Uri? = null): Intent =
+        deliveryIntent(deliveryId, uri).apply {
+            every { getBooleanExtra(Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA, false) } returns true
+        }
+
     /** A Klaviyo intent whose `_k` payload omits `tm`, relying on the generated uid as the key. */
     private fun tmLessIntent(notificationUid: String): Intent =
         mockIntent(
@@ -246,9 +270,8 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         )
 
     @Test
-    fun `handlePush tracks exactly one opened_push when a delivery is handled twice`() {
-        // The trampoline tracks first, then forwards the same intent (same tm) to a host that still
-        // calls handlePush manually; only one open, dismissal, and deep link result.
+    fun `handlePush tracks and dispatches once when a delivery is handled twice`() {
+        // A host calling handlePush twice for one tap gets one event and one navigation.
         val (getCapturedUri) = setupDeepLinkHandler()
         val testUri = mockk<Uri>()
 
@@ -258,6 +281,99 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         verifyOpenedPushEventEnqueued()
         assertEquals(testUri, getCapturedUri())
         verify(exactly = 1) { DeepLinking.handleDeepLink(testUri) }
+    }
+
+    @Test
+    fun `handlePush dispatches once when a suppressed intent precedes two unflagged calls`() {
+        // The suppressed call must not consume the dispatch, and the two that follow must
+        // collapse to one navigation.
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val testUri = mockk<Uri>()
+
+        Klaviyo.handlePush(suppressedIntent("suppressed-then-two", testUri))
+        Klaviyo.handlePush(deliveryIntent("suppressed-then-two", testUri))
+        Klaviyo.handlePush(deliveryIntent("suppressed-then-two", testUri))
+
+        verifyOpenedPushEventEnqueued()
+        assertEquals(testUri, getCapturedUri())
+        verify(exactly = 1) { DeepLinking.handleDeepLink(testUri) }
+    }
+
+    @Test
+    fun `handlePush dispatches a deep link with no delivery id every time`() {
+        // No tm and no uid → nothing is deduped, matching the tracking stage's behavior.
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val testUri = mockk<Uri>()
+        val noKey = mapOf("com.klaviyo.body" to "Message body", "com.klaviyo._k" to "{}")
+
+        Klaviyo.handlePush(mockIntent(noKey, testUri))
+        Klaviyo.handlePush(mockIntent(noKey, testUri))
+
+        assertEquals(testUri, getCapturedUri())
+        verify(exactly = 2) { DeepLinking.handleDeepLink(testUri) }
+    }
+
+    @Test
+    fun `handlePush on a suppressed intent tracks and dismisses without invoking the handler`() {
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val testUri = mockk<Uri>()
+        val tag = "suppressed-dispatch-tag"
+        val notificationManager = mockk<NotificationManagerCompat>(relaxed = true)
+        mockkStatic(NotificationManagerCompat::class)
+        every { NotificationManagerCompat.from(any()) } returns notificationManager
+        val intent = suppressedIntent("suppressed-dispatch", testUri).apply {
+            every { getStringExtra(Constants.NOTIFICATION_TAG_EXTRA) } returns tag
+        }
+
+        try {
+            Klaviyo.handlePush(intent)
+
+            // Suppression scopes to the handler only; the open and dismissal still happen.
+            verifyOpenedPushEventEnqueued()
+            verify(exactly = 1) { notificationManager.cancel(tag, Constants.NOTIFICATION_ID) }
+            assertEquals(null, getCapturedUri())
+            verify(exactly = 0) { DeepLinking.handleDeepLink(any()) }
+        } finally {
+            unmockkStatic(NotificationManagerCompat::class)
+        }
+    }
+
+    @Test
+    fun `handlePush after a suppressed intent invokes the handler without tracking again`() {
+        // The trampoline handles its flagged intent, then forwards an unflagged copy; a host that
+        // still calls handlePush must reach their handler, without a second $opened_push.
+        val (getCapturedUri) = setupDeepLinkHandler()
+        val testUri = mockk<Uri>()
+
+        Klaviyo.handlePush(suppressedIntent("suppressed-then-manual", testUri))
+        Klaviyo.handlePush(deliveryIntent("suppressed-then-manual", testUri))
+
+        verifyOpenedPushEventEnqueued()
+        assertEquals(testUri, getCapturedUri())
+        verify(exactly = 1) { DeepLinking.handleDeepLink(testUri) }
+    }
+
+    @Test
+    fun `handlePush dismisses a notification only once across repeat deliveries`() {
+        val tag = "dedup-dismiss-tag"
+        val notificationManager = mockk<NotificationManagerCompat>(relaxed = true)
+        mockkStatic(NotificationManagerCompat::class)
+        every { NotificationManagerCompat.from(any()) } returns notificationManager
+        val intent = mockIntent(
+            mapOf(
+                "com.klaviyo._k" to """{"m":"01GK4P5W6AV4V3APTJ727JKSKQ","tm":"dedup-dismiss"}""",
+                Constants.NOTIFICATION_TAG_EXTRA to tag
+            )
+        )
+
+        try {
+            Klaviyo.handlePush(intent)
+            Klaviyo.handlePush(intent)
+
+            verify(exactly = 1) { notificationManager.cancel(tag, Constants.NOTIFICATION_ID) }
+        } finally {
+            unmockkStatic(NotificationManagerCompat::class)
+        }
     }
 
     @Test

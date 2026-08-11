@@ -2,6 +2,7 @@ package com.klaviyo.analytics
 
 import android.content.Intent
 import androidx.core.app.NotificationManagerCompat
+import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
@@ -28,6 +29,13 @@ internal object KlaviyoPushOpenHandler {
     private val handledPushDeliveries = BoundedIdSet()
 
     /**
+     * Push delivery IDs whose deep link has already been dispatched to a registered handler.
+     * Tracked separately from [handledPushDeliveries] because a caller may suppress dispatch while
+     * still recording the open, so the two stages do not advance together.
+     */
+    private val dispatchedDeepLinks = BoundedIdSet()
+
+    /**
      * Key within the `_k` tracking payload whose value uniquely identifies a single push delivery.
      */
     private const val PUSH_DELIVERY_KEY = "tm"
@@ -35,6 +43,11 @@ internal object KlaviyoPushOpenHandler {
     /**
      * Core push-open handling: guards, event enqueue, notification dismissal, deep-link dispatch.
      * Called by [Klaviyo.handlePush]; not meant for direct use outside this module.
+     *
+     * Tracking/dismissal and deep-link dispatch each happen at most once per delivery, counted
+     * separately: an intent flagged with [Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA] records the
+     * open without consuming the dispatch, so the unflagged copy forwarded to the host still
+     * reaches a registered [DeepLinkHandler].
      */
     internal fun handle(intent: Intent?, preInitQueue: Queue<Operation<Unit>>) {
         if (intent == null || !Klaviyo.isKlaviyoNotificationIntent(intent)) {
@@ -42,37 +55,43 @@ internal object KlaviyoPushOpenHandler {
             return
         }
 
-        // Dedup guard: track each push delivery at most once per process. The trampoline calls
-        // handlePush and forwards the same intent to the host, so a leftover manual handlePush call
-        // (or singleTask re-entry) would otherwise double-track one tap. The first call to see a
-        // delivery records it and proceeds; a later call for the same delivery short-circuits — no
-        // event, dismissal, or deep link.
+        // Track each push delivery at most once per process. The trampoline calls handlePush and
+        // forwards the same intent to the host, so a manual handlePush call (or singleTask
+        // re-entry) would otherwise double-track one tap. A delivery with no id is never deduped.
         val deliveryId = intent.pushDeliveryId
-        if (deliveryId != null && !handledPushDeliveries.markOnce(deliveryId)) {
-            Registry.log.verbose("Ignoring duplicate push open")
-            return
-        }
 
-        // Create and enqueue an $opened_push. safeApply(preInitQueue) buffers this for replay if
-        // handlePush runs before initialize(), and guards against unexpected failures.
-        safeApply(preInitQueue) {
-            val state = Registry.get<State>()
-            val event = Event(EventMetric.OPENED_PUSH)
-            event.appendKlaviyoExtras(intent)
-            state.pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
-            // Not using Klaviyo.createEvent here to avoid nesting safeApply calls
-            state.createEvent(event, state.getAsProfile())
-        }
-
-        // Dismiss the notification if opened via an action button. Body taps auto-cancel via
-        // setAutoCancel(true) on the builder; action button taps don't (standard Android behavior).
-        safeApply {
-            val notificationTag = intent.getStringExtra(Constants.NOTIFICATION_TAG_EXTRA)
-            if (notificationTag != null) {
-                NotificationManagerCompat
-                    .from(Registry.config.applicationContext)
-                    .cancel(notificationTag, Constants.NOTIFICATION_ID)
+        if (deliveryId == null || handledPushDeliveries.markOnce(deliveryId)) {
+            // Create and enqueue an $opened_push. safeApply(preInitQueue) buffers this for replay
+            // if handlePush runs before initialize(), and guards against unexpected failures.
+            safeApply(preInitQueue) {
+                val state = Registry.get<State>()
+                val event = Event(EventMetric.OPENED_PUSH)
+                event.appendKlaviyoExtras(intent)
+                state.pushToken?.let { event[EventKey.PUSH_TOKEN] = it }
+                // Not using Klaviyo.createEvent here to avoid nesting safeApply calls
+                state.createEvent(event, state.getAsProfile())
             }
+
+            // Dismiss the notification if opened via an action button. Body taps auto-cancel via
+            // setAutoCancel(true) on the builder; action button taps don't (standard Android
+            // behavior).
+            safeApply {
+                val notificationTag = intent.getStringExtra(Constants.NOTIFICATION_TAG_EXTRA)
+                if (notificationTag != null) {
+                    NotificationManagerCompat
+                        .from(Registry.config.applicationContext)
+                        .cancel(notificationTag, Constants.NOTIFICATION_ID)
+                }
+            }
+        } else {
+            Registry.log.verbose("Ignoring duplicate push open")
+        }
+
+        // Returns before marking the delivery below, so the unflagged intent forwarded to the host
+        // still has its dispatch available.
+        if (intent.getBooleanExtra(Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA, false)) {
+            Registry.log.verbose("Deep link delivered by intent; not invoking handler")
+            return
         }
 
         // If the notification carries a deep link and a handler is registered, invoke it. Otherwise
@@ -80,7 +99,13 @@ internal object KlaviyoPushOpenHandler {
         safeApply {
             val deepLink = intent.data
             if (deepLink != null && DeepLinking.isHandlerRegistered) {
-                DeepLinking.handleDeepLink(deepLink)
+                // Dispatch is tracked separately from the open above: an entry point may suppress
+                // dispatch while still tracking, so one delivery can reach this point twice.
+                if (deliveryId == null || dispatchedDeepLinks.markOnce(deliveryId)) {
+                    DeepLinking.handleDeepLink(deepLink)
+                } else {
+                    Registry.log.verbose("Ignoring duplicate deep link dispatch")
+                }
             }
         }
     }

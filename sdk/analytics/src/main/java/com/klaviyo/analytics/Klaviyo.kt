@@ -344,9 +344,8 @@ object Klaviyo {
      * @param intent the [Intent] from opening a notification
      */
     @JvmStatic
-    fun handlePush(intent: Intent?): Klaviyo {
+    fun handlePush(intent: Intent?): Klaviyo = apply {
         KlaviyoPushOpenHandler.handle(intent, preInitQueue)
-        return this
     }
 
     /**
