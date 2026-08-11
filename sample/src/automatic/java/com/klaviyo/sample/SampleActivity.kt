@@ -75,12 +75,12 @@ class SampleActivity : ComponentActivity() {
         // Because com.klaviyo.push.automatic_push_open_tracking is enabled, the SDK automatically detects
         // notification taps and reports the open for you.
 
-        // SETUP NOTE (Automatic / Option A): A notification tap delivers its deep link here, on the
-        // intent's data, rather than to a registered deep link handler. Handle it in BOTH onCreate
-        // (via the call above) and onNewIntent: when the process has been killed but its task is
-        // still in recents, Android restores the original intent into onCreate and delivers the new
-        // one here.
-        intent?.data?.let { deepLink ->
+        // SETUP NOTE (Automatic / Option A): A notification tap delivers its deep link here on the
+        // Intent, rather than to a registered deep link handler. Handle it in BOTH onCreate (via
+        // the call above) and onNewIntent: when the process has been killed but its task is still
+        // in recents, Android restores the original intent into onCreate and delivers the new one
+        // here. getKlaviyoDeepLink reads the link whether or not a matching intent-filter exists.
+        Klaviyo.getKlaviyoDeepLink(intent)?.let { deepLink ->
             showToast("Deep link from intent: $deepLink")
             startActivity(SampleDetailActivity.intent(this, deepLink.toString()))
         }

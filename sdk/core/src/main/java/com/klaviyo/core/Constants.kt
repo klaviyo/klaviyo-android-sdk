@@ -27,6 +27,13 @@ object Constants {
     const val TRACKING_PARAMETER = "_k"
 
     /**
+     * Payload key holding a notification's destination URL. Copied onto every tap intent as
+     * [PACKAGE_PREFIX] + this key, so the URL is readable even when no activity declares a matching
+     * intent-filter and the intent's `data` is therefore unset.
+     */
+    const val URL_PARAMETER = "url"
+
+    /**
      * Intent extra key for the notification tag, used to dismiss the notification
      * when an action button is tapped and [handlePush] processes the intent.
      *

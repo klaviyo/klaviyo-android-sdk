@@ -19,6 +19,7 @@ import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
+import com.klaviyo.core.Constants.URL_PARAMETER
 import com.klaviyo.core.Operation
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
@@ -416,6 +417,32 @@ object Klaviyo {
      */
     @JvmStatic
     fun isKlaviyoNotificationIntent(intent: Intent?): Boolean = intent.isKlaviyoNotificationIntent
+
+    /**
+     * The destination URL of the Klaviyo notification tap that delivered this [Intent], or null if
+     * it carried none.
+     *
+     * Reads the intent `data` when present, else the URL from the notification payload. Both are
+     * populated for a Klaviyo notification tap: `data` is set when an activity declares a matching
+     * intent-filter, and the payload value is always present, so this returns the link either way.
+     *
+     * Safe to call from `onCreate` and `onNewIntent` on any intent, Klaviyo or not.
+     */
+    val Intent?.klaviyoDeepLink: Uri?
+        @JvmSynthetic
+        @JvmName("_klaviyoDeepLink")
+        get() = this?.takeIf { it.isKlaviyoNotificationIntent }?.let { intent ->
+            intent.data ?: intent.getStringExtra(PACKAGE_PREFIX + URL_PARAMETER)
+                ?.takeIf { it.isNotEmpty() }
+                ?.toUri()
+        }
+
+    /**
+     * The destination URL of the Klaviyo notification tap that delivered this [Intent], or null if
+     * it carried none. Java-friendly static method.
+     */
+    @JvmStatic
+    fun getKlaviyoDeepLink(intent: Intent?): Uri? = intent.klaviyoDeepLink
 
     /**
      * Determine if an intent is a Klaviyo click-tracking universal/app link

@@ -131,8 +131,12 @@ internal class KlaviyoTrampolineActivity : Activity() {
          * Forward a body/`deep_link`/`open_app` tap into the host app.
          *
          * - Deep link that an activity can handle → `ACTION_VIEW`, so the OS routes it.
-         * - Deep link with no matching intent filter → launcher intent carrying the link as its
-         *   data, which the host can still read from `getIntent()` or `onNewIntent`.
+         * - Deep link with no matching intent filter → launcher intent, with the link left off its
+         *   `data`. AOSP treats a `MAIN`/`LAUNCHER` intent with `data` as not a main intent
+         *   (`ActivityRecord.isMainIntent`), and under `CLEAR_TOP` the started intent becomes the
+         *   task's base intent, which is persisted across reboots and re-fired when recents
+         *   restores a trimmed task. The URL rides the payload extras regardless, so
+         *   `Klaviyo.getKlaviyoDeepLink(intent)` reads it in both cases.
          * - No deep link → launcher intent.
          */
         private fun startDestination(intent: Intent, context: Context) {
@@ -149,12 +153,10 @@ internal class KlaviyoTrampolineActivity : Activity() {
                         viewIntent
                     } else {
                         Registry.log.warning(
-                            "No activity resolves scheme '${deepLink.scheme}'; " +
-                                "launching host with the deep link attached"
+                            "No activity resolves scheme '${deepLink.scheme}'; launching host. " +
+                                "Read the link via Klaviyo.getKlaviyoDeepLink(intent)."
                         )
-                        DeepLinking.makeLaunchIntent(context, intent.extras)?.apply {
-                            data = deepLink
-                        }
+                        DeepLinking.makeLaunchIntent(context, intent.extras)
                     }
                 }
                 else -> {

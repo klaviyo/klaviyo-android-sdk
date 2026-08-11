@@ -67,7 +67,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val SMALL_ICON_KEY = "small_icon"
         internal const val TITLE_KEY = "title"
         internal const val BODY_KEY = "body"
-        internal const val URL_KEY = "url"
+        internal const val URL_KEY = Constants.URL_PARAMETER
         internal const val IMAGE_KEY = "image_url"
         internal const val SOUND_KEY = "sound"
         internal const val COLOR_KEY = "color"

@@ -549,4 +549,45 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         assertEquals("Test message", body)
         assertEquals("Test title", title)
     }
+
+    // --- getKlaviyoDeepLink: reads the link whether or not an intent-filter matched ---
+
+    @Test
+    fun `getKlaviyoDeepLink returns the intent data when an activity resolved the link`() {
+        val testUri = mockk<Uri>()
+
+        val link = Klaviyo.getKlaviyoDeepLink(mockIntent(stubIntentExtras, testUri))
+
+        assertEquals(testUri, link)
+    }
+
+    @Test
+    fun `getKlaviyoDeepLink falls back to the payload url when the intent has no data`() {
+        // The unresolvable case: the trampoline sends a launcher intent, which carries no data.
+        val parsed = mockk<Uri>()
+        every { Uri.parse("klaviyotest://detail/1") } returns parsed
+        val extras = mapOf(
+            "com.klaviyo._k" to requireNotNull(stubIntentExtras["com.klaviyo._k"]),
+            "com.klaviyo.url" to "klaviyotest://detail/1"
+        )
+
+        val link = Klaviyo.getKlaviyoDeepLink(mockIntent(extras))
+
+        assertEquals(parsed, link)
+    }
+
+    @Test
+    fun `getKlaviyoDeepLink returns null for a klaviyo intent carrying no link`() {
+        assertEquals(null, Klaviyo.getKlaviyoDeepLink(mockIntent(stubIntentExtras)))
+    }
+
+    @Test
+    fun `getKlaviyoDeepLink returns null for non-klaviyo and null intents`() {
+        // Safe to call unconditionally from onCreate/onNewIntent, so a host app's own deep link
+        // must not be mistaken for a Klaviyo one.
+        val testUri = mockk<Uri>()
+
+        assertEquals(null, Klaviyo.getKlaviyoDeepLink(null))
+        assertEquals(null, Klaviyo.getKlaviyoDeepLink(mockIntent(mapOf("other" to "x"), testUri)))
+    }
 }

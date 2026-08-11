@@ -166,7 +166,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
     }
 
     @Test
-    fun `handleTrampolineIntent attaches an unresolvable deep link to the launcher intent`() {
+    fun `handleTrampolineIntent leaves an unresolvable deep link off the launcher intent data`() {
         val intent = klaviyoIntent()
         val deepLink = mockk<Uri>(relaxed = true)
         every { intent.data } returns deepLink
@@ -174,8 +174,11 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
 
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
-        // Without this the link would be dropped, since the launcher intent carries no data.
-        verify { mockLaunchIntent.data = deepLink }
+        // AOSP stops treating a MAIN/LAUNCHER intent as a main intent once it carries data, and
+        // under CLEAR_TOP it would become the task's persisted base intent. The URL reaches the
+        // host on the payload extras instead, which makeLaunchIntent copies.
+        verify(exactly = 0) { mockLaunchIntent.data = any() }
+        verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, intent.extras) }
         verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
     }
 
