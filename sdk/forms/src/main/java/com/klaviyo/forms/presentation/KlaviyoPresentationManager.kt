@@ -436,8 +436,8 @@ internal class KlaviyoPresentationManager() : PresentationManager {
      * Clear timers and observers to stop any delayed side effects
      */
     private fun clearTimers() {
-        // Run this cancel job now to stop any postponed form presentation
-        cancelPostponedPresent?.runNow().also { cancelPostponedPresent = null }
+        // Abandon any postponed form presentation. Not runNow(), which would present the form.
+        cancelPostponedPresent?.cancel().also { cancelPostponedPresent = null }
         // Cancel the timeout for dismissing the overlay activity
         dismissOnTimeout?.cancel().also { dismissOnTimeout = null }
         // Unregister any pending rotation observer to prevent re-presentation after dismiss
