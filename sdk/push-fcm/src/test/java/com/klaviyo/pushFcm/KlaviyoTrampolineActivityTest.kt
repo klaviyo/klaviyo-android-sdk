@@ -10,6 +10,7 @@ import com.klaviyo.core.Constants
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.MockIntent
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -18,6 +19,8 @@ import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -180,6 +183,30 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         verify(exactly = 0) { mockLaunchIntent.data = any() }
         verify { DeepLinking.makeLaunchIntent(mockTrampolineContext, intent.extras) }
         verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
+    }
+
+    @Test
+    fun `forDestination flags its own intent to suppress the deep link handler`() {
+        // The strip tests below only prove the flag is removed on the way out. Without this, the
+        // whole suite still passes if forDestination stops setting it — and the trampoline's
+        // handlePush call would silently start double-dispatching to the host's handler.
+        val constructed = MockIntent.setupIntentMocking().intent
+        // setupIntentMocking doesn't stub putExtra, so stub it here rather than widening a fixture
+        // that every intent-building test depends on. Capturing the key/value pairs is more robust
+        // across build variants than verifying on anyConstructed<Intent>().
+        val keys = mutableListOf<String>()
+        val values = mutableListOf<Boolean>()
+        every { anyConstructed<Intent>().putExtra(any<String>(), any<Boolean>()) } answers {
+            keys += firstArg<String>()
+            values += secondArg<Boolean>()
+            constructed
+        }
+
+        KlaviyoTrampolineActivity.forDestination(mockTrampolineContext)
+
+        val index = keys.indexOf(Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA)
+        assertNotEquals("Trampoline intents must carry the suppression flag", -1, index)
+        assertEquals(true, values[index])
     }
 
     @Test
