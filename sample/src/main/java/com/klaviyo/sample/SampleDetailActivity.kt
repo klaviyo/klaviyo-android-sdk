@@ -18,13 +18,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.klaviyo.sample.ui.theme.KlaviyoAndroidSdkTheme
 
+private object DetailUiConstants {
+    const val TITLE = "Deep Link Destination"
+    const val NO_DEEP_LINK = "No deep link provided"
+    const val BACK = "Back"
+}
+
 /**
- * SETUP NOTE: A second screen the sample's deep link handler navigates to, so notification taps
- * have a visible destination on top of [SampleActivity] rather than only a toast.
+ * SETUP NOTE: A second screen the sample navigates to when a notification tap delivers a deep link,
+ * so taps have a visible destination on top of [SampleActivity] rather than only a toast.
+ *
+ * Started from the `automatic` flavor's `SampleActivity`, which reads the link off the tap Intent
+ * via `Klaviyo.getKlaviyoDeepLink`. The handler registered in [SampleApplication] only shows a
+ * toast; under `automatic_push_open_tracking` it is not invoked for notification taps at all.
  *
  * This exists to demonstrate the back-stack contract: after tapping a deep link notification, the
- * screen your handler navigated to should still be on top. A toast could not show that, since
- * nothing can pop it off the stack.
+ * screen you navigated to should still be on top. A toast could not show that, since nothing can
+ * pop it off the stack.
  *
  * Your app does not need an Activity like this — navigate however you already do (a second
  * Activity, a Fragment transaction, a Compose NavController route).
@@ -47,15 +57,15 @@ class SampleDetailActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(
-                            text = "Deep Link Destination",
+                            text = DetailUiConstants.TITLE,
                             style = MaterialTheme.typography.headlineSmall
                         )
                         Text(
-                            text = deepLink ?: "No deep link provided",
+                            text = deepLink ?: DetailUiConstants.NO_DEEP_LINK,
                             style = MaterialTheme.typography.bodyMedium
                         )
                         OutlinedButton(onClick = { finish() }) {
-                            Text("Back")
+                            Text(DetailUiConstants.BACK)
                         }
                     }
                 }
@@ -69,14 +79,11 @@ class SampleDetailActivity : ComponentActivity() {
         /**
          * Build an intent that opens this screen on top of the app's existing task.
          *
-         * [Intent.FLAG_ACTIVITY_NEW_TASK] is required because the sample's deep link handler is
-         * registered from [SampleApplication] and therefore starts this from an application
-         * context. Since this Activity uses the app's default task affinity, the flag adds it to
-         * the existing task rather than creating a separate one.
+         * Started from an Activity context, so no flags are needed: it stacks onto the caller's
+         * task, which is what makes the post-tap back stack observable.
          */
         fun intent(context: Context, deepLink: String) =
             Intent(context, SampleDetailActivity::class.java)
                 .putExtra(EXTRA_DEEP_LINK, deepLink)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }
