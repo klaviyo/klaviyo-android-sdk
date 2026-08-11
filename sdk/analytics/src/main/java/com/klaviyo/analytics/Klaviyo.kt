@@ -445,7 +445,7 @@ object Klaviyo {
      * Read a non-empty [PACKAGE_PREFIX]-scoped payload URL off this intent, or null.
      */
     private fun Intent.payloadUrl(key: String): Uri? =
-        getStringExtra(PACKAGE_PREFIX + key)?.takeIf { it.isNotEmpty() }?.toUri()
+        getStringExtra(PACKAGE_PREFIX + key)?.takeIf { it.isNotBlank() }?.toUri()
 
     /**
      * The destination URL of the Klaviyo notification tap that delivered this [Intent], or null if

@@ -38,6 +38,12 @@ object KlaviyoMock {
     val mockUri: Uri = mockk(relaxed = true)
 
     /**
+     * Distinct from [mockUri] so a test can tell a returned deep link apart from any other Uri.
+     */
+    @JvmStatic
+    val mockDeepLink: Uri = mockk(relaxed = true)
+
+    /**
      * Sets up mocks for all Klaviyo public API methods.
      * Call this in @Before setup methods.
      */
@@ -80,12 +86,14 @@ object KlaviyoMock {
         every { Klaviyo.run { any<Intent>().isKlaviyoNotificationIntent } } returns true
         every { Klaviyo.run { any<Intent>().isKlaviyoUniversalTrackingIntent } } returns true
         every { Klaviyo.run { any<Uri>().isKlaviyoUniversalTrackingUri } } returns true
+        every { Klaviyo.run { any<Intent>().klaviyoDeepLink } } returns mockDeepLink
 
         // Static wrapper methods for the extension properties (Java-friendly)
         every { Klaviyo.isKlaviyoIntent(any()) } returns true
         every { Klaviyo.isKlaviyoNotificationIntent(any()) } returns true
         every { Klaviyo.isKlaviyoUniversalTrackingIntent(any()) } returns true
         every { Klaviyo.isKlaviyoUniversalTrackingUri(any()) } returns true
+        every { Klaviyo.getKlaviyoDeepLink(any()) } returns mockDeepLink
 
         // Mock createEvent with single param (thanks to @JvmOverloads)
         every { Klaviyo.createEvent(any<EventMetric>()) } returns Klaviyo
@@ -215,6 +223,12 @@ object KlaviyoMock {
     @JvmOverloads
     fun verifyIsKlaviyoNotificationIntentCalled(count: Int = 1) {
         verify(exactly = count) { Klaviyo.isKlaviyoNotificationIntent(any()) }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyGetKlaviyoDeepLinkCalled(count: Int = 1) {
+        verify(exactly = count) { Klaviyo.getKlaviyoDeepLink(any()) }
     }
 
     @JvmStatic

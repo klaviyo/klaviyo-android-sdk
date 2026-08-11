@@ -520,8 +520,8 @@ push integration that otherwise require code in your app:
 - **Push open tracking** (`automatic_push_open_tracking`) — **opt-in** (off by default). Set it to
   `true` and the SDK detects when a user taps a Klaviyo notification and records the `Opened Push`
   event for you, so you do **not** need to call `Klaviyo.handlePush(intent)` anywhere. Notification
-  taps deliver the deep link to your app as an `Intent`, on `intent.data`, rather than to a
-  registered handler — see [Deep Linking](#deep-linking).
+  taps deliver the deep link to your app as an `Intent` rather than to a registered handler — see
+  [Deep Linking](#deep-linking).
 - **Push token registration** (`automatic_push_token_forwarding`) — **on by default**. The SDK
   fetches the current FCM token and registers it with Klaviyo automatically, so you don't need to
   call `Klaviyo.setPushToken(...)` yourself. Set it to `false` to opt out.
@@ -1154,6 +1154,41 @@ deep links from In-App Forms, universal tracking links, and any push notificatio
 > ⚠️ **With `automatic_push_open_tracking` enabled, notification taps deliver an `Intent` rather than invoking this handler.**
 > See [Option A — Automatic Integration](#option-a--automatic-integration). Your intent-handling code needs to work regardless,
 > since a link can always arrive that way, so route from the intent and treat this callback as an addition rather than a replacement.
+
+Read a tapped notification's destination from the `Intent` with `Klaviyo.getKlaviyoDeepLink(intent)`
+(`Intent.klaviyoDeepLink` in Kotlin), rather than reading `intent.data` directly. The SDK only sets
+`data` when one of your activities declares a matching `intent-filter`; otherwise the tap arrives as
+a launcher intent carrying the URL in its extras, and this accessor reads it either way. It returns
+`null` for intents that did not originate from a Klaviyo notification, so it is safe to call
+unconditionally. Handle both `onCreate` and `onNewIntent`: when the process has been killed but its
+task is still in recents, Android restores the original intent into `onCreate` and delivers the new
+one to `onNewIntent`.
+
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   override fun onNewIntent(intent: Intent?) {
+       super.onNewIntent(intent)
+       Klaviyo.getKlaviyoDeepLink(intent)?.let { handleDeepLink(it) }
+   }
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   @Override
+   protected void onNewIntent(Intent intent) {
+       super.onNewIntent(intent);
+       Uri deepLink = Klaviyo.getKlaviyoDeepLink(intent);
+       if (deepLink != null) {
+           handleDeepLink(deepLink);
+       }
+   }
+   ```
+</details>
 
 <details open>
    <summary>Kotlin</summary>

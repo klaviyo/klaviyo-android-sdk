@@ -606,6 +606,18 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     }
 
     @Test
+    fun `getKlaviyoDeepLink ignores a blank payload url`() {
+        // toUri() happily returns a non-null, useless Uri for whitespace, so an empty check alone
+        // would hand the host a link to navigate to.
+        val extras = mapOf(
+            "com.klaviyo._k" to requireNotNull(stubIntentExtras["com.klaviyo._k"]),
+            "com.klaviyo.url" to "   "
+        )
+
+        assertEquals(null, Klaviyo.getKlaviyoDeepLink(mockIntent(extras)))
+    }
+
+    @Test
     fun `getKlaviyoDeepLink returns null for a klaviyo intent carrying no link`() {
         assertEquals(null, Klaviyo.getKlaviyoDeepLink(mockIntent(stubIntentExtras)))
     }
