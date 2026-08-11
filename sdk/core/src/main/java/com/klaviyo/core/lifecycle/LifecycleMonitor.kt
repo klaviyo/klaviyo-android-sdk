@@ -125,8 +125,9 @@ interface LifecycleMonitor {
      *
      * @param timeout How long to wait for a resumed activity, or null to wait indefinitely
      * @param job Invoked with the current activity, or the next one to resume
-     * @return null if [job] already ran against the current activity, otherwise a token that
-     *  abandons the pending wait.
+     * @return A token to cancel the pending wait or attempt to run immediately against the
+     * current activity and abandon the wait, or null if the wait already settled — [job] ran
+     * against the current activity, or a resume or the timeout claimed it during registration.
      */
     fun runWithCurrentOrNextActivity(
         timeout: Long? = null,
