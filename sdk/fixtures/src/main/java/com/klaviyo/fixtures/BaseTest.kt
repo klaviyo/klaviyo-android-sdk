@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.BuildConfig
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
@@ -25,6 +26,7 @@ import io.mockk.unmockkObject
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import java.util.Queue
 import kotlinx.coroutines.test.StandardTestDispatcher
 import org.json.JSONObject
 import org.junit.After
@@ -173,7 +175,21 @@ abstract class BaseTest {
     @After
     open fun cleanup() {
         Registry.unregister<PushTokenFetcher>()
+        drainPreInitQueue()
         unmockkObject(Registry)
+    }
+
+    /**
+     * Empty [Klaviyo]'s private pre-init queue. An operation that throws a `KlaviyoException` is
+     * queued for replay, and since [Klaviyo] is an object that queue outlives `unmockkAll` and the
+     * test class itself. The next `initialize` in any test would drain it and replay that stale
+     * operation against a different test's mocks.
+     */
+    protected fun drainPreInitQueue() = runCatching {
+        Klaviyo::class.java
+            .getDeclaredField("preInitQueue")
+            .also { it.isAccessible = true }
+            .let { (it.get(Klaviyo) as Queue<*>).clear() }
     }
 
     /**
