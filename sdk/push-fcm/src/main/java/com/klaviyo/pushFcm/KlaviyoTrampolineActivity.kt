@@ -9,15 +9,15 @@ import androidx.core.net.toUri
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
 import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.core.utils.startActivityIfResolved
 
 /**
  * Transparent trampoline [Activity] used to intercept Klaviyo notification taps so the
- * SDK can run side effects (e.g. tracking `$opened_push`, dismissing the notification,
- * invoking the registered deep link handler) before forwarding the user to the actual
- * destination.
+ * SDK can run side effects (tracking `$opened_push`, dismissing the notification) before
+ * forwarding the user to the actual destination.
  *
  * Dispatch is driven by intent contents, not by any flag:
  * - `open_url` payloads embed a browser URL as [BROWSER_URL_EXTRA] and route to the browser.
@@ -88,6 +88,10 @@ internal class KlaviyoTrampolineActivity : Activity() {
          * enabled. The trampoline runs `Klaviyo.handlePush` then forwards to the host app, dispatching
          * to [deepLink] (carried as the intent `data`) when present, otherwise to the launcher.
          *
+         * Carries [Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA] so that `handlePush` call does not
+         * also invoke a registered handler; the flag is removed from the intent forwarded to the
+         * host.
+         *
          * Uses [Intent.setClassName] instead of the `Intent(Context, Class)` constructor — same test
          * seam as [forBrowserUrl]. Callers append their own Klaviyo extras for parity with the
          * non-trampoline intents they replace.
@@ -95,6 +99,7 @@ internal class KlaviyoTrampolineActivity : Activity() {
         internal fun forDestination(context: Context, deepLink: Uri? = null): Intent = Intent().apply {
             setClassName(context.packageName, KlaviyoTrampolineActivity::class.java.name)
             deepLink?.let { data = it }
+            putExtra(Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA, true)
         }
 
         /**
@@ -125,15 +130,19 @@ internal class KlaviyoTrampolineActivity : Activity() {
         /**
          * Forward a body/`deep_link`/`open_app` tap into the host app.
          *
-         * - Deep link present and no [DeepLinkHandler][com.klaviyo.analytics.linking.DeepLinkHandler]
-         *   registered → `ACTION_VIEW` into the host, falling back to the launcher if unresolvable.
-         * - Handler registered, or no deep link → launcher only. `handlePush` already dispatched the
-         *   handler, so an additional `ACTION_VIEW` would double-deliver navigation.
+         * - Deep link that an activity can handle → `ACTION_VIEW`, so the OS routes it.
+         * - Deep link with no matching intent filter → launcher intent, with the link left off its
+         *   `data`. AOSP treats a `MAIN`/`LAUNCHER` intent with `data` as not a main intent
+         *   (`ActivityRecord.isMainIntent`), and under `CLEAR_TOP` the started intent becomes the
+         *   task's base intent, which is persisted across reboots and re-fired when recents
+         *   restores a trimmed task. The URL rides the payload extras regardless, so
+         *   `Klaviyo.getKlaviyoDeepLink(intent)` reads it in both cases.
+         * - No deep link → launcher intent.
          */
         private fun startDestination(intent: Intent, context: Context) {
             val deepLink = intent.data
             val destination: Intent? = when {
-                deepLink != null && !DeepLinking.isHandlerRegistered -> {
+                deepLink != null -> {
                     val viewIntent = DeepLinking.makeDeepLinkIntent(
                         deepLink,
                         context,
@@ -144,24 +153,23 @@ internal class KlaviyoTrampolineActivity : Activity() {
                         viewIntent
                     } else {
                         Registry.log.warning(
-                            "Trampoline could not resolve deep link; falling back to launcher"
+                            "No activity resolves scheme '${deepLink.scheme}'; launching host. " +
+                                "Read the link via Klaviyo.getKlaviyoDeepLink(intent)."
                         )
                         DeepLinking.makeLaunchIntent(context, intent.extras)
                     }
                 }
                 else -> {
-                    if (deepLink != null) {
-                        Registry.log.verbose(
-                            "Trampoline dispatching deep link via handler; launching host"
-                        )
-                    } else {
-                        Registry.log.verbose("Trampoline dispatching launch intent")
-                    }
+                    Registry.log.verbose("Trampoline dispatching launch intent")
                     DeepLinking.makeLaunchIntent(context, intent.extras)
                 }
             }
 
             destination?.apply {
+                // Both destinations copy this intent's extras, which must not include the
+                // suppression flag: the host's own handlePush has to reach its handler.
+                removeExtra(Constants.SUPPRESS_DEEP_LINK_HANDLER_EXTRA)
+
                 // CLEAR_TOP mirrors the non-trampoline path (KlaviyoNotification adds it to the
                 // contentIntent, but it's consumed launching the trampoline rather than forwarded),
                 // preserving back-stack behavior. NEW_TASK is required here since we launch from the

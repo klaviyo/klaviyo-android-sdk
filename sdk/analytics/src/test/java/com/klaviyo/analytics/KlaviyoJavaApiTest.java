@@ -335,6 +335,17 @@ public class KlaviyoJavaApiTest {
     }
 
     @Test
+    public void testGetKlaviyoDeepLink() {
+        Uri result1 = Klaviyo.INSTANCE.getKlaviyoDeepLink(mockIntent);
+        assertEquals(KlaviyoMock.getMockDeepLink(), result1);
+
+        Uri result2 = Klaviyo.getKlaviyoDeepLink(mockIntent);
+        assertEquals(KlaviyoMock.getMockDeepLink(), result2);
+
+        KlaviyoMock.verifyGetKlaviyoDeepLinkCalled(2);
+    }
+
+    @Test
     public void testIsKlaviyoUniversalTrackingIntent() {
         boolean result1 = Klaviyo.INSTANCE.isKlaviyoUniversalTrackingIntent(mockIntent);
         assertTrue(result1);

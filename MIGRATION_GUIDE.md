@@ -21,6 +21,34 @@ This flag defaults to **off** in 4.5.0 and is expected to become the default (op
 major release. For setup instructions, see
 [Option A — Automatic Integration](./README.md#option-a--automatic-integration) in the README.
 
+**Deep links are delivered by `Intent` when this flag is enabled.** A notification tap sends your app
+an `Intent` carrying the destination URL, and a registered `DeepLinkHandler` is not invoked for the
+tap. If you use a handler today and enable this flag, move your routing into `onCreate` and
+`onNewIntent` — both, since a process killed with its task still in recents restores the original
+intent into `onCreate` and delivers the new one to `onNewIntent`. Your handler continues to receive
+links from In-App Forms, universal tracking links, and any `Klaviyo.handlePush(intent)` call you make
+yourself.
+
+Read the destination with `Klaviyo.getKlaviyoDeepLink(intent)` rather than `intent.data`. The SDK
+only sets `data` when one of your activities declares a matching `intent-filter`; otherwise the tap
+arrives as a launcher intent carrying the URL in its extras, and the accessor reads it in both cases.
+It returns `null` for non-Klaviyo intents, so it is safe to call unconditionally.
+
+```kotlin
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    // Only on a fresh start — after a configuration change the same intent is re-delivered.
+    if (savedInstanceState == null) onNewIntent(intent)
+}
+
+override fun onNewIntent(intent: Intent?) {
+    super.onNewIntent(intent)
+    Klaviyo.getKlaviyoDeepLink(intent)?.let { navigate(it) }
+}
+```
+
+Nothing changes when the flag is off.
+
 ### `automatic_push_token_forwarding` (default **on**)
 
 When this flag is enabled (which is the **default**), the SDK automatically registers the device's

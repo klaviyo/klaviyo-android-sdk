@@ -67,7 +67,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val SMALL_ICON_KEY = "small_icon"
         internal const val TITLE_KEY = "title"
         internal const val BODY_KEY = "body"
-        internal const val URL_KEY = "url"
+        internal const val URL_KEY = Constants.URL_PARAMETER
         internal const val IMAGE_KEY = "image_url"
         internal const val SOUND_KEY = "sound"
         internal const val COLOR_KEY = "color"
@@ -286,11 +286,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         if (deepLink != null) {
             // With automatic tracking on, route through the trampoline carrying the deep link as
             // intent data so it calls handlePush; otherwise target the host directly as before.
-            //
-            // Unlike makeResolvedDeepLinkIntent, we keep the deep link on the intent even when no
-            // Activity resolves it: this is intentional so a registered DeepLinkHandler receives
-            // every link regardless of intent-filter resolution (the common single-Activity case).
-            // The trampoline only consults Activity resolvability when no handler is registered.
+            // The trampoline resolves the link itself when the tap happens, rather than here at
+            // build time.
             val intent = if (autoTracking) {
                 KlaviyoTrampolineActivity.forDestination(context, deepLink)
             } else {
@@ -397,8 +394,6 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 val uri = button.url.toUri()
                 // With auto-tracking on, route through the trampoline carrying the deep link as
                 // intent data so it calls handlePush; otherwise target the host directly as before.
-                // See makeOpenedIntent: the deep link is deliberately kept even when unresolvable so
-                // a registered DeepLinkHandler still receives it.
                 if (autoTracking) {
                     KlaviyoTrampolineActivity.forDestination(context, uri)
                 } else {

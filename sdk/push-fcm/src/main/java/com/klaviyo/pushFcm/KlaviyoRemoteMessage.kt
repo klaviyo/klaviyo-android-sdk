@@ -15,6 +15,7 @@ import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.core.Constants.BUTTON_LINK_PARAMETER
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Registry
@@ -69,7 +70,7 @@ object KlaviyoRemoteMessage {
         putExtra(PACKAGE_PREFIX + "Button Action", actionName)
 
         (button as? ActionButton.UrlBearing)?.let {
-            putExtra(PACKAGE_PREFIX + "Button Link", it.url)
+            putExtra(PACKAGE_PREFIX + BUTTON_LINK_PARAMETER, it.url)
         }
     }
 
