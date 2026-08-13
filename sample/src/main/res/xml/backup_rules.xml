@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Legacy Auto Backup rules (API < 31). Exclude the Push Log store from cloud backup: it can
+     persist received push payloads (including custom key-value data), which should not leave the
+     device via backup. See data_extraction_rules.xml for the Android 12+ equivalent. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="com.klaviyo.sample.pushLog.xml" />
+</full-backup-content>

@@ -16,6 +16,10 @@ class SampleApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Sample App Only: Hydrate the in-app Push Log store so received notifications can be
+        // displayed on the Push Log screen (see SamplePushService / PushLogView).
+        PushLogStore.initialize(applicationContext)
+
         // SETUP NOTE Initialize Klaviyo SDK: Add your public API key here or in the local.properties file
         val klaviyoPublicKey = validatePublicKey(BuildConfig.KLAVIYO_PUBLIC_KEY)
 

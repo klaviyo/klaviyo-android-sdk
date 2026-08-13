@@ -23,6 +23,11 @@ object SampleTestTags {
     const val BTN_REQUEST_NOTIFICATION_PERMISSION = "btn_request_notification_permission"
     const val TEXT_NOTIFICATION_PERMISSION_GRANTED = "text_notification_permission_granted"
     const val TEXT_PUSH_TOKEN = "text_push_token"
+    const val BTN_VIEW_PUSH_LOG = "btn_view_push_log"
+
+    // Push Log screen
+    const val BTN_CLOSE_PUSH_LOG = "btn_close_push_log"
+    const val BTN_CLEAR_PUSH_LOG = "btn_clear_push_log"
 }
 
 object LocationTestTags {

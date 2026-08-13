@@ -3,6 +3,8 @@
     <application
             android:name="SampleApplication"
             android:allowBackup="true"
+            android:dataExtractionRules="@xml/data_extraction_rules"
+            android:fullBackupContent="@xml/backup_rules"
             android:icon="@mipmap/ic_launcher"
             android:label="@string/app_name"
             android:supportsRtl="true"
@@ -52,6 +54,17 @@
                 <data android:pathPrefix="/u/" />
             </intent-filter>
         </activity>
+
+        <!-- Sample App Only: Custom push service that subclasses KlaviyoPushService to capture
+             received notifications into the in-app Push Log (see SamplePushService). Declaring a
+             service here takes precedence over the SDK's default KlaviyoPushService. -->
+        <service
+                android:name=".SamplePushService"
+                android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT"/>
+            </intent-filter>
+        </service>
 
         <!-- Optional: Set the Klaviyo SDK logging level (1=verbose, 2=debug etc) -->
         <meta-data
