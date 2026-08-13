@@ -24,13 +24,13 @@ jobs:
           # If PR doesn't target master, this check doesn't apply — clean up any stale label and pass
           if [[ "$BASE_REF" != "master" ]]; then
             echo "PR targets '$BASE_REF' (not master) — check not required."
-            gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL" 2>/dev/null || true
             exit 0
           fi
 
           if [[ "$HEAD_REF" == rel/* ]] || [[ "$HEAD_REF" == ci/* ]] || [[ "$HEAD_REF" == docs/* ]]; then
             echo "Branch '$HEAD_REF' is allowed to target master."
-            gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL" 2>/dev/null || true
             exit 0
           fi
 
@@ -40,7 +40,7 @@ jobs:
 
           if [ -n "$HAS_OVERRIDE" ]; then
             echo "manual-merge label present — bypassing check. This PR will merge directly to master without a release branch."
-            gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL" 2>/dev/null || true
             exit 0
           fi
 
@@ -67,7 +67,7 @@ jobs:
           _Enforced by the \`pr-target-check\` workflow._"
           fi
 
-          gh pr edit $PR_NUMBER --repo $REPO --add-label "$LABEL"
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$LABEL"
 
           echo "Branch '$HEAD_REF' cannot target master directly. Must use rel/*, ci/*, or docs/*. Add the manual-merge label to override."
           exit 1
