@@ -190,13 +190,10 @@ internal class StateSideEffects(
      * carrying the token the provider has already rotated away from, which the newly fetched token
      * then immediately supersedes — two requests for one foreground, the first already stale.
      *
-     * Resumed, not FirstStarted: a system permission dialog (e.g. POST_NOTIFICATIONS) runs in a
-     * different process and only pauses the host activity — no onStop/onStart pair — so
-     * FirstStarted never fires when it's dismissed, and permission changes go undetected until a
-     * true background/foreground cycle. Resumed fires on every activity transition, including
-     * in-app navigation, but that's cheap: with no actual change, the fetch/refresh path rebuilds
-     * an equal push-token request body and PersistentObservableString's equality check drops it
-     * before anything is enqueued, so it's a string comparison per resume, not a network call.
+     * A system permission dialog (e.g. POST_NOTIFICATIONS) runs in a different process and only
+     * pauses the host activity — no onStop/onStart pair — so a hook gated on a fresh foreground
+     * (activeActivities == 0) never fires when such a dialog is dismissed, and permission changes
+     * go undetected until a true background/foreground cycle.
      */
     private fun onLifecycleEvent(activity: ActivityEvent) {
         activity.takeIf<ActivityEvent.Resumed>()?.run {

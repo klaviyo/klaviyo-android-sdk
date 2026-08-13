@@ -411,8 +411,9 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
-    fun `Resumed lifecycle event triggers push permission refresh`() {
-        // No fetcher registered: the only path available is a direct refresh from the stored token
+    fun `Resumed lifecycle event triggers a refresh with no prior Started event`() {
+        // No fetcher registered: the only path available is a direct refresh from the stored token.
+        // Fired directly, with no intervening Started event, matching a dismissed system dialog.
         fireResumedEvent()
 
         verify(exactly = 1) { stateMock.refreshPushState() }
@@ -425,8 +426,7 @@ class StateSideEffectsTest : BaseTest() {
 
         fireResumedEvent()
 
-        // Anti-double-report regression guard: a dispatched fetch must be the ONLY path taken —
-        // also falling back to refreshPushState() would enqueue a second, stale push-token request.
+        // Fetch and refresh are mutually exclusive: dispatching a fetch must suppress the refresh fallback.
         verify(exactly = 1) { mockFetcher.fetchAndSetPushToken(any()) }
         verify(exactly = 0) { stateMock.refreshPushState() }
     }
@@ -463,18 +463,8 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
-    fun `Resumed lifecycle event triggers a refresh even without an intervening Started event`() {
-        // Regression guard for the FirstStarted regime: a system permission dialog (different
-        // process) only pauses the host activity — no onStop/onStart pair — so Resumed must not
-        // depend on a prior Started to trigger the permission-change check.
-        fireLifecycleEvent(ActivityEvent.Resumed(mockk()))
-
-        verify(exactly = 1) { stateMock.refreshPushState() }
-    }
-
-    @Test
     fun `FirstStarted lifecycle event does not trigger a push state refresh`() {
-        // Proves the hook moved back: FirstStarted alone (no Resumed) must not trigger either path
+        // FirstStarted alone (no Resumed) must not trigger either path.
         val mockFetcher = registerMockPushTokenFetcher()
 
         fireLifecycleEvent(ActivityEvent.FirstStarted(mockk()))
