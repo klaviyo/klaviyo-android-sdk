@@ -176,23 +176,30 @@ internal class StateSideEffects(
     }
 
     /**
-     * Bring push state up to date when the app returns to the foreground, via exactly one path.
+     * Bring push state up to date on every resume, via exactly one path.
      *
-     * Two things can go stale while backgrounded: the push token (the provider may rotate it) and
-     * the device properties embedded in push state (notification permission, background
-     * availability). A successful token fetch already covers both, because assigning the token
-     * recomputes push state — so the fetch is attempted first, and a direct refresh runs only when
-     * no fetch will deliver one (forwarding disabled, `push-fcm` absent, or the fetch failed).
+     * Two things can go stale while backgrounded (or merely occluded): the push token (the
+     * provider may rotate it) and the device properties embedded in push state (notification
+     * permission, background availability). A successful token fetch already covers both, because
+     * assigning the token recomputes push state — so the fetch is attempted first, and a direct
+     * refresh runs only when no fetch will deliver one (forwarding disabled, `push-fcm` absent, or
+     * the fetch failed).
      *
      * Doing both unconditionally would double-report: when the token *and* a device property have
      * both changed, refreshing from the token already in state enqueues a push-token request
      * carrying the token the provider has already rotated away from, which the newly fetched token
      * then immediately supersedes — two requests for one foreground, the first already stale.
+     *
+     * Resumed, not FirstStarted: a system permission dialog (e.g. POST_NOTIFICATIONS) runs in a
+     * different process and only pauses the host activity — no onStop/onStart pair — so
+     * FirstStarted never fires when it's dismissed, and permission changes go undetected until a
+     * true background/foreground cycle. Resumed fires on every activity transition, including
+     * in-app navigation, but that's cheap: with no actual change, the fetch/refresh path rebuilds
+     * an equal push-token request body and PersistentObservableString's equality check drops it
+     * before anything is enqueued, so it's a string comparison per resume, not a network call.
      */
     private fun onLifecycleEvent(activity: ActivityEvent) {
-        // FirstStarted, not Resumed: Resumed broadcasts on every activity transition, whereas
-        // FirstStarted is gated on activeActivities == 0, so this runs once per actual foreground.
-        activity.takeIf<ActivityEvent.FirstStarted>()?.run {
+        activity.takeIf<ActivityEvent.Resumed>()?.run {
             val refreshFromStoredToken: () -> Unit = { safeApply { state.refreshPushState() } }
 
             if (!PushTokenFetcher.maybeAutoRegisterPushToken(refreshFromStoredToken)) {
