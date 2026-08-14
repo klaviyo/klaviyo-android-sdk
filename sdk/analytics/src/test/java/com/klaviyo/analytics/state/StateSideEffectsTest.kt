@@ -411,28 +411,28 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
-    fun `FirstStarted lifecycle event triggers push permission refresh`() {
-        // No fetcher registered: the only path available is a direct refresh from the stored token
-        fireFirstStartedEvent()
+    fun `Resumed lifecycle event triggers a refresh with no prior Started event`() {
+        // No fetcher registered: the only path available is a direct refresh from the stored token.
+        // Fired directly, with no intervening Started event, matching a dismissed system dialog.
+        fireResumedEvent()
 
         verify(exactly = 1) { stateMock.refreshPushState() }
     }
 
     @Test
-    fun `FirstStarted lifecycle event re-fetches push token when automatic forwarding is enabled`() {
+    fun `Resumed lifecycle event re-fetches push token when automatic forwarding is enabled`() {
         // Default ON: no explicit stub needed — BaseTest returns the manifest default (true)
         val mockFetcher = registerMockPushTokenFetcher()
 
-        fireFirstStartedEvent()
+        fireResumedEvent()
 
-        // Anti-double-report regression guard: a dispatched fetch must be the ONLY path taken —
-        // also falling back to refreshPushState() would enqueue a second, stale push-token request.
+        // Fetch and refresh are mutually exclusive: dispatching a fetch must suppress the refresh fallback.
         verify(exactly = 1) { mockFetcher.fetchAndSetPushToken(any()) }
         verify(exactly = 0) { stateMock.refreshPushState() }
     }
 
     @Test
-    fun `FirstStarted lifecycle event does not re-fetch push token when automatic forwarding is disabled`() {
+    fun `Resumed lifecycle event does not re-fetch push token when automatic forwarding is disabled`() {
         every {
             mockConfig.getManifestBoolean(
                 Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
@@ -441,20 +441,20 @@ class StateSideEffectsTest : BaseTest() {
         } returns false
         val mockFetcher = registerMockPushTokenFetcher()
 
-        fireFirstStartedEvent()
+        fireResumedEvent()
 
         verify(inverse = true) { mockFetcher.fetchAndSetPushToken(any()) }
         verify(exactly = 1) { stateMock.refreshPushState() }
     }
 
     @Test
-    fun `FirstStarted lifecycle event falls back to refreshPushState when the fetcher reports unavailable`() {
+    fun `Resumed lifecycle event falls back to refreshPushState when the fetcher reports unavailable`() {
         val mockFetcher = registerMockPushTokenFetcher()
         every { mockFetcher.fetchAndSetPushToken(any()) } answers {
             firstArg<() -> Unit>().invoke()
         }
 
-        fireFirstStartedEvent()
+        fireResumedEvent()
 
         // The dispatch itself succeeded (didn't throw) AND onUnavailable fired synchronously —
         // refreshPushState must still run exactly once, not be skipped or double-invoked.
@@ -463,18 +463,18 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
-    fun `Resumed lifecycle event does not trigger a push state refresh`() {
-        // Proves the hook moved: Resumed used to trigger both setPushToken and maybeAutoRegisterPushToken
+    fun `FirstStarted lifecycle event does not trigger a push state refresh`() {
+        // FirstStarted alone (no Resumed) must not trigger either path.
         val mockFetcher = registerMockPushTokenFetcher()
 
-        fireLifecycleEvent(ActivityEvent.Resumed(mockk()))
+        fireLifecycleEvent(ActivityEvent.FirstStarted(mockk()))
 
         verify(inverse = true) { stateMock.refreshPushState() }
         verify(inverse = true) { mockFetcher.fetchAndSetPushToken(any()) }
     }
 
-    // Registers stateMock, captures the lifecycle observer via a new StateSideEffects, and fires FirstStarted
-    private fun fireFirstStartedEvent() = fireLifecycleEvent(ActivityEvent.FirstStarted(mockk()))
+    // Registers stateMock, captures the lifecycle observer via a new StateSideEffects, and fires Resumed
+    private fun fireResumedEvent() = fireLifecycleEvent(ActivityEvent.Resumed(mockk()))
 
     // Registers stateMock, captures the lifecycle observer via a new StateSideEffects, and fires the given event
     private fun fireLifecycleEvent(event: ActivityEvent) {
