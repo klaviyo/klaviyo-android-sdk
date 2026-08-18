@@ -1,6 +1,5 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.ImmutableProfile
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
@@ -12,10 +11,12 @@ import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Companion.HTT
 import com.klaviyo.analytics.networking.requests.KlaviyoErrorResponse
 import com.klaviyo.analytics.networking.requests.KlaviyoErrorSource
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
+import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.LifecycleMonitor
+import com.klaviyo.core.safeApply
 import com.klaviyo.core.utils.takeIf
 
 internal class StateSideEffects(
@@ -174,11 +175,32 @@ internal class StateSideEffects(
         }
     }
 
+    /**
+     * Bring push state up to date on every resume, via exactly one path.
+     *
+     * Two things can go stale while backgrounded (or merely occluded): the push token (the
+     * provider may rotate it) and the device properties embedded in push state (notification
+     * permission, background availability). A successful token fetch already covers both, because
+     * assigning the token recomputes push state — so the fetch is attempted first, and a direct
+     * refresh runs only when no fetch will deliver one (forwarding disabled, `push-fcm` absent, or
+     * the fetch failed).
+     *
+     * Doing both unconditionally would double-report: when the token *and* a device property have
+     * both changed, refreshing from the token already in state enqueues a push-token request
+     * carrying the token the provider has already rotated away from, which the newly fetched token
+     * then immediately supersedes — two requests for one foreground, the first already stale.
+     *
+     * A system permission dialog (e.g. POST_NOTIFICATIONS) runs in a different process and only
+     * pauses the host activity — no onStop/onStart pair — so a hook gated on a fresh foreground
+     * (activeActivities == 0) never fires when such a dialog is dismissed, and permission changes
+     * go undetected until a true background/foreground cycle.
+     */
     private fun onLifecycleEvent(activity: ActivityEvent) {
         activity.takeIf<ActivityEvent.Resumed>()?.run {
-            Registry.get<State>().pushToken?.let {
-                // Trigger the token in state to refresh overall push state, if changed
-                Klaviyo.setPushToken(it)
+            val refreshFromStoredToken: () -> Unit = { safeApply { state.refreshPushState() } }
+
+            if (!PushTokenFetcher.maybeAutoRegisterPushToken(refreshFromStoredToken)) {
+                refreshFromStoredToken()
             }
         }
     }

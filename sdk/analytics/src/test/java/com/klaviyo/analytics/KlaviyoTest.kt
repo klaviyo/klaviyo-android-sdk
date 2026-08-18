@@ -12,18 +12,20 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.ProfileEventObserver
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.core.Constants
 import com.klaviyo.core.DeviceProperties
+import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
 import com.klaviyo.fixtures.BaseTest
-import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.coEvery
@@ -56,27 +58,6 @@ import org.junit.Test
 internal class KlaviyoTest : BaseTest() {
 
     companion object {
-        val stubIntentExtras = mapOf(
-            "com.klaviyo.body" to "Message body",
-            "com.klaviyo._k" to """{
-              "Push Platform": "android",
-              "$\flow": "",
-              "$\message": "01GK4P5W6AV4V3APTJ727JKSKQ",
-              "$\variation": "",
-              "Message Name": "check_push_pipeline",
-              "Message Type": "campaign",
-              "c": "6U7nPA",
-              "cr": "31698553996657051350694345805149781",
-              "m": "01GK4P5W6AV4V3APTJ727JKSKQ",
-              "t": "1671205224",
-              "timestamp": "2022-12-16T15:40:24.049427+00:00",
-              "x": "manual"
-            }"""
-        )
-
-        fun mockIntent(payload: Map<String, String>, uri: Uri? = null) =
-            MockIntent.mockIntentWith(payload, uri).intent
-
         private const val TRACKING_URL = "https://trk.klaviyo.com/u/slug"
 
         private const val DESTINATION_URL = "https://www.klaviyo.com/some/path?query=param"
@@ -134,6 +115,7 @@ internal class KlaviyoTest : BaseTest() {
         every { enqueueProfile(capture(capturedProfile)) } returns mockk(relaxed = true)
         every { enqueueEvent(any(), any()) } returns mockk(relaxed = true)
         every { enqueuePushToken(any(), any()) } returns mockk(relaxed = true)
+        every { enqueueSubscription(any(), capture(capturedProfile)) } returns mockk(relaxed = true)
     }
 
     private val mockBuilder = mockk<Config.Builder>().apply {
@@ -181,6 +163,7 @@ internal class KlaviyoTest : BaseTest() {
         Registry.unregister<State>()
         Registry.unregister<StateSideEffects>()
         Registry.unregister<ApiClient>()
+        Registry.unregister<PushTokenFetcher>()
         super.cleanup()
         Registry.unregister<Config>()
         unmockDeviceProperties()
@@ -229,6 +212,34 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.createEvent(testEvent)
         verify { mockApiClient.enqueueEvent(testEvent, any()) }
         assertEquals(count, 1)
+    }
+
+    @Test
+    fun `createSubscription enqueues a subscription for the current profile`() {
+        Klaviyo.setEmail(EMAIL)
+        val subscription = Subscription.allAvailableMarketing(listId = "listId")
+
+        Klaviyo.createSubscription(subscription)
+
+        verify { mockApiClient.enqueueSubscription(subscription, any()) }
+        assertEquals(EMAIL, capturedProfile.captured.email)
+    }
+
+    @Test
+    fun `createSubscription before initialization is safely ignored`() {
+        // Simulate pre-initialization by removing the services initialize() registers
+        Registry.unregister<State>()
+        Registry.unregister<ApiClient>()
+
+        val subscription = Subscription.allAvailableMarketing(listId = "listId")
+        // Must not crash the host even though the SDK is not initialized
+        Klaviyo.createSubscription(subscription)
+
+        // Re-initialize: the pre-init call is dropped, not buffered/replayed (matches setProfile/setEmail)
+        Registry.register<ApiClient>(mockApiClient)
+        Klaviyo.initialize(apiKey = API_KEY, applicationContext = mockContext)
+
+        verify(exactly = 0) { mockApiClient.enqueueSubscription(any(), any()) }
     }
 
     @Test
@@ -611,205 +622,107 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(Klaviyo.getPushToken(), PUSH_TOKEN)
     }
 
-    private fun verifyOpenedPushEventEnqueued() = verify(exactly = 1) {
-        mockApiClient.enqueueEvent(
-            match { event -> event.metric == EventMetric.OPENED_PUSH },
-            any()
+    private fun setAutomaticPushOpenTracking(enabled: Boolean) = every {
+        mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_OPEN_TRACKING, false)
+    } returns enabled
+
+    // Token forwarding now defaults ON; production reads via Registry.config with the shared default.
+    private fun setAutomaticPushTokenForwardingEnabled(enabled: Boolean) = every {
+        mockConfig.getManifestBoolean(
+            Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
+            Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT
         )
-    }
+    } returns enabled
 
-    private fun captureOpenedPushEvent() = slot<Event>().also {
-        every { mockApiClient.enqueueEvent(capture(it), any()) } returns mockk(relaxed = true)
-    }
+    private fun reinitialize() =
+        Klaviyo.initialize(apiKey = API_KEY, applicationContext = mockContext)
 
-    private fun setupDeepLinkHandler(): Pair<() -> Uri?, DeepLinkHandler> {
-        var capturedUri: Uri? = null
-        Klaviyo.registerDeepLinkHandler { uri: Uri -> capturedUri = uri }
-        return { capturedUri } to Registry.get<DeepLinkHandler>()
+    @Test
+    fun `initialize triggers automatic push token fetch when token forwarding is on and fetcher is registered`() {
+        val mockFetcher = registerMockPushTokenFetcher()
+        setAutomaticPushTokenForwardingEnabled(true)
+
+        reinitialize()
+
+        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken(any()) }
     }
 
     @Test
-    fun `Non-klaviyo or null intents are ignored`() {
-        // doesn't have _k, klaviyo tracking params
-        Klaviyo.handlePush(mockIntent(mapOf("com.other.package.message" to "3rd party push")))
-        Klaviyo.handlePush(null)
+    fun `initialize fetches push token by default when the token forwarding flag is absent`() {
+        // Default ON: with no manifest key set (BaseTest returns the default), forwarding is enabled
+        val mockFetcher = registerMockPushTokenFetcher()
 
-        verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
+        reinitialize()
+
+        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken(any()) }
     }
 
     @Test
-    fun `handlePush enqueues opened_push event for klaviyo push intent`() {
-        Klaviyo.handlePush(mockIntent(stubIntentExtras))
-        verifyOpenedPushEventEnqueued()
+    fun `initialize fetches push token when token forwarding is on even if automatic push tracking is off`() {
+        // Independence: token forwarding no longer depends on the open-tracking flag
+        val mockFetcher = registerMockPushTokenFetcher()
+        setAutomaticPushOpenTracking(false)
+        setAutomaticPushTokenForwardingEnabled(true)
+
+        reinitialize()
+
+        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken(any()) }
     }
 
     @Test
-    fun `handlePush includes klaviyo extras and push token in opened_push event`() {
-        val eventSlot = captureOpenedPushEvent()
-        Registry.get<State>().pushToken = PUSH_TOKEN
+    fun `initialize does not fetch push token when token forwarding is off`() {
+        val mockFetcher = registerMockPushTokenFetcher()
+        setAutomaticPushTokenForwardingEnabled(false)
 
-        Klaviyo.handlePush(mockIntent(stubIntentExtras))
+        reinitialize()
 
-        assertTrue(eventSlot.isCaptured)
-        val capturedEvent = eventSlot.captured
-        assertEquals(EventMetric.OPENED_PUSH, capturedEvent.metric)
-
-        // Verify that klaviyo extras are included (with com.klaviyo. prefix removed)
-        assertNotNull(capturedEvent[EventKey.CUSTOM("body")])
-        assertNotNull(capturedEvent[EventKey.CUSTOM("_k")])
-
-        // Verify push token was in the event
-        assertEquals(PUSH_TOKEN, eventSlot.captured[EventKey.PUSH_TOKEN])
+        verify(inverse = true) { mockFetcher.fetchAndSetPushToken(any()) }
     }
 
     @Test
-    fun `handlePush invokes DeepLinkHandler when registered and intent has URI data`() {
-        val (getCapturedUri) = setupDeepLinkHandler()
-        val testUri = mockk<Uri>()
+    fun `explicit setPushToken still forwards when automatic token forwarding is off`() {
+        // The flag gates only automatic forwarding; explicit developer calls always work
+        setAutomaticPushTokenForwardingEnabled(false)
 
-        Klaviyo.handlePush(mockIntent(stubIntentExtras, testUri))
+        Klaviyo.setPushToken(PUSH_TOKEN)
 
-        assertEquals(testUri, getCapturedUri())
+        verify(exactly = 1) { mockApiClient.enqueuePushToken(PUSH_TOKEN, any()) }
     }
 
     @Test
-    fun `handlePush does not invoke DeepLinkHandler when not registered`() {
-        val testUri = mockk<Uri>()
+    fun `initialize does not fetch push token when only automatic push tracking is on`() {
+        // Independence: automatic push tracking alone must not trigger token forwarding
+        val mockFetcher = registerMockPushTokenFetcher()
+        setAutomaticPushOpenTracking(true)
+        setAutomaticPushTokenForwardingEnabled(false)
 
-        Klaviyo.handlePush(mockIntent(stubIntentExtras, testUri))
+        reinitialize()
 
-        verifyOpenedPushEventEnqueued()
-        verify(inverse = true) { DeepLinking.handleDeepLink(testUri) }
+        verify(inverse = true) { mockFetcher.fetchAndSetPushToken(any()) }
     }
 
     @Test
-    fun `handlePush does not invoke DeepLinkHandler when intent has no URI data`() {
-        val (getCapturedUri) = setupDeepLinkHandler()
+    fun `initialize does not crash and logs a warning when the push token fetch throws`() {
+        val mockFetcher = registerMockPushTokenFetcher()
+        setAutomaticPushTokenForwardingEnabled(true)
+        every { mockFetcher.fetchAndSetPushToken(any()) } throws RuntimeException("fetch blew up")
 
-        Klaviyo.handlePush(null)
-        Klaviyo.handlePush(mockIntent(stubIntentExtras))
+        // runCatching around the fetch must contain the failure so initialize still completes
+        reinitialize()
 
-        assertEquals(null, getCapturedUri())
-        verifyOpenedPushEventEnqueued()
+        verify(exactly = 1) { mockFetcher.fetchAndSetPushToken(any()) }
+        verify { spyLog.warning(any(), any()) }
     }
 
     @Test
-    fun `handlePush does not invoke deep link handler for non-klaviyo push intents`() {
-        val (getCapturedUri) = setupDeepLinkHandler()
-        val testUri = mockk<Uri>()
+    fun `initialize does not crash when flag is on but no push token fetcher is registered`() {
+        Registry.unregister<PushTokenFetcher>()
+        setAutomaticPushTokenForwardingEnabled(true)
 
-        Klaviyo.handlePush(mockIntent(mapOf("some.other.extra" to "value"), testUri))
+        // push-fcm absent: lookup is null and automatic registration is a graceful no-op
+        reinitialize()
 
-        assertEquals(null, getCapturedUri())
-        verify(inverse = true) { mockApiClient.enqueueEvent(any(), any()) }
-    }
-
-    @Test
-    fun `handlePush continues deep link handling even if opened_push processing fails`() {
-        val (getCapturedUri) = setupDeepLinkHandler()
-        every { mockApiClient.enqueueEvent(any(), any()) } throws MissingAPIKey()
-        val testUri = mockk<Uri>()
-
-        Klaviyo.handlePush(mockIntent(stubIntentExtras, testUri))
-
-        // Deep link handler should still be invoked despite the API error
-        assertEquals(testUri, getCapturedUri())
-    }
-
-    @Test
-    fun `handlePush decodes valid key_value_pairs JSON into a map`() {
-        val eventSlot = captureOpenedPushEvent()
-        val keyValuePairsJson = """{"custom_key_1":"value1","custom_key_2":"value2"}"""
-        val extrasWithKeyValuePairs = mapOf(
-            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
-            "com.klaviyo.key_value_pairs" to keyValuePairsJson
-        )
-
-        Klaviyo.handlePush(mockIntent(extrasWithKeyValuePairs))
-
-        assertTrue(eventSlot.isCaptured)
-        val capturedEvent = eventSlot.captured
-        val keyValuePairs = capturedEvent[EventKey.CUSTOM("key_value_pairs")]
-
-        // Verify that the value is a map, not a string
-        assertTrue(keyValuePairs is Map<*, *>)
-        val map = keyValuePairs as Map<*, *>
-        assertEquals("value1", map["custom_key_1"])
-        assertEquals("value2", map["custom_key_2"])
-        assertEquals(2, map.size)
-    }
-
-    @Test
-    fun `handlePush falls back to raw string when key_value_pairs JSON is invalid`() {
-        val eventSlot = captureOpenedPushEvent()
-        val invalidJson = """{"invalid": "json"""
-        val extrasWithInvalidKeyValuePairs = mapOf(
-            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
-            "com.klaviyo.key_value_pairs" to invalidJson
-        )
-
-        Klaviyo.handlePush(mockIntent(extrasWithInvalidKeyValuePairs))
-
-        assertTrue(eventSlot.isCaptured)
-        val capturedEvent = eventSlot.captured
-        val keyValuePairs = capturedEvent[EventKey.CUSTOM("key_value_pairs")]
-
-        // Verify that the value falls back to the raw string
-        assertTrue(keyValuePairs is String)
-        assertEquals(invalidJson, keyValuePairs)
-
-        // Verify warning was logged
-        verify {
-            spyLog.warning(
-                match { it.contains("Failed to parse key_value_pairs JSON") },
-                any()
-            )
-        }
-    }
-
-    @Test
-    fun `handlePush decodes empty key_value_pairs JSON into empty map`() {
-        val eventSlot = captureOpenedPushEvent()
-        val emptyJson = """{}"""
-        val extrasWithEmptyKeyValuePairs = mapOf(
-            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
-            "com.klaviyo.key_value_pairs" to emptyJson
-        )
-
-        Klaviyo.handlePush(mockIntent(extrasWithEmptyKeyValuePairs))
-
-        assertTrue(eventSlot.isCaptured)
-        val capturedEvent = eventSlot.captured
-        val keyValuePairs = capturedEvent[EventKey.CUSTOM("key_value_pairs")]
-
-        // Verify that the value is an empty map
-        assertTrue(keyValuePairs is Map<*, *>)
-        val map = keyValuePairs as Map<*, *>
-        assertTrue(map.isEmpty())
-    }
-
-    @Test
-    fun `handlePush still decodes other klaviyo extras as strings`() {
-        val eventSlot = captureOpenedPushEvent()
-        val extrasWithMultipleFields = mapOf(
-            "com.klaviyo._k" to stubIntentExtras["com.klaviyo._k"]!!,
-            "com.klaviyo.body" to "Test message",
-            "com.klaviyo.title" to "Test title"
-        )
-
-        Klaviyo.handlePush(mockIntent(extrasWithMultipleFields))
-
-        assertTrue(eventSlot.isCaptured)
-        val capturedEvent = eventSlot.captured
-
-        // Verify other fields are still strings
-        val body = capturedEvent[EventKey.CUSTOM("body")]
-        val title = capturedEvent[EventKey.CUSTOM("title")]
-
-        assertTrue(body is String)
-        assertTrue(title is String)
-        assertEquals("Test message", body)
-        assertEquals("Test title", title)
+        assertNull(Registry.getOrNull<PushTokenFetcher>())
     }
 
     @Test

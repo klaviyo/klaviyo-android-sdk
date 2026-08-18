@@ -12,7 +12,10 @@ fun Intent.startActivityIfResolved(context: Context) {
     if (activityResolved(context)) {
         context.startActivity(this)
     } else {
-        Registry.log.error("No activity found to handle intent: $this")
+        // Avoid logging the full intent — data/extras can carry deep-link URLs with PII.
+        Registry.log.error(
+            "No activity found to handle intent (action=$action, component=$component)"
+        )
     }
 }
 
