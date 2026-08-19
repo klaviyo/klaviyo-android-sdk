@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        SETUP NOTE (unset): This overlay deliberately declares NOTHING. It exists to document that the
+        `unset` flavor omits both automatic-push flags, which is the third state of
+        com.klaviyo.push.automatic_push_token_forwarding:
+          - absent  — the SDK forwards tokens delivered to KlaviyoPushService.onNewToken, but does not
+                      fetch the token at Klaviyo.initialize() or on foreground (this flavor).
+          - "true"  — additionally fetches proactively (see src/automatic/AndroidManifest.xml).
+          - "false" — no automatic forwarding at all (see src/manual/AndroidManifest.xml).
+        com.klaviyo.push.automatic_push_open_tracking is opt-in, so omitting it means this flavor's
+        Activity calls Klaviyo.handlePush() itself.
+        Declaring either key with ANY value — including "false" — moves the app out of the absent state,
+        so a library merging one of these keys into a host app's manifest would change the host's
+        behavior. Do not declare these keys in a library manifest.
+    -->
+
+</manifest>

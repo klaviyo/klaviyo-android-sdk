@@ -12,41 +12,46 @@ Key parts of the code are annotated with `SETUP NOTE` comments. Refer to the fol
 - [build.gradle.kts](./build.gradle.kts) for installation, see `SETUP NOTE` comments.
 - [SampleApplication.kt](./src/main/java/com/klaviyo/sample/SampleApplication.kt) for initializing the Klaviyo SDK.
 - `SampleActivity.kt` for sample code to create/modify a profile, track events, and integrate push. This file
-  lives per product flavor — [manual](./src/manual/java/com/klaviyo/sample/SampleActivity.kt) and
-  [automatic](./src/automatic/java/com/klaviyo/sample/SampleActivity.kt) — see [Integration styles](#integration-styles-product-flavors) below.
+  lives per product flavor — [manual](./src/manual/java/com/klaviyo/sample/SampleActivity.kt),
+  [automatic](./src/automatic/java/com/klaviyo/sample/SampleActivity.kt), and
+  [unset](./src/unset/java/com/klaviyo/sample/SampleActivity.kt) — see [Integration styles](#integration-styles-product-flavors) below.
 - [Manifest](./src/main/AndroidManifest.xml) for push integration and other configurable settings.
 
 ## Integration styles (product flavors)
-The sample ships two product flavors (dimension `integration`) so both Klaviyo push integration styles are
-demonstrated side by side:
+The sample ships three product flavors (dimension `integration`), one per state of the
+`com.klaviyo.push.automatic_push_token_forwarding` manifest flag:
 
-- **`manual`** — Manual integration (Option B). The app fetches the FCM token and calls `Klaviyo.setPushToken()`,
-  and calls `Klaviyo.handlePush(intent)` on notification taps. Because automatic token forwarding is **on by
-  default**, this flavor opts out with `com.klaviyo.push.automatic_push_token_forwarding="false"` (see
-  [src/manual/AndroidManifest.xml](./src/manual/AndroidManifest.xml)) so it genuinely demonstrates owning the
-  token pipeline. This is the classic path and matches the behavior of prior sample releases.
-- **`automatic`** — Automatic integration (Option A). The app opts in with two independent manifest flags
-  (`com.klaviyo.push.automatic_push_open_tracking="true"` and `com.klaviyo.push.automatic_push_token_forwarding="true"`,
-  see [src/automatic/AndroidManifest.xml](./src/automatic/AndroidManifest.xml)) and the SDK does both for you:
-  `automatic_push_token_forwarding` auto-registers the push token at `initialize()` / every foreground, and
-  `automatic_push_open_tracking` makes the SDK detect notification taps and report opens for you — so the
-  sample's `SampleActivity` contains **zero** push boilerplate. Compare the two `SampleActivity.kt` copies
-  to see exactly what code disappears when you opt in.
+- **`automatic`** — Automatic integration (Option A). Opts in with both flags set to `true`
+  (`automatic_push_open_tracking` and `automatic_push_token_forwarding`, see
+  [src/automatic/AndroidManifest.xml](./src/automatic/AndroidManifest.xml)) and the SDK does both jobs: it
+  registers the push token at `initialize()` and every foreground, and detects notification taps to report
+  opens. `SampleActivity` contains **zero** push boilerplate.
+- **`manual`** — Manual integration (Option B). Sets
+  `automatic_push_token_forwarding="false"` (see [src/manual/AndroidManifest.xml](./src/manual/AndroidManifest.xml))
+  to turn automatic registration off entirely, then fetches the FCM token and calls `Klaviyo.setPushToken()`
+  itself, plus `Klaviyo.handlePush(intent)` on notification taps.
+- **`unset`** — Neither flag declared (see [src/unset/AndroidManifest.xml](./src/unset/AndroidManifest.xml)).
+  The app registers no token itself; the SDK registers one only when FCM issues a new token, and the app still
+  calls `Klaviyo.handlePush(intent)` on taps. This is the default behavior an app gets by adding the SDK and
+  configuring nothing.
+
+Compare the three `SampleActivity.kt` copies to see exactly what code appears and disappears in each state.
 
 Everything except `SampleActivity.kt` is shared under `src/main`. To switch styles, pick the **Build Variants**
-panel in Android Studio (`manualDebug` vs `automaticDebug`), or from the CLI:
+panel in Android Studio (`automaticDebug` / `manualDebug` / `unsetDebug`), or from the CLI:
 
 ```bash
-./gradlew :sample:installManualDebug
 ./gradlew :sample:installAutomaticDebug
+./gradlew :sample:installManualDebug
+./gradlew :sample:installUnsetDebug
 ```
 
-Both flavors share the same `applicationId` and `google-services.json`, so only one installs at a time. The
-`automatic` flavor still relies on the auto-registered `KlaviyoPushService` (from `:sdk:push-fcm`) to *display*
-notifications. Because the two flags are independent, you can mix and match: token forwarding is on by default,
-so to keep automatic open tracking while owning your own token pipeline set `automatic_push_open_tracking="true"`
-and `automatic_push_token_forwarding="false"`; open tracking is off by default, so to auto-forward tokens without
-automatic open tracking simply omit `automatic_push_open_tracking`.
+All three flavors share the same `applicationId` and `google-services.json`, so only one installs at a time. Every
+flavor relies on the auto-registered `KlaviyoPushService` (from `:sdk:push-fcm`) to *display* notifications.
+
+The two flags are independent, so you can mix and match — set `automatic_push_open_tracking="true"` with
+`automatic_push_token_forwarding="false"` to get automatic open tracking while owning your own token pipeline, or
+set token forwarding alone and omit open tracking.
 
 Note that `automatic_push_token_forwarding` gates **both** of the SDK's automatic token paths — the
 `initialize()`/foreground fetch and `KlaviyoPushService.onNewToken()`. Setting it to `false` is a single, complete
