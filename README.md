@@ -108,10 +108,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.5.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.5.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.5.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.5.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.5.1")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.5.1")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.5.1")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.5.1")
       }
       ```
    </details>
@@ -122,10 +122,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.5.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.5.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.5.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.5.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.5.1"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.5.1"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.5.1"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.5.1"
        }
       ```
    </details>
@@ -349,7 +349,7 @@ That way, you can collect push tokens and track events prior to collecting profi
 phone number. When an identifier is provided, Klaviyo will merge the anonymous user with an identified user.
 
 > **Automatic push token forwarding:** When `automatic_push_token_forwarding` is enabled (the
-> default in SDK 4.5.0+), the SDK registers the device's push token with Klaviyo automatically — at
+> default in SDK 4.5.1+), the SDK registers the device's push token with Klaviyo automatically — at
 > initialization, when the app returns to the foreground, and whenever FCM issues a new token — which
 > can occur before any call to `setProfile`, `setEmail`, or `setPhoneNumber`. This results
 > in an anonymous profile being created in Klaviyo until you provide identifying information.
@@ -896,7 +896,7 @@ See the table below to understand available features by SDK version.
 | Audience Targeting   | 4.0.0               |
 | Event Triggers       | 4.1.0               |
 | Form Lifecycle Hooks | 4.4.0               |
-| External URL CTAs    | 4.5.0               |
+| External URL CTAs    | 4.5.1               |
 
 ### Setup
 To begin, call `Klaviyo.registerForInAppForms()` after initializing the SDK with your public API key.
@@ -992,7 +992,7 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 ### Monitoring Form Lifecycle Events
 
 > Form lifecycle events are available in SDK version 4.4.0 and higher. External URL CTA
-> routing and `event.deepLinkUrl` support for external URLs require SDK version 4.5.0 and higher.
+> routing and `event.deepLinkUrl` support for external URLs require SDK version 4.5.1 and higher.
 
 You can register a handler to receive callbacks whenever a form is shown, dismissed, or a CTA button is tapped.
 This is useful for forwarding engagement data to a third-party analytics platform such as Amplitude, Segment, or Mixpanel.
@@ -1020,7 +1020,7 @@ The handler is invoked on the **main thread**, so avoid performing long-running 
            }
            is FormCtaClicked -> {
                // Fires for both in-app deep-link CTAs and CTAs that open an external URL
-               // (SDK 4.5.0+); event.deepLinkUrl carries whichever URL the CTA navigates to.
+               // (SDK 4.5.1+); event.deepLinkUrl carries whichever URL the CTA navigates to.
                // e.g. myAnalytics.track("Form CTA Clicked", mapOf(
                //     "formId" to event.formId,
                //     "formName" to event.formName,
@@ -1049,7 +1049,7 @@ The handler is invoked on the **main thread**, so avoid performing long-running 
        } else if (event instanceof FormLifecycleEvent.FormDismissed dismissed) {
            // e.g. myAnalytics.track("Form Dismissed", ...)
        } else if (event instanceof FormLifecycleEvent.FormCtaClicked ctaClicked) {
-           // Fires for both deep-link and external-URL CTAs (SDK 4.5.0+);
+           // Fires for both deep-link and external-URL CTAs (SDK 4.5.1+);
            // ctaClicked.getDeepLinkUrl() carries whichever URL the CTA navigates to.
            // e.g. myAnalytics.track("Form CTA Clicked", ...)
        }
