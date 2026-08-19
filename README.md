@@ -531,11 +531,11 @@ Set both to `true` for the zero-boilerplate setup.
 `automatic_push_token_forwarding` has three states, because leaving it unset is not the same as
 setting it to `false`:
 
-| Value | Behavior |
-|---|---|
-| **not set** | The SDK registers the token whenever FCM issues a new one. This is what the SDK has always done. |
-| **`true`** | Additionally registers the current token at `Klaviyo.initialize` and on each foreground. |
-| **`false`** | The SDK never registers the token automatically — see [Option B](#option-b--manual-integration). |
+| Value       | Behavior                                                                                                                                                                                                                                |
+|-------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **not set** | The SDK attempts to register the token when FCM issues a new one, dependent upon `initialize`ing, and updates status on app resume *if* a token is registered. Preserves backwards compatibility with 4.4.1 and earlier.                |
+| **`true`**  | The SDK proactively registers the push token on `Klaviyo.initialize`, and on app resume. You don't need to call `Klaviyo.setPushToken` at all.                                                                                          |
+| **`false`** | The SDK **never** registers the token automatically. You must call `Klaviyo.setPushToken` to set the token. The SDK will still update permission state on app resume once a token is set. See [Option B](#option-b--manual-integration) |
 
 Set it to `true` if you want the SDK to own the token completely. That also covers a token that
 already existed before you integrated the SDK, which the unset behavior does not: FCM calls

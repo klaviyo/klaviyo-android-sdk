@@ -51,27 +51,15 @@ Nothing changes when the flag is off.
 
 This flag has three states, because leaving it unset is different from setting it to `false`:
 
-| Value | Behavior |
-|---|---|
-| **not set** | The SDK registers the token whenever FCM issues a new one. This is what the SDK has always done, so upgrading changes nothing. |
-| **`true`** | Additionally registers the current token when you call `Klaviyo.initialize` and each time the app returns to the foreground. You never call `Klaviyo.setPushToken`. |
-| **`false`** | The SDK never registers the token automatically. You call `Klaviyo.setPushToken` yourself. |
+| Value       | Behavior                                                                                                                                                                                           |
+|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **not set** | The SDK attempts to register the token when FCM issues a new one, dependent upon `initialize`ing, and updates status on app resume *if* a token is registered. Same behavior as 4.4.1 and earlier. |
+| **`true`**  | The SDK proactively registers the push token on `Klaviyo.initialize`, and on app resume. You don't need to call `Klaviyo.setPushToken` at all.                                                     |
+| **`false`** | The SDK **never** registers the token automatically. You must call `Klaviyo.setPushToken` to set the token. The SDK will still update permission state on app resume once a token is set.          |
 
 Setting it to `true` is worth doing if you want the SDK to own the token entirely: it also covers
 tokens that already existed before you integrated the SDK, which `onNewToken` alone does not, since
 FCM only calls that when it generates or rotates a token.
-
-Your own `Klaviyo.setPushToken` calls always work, in all three states.
-
-For setup instructions, see
-[Option A — Automatic Integration](./README.md#option-a--automatic-integration) in the README.
-
-### Rollout summary
-
-| Behavior | This release (4.5.1) | Future major release |
-|---|---|---|
-| `automatic_push_token_forwarding` | Opt-in (`true` to enable, `false` to disable entirely) | Default on (opt-out) |
-| `automatic_push_open_tracking` | Opt-in (default off) | Default on (opt-out) |
 
 > **Anonymous profiles:** Registering a push token creates a profile. That can happen before you call
 > `setProfile`, `setEmail`, or `setPhoneNumber`, in which case Klaviyo creates an anonymous profile and
@@ -79,6 +67,9 @@ For setup instructions, see
 > whenever a token is registered — including by your own `Klaviyo.setPushToken` calls. To prevent it
 > entirely, set `automatic_push_token_forwarding="false"` and register the token only after you have
 > identified the profile. See [Anonymous Tracking](./README.md#anonymous-tracking) in the README.
+
+For setup instructions, see
+[Option A — Automatic Integration](./README.md#option-a--automatic-integration) in the README.
 
 # 4.3.0
 
