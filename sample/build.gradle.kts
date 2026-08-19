@@ -87,16 +87,24 @@ android {
         }
     }
 
-    // SETUP NOTE: The sample ships two flavors so both Klaviyo push integration styles are demonstrated
-    // side by side. Select the `manualDebug` or `automaticDebug` build variant in Android Studio to run each.
-    //  - manual (Option B): the app fetches the push token, calls Klaviyo.setPushToken(), and calls Klaviyo.handlePush() on notification taps.
-    //  - automatic (Option A): the app opts in via independent manifest flags and the SDK handles both.
-    // The two flavors share the same applicationId, so they use the same google-services.json but install
-    // one at a time. See src/manual and src/automatic for the per-flavor SampleActivity, and sample/README.md.
+    // SETUP NOTE: The sample ships three flavors, one per state of the three-valued
+    // com.klaviyo.push.automatic_push_token_forwarding manifest flag. Select the `manualDebug`,
+    // `automaticDebug`, or `unsetDebug` build variant in Android Studio to run each.
+    //  - manual (Option B): flag explicitly "false". The app fetches the push token, calls
+    //    Klaviyo.setPushToken(), and calls Klaviyo.handlePush() on notification taps.
+    //  - automatic (Option A): flag explicitly "true". The SDK handles both, and this app's
+    //    boilerplate disappears.
+    //  - unset: flag absent. The SDK forwards tokens delivered to KlaviyoPushService.onNewToken but
+    //    does not fetch proactively, so this app registers no token itself and still calls
+    //    Klaviyo.handlePush() on notification taps.
+    // The flavors share the same applicationId, so they use the same google-services.json but install
+    // one at a time. See src/manual, src/automatic, and src/unset for the per-flavor SampleActivity,
+    // and sample/README.md.
     flavorDimensions += "integration"
     productFlavors {
         create("manual") { dimension = "integration" }
         create("automatic") { dimension = "integration" }
+        create("unset") { dimension = "integration" }
     }
 
     compileOptions {
