@@ -15,6 +15,7 @@ import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Constants
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.AutomaticPushTokenForwarding
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
@@ -421,7 +422,7 @@ class StateSideEffectsTest : BaseTest() {
 
     @Test
     fun `Resumed lifecycle event re-fetches push token when automatic forwarding is enabled`() {
-        // Default ON: no explicit stub needed — BaseTest returns the manifest default (true)
+        setAutomaticPushTokenForwarding(AutomaticPushTokenForwarding.ENABLED)
         val mockFetcher = registerMockPushTokenFetcher()
 
         fireResumedEvent()
@@ -433,12 +434,7 @@ class StateSideEffectsTest : BaseTest() {
 
     @Test
     fun `Resumed lifecycle event does not re-fetch push token when automatic forwarding is disabled`() {
-        every {
-            mockConfig.getManifestBoolean(
-                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
-                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT
-            )
-        } returns false
+        setAutomaticPushTokenForwarding(AutomaticPushTokenForwarding.DISABLED)
         val mockFetcher = registerMockPushTokenFetcher()
 
         fireResumedEvent()
@@ -448,7 +444,20 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
+    fun `Resumed lifecycle event refreshes from the stored token when the forwarding flag is absent`() {
+        setAutomaticPushTokenForwarding(AutomaticPushTokenForwarding.UNSET)
+        val mockFetcher = registerMockPushTokenFetcher()
+
+        fireResumedEvent()
+
+        // Matches the pre-flag resume behavior: recompute push state from the token already in state.
+        verify(inverse = true) { mockFetcher.fetchAndSetPushToken(any()) }
+        verify(exactly = 1) { stateMock.refreshPushState() }
+    }
+
+    @Test
     fun `Resumed lifecycle event falls back to refreshPushState when the fetcher reports unavailable`() {
+        setAutomaticPushTokenForwarding(AutomaticPushTokenForwarding.ENABLED)
         val mockFetcher = registerMockPushTokenFetcher()
         every { mockFetcher.fetchAndSetPushToken(any()) } answers {
             firstArg<() -> Unit>().invoke()
@@ -471,6 +480,17 @@ class StateSideEffectsTest : BaseTest() {
 
         verify(inverse = true) { stateMock.refreshPushState() }
         verify(inverse = true) { mockFetcher.fetchAndSetPushToken(any()) }
+    }
+
+    // The proactive fetch requires an explicit opt-in; production resolves the three-valued flag via
+    // Registry.config. BaseTest leaves hasManifestKey false, i.e. UNSET, unless a test says otherwise.
+    private fun setAutomaticPushTokenForwarding(state: AutomaticPushTokenForwarding) {
+        every {
+            mockConfig.hasManifestKey(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING)
+        } returns (state != AutomaticPushTokenForwarding.UNSET)
+        every {
+            mockConfig.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, false)
+        } returns (state == AutomaticPushTokenForwarding.ENABLED)
     }
 
     // Registers stateMock, captures the lifecycle observer via a new StateSideEffects, and fires Resumed

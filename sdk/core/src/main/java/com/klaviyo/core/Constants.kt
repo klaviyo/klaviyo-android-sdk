@@ -79,25 +79,26 @@ object Constants {
     const val AUTOMATIC_PUSH_OPEN_TRACKING = PUSH_PREFIX + "automatic_push_open_tracking"
 
     /**
-     * Manifest `<meta-data>` key governing the SDK's automatic push token forwarding. When enabled the
-     * SDK forwards the token to Klaviyo automatically via **both** paths it controls: the fetch at
-     * initialize / on each foreground, and `KlaviyoPushService.onNewToken`. Opt-OUT, absent → `true`;
-     * set `false` for a single, complete opt-out (the public `Klaviyo.setPushToken` API is unaffected).
+     * Manifest `<meta-data>` key governing the SDK's automatic push token forwarding. Three-valued —
+     * an absent key is distinct from an explicit `false`, resolved via
+     * [com.klaviyo.core.config.AutomaticPushTokenForwarding]:
+     * - **absent**: the SDK forwards only tokens the push provider delivers to
+     *   `KlaviyoPushService.onNewToken`.
+     * - **`true`**: additionally pulls the current token at `Klaviyo.initialize` and on each foreground,
+     *   via `PushTokenFetcher.maybeAutoRegisterPushToken`.
+     * - **`false`**: no automatic forwarding by either path.
+     *
+     * The public `Klaviyo.setPushToken` API is unaffected in all three states, so hosts owning their
+     * token pipeline can always forward tokens explicitly.
+     *
+     * The two call sites read the flag from different sources: the analytics path via `Registry.config`
+     * (always post-initialization) and the push-fcm path via the service [android.content.Context]
+     * (safe before `Klaviyo.initialize`, which `Registry.config` is not).
      *
      * Lives in core (not push-fcm) for the same reason as [AUTOMATIC_PUSH_OPEN_TRACKING]: telemetry's
      * push token request must read it, and core cannot depend on push-fcm.
      */
     const val AUTOMATIC_PUSH_TOKEN_FORWARDING = PUSH_PREFIX + "automatic_push_token_forwarding"
-
-    /**
-     * Default for [AUTOMATIC_PUSH_TOKEN_FORWARDING] when the host does not declare the manifest key:
-     * automatic forwarding is **on** (opt-out). Shared by the two automatic-collection call sites —
-     * `PushTokenFetcher.maybeAutoRegisterPushToken` (core) and `KlaviyoPushService.onNewToken` (push-fcm) —
-     * so their default can't drift, even though each reads the flag from its own source: the analytics
-     * path via `Registry.config` (always post-initialization) and the push-fcm path via the service
-     * [Context] (safe before `Klaviyo.initialize`, which `Registry.config` is not).
-     */
-    const val AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT = true
 
     /**
      * Fixed notification ID used in all notify/cancel calls.
