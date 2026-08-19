@@ -81,7 +81,9 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
 
     @Test
     fun `Opened Push events are replayed upon initializing`() {
-        Klaviyo.handlePush(KlaviyoTest.mockIntent(KlaviyoTest.stubIntentExtras))
+        Klaviyo.handlePush(
+            KlaviyoPushOpenHandlerTest.mockIntent(KlaviyoPushOpenHandlerTest.stubIntentExtras)
+        )
         verify { spyLog.warning(any(), any<MissingConfig>()) } // Warning bc it will be replayed
 
         Klaviyo.createEvent(EventMetric.OPENED_APP)

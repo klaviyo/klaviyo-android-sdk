@@ -75,14 +75,6 @@ object KlaviyoConfig : Config {
     private const val NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT = 60_000L
 
     /**
-     * How many API requests can be enqueued before flush
-     *
-     * Reasoning: The goal of depth control is to limit duration that radios are active
-     * if a typical request takes 1-3 seconds, this should ideally limit us to 30-90 seconds
-     */
-    private const val NETWORK_FLUSH_DEPTH_DEFAULT: Int = 25
-
-    /**
      * How many retries to allow an API request before permanent failure
      *
      * Reasoning: Most likely the rate limit should be cleared within 2-3 retries with exp backoff.
@@ -90,11 +82,12 @@ object KlaviyoConfig : Config {
     private const val NETWORK_MAX_ATTEMPTS_DEFAULT: Int = 50
 
     /**
-     * Maximum interval between retries for the exponential backoff, in milliseconds (3 minutes)
+     * Maximum interval between retries for the exponential backoff, in milliseconds (5 minutes)
      *
-     * Reasoning: We don't want to wait so long that the user has left the app.
+     * Reasoning: We don't want to wait so long that the user has left the app, but 180s was more
+     * aggressive than comparable SDKs (Segment caps at 300s), so we align with 300s (MAGE-500).
      */
-    private const val NETWORK_MAX_RETRY_INTERVAL_DEFAULT: Long = 180_000
+    private const val NETWORK_MAX_RETRY_INTERVAL_DEFAULT: Long = 300_000
 
     override val isDebugBuild = BuildConfig.DEBUG
 
@@ -131,8 +124,6 @@ object KlaviyoConfig : Config {
         NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT
     )
         private set
-    override var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
-        private set
     override var networkMaxAttempts = NETWORK_MAX_ATTEMPTS_DEFAULT
         private set
     override var networkMaxRetryInterval = NETWORK_MAX_RETRY_INTERVAL_DEFAULT
@@ -145,6 +136,16 @@ object KlaviyoConfig : Config {
         } else {
             applicationContext.getManifestInt(key, defaultValue)
         }
+
+    override fun getManifestBoolean(key: String, defaultValue: Boolean): Boolean =
+        if (!this::applicationContext.isInitialized) {
+            defaultValue
+        } else {
+            applicationContext.getManifestBoolean(key, defaultValue)
+        }
+
+    override fun hasManifestKey(key: String): Boolean =
+        this::applicationContext.isInitialized && applicationContext.hasManifestKey(key)
 
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
@@ -167,7 +168,6 @@ object KlaviyoConfig : Config {
             NETWORK_FLUSH_INTERVAL_CELL_DEFAULT,
             NETWORK_FLUSH_INTERVAL_OFFLINE_DEFAULT
         )
-        private var networkFlushDepth = NETWORK_FLUSH_DEPTH_DEFAULT
         private var networkMaxAttempts = NETWORK_MAX_ATTEMPTS_DEFAULT
         private var networkMaxRetryInterval = NETWORK_MAX_RETRY_INTERVAL_DEFAULT
 
@@ -247,16 +247,6 @@ object KlaviyoConfig : Config {
             }
         }
 
-        override fun networkFlushDepth(networkFlushDepth: Int) = apply {
-            if (networkFlushDepth > 0) {
-                this.networkFlushDepth = networkFlushDepth
-            } else {
-                Registry.log.error(
-                    "${KlaviyoConfig::networkFlushDepth.name} must be greater than 0"
-                )
-            }
-        }
-
         override fun networkMaxAttempts(networkMaxAttempts: Int) = apply {
             if (networkMaxAttempts >= 0) {
                 this.networkMaxAttempts = networkMaxAttempts
@@ -275,6 +265,28 @@ object KlaviyoConfig : Config {
                     "${KlaviyoConfig::networkMaxRetryInterval.name} must be greater or equal to 0"
                 )
             }
+        }
+
+        @Deprecated(
+            message = "Depth-triggered flushing has been removed. The queue now flushes on the " +
+                "timer interval (see networkFlushInterval) or when explicitly forced, and is " +
+                "internally bounded by a size cap. This setter has no effect and will be " +
+                "removed in a future major release.",
+            level = DeprecationLevel.WARNING
+        )
+        override fun networkFlushDepth(networkFlushDepth: Int) = apply {
+            // Depth-triggered flushing was removed; retained for one release as a deprecated
+            // setter so existing caller code keeps compiling. Warn at runtime in addition to the
+            // compile-time deprecation: callers who haven't migrated get a hint that their config
+            // is being ignored, and out-of-range values (which the old setter rejected explicitly)
+            // are no longer swallowed silently. The value is echoed back to make that concrete.
+            Registry.log.warning(
+                "networkFlushDepth($networkFlushDepth) is deprecated and has no effect: " +
+                    "depth-triggered flushing was removed. The queue flushes on the timer " +
+                    "interval (see networkFlushInterval) or when explicitly forced, and is " +
+                    "internally bounded by a size cap. Remove this call — the setter will be " +
+                    "deleted in a future major release."
+            )
         }
 
         override fun build(): Config {
@@ -305,7 +317,6 @@ object KlaviyoConfig : Config {
             KlaviyoConfig.networkTimeout = networkTimeout
             KlaviyoConfig.uxNetworkTimeout = uxNetworkTimeout
             KlaviyoConfig.networkFlushIntervals = networkFlushIntervals
-            KlaviyoConfig.networkFlushDepth = networkFlushDepth
             KlaviyoConfig.networkMaxAttempts = networkMaxAttempts
             KlaviyoConfig.networkMaxRetryInterval = networkMaxRetryInterval
 
@@ -363,4 +374,27 @@ fun Context.getManifestInt(key: String, defaultValue: Int): Int {
     val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
     val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
     return manifestMetadata.getInt(key, defaultValue)
+}
+
+/**
+ * Extension method to get a boolean value from the manifest metadata
+ */
+fun Context.getManifestBoolean(key: String, defaultValue: Boolean): Boolean {
+    val pkgName = packageName
+    val pkgManager = packageManager
+    val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
+    val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
+    return manifestMetadata.getBoolean(key, defaultValue)
+}
+
+/**
+ * Extension method to check whether a key is present in the manifest metadata at all,
+ * regardless of its value
+ */
+fun Context.hasManifestKey(key: String): Boolean {
+    val pkgName = packageName
+    val pkgManager = packageManager
+    val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
+    val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
+    return manifestMetadata.containsKey(key)
 }

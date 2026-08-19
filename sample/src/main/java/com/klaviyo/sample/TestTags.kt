@@ -11,6 +11,9 @@ object SampleTestTags {
     const val BTN_SET_PROFILE = "btn_set_profile"
     const val BTN_RESET_PROFILE = "btn_reset_profile"
 
+    // Subscription section
+    const val TOGGLE_SUBSCRIBE_MARKETING = "toggle_subscribe_marketing"
+
     // Events section
     const val BTN_CREATE_TEST_EVENT = "btn_create_test_event"
     const val BTN_VIEWED_PRODUCT = "btn_viewed_product"

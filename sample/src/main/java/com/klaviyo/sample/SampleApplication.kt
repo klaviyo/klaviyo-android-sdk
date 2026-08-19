@@ -13,6 +13,13 @@ import com.klaviyo.forms.registerFormLifecycleHandler
 import com.klaviyo.location.registerGeofencing
 
 class SampleApplication : Application() {
+
+    companion object {
+        // OPTIONAL SETUP NOTE: To demo list subscriptions, set a list ID from your account.
+        // Leave null to hide the subscribe toggle entirely.
+        val subscriptionListId: String? = null
+    }
+
     override fun onCreate() {
         super.onCreate()
 
@@ -23,8 +30,11 @@ class SampleApplication : Application() {
             .registerForInAppForms() // Register for In-App Forms immediately on app launch (this app has no splash screen)
             .registerGeofencing() // Start geofencing monitoring
             .registerDeepLinkHandler { uri ->
-                // OPTIONAL SETUP NOTE: Register a callback to handle any deep links from Klaviyo notifications, in-app forms, or universal tracking links
-                // If not using a deep link handler, Klaviyo will send an Intent to your app with the deep link in intent.data
+                // OPTIONAL SETUP NOTE: Register a callback to handle deep links from in-app forms,
+                // universal tracking links, and any push intent you pass to Klaviyo.handlePush().
+                // With automatic_push_open_tracking enabled (the `automatic` flavor), notification
+                // taps instead deliver the link as an Intent — see that flavor's SampleActivity.
+                // If no handler is registered, Klaviyo sends an Intent with the link in intent.data.
                 showToast("Deep link to: $uri")
             }
             .registerFormLifecycleHandler { event ->

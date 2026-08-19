@@ -4,6 +4,7 @@ import android.os.Handler
 import androidx.annotation.WorkerThread
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
@@ -18,6 +19,7 @@ import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
 import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
+import com.klaviyo.analytics.networking.requests.SubscriptionApiRequest
 import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
@@ -37,6 +39,15 @@ import org.json.JSONObject
  */
 internal object KlaviyoApiClient : ApiClient {
     internal const val QUEUE_KEY = "klaviyo_api_request_queue"
+
+    /**
+     * Maximum number of requests that can sit in the API queue at one time.
+     *
+     * When the queue reaches this limit, the oldest request is evicted to make room.
+     * We evict by enqueued time, not simply queue position, to honor actual age.
+     * This prevents the queue from growing unbounded during request storms.
+     */
+    internal const val MAX_QUEUE_SIZE: Int = 200
 
     private var handlerThread = Registry.threadHelper.getHandlerThread(
         KlaviyoApiClient::class.simpleName
@@ -80,6 +91,12 @@ internal object KlaviyoApiClient : ApiClient {
     override fun enqueuePushToken(token: String, profile: Profile): ApiRequest =
         PushTokenApiRequest(token, profile).also {
             Registry.log.verbose("Enqueuing Push Token request")
+            enqueueRequest(it)
+        }
+
+    override fun enqueueSubscription(subscription: Subscription, profile: Profile): ApiRequest? =
+        SubscriptionApiRequest.from(subscription, profile)?.also {
+            Registry.log.verbose("Enqueuing Subscription request")
             enqueueRequest(it)
         }
 
@@ -204,6 +221,22 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }.forEach { request ->
             if (!apiQueue.contains(request)) {
+                while (apiQueue.size >= MAX_QUEUE_SIZE) {
+                    // Evict the oldest request by enqueue timestamp, not the front of the deque —
+                    // head-of-line requests are inserted at the front but are the newest.
+                    // The minByOrNull + remove pair is not atomic on the ConcurrentLinkedDeque, so a
+                    // concurrent enqueue could target the same victim. We gate the side effects on
+                    // remove()'s boolean: if another thread already evicted this request, remove()
+                    // returns false and the while-loop simply re-scans — a best-effort, self-healing
+                    // soft bound rather than a hard guarantee.
+                    val evicted = apiQueue.minByOrNull { it.queuedTime } ?: break
+                    if (apiQueue.remove(evicted)) {
+                        Registry.dataStore.clear(evicted.uuid)
+                        Registry.log.warning(
+                            "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${evicted.type}"
+                        )
+                    }
+                }
                 Registry.dataStore.store(request.uuid, request.toString())
                 if (headOfLine) {
                     apiQueue.offerFirst(request)
@@ -489,8 +522,6 @@ internal object KlaviyoApiClient : ApiClient {
 
         private var flushInterval: Long = defaultFlushInterval
 
-        private val flushDepth: Int = Registry.config.networkFlushDepth
-
         /**
          * Send queued requests serially
          * The queue will flush whenever the triggers specified in config are met
@@ -499,7 +530,7 @@ internal object KlaviyoApiClient : ApiClient {
         override fun run() {
             val queueTimePassed = Registry.clock.currentTimeMillis() - enqueuedTime
 
-            if (getQueueSize() < flushDepth && queueTimePassed < flushInterval && !force) {
+            if (queueTimePassed < flushInterval && !force) {
                 return requeue()
             }
 

@@ -87,6 +87,18 @@ android {
         }
     }
 
+    // SETUP NOTE: The sample ships two flavors so both Klaviyo push integration styles are demonstrated
+    // side by side. Select the `manualDebug` or `automaticDebug` build variant in Android Studio to run each.
+    //  - manual (Option B): the app fetches the push token, calls Klaviyo.setPushToken(), and calls Klaviyo.handlePush() on notification taps.
+    //  - automatic (Option A): the app opts in via independent manifest flags and the SDK handles both.
+    // The two flavors share the same applicationId, so they use the same google-services.json but install
+    // one at a time. See src/manual and src/automatic for the per-flavor SampleActivity, and sample/README.md.
+    flavorDimensions += "integration"
+    productFlavors {
+        create("manual") { dimension = "integration" }
+        create("automatic") { dimension = "integration" }
+    }
+
     compileOptions {
         sourceCompatibility = javaVersion
         targetCompatibility = javaVersion

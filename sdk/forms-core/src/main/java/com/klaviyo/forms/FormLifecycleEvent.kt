@@ -46,13 +46,17 @@ sealed interface FormLifecycleEvent {
 
     /**
      * Triggered when a user taps a call-to-action (CTA) button in a form
-     * that has a deep link URL configured.
+     * that has a URL configured, whether it deep links within the host app
+     * or opens externally (a browser, dialer, or messaging app, depending
+     * on the URL's scheme).
      *
-     * Fired after the SDK has initiated deep link navigation. Not emitted
-     * if no deep link URL is configured for the CTA.
+     * Fired after the SDK has initiated navigation. Not emitted if no URL is
+     * configured for the CTA.
      *
      * @property buttonLabel The text label of the CTA button.
-     * @property deepLinkUrl The deep link URI configured for the CTA.
+     * @property deepLinkUrl The URI the CTA navigates to. This is an in-app deep
+     * link for deep-link CTAs, or the external URL (opened in a browser, dialer,
+     * or messaging app depending on its scheme) for external CTAs.
      */
     data class FormCtaClicked(
         override val formId: String,
