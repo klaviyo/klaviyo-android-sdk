@@ -152,7 +152,10 @@ internal sealed class NativeBridgeMessage {
                     event = Event(
                         jsonData.getString("metric"),
                         properties = jsonData.getEventProperties()
-                    )
+                    ).apply {
+                        jsonData.getEventValue()?.let(::setValue)
+                        jsonData.getUniqueId()?.let(::setUniqueId)
+                    }
                 )
 
                 keyName<OpenDeepLink>() -> OpenDeepLink(
@@ -189,6 +192,20 @@ internal sealed class NativeBridgeMessage {
             }
             return map
         }
+
+        /**
+         * Parse the top-level event value for a [TrackProfileEvent] message,
+         * returning null if absent or not coercible to a number
+         */
+        private fun JSONObject.getEventValue(): Double? =
+            optDouble("value").takeIf { !it.isNaN() }
+
+        /**
+         * Parse the top-level event deduplication ID for a [TrackProfileEvent] message,
+         * returning null if absent or blank
+         */
+        private fun JSONObject.getUniqueId(): String? =
+            optString("unique_id").takeIf { it.isNotBlank() }
 
         /**
          * Parse out the android platform deep link, returning null if not present or empty

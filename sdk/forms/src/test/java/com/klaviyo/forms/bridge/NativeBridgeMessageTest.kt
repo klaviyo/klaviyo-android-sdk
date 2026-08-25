@@ -196,6 +196,91 @@ class NativeBridgeMessageTest : BaseTest() {
         assertEquals(2, result.event[EventKey.CUSTOM("key2")])
     }
 
+    private fun decodeProfileEvent(extraDataFields: String = "", properties: String = "") =
+        NativeBridgeMessage.decodeWebviewMessage(
+            """
+               {
+                  "type": "trackProfileEvent",
+                  "data": {
+                    $extraDataFields
+                    "metric": "Form completed by profile",
+                    "properties": { $properties }
+                  }
+               }
+            """.trimIndent()
+        ) as NativeBridgeMessage.TrackProfileEvent
+
+    @Test
+    fun `profile event parses top-level float value`() {
+        val result = decodeProfileEvent(""""value": 12.5,""")
+
+        assertEquals(12.5, result.event.value)
+        assertEquals(12.5, result.event[EventKey.VALUE])
+    }
+
+    @Test
+    fun `profile event parses top-level integer value`() {
+        val result = decodeProfileEvent(""""value": 12,""")
+
+        assertEquals(12.0, result.event.value)
+    }
+
+    @Test
+    fun `profile event parses top-level unique_id`() {
+        val result = decodeProfileEvent(""""unique_id": "abc-123",""")
+
+        assertEquals("abc-123", result.event.uniqueId)
+        assertEquals("abc-123", result.event[EventKey.EVENT_ID])
+    }
+
+    @Test
+    fun `profile event without value or unique_id leaves both unset`() {
+        val result = decodeProfileEvent("")
+
+        assertNull(result.event.value)
+        assertNull(result.event.uniqueId)
+        assertEquals(0, result.event.propertyCount())
+    }
+
+    @Test
+    fun `profile event with malformed value still decodes`() {
+        val result = decodeProfileEvent(""""value": "not a number",""")
+
+        assertEquals(EventMetric.CUSTOM("Form completed by profile"), result.event.metric)
+        assertNull(result.event.value)
+        assertEquals(0, result.event.propertyCount())
+    }
+
+    @Test
+    fun `profile event with blank unique_id leaves it unset`() {
+        val result = decodeProfileEvent(""""unique_id": "   ",""")
+
+        assertNull(result.event.uniqueId)
+        assertEquals(0, result.event.propertyCount())
+    }
+
+    @Test
+    fun `profile event does not clear reserved property keys when envelope value and unique_id are absent`() {
+        val result = decodeProfileEvent(
+            properties = """"${'$'}value": 99.0, "${'$'}event_id": "nested-id""""
+        )
+
+        assertEquals(99.0, result.event.value)
+        assertEquals("nested-id", result.event.uniqueId)
+    }
+
+    @Test
+    fun `profile event envelope value and unique_id override colliding reserved property keys`() {
+        val result = decodeProfileEvent(
+            extraDataFields = """"value": 12.5, "unique_id": "top-id",""",
+            properties = """"${'$'}value": 99.0, "${'$'}event_id": "nested-id""""
+        )
+
+        assertEquals(12.5, result.event.value)
+        assertEquals("top-id", result.event.uniqueId)
+        assertEquals(2, result.event.propertyCount())
+    }
+
     @Test
     fun `test aggregate event`() {
         // Setup
