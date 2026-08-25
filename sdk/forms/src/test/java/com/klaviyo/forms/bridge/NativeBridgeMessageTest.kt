@@ -491,7 +491,7 @@ class NativeBridgeMessageTest : BaseTest() {
                   },
                   {
                     "type": "trackProfileEvent",
-                    "version": 1
+                    "version": 2
                   },
                   {
                     "type": "openDeepLink",
