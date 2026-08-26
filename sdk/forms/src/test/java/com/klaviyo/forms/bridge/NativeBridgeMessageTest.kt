@@ -234,10 +234,27 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `profile event without value or unique_id leaves both unset`() {
+    fun `profile event parses top-level value_currency`() {
+        val result = decodeProfileEvent(""""value_currency": "USD",""")
+
+        assertEquals("USD", result.event.valueCurrency)
+        assertEquals("USD", result.event[EventKey.VALUE_CURRENCY])
+    }
+
+    @Test
+    fun `profile event with blank value_currency leaves it unset`() {
+        val result = decodeProfileEvent(""""value_currency": "   ",""")
+
+        assertNull(result.event.valueCurrency)
+        assertEquals(0, result.event.propertyCount())
+    }
+
+    @Test
+    fun `profile event without value, value_currency or unique_id leaves them all unset`() {
         val result = decodeProfileEvent("")
 
         assertNull(result.event.value)
+        assertNull(result.event.valueCurrency)
         assertNull(result.event.uniqueId)
         assertEquals(0, result.event.propertyCount())
     }
@@ -260,25 +277,33 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
-    fun `profile event does not clear reserved property keys when envelope value and unique_id are absent`() {
+    fun `profile event does not clear reserved property keys when envelope fields are absent`() {
         val result = decodeProfileEvent(
-            properties = """"${'$'}value": 99.0, "${'$'}event_id": "nested-id""""
+            properties = """
+                "${'$'}value": 99.0, "${'$'}value_currency": "EUR", "${'$'}event_id": "nested-id"
+            """.trimIndent()
         )
 
         assertEquals(99.0, result.event.value)
+        assertEquals("EUR", result.event.valueCurrency)
         assertEquals("nested-id", result.event.uniqueId)
     }
 
     @Test
-    fun `profile event envelope value and unique_id override colliding reserved property keys`() {
+    fun `profile event envelope fields override colliding reserved property keys`() {
         val result = decodeProfileEvent(
-            extraDataFields = """"value": 12.5, "unique_id": "top-id",""",
-            properties = """"${'$'}value": 99.0, "${'$'}event_id": "nested-id""""
+            extraDataFields = """
+                "value": 12.5, "value_currency": "USD", "unique_id": "top-id",
+            """.trimIndent(),
+            properties = """
+                "${'$'}value": 99.0, "${'$'}value_currency": "EUR", "${'$'}event_id": "nested-id"
+            """.trimIndent()
         )
 
         assertEquals(12.5, result.event.value)
+        assertEquals("USD", result.event.valueCurrency)
         assertEquals("top-id", result.event.uniqueId)
-        assertEquals(2, result.event.propertyCount())
+        assertEquals(3, result.event.propertyCount())
     }
 
     @Test

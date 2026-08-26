@@ -154,6 +154,7 @@ internal sealed class NativeBridgeMessage {
                         properties = jsonData.getEventProperties()
                     ).apply {
                         jsonData.getEventValue()?.let(::setValue)
+                        jsonData.getValueCurrency()?.let(::setValueCurrency)
                         jsonData.getUniqueId()?.let(::setUniqueId)
                     }
                 )
@@ -199,6 +200,13 @@ internal sealed class NativeBridgeMessage {
          */
         private fun JSONObject.getEventValue(): Double? =
             optDouble("value").takeIf { !it.isNaN() }
+
+        /**
+         * Parse the top-level event value currency for a [TrackProfileEvent] message,
+         * returning null if absent or blank
+         */
+        private fun JSONObject.getValueCurrency(): String? =
+            optString("value_currency").takeIf { it.isNotBlank() }
 
         /**
          * Parse the top-level event deduplication ID for a [TrackProfileEvent] message,
