@@ -36,8 +36,8 @@ class Event(val metric: EventMetric, properties: Map<EventKey, Serializable>?) :
         }
 
     /**
-     * ISO 4217 currency code for [value], e.g. "USD". The API rejects codes that are not
-     * uppercase ISO 4217.
+     * ISO 4217 currency code for [value], e.g. "USD". The API rejects a code that is not valid
+     * ISO 4217 with a 400 and does not ingest the event.
      */
     fun setValueCurrency(valueCurrency: String?) = apply { this.valueCurrency = valueCurrency }
     var valueCurrency: String?
