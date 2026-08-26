@@ -35,6 +35,19 @@ class Event(val metric: EventMetric, properties: Map<EventKey, Serializable>?) :
             this[EventKey.VALUE] = value
         }
 
+    /**
+     * ISO 4217 currency code for [value], e.g. "USD". The API rejects codes that are not
+     * uppercase ISO 4217.
+     */
+    fun setValueCurrency(valueCurrency: String?) = apply { this.valueCurrency = valueCurrency }
+    var valueCurrency: String?
+        get() = this[EventKey.VALUE_CURRENCY]?.toString()
+
+        @JvmSynthetic
+        set(value) {
+            this[EventKey.VALUE_CURRENCY] = value
+        }
+
     fun setUniqueId(uniqueId: String?) = apply { this.uniqueId = uniqueId }
     var uniqueId: String?
         get() = this[EventKey.EVENT_ID]?.toString()
