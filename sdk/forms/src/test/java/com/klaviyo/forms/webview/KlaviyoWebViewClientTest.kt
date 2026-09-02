@@ -51,23 +51,24 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-forms-data-environment='FORMS_ENVIRONMENT'
                   data-klaviyo-local-tracking="1"
                   data-klaviyo-profile="{}"
+                  data-klaviyo-jwt=''
             >
                 <meta charset="UTF-8">
                 <meta name="viewport"
                       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover"/>
-            
+
                 <!--  This meta tag protects @imported fonts from being blocked by CORS  -->
                 <meta name="referrer" content="same-origin"/>
-            
+
                 <title>Klaviyo In-App Form Template</title>
-            
+
                 <!-- Load in JS helper functions from assets directory -->
                 <script type="text/javascript" src="file:///android_asset/onsite-bridge.js"></script>
-            
+
                 <!-- Static stylesheet for "websafe" fonts that may be unavailable or inconsistent from the system -->
                 <link rel="stylesheet" type="text/css"
                       href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css" crossorigin/>
-            
+
                 <!-- Placeholder script to load klaviyo.js -->
                 <script type="text/javascript" src="KLAVIYO_JS_URL"></script>
             </head>
@@ -200,6 +201,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-forms-data-environment='in-app'
                   data-klaviyo-local-tracking="1"
                   data-klaviyo-profile="{}"
+                  data-klaviyo-jwt=''
             >
                 <meta charset="UTF-8">
                 <meta name="viewport"
@@ -226,6 +228,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         verify { mockAssets.open("InAppFormsTemplate.html") }
         verify { anyConstructed<KlaviyoWebView>().loadTemplate(expectedHtml, client, mockBridge) }
@@ -240,6 +243,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
         // Verify that loadTemplate was only called once (which means WebView was only constructed once)
         verify(exactly = 1) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
     }
@@ -250,6 +254,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         verify {
             spyLog.debug(
@@ -282,6 +287,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         verify { mockSettings.javaScriptEnabled = true }
         verify { mockSettings.userAgentString = "Mock User Agent" }
@@ -299,6 +305,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     fun `timeout cancels on handshake`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         client.onJsHandshakeCompleted()
         staticClock.execute(10_000)
@@ -314,6 +321,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     fun `closes webview on timeout`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
         // notably no handshake
         staticClock.execute(10_000)
 

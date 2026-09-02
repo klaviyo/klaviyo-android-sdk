@@ -50,10 +50,23 @@ class JsBridgeObserverTest {
         val klaviyoObserverCollection = KlaviyoObserverCollection()
         val observers = klaviyoObserverCollection.observers
 
-        assertEquals(4, klaviyoObserverCollection.observers.size)
+        assertEquals(5, klaviyoObserverCollection.observers.size)
         assert(observers.any { it is CompanyObserver }) { "Expected CompanyObserver in the collection" }
+        assert(observers.any { it is JwtObserver }) { "Expected JwtObserver in the collection" }
         assert(observers.any { it is ProfileMutationObserver }) { "Expected ProfileObserver in the collection" }
         assert(observers.any { it is LifecycleObserver }) { "Expected LifecycleObserver in the collection" }
         assert(observers.any { it is ProfileEventObserver }) { "Expected FormsProfileEventObserver in the collection" }
+    }
+
+    @Test
+    fun `JwtObserver is ordered before ProfileMutationObserver`() {
+        val observers = KlaviyoObserverCollection().observers
+        val jwtIndex = observers.indexOfFirst { it is JwtObserver }
+        val profileIndex = observers.indexOfFirst { it is ProfileMutationObserver }
+        assert(jwtIndex >= 0) { "JwtObserver not found in collection" }
+        assert(profileIndex >= 0) { "ProfileMutationObserver not found in collection" }
+        assert(jwtIndex < profileIndex) {
+            "JwtObserver ($jwtIndex) must precede ProfileMutationObserver ($profileIndex)"
+        }
     }
 }
