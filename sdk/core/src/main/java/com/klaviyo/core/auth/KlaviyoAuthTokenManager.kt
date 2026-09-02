@@ -11,394 +11,274 @@ import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
+/**
+ * Serializes every auth-token state transition behind [stateLock]. Provider calls, timers, and
+ * connectivity waits run outside the critical section and report their results back with the
+ * generation they started in. This keeps the public synchronous lifecycle methods synchronous
+ * without spreading coordination across mutexes, volatile fields, and independent atomics.
+ */
 internal class KlaviyoAuthTokenManager(
     private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
 ) : AuthTokenManager {
 
-    // Internal (not on the interface) so MAGE-619 consumers are forced to use their own scope
-    // when calling currentToken(), binding auth work to the correct lifecycle.
+    // Internal (not on the interface) so Forms consumers bind currentToken() to their lifecycle.
+    // Tests also cancel this scope to verify teardown behavior.
     internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
+
+    private val stateLock = Any()
+    private val state = State()
+
+    internal val connectivityWaitJob: Job?
+        get() = synchronized(stateLock) { state.connectivityWait?.job }
 
     init {
         lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
     }
 
-    // Guards the read-validate-write transition on both cachedToken and inFlightFetch, ensuring
-    // exactly one Deferred is created when multiple callers miss the cache simultaneously.
-    private val mutex = Mutex()
-
-    // @Volatile so reads in invokeProvider (outside the mutex) always observe the latest write
-    // from registerProvider. Single-write-wins semantics are acceptable for the happy path.
-    @Volatile private var provider: AuthTokenProvider? = null
-
-    @Volatile private var cachedToken: ValidatedToken? = null
-
-    // Shared in-flight fetch deferred. All concurrent callers that miss the cache await this
-    // single Deferred rather than each invoking the provider independently. Cleared (via
-    // invokeOnCompletion) on both success and failure so the next request starts a fresh fetch.
-    // @Volatile because registerProvider and invokeOnCompletion clear it without holding the
-    // mutex; @Volatile ensures those writes are visible to the mutex-protected read in currentToken.
-    @Volatile private var inFlightFetch: Deferred<ValidatedToken>? = null
-
-    // NOT cleared in the timer callback on firing — a failed refresh leaves this pointing at a
-    // past target so handleForegroundTransition() case 2 can detect the miss and retry once.
-    // @Volatile because registerProvider writes without holding the mutex; @Volatile ensures those
-    // writes are visible to subsequent mutex-protected reads in handleForegroundTransition().
-    @Volatile private var refreshJob: Clock.Cancellable? = null
-
-    // @Volatile for the same reason as refreshJob: registerProvider clears without holding mutex.
-    @Volatile private var refreshAtWallClockMs: Long? = null
-
-    // Set by the timer callback while holding mutex before refresh work begins. This prevents a
-    // foreground transition from treating an already-fired timer as a Doze-style miss while the
-    // scheduled refresh coroutine is still queued or in-flight.
-    // @Volatile because registerProvider resets without holding the mutex.
-    @Volatile private var refreshTimerFired = false
-
-    // Monotonic token used to ignore callbacks from refresh jobs cancelled by a later schedule.
-    // AtomicLong rather than @Volatile Long so that registerProvider's non-mutex increment
-    // (refreshGeneration.incrementAndGet()) is truly atomic and cannot race with scheduleRefresh's
-    // mutex-held increment to produce a lost update.
-    private val refreshGeneration = AtomicLong(0L)
-
-    // Tracks profile lifecycle events: registerProvider(), invalidate(), and clearTokenState().
-    // Used by clearTokenState(expectedGeneration) to detect whether registerProvider() ran between
-    // the invalidate() call and the async clear, so a late clear doesn't wipe the new session.
-    // Deliberately separate from refreshGeneration (which scheduleRefresh() also bumps).
-    private val profileGeneration = AtomicLong(0L)
-
-    // Tracks logout/reset events only: incremented by invalidate() and clearTokenState(), but NOT
-    // by registerProvider(). Used by shouldArmConnectivityRetry to distinguish a stale failure from
-    // a logout-triggered reset vs. a benign mid-fetch provider swap. profileGeneration is too coarse
-    // for this check because registerProvider() also bumps it, which would wrongly block
-    // connectivity retry for the new session when a provider is swapped mid-fetch.
-    private val resetGeneration = AtomicLong(0L)
-
-    // Set to true by invalidate() and reset to false by registerProvider() and clearTokenState().
-    // Read by doFetch() just before notifying observers: if a profile reset is pending (i.e.
-    // invalidate() was called but clearTokenState() hasn't finished yet), the fetch must not
-    // broadcast the now-stale token. @Volatile because it is written on the calling thread (main)
-    // and read on the dispatcher (IO) with no other synchronisation.
-    @Volatile private var profileResetPending = false
-
-    // CopyOnWriteArrayList for thread-safe iteration while observers add/remove on arbitrary threads
-    // (established SDK observer-collection pattern, matches StateChangeObserver, ActivityObserver).
-    private val refreshObservers = CopyOnWriteArrayList<TokenRefreshObserver>()
-
-    // A pending coroutine that waits for connectivity to be restored before retrying
-    // performScheduledRefresh. At most one is active at a time. All transitions to this field and
-    // to connectivityWaitGeneration are serialized via connectivityWaitLock. @Volatile for
-    // visibility to tests that read the field outside any lock.
-    // Internal (not private) so tests in this module can inspect job state without reflection.
-    @Volatile internal var connectivityWaitJob: Job? = null
-
-    // Monotonic counter bumped each time armConnectivityWaitJob() arms a new job. Used by the
-    // job's finally block to detect whether a newer arm replaced it; if so the old job must not
-    // null out the new job's reference. AtomicLong for the same reason as refreshGeneration.
-    private val connectivityWaitGeneration = AtomicLong(0L)
-
-    // JVM lock serializing all connectivityWaitJob + connectivityWaitGeneration transitions.
-    // Acquired without holding mutex (armConnectivityWaitJob) and while holding mutex
-    // (clearTokenState). Lock ordering is always: mutex → connectivityWaitLock.
-    private val connectivityWaitLock = Any()
-
-    private fun cancelConnectivityWaitJob() {
-        synchronized(connectivityWaitLock) {
-            connectivityWaitJob?.cancel()
-            connectivityWaitJob = null
-        }
-    }
-
     override fun registerProvider(provider: AuthTokenProvider) {
-        // Cancel any in-flight fetch for the old provider before swapping.
-        // Two complementary guards prevent a stale token from reaching the cache:
-        //   1. If the cancelled coroutine is still inside invokeProvider(), the isActive check in
-        //      suspendCancellableCoroutine drops any late onSuccess/onFailure callback.
-        //   2. If the callback already fired and doFetch() is past invokeProvider() but hasn't
-        //      written the cache yet, ensureActive() in doFetch will throw CancellationException
-        //      before the write — even when mutex.withLock acquires the lock uncontended.
-        inFlightFetch?.cancel()
-        inFlightFetch = null
-        refreshJob?.cancel()
-        refreshJob = null
-        refreshAtWallClockMs = null
-        refreshTimerFired = false
-        cancelConnectivityWaitJob()
-        refreshGeneration.incrementAndGet()
-        // Advance profileGeneration so any pending clearTokenState(expectedGeneration) from a
-        // prior resetProfile() sees the generation mismatch and skips, preserving this new
-        // session's token state.
-        profileGeneration.incrementAndGet()
-        // Clear the reset-pending flag: the new provider supersedes any in-progress logout reset.
-        profileResetPending = false
-        cachedToken = null
-        this.provider = provider
+        synchronized(stateLock) {
+            cancelInFlightFetchLocked()
+            cancelRefreshLocked()
+            cancelConnectivityWaitLocked()
+            state.profileGeneration++
+            state.profileResetPending = false
+            state.cachedToken = null
+            state.provider = provider
+        }
         Registry.log.info("AuthTokenProvider registered")
         scope.safeLaunch { tryEagerFetch() }
     }
 
     override fun unregisterProvider() {
-        // Fast path: nothing to do if no provider is registered.
-        if (provider == null) return
-        // Null the provider FIRST — before cancelling the in-flight fetch — so that any concurrent
-        // getOrFetchToken() path that races past the `if (provider == null)` guard lands in
-        // invokeProvider() and immediately receives NoProviderRegistered, rather than starting a
-        // fresh acquisition against the now-unregistered provider. This differs from
-        // registerProvider, where the new provider is set last (after teardown cancels the old
-        // fetch); here there is no replacement provider, so the guard must close as early as
-        // possible. All @Volatile writes below are safe without the mutex for the same reason as
-        // registerProvider: they only need to be visible, not read-modify-written atomically.
-        provider = null
-        inFlightFetch?.cancel()
-        inFlightFetch = null
-        refreshJob?.cancel()
-        refreshJob = null
-        refreshAtWallClockMs = null
-        refreshTimerFired = false
-        cancelConnectivityWaitJob()
-        refreshGeneration.incrementAndGet()
-        // Advance profileGeneration so any pending clearTokenState(expectedGeneration) from a
-        // prior resetProfile() sees the generation mismatch and skips — the state was already
-        // cleared here.
-        profileGeneration.incrementAndGet()
-        // Bump resetGeneration to signal a logout-like event: any performScheduledRefresh that
-        // was in-flight when this ran will see a generation mismatch in shouldArmConnectivityRetry
-        // and skip arming a connectivity retry for the now-cleared session.
-        resetGeneration.incrementAndGet()
-        // Null the cache BEFORE clearing profileResetPending. An in-flight doFetch() that has
-        // already fetched its token checks `cachedToken?.rawToken == token.rawToken &&
-        // !profileResetPending` before notifying observers. If invalidate() was called just before
-        // unregister (typical logout: resetProfile → unregisterAuthTokenProvider), profileResetPending
-        // is true — the suppression flag. Clearing it before nulling the cache opens a window where
-        // the in-flight fetch passes both guards and delivers a now-invalid JWT to observers.
-        // Nulling the cache first closes that window: the rawToken comparison fails (null != token),
-        // so the notify path is skipped regardless of profileResetPending. This matches the ordering
-        // in clearTokenState(), which also nulls cachedToken before clearing profileResetPending.
-        cachedToken = null
-        profileResetPending = false
-        Registry.log.info("AuthTokenProvider unregistered")
+        val didUnregister = synchronized(stateLock) {
+            if (state.provider == null) return@synchronized false
+            state.provider = null
+            state.profileGeneration++
+            state.resetGeneration++
+            cancelInFlightFetchLocked()
+            cancelRefreshLocked()
+            cancelConnectivityWaitLocked()
+            state.cachedToken = null
+            state.profileResetPending = false
+            true
+        }
+        if (didUnregister) Registry.log.info("AuthTokenProvider unregistered")
     }
 
     override fun onTokenRefresh(observer: TokenRefreshObserver) {
-        refreshObservers.add(observer)
+        synchronized(stateLock) { state.refreshObservers.add(observer) }
     }
 
     override fun offTokenRefresh(observer: TokenRefreshObserver) {
-        refreshObservers.remove(observer)
+        synchronized(stateLock) { state.refreshObservers.remove(observer) }
     }
 
-    override fun invalidate(): Long {
-        // Set the flag before bumping the generation so that any performScheduledRefresh that
-        // reads the flag after this call (regardless of when its fetch started) will skip observers.
-        profileResetPending = true
-        // Also bump resetGeneration so shouldArmConnectivityRetry can detect a logout-triggered
-        // failure even after clearTokenState() has cleared profileResetPending.
-        resetGeneration.incrementAndGet()
-        return profileGeneration.incrementAndGet()
+    override fun invalidate(): Long = synchronized(stateLock) {
+        state.profileResetPending = true
+        state.profileGeneration++
+        state.resetGeneration++
+        state.profileGeneration
     }
 
     override suspend fun clearTokenState(expectedGeneration: Long) {
-        var cleared = false
-        mutex.withLock {
-            // If the caller captured a generation via invalidate() and a new provider has since
-            // been registered (profileGeneration advanced), skip the clear to avoid wiping the
-            // new session's token cache and refresh schedule.
-            if (expectedGeneration >= 0L && profileGeneration.get() != expectedGeneration) {
+        val cleared = synchronized(stateLock) {
+            if (expectedGeneration >= 0L && state.profileGeneration != expectedGeneration) {
                 Registry.log.verbose(
                     "clearTokenState: skipped — provider re-registered since reset"
                 )
-                return@withLock
+                return@synchronized false
             }
-            inFlightFetch?.cancel()
-            inFlightFetch = null
-            refreshJob?.cancel()
-            refreshJob = null
-            refreshAtWallClockMs = null
-            refreshTimerFired = false
-            refreshGeneration.incrementAndGet()
-            cancelConnectivityWaitJob()
-            cachedToken = null
-            profileGeneration.incrementAndGet()
-            // Also advance resetGeneration so that any performScheduledRefresh that started before
-            // this clear cannot arm a zombie connectivity job even when profileResetPending has been
-            // cleared by the time its catch block executes.
-            resetGeneration.incrementAndGet()
-            // Clear the reset-pending flag so the next successful refresh (from a new or retained
-            // provider) can notify observers normally.
-            profileResetPending = false
-            cleared = true
+            cancelInFlightFetchLocked()
+            cancelRefreshLocked()
+            cancelConnectivityWaitLocked()
+            state.cachedToken = null
+            state.profileGeneration++
+            state.resetGeneration++
+            state.profileResetPending = false
+            true
         }
         if (cleared) Registry.log.info("Token state cleared")
     }
+
+    override suspend fun currentToken(timeoutMs: Long): ValidatedToken =
+        getOrFetchToken(timeoutMs = timeoutMs, allowCachedToken = true)
 
     private suspend fun tryEagerFetch() {
         try {
             currentToken(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS)
         } catch (e: CancellationException) {
-            // Preserve structured concurrency by rethrowing cancellation.
             throw e
         } catch (_: Exception) {
-            // The failure is already logged at ERROR by validateOrThrow, by the timeout path, or
-            // surfaced by the provider's own onFailure. Nothing more to log here.
+            // Validation and timeout paths already log. Provider failures remain caller-owned.
         }
     }
 
-    override suspend fun currentToken(timeoutMs: Long): ValidatedToken {
-        return getOrFetchToken(timeoutMs = timeoutMs, allowCachedToken = true)
-    }
-
     /**
-     * Shared implementation behind [currentToken]. Split out so the
-     * `allowCachedToken` knob stays off the public [AuthTokenManager] interface —
-     * external callers always get the cache-honoring behavior.
-     *
-     * @param allowCachedToken When `true` (the [currentToken] path), a still-valid
-     *   cached token short-circuits both the optimistic pre-lock read and the
-     *   double-checked read under the mutex. When `false`, both reads are skipped
-     *   and the call always resolves through the in-flight fetch, forcing a fresh
-     *   provider invocation even if the cache is currently valid.
-     *
-     *   Only the proactive-refresh path ([performScheduledRefresh]) passes `false`:
-     *   a refresh fires *because* the cached token is aging, so returning that
-     *   still-valid token would make the refresh a no-op. Note this only bypasses
-     *   the *read* — dedup still applies (a concurrent fetch is joined, not
-     *   duplicated, via [inFlightFetch]), and the existing cache is left intact so
-     *   demand callers keep getting the valid token while the refresh runs.
+     * Resolves cache hits and fetch deduplication through the serialized [state]. A shared fetch
+     * reports a value outcome instead of cancelling its result deferred, so a provider replacement
+     * can be distinguished from a provider that deliberately reports [CancellationException].
      */
     private suspend fun getOrFetchToken(
         timeoutMs: Long,
         allowCachedToken: Boolean
     ): ValidatedToken {
         require(timeoutMs > 0L) { "timeoutMs must be positive, but was $timeoutMs" }
-        if (provider == null) throw AuthTokenException.NoProviderRegistered
 
-        if (allowCachedToken) {
-            // Optimistic read of @Volatile fields — no lock needed for the fast path.
-            // Skip the cache while a profile reset is pending: invalidate() has fired but
-            // clearTokenState() hasn't run yet, so cachedToken still holds the outgoing JWT.
-            usableCachedToken(cachedToken)?.let { return it }
-        }
-
-        // Atomic read-or-create of the in-flight deferred. The mutex ensures exactly one
-        // scope.async { } is launched when multiple callers miss the cache simultaneously.
-        val deferred: Deferred<ValidatedToken> = mutex.withLock {
-            // Re-check under the lock; a concurrent caller may have populated the cache while
-            // we waited. Non-local return exits getOrFetchToken() directly.
-            if (allowCachedToken) usableCachedToken(cachedToken)?.let { return it }
-
-            inFlightFetch ?: scope.async { doFetch() }.also { d ->
-                inFlightFetch = d
-                // Reference-identity check: prevents a stale deferred's completion handler from
-                // clearing a freshly-created deferred after a concurrent provider swap.
-                d.invokeOnCompletion { if (inFlightFetch === d) inFlightFetch = null }
+        val token = withTimeoutOrNull(timeoutMs) {
+            while (true) {
+                when (val request = tokenRequest(allowCachedToken)) {
+                    is TokenRequest.Cached -> return@withTimeoutOrNull request.token
+                    is TokenRequest.Fetch -> when (val outcome = request.outcome.await()) {
+                        is FetchOutcome.Success -> return@withTimeoutOrNull outcome.token
+                        is FetchOutcome.Failure -> throw outcome.error
+                        FetchOutcome.Superseded -> continue
+                    }
+                }
             }
+            @Suppress("UNREACHABLE_CODE")
+            error("Token request loop terminated unexpectedly")
         }
 
-        // Each caller races its own timeout budget against the shared deferred. Timing out does
-        // NOT cancel the underlying task — other callers with a larger budget still benefit if
-        // the provider eventually responds.
-        //
-        // CancellationException handling: Deferred.await() throws CancellationException if the
-        // deferred is cancelled externally (e.g. by registerProvider swapping the provider). This
-        // would otherwise propagate to callers as if THEIR coroutine was cancelled, which breaks
-        // structured-concurrency semantics. We catch it, use ensureActive() to distinguish "our
-        // coroutine was cancelled" (rethrow — normal teardown) from "the deferred was cancelled
-        // by a provider swap" (retry — pick up the new provider's fetch transparently).
-        //
-        // Budget: the retry calls currentToken(timeoutMs) inside this same withTimeoutOrNull block,
-        // so the caller's original deadline governs the total wait end-to-end. The recursive call
-        // creates a fresh inner withTimeoutOrNull(timeoutMs) starting from the current time, but
-        // the outer one fires first if the budget is nearly exhausted. This is intentional — the
-        // caller asked for a response within timeoutMs of their call site, not of the swap.
-        return withTimeoutOrNull(timeoutMs) {
-            try {
-                deferred.await()
-            } catch (e: CancellationException) {
-                currentCoroutineContext().ensureActive()
-                getOrFetchToken(timeoutMs = timeoutMs, allowCachedToken = allowCachedToken)
+        if (token != null) return token
+        val error = AuthTokenException.TimedOut
+        Registry.log.warning(requireNotNull(error.message), error)
+        throw error
+    }
+
+    private fun tokenRequest(allowCachedToken: Boolean): TokenRequest {
+        var fetchToStart: InFlightFetch? = null
+        val request = synchronized(stateLock) {
+            val provider = state.provider ?: throw AuthTokenException.NoProviderRegistered
+            if (allowCachedToken) {
+                usableCachedTokenLocked()?.let { return@synchronized TokenRequest.Cached(it) }
             }
-        } ?: run {
-            val error = AuthTokenException.TimedOut
-            Registry.log.warning(requireNotNull(error.message), error)
-            throw error
+            val inFlight = state.inFlightFetch ?: createFetchLocked(provider).also {
+                state.inFlightFetch = it
+                fetchToStart = it
+            }
+            TokenRequest.Fetch(inFlight.outcome)
         }
+        // Start only after publishing the slot and releasing stateLock. This remains safe if a
+        // concurrent lifecycle transition retires the lazy job before start() is reached.
+        fetchToStart?.job?.start()
+        return request
     }
 
     /**
-     * Invoke the provider, validate the returned JWT, write to the cache, notify refresh
-     * observers, and return the token. Runs inside [scope].async so failures (provider error,
-     * validation error) are captured by the Deferred and re-thrown to all awaiting callers.
-     *
-     * Every token acquisition funnels through here — the initial demand fetch as well as a
-     * proactive refresh — so notifying observers here (rather than only from
-     * [performScheduledRefresh]) guarantees consumers such as the forms WebView pick up a token
-     * that resolves *after* their own interactive-timeout fetch already gave up. Fetch dedup means
-     * a single [doFetch] shared by multiple callers still notifies exactly once.
+     * Creates the shared fetch slot before starting its coroutine. A synchronous host callback can
+     * therefore never complete before [state.inFlightFetch] contains the matching fetch identity.
      */
-    private suspend fun doFetch(): ValidatedToken {
-        val jwt = invokeProvider()
-        val token = validateOrThrow(jwt)
-        // Non-suspending cancellation check: if this deferred was cancelled (e.g. by a provider
-        // swap) after invokeProvider() returned but before we write the cache, bail out now.
-        // mutex.withLock does NOT check cancellation when the lock is uncontended, so this guard
-        // is required even when the mutex is free.
-        currentCoroutineContext().ensureActive()
-        mutex.withLock {
-            cachedToken = token
-            scheduleRefresh(token)
-        }
-        Registry.log.info(
-            "Auth token acquired (exp=${token.expiresAtEpochSeconds}, iat=${token.issuedAtEpochSeconds})"
-        )
-        // Notify observers of the freshly acquired token, outside the mutex — an observer may
-        // re-enter the manager and the lock is non-reentrant. Two-part stale guard (both @Volatile
-        // reads):
-        // 1. Cache check: clearTokenState() may have nulled cachedToken while the fetch was
-        //    suspended; skip if this token is no longer the live value.
-        // 2. Reset-pending check: invalidate() sets profileResetPending synchronously (from
-        //    resetProfile()) before the async clearTokenState() runs. A fetch that completes while
-        //    a logout reset is pending must not broadcast to observers, regardless of whether it
-        //    started before or after invalidate(). The flag is cleared by clearTokenState() and
-        //    registerProvider(). Dispatch is best-effort; the small TOCTOU window on these volatile
-        //    reads is acceptable (see notifyRefreshObservers KDoc).
-        if (cachedToken?.rawToken == token.rawToken && !profileResetPending) {
-            notifyRefreshObservers(token.rawToken)
-        }
-        return token
-    }
-
-    private suspend fun invokeProvider(): String = suspendCancellableCoroutine { continuation ->
-        val callback = object : AuthTokenProvider.Callback {
-            override fun onSuccess(jwt: String) {
-                if (continuation.isActive) continuation.resume(jwt)
+    private fun createFetchLocked(provider: AuthTokenProvider): InFlightFetch {
+        val fetchId = ++state.nextFetchId
+        val profileGeneration = state.profileGeneration
+        val outcome = CompletableDeferred<FetchOutcome>()
+        val job = scope.safeLaunch(start = CoroutineStart.LAZY) {
+            val result = try {
+                val jwt = invokeProvider(provider)
+                FetchOutcome.Success(validateOrThrow(jwt))
+            } catch (e: CancellationException) {
+                if (!currentCoroutineContext().isActive) return@safeLaunch
+                FetchOutcome.Failure(e)
+            } catch (e: Throwable) {
+                FetchOutcome.Failure(e)
             }
-
-            override fun onFailure(error: Throwable) {
-                if (continuation.isActive) continuation.resumeWithException(error)
-            }
+            completeFetch(fetchId, profileGeneration, result)
         }
-        provider?.fetchToken(callback) ?: continuation.resumeWithException(
-            AuthTokenException.NoProviderRegistered
+        return InFlightFetch(
+            id = fetchId,
+            profileGeneration = profileGeneration,
+            outcome = outcome,
+            job = job
         )
     }
+
+    /**
+     * Commits a provider result only when both the fetch identity and profile generation still
+     * match. Provider replacement, unregister, and clear synchronously retire the slot. Invalidate
+     * advances the generation so its late result may satisfy the original waiter but cannot cache
+     * or publish a stale JWT.
+     */
+    private fun completeFetch(
+        fetchId: Long,
+        profileGeneration: Long,
+        result: FetchOutcome
+    ) {
+        synchronized(stateLock) {
+            val inFlight = state.inFlightFetch
+            if (inFlight?.id != fetchId ||
+                inFlight.profileGeneration != profileGeneration
+            ) {
+                return
+            }
+
+            if (state.profileGeneration != profileGeneration) {
+                state.inFlightFetch = null
+                // invalidate() advances the profile generation without cancelling the provider
+                // callback. Its direct waiter still receives that outcome, but the token is never
+                // committed or broadcast. Provider replacement and full clear retire the slot
+                // synchronously, so their late completions never reach this branch.
+                if (state.profileResetPending) {
+                    inFlight.outcome.complete(result)
+                } else {
+                    inFlight.outcome.complete(FetchOutcome.Superseded)
+                }
+                return
+            }
+
+            state.inFlightFetch = null
+            when (result) {
+                is FetchOutcome.Failure -> inFlight.outcome.complete(result)
+                FetchOutcome.Superseded -> inFlight.outcome.complete(FetchOutcome.Superseded)
+                is FetchOutcome.Success -> {
+                    // Fetches started while reset is pending may satisfy their direct caller, but
+                    // cannot become shared state or publish to observers.
+                    if (state.profileResetPending) {
+                        inFlight.outcome.complete(result)
+                        return
+                    }
+
+                    state.cachedToken = result.token
+                    scheduleRefreshLocked(result.token)
+                    inFlight.outcome.complete(result)
+                    Registry.log.info(
+                        "Auth token acquired " +
+                            "(exp=${result.token.expiresAtEpochSeconds}, " +
+                            "iat=${result.token.issuedAtEpochSeconds})"
+                    )
+                    notifyRefreshObserversLocked(result.token, profileGeneration)
+                }
+            }
+        }
+    }
+
+    private suspend fun invokeProvider(provider: AuthTokenProvider): String =
+        suspendCancellableCoroutine { continuation ->
+            val callback = object : AuthTokenProvider.Callback {
+                override fun onSuccess(jwt: String) {
+                    if (continuation.isActive) continuation.resume(jwt)
+                }
+
+                override fun onFailure(error: Throwable) {
+                    if (continuation.isActive) continuation.resumeWithException(error)
+                }
+            }
+            provider.fetchToken(callback)
+        }
 
     private fun validateOrThrow(jwt: String): ValidatedToken =
         when (val result = JWTParser.parseAndValidate(jwt)) {
@@ -411,81 +291,66 @@ internal class KlaviyoAuthTokenManager(
             }
         }
 
-    /**
-     * Returns [token] if it is non-null, still valid per [isStillValid], and no profile reset is
-     * pending; otherwise returns `null`. Centralizes the cache-eligibility gate used in both the
-     * optimistic pre-lock read and the mutex-protected double-check inside [getOrFetchToken].
-     */
-    private fun usableCachedToken(token: ValidatedToken?): ValidatedToken? =
-        if (token != null && isStillValid(token) && !profileResetPending) token else null
+    private fun usableCachedTokenLocked(): ValidatedToken? = state.cachedToken?.takeIf {
+        isStillValid(it) && !state.profileResetPending
+    }
 
     private fun isStillValid(token: ValidatedToken): Boolean {
         val now = Registry.clock.currentTimeMillis() / 1000L
         return now < token.expiresAtEpochSeconds - JWTParser.DEFAULT_LEEWAY_SECONDS
     }
 
-    /**
-     * Called under mutex (from [doFetch]). Non-suspending; safe inside withLock.
-     */
-    private fun scheduleRefresh(token: ValidatedToken) {
+    private fun cancelInFlightFetchLocked() {
+        val inFlight = state.inFlightFetch ?: return
+        state.inFlightFetch = null
+        inFlight.outcome.complete(FetchOutcome.Superseded)
+        inFlight.job.cancel()
+    }
+
+    private fun cancelRefreshLocked() {
+        state.refreshGeneration++
+        state.refreshJob?.cancel()
+        state.refreshJob = null
+        state.refreshAtWallClockMs = null
+        state.refreshTimerFired = false
+    }
+
+    private fun scheduleRefreshLocked(token: ValidatedToken) {
         val nowMs = Registry.clock.currentTimeMillis()
         val targetMs = computeRefreshTarget(token, nowMs)
-        // Bump the generation before cancelling so that if cancel() synchronously fires the old
-        // task (e.g. FireOnCancelClock in tests), the task sees a stale generation and self-aborts.
-        val generation = refreshGeneration.incrementAndGet()
-        refreshJob?.cancel()
-        refreshTimerFired = false
-        refreshAtWallClockMs = targetMs
-        refreshJob = Registry.clock.schedule((targetMs - nowMs).coerceAtLeast(0)) {
-            scope.safeLaunch {
-                if (markRefreshTimerFired(generation)) {
-                    performScheduledRefresh(generation)
-                }
-            }
+        val generation = ++state.refreshGeneration
+        state.refreshJob?.cancel()
+        state.refreshTimerFired = false
+        state.refreshAtWallClockMs = targetMs
+        state.refreshJob = Registry.clock.schedule((targetMs - nowMs).coerceAtLeast(0L)) {
+            onRefreshTimer(generation)
         }
         Registry.log.info(
             "Proactive token refresh scheduled (target=${Registry.clock.isoTime(targetMs)})"
         )
     }
 
-    private suspend fun markRefreshTimerFired(generation: Long): Boolean =
-        mutex.withLock {
-            if (refreshGeneration.get() != generation) return@withLock false
-            refreshTimerFired = true
+    private fun onRefreshTimer(generation: Long) {
+        val shouldRefresh = synchronized(stateLock) {
+            if (state.refreshGeneration != generation) return@synchronized false
+            state.refreshTimerFired = true
             true
         }
+        if (shouldRefresh) {
+            scope.safeLaunch { performScheduledRefresh(timerGeneration = generation) }
+        }
+    }
 
-    /**
-     * Forces a fresh provider invocation and routes through the standard dedup + timeout path.
-     * Leaves the existing cache intact so callers can keep using it while refresh is in-flight,
-     * even if the refresh attempt fails; any concurrent caller that arrives while refresh is
-     * in-flight shares the single in-flight Deferred automatically.
-     *
-     * On success, registered [TokenRefreshObserver]s are notified with the new JWT from within
-     * [doFetch] (the shared acquisition path this call resolves through), under its stale guard —
-     * so notification is not repeated here.
-     *
-     * Logs at WARNING on failure — the still-valid cached token remains for live consumers.
-     * On failure does NOT reschedule; one foreground-transition retry is possible if
-     * [refreshAtWallClockMs] was not yet cleared (timer fired but fetch failed).
-     */
     private suspend fun performScheduledRefresh(
         timerGeneration: Long? = null,
         allowImmediateConnectivityRetry: Boolean = true
     ) {
-        // Snapshot the reset generation before suspending into the network fetch. If a logout or
-        // token-state clear (invalidate / clearTokenState) fires while the fetch is in progress,
-        // the catch block must not arm a connectivity retry for the now-stale session. We use
-        // resetGeneration rather than profileGeneration so that a benign provider swap
-        // (registerProvider without a logout) does not falsely suppress the retry for the new
-        // session — registerProvider does not bump resetGeneration.
-        val resetGenerationAtStart = resetGeneration.get()
-        if (provider == null) return
+        val resetGenerationAtStart = synchronized(stateLock) {
+            if (state.provider == null) return
+            state.resetGeneration
+        }
         Registry.log.info("Proactive token refresh fired")
         try {
-            // allowCachedToken = false always resolves through a doFetch (a fresh one, or a shared
-            // in-flight one), which broadcasts the refreshed token to observers under its stale
-            // guard — so there is no separate notify step here.
             getOrFetchToken(
                 timeoutMs = AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,
                 allowCachedToken = false
@@ -496,7 +361,13 @@ internal class KlaviyoAuthTokenManager(
         } catch (e: Exception) {
             if (timerGeneration != null) clearFiredFlagForFailedRefresh(timerGeneration)
             Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
-            if (shouldArmConnectivityRetry(e, resetGenerationAtStart)) {
+            val shouldWait = synchronized(stateLock) {
+                state.resetGeneration == resetGenerationAtStart &&
+                    isNetworkException(e) &&
+                    state.provider != null &&
+                    !state.profileResetPending
+            }
+            if (shouldWait) {
                 armConnectivityWaitJob(
                     resumeImmediatelyIfConnected = allowImmediateConnectivityRetry
                 )
@@ -504,45 +375,33 @@ internal class KlaviyoAuthTokenManager(
         }
     }
 
-    /**
-     * Returns true when a proactive-refresh failure should trigger a connectivity wait job.
-     *
-     * All four conditions must hold:
-     * - [resetGeneration] matches [resetGenerationAtStart]: no logout or state-clear
-     *   (invalidate / clearTokenState) occurred while the refresh was suspended. We use
-     *   [resetGeneration] rather than [profileGeneration] so that a benign provider swap
-     *   (registerProvider without a logout) does not falsely suppress retry — registerProvider
-     *   does not bump [resetGeneration].
-     * - The exception is a transient network error ([isNetworkException]): server errors and
-     *   validation failures should not trigger a connectivity retry.
-     * - [provider] is still set: a concurrent teardown may have cleared it.
-     * - No profile reset is pending ([profileResetPending]): guards against the window between
-     *   invalidate() and clearTokenState() where the flag is still true.
-     */
-    private fun shouldArmConnectivityRetry(
-        exception: Exception,
-        resetGenerationAtStart: Long
-    ): Boolean =
-        resetGeneration.get() == resetGenerationAtStart &&
-            isNetworkException(exception) &&
-            provider != null &&
-            !profileResetPending
+    private fun clearFiredFlagForFailedRefresh(timerGeneration: Long) {
+        synchronized(stateLock) {
+            if (state.refreshGeneration == timerGeneration) {
+                state.refreshTimerFired = false
+            }
+        }
+    }
 
     /**
-     * Iterates [refreshObservers] and invokes each with [jwt]. Best-effort: if an observer throws,
-     * the exception is logged at WARNING and the remaining observers are still called.
+     * Observer delivery is part of the same serialized transition as the cache commit. Because a
+     * JVM monitor is reentrant, an observer may call a synchronous manager API without deadlocking;
+     * the generation guard is re-checked before each remaining callback in case it does so.
      */
-    private fun notifyRefreshObservers(jwt: String) {
-        refreshObservers.forEach { observer ->
+    private fun notifyRefreshObserversLocked(token: ValidatedToken, profileGeneration: Long) {
+        val observers = state.refreshObservers.toList()
+        observers.forEach { observer ->
+            if (state.profileGeneration != profileGeneration ||
+                state.profileResetPending ||
+                state.cachedToken?.rawToken != token.rawToken
+            ) {
+                return
+            }
             try {
-                observer(jwt)
+                observer(token.rawToken)
             } catch (e: CancellationException) {
-                // Structured-concurrency contract: CancellationException must never be swallowed.
                 throw e
             } catch (e: Exception) {
-                // Best-effort dispatch: log and continue so a misbehaving observer cannot block
-                // others from receiving the token. JVM-fatal Errors (OOM, StackOverflowError, etc.)
-                // are intentionally NOT caught here — they should propagate.
                 Registry.log.warning(
                     "TokenRefreshObserver threw ${e.javaClass.simpleName} — skipping",
                     e
@@ -551,114 +410,78 @@ internal class KlaviyoAuthTokenManager(
         }
     }
 
-    private suspend fun clearFiredFlagForFailedRefresh(timerGeneration: Long) {
-        mutex.withLock {
-            if (refreshGeneration.get() == timerGeneration) {
-                refreshTimerFired = false
-            }
-        }
-    }
-
-    /**
-     * Returns `true` for exceptions that indicate genuine offline conditions.
-     * [UnknownHostException], [SocketTimeoutException], and [ConnectException] are all subtypes of
-     * [IOException]; they are listed explicitly to document the specific failure modes that warrant
-     * a connectivity-driven retry. HTTP errors, validation failures, and server-side bugs return
-     * `false` and must not trigger a connectivity retry (they won't resolve by waiting for the
-     * network).
-     */
     private fun isNetworkException(e: Exception): Boolean =
         e is UnknownHostException ||
             e is SocketTimeoutException ||
             e is ConnectException ||
             e is IOException
 
-    /**
-     * Arms [connectivityWaitJob]: a single coroutine on [scope] that suspends until the next
-     * "connectivity available" notification from [Registry.networkMonitor], then triggers a
-     * proactive refresh via [performScheduledRefresh].
-     *
-     * At most one job is active at a time. All [connectivityWaitJob] and
-     * [connectivityWaitGeneration] transitions are serialized via [connectivityWaitLock] so that
-     * concurrent calls (rapid flap) and racing teardown from [registerProvider]/[clearTokenState]
-     * cannot leave multiple active jobs or a stale assignment.
-     *
-     * @param resumeImmediatelyIfConnected When true (the default), the job resumes immediately if
-     * the device is already connected — [Registry.networkMonitor] does not replay state on observer
-     * registration. Pass false from the connectivity-retry path to prevent a tight loop: if the
-     * provider keeps failing with a network exception while the device stays online, a re-armed job
-     * with [resumeImmediatelyIfConnected]=false waits for an actual connectivity transition before
-     * retrying again.
-     *
-     * Only invoked from the proactive-refresh failure path ([performScheduledRefresh]); demand
-     * callers via [currentToken] are not retried here — they surface the error to their own caller.
-     */
     private fun armConnectivityWaitJob(resumeImmediatelyIfConnected: Boolean = true) {
         Registry.log.info(
             "AuthTokenManager: network failure — waiting for connectivity to retry refresh"
         )
-        // Serialize cancel → generation increment → launch → assign under one lock so that
-        // concurrent calls to armConnectivityWaitJob() and racing registerProvider()/
-        // clearTokenState() cannot produce multiple active jobs or a stale null-out.
-        val waitGeneration: Long
-        synchronized(connectivityWaitLock) {
-            connectivityWaitJob?.cancel()
-            waitGeneration = connectivityWaitGeneration.incrementAndGet()
-            connectivityWaitJob = scope.safeLaunch {
+        val waitJob = synchronized(stateLock) {
+            cancelConnectivityWaitLocked()
+            val generation = state.connectivityWaitGeneration
+            val job = scope.safeLaunch(start = CoroutineStart.LAZY) {
                 try {
-                    suspendCancellableCoroutine { continuation ->
-                        val resumed = AtomicBoolean(false)
-                        // Use a ref box so the lambda can capture and de-register itself.
-                        val observerRef = arrayOfNulls<NetworkObserver>(1)
-                        val observer: NetworkObserver = { isConnected ->
-                            // One-shot guard: AtomicBoolean ensures exactly one connectivity
-                            // event (including the immediate check below) resumes the coroutine.
-                            if (isConnected && resumed.compareAndSet(false, true)) {
-                                observerRef[0]?.let { Registry.networkMonitor.offNetworkChange(it) }
-                                if (continuation.isActive) continuation.resume(Unit)
-                            }
-                        }
-                        observerRef[0] = observer
-                        Registry.networkMonitor.onNetworkChange(observer)
-                        // Install cancellation handler AFTER registration so the handler can
-                        // never try to remove an observer that hasn't been registered yet.
-                        continuation.invokeOnCancellation {
-                            Registry.networkMonitor.offNetworkChange(observer)
-                        }
-                        // Resume immediately if already online — networkMonitor does not replay
-                        // state on registration (handles SocketTimeoutException on live network).
-                        // Skip on re-arm (resumeImmediatelyIfConnected=false) to prevent a tight
-                        // loop when the provider keeps failing with IOException while the device
-                        // stays connected; in that case we wait for an actual connectivity event.
-                        if (resumeImmediatelyIfConnected &&
-                            Registry.networkMonitor.isNetworkConnected() &&
-                            resumed.compareAndSet(false, true)
-                        ) {
-                            Registry.networkMonitor.offNetworkChange(observer)
-                            if (continuation.isActive) continuation.resume(Unit)
-                        }
-                    }
+                    awaitConnectivity(resumeImmediatelyIfConnected)
                     Registry.log.info(
                         "AuthTokenManager: connectivity restored — retrying proactive refresh"
                     )
-                    // Cancellation checkpoint: registerProvider()/clearTokenState() may have
-                    // cancelled this job after the connectivity event fired but before we retry.
                     currentCoroutineContext().ensureActive()
-                    // Pass allowImmediateConnectivityRetry=false so that if this retry also fails
-                    // with a network exception, the re-armed job will NOT immediately resume on an
-                    // already-connected device — avoiding a tight retry loop.
-                    performScheduledRefresh(allowImmediateConnectivityRetry = false)
+                    val isCurrent = synchronized(stateLock) {
+                        state.connectivityWait?.generation == generation
+                    }
+                    if (isCurrent) {
+                        performScheduledRefresh(allowImmediateConnectivityRetry = false)
+                    }
                 } finally {
-                    // Only clear the field if the generation still matches — a concurrent
-                    // re-arm may have replaced this job; if so leave the new job in place.
-                    synchronized(connectivityWaitLock) {
-                        if (connectivityWaitGeneration.get() == waitGeneration) {
-                            connectivityWaitJob = null
+                    synchronized(stateLock) {
+                        if (state.connectivityWait?.generation == generation) {
+                            state.connectivityWait = null
                         }
                     }
                 }
             }
+            state.connectivityWait = ConnectivityWait(generation, job)
+            job
         }
+        // Register the generation-tagged slot before starting work, but never invoke the network
+        // monitor while holding stateLock (including with an unconfined test dispatcher).
+        waitJob.start()
+    }
+
+    private suspend fun awaitConnectivity(resumeImmediatelyIfConnected: Boolean) {
+        suspendCancellableCoroutine<Unit> { continuation ->
+            val resumed = AtomicBoolean(false)
+            val observerRef = arrayOfNulls<NetworkObserver>(1)
+            val observer: NetworkObserver = { isConnected ->
+                if (isConnected && resumed.compareAndSet(false, true)) {
+                    observerRef[0]?.let { Registry.networkMonitor.offNetworkChange(it) }
+                    if (continuation.isActive) continuation.resume(Unit)
+                }
+            }
+            observerRef[0] = observer
+            Registry.networkMonitor.onNetworkChange(observer)
+            continuation.invokeOnCancellation {
+                Registry.networkMonitor.offNetworkChange(observer)
+            }
+            if (resumeImmediatelyIfConnected &&
+                Registry.networkMonitor.isNetworkConnected() &&
+                resumed.compareAndSet(false, true)
+            ) {
+                Registry.networkMonitor.offNetworkChange(observer)
+                if (continuation.isActive) continuation.resume(Unit)
+            }
+        }
+    }
+
+    private fun cancelConnectivityWaitLocked() {
+        val job = state.connectivityWait?.job
+        state.connectivityWaitGeneration++
+        state.connectivityWait = null
+        job?.cancel()
     }
 
     private fun onLifecycleEvent(event: ActivityEvent) {
@@ -666,59 +489,95 @@ internal class KlaviyoAuthTokenManager(
         scope.safeLaunch { handleForegroundTransition() }
     }
 
-    /**
-     * Reconciles cache and scheduled-refresh state on foreground transition.
-     * [safeLaunch] is non-suspending, so the mutex is released before any launched
-     * coroutine runs — no re-entrancy risk with [currentToken]'s own withLock call.
-     *
-     * Case 1 uses [tryEagerFetch] (`allowCachedToken = true`) because [cachedToken] is explicitly
-     * nulled before the launch, guaranteeing a cache miss without needing to bypass the cache.
-     * Case 2 uses [performScheduledRefresh] (`allowCachedToken = false`) because the cached token
-     * is still valid and must NOT be returned — we need a fresh provider call despite the hit.
-     */
-    private suspend fun handleForegroundTransition() {
+    private fun handleForegroundTransition() {
         val nowMs = Registry.clock.currentTimeMillis()
-        mutex.withLock {
-            val cached = cachedToken
-            val targetMs = refreshAtWallClockMs
+        val action = synchronized(stateLock) {
+            val cached = state.cachedToken
+            val targetMs = state.refreshAtWallClockMs
             when {
                 cached != null && !isStillValid(cached) -> {
-                    cachedToken = null
-                    refreshJob?.cancel()
-                    refreshJob = null
-                    refreshAtWallClockMs = null
-                    refreshTimerFired = false
-                    refreshGeneration.incrementAndGet()
-                    Registry.log.info(
-                        "AuthTokenManager: foreground transition (case=expired-cached-token)"
-                    )
-                    scope.safeLaunch { tryEagerFetch() }
+                    state.cachedToken = null
+                    cancelRefreshLocked()
+                    ForegroundAction.EagerFetch
                 }
-                targetMs != null && nowMs >= targetMs && !refreshTimerFired -> {
-                    refreshJob?.cancel()
-                    refreshJob = null
-                    refreshAtWallClockMs = null
-                    refreshTimerFired = false
-                    refreshGeneration.incrementAndGet()
-                    Registry.log.info(
-                        "AuthTokenManager: foreground transition (case=missed-refresh)"
-                    )
-                    scope.safeLaunch { performScheduledRefresh() }
+                targetMs != null && nowMs >= targetMs && !state.refreshTimerFired -> {
+                    cancelRefreshLocked()
+                    ForegroundAction.ScheduledRefresh
                 }
-                else -> Registry.log.info(
-                    "AuthTokenManager: foreground transition (case=still-valid)"
-                )
+                else -> ForegroundAction.None
             }
         }
+
+        when (action) {
+            ForegroundAction.EagerFetch -> {
+                Registry.log.info(
+                    "AuthTokenManager: foreground transition (case=expired-cached-token)"
+                )
+                scope.safeLaunch { tryEagerFetch() }
+            }
+            ForegroundAction.ScheduledRefresh -> {
+                Registry.log.info(
+                    "AuthTokenManager: foreground transition (case=missed-refresh)"
+                )
+                scope.safeLaunch { performScheduledRefresh() }
+            }
+            ForegroundAction.None -> Registry.log.info(
+                "AuthTokenManager: foreground transition (case=still-valid)"
+            )
+        }
+    }
+
+    private class State {
+        var provider: AuthTokenProvider? = null
+        var cachedToken: ValidatedToken? = null
+        var inFlightFetch: InFlightFetch? = null
+        var nextFetchId: Long = 0L
+        var refreshJob: Clock.Cancellable? = null
+        var refreshAtWallClockMs: Long? = null
+        var refreshTimerFired: Boolean = false
+        var refreshGeneration: Long = 0L
+        var profileGeneration: Long = 0L
+        var resetGeneration: Long = 0L
+        var profileResetPending: Boolean = false
+        val refreshObservers = mutableListOf<TokenRefreshObserver>()
+        var connectivityWait: ConnectivityWait? = null
+        var connectivityWaitGeneration: Long = 0L
+    }
+
+    private data class InFlightFetch(
+        val id: Long,
+        val profileGeneration: Long,
+        val outcome: CompletableDeferred<FetchOutcome>,
+        val job: Job
+    )
+
+    private data class ConnectivityWait(
+        val generation: Long,
+        val job: Job
+    )
+
+    private sealed interface FetchOutcome {
+        data class Success(val token: ValidatedToken) : FetchOutcome
+        data class Failure(val error: Throwable) : FetchOutcome
+        data object Superseded : FetchOutcome
+    }
+
+    private sealed interface TokenRequest {
+        data class Cached(val token: ValidatedToken) : TokenRequest
+        data class Fetch(val outcome: CompletableDeferred<FetchOutcome>) : TokenRequest
+    }
+
+    private enum class ForegroundAction {
+        EagerFetch,
+        ScheduledRefresh,
+        None
     }
 
     companion object {
         /**
          * Computes the absolute wall-clock target (epoch ms) for the next proactive refresh.
          *
-         * Ideal: iat + 0.9 * (exp - iat). Clamped to [now + 5s, exp - leeway]:
-         * - Upper bound: refresh fires before the token is considered stale.
-         * - Lower bound: prevents tight loops for tokens issued near their own expiry.
+         * Ideal: iat + 0.9 * (exp - iat). Clamped to [now + 5s, exp - leeway].
          */
         internal fun computeRefreshTarget(token: ValidatedToken, nowMs: Long): Long {
             val iatMs = token.issuedAtEpochSeconds * 1000L

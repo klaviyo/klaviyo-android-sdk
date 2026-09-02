@@ -142,6 +142,29 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
+    fun `provider cancellation is surfaced without retrying indefinitely`() = runTest(dispatcher) {
+        val cancellation = CancellationException("provider cancelled")
+        val provider = CountingFailureProvider(cancellation)
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        try {
+            manager.currentToken()
+            fail("Expected provider CancellationException")
+        } catch (e: CancellationException) {
+            assertEquals(cancellation.message, e.message)
+        }
+
+        assertEquals(
+            "eager fetch and explicit request should each invoke the provider exactly once",
+            2,
+            provider.callCount
+        )
+    }
+
+    @Test
     fun `currentToken throws ValidationFailed and logs error when returned jwt is malformed`() = runTest(
         dispatcher
     ) {
@@ -332,7 +355,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         manager.registerProvider(providerB)
         dispatcher.scheduler.advanceUntilIdle() // B's eager fetch completes → cache = freshToken
 
-        // A calls back late — its continuation is inactive (deferred was cancelled on swap).
+        // A calls back late — its retired fetch identity prevents the result from being committed.
         providerA.resolve(staleToken)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -345,10 +368,8 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     fun `caller waiting on in-flight fetch receives new provider token after provider swap`() = runTest(
         dispatcher
     ) {
-        // Regression: when registerProvider() cancels the in-flight deferred, deferred.await()
-        // throws CancellationException. Without the ensureActive() + retry fix in currentToken(),
-        // this propagates to the caller as if their coroutine was cancelled, breaking callers like
-        // KlaviyoWebViewClient that rethrow CancellationException for structured concurrency.
+        // A provider replacement retires the old shared result with Superseded. Waiting callers
+        // must transparently retry against the new provider rather than observing cancellation.
         val freshToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
         val providerA = ResolvableProvider()
         val providerB = SuccessProvider(freshToken)
@@ -369,9 +390,8 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         }
         dispatcher.scheduler.runCurrent() // caller reaches deferred.await()
 
-        // Swap to B while caller is suspended — A's deferred is cancelled, which would throw
-        // CancellationException to the caller without the fix. With the fix the caller retries
-        // and transparently picks up B's token.
+        // Swap to B while the caller is suspended. The old result becomes Superseded, so the
+        // caller retries and transparently picks up B's token.
         manager.registerProvider(providerB)
         dispatcher.scheduler.advanceUntilIdle() // B completes; caller's retry finds the cache
 
@@ -384,11 +404,8 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     fun `outer timeout budget is respected when provider swap triggers retry`() = runTest(
         dispatcher
     ) {
-        // When the in-flight deferred is cancelled by a provider swap, currentToken() retries
-        // inside the SAME withTimeoutOrNull block. The retry creates a fresh inner
-        // withTimeoutOrNull(timeoutMs) starting from the current time, but the outer one was
-        // set at original call-time and fires first if the budget is nearly exhausted — so the
-        // caller's original deadline governs the total wait end-to-end.
+        // A Superseded result retries inside the same withTimeoutOrNull block, so the caller's
+        // original deadline governs the total wait across both providers.
         val providerA = DeferredProvider() // never resolves
         val providerB = DeferredProvider() // never resolves
         val manager = KlaviyoAuthTokenManager()
@@ -428,10 +445,8 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     fun `provider swap does not write stale token when callback fires before cancellation`() = runTest(
         dispatcher
     ) {
-        // Regression test for the uncontended-mutex cancellation gap:
-        // If invokeProvider() already returned a value before the deferred is cancelled,
-        // ensureActive() in doFetch() must throw CancellationException before the cache write —
-        // even though mutex.withLock would acquire an uncontended lock without suspending.
+        // The provider callback has resolved, but its result has not yet reached the serialized
+        // completion transition when the provider is replaced.
         val staleToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
         val freshToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
         val providerA = ResolvableProvider()
@@ -445,11 +460,10 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         // A's doFetch() has not yet run past invokeProvider().
         providerA.resolve(staleToken)
 
-        // Swap to B *before* the scheduler runs A's resumed coroutine. Without ensureActive(),
-        // A's doFetch() would proceed through validateOrThrow and write staleToken to the cache
-        // on an uncontended mutex.withLock (no suspension → no cancellation check there).
+        // Swap to B before the scheduler runs A's resumed coroutine. Fetch identity and profile
+        // generation checks must reject A's stale completion even though its callback fired first.
         manager.registerProvider(providerB)
-        dispatcher.scheduler.advanceUntilIdle() // A hits ensureActive() and aborts; B completes
+        dispatcher.scheduler.advanceUntilIdle()
 
         val result = manager.currentToken()
         assertEquals(freshToken, result.rawToken)

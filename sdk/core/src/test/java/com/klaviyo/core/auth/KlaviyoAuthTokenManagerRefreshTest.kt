@@ -233,7 +233,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             // Advance clock past token expiry so the demand caller's optimistic read also misses
             staticClock.time = (EXP_SECONDS - JWTParser.DEFAULT_LEEWAY_SECONDS) * 1000L
 
-            // Demand caller: sees expired cache, falls through to mutex, finds and joins inFlightFetch
+            // Demand caller sees the expired cache and joins the serialized in-flight fetch.
             val demandToken = async { manager.currentToken() }
             dispatcher.scheduler.runCurrent()
 
@@ -706,6 +706,31 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     @Test
+    fun `profile invalidation during observer delivery suppresses remaining observers`() =
+        runTest(dispatcher) {
+            val jwt = makeJwt()
+            val manager = KlaviyoAuthTokenManager()
+            var firstObserverCalls = 0
+            val receivedBySecond = mutableListOf<String>()
+
+            manager.onTokenRefresh {
+                firstObserverCalls++
+                manager.invalidate()
+            }
+            manager.onTokenRefresh { receivedBySecond.add(it) }
+
+            manager.registerProvider(CountingSuccessProvider(jwt))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, firstObserverCalls)
+            assertEquals(
+                "a token invalidated during delivery must not reach later observers",
+                emptyList<String>(),
+                receivedBySecond
+            )
+        }
+
+    @Test
     fun `offTokenRefresh removes observer`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
         val manager = KlaviyoAuthTokenManager()
@@ -808,15 +833,8 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         runTest(dispatcher) {
             // Scenario: the scheduled refresh is in-flight when clearTokenState() runs.
             //
-            // Primary path verified: clearTokenState() cancels inFlightFetch, which sets the
-            // CancellationException flag on the in-flight Deferred. When provider.resolve() fires,
-            // invokeProvider()'s isActive guard drops the late callback and doFetch() never writes
-            // the cache. The assertion therefore passes via the cancellation path.
-            //
-            // Secondary defense: if a fetch were to survive cancellation and write its token to the
-            // cache, the stale-token guard in performScheduledRefresh() (cachedToken?.rawToken ==
-            // token.rawToken) would prevent broadcasting since clearTokenState() already nulled
-            // cachedToken. Both layers are exercised end-to-end; cancellation is the dominant path.
+            // clearTokenState() synchronously retires the shared fetch identity and cancels its
+            // worker. A callback that arrives afterward cannot commit or broadcast its token.
             val initialToken = makeJwt()
             val refreshedToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
             val provider = InitialThenResolvableProvider(initialToken)

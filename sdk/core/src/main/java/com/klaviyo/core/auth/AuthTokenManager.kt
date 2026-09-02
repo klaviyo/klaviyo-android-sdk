@@ -8,7 +8,8 @@ package com.klaviyo.core.auth
  * for the full [ValidatedToken] wrapper (exp/iat metadata) callers should use
  * [AuthTokenManager.currentToken].
  *
- * Observers are invoked on the manager's internal dispatcher (IO). If a thread handoff is needed
+ * Observers are invoked serially on the manager's internal dispatcher (IO). They should return
+ * promptly and must not block waiting for suspending manager work. If a thread handoff is needed
  * (e.g. for a WebView call that must run on the UI thread), the observer is responsible for it.
  */
 typealias TokenRefreshObserver = (jwt: String) -> Unit
@@ -87,10 +88,11 @@ interface AuthTokenManager {
      * including the initial fetch — so a consumer that subscribes while the first fetch is still in
      * flight (e.g. a form displayed before the token resolves) still receives it once it lands.
      *
-     * Multiple observers are supported. Each is invoked on the manager's internal dispatcher
-     * (IO); the observer is responsible for any thread handoff it needs (e.g. hopping to the UI
-     * thread for WebView calls). Dispatch is best-effort: if an observer throws an [Exception], it
-     * is logged at WARNING and remaining observers are still called.
+     * Multiple observers are supported. Each is invoked serially on the manager's internal
+     * dispatcher (IO); observers should return promptly and must not block waiting for suspending
+     * manager work. The observer is responsible for any thread handoff it needs (e.g. hopping to
+     * the UI thread for WebView calls). Dispatch is best-effort: if an observer throws an
+     * [Exception], it is logged at WARNING and remaining observers are still called.
      * [kotlinx.coroutines.CancellationException] is rethrown per structured-concurrency contract.
      *
      * Registration is by reference — pass the same lambda instance to [offTokenRefresh] to
