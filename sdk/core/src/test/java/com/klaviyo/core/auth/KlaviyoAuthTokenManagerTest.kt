@@ -195,6 +195,38 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
+    fun `caller waiting before invalidation discards outgoing result and retries`() =
+        runTest(dispatcher) {
+            val outgoingToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+            val nextToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+            val provider = ResolvableProvider()
+            val manager = KlaviyoAuthTokenManager()
+
+            manager.registerProvider(provider)
+            dispatcher.scheduler.runCurrent()
+            assertEquals(1, provider.callCount)
+
+            var received: ValidatedToken? = null
+            val waitingCaller = launch {
+                received = manager.currentToken()
+            }
+            dispatcher.scheduler.runCurrent()
+            assertEquals("caller should join the eager fetch", 1, provider.callCount)
+
+            manager.invalidate()
+            provider.resolve(outgoingToken)
+            dispatcher.scheduler.runCurrent()
+
+            assertEquals("outgoing token must be discarded", null, received)
+            assertEquals("caller retries against the current generation", 2, provider.callCount)
+
+            provider.resolve(nextToken)
+            dispatcher.scheduler.advanceUntilIdle()
+            waitingCaller.join()
+            assertEquals(nextToken, received?.rawToken)
+        }
+
+    @Test
     fun `currentToken throws ValidationFailed and logs error when returned jwt is malformed`() = runTest(
         dispatcher
     ) {

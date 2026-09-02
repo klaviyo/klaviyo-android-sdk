@@ -9,14 +9,19 @@ import io.mockk.every
 import io.mockk.slot
 import io.mockk.verify
 import java.util.Base64
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -730,6 +735,37 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
                 receivedBySecond
             )
         }
+
+    @Test
+    fun `slow observer does not block synchronous invalidation`() {
+        every { Registry.dispatcher } returns Dispatchers.IO
+        val observerStarted = CountDownLatch(1)
+        val releaseObserver = CountDownLatch(1)
+        val invalidationCompleted = CountDownLatch(1)
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.onTokenRefresh {
+            observerStarted.countDown()
+            releaseObserver.await(5, TimeUnit.SECONDS)
+        }
+        manager.registerProvider(CountingSuccessProvider(makeJwt()))
+        assertTrue("observer should begin delivery", observerStarted.await(5, TimeUnit.SECONDS))
+
+        val invalidationThread = Thread {
+            manager.invalidate()
+            invalidationCompleted.countDown()
+        }.apply { start() }
+        val completedWithoutObserver = invalidationCompleted.await(1, TimeUnit.SECONDS)
+
+        releaseObserver.countDown()
+        invalidationThread.join(5_000L)
+        manager.scope.cancel()
+
+        assertTrue(
+            "invalidate must not wait for host observer code to return",
+            completedWithoutObserver
+        )
+    }
 
     @Test
     fun `offTokenRefresh removes observer`() = runTest(dispatcher) {

@@ -71,6 +71,9 @@ interface AuthTokenManager {
      * of that single fetch rather than each triggering a new provider invocation. Each caller's
      * [timeoutMs] budget is enforced independently — a caller that times out does not cancel the
      * underlying fetch, so a later caller with a larger budget can still receive the result.
+     * If the profile is invalidated while a caller is waiting, an outgoing-profile success is
+     * discarded and the caller retries against the current generation within its original timeout
+     * budget.
      *
      * @param timeoutMs Maximum milliseconds to wait for the provider to return a token. Must be
      *   positive. Defaults to [BACKGROUND_FETCH_TIMEOUT_MS], pass [INTERACTIVE_FETCH_TIMEOUT_MS]
@@ -93,6 +96,8 @@ interface AuthTokenManager {
      * manager work. The observer is responsible for any thread handoff it needs (e.g. hopping to
      * the UI thread for WebView calls). Dispatch is best-effort: if an observer throws an
      * [Exception], it is logged at WARNING and remaining observers are still called.
+     * Delivery stops for the remaining observers if the token is invalidated during delivery
+     * (for example, an observer calls [invalidate], or a profile reset lands concurrently).
      * [kotlinx.coroutines.CancellationException] is rethrown per structured-concurrency contract.
      *
      * Registration is by reference — pass the same lambda instance to [offTokenRefresh] to

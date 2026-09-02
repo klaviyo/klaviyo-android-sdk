@@ -41,7 +41,8 @@ internal class KlaviyoAuthTokenManager(
     internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
 
     private val stateLock = Any()
-    private val observerDeliveryLock = Any()
+    private val completionBarrier = Any()
+    private val observerDispatchLock = Any()
     private val state = State()
 
     internal val connectivityWaitJob: Job?
@@ -52,7 +53,7 @@ internal class KlaviyoAuthTokenManager(
     }
 
     override fun registerProvider(provider: AuthTokenProvider) {
-        val transition = synchronized(observerDeliveryLock) {
+        val transition = synchronized(completionBarrier) {
             val lifecycleTransition = synchronized(stateLock) {
                 val cleanup = detachTokenStateLocked()
                 state.profileGeneration++
@@ -71,7 +72,7 @@ internal class KlaviyoAuthTokenManager(
     }
 
     override fun unregisterProvider() {
-        val didUnregister = synchronized(observerDeliveryLock) {
+        val didUnregister = synchronized(completionBarrier) {
             val cleanup = synchronized(stateLock) state@{
                 if (state.provider == null) return@state null
                 state.provider = null
@@ -98,10 +99,10 @@ internal class KlaviyoAuthTokenManager(
         synchronized(stateLock) { state.refreshObservers.remove(observer) }
     }
 
-    override fun invalidate(): Long = synchronized(observerDeliveryLock) {
+    override fun invalidate(): Long = synchronized(completionBarrier) {
         synchronized(stateLock) {
-            // Detach without cancelling: callers already waiting on this fetch retain its result,
-            // while callers arriving after invalidation can no longer join the outgoing profile.
+            // Detach without cancelling so completion remains orderly. Existing waiters revalidate
+            // the generation and retry; later callers cannot join the outgoing-profile fetch.
             state.inFlightFetch?.let(state.detachedFetches::add)
             state.inFlightFetch = null
             state.profileResetPending = true
@@ -112,7 +113,7 @@ internal class KlaviyoAuthTokenManager(
     }
 
     override suspend fun clearTokenState(expectedGeneration: Long) {
-        val cleared = synchronized(observerDeliveryLock) {
+        val cleared = synchronized(completionBarrier) {
             val cleanup = synchronized(stateLock) state@{
                 if (expectedGeneration >= 0L && state.profileGeneration != expectedGeneration) {
                     return@state null
@@ -246,61 +247,68 @@ internal class KlaviyoAuthTokenManager(
     /**
      * Commits a provider result only when both the fetch identity and profile generation still
      * match. Provider replacement, unregister, and clear synchronously retire the slot. Invalidate
-     * advances the generation so its late result may satisfy the original waiter but cannot cache
-     * or publish a stale JWT.
+     * advances the generation so an original waiter discards its late result and retries; the stale
+     * result cannot be cached, published, or returned.
      */
     private fun completeFetch(
         fetchId: Long,
         profileGeneration: Long,
         outcome: CompletableDeferred<FetchOutcome>,
         result: FetchOutcome
-    ) = synchronized(observerDeliveryLock) {
-        val scheduleTiming = (result as? FetchOutcome.Success)?.let {
-            val nowMs = Registry.clock.currentTimeMillis()
-            RefreshTiming(
-                nowMs = nowMs,
-                targetMs = computeRefreshTarget(it.token, nowMs)
-            )
-        }
-        val refreshPlan = synchronized(stateLock) state@{
-            val inFlight = state.inFlightFetch
-            if (inFlight?.id != fetchId ||
-                inFlight.profileGeneration != profileGeneration
-            ) {
-                state.detachedFetches.removeAll {
-                    it.id == fetchId && it.outcome === outcome
+    ) {
+        val tokenToNotify = synchronized(completionBarrier) {
+            val scheduleTiming = (result as? FetchOutcome.Success)?.let {
+                val nowMs = Registry.clock.currentTimeMillis()
+                RefreshTiming(
+                    nowMs = nowMs,
+                    targetMs = computeRefreshTarget(it.token, nowMs)
+                )
+            }
+            val refreshPlan = synchronized(stateLock) state@{
+                val inFlight = state.inFlightFetch
+                if (inFlight?.id != fetchId ||
+                    inFlight.profileGeneration != profileGeneration
+                ) {
+                    state.detachedFetches.removeAll {
+                        it.id == fetchId && it.outcome === outcome
+                    }
+                    return@state null
                 }
-                return@state null
+                state.inFlightFetch = null
+                if (state.profileGeneration != profileGeneration ||
+                    state.profileResetPending ||
+                    result !is FetchOutcome.Success
+                ) {
+                    return@state null
+                }
+
+                state.cachedToken = result.token
+                prepareRefreshScheduleLocked(requireNotNull(scheduleTiming))
             }
-            state.inFlightFetch = null
-            if (state.profileGeneration != profileGeneration ||
-                state.profileResetPending ||
-                result !is FetchOutcome.Success
-            ) {
-                return@state null
+
+            refreshPlan?.let(::installRefreshSchedule)
+            // Completing outside stateLock prevents unconfined waiters from observing a partially
+            // applied lifecycle transition or running application code under the global monitor.
+            outcome.complete(result)
+
+            val token = (result as? FetchOutcome.Success)?.token
+            if (refreshPlan != null && token != null) {
+                Registry.log.info(
+                    "Auth token acquired " +
+                        "(exp=${token.expiresAtEpochSeconds}, iat=${token.issuedAtEpochSeconds})"
+                )
+                token
+            } else {
+                null
             }
-
-            state.cachedToken = result.token
-            prepareRefreshScheduleLocked(requireNotNull(scheduleTiming))
         }
-
-        refreshPlan?.let(::installRefreshSchedule)
-        // Completing outside stateLock prevents unconfined waiters from observing a partially
-        // applied lifecycle transition or running application code under the global monitor.
-        outcome.complete(result)
-
-        val token = (result as? FetchOutcome.Success)?.token
-        if (refreshPlan != null && token != null) {
-            Registry.log.info(
-                "Auth token acquired " +
-                    "(exp=${token.expiresAtEpochSeconds}, iat=${token.issuedAtEpochSeconds})"
-            )
-            notifyRefreshObservers(token, profileGeneration)
-        }
+        // Host callbacks run after the completion/lifecycle barrier is released. They remain
+        // serialized by observerDispatchLock, which lifecycle APIs never acquire.
+        tokenToNotify?.let { notifyRefreshObservers(it, profileGeneration) }
     }
 
     private fun canReturnFetchResult(profileGeneration: Long): Boolean =
-        synchronized(observerDeliveryLock) {
+        synchronized(completionBarrier) {
             synchronized(stateLock) { state.profileGeneration == profileGeneration }
         }
 
@@ -439,13 +447,9 @@ internal class KlaviyoAuthTokenManager(
         timerGeneration: Long? = null,
         allowImmediateConnectivityRetry: Boolean = true
     ) {
-        val resetGenerationAtStart = synchronized(stateLock) {
+        val (profileGenerationAtStart, resetGenerationAtStart) = synchronized(stateLock) {
             if (!guard.matchesLocked() || state.provider == null) return
-            state.resetGeneration
-        }
-        val profileGenerationAtStart = synchronized(stateLock) {
-            if (!guard.matchesLocked() || state.provider == null) return
-            state.profileGeneration
+            state.profileGeneration to state.resetGeneration
         }
         Registry.log.info("Proactive token refresh fired")
         try {
@@ -481,7 +485,7 @@ internal class KlaviyoAuthTokenManager(
     }
 
     private fun notifyRefreshObservers(token: ValidatedToken, profileGeneration: Long) {
-        synchronized(observerDeliveryLock) {
+        synchronized(observerDispatchLock) {
             val observers = synchronized(stateLock) {
                 if (!canDeliverTokenLocked(token, profileGeneration)) return
                 state.refreshObservers.toList()
