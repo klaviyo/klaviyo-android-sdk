@@ -165,6 +165,36 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
+    fun `caller after invalidation cannot join outgoing profile fetch`() = runTest(dispatcher) {
+        val outgoingToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val nextToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val provider = ResolvableProvider()
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(1, provider.callCount)
+
+        manager.invalidate()
+        var received: ValidatedToken? = null
+        val postInvalidationCaller = launch {
+            received = manager.currentToken()
+        }
+        dispatcher.scheduler.runCurrent()
+        assertEquals("post-invalidation caller starts a distinct fetch", 2, provider.callCount)
+
+        provider.resolve(outgoingToken)
+        dispatcher.scheduler.runCurrent()
+        assertEquals("outgoing token must not satisfy the new caller", null, received)
+        assertEquals(false, postInvalidationCaller.isCompleted)
+
+        provider.resolve(nextToken)
+        dispatcher.scheduler.advanceUntilIdle()
+        postInvalidationCaller.join()
+        assertEquals(nextToken, received?.rawToken)
+    }
+
+    @Test
     fun `currentToken throws ValidationFailed and logs error when returned jwt is malformed`() = runTest(
         dispatcher
     ) {

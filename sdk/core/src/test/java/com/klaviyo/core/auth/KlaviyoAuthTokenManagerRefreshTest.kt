@@ -796,6 +796,29 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     @Test
+    fun `queued timer refresh cannot fetch after clearTokenState returns`() = runTest(dispatcher) {
+        val provider = CountingSuccessProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        // onRefreshTimer has authorized and queued its coroutine, but the test dispatcher has not
+        // run performScheduledRefresh yet.
+        manager.clearTokenState()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "teardown must invalidate background work queued before it returned",
+            1,
+            provider.callCount
+        )
+    }
+
+    @Test
     fun `clearTokenState retains provider and observers`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
         val manager = KlaviyoAuthTokenManager()

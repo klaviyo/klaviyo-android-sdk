@@ -566,6 +566,38 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     }
 
     @Test
+    fun `queued connectivity retry cannot fetch after clearTokenState returns`() = runTest(
+        dispatcher
+    ) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("network down")),
+                    Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        executeScheduledRefresh()
+        assertEquals(2, provider.callCount)
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        // The connectivity continuation is queued but has not reserved its retry fetch.
+        manager.clearTokenState()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "teardown must invalidate the queued connectivity retry",
+            2,
+            provider.callCount
+        )
+    }
+
+    @Test
     fun `clearTokenState with stale generation does not cancel connectivity wait job`() = runTest(
         dispatcher
     ) {
