@@ -9,13 +9,19 @@ import io.mockk.every
 import io.mockk.slot
 import io.mockk.verify
 import java.util.Base64
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -233,7 +239,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             // Advance clock past token expiry so the demand caller's optimistic read also misses
             staticClock.time = (EXP_SECONDS - JWTParser.DEFAULT_LEEWAY_SECONDS) * 1000L
 
-            // Demand caller: sees expired cache, falls through to mutex, finds and joins inFlightFetch
+            // Demand caller sees the expired cache and joins the serialized in-flight fetch.
             val demandToken = async { manager.currentToken() }
             dispatcher.scheduler.runCurrent()
 
@@ -706,6 +712,62 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     @Test
+    fun `profile invalidation during observer delivery suppresses remaining observers`() =
+        runTest(dispatcher) {
+            val jwt = makeJwt()
+            val manager = KlaviyoAuthTokenManager()
+            var firstObserverCalls = 0
+            val receivedBySecond = mutableListOf<String>()
+
+            manager.onTokenRefresh {
+                firstObserverCalls++
+                manager.invalidate()
+            }
+            manager.onTokenRefresh { receivedBySecond.add(it) }
+
+            manager.registerProvider(CountingSuccessProvider(jwt))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, firstObserverCalls)
+            assertEquals(
+                "a token invalidated during delivery must not reach later observers",
+                emptyList<String>(),
+                receivedBySecond
+            )
+        }
+
+    @Test
+    fun `slow observer does not block synchronous invalidation`() {
+        every { Registry.dispatcher } returns Dispatchers.IO
+        val observerStarted = CountDownLatch(1)
+        val releaseObserver = CountDownLatch(1)
+        val invalidationCompleted = CountDownLatch(1)
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.onTokenRefresh {
+            observerStarted.countDown()
+            releaseObserver.await(5, TimeUnit.SECONDS)
+        }
+        manager.registerProvider(CountingSuccessProvider(makeJwt()))
+        assertTrue("observer should begin delivery", observerStarted.await(5, TimeUnit.SECONDS))
+
+        val invalidationThread = Thread {
+            manager.invalidate()
+            invalidationCompleted.countDown()
+        }.apply { start() }
+        val completedWithoutObserver = invalidationCompleted.await(1, TimeUnit.SECONDS)
+
+        releaseObserver.countDown()
+        invalidationThread.join(5_000L)
+        manager.scope.cancel()
+
+        assertTrue(
+            "invalidate must not wait for host observer code to return",
+            completedWithoutObserver
+        )
+    }
+
+    @Test
     fun `offTokenRefresh removes observer`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
         val manager = KlaviyoAuthTokenManager()
@@ -771,6 +833,66 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     @Test
+    fun `queued timer refresh cannot fetch after clearTokenState returns`() = runTest(dispatcher) {
+        val provider = CountingSuccessProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        // onRefreshTimer has authorized and queued its coroutine, but the test dispatcher has not
+        // run performScheduledRefresh yet.
+        manager.clearTokenState()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "teardown must invalidate background work queued before it returned",
+            1,
+            provider.callCount
+        )
+    }
+
+    @Test
+    fun `teardown during refresh scheduling cannot return superseded fetch result`() = runTest(
+        dispatcher
+    ) {
+        val initialToken = makeJwt()
+        val supersededToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val currentToken = makeJwt(EXP_SECONDS + 1_200, IAT_SECONDS + 1_200)
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(initialToken),
+                    Result.success(supersededToken),
+                    Result.success(currentToken)
+                )
+            )
+        )
+        val interceptingClock = InterceptingClock(staticClock)
+        every { Registry.clock } returns interceptingClock
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        manager.clearTokenState()
+
+        interceptingClock.onNextSchedule = {
+            runBlocking { manager.clearTokenState() }
+        }
+        val result = manager.currentToken()
+
+        assertEquals(
+            "the caller must retry when teardown supersedes completion",
+            currentToken,
+            result.rawToken
+        )
+        assertEquals(3, provider.callCount)
+    }
+
+    @Test
     fun `clearTokenState retains provider and observers`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
         val manager = KlaviyoAuthTokenManager()
@@ -808,15 +930,8 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         runTest(dispatcher) {
             // Scenario: the scheduled refresh is in-flight when clearTokenState() runs.
             //
-            // Primary path verified: clearTokenState() cancels inFlightFetch, which sets the
-            // CancellationException flag on the in-flight Deferred. When provider.resolve() fires,
-            // invokeProvider()'s isActive guard drops the late callback and doFetch() never writes
-            // the cache. The assertion therefore passes via the cancellation path.
-            //
-            // Secondary defense: if a fetch were to survive cancellation and write its token to the
-            // cache, the stale-token guard in performScheduledRefresh() (cachedToken?.rawToken ==
-            // token.rawToken) would prevent broadcasting since clearTokenState() already nulled
-            // cachedToken. Both layers are exercised end-to-end; cancellation is the dominant path.
+            // clearTokenState() synchronously retires the shared fetch identity and cancels its
+            // worker. A callback that arrives afterward cannot commit or broadcast its token.
             val initialToken = makeJwt()
             val refreshedToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
             val provider = InitialThenResolvableProvider(initialToken)
@@ -1041,6 +1156,19 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         }
 
         class ScheduledTask(val time: Long, val task: () -> Unit)
+    }
+
+    private class InterceptingClock(private val delegate: Clock) : Clock {
+        var onNextSchedule: (() -> Unit)? = null
+
+        override fun currentTimeMillis(): Long = delegate.currentTimeMillis()
+
+        override fun isoTime(milliseconds: Long): String = delegate.isoTime(milliseconds)
+
+        override fun schedule(delay: Long, task: () -> Unit): Clock.Cancellable {
+            onNextSchedule?.also { onNextSchedule = null }?.invoke()
+            return delegate.schedule(delay, task)
+        }
     }
 
     private class CountingSuccessProvider(private val jwt: String) : AuthTokenProvider {

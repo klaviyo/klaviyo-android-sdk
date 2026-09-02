@@ -440,6 +440,41 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             assertEquals(0, fakeNetworkMonitor.observerCount())
         }
 
+    @Test
+    fun `provider replacement between failure and retry arm suppresses old retry`() = runTest(
+        dispatcher
+    ) {
+        val providerA = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("old provider failed"))
+                )
+            )
+        )
+        val providerB = ScriptedProvider(
+            ArrayDeque(
+                listOf(Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)))
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(providerA)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        every {
+            spyLog.warning(match { it.startsWith("Proactive token refresh failed") }, any())
+        } answers {
+            manager.registerProvider(providerB)
+        }
+
+        executeScheduledRefresh()
+
+        assertEquals(2, providerA.callCount)
+        assertEquals("new provider should only perform its eager fetch", 1, providerB.callCount)
+        assertNull(manager.connectivityWaitJob)
+        assertEquals(0, fakeNetworkMonitor.observerCount())
+    }
+
     // MARK: - Non-network failures do not arm the retry
 
     @Test
@@ -563,6 +598,38 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         fakeNetworkMonitor.simulateConnected(isConnected = true)
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals("no retry after clearTokenState", 2, provider.callCount)
+    }
+
+    @Test
+    fun `queued connectivity retry cannot fetch after clearTokenState returns`() = runTest(
+        dispatcher
+    ) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("network down")),
+                    Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        executeScheduledRefresh()
+        assertEquals(2, provider.callCount)
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        // The connectivity continuation is queued but has not reserved its retry fetch.
+        manager.clearTokenState()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "teardown must invalidate the queued connectivity retry",
+            2,
+            provider.callCount
+        )
     }
 
     @Test
