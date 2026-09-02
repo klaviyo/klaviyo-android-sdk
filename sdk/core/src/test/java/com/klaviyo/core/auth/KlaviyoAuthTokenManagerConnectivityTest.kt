@@ -440,6 +440,41 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             assertEquals(0, fakeNetworkMonitor.observerCount())
         }
 
+    @Test
+    fun `provider replacement between failure and retry arm suppresses old retry`() = runTest(
+        dispatcher
+    ) {
+        val providerA = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("old provider failed"))
+                )
+            )
+        )
+        val providerB = ScriptedProvider(
+            ArrayDeque(
+                listOf(Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)))
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(providerA)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        every {
+            spyLog.warning(match { it.startsWith("Proactive token refresh failed") }, any())
+        } answers {
+            manager.registerProvider(providerB)
+        }
+
+        executeScheduledRefresh()
+
+        assertEquals(2, providerA.callCount)
+        assertEquals("new provider should only perform its eager fetch", 1, providerB.callCount)
+        assertNull(manager.connectivityWaitJob)
+        assertEquals(0, fakeNetworkMonitor.observerCount())
+    }
+
     // MARK: - Non-network failures do not arm the retry
 
     @Test

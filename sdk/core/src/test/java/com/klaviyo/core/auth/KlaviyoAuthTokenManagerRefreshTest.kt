@@ -12,6 +12,7 @@ import java.util.Base64
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
@@ -819,6 +820,43 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     @Test
+    fun `teardown during refresh scheduling cannot return superseded fetch result`() = runTest(
+        dispatcher
+    ) {
+        val initialToken = makeJwt()
+        val supersededToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val currentToken = makeJwt(EXP_SECONDS + 1_200, IAT_SECONDS + 1_200)
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(initialToken),
+                    Result.success(supersededToken),
+                    Result.success(currentToken)
+                )
+            )
+        )
+        val interceptingClock = InterceptingClock(staticClock)
+        every { Registry.clock } returns interceptingClock
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        manager.clearTokenState()
+
+        interceptingClock.onNextSchedule = {
+            runBlocking { manager.clearTokenState() }
+        }
+        val result = manager.currentToken()
+
+        assertEquals(
+            "the caller must retry when teardown supersedes completion",
+            currentToken,
+            result.rawToken
+        )
+        assertEquals(3, provider.callCount)
+    }
+
+    @Test
     fun `clearTokenState retains provider and observers`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
         val manager = KlaviyoAuthTokenManager()
@@ -1082,6 +1120,19 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         }
 
         class ScheduledTask(val time: Long, val task: () -> Unit)
+    }
+
+    private class InterceptingClock(private val delegate: Clock) : Clock {
+        var onNextSchedule: (() -> Unit)? = null
+
+        override fun currentTimeMillis(): Long = delegate.currentTimeMillis()
+
+        override fun isoTime(milliseconds: Long): String = delegate.isoTime(milliseconds)
+
+        override fun schedule(delay: Long, task: () -> Unit): Clock.Cancellable {
+            onNextSchedule?.also { onNextSchedule = null }?.invoke()
+            return delegate.schedule(delay, task)
+        }
     }
 
     private class CountingSuccessProvider(private val jwt: String) : AuthTokenProvider {
