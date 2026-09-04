@@ -44,7 +44,7 @@ internal class GenericEventBufferTest : BaseTest() {
 
         val bufferedEvents = GenericEventBuffer.getEvents()
         assertEquals(1, bufferedEvents.size)
-        assertEquals(event, bufferedEvents[0])
+        assertSameEvent(event, bufferedEvents[0])
     }
 
     @Test
@@ -68,9 +68,9 @@ internal class GenericEventBufferTest : BaseTest() {
 
         val bufferedEvents = GenericEventBuffer.getEvents()
         assertEquals(3, bufferedEvents.size)
-        assertEquals(event1, bufferedEvents[0])
-        assertEquals(event2, bufferedEvents[1])
-        assertEquals(event3, bufferedEvents[2])
+        assertSameEvent(event1, bufferedEvents[0])
+        assertSameEvent(event2, bufferedEvents[1])
+        assertSameEvent(event3, bufferedEvents[2])
     }
 
     @Test
@@ -87,8 +87,8 @@ internal class GenericEventBufferTest : BaseTest() {
 
         val bufferedEvents = GenericEventBuffer.getEvents()
         assertEquals(2, bufferedEvents.size)
-        assertTrue(bufferedEvents.contains(event1))
-        assertTrue(bufferedEvents.contains(event2))
+        assertTrue(bufferedEvents.any { it.metric.name == event1.metric.name })
+        assertTrue(bufferedEvents.any { it.metric.name == event2.metric.name })
     }
 
     @Test
@@ -110,7 +110,7 @@ internal class GenericEventBufferTest : BaseTest() {
 
         val secondRetrieval = GenericEventBuffer.getEvents()
         assertEquals(1, secondRetrieval.size)
-        assertEquals(event, secondRetrieval[0])
+        assertSameEvent(event, secondRetrieval[0])
     }
 
     @Test
@@ -138,7 +138,7 @@ internal class GenericEventBufferTest : BaseTest() {
 
         val bufferedEvents = GenericEventBuffer.getEvents()
         assertEquals(1, bufferedEvents.size)
-        assertEquals(event2, bufferedEvents[0])
+        assertSameEvent(event2, bufferedEvents[0])
     }
 
     @Test
@@ -155,8 +155,8 @@ internal class GenericEventBufferTest : BaseTest() {
         assertEquals(10, bufferedEvents.size)
 
         // Should contain the most recent 10 events (6-15)
-        assertEquals(events[5], bufferedEvents[0]) // event_6
-        assertEquals(events[14], bufferedEvents[9]) // event_15
+        assertSameEvent(events[5], bufferedEvents[0]) // event_6
+        assertSameEvent(events[14], bufferedEvents[9]) // event_15
     }
 
     @Test
@@ -201,7 +201,8 @@ internal class GenericEventBufferTest : BaseTest() {
         events.forEach { GenericEventBuffer.addEvent(it) }
 
         val bufferedEvents = GenericEventBuffer.getEvents()
-        assertEquals(events, bufferedEvents)
+        events.zip(bufferedEvents).forEach { (expected, actual) -> assertSameEvent(expected, actual) }
+        assertEquals(events.size, bufferedEvents.size)
     }
 
     @Test
@@ -243,7 +244,7 @@ internal class GenericEventBufferTest : BaseTest() {
 
         val afterFirstTimeout = GenericEventBuffer.getEvents()
         assertEquals(1, afterFirstTimeout.size)
-        assertEquals(event2, afterFirstTimeout[0])
+        assertSameEvent(event2, afterFirstTimeout[0])
 
         advanceTimeBy(5_001)
 
@@ -261,7 +262,7 @@ internal class GenericEventBufferTest : BaseTest() {
 
         val bufferedEvents = GenericEventBuffer.getEvents()
         assertEquals(1, bufferedEvents.size)
-        assertEquals(event, bufferedEvents[0])
+        assertSameEvent(event, bufferedEvents[0])
     }
 
     @Test
@@ -301,5 +302,37 @@ internal class GenericEventBufferTest : BaseTest() {
 
         val bufferedEvents = GenericEventBuffer.getEvents()
         assertEquals(99.99, bufferedEvents[0].value)
+    }
+
+    @Test
+    fun `getEvents returns copies so consumers cannot mutate the buffered event`() {
+        val event = Event(EventMetric.CUSTOM("test_event")).apply {
+            uniqueId = "test-uuid"
+            setProperty(EventKey.TIME, 1234567890L)
+            value = 42.0
+        }
+
+        GenericEventBuffer.addEvent(event)
+
+        // Simulate a consumer that destructively reads the event, as KlaviyoJsBridge does
+        GenericEventBuffer.getEvents()[0].apply {
+            pop(EventKey.EVENT_ID)
+            pop(EventKey.TIME)
+            pop(EventKey.VALUE)
+        }
+
+        val replayed = GenericEventBuffer.getEvents()[0]
+        assertEquals("test-uuid", replayed.uniqueId)
+        assertEquals(1234567890L, replayed[EventKey.TIME])
+        assertEquals(42.0, replayed.value)
+    }
+
+    /**
+     * [Event] has no equals override, and the buffer hands out copies,
+     * so compare by metric and properties rather than instance.
+     */
+    private fun assertSameEvent(expected: Event, actual: Event) {
+        assertEquals(expected.metric.name, actual.metric.name)
+        assertEquals(expected.toMap(), actual.toMap())
     }
 }
