@@ -321,8 +321,8 @@ internal class KlaviyoStateTest : BaseTest() {
             bufferedEvents[0][EventKey.CUSTOM("Device ID")]
         )
 
-        // Verify the returned event is the same as the buffered event
-        assertEquals(enrichedEvent, bufferedEvents[0])
+        // Verify the returned event matches the buffered event (buffer hands out copies)
+        assertEquals(enrichedEvent.toMap(), bufferedEvents[0].toMap())
 
         // Verify the original event was NOT mutated
         assertNull(event.uniqueId)
@@ -333,6 +333,30 @@ internal class KlaviyoStateTest : BaseTest() {
         assert(enrichedEvent !== event) {
             "createEvent should return a new event object, not mutate the original"
         }
+    }
+
+    @Test
+    fun `createEvent gives each observer its own copy to consume destructively`() {
+        GenericEventBuffer.clearBuffer()
+
+        // Mirrors KlaviyoJsBridge.profileEvent, which pops these keys to hoist them
+        // into positional JS arguments
+        val drainingObserver: ProfileEventObserver = { event ->
+            event.pop(EventKey.EVENT_ID)
+            event.pop(EventKey.TIME)
+            event.pop(EventKey.VALUE)
+        }
+        state.onProfileEvent(drainingObserver)
+
+        state.createEvent(
+            Event(EventMetric.CUSTOM("test_event")).apply { value = 42.0 },
+            Profile()
+        )
+
+        val buffered = GenericEventBuffer.getEvents().single()
+        assertNotEquals(null, buffered.uniqueId)
+        assertNotEquals(null, buffered[EventKey.TIME])
+        assertEquals(42.0, buffered.value)
     }
 
     @Test

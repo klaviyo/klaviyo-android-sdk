@@ -209,7 +209,7 @@ internal class KlaviyoState : State {
             // Add enriched event to buffer for multi-consumer access
             GenericEventBuffer.addEvent(enrichedEvent)
             eventObserver.forEach {
-                it?.invoke(enrichedEvent)
+                it?.invoke(enrichedEvent.copy())
             }
         }
 

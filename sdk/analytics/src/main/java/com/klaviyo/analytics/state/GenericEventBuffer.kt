@@ -73,10 +73,14 @@ internal object GenericEventBuffer {
      * Get all currently buffered events in chronological order (oldest first).
      * Does NOT clear the buffer - safe for multiple consumers.
      *
+     * Each call returns fresh copies, so a consumer may read properties destructively
+     * (see [com.klaviyo.analytics.model.BaseModel.pop]) without affecting the buffer
+     * or other consumers.
+     *
      * Returns: List of Events with uniqueId and _time properties populated
      */
     fun getEvents(): List<Event> = synchronized(buffer) {
-        buffer.map { it.event }
+        buffer.map { it.event.copy() }
     }
 
     /**
