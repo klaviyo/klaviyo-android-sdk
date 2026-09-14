@@ -41,7 +41,7 @@ interface DataStore {
      *
      * @param keys
      */
-    fun clear(keys: Collection<String>) = keys.forEach(::clear)
+    fun clear(keys: Collection<String>)
 
     /**
      * Register an observer to be notified when any changes are made to persistent store
