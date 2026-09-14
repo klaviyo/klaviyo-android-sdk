@@ -212,6 +212,7 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
         var addedRequest = false
+        val evictedUuids = mutableListOf<String>()
         requests.let {
             // Reverse the arg order if headOfLine is true, so that first arg winds up first in line
             if (headOfLine) {
@@ -221,7 +222,6 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }.forEach { request ->
             if (!apiQueue.contains(request)) {
-                val evictedUuids = mutableListOf<String>()
                 while (apiQueue.size >= MAX_QUEUE_SIZE) {
                     // Evict the oldest request by enqueue timestamp, not the front of the deque —
                     // head-of-line requests are inserted at the front but are the newest.
@@ -238,7 +238,6 @@ internal object KlaviyoApiClient : ApiClient {
                         )
                     }
                 }
-                Registry.dataStore.clear(evictedUuids)
                 Registry.dataStore.store(request.uuid, request.toString())
                 if (headOfLine) {
                     apiQueue.offerFirst(request)
@@ -249,6 +248,8 @@ internal object KlaviyoApiClient : ApiClient {
                 addedRequest = true
             }
         }
+        Registry.dataStore.clear(evictedUuids)
+
         if (addedRequest) {
             persistQueue()
         }
@@ -350,22 +351,6 @@ internal object KlaviyoApiClient : ApiClient {
                 Registry.log.info(it)
                 emptyArray<String>()
             }
-        }?.let { uuids ->
-            // A store written by an SDK version that predates MAX_QUEUE_SIZE can hold an unbounded
-            // number of requests. Drop all but the newest before restoring, so the queue never
-            // starts over capacity and enqueueRequest is not left to evict the backlog one
-            // request at a time.
-            if (uuids.size <= MAX_QUEUE_SIZE) return@let uuids
-
-            wasMutated = true
-            val overflow = uuids.size - MAX_QUEUE_SIZE
-            Registry.log.warning(
-                "Persisted queue of ${uuids.size} exceeds capacity ($MAX_QUEUE_SIZE), dropping $overflow oldest"
-            )
-
-            val retained = uuids.takeLast(MAX_QUEUE_SIZE)
-            Registry.dataStore.clear(uuids.take(overflow).toSet() - retained.toSet())
-            retained.toTypedArray()
         }?.forEach { uuid ->
             Registry.dataStore.fetch(uuid).let { json ->
                 if (json == null) {
@@ -387,12 +372,41 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }
 
+        if (trimToCapacity()) {
+            wasMutated = true
+        }
+
         // If errors were encountered, update persistent store with corrected queue
         if (wasMutated) {
             persistQueue()
         }
 
         queueInitialized = true
+    }
+
+    /**
+     * Drop the oldest requests by [KlaviyoApiRequest.queuedTime] until the queue is within
+     * [MAX_QUEUE_SIZE], removing them from the persistent store in a single write.
+     *
+     * A store written by an SDK version that predates the queue cap can hold an unbounded number
+     * of requests, which would otherwise leave [enqueueRequest] to evict the backlog one request
+     * at a time.
+     *
+     * @return whether any requests were dropped
+     */
+    private fun trimToCapacity(): Boolean {
+        if (apiQueue.size <= MAX_QUEUE_SIZE) return false
+
+        val overflow = apiQueue.size - MAX_QUEUE_SIZE
+        Registry.log.warning(
+            "Persisted queue of ${apiQueue.size} exceeds capacity ($MAX_QUEUE_SIZE), dropping $overflow oldest"
+        )
+
+        val evicted = apiQueue.sortedBy { it.queuedTime }.take(overflow)
+        apiQueue.removeAll(evicted.toSet())
+        Registry.dataStore.clear(evicted.map { it.uuid })
+
+        return true
     }
 
     /**

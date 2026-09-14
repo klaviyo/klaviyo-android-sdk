@@ -1202,77 +1202,87 @@ internal class KlaviyoApiClientTest : BaseTest() {
         verify(exactly = 0) { mockQueueScheduler.scheduleFlush() }
     }
 
-    @Test
-    fun `Restoring an over-capacity persisted queue trims to the newest MAX_QUEUE_SIZE`() {
+    /**
+     * Seed the persistent store with a queue index and a request body per uuid, in the given
+     * order, assigning each request a queuedTime from [times] when provided.
+     */
+    private fun seedPersistedQueue(uuids: List<String>, times: List<Long>? = null) {
         mockkObject(KlaviyoApiRequestDecoder)
         every { KlaviyoApiRequestDecoder.fromJson(any()) } answers { a ->
+            val json = a.invocation.args[0] as JSONObject
             KlaviyoApiRequest(
                 "https://mock.com",
                 RequestMethod.GET,
-                uuid = (a.invocation.args[0] as JSONObject).getString("uuid")
+                queuedTime = json.getLong(KlaviyoApiRequest.TIME_JSON_KEY),
+                uuid = json.getString(KlaviyoApiRequest.UUID_JSON_KEY)
             )
         }
 
-        // Simulate a store written by an SDK version that predates the queue cap
-        val overflow = 50
-        val uuids = (0 until KlaviyoApiClient.MAX_QUEUE_SIZE + overflow).map { "uuid-$it" }
         spyDataStore.store(
             KlaviyoApiClient.QUEUE_KEY,
-            uuids.joinToString(prefix = "[", postfix = "]") { "\"" + it + "\"" }
+            uuids.joinToString(separator = ",", prefix = "[", postfix = "]") { "\"" + it + "\"" }
         )
-        uuids.forEach { uuid ->
+
+        uuids.forEachIndexed { index, uuid ->
             spyDataStore.store(
                 uuid,
-                KlaviyoApiRequest("https://mock.com", RequestMethod.GET, uuid = uuid).toString()
+                KlaviyoApiRequest(
+                    "https://mock.com",
+                    RequestMethod.GET,
+                    queuedTime = times?.get(index) ?: index.toLong(),
+                    uuid = uuid
+                ).toString()
             )
         }
+    }
+
+    @Test
+    fun `Restoring an over-capacity persisted queue trims to the newest MAX_QUEUE_SIZE`() {
+        val overflow = 50
+        val uuids = (0 until KlaviyoApiClient.MAX_QUEUE_SIZE + overflow).map { "uuid-$it" }
+        seedPersistedQueue(uuids)
 
         KlaviyoApiClient.restoreQueue(forceRestore = true)
 
         // Queue is restored at capacity, not at the persisted size
         assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
 
-        // The oldest requests are dropped from the persistent store
+        // The oldest requests by queuedTime are dropped from the persistent store
         assertNull(spyDataStore.fetch("uuid-0"))
         assertNull(spyDataStore.fetch("uuid-" + (overflow - 1)))
 
-        // The newest requests are retained
+        // The newest are retained
         assertNotNull(spyDataStore.fetch("uuid-$overflow"))
         assertNotNull(spyDataStore.fetch("uuid-" + (uuids.size - 1)))
-
-        // The persisted index reflects the trimmed queue
-        assertEquals(
-            uuids.takeLast(KlaviyoApiClient.MAX_QUEUE_SIZE)
-                .joinToString(separator = ",", prefix = "[", postfix = "]") { "\"" + it + "\"" },
-            spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
-        )
 
         // Warned about the trim
         verify(atLeast = 1) { spyLog.warning(any(), null) }
     }
 
     @Test
-    fun `Restoring an at-capacity persisted queue drops nothing`() {
-        mockkObject(KlaviyoApiRequestDecoder)
-        every { KlaviyoApiRequestDecoder.fromJson(any()) } answers { a ->
-            KlaviyoApiRequest(
-                "https://mock.com",
-                RequestMethod.GET,
-                uuid = (a.invocation.args[0] as JSONObject).getString("uuid")
-            )
-        }
+    fun `Restoring an over-capacity queue retains newest by queuedTime not deque position`() {
+        // A head-of-line request is stored at the FRONT of the persisted index but carries the
+        // NEWEST queuedTime, so trimming by position would discard the priority request.
+        val older = (0 until KlaviyoApiClient.MAX_QUEUE_SIZE).map { "uuid-$it" }
+        val uuids = listOf("hol-newest") + older
+        val times = listOf(Long.MAX_VALUE) + older.indices.map { it.toLong() }
+        seedPersistedQueue(uuids, times)
 
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // The head-of-line request is the newest and must survive
+        assertNotNull(spyDataStore.fetch("hol-newest"))
+
+        // The genuinely oldest request is the one dropped
+        assertNull(spyDataStore.fetch("uuid-0"))
+    }
+
+    @Test
+    fun `Restoring an at-capacity persisted queue drops nothing`() {
         val uuids = (0 until KlaviyoApiClient.MAX_QUEUE_SIZE).map { "uuid-$it" }
-        spyDataStore.store(
-            KlaviyoApiClient.QUEUE_KEY,
-            uuids.joinToString(prefix = "[", postfix = "]") { "\"" + it + "\"" }
-        )
-        uuids.forEach { uuid ->
-            spyDataStore.store(
-                uuid,
-                KlaviyoApiRequest("https://mock.com", RequestMethod.GET, uuid = uuid).toString()
-            )
-        }
+        seedPersistedQueue(uuids)
 
         KlaviyoApiClient.restoreQueue(forceRestore = true)
 

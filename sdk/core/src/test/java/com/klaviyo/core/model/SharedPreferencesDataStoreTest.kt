@@ -137,7 +137,14 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
         keys.forEach { every { editorMock.remove(it) } returns editorMock }
         every { editorMock.apply() } returns Unit
 
-        SharedPreferencesDataStore.clear(keys)
+        val observer = mockk<StoreObserver>(relaxed = true)
+        SharedPreferencesDataStore.onStoreChange(observer)
+
+        try {
+            SharedPreferencesDataStore.clear(keys)
+        } finally {
+            SharedPreferencesDataStore.offStoreChange(observer)
+        }
 
         // One edit/apply pair regardless of how many keys are removed
         verify(exactly = 1) { preferenceMock.edit() }
@@ -145,7 +152,7 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
         keys.forEach { key -> verify(exactly = 1) { editorMock.remove(key) } }
 
         // Observers are still notified per key
-        keys.forEach { key -> verify { spyLog.verbose("$key=null") } }
+        keys.forEach { key -> verify(exactly = 1) { observer(key, null) } }
     }
 
     @Test
