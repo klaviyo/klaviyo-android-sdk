@@ -1289,4 +1289,19 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
         assertNotNull(spyDataStore.fetch("uuid-0"))
     }
+
+    @Test
+    fun `Restoring an over-capacity queue does not decode the requests it drops`() {
+        val overflow = 50
+        val uuids = (0 until KlaviyoApiClient.MAX_QUEUE_SIZE + overflow).map { "uuid-$it" }
+        seedPersistedQueue(uuids)
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        // Over-capacity entries are selected out by timestamp before decoding, so the decoder is
+        // only invoked for the requests actually restored — the dropped bodies never reach memory.
+        verify(exactly = KlaviyoApiClient.MAX_QUEUE_SIZE) {
+            KlaviyoApiRequestDecoder.fromJson(any())
+        }
+    }
 }

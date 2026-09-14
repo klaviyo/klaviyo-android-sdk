@@ -335,6 +335,10 @@ internal object KlaviyoApiClient : ApiClient {
                 Registry.log.info(it)
                 emptyArray<String>()
             }
+        }?.let { uuids ->
+            selectNewestWithinCapacity(uuids).also {
+                if (it.size < uuids.size) wasMutated = true
+            }
         }?.forEach { uuid ->
             Registry.dataStore.fetch(uuid).let { json ->
                 if (json == null) {
@@ -366,6 +370,42 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
         queueInitialized = true
+    }
+
+    /**
+     * Narrow a persisted uuid list to the newest [MAX_QUEUE_SIZE] entries by enqueue timestamp,
+     * clearing the rest from the persistent store.
+     *
+     * A store written by an SDK version that predates the queue cap can hold an unbounded number
+     * of requests. Selecting before decoding keeps the discarded bodies out of memory: only each
+     * entry's timestamp is read here, and the JSON is released before the next entry is examined.
+     *
+     * Entries whose timestamp cannot be read sort as oldest, so they are discarded first.
+     *
+     * @return the uuids to restore, in their original order
+     */
+    private fun selectNewestWithinCapacity(uuids: Array<String>): Array<String> {
+        if (uuids.size <= MAX_QUEUE_SIZE) return uuids
+
+        Registry.log.warning(
+            "Persisted queue of ${uuids.size} exceeds capacity ($MAX_QUEUE_SIZE), " +
+                "dropping ${uuids.size - MAX_QUEUE_SIZE} oldest"
+        )
+
+        val retained = uuids.sortedByDescending { uuid ->
+            Registry.dataStore.fetch(uuid)?.let { json ->
+                try {
+                    JSONObject(json).optLong(KlaviyoApiRequest.TIME_JSON_KEY, Long.MIN_VALUE)
+                } catch (exception: JSONException) {
+                    Registry.log.debug("Invalid request JSON $uuid", exception)
+                    Long.MIN_VALUE
+                }
+            } ?: Long.MIN_VALUE
+        }.take(MAX_QUEUE_SIZE).toSet()
+
+        Registry.dataStore.clear(uuids.filterNot(retained::contains))
+
+        return uuids.filter(retained::contains).toTypedArray()
     }
 
     /**
