@@ -360,10 +360,6 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }
 
-        if (trimToCapacity()) {
-            wasMutated = true
-        }
-
         // If errors were encountered, update persistent store with corrected queue
         if (wasMutated) {
             persistQueue()
