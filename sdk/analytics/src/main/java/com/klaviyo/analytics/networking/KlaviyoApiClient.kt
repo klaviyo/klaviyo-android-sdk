@@ -388,7 +388,9 @@ internal object KlaviyoApiClient : ApiClient {
                 "dropping ${uuids.size - MAX_QUEUE_SIZE} oldest"
         )
 
-        val retained = uuids.sortedByDescending { uuid ->
+        // Read each timestamp exactly once: a sort selector is re-invoked per comparison, which
+        // would re-parse every request body O(n log n) times.
+        val queuedTimes = uuids.associateWith { uuid ->
             Registry.dataStore.fetch(uuid)?.let { json ->
                 try {
                     JSONObject(json).optLong(KlaviyoApiRequest.TIME_JSON_KEY, Long.MIN_VALUE)
@@ -397,7 +399,11 @@ internal object KlaviyoApiClient : ApiClient {
                     Long.MIN_VALUE
                 }
             } ?: Long.MIN_VALUE
-        }.take(MAX_QUEUE_SIZE).toSet()
+        }
+
+        val retained = uuids.sortedByDescending { queuedTimes[it] }
+            .take(MAX_QUEUE_SIZE)
+            .toSet()
 
         Registry.dataStore.clear(uuids.filterNot(retained::contains))
 

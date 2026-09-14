@@ -1304,4 +1304,22 @@ internal class KlaviyoApiClientTest : BaseTest() {
             KlaviyoApiRequestDecoder.fromJson(any())
         }
     }
+
+    @Test
+    fun `Restoring an over-capacity queue reads each persisted body once`() {
+        val overflow = 50
+        val uuids = (0 until KlaviyoApiClient.MAX_QUEUE_SIZE + overflow).map { "uuid-$it" }
+        seedPersistedQueue(uuids)
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        // Timestamps are read once up front rather than from a sort comparator, so each dropped
+        // request is fetched exactly once and each retained one twice (select, then decode).
+        uuids.take(overflow).forEach { uuid ->
+            verify(exactly = 1) { spyDataStore.fetch(uuid) }
+        }
+        uuids.drop(overflow).forEach { uuid ->
+            verify(exactly = 2) { spyDataStore.fetch(uuid) }
+        }
+    }
 }
