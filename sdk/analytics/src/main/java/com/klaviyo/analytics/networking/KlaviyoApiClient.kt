@@ -212,7 +212,6 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
         var addedRequest = false
-        val evictedUuids = mutableListOf<String>()
         requests.let {
             // Reverse the arg order if headOfLine is true, so that first arg winds up first in line
             if (headOfLine) {
@@ -222,22 +221,6 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }.forEach { request ->
             if (!apiQueue.contains(request)) {
-                while (apiQueue.size >= MAX_QUEUE_SIZE) {
-                    // Evict the oldest request by enqueue timestamp, not the front of the deque —
-                    // head-of-line requests are inserted at the front but are the newest.
-                    // The minByOrNull + remove pair is not atomic on the ConcurrentLinkedDeque, so a
-                    // concurrent enqueue could target the same victim. We gate the side effects on
-                    // remove()'s boolean: if another thread already evicted this request, remove()
-                    // returns false and the while-loop simply re-scans — a best-effort, self-healing
-                    // soft bound rather than a hard guarantee.
-                    val evicted = apiQueue.minByOrNull { it.queuedTime } ?: break
-                    if (apiQueue.remove(evicted)) {
-                        evictedUuids += evicted.uuid
-                        Registry.log.warning(
-                            "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${evicted.type}"
-                        )
-                    }
-                }
                 Registry.dataStore.store(request.uuid, request.toString())
                 if (headOfLine) {
                     apiQueue.offerFirst(request)
@@ -248,9 +231,10 @@ internal object KlaviyoApiClient : ApiClient {
                 addedRequest = true
             }
         }
-        Registry.dataStore.clear(evictedUuids)
 
-        if (addedRequest) {
+        val trimmed = trimToCapacity()
+
+        if (addedRequest || trimmed) {
             persistQueue()
         }
     }
@@ -388,25 +372,33 @@ internal object KlaviyoApiClient : ApiClient {
      * Drop the oldest requests by [KlaviyoApiRequest.queuedTime] until the queue is within
      * [MAX_QUEUE_SIZE], removing them from the persistent store in a single write.
      *
-     * A store written by an SDK version that predates the queue cap can hold an unbounded number
-     * of requests, which would otherwise leave [enqueueRequest] to evict the backlog one request
-     * at a time.
+     * Requests are evicted by enqueue timestamp rather than deque position, because head-of-line
+     * requests are inserted at the front but are the newest.
+     *
+     * Selecting victims and removing them is not atomic on the [ConcurrentLinkedDeque], so a
+     * concurrent enqueue could target the same victim. Side effects are gated on `remove()`'s
+     * boolean: a request another thread already removed is not reported or cleared, making this a
+     * best-effort soft bound rather than a hard guarantee.
      *
      * @return whether any requests were dropped
      */
     private fun trimToCapacity(): Boolean {
-        if (apiQueue.size <= MAX_QUEUE_SIZE) return false
-
         val overflow = apiQueue.size - MAX_QUEUE_SIZE
-        Registry.log.warning(
-            "Persisted queue of ${apiQueue.size} exceeds capacity ($MAX_QUEUE_SIZE), dropping $overflow oldest"
-        )
+        if (overflow <= 0) return false
 
-        val evicted = apiQueue.sortedBy { it.queuedTime }.take(overflow)
-        apiQueue.removeAll(evicted.toSet())
-        Registry.dataStore.clear(evicted.map { it.uuid })
+        val evictedUuids = apiQueue.sortedBy { it.queuedTime }
+            .take(overflow)
+            .filter { apiQueue.remove(it) }
+            .map { request ->
+                Registry.log.warning(
+                    "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${request.type}"
+                )
+                request.uuid
+            }
 
-        return true
+        Registry.dataStore.clear(evictedUuids)
+
+        return evictedUuids.isNotEmpty()
     }
 
     /**
