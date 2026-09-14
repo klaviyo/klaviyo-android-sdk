@@ -89,4 +89,23 @@ internal object SharedPreferencesDataStore : DataStore {
                 broadcastStoreChange(key, null)
             }
     }
+
+    /**
+     * Remove multiple keys from shared preferences in a single edit
+     *
+     * [SharedPreferences.Editor.apply] writes to disk asynchronously, and copies the entire
+     * preferences map on every call made while a prior write is still in flight. Removing keys
+     * one edit at a time therefore costs a full-map copy per key.
+     *
+     * @param keys The identifying keys to remove from persistent store
+     */
+    override fun clear(keys: Collection<String>) {
+        if (keys.isEmpty()) return
+
+        val editor = openSharedPreferences().edit()
+        keys.forEach(editor::remove)
+        editor.apply()
+
+        keys.forEach { key -> broadcastStoreChange(key, null) }
+    }
 }

@@ -221,6 +221,7 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }.forEach { request ->
             if (!apiQueue.contains(request)) {
+                val evictedUuids = mutableListOf<String>()
                 while (apiQueue.size >= MAX_QUEUE_SIZE) {
                     // Evict the oldest request by enqueue timestamp, not the front of the deque —
                     // head-of-line requests are inserted at the front but are the newest.
@@ -231,12 +232,13 @@ internal object KlaviyoApiClient : ApiClient {
                     // soft bound rather than a hard guarantee.
                     val evicted = apiQueue.minByOrNull { it.queuedTime } ?: break
                     if (apiQueue.remove(evicted)) {
-                        Registry.dataStore.clear(evicted.uuid)
+                        evictedUuids += evicted.uuid
                         Registry.log.warning(
                             "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${evicted.type}"
                         )
                     }
                 }
+                Registry.dataStore.clear(evictedUuids)
                 Registry.dataStore.store(request.uuid, request.toString())
                 if (headOfLine) {
                     apiQueue.offerFirst(request)
@@ -348,6 +350,22 @@ internal object KlaviyoApiClient : ApiClient {
                 Registry.log.info(it)
                 emptyArray<String>()
             }
+        }?.let { uuids ->
+            // A store written by an SDK version that predates MAX_QUEUE_SIZE can hold an unbounded
+            // number of requests. Drop all but the newest before restoring, so the queue never
+            // starts over capacity and enqueueRequest is not left to evict the backlog one
+            // request at a time.
+            if (uuids.size <= MAX_QUEUE_SIZE) return@let uuids
+
+            wasMutated = true
+            val overflow = uuids.size - MAX_QUEUE_SIZE
+            Registry.log.warning(
+                "Persisted queue of ${uuids.size} exceeds capacity ($MAX_QUEUE_SIZE), dropping $overflow oldest"
+            )
+
+            val retained = uuids.takeLast(MAX_QUEUE_SIZE)
+            Registry.dataStore.clear(uuids.take(overflow).toSet() - retained.toSet())
+            retained.toTypedArray()
         }?.forEach { uuid ->
             Registry.dataStore.fetch(uuid).let { json ->
                 if (json == null) {

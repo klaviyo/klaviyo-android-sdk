@@ -1201,4 +1201,82 @@ internal class KlaviyoApiClientTest : BaseTest() {
         // Verify that scheduleFlush was NOT called for custom events
         verify(exactly = 0) { mockQueueScheduler.scheduleFlush() }
     }
+
+    @Test
+    fun `Restoring an over-capacity persisted queue trims to the newest MAX_QUEUE_SIZE`() {
+        mockkObject(KlaviyoApiRequestDecoder)
+        every { KlaviyoApiRequestDecoder.fromJson(any()) } answers { a ->
+            KlaviyoApiRequest(
+                "https://mock.com",
+                RequestMethod.GET,
+                uuid = (a.invocation.args[0] as JSONObject).getString("uuid")
+            )
+        }
+
+        // Simulate a store written by an SDK version that predates the queue cap
+        val overflow = 50
+        val uuids = (0 until KlaviyoApiClient.MAX_QUEUE_SIZE + overflow).map { "uuid-$it" }
+        spyDataStore.store(
+            KlaviyoApiClient.QUEUE_KEY,
+            uuids.joinToString(prefix = "[", postfix = "]") { "\"" + it + "\"" }
+        )
+        uuids.forEach { uuid ->
+            spyDataStore.store(
+                uuid,
+                KlaviyoApiRequest("https://mock.com", RequestMethod.GET, uuid = uuid).toString()
+            )
+        }
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        // Queue is restored at capacity, not at the persisted size
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+
+        // The oldest requests are dropped from the persistent store
+        assertNull(spyDataStore.fetch("uuid-0"))
+        assertNull(spyDataStore.fetch("uuid-" + (overflow - 1)))
+
+        // The newest requests are retained
+        assertNotNull(spyDataStore.fetch("uuid-$overflow"))
+        assertNotNull(spyDataStore.fetch("uuid-" + (uuids.size - 1)))
+
+        // The persisted index reflects the trimmed queue
+        assertEquals(
+            uuids.takeLast(KlaviyoApiClient.MAX_QUEUE_SIZE)
+                .joinToString(separator = ",", prefix = "[", postfix = "]") { "\"" + it + "\"" },
+            spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
+        )
+
+        // Warned about the trim
+        verify(atLeast = 1) { spyLog.warning(any(), null) }
+    }
+
+    @Test
+    fun `Restoring an at-capacity persisted queue drops nothing`() {
+        mockkObject(KlaviyoApiRequestDecoder)
+        every { KlaviyoApiRequestDecoder.fromJson(any()) } answers { a ->
+            KlaviyoApiRequest(
+                "https://mock.com",
+                RequestMethod.GET,
+                uuid = (a.invocation.args[0] as JSONObject).getString("uuid")
+            )
+        }
+
+        val uuids = (0 until KlaviyoApiClient.MAX_QUEUE_SIZE).map { "uuid-$it" }
+        spyDataStore.store(
+            KlaviyoApiClient.QUEUE_KEY,
+            uuids.joinToString(prefix = "[", postfix = "]") { "\"" + it + "\"" }
+        )
+        uuids.forEach { uuid ->
+            spyDataStore.store(
+                uuid,
+                KlaviyoApiRequest("https://mock.com", RequestMethod.GET, uuid = uuid).toString()
+            )
+        }
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+        assertNotNull(spyDataStore.fetch("uuid-0"))
+    }
 }

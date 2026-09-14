@@ -128,4 +128,32 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
         verify { preferenceMock.getString(stubKey, null) }
         verify(inverse = true) { editorMock.apply() }
     }
+
+    @Test
+    fun `Clearing multiple keys uses a single edit and apply`() {
+        val keys = listOf("key-a", "key-b", "key-c")
+        withPreferenceMock()
+        every { preferenceMock.edit() } returns editorMock
+        keys.forEach { every { editorMock.remove(it) } returns editorMock }
+        every { editorMock.apply() } returns Unit
+
+        SharedPreferencesDataStore.clear(keys)
+
+        // One edit/apply pair regardless of how many keys are removed
+        verify(exactly = 1) { preferenceMock.edit() }
+        verify(exactly = 1) { editorMock.apply() }
+        keys.forEach { key -> verify(exactly = 1) { editorMock.remove(key) } }
+
+        // Observers are still notified per key
+        keys.forEach { key -> verify { spyLog.verbose("$key=null") } }
+    }
+
+    @Test
+    fun `Clearing an empty key collection does not open preferences`() {
+        withPreferenceMock()
+
+        SharedPreferencesDataStore.clear(emptyList())
+
+        verify(exactly = 0) { preferenceMock.edit() }
+    }
 }

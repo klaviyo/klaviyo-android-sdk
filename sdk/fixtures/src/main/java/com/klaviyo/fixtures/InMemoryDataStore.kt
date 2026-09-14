@@ -22,6 +22,10 @@ class InMemoryDataStore : DataStore {
         store.remove(key)
     }
 
+    override fun clear(keys: Collection<String>) {
+        keys.forEach(store::remove)
+    }
+
     // Test fixture doesn't need an observer implementation
     override fun onStoreChange(observer: StoreObserver) {}
     override fun offStoreChange(observer: StoreObserver) {}
