@@ -377,21 +377,6 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Narrow a persisted uuid list to the newest [MAX_QUEUE_SIZE] entries by enqueue timestamp,
-     * clearing the rest from the persistent store.
-     *
-     * A store written by an SDK version that predates the queue cap can hold an unbounded number
-     * of requests. Selecting before decoding keeps the discarded requests from being decoded into
-     * [KlaviyoApiRequest] objects: only each entry's timestamp is read here, and the JSON is
-     * released before the next entry is examined. The raw bodies are resident in the
-     * SharedPreferences map for the process lifetime regardless, so this bounds the decoded
-     * request objects, not the store's own footprint.
-     *
-     * Entries whose timestamp cannot be read sort as oldest, so they are discarded first.
-     *
-     * @return the uuids to restore, in their original order
-     */
-    /**
      * Narrow a persisted queue to the entries worth examining, so the cost of restoring is bounded
      * by [MAX_QUEUE_SIZE] rather than by how large the backlog grew.
      *
@@ -415,6 +400,21 @@ internal object KlaviyoApiClient : ApiClient {
         return uuids.take(MAX_QUEUE_SIZE) + uuids.takeLast(MAX_QUEUE_SIZE)
     }
 
+    /**
+     * Narrow a persisted uuid list to the newest [MAX_QUEUE_SIZE] entries by enqueue timestamp,
+     * clearing the rest from the persistent store.
+     *
+     * A store written by an SDK version that predates the queue cap can hold an unbounded number
+     * of requests. Selecting before decoding keeps the discarded requests from being decoded into
+     * [KlaviyoApiRequest] objects: only each entry's timestamp is read here, and the JSON is
+     * released before the next entry is examined. The raw bodies are resident in the
+     * SharedPreferences map for the process lifetime regardless, so this bounds the decoded
+     * request objects, not the store's own footprint.
+     *
+     * Entries whose timestamp cannot be read sort as oldest, so they are discarded first.
+     *
+     * @return the uuids to restore, in their original order
+     */
     private fun selectNewestWithinCapacity(persisted: Array<String>): Array<String> {
         // A malformed index can repeat a uuid, and retaining every occurrence of one would both
         // exceed the cap and re-decode the same request. Deduplicating also marks the index as

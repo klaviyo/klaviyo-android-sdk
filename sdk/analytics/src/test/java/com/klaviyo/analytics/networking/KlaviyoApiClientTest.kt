@@ -1373,6 +1373,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         // Entries outside the head and tail windows are dropped without being read
         val ignored = "uuid-" + (max + 10)
         verify(exactly = 0) { spyDataStore.fetch(ignored) }
+        // Must stay after the verify above - this call registers on the spy
         assertNull(spyDataStore.fetch(ignored))
 
         // The most recently enqueued survive
@@ -1424,5 +1425,26 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
 
         assertEquals(max, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Restoring a queue beyond twice capacity drops a recent request stranded outside the windows`() {
+        // The trade this bound makes: an entry just past the head window is newer than everything
+        // in the tail window, but is discarded unread because position stands in for recency.
+        val max = KlaviyoApiClient.MAX_QUEUE_SIZE
+        val uuids = (0 until KlaviyoApiClient.MAX_RESTORE_CANDIDATES + 100).map { "uuid-$it" }
+        val stranded = max + 50
+        val times = uuids.indices.map { if (it == stranded) Long.MAX_VALUE else it.toLong() }
+        seedPersistedQueue(uuids, times)
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        assertEquals(max, KlaviyoApiClient.getQueueSize())
+
+        // Newest by timestamp, yet dropped without being read
+        assertNull(spyDataStore.fetch("uuid-$stranded"))
+
+        // Meanwhile an older entry inside the tail window is kept
+        assertNotNull(spyDataStore.fetch("uuid-" + (uuids.size - 1)))
     }
 }
