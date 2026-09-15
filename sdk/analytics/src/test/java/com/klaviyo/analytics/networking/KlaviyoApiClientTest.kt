@@ -1398,4 +1398,23 @@ internal class KlaviyoApiClientTest : BaseTest() {
         // Below the bound, selection is exact: every entry's timestamp is read
         uuids.forEach { uuid -> verify(atLeast = 1) { spyDataStore.fetch(uuid) } }
     }
+
+    @Test
+    fun `Restoring a queue beyond twice capacity clears the unexamined entries from the store`() {
+        val max = KlaviyoApiClient.MAX_QUEUE_SIZE
+        val uuids = (0 until max * 2 + 100).map { "uuid-$it" }
+        seedPersistedQueue(uuids)
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        // Every uuid absent from the restored queue is also gone from the store, including the
+        // middle band that was discarded without being read. Leaving those behind would keep the
+        // preferences file oversized on every subsequent launch.
+        val restored = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY).orEmpty()
+        uuids.filterNot { restored.contains(it) }.forEach { uuid ->
+            assertNull(spyDataStore.fetch(uuid))
+        }
+
+        assertEquals(max, KlaviyoApiClient.getQueueSize())
+    }
 }
