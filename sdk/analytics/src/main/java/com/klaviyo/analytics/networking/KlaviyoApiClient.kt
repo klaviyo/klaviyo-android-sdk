@@ -24,8 +24,10 @@ import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.networking.CircuitBreaker
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
+import java.net.HttpURLConnection
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
@@ -43,9 +45,13 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Maximum number of requests that can sit in the API queue at one time.
      *
-     * When the queue reaches this limit, the oldest request is evicted to make room.
-     * We evict by enqueued time, not simply queue position, to honor actual age.
-     * This prevents the queue from growing unbounded during request storms.
+     * Matches the iOS SDK cap (200) for behavioural parity across platforms.
+     * When the queue reaches this limit, the oldest request (smallest [KlaviyoApiRequest.queuedTime])
+     * is evicted to make room for the incoming one. Evicting by enqueue timestamp — rather than
+     * the front of the deque — protects freshly-enqueued head-of-line requests, which are inserted
+     * at the front but are the newest. This prevents the queue from growing unbounded during
+     * request storms — for example, a push-token registration loop that floods the queue and
+     * blocks legitimate new requests from ever reaching the network.
      */
     internal const val MAX_QUEUE_SIZE: Int = 200
 
@@ -55,6 +61,20 @@ internal object KlaviyoApiClient : ApiClient {
     private var handler: Handler? = null
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
     private var queueInitialized = false
+
+    /**
+     * Failure-count circuit breaker. When the server appears hard-down it trips and we hold the
+     * persisted queue intact rather than fast-draining it against an unreachable backend. Tuning
+     * (including the kill-switch) is resolved lazily from [Registry.config] so tests and remote
+     * config can adjust it without rebuilding the client.
+     */
+    internal val circuitBreaker = CircuitBreaker(
+        failureThreshold = { Registry.config.circuitBreakerFailureThreshold },
+        baseOpenInterval = { Registry.config.circuitBreakerBaseOpenInterval },
+        maxOpenInterval = { Registry.config.circuitBreakerMaxOpenInterval },
+        clock = { Registry.clock.currentTimeMillis() },
+        jitter = { Registry.config.networkJitterRange.random().times(1_000L) }
+    )
 
     private val scheduler get() = Registry.getOrNull<QueueScheduler>()
         ?: WorkManagerQueueScheduler(Registry.config.applicationContext).also {
@@ -75,6 +95,8 @@ internal object KlaviyoApiClient : ApiClient {
 
         Registry.networkMonitor.offNetworkChange(::onNetworkChange)
         Registry.networkMonitor.onNetworkChange(::onNetworkChange)
+
+        circuitBreaker.reset()
 
         restoreQueue(forceRestore = false)
 
@@ -320,6 +342,10 @@ internal object KlaviyoApiClient : ApiClient {
      */
     fun getQueueSize(): Int = apiQueue.size
 
+    internal fun replaceQueueForTesting(queue: ConcurrentLinkedDeque<KlaviyoApiRequest>) {
+        apiQueue = queue
+    }
+
     /**
      * Reset the in-memory queue to the queue from data store
      *
@@ -460,9 +486,34 @@ internal object KlaviyoApiClient : ApiClient {
         var retryAfter: Long? = null
 
         while (apiQueue.isNotEmpty()) {
-            val request = apiQueue.poll() ?: continue
+            // Circuit breaker gate: when open, hold the persisted queue intact and back off
+            // instead of draining against an unreachable server. Half-open permits one probe.
+            if (!circuitBreaker.allowRequest()) {
+                retryAfter = circuitBreaker.remainingOpenInterval()
+                Registry.log.warning(
+                    "Circuit breaker open; holding ${apiQueue.size} requests for $retryAfter ms"
+                )
+                break
+            }
 
-            when (request.sendAndBroadcast()) {
+            val request = apiQueue.poll()
+            if (request == null) {
+                circuitBreaker.releaseProbe()
+                continue
+            }
+
+            val attemptsBefore = request.attempts
+            val status = request.sendAndBroadcast()
+            if (request.attempts > attemptsBefore) {
+                // A real send attempt completed — feed its outcome to the breaker.
+                updateCircuitBreaker(request)
+            } else {
+                // No send actually occurred (e.g. network unavailable, so send() bailed early).
+                // Release any probe slot we reserved and don't count it as a failure.
+                circuitBreaker.releaseProbe()
+            }
+
+            when (status) {
                 Status.Unsent -> {
                     // Incomplete state: put it back on the queue and break out of serial queue
                     apiQueue.offerFirst(request)
@@ -480,7 +531,17 @@ internal object KlaviyoApiClient : ApiClient {
                     // Encountered a retryable error
                     // Put this back on top of the queue, and we'll try again with backoff
                     apiQueue.offerFirst(request)
-                    retryAfter = request.computeRetryInterval()
+                    // If this failure just opened (or re-opened) the breaker, its dormancy
+                    // window can be shorter than this request's own backoff — e.g. the breaker
+                    // opens at 30s while a late request backoff has climbed to 300s. Waking on
+                    // the request backoff alone would then hold the half-open probe hostage to
+                    // an interval the breaker itself has already moved past. Wake at whichever
+                    // interval elapses first so the probe still fires on the breaker's schedule.
+                    retryAfter = minOf(
+                        request.computeRetryInterval(),
+                        circuitBreaker.remainingOpenInterval()
+                            .takeIf { it > 0 } ?: Long.MAX_VALUE
+                    )
                     break
                 }
 
@@ -499,6 +560,40 @@ internal object KlaviyoApiClient : ApiClient {
         } else {
             Registry.log.verbose("Incomplete send: ${apiQueue.size} requests remain")
             FlushOutcome.Incomplete(retryAfter)
+        }
+    }
+
+    /**
+     * Translate a completed send attempt into a circuit-breaker outcome. Only call this when a real
+     * send actually occurred (an attempt was made); skipped sends are handled by the caller.
+     *
+     * The breaker trips on *unreachable* failures (retryable 5xx, network/IO errors, or a `429`
+     * with no usable `Retry-After`). Any response that proves the server is reachable — `2xx`, a
+     * deliberate `403` load-shed, a `429` carrying a `Retry-After`, or any other `4xx` — resets the
+     * breaker so dormancy never engages while the backend is merely rejecting or throttling us.
+     */
+    private fun updateCircuitBreaker(request: KlaviyoApiRequest) {
+        when (request.responseCode) {
+            // No HTTP response despite an attempt: the server was unreachable.
+            null -> circuitBreaker.recordFailure()
+            in HttpURLConnection.HTTP_OK until HttpURLConnection.HTTP_MULT_CHOICE ->
+                circuitBreaker.recordSuccess()
+            // Deliberate load-shed: server is reachable, so bypass dormancy (do not count it).
+            HttpURLConnection.HTTP_FORBIDDEN -> circuitBreaker.recordSuccess()
+            KlaviyoApiRequest.HTTP_RETRY -> if (request.hasRetryAfterHeader) {
+                circuitBreaker.recordSuccess()
+            } else {
+                circuitBreaker.recordFailure()
+            }
+            // Entire 5xx range (500-599) is treated as an unreachable failure, matching
+            // KlaviyoApiRequest.parseResponse's HTTP_5XX_RETRYABLE_RANGE. This includes 501/505:
+            // for the SDK's fixed request shapes a genuine origin 501/505 is effectively
+            // unreachable, so any 5xx we actually observe is almost certainly edge/proxy noise
+            // during an incident, which the breaker should count toward dormancy like any other
+            // transient 5xx.
+            in KlaviyoApiRequest.HTTP_5XX_RETRYABLE_RANGE -> circuitBreaker.recordFailure()
+            // Other 4xx: reachable, non-retryable.
+            else -> circuitBreaker.recordSuccess()
         }
     }
 
