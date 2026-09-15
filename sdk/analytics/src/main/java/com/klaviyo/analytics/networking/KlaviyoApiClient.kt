@@ -373,8 +373,11 @@ internal object KlaviyoApiClient : ApiClient {
      * clearing the rest from the persistent store.
      *
      * A store written by an SDK version that predates the queue cap can hold an unbounded number
-     * of requests. Selecting before decoding keeps the discarded bodies out of memory: only each
-     * entry's timestamp is read here, and the JSON is released before the next entry is examined.
+     * of requests. Selecting before decoding keeps the discarded requests from being decoded into
+     * [KlaviyoApiRequest] objects: only each entry's timestamp is read here, and the JSON is
+     * released before the next entry is examined. The raw bodies are resident in the
+     * SharedPreferences map for the process lifetime regardless, so this bounds the decoded
+     * request objects, not the store's own footprint.
      *
      * Entries whose timestamp cannot be read sort as oldest, so they are discarded first.
      *

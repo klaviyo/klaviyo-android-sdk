@@ -509,6 +509,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // A warning log was emitted for the eviction
         verify(atLeast = 1) { spyLog.warning(any(), null) }
+
+        // Eviction clears the store in one batched write, not one call per evicted request
+        verify(exactly = 1) { spyDataStore.clear(any<Collection<String>>()) }
     }
 
     @Test
@@ -546,6 +549,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // A warning log was emitted for the eviction
         verify(atLeast = 1) { spyLog.warning(any(), null) }
+
+        // Eviction clears the store in one batched write, not one call per evicted request
+        verify(exactly = 1) { spyDataStore.clear(any<Collection<String>>()) }
     }
 
     @Test
@@ -1257,6 +1263,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         // Warned about the trim
         verify(atLeast = 1) { spyLog.warning(any(), null) }
+
+        // The trim clears the dropped bodies in one batched write
+        verify(exactly = 1) { spyDataStore.clear(any<Collection<String>>()) }
     }
 
     @Test

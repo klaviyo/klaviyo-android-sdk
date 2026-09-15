@@ -161,6 +161,8 @@ internal class SharedPreferencesDataStoreTest : BaseTest() {
 
         SharedPreferencesDataStore.clear(emptyList())
 
-        verify(exactly = 0) { preferenceMock.edit() }
+        verify(exactly = 0) {
+            mockContext.getSharedPreferences(KLAVIYO_PREFS_NAME, Context.MODE_PRIVATE)
+        }
     }
 }
