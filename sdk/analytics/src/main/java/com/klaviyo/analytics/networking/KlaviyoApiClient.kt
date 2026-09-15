@@ -383,8 +383,12 @@ internal object KlaviyoApiClient : ApiClient {
      *
      * @return the uuids to restore, in their original order
      */
-    private fun selectNewestWithinCapacity(uuids: Array<String>): Array<String> {
-        if (uuids.size <= MAX_QUEUE_SIZE) return uuids
+    private fun selectNewestWithinCapacity(persisted: Array<String>): Array<String> {
+        // A malformed index can repeat a uuid, and retaining every occurrence of one would both
+        // exceed the cap and re-decode the same request. Deduplicating also marks the index as
+        // mutated, so the normalized form replaces it on disk.
+        val uuids = persisted.distinct()
+        if (uuids.size <= MAX_QUEUE_SIZE) return uuids.toTypedArray()
 
         Registry.log.warning(
             "Persisted queue of ${uuids.size} exceeds capacity ($MAX_QUEUE_SIZE), " +

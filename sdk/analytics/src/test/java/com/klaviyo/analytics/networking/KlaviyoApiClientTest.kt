@@ -1331,4 +1331,22 @@ internal class KlaviyoApiClientTest : BaseTest() {
             verify(exactly = 2) { spyDataStore.fetch(uuid) }
         }
     }
+
+    @Test
+    fun `Restoring a persisted index with duplicate uuids respects the cap`() {
+        // A malformed index that repeats one uuid past the cap. Retaining every occurrence would
+        // both exceed capacity and decode the same request repeatedly.
+        val duplicated = List(KlaviyoApiClient.MAX_QUEUE_SIZE + 50) { "uuid-dup" }
+        seedPersistedQueue(duplicated)
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        // The normalized index is written back, so the duplicates do not survive a restart
+        assertEquals(
+            "[\"uuid-dup\"]",
+            spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
+        )
+    }
 }
