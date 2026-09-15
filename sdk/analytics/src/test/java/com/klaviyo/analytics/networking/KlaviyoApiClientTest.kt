@@ -1333,12 +1333,18 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
     }
 
+    /** How far a fixture queue is pushed past the point where entries stop being examined. */
+    private val excessBeyondCandidates = 100
+
+    /** Offset of an entry that falls between the head and tail windows, so is never read. */
+    private val offsetBetweenWindows = 50
+
     /**
      * Seed and restore a queue larger than [KlaviyoApiClient.MAX_RESTORE_CANDIDATES],
      * returning the uuids in persisted order.
      */
     private fun restoreOversizedQueue(): List<String> =
-        (0 until KlaviyoApiClient.MAX_RESTORE_CANDIDATES + 100)
+        (0 until KlaviyoApiClient.MAX_RESTORE_CANDIDATES + excessBeyondCandidates)
             .map { "uuid-$it" }
             .also {
                 seedPersistedQueue(it)
@@ -1385,7 +1391,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         // A head-of-line request sits at the front of the index with the newest timestamp. The
         // head window must reach it even though the backlog is too large to examine in full.
         val max = KlaviyoApiClient.MAX_QUEUE_SIZE
-        val rest = (0 until max * 2 + 100).map { "uuid-$it" }
+        val rest = (0 until max * 2 + excessBeyondCandidates).map { "uuid-$it" }
         val uuids = listOf("hol-newest") + rest
         val times = listOf(Long.MAX_VALUE) + rest.indices.map { it.toLong() }
         seedPersistedQueue(uuids, times)
@@ -1432,8 +1438,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
         // The trade this bound makes: an entry just past the head window is newer than everything
         // in the tail window, but is discarded unread because position stands in for recency.
         val max = KlaviyoApiClient.MAX_QUEUE_SIZE
-        val uuids = (0 until KlaviyoApiClient.MAX_RESTORE_CANDIDATES + 100).map { "uuid-$it" }
-        val stranded = max + 50
+        val uuids = (0 until KlaviyoApiClient.MAX_RESTORE_CANDIDATES + excessBeyondCandidates)
+            .map { "uuid-$it" }
+        val stranded = max + offsetBetweenWindows
         val times = uuids.indices.map { if (it == stranded) Long.MAX_VALUE else it.toLong() }
         seedPersistedQueue(uuids, times)
 
