@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import com.klaviyo.core.BuildConfig
+import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.FormEnvironment
@@ -101,6 +102,10 @@ abstract class BaseTest {
         every { sdkName } returns "klaviyo-android-sdk"
         every { sdkVersion } returns "4.20.69"
         every { formEnvironment } returns FormEnvironment.IN_APP
+        // Default to the passed default (e.g. automatic push tracking off); override per-test to flip on
+        every { getManifestBoolean(any(), any()) } answers { secondArg() }
+        // Default to no manifest keys present; override per-test to simulate a host declaring one
+        every { hasManifestKey(any()) } returns false
     }
 
     protected val mockActivity: Activity = mockk(relaxed = true)
@@ -172,6 +177,7 @@ abstract class BaseTest {
 
     @After
     open fun cleanup() {
+        Registry.unregister<PushTokenFetcher>()
         unmockkObject(Registry)
     }
 
@@ -208,4 +214,7 @@ abstract class BaseTest {
             throw e
         }
     }
+
+    protected fun registerMockPushTokenFetcher(): PushTokenFetcher =
+        mockk<PushTokenFetcher>(relaxed = true).also { Registry.register<PushTokenFetcher>(it) }
 }

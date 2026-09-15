@@ -20,6 +20,20 @@ interface State {
     var pushState: String?
 
     /**
+     * Recompute [pushState] from the token already in state, without re-assigning that token.
+     *
+     * [pushState] is the serialized push-token request body, which embeds device values read at
+     * build time (notification permission, background availability). Those can change while the
+     * app is backgrounded, so the derived state must be re-evaluated even when the token itself
+     * is unchanged.
+     *
+     * Assigning [pushToken] refreshes this as a side effect; call this directly when there is no
+     * new token to assign, so the intent reads as "re-evaluate derived state" rather than a
+     * redundant re-assignment of the value already in state.
+     */
+    fun refreshPushState()
+
+    /**
      * Register a [StateChangeObserver] to be notified when state changes
      *
      * @param observer

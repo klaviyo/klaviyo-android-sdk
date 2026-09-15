@@ -2,6 +2,75 @@
 This document provides guidance on how to migrate from one version of the SDK to a newer version.
 It will be updated as new versions are released including deprecations or breaking changes.
 
+# 4.5.1
+
+## New Automatic Push Behaviors (Manifest Flags)
+
+SDK 4.5.1 introduces two push behaviors controlled via `AndroidManifest.xml` metadata:
+`automatic_push_open_tracking` and `automatic_push_token_forwarding`. Both are opt-in, so
+**no action is required** — leave them unset and your current behavior is unchanged.
+
+### `automatic_push_open_tracking` (opt-in, default **off**)
+
+When enabled, the SDK automatically records push-open events without requiring you to call
+`Klaviyo.handlePush` manually in your notification interaction handler.
+
+This flag defaults to **off** and is expected to become the default (opt-out) in a future
+major release. For setup instructions, see
+[Option A — Automatic Integration](./README.md#option-a--automatic-integration) in the README.
+
+**Deep links are delivered by `Intent` when this flag is enabled.** A notification tap sends your app
+an `Intent` carrying the destination URL, and a registered `DeepLinkHandler` is not invoked for the
+tap. If you use a handler today and enable this flag, move your routing into `onCreate` and
+`onNewIntent` — both, since a process killed with its task still in recents restores the original
+intent into `onCreate` and delivers the new one to `onNewIntent`. Your handler continues to receive
+links from In-App Forms, universal tracking links, and any `Klaviyo.handlePush(intent)` call you make
+yourself.
+
+Read the destination with `Klaviyo.getKlaviyoDeepLink(intent)` rather than `intent.data`. The SDK
+only sets `data` when one of your activities declares a matching `intent-filter`; otherwise the tap
+arrives as a launcher intent carrying the URL in its extras, and the accessor reads it in both cases.
+It returns `null` for non-Klaviyo intents, so it is safe to call unconditionally.
+
+```kotlin
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    // Only on a fresh start — after a configuration change the same intent is re-delivered.
+    if (savedInstanceState == null) onNewIntent(intent)
+}
+
+override fun onNewIntent(intent: Intent?) {
+    super.onNewIntent(intent)
+    Klaviyo.getKlaviyoDeepLink(intent)?.let { navigate(it) }
+}
+```
+
+Nothing changes when the flag is off.
+
+### `automatic_push_token_forwarding` (three states)
+
+This flag has three states, because leaving it unset is different from setting it to `false`:
+
+| Value       | Behavior                                                                                                                                                                                           |
+|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **not set** | The SDK attempts to register the token when FCM issues a new one, dependent upon `initialize`ing, and updates status on app resume *if* a token is registered. Same behavior as 4.4.1 and earlier. |
+| **`true`**  | The SDK proactively registers the push token on `Klaviyo.initialize`, and on app resume. You don't need to call `Klaviyo.setPushToken` at all.                                                     |
+| **`false`** | The SDK **never** registers the token automatically. You must call `Klaviyo.setPushToken` to set the token. The SDK will still update permission state on app resume once a token is set.          |
+
+Setting it to `true` is worth doing if you want the SDK to own the token entirely: it also covers
+tokens that already existed before you integrated the SDK, which `onNewToken` alone does not, since
+FCM only calls that when it generates or rotates a token.
+
+> **Anonymous profiles:** Registering a push token creates a profile. That can happen before you call
+> `setProfile`, `setEmail`, or `setPhoneNumber`, in which case Klaviyo creates an anonymous profile and
+> merges it once you provide identifying information. This is expected behavior, and it applies
+> whenever a token is registered — including by your own `Klaviyo.setPushToken` calls. To prevent it
+> entirely, set `automatic_push_token_forwarding="false"` and register the token only after you have
+> identified the profile. See [Anonymous Tracking](./README.md#anonymous-tracking) in the README.
+
+For setup instructions, see
+[Option A — Automatic Integration](./README.md#option-a--automatic-integration) in the README.
+
 # 4.3.0
 
 ## New Modules for Cross-Platform Support

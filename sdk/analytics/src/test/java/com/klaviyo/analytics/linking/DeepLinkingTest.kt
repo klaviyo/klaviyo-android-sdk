@@ -164,6 +164,145 @@ internal class DeepLinkingTest : BaseTest() {
         assertEquals(Intent.ACTION_VIEW, result.action)
     }
 
+    /**
+     * Mock a Uri with an already-normalized (lowercase) scheme, self-normalizing via
+     * [Uri.normalizeScheme] the way a real normalized Uri would.
+     */
+    private fun mockUriWithScheme(scheme: String): Uri {
+        val uri = mockk<Uri>(relaxed = true)
+        every { uri.scheme } returns scheme
+        every { uri.normalizeScheme() } returns uri
+        return uri
+    }
+
+    @Test
+    fun `makeExternalIntent adds CATEGORY_BROWSABLE for https URI`() {
+        MockIntent.setupIntentMocking()
+        val categories = mutableListOf<String>()
+        every {
+            anyConstructed<Intent>().addCategory(capture(categories))
+        } returns mockk(relaxed = true)
+
+        DeepLinking.makeExternalIntent(mockUriWithScheme("https"))
+
+        assertTrue(Intent.CATEGORY_BROWSABLE in categories)
+    }
+
+    @Test
+    fun `makeExternalIntent adds CATEGORY_BROWSABLE for http URI`() {
+        MockIntent.setupIntentMocking()
+        val categories = mutableListOf<String>()
+        every {
+            anyConstructed<Intent>().addCategory(capture(categories))
+        } returns mockk(relaxed = true)
+
+        DeepLinking.makeExternalIntent(mockUriWithScheme("http"))
+
+        assertTrue(Intent.CATEGORY_BROWSABLE in categories)
+    }
+
+    @Test
+    fun `makeExternalIntent does not add CATEGORY_BROWSABLE for mailto URI`() {
+        MockIntent.setupIntentMocking()
+        val categories = mutableListOf<String>()
+        every {
+            anyConstructed<Intent>().addCategory(capture(categories))
+        } returns mockk(relaxed = true)
+
+        DeepLinking.makeExternalIntent(mockUriWithScheme("mailto"))
+
+        assertFalse(Intent.CATEGORY_BROWSABLE in categories)
+    }
+
+    @Test
+    fun `makeExternalIntent does not add CATEGORY_BROWSABLE for tel URI`() {
+        MockIntent.setupIntentMocking()
+        val categories = mutableListOf<String>()
+        every {
+            anyConstructed<Intent>().addCategory(capture(categories))
+        } returns mockk(relaxed = true)
+
+        DeepLinking.makeExternalIntent(mockUriWithScheme("tel"))
+
+        assertFalse(Intent.CATEGORY_BROWSABLE in categories)
+    }
+
+    @Test
+    fun `makeExternalIntent always adds FLAG_ACTIVITY_NEW_TASK`() {
+        MockIntent.setupIntentMocking()
+        val flagsSlot = mutableListOf<Int>()
+        every {
+            anyConstructed<Intent>().addFlags(capture(flagsSlot))
+        } returns mockk(relaxed = true)
+        every { anyConstructed<Intent>().addCategory(any()) } returns mockk(relaxed = true)
+
+        DeepLinking.makeExternalIntent(mockUriWithScheme("https"))
+        DeepLinking.makeExternalIntent(mockUriWithScheme("mailto"))
+
+        assertEquals(2, flagsSlot.size)
+        assertTrue(flagsSlot.all { it and Intent.FLAG_ACTIVITY_NEW_TASK != 0 })
+    }
+
+    @Test
+    fun `makeExternalIntent uses ACTION_DIAL for tel URI`() {
+        MockIntent.setupIntentMocking()
+
+        val result = DeepLinking.makeExternalIntent(mockUriWithScheme("tel"))
+
+        assertEquals(Intent.ACTION_DIAL, result.action)
+    }
+
+    @Test
+    fun `makeExternalIntent uses ACTION_SENDTO for mailto URI`() {
+        MockIntent.setupIntentMocking()
+
+        val result = DeepLinking.makeExternalIntent(mockUriWithScheme("mailto"))
+
+        assertEquals(Intent.ACTION_SENDTO, result.action)
+    }
+
+    @Test
+    fun `makeExternalIntent uses ACTION_SENDTO for sms URI`() {
+        MockIntent.setupIntentMocking()
+
+        val result = DeepLinking.makeExternalIntent(mockUriWithScheme("sms"))
+
+        assertEquals(Intent.ACTION_SENDTO, result.action)
+    }
+
+    @Test
+    fun `makeExternalIntent uses ACTION_SENDTO for smsto URI`() {
+        MockIntent.setupIntentMocking()
+
+        val result = DeepLinking.makeExternalIntent(mockUriWithScheme("smsto"))
+
+        assertEquals(Intent.ACTION_SENDTO, result.action)
+    }
+
+    @Test
+    fun `makeExternalIntent uses ACTION_VIEW for https URI`() {
+        MockIntent.setupIntentMocking()
+        every { anyConstructed<Intent>().addCategory(any()) } returns mockk(relaxed = true)
+
+        val result = DeepLinking.makeExternalIntent(mockUriWithScheme("https"))
+
+        assertEquals(Intent.ACTION_VIEW, result.action)
+    }
+
+    @Test
+    fun `makeExternalIntent normalizes mixed-case scheme before dispatch`() {
+        MockIntent.setupIntentMocking()
+        val normalizedUri = mockUriWithScheme("mailto")
+        val mixedCaseUri = mockk<Uri>(relaxed = true)
+        every { mixedCaseUri.scheme } returns "MAILTO"
+        every { mixedCaseUri.normalizeScheme() } returns normalizedUri
+
+        val result = DeepLinking.makeExternalIntent(mixedCaseUri)
+
+        assertEquals(Intent.ACTION_SENDTO, result.action)
+        assertEquals(normalizedUri, result.data)
+    }
+
     @Test
     fun `makeLaunchIntent returns configured intent when launch intent exists`() {
         val mockLaunchIntent = mockk<Intent>(relaxed = true)

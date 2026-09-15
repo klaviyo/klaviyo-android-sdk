@@ -14,5 +14,24 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="http" />
         </intent>
+        <!-- open_url non-web schemes (PUSH-834): required so resolveActivity() can see the
+             dialer/SMS/mail handlers under Android 11+ package visibility. Must match the
+             actions/schemes dispatched by DeepLinking.makeExternalIntent. -->
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="sms" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
     </queries>
 </manifest>

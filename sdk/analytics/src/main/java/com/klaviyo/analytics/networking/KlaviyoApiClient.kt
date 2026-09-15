@@ -4,6 +4,7 @@ import android.os.Handler
 import androidx.annotation.WorkerThread
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
@@ -18,6 +19,7 @@ import com.klaviyo.analytics.networking.requests.ProfileApiRequest
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
 import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
+import com.klaviyo.analytics.networking.requests.SubscriptionApiRequest
 import com.klaviyo.analytics.networking.requests.UniversalClickTrackRequest
 import com.klaviyo.analytics.networking.requests.UnregisterPushTokenApiRequest
 import com.klaviyo.core.Registry
@@ -111,6 +113,12 @@ internal object KlaviyoApiClient : ApiClient {
     override fun enqueuePushToken(token: String, profile: Profile): ApiRequest =
         PushTokenApiRequest(token, profile).also {
             Registry.log.verbose("Enqueuing Push Token request")
+            enqueueRequest(it)
+        }
+
+    override fun enqueueSubscription(subscription: Subscription, profile: Profile): ApiRequest? =
+        SubscriptionApiRequest.from(subscription, profile)?.also {
+            Registry.log.verbose("Enqueuing Subscription request")
             enqueueRequest(it)
         }
 
@@ -523,7 +531,17 @@ internal object KlaviyoApiClient : ApiClient {
                     // Encountered a retryable error
                     // Put this back on top of the queue, and we'll try again with backoff
                     apiQueue.offerFirst(request)
-                    retryAfter = request.computeRetryInterval()
+                    // If this failure just opened (or re-opened) the breaker, its dormancy
+                    // window can be shorter than this request's own backoff — e.g. the breaker
+                    // opens at 30s while a late request backoff has climbed to 300s. Waking on
+                    // the request backoff alone would then hold the half-open probe hostage to
+                    // an interval the breaker itself has already moved past. Wake at whichever
+                    // interval elapses first so the probe still fires on the breaker's schedule.
+                    retryAfter = minOf(
+                        request.computeRetryInterval(),
+                        circuitBreaker.remainingOpenInterval()
+                            .takeIf { it > 0 } ?: Long.MAX_VALUE
+                    )
                     break
                 }
 
@@ -567,9 +585,13 @@ internal object KlaviyoApiClient : ApiClient {
             } else {
                 circuitBreaker.recordFailure()
             }
-            HttpURLConnection.HTTP_NOT_IMPLEMENTED,
-            HttpURLConnection.HTTP_VERSION -> circuitBreaker.recordSuccess()
-            in 500..599 -> circuitBreaker.recordFailure()
+            // Entire 5xx range (500-599) is treated as an unreachable failure, matching
+            // KlaviyoApiRequest.parseResponse's HTTP_5XX_RETRYABLE_RANGE. This includes 501/505:
+            // for the SDK's fixed request shapes a genuine origin 501/505 is effectively
+            // unreachable, so any 5xx we actually observe is almost certainly edge/proxy noise
+            // during an incident, which the breaker should count toward dormancy like any other
+            // transient 5xx.
+            in KlaviyoApiRequest.HTTP_5XX_RETRYABLE_RANGE -> circuitBreaker.recordFailure()
             // Other 4xx: reachable, non-retryable.
             else -> circuitBreaker.recordSuccess()
         }

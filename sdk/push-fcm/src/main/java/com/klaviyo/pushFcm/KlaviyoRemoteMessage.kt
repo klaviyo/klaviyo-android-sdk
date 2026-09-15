@@ -15,11 +15,13 @@ import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.core.Constants.BUTTON_LINK_PARAMETER
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
+import com.klaviyo.core.utils.hasAllowedOpenUrlScheme
 import java.net.URL
 import org.json.JSONArray
 import org.json.JSONObject
@@ -62,12 +64,13 @@ object KlaviyoRemoteMessage {
 
         val actionName = when (button) {
             is ActionButton.DeepLink -> ActionButton.DISPLAY_NAME_DEEP_LINK
+            is ActionButton.OpenUrl -> ActionButton.DISPLAY_NAME_OPEN_URL
             is ActionButton.OpenApp -> ActionButton.DISPLAY_NAME_OPEN_APP
         }
         putExtra(PACKAGE_PREFIX + "Button Action", actionName)
 
-        if (button is ActionButton.DeepLink) {
-            putExtra(PACKAGE_PREFIX + "Button Link", button.url)
+        (button as? ActionButton.UrlBearing)?.let {
+            putExtra(PACKAGE_PREFIX + BUTTON_LINK_PARAMETER, it.url)
         }
     }
 
@@ -129,6 +132,36 @@ object KlaviyoRemoteMessage {
      * Parse notification body text
      */
     val RemoteMessage.body: String? get() = this.data[KlaviyoNotification.BODY_KEY]
+
+    /**
+     * True if the string parses as a Uri whose scheme is allowed — see
+     * [com.klaviyo.core.utils.hasAllowedOpenUrlScheme], shared with the forms module so the
+     * two call sites can never diverge.
+     */
+    internal fun String.hasAllowedOpenUrlScheme(): Boolean = this.toUri().hasAllowedOpenUrlScheme()
+
+    /**
+     * Parse the external URL from the payload, if present.
+     *
+     * Reads the `web_url` field. The presence of this field indicates the tap should open
+     * the URL externally rather than route through the app's deep link handling.
+     * Returns null if the field is absent, blank, or the URL's scheme is not allowed —
+     * disallowed schemes are rejected to prevent routing dangerous URIs (e.g. intent:,
+     * javascript:, file:) through the SDK.
+     */
+    val RemoteMessage.webUrl: String?
+        get() {
+            val urlString = this.data[KlaviyoNotification.WEB_URL_KEY]?.takeIf { it.isNotBlank() }
+                ?: return null
+            return if (urlString.hasAllowedOpenUrlScheme()) {
+                urlString
+            } else {
+                Registry.log.warning(
+                    "web_url has a disallowed scheme ('${urlString.toUri().scheme}'); ignoring."
+                )
+                null
+            }
+        }
 
     /**
      * Parse deep link into a [Uri] if present
@@ -200,7 +233,7 @@ object KlaviyoRemoteMessage {
      * Maximum of 3 buttons are supported - additional buttons beyond this limit are ignored.
      *
      * Expected structure:
-     * [{"id":"...", "label":"...", "action":"deep_link|open_app", "url":"..."}]
+     * [{"id":"...", "label":"...", "action":"deep_link|open_app|open_url", "url":"..."}]
      */
     val RemoteMessage.actionButtons: List<ActionButton>?
         get() = this.data[KlaviyoNotification.ACTION_BUTTONS_KEY]?.let { jsonString ->
@@ -258,6 +291,29 @@ object KlaviyoRemoteMessage {
                                 null
                             }
                         }
+                        ActionButton.TYPE_OPEN_URL -> {
+                            val urlString = jsonObject.optNonBlankString("url")
+                            when {
+                                urlString == null -> {
+                                    Registry.log.warning(
+                                        "Skipping OPEN_URL action button $i: missing required url"
+                                    )
+                                    null
+                                }
+                                !urlString.hasAllowedOpenUrlScheme() -> {
+                                    Registry.log.warning(
+                                        "Skipping OPEN_URL action button $i: scheme " +
+                                            "'${urlString.toUri().scheme}' is not allowed"
+                                    )
+                                    null
+                                }
+                                else -> ActionButton.OpenUrl(
+                                    id = id,
+                                    label = label,
+                                    url = urlString
+                                )
+                            }
+                        }
                         ActionButton.TYPE_OPEN_APP -> {
                             ActionButton.OpenApp(id = id, label = label)
                         }
@@ -293,6 +349,13 @@ object KlaviyoRemoteMessage {
         abstract val label: String
 
         /**
+         * Marker for action button variants that carry a destination URL.
+         */
+        interface UrlBearing {
+            val url: String
+        }
+
+        /**
          * Button that opens the app without navigating to a specific destination
          */
         data class OpenApp(
@@ -306,8 +369,17 @@ object KlaviyoRemoteMessage {
         data class DeepLink(
             override val id: String,
             override val label: String,
-            val url: String
-        ) : ActionButton()
+            override val url: String
+        ) : ActionButton(), UrlBearing
+
+        /**
+         * Button that opens a URL in the default browser
+         */
+        data class OpenUrl(
+            override val id: String,
+            override val label: String,
+            override val url: String
+        ) : ActionButton(), UrlBearing
 
         companion object {
             /**
@@ -315,12 +387,14 @@ object KlaviyoRemoteMessage {
              */
             const val TYPE_OPEN_APP = "open_app"
             const val TYPE_DEEP_LINK = "deep_link"
+            const val TYPE_OPEN_URL = "open_url"
 
             /**
              * Human-readable display names for analytics
              */
             const val DISPLAY_NAME_OPEN_APP = "Open App"
             const val DISPLAY_NAME_DEEP_LINK = "Deep Link"
+            const val DISPLAY_NAME_OPEN_URL = "Open URL"
         }
     }
 

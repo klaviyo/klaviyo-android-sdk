@@ -9,6 +9,9 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.State
+import com.klaviyo.core.Constants.DIAL_SCHEME
+import com.klaviyo.core.Constants.SENDTO_SCHEMES
+import com.klaviyo.core.Constants.WEB_SCHEMES
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.LifecycleMonitor.Companion.ACTIVITY_TRANSITION_GRACE_PERIOD
 import com.klaviyo.core.safeLaunch
@@ -113,6 +116,41 @@ object DeepLinking {
             ACTIVITY_TRANSITION_GRACE_PERIOD
         ) { context ->
             makeDeepLinkIntent(uri, context).startActivityIfResolved(context)
+        }
+    }
+
+    /**
+     * Create an intent to open a URI externally (browser, mail client, dialer, etc.).
+     *
+     * Unlike [makeDeepLinkIntent], this intent is not scoped to the host application package,
+     * so the OS routes it to the appropriate external handler.
+     *
+     * The action is chosen by scheme so the OS can resolve a handler reliably: [Intent.ACTION_DIAL]
+     * for `tel:`, [Intent.ACTION_SENDTO] for `mailto:`/`sms:`/`smsto:`, and [Intent.ACTION_VIEW] for
+     * web and any other scheme. [Intent.CATEGORY_BROWSABLE] is added only for http/https so the OS
+     * routes those to a browser.
+     *
+     * The URI is normalized via [Uri.normalizeScheme] before being set as the intent data, since
+     * Android's intent-filter scheme matching is case-sensitive and a mixed-case scheme
+     * (e.g. `MAILTO:`) would otherwise fail to resolve.
+     *
+     * @param uri The URI to open externally
+     * @return An intent configured to open the URI in the appropriate external app
+     */
+    fun makeExternalIntent(uri: Uri): Intent {
+        val normalizedUri = uri.normalizeScheme()
+        val scheme = normalizedUri.scheme
+        return Intent().apply {
+            data = normalizedUri
+            action = when {
+                scheme in SENDTO_SCHEMES -> Intent.ACTION_SENDTO
+                scheme == DIAL_SCHEME -> Intent.ACTION_DIAL
+                else -> Intent.ACTION_VIEW
+            }
+            if (scheme in WEB_SCHEMES) {
+                addCategory(Intent.CATEGORY_BROWSABLE)
+            }
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
     }
 

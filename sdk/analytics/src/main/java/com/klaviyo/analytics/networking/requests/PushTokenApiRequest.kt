@@ -3,6 +3,8 @@ package com.klaviyo.analytics.networking.requests
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
+import com.klaviyo.core.SdkFeatureScope
+import com.klaviyo.core.SdkFeatures
 import org.json.JSONObject
 
 /**
@@ -33,6 +35,11 @@ internal class PushTokenApiRequest(
         const val BACKGROUND = "background"
         const val BG_AVAILABLE = "AVAILABLE"
         const val BG_UNAVAILABLE = "DENIED"
+    }
+
+    init {
+        SdkFeatures.headerValue(SdkFeatureScope.PUSH_TOKEN_REGISTRATION)
+            ?.let { headers[SdkFeatures.HEADER_NAME] = it }
     }
 
     override val type: String = "Push Token"

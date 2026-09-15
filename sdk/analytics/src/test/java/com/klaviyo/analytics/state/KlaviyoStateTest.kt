@@ -6,10 +6,13 @@ import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
+import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.analytics.networking.requests.buildEventMetaData
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.fixtures.mockDeviceProperties
+import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -496,5 +499,44 @@ internal class KlaviyoStateTest : BaseTest() {
 
         // Reset should fire because null != "abcdefg" is true for the existing identifiers
         assertNotEquals(initialAnonId, state.anonymousId)
+    }
+
+    @Test
+    fun `refreshPushState recomputes pushState from the stored token without reassigning the token`() {
+        mockDeviceProperties()
+        try {
+            state.pushToken = PUSH_TOKEN
+            val stalePushState = state.pushState
+
+            // Flip a device property embedded in push state, simulating a change while backgrounded
+            every { DeviceProperties.notificationPermissionGranted } returns false
+
+            state.refreshPushState()
+
+            assertEquals(PUSH_TOKEN, state.pushToken)
+            assertNotEquals(stalePushState, state.pushState)
+            assertEquals(
+                PushTokenApiRequest(PUSH_TOKEN, state.getAsProfile()).requestBody,
+                state.pushState
+            )
+        } finally {
+            unmockDeviceProperties()
+        }
+    }
+
+    @Test
+    fun `refreshPushState leaves pushState falsy when there is no stored token`() {
+        mockDeviceProperties()
+        try {
+            assertNull(state.pushToken)
+
+            state.refreshPushState()
+
+            // refreshPushState is a no-op without a stored token, so pushState is left untouched
+            // (null here, since none was ever set) rather than being assigned "".
+            assertNull(state.pushState)
+        } finally {
+            unmockDeviceProperties()
+        }
     }
 }

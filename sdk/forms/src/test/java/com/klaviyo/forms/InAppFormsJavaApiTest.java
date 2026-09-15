@@ -103,4 +103,22 @@ public class InAppFormsJavaApiTest extends BaseTest {
     public void testKlaviyoFormsUnregisterLifecycleHandler() {
         KlaviyoForms.unregisterFormLifecycleHandler();
     }
+
+    @Test
+    public void testFormCtaClickedAccessibleFromJava() {
+        // Confirms the CTA lifecycle case and its getters (including the Uri-typed
+        // deepLinkUrl, which also carries external browser URLs) are reachable from
+        // Java in a FormLifecycleHandler lambda.
+        FormLifecycleHandler callback = (event) -> {
+            if (event instanceof FormLifecycleEvent.FormCtaClicked) {
+                FormLifecycleEvent.FormCtaClicked ctaClicked =
+                        (FormLifecycleEvent.FormCtaClicked) event;
+                String ignored = ctaClicked.getButtonLabel()
+                        + ctaClicked.getDeepLinkUrl().toString()
+                        + ctaClicked.getFormId()
+                        + ctaClicked.getFormName();
+            }
+        };
+        KlaviyoForms.registerFormLifecycleHandler(callback);
+    }
 }

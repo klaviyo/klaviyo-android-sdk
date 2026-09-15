@@ -3,7 +3,10 @@ package com.klaviyo.pushFcm
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.AutomaticPushTokenForwarding
+import com.klaviyo.core.config.automaticPushTokenForwarding
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.hasKlaviyoKeyValuePairs
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
@@ -21,16 +24,41 @@ open class KlaviyoPushService : FirebaseMessagingService() {
     companion object {
         const val METADATA_DEFAULT_ICON = "com.klaviyo.push.default_notification_icon"
         const val METADATA_DEFAULT_COLOR = "com.klaviyo.push.default_notification_color"
+
+        /**
+         * Manifest `<meta-data>` key (boolean) to opt into automatic push open tracking. When set to
+         * `true`, Klaviyo notification taps route through [KlaviyoTrampolineActivity], which tracks the
+         * open itself so the host app no longer needs to call `Klaviyo.handlePush(intent)` in its Activities.
+         */
+        const val METADATA_AUTOMATIC_PUSH_OPEN_TRACKING = Constants.AUTOMATIC_PUSH_OPEN_TRACKING
     }
 
     /**
-     * Called when FCM SDK receives a newly registered token
+     * Called when FCM SDK receives a newly registered token.
+     *
+     * Forwarding is suppressed only when [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING] is explicitly
+     * `false` — see [AutomaticPushTokenForwarding.forwardsOnTokenRotation]. An absent key still
+     * forwards; opting into the proactive fetch at initialize and on each foreground requires setting
+     * the key to `true`. The public `Klaviyo.setPushToken` API is unaffected in every state: hosts
+     * owning their token pipeline can still forward tokens explicitly.
+     *
+     * The flag is read from this service's [android.content.Context], not `Registry.config`, because
+     * FCM can deliver a token before `Klaviyo.initialize` runs (e.g. the host initializes in an
+     * Activity, not Application) — reading `Registry.config` here would throw `MissingConfig`. This
+     * mirrors how `KlaviyoNotification` reads the sibling open-tracking flag.
      *
      * @param newToken
      */
     override fun onNewToken(newToken: String) {
         super.onNewToken(newToken)
-        Klaviyo.setPushToken(newToken)
+        val forwarding = applicationContext.automaticPushTokenForwarding()
+        if (forwarding.forwardsOnTokenRotation) {
+            Klaviyo.setPushToken(newToken)
+        } else {
+            Registry.log.verbose(
+                "Skipping automatic push token forwarding (automaticTokenForwarding=$forwarding)"
+            )
+        }
     }
 
     /**

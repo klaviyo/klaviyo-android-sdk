@@ -162,6 +162,16 @@ object KlaviyoConfig : Config {
             applicationContext.getManifestInt(key, defaultValue)
         }
 
+    override fun getManifestBoolean(key: String, defaultValue: Boolean): Boolean =
+        if (!this::applicationContext.isInitialized) {
+            defaultValue
+        } else {
+            applicationContext.getManifestBoolean(key, defaultValue)
+        }
+
+    override fun hasManifestKey(key: String): Boolean =
+        this::applicationContext.isInitialized && applicationContext.hasManifestKey(key)
+
     /**
      * Nested class to enable the builder pattern for easy declaration of custom configurations
      */
@@ -283,14 +293,25 @@ object KlaviyoConfig : Config {
         }
 
         @Deprecated(
-            message = "Depth-triggered flushing has been removed. The queue now flushes only on " +
-                "the timer interval (see networkFlushInterval) and is internally bounded by a " +
-                "size cap. This setter has no effect and will be removed in a future major release.",
+            message = "Depth-triggered flushing has been removed. The queue now flushes on the " +
+                "timer interval (see networkFlushInterval) or when explicitly forced, and is " +
+                "internally bounded by a size cap. This setter has no effect and will be " +
+                "removed in a future major release.",
             level = DeprecationLevel.WARNING
         )
         override fun networkFlushDepth(networkFlushDepth: Int) = apply {
-            // No-op: depth-triggered flushing was removed; retained for one release as a
-            // deprecated setter so existing caller code keeps compiling.
+            // Depth-triggered flushing was removed; retained for one release as a deprecated
+            // setter so existing caller code keeps compiling. Warn at runtime in addition to the
+            // compile-time deprecation: callers who haven't migrated get a hint that their config
+            // is being ignored, and out-of-range values (which the old setter rejected explicitly)
+            // are no longer swallowed silently. The value is echoed back to make that concrete.
+            Registry.log.warning(
+                "networkFlushDepth($networkFlushDepth) is deprecated and has no effect: " +
+                    "depth-triggered flushing was removed. The queue flushes on the timer " +
+                    "interval (see networkFlushInterval) or when explicitly forced, and is " +
+                    "internally bounded by a size cap. Remove this call — the setter will be " +
+                    "deleted in a future major release."
+            )
         }
 
         override fun build(): Config {
@@ -378,4 +399,27 @@ fun Context.getManifestInt(key: String, defaultValue: Int): Int {
     val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
     val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
     return manifestMetadata.getInt(key, defaultValue)
+}
+
+/**
+ * Extension method to get a boolean value from the manifest metadata
+ */
+fun Context.getManifestBoolean(key: String, defaultValue: Boolean): Boolean {
+    val pkgName = packageName
+    val pkgManager = packageManager
+    val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
+    val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
+    return manifestMetadata.getBoolean(key, defaultValue)
+}
+
+/**
+ * Extension method to check whether a key is present in the manifest metadata at all,
+ * regardless of its value
+ */
+fun Context.hasManifestKey(key: String): Boolean {
+    val pkgName = packageName
+    val pkgManager = packageManager
+    val appInfo = pkgManager.getApplicationInfoCompat(pkgName, PackageManager.GET_META_DATA)
+    val manifestMetadata = appInfo?.metaData ?: Bundle.EMPTY
+    return manifestMetadata.containsKey(key)
 }

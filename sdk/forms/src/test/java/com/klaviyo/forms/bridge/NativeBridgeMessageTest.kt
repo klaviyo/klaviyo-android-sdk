@@ -277,6 +277,8 @@ class NativeBridgeMessageTest : BaseTest() {
         assertEquals("abc123", result.formId)
         assertEquals("Test Form", result.formName)
         assertEquals("Click Me", result.buttonLabel)
+        // A deep link omits `openExternally`; it must default to false.
+        assertEquals(false, result.openExternally)
     }
 
     @Test
@@ -363,6 +365,72 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
+    fun `external url decodes as openDeepLink with openExternally true`() {
+        // External web URLs now ride the openDeepLink message with openExternally: true,
+        // carrying the URL in the platform-split ios/android fields.
+        val message = """
+            {
+              "type": "openDeepLink",
+              "data": {
+                "ios": "https://example.com",
+                "android": "https://example.com",
+                "formId": "abc123",
+                "formName": "Test Form",
+                "buttonLabel": "Visit Site",
+                "openExternally": true
+              }
+            }
+        """.trimIndent()
+
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenDeepLink
+
+        assertEquals("https://example.com", result.route)
+        assertEquals("abc123", result.formId)
+        assertEquals("Test Form", result.formName)
+        assertEquals("Visit Site", result.buttonLabel)
+        assertEquals(true, result.openExternally)
+    }
+
+    @Test
+    fun `external url without metadata fields parses with empty defaults`() {
+        val message = """
+            {
+              "type": "openDeepLink",
+              "data": {
+                "android": "https://example.com",
+                "openExternally": true
+              }
+            }
+        """.trimIndent()
+
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenDeepLink
+        assertEquals("https://example.com", result.route)
+        assertEquals("", result.formId)
+        assertEquals("", result.formName)
+        assertEquals("", result.buttonLabel)
+        assertEquals(true, result.openExternally)
+    }
+
+    @Test
+    fun `external openDeepLink with missing route parses with null route`() {
+        val message = """
+            {
+              "type": "openDeepLink",
+              "data": {
+                "formId": "abc123",
+                "formName": "Test Form",
+                "buttonLabel": "Visit Site",
+                "openExternally": true
+              }
+            }
+        """.trimIndent()
+
+        val result = NativeBridgeMessage.decodeWebviewMessage(message) as NativeBridgeMessage.OpenDeepLink
+        assertNull(result.route)
+        assertEquals(true, result.openExternally)
+    }
+
+    @Test
     fun `abort message parses a reason, or falls back on unknown`() {
         val deeplinkMessage = """
             {
@@ -427,7 +495,7 @@ class NativeBridgeMessageTest : BaseTest() {
                   },
                   {
                     "type": "openDeepLink",
-                    "version": 2
+                    "version": 3
                   },
                   {
                     "type": "formDisappeared",

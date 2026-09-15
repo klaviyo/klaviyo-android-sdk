@@ -10,9 +10,11 @@ import com.klaviyo.analytics.model.EventKey;
 import com.klaviyo.analytics.model.EventMetric;
 import com.klaviyo.analytics.model.Profile;
 import com.klaviyo.analytics.model.ProfileKey;
+import com.klaviyo.analytics.model.Subscription;
 import com.klaviyo.fixtures.KlaviyoMock;
 
 import java.io.Serializable;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -333,6 +335,17 @@ public class KlaviyoJavaApiTest {
     }
 
     @Test
+    public void testGetKlaviyoDeepLink() {
+        Uri result1 = Klaviyo.INSTANCE.getKlaviyoDeepLink(mockIntent);
+        assertEquals(KlaviyoMock.getMockDeepLink(), result1);
+
+        Uri result2 = Klaviyo.getKlaviyoDeepLink(mockIntent);
+        assertEquals(KlaviyoMock.getMockDeepLink(), result2);
+
+        KlaviyoMock.verifyGetKlaviyoDeepLinkCalled(2);
+    }
+
+    @Test
     public void testIsKlaviyoUniversalTrackingIntent() {
         boolean result1 = Klaviyo.INSTANCE.isKlaviyoUniversalTrackingIntent(mockIntent);
         assertTrue(result1);
@@ -491,6 +504,38 @@ public class KlaviyoJavaApiTest {
 
         ProfileKey customKey = new ProfileKey.CUSTOM("my_custom_field");
         assertNotNull(customKey);
+    }
+
+    @Test
+    public void testCreateSubscriptionWithChannels() {
+        Subscription.Channels channels = new Subscription.Channels(
+                EnumSet.of(Subscription.Channels.Email.MARKETING),
+                EnumSet.of(Subscription.Channels.Messaging.MARKETING),
+                null
+        );
+        Subscription subscription = new Subscription("list-123", channels);
+
+        Klaviyo result1 = Klaviyo.INSTANCE.createSubscription(subscription);
+        assertEquals(Klaviyo.INSTANCE, result1);
+
+        Klaviyo result2 = Klaviyo.createSubscription(subscription);
+        assertEquals(Klaviyo.INSTANCE, result2);
+
+        KlaviyoMock.verifyCreateSubscriptionCalled(2);
+    }
+
+    @Test
+    public void testCreateSubscriptionAllAvailableMarketing() {
+        Subscription subscription = Subscription.allAvailableMarketing("list-123");
+        Subscription withSource = Subscription.allAvailableMarketing("list-123", "signup form");
+
+        Klaviyo result1 = Klaviyo.createSubscription(subscription);
+        assertEquals(Klaviyo.INSTANCE, result1);
+
+        Klaviyo result2 = Klaviyo.createSubscription(withSource);
+        assertEquals(Klaviyo.INSTANCE, result2);
+
+        KlaviyoMock.verifyCreateSubscriptionCalled(2);
     }
 
     @Test

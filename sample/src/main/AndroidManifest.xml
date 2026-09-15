@@ -53,6 +53,16 @@
             </intent-filter>
         </activity>
 
+        <!--
+            Sample App Only: the destination this app navigates to for a deep link. Declared with the
+            default task affinity so it stacks on top of SampleActivity in the same task, which is
+            what makes the back-stack behavior after a notification tap observable.
+        -->
+        <activity
+                android:name=".SampleDetailActivity"
+                android:exported="false"
+                android:theme="@style/Theme.KlaviyoAndroidSdk"/>
+
         <!-- Optional: Set the Klaviyo SDK logging level (1=verbose, 2=debug etc) -->
         <meta-data
                 android:name="com.klaviyo.core.log_level"

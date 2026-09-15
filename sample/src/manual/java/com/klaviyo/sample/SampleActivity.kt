@@ -19,6 +19,13 @@ import com.klaviyo.analytics.model.EventMetric
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+/**
+ * SETUP NOTE: This is the `manual` flavor's Activity, demonstrating manual push integration (Option B):
+ * the app fetches the push token and forwards it to Klaviyo, and calls [Klaviyo.handlePush] itself on
+ * notification taps. Compare with the `automatic` flavor's copy under `src/automatic`, where both of those
+ * responsibilities are handled by the SDK and this boilerplate simply disappears. See the main README's
+ * "Push Notifications" section (Option A vs Option B) and sample/README.md.
+ */
 class SampleActivity : ComponentActivity() {
     // Initialize ViewModel using the by viewModels() delegate
     private val viewModel: SampleViewModel by viewModels()
@@ -26,7 +33,9 @@ class SampleActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // SETUP NOTE: Fetch the current push token and register with Klaviyo Push-FCM
+        // SETUP NOTE (Manual / Option B): Fetch the current push token and register it with Klaviyo.
+        // The `automatic` flavor omits this entirely — the SDK auto-registers the token at initialize()
+        // and on every foreground once com.klaviyo.push.automatic_push_token_forwarding is enabled.
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
             // Dispatch to main for the UI update
             lifecycleScope.launch(Dispatchers.Main) {
@@ -62,9 +71,10 @@ class SampleActivity : ComponentActivity() {
             return
         }
 
-        // SETUP NOTE: Track an event when user opens a notification.
+        // SETUP NOTE (Manual / Option B): Track an event when the user opens a notification.
         // If the notification is a deep link, the SDK will invoke your registered handler.
         // If not using a deep link handler, you should parse the URI from intent.data below.
+        // The `automatic` flavor omits this — the SDK detects taps and calls handlePush() for you.
         if (intent.isKlaviyoNotificationIntent) {
             Klaviyo.handlePush(intent)
         }

@@ -1244,6 +1244,32 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `Next wake respects the breaker's open interval, not just the request's own backoff`() = runTest {
+        // A request's own computeRetryInterval() can climb well past the breaker's dormancy
+        // window (e.g. 300s request backoff vs a 30s breaker open interval). If the flush
+        // scheduler wakes on the request's backoff alone, the half-open probe would be held
+        // hostage to an interval the breaker has already moved past.
+        every { mockConfig.circuitBreakerFailureThreshold } returns 1
+        every { mockConfig.circuitBreakerBaseOpenInterval } returns 30_000L
+        every { mockConfig.circuitBreakerMaxOpenInterval } returns 300_000L
+
+        val request = mockRequest("cb-long-backoff", KlaviyoApiRequest.Status.PendingRetry, 503)
+        every { request.computeRetryInterval() } returns 300_000L
+        KlaviyoApiClient.enqueueRequest(request)
+
+        // One failure trips the breaker (threshold 1) and opens it for 30s, even though this
+        // same request's own backoff would otherwise demand a 300s wait.
+        val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
+        assertEquals(CircuitBreaker.State.OPEN, KlaviyoApiClient.circuitBreaker.state())
+        assert(outcome is FlushOutcome.Incomplete)
+        val retryAfter = (outcome as FlushOutcome.Incomplete).retryAfter
+        assertNotNull(retryAfter)
+        assert(retryAfter!! <= 30_000L) {
+            "expected next wake to respect the breaker's 30s open interval, got ${retryAfter}ms"
+        }
+    }
+
+    @Test
     fun `Successful circuit breaker probe closes the breaker and resumes draining`() = runTest {
         every { mockConfig.circuitBreakerFailureThreshold } returns 2
         every { mockConfig.circuitBreakerBaseOpenInterval } returns 30_000L
@@ -1359,7 +1385,10 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
-    fun `Circuit breaker is not tripped by deterministic reachable 501 and 505 responses`() = runTest {
+    fun `Circuit breaker counts 501 and 505 as failures, matching the retryable 5xx range`() = runTest {
+        // 501/505 are edge/proxy noise during an incident, not deterministic origin errors — see
+        // KlaviyoApiRequest.HTTP_5XX_RETRYABLE_RANGE. The breaker must count them like any other
+        // 5xx rather than bypassing dormancy for them.
         every { mockConfig.circuitBreakerFailureThreshold } returns 2
 
         KlaviyoApiClient.enqueueRequest(
@@ -1377,9 +1406,12 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
 
+        // Both requests are terminal (Status.Failed), so they drain from the queue regardless
+        // of breaker state — but each still counts as a consecutive failure, and two of them
+        // reaches the threshold and opens the breaker for the *next* flush.
         assert(outcome is FlushOutcome.Complete)
         assertEquals(0, KlaviyoApiClient.getQueueSize())
-        assertEquals(CircuitBreaker.State.CLOSED, KlaviyoApiClient.circuitBreaker.state())
+        assertEquals(CircuitBreaker.State.OPEN, KlaviyoApiClient.circuitBreaker.state())
     }
 
     @Test
