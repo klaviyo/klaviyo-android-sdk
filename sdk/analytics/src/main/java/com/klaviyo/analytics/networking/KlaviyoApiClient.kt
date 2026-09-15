@@ -383,6 +383,36 @@ internal object KlaviyoApiClient : ApiClient {
      *
      * @return the uuids to restore, in their original order
      */
+    /**
+     * Narrow a persisted queue to the entries worth examining, so the cost of restoring is bounded
+     * by [MAX_QUEUE_SIZE] rather than by how large the backlog grew.
+     *
+     * Reading a request's timestamp costs a JSON parse, so examining every entry of an unbounded
+     * backlog scales without limit — a queue an order of magnitude beyond capacity would spend
+     * seconds on it before the SDK finishes starting up.
+     *
+     * Entries are taken from both ends because each holds requests worth keeping: priority
+     * requests are inserted at the front of the deque, and the most recently enqueued are appended
+     * at the back. Anything in between is older than a full queue's worth of requests on both
+     * sides, and is discarded without being read.
+     */
+    private fun boundCandidates(uuids: List<String>): List<String> {
+        if (uuids.size <= MAX_QUEUE_SIZE * 2) {
+            Registry.log.warning(
+                "Persisted queue of ${uuids.size} exceeds capacity ($MAX_QUEUE_SIZE), " +
+                    "dropping ${uuids.size - MAX_QUEUE_SIZE} oldest"
+            )
+            return uuids
+        }
+
+        Registry.log.warning(
+            "Persisted queue of ${uuids.size} is more than twice capacity ($MAX_QUEUE_SIZE), " +
+                "discarding all but the first and last $MAX_QUEUE_SIZE without reading them"
+        )
+
+        return uuids.take(MAX_QUEUE_SIZE) + uuids.takeLast(MAX_QUEUE_SIZE)
+    }
+
     private fun selectNewestWithinCapacity(persisted: Array<String>): Array<String> {
         // A malformed index can repeat a uuid, and retaining every occurrence of one would both
         // exceed the cap and re-decode the same request. Deduplicating also marks the index as
@@ -390,14 +420,11 @@ internal object KlaviyoApiClient : ApiClient {
         val uuids = persisted.distinct()
         if (uuids.size <= MAX_QUEUE_SIZE) return uuids.toTypedArray()
 
-        Registry.log.warning(
-            "Persisted queue of ${uuids.size} exceeds capacity ($MAX_QUEUE_SIZE), " +
-                "dropping ${uuids.size - MAX_QUEUE_SIZE} oldest"
-        )
+        val candidates = boundCandidates(uuids)
 
         // Read each timestamp exactly once: a sort selector is re-invoked per comparison, which
         // would re-parse every request body O(n log n) times.
-        val queuedTimes = uuids.associateWith { uuid ->
+        val queuedTimes = candidates.associateWith { uuid ->
             Registry.dataStore.fetch(uuid)?.let { json ->
                 try {
                     JSONObject(json).optLong(KlaviyoApiRequest.TIME_JSON_KEY, Long.MIN_VALUE)
@@ -408,7 +435,7 @@ internal object KlaviyoApiClient : ApiClient {
             } ?: Long.MIN_VALUE
         }
 
-        val retained = uuids.sortedByDescending { queuedTimes[it] }
+        val retained = candidates.sortedByDescending { queuedTimes[it] }
             .take(MAX_QUEUE_SIZE)
             .toSet()
 

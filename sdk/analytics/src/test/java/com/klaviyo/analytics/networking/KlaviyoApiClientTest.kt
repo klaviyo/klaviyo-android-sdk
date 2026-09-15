@@ -1349,4 +1349,53 @@ internal class KlaviyoApiClientTest : BaseTest() {
             spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
         )
     }
+
+    @Test
+    fun `Restoring a queue beyond twice capacity examines only the first and last MAX_QUEUE_SIZE`() {
+        val max = KlaviyoApiClient.MAX_QUEUE_SIZE
+        val uuids = (0 until max * 2 + 100).map { "uuid-$it" }
+        seedPersistedQueue(uuids)
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        assertEquals(max, KlaviyoApiClient.getQueueSize())
+
+        // Entries outside the head and tail windows are dropped without being read
+        val ignored = "uuid-" + (max + 10)
+        verify(exactly = 0) { spyDataStore.fetch(ignored) }
+        assertNull(spyDataStore.fetch(ignored))
+
+        // The most recently enqueued survive
+        assertNotNull(spyDataStore.fetch("uuid-" + (uuids.size - 1)))
+    }
+
+    @Test
+    fun `Restoring a queue beyond twice capacity still retains a prioritized request at the front`() {
+        // A head-of-line request sits at the front of the index with the newest timestamp. The
+        // head window must reach it even though the backlog is too large to examine in full.
+        val max = KlaviyoApiClient.MAX_QUEUE_SIZE
+        val rest = (0 until max * 2 + 100).map { "uuid-$it" }
+        val uuids = listOf("hol-newest") + rest
+        val times = listOf(Long.MAX_VALUE) + rest.indices.map { it.toLong() }
+        seedPersistedQueue(uuids, times)
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        assertEquals(max, KlaviyoApiClient.getQueueSize())
+        assertNotNull(spyDataStore.fetch("hol-newest"))
+    }
+
+    @Test
+    fun `Restoring a queue within twice capacity examines every entry`() {
+        val max = KlaviyoApiClient.MAX_QUEUE_SIZE
+        val uuids = (0 until max * 2).map { "uuid-$it" }
+        seedPersistedQueue(uuids)
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        assertEquals(max, KlaviyoApiClient.getQueueSize())
+
+        // Below the bound, selection is exact: every entry's timestamp is read
+        uuids.forEach { uuid -> verify(atLeast = 1) { spyDataStore.fetch(uuid) } }
+    }
 }
