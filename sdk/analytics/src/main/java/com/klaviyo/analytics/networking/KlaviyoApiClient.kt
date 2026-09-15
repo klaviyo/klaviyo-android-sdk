@@ -397,18 +397,12 @@ internal object KlaviyoApiClient : ApiClient {
      * sides, and is discarded without being read.
      */
     private fun boundCandidates(uuids: List<String>): List<String> {
-        if (uuids.size <= MAX_QUEUE_SIZE * 2) {
-            Registry.log.warning(
-                "Persisted queue of ${uuids.size} exceeds capacity ($MAX_QUEUE_SIZE), " +
-                    "dropping ${uuids.size - MAX_QUEUE_SIZE} oldest"
-            )
-            return uuids
-        }
-
         Registry.log.warning(
-            "Persisted queue of ${uuids.size} is more than twice capacity ($MAX_QUEUE_SIZE), " +
-                "discarding all but the first and last $MAX_QUEUE_SIZE without reading them"
+            "Persisted queue of ${uuids.size} exceeds capacity ($MAX_QUEUE_SIZE), " +
+                "discarding the most outdated requests"
         )
+
+        if (uuids.size <= MAX_QUEUE_SIZE * 2) return uuids
 
         return uuids.take(MAX_QUEUE_SIZE) + uuids.takeLast(MAX_QUEUE_SIZE)
     }
