@@ -49,6 +49,14 @@ internal object KlaviyoApiClient : ApiClient {
      */
     internal const val MAX_QUEUE_SIZE: Int = 200
 
+    /**
+     * Largest persisted queue whose entries are all examined when restoring.
+     *
+     * Beyond this, only a [MAX_QUEUE_SIZE] window from each end is read, so the cost of restoring
+     * stays bounded no matter how large a backlog grew.
+     */
+    internal const val MAX_RESTORE_CANDIDATES: Int = MAX_QUEUE_SIZE * 2
+
     private var handlerThread = Registry.threadHelper.getHandlerThread(
         KlaviyoApiClient::class.simpleName
     )
@@ -402,7 +410,7 @@ internal object KlaviyoApiClient : ApiClient {
                 "discarding the most outdated requests"
         )
 
-        if (uuids.size <= MAX_QUEUE_SIZE * 2) return uuids
+        if (uuids.size <= MAX_RESTORE_CANDIDATES) return uuids
 
         return uuids.take(MAX_QUEUE_SIZE) + uuids.takeLast(MAX_QUEUE_SIZE)
     }

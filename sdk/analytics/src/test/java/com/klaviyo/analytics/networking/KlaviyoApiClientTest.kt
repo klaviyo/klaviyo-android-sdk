@@ -53,6 +53,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -1332,6 +1333,18 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
     }
 
+    /**
+     * Seed and restore a queue larger than [KlaviyoApiClient.MAX_RESTORE_CANDIDATES],
+     * returning the uuids in persisted order.
+     */
+    private fun restoreOversizedQueue(): List<String> =
+        (0 until KlaviyoApiClient.MAX_RESTORE_CANDIDATES + 100)
+            .map { "uuid-$it" }
+            .also {
+                seedPersistedQueue(it)
+                KlaviyoApiClient.restoreQueue(forceRestore = true)
+            }
+
     @Test
     fun `Restoring a persisted index with duplicate uuids respects the cap`() {
         // A malformed index that repeats one uuid past the cap. Retaining every occurrence would
@@ -1353,10 +1366,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Test
     fun `Restoring a queue beyond twice capacity examines only the first and last MAX_QUEUE_SIZE`() {
         val max = KlaviyoApiClient.MAX_QUEUE_SIZE
-        val uuids = (0 until max * 2 + 100).map { "uuid-$it" }
-        seedPersistedQueue(uuids)
-
-        KlaviyoApiClient.restoreQueue(forceRestore = true)
+        val uuids = restoreOversizedQueue()
 
         assertEquals(max, KlaviyoApiClient.getQueueSize())
 
@@ -1402,16 +1412,14 @@ internal class KlaviyoApiClientTest : BaseTest() {
     @Test
     fun `Restoring a queue beyond twice capacity clears the unexamined entries from the store`() {
         val max = KlaviyoApiClient.MAX_QUEUE_SIZE
-        val uuids = (0 until max * 2 + 100).map { "uuid-$it" }
-        seedPersistedQueue(uuids)
-
-        KlaviyoApiClient.restoreQueue(forceRestore = true)
+        val uuids = restoreOversizedQueue()
 
         // Every uuid absent from the restored queue is also gone from the store, including the
         // middle band that was discarded without being read. Leaving those behind would keep the
         // preferences file oversized on every subsequent launch.
-        val restored = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY).orEmpty()
-        uuids.filterNot { restored.contains(it) }.forEach { uuid ->
+        val restoredJson = JSONArray(spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY).orEmpty())
+        val restored = (0 until restoredJson.length()).map { restoredJson.getString(it) }.toSet()
+        uuids.filterNot(restored::contains).forEach { uuid ->
             assertNull(spyDataStore.fetch(uuid))
         }
 
