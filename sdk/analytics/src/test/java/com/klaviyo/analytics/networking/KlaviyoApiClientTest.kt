@@ -53,6 +53,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -1332,6 +1333,24 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
     }
 
+    /** How far a fixture queue is pushed past the point where entries stop being examined. */
+    private val excessBeyondCandidates = 100
+
+    /** Offset of an entry that falls between the head and tail windows, so is never read. */
+    private val offsetBetweenWindows = 50
+
+    /**
+     * Seed and restore a queue larger than [KlaviyoApiClient.MAX_RESTORE_CANDIDATES],
+     * returning the uuids in persisted order.
+     */
+    private fun restoreOversizedQueue(): List<String> =
+        (0 until KlaviyoApiClient.MAX_RESTORE_CANDIDATES + excessBeyondCandidates)
+            .map { "uuid-$it" }
+            .also {
+                seedPersistedQueue(it)
+                KlaviyoApiClient.restoreQueue(forceRestore = true)
+            }
+
     @Test
     fun `Restoring a persisted index with duplicate uuids respects the cap`() {
         // A malformed index that repeats one uuid past the cap. Retaining every occurrence would
@@ -1348,5 +1367,91 @@ internal class KlaviyoApiClientTest : BaseTest() {
             "[\"uuid-dup\"]",
             spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
         )
+    }
+
+    @Test
+    fun `Restoring a queue beyond twice capacity examines only the first and last MAX_QUEUE_SIZE`() {
+        val max = KlaviyoApiClient.MAX_QUEUE_SIZE
+        val uuids = restoreOversizedQueue()
+
+        assertEquals(max, KlaviyoApiClient.getQueueSize())
+
+        // Entries outside the head and tail windows are dropped without being read
+        val ignored = "uuid-" + (max + 10)
+        verify(exactly = 0) { spyDataStore.fetch(ignored) }
+        // Must stay after the verify above - this call registers on the spy
+        assertNull(spyDataStore.fetch(ignored))
+
+        // The most recently enqueued survive
+        assertNotNull(spyDataStore.fetch("uuid-" + (uuids.size - 1)))
+    }
+
+    @Test
+    fun `Restoring a queue beyond twice capacity still retains a prioritized request at the front`() {
+        // A head-of-line request sits at the front of the index with the newest timestamp. The
+        // head window must reach it even though the backlog is too large to examine in full.
+        val max = KlaviyoApiClient.MAX_QUEUE_SIZE
+        val rest = (0 until max * 2 + excessBeyondCandidates).map { "uuid-$it" }
+        val uuids = listOf("hol-newest") + rest
+        val times = listOf(Long.MAX_VALUE) + rest.indices.map { it.toLong() }
+        seedPersistedQueue(uuids, times)
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        assertEquals(max, KlaviyoApiClient.getQueueSize())
+        assertNotNull(spyDataStore.fetch("hol-newest"))
+    }
+
+    @Test
+    fun `Restoring a queue within twice capacity examines every entry`() {
+        val max = KlaviyoApiClient.MAX_QUEUE_SIZE
+        val uuids = (0 until max * 2).map { "uuid-$it" }
+        seedPersistedQueue(uuids)
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        assertEquals(max, KlaviyoApiClient.getQueueSize())
+
+        // Below the bound, selection is exact: every entry's timestamp is read
+        uuids.forEach { uuid -> verify(atLeast = 1) { spyDataStore.fetch(uuid) } }
+    }
+
+    @Test
+    fun `Restoring a queue beyond twice capacity clears the unexamined entries from the store`() {
+        val max = KlaviyoApiClient.MAX_QUEUE_SIZE
+        val uuids = restoreOversizedQueue()
+
+        // Every uuid absent from the restored queue is also gone from the store, including the
+        // middle band that was discarded without being read. Leaving those behind would keep the
+        // preferences file oversized on every subsequent launch.
+        val restoredJson = JSONArray(spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY).orEmpty())
+        val restored = (0 until restoredJson.length()).map { restoredJson.getString(it) }.toSet()
+        uuids.filterNot(restored::contains).forEach { uuid ->
+            assertNull(spyDataStore.fetch(uuid))
+        }
+
+        assertEquals(max, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Restoring a queue beyond twice capacity drops a recent request stranded outside the windows`() {
+        // The trade this bound makes: an entry just past the head window is newer than everything
+        // in the tail window, but is discarded unread because position stands in for recency.
+        val max = KlaviyoApiClient.MAX_QUEUE_SIZE
+        val uuids = (0 until KlaviyoApiClient.MAX_RESTORE_CANDIDATES + excessBeyondCandidates)
+            .map { "uuid-$it" }
+        val stranded = max + offsetBetweenWindows
+        val times = uuids.indices.map { if (it == stranded) Long.MAX_VALUE else it.toLong() }
+        seedPersistedQueue(uuids, times)
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        assertEquals(max, KlaviyoApiClient.getQueueSize())
+
+        // Newest by timestamp, yet dropped without being read
+        assertNull(spyDataStore.fetch("uuid-$stranded"))
+
+        // Meanwhile an older entry inside the tail window is kept
+        assertNotNull(spyDataStore.fetch("uuid-" + (uuids.size - 1)))
     }
 }
