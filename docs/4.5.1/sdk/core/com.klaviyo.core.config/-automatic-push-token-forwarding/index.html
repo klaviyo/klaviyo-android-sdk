@@ -1,0 +1,217 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>AutomaticPushTokenForwarding</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            klaviyo-android-sdk
+                    </a>            </div>
+            <div class="library-version">
+<dokka-template-command data="{&quot;@class&quot;:&quot;org.jetbrains.dokka.base.templating.ReplaceVersionsCommand&quot;,&quot;location&quot;:&quot;com.klaviyo.core.config/-automatic-push-token-forwarding/index.html&quot;}"><div class="versions-dropdown">
+  <div class="versions-dropdown-button">4.5.1</div>
+  <div class="versions-dropdown-data"><a href="index.html">4.5.1</a><a href="../../../../not-found-version.html?v=4.5.0">4.5.0</a><a href="../../../../not-found-version.html?v=4.4.1">4.4.1</a><a href="../../../../not-found-version.html?v=4.3.2">4.3.2</a><a href="../../../../not-found-version.html?v=4.3.1">4.3.1</a><a href="../../../../not-found-version.html?v=4.3.0">4.3.0</a><a href="../../../../not-found-version.html?v=4.2.0">4.2.0</a><a href="../../../../not-found-version.html?v=4.1.0">4.1.0</a><a href="../../../../not-found-version.html?v=4.0.0">4.0.0</a><a href="../../../../not-found-version.html?v=3.3.1">3.3.1</a><a href="../../../../not-found-version.html?v=3.3.0">3.3.0</a><a href="../../../../not-found-version.html?v=3.2.0">3.2.0</a><a href="../../../../not-found-version.html?v=3.0.3">3.0.3</a><a href="../../../../not-found-version.html?v=3.0.2">3.0.2</a><a href="../../../../not-found-version.html?v=3.0.0">3.0.0</a><a href="../../../../not-found-version.html?v=2.4.1">2.4.1</a><a href="../../../../not-found-version.html?v=2.4.0">2.4.0</a><a href="../../../../not-found-version.html?v=2.3.0">2.3.0</a><a href="../../../../not-found-version.html?v=2.2.1">2.2.1</a><a href="../../../../not-found-version.html?v=2.2.0">2.2.0</a><a href="../../../../not-found-version.html?v=2.1.1">2.1.1</a><a href="../../../../not-found-version.html?v=2.1.0">2.1.0</a><a href="../../../../not-found-version.html?v=2.0.0">2.0.0</a><a href="../../../../not-found-version.html?v=1.4.1">1.4.1</a><a href="../../../../not-found-version.html?v=1.4.0">1.4.0</a><a href="../../../../not-found-version.html?v=1.3.5">1.3.5</a><a href="../../../../not-found-version.html?v=1.3.4">1.3.4</a><a href="../../../../not-found-version.html?v=1.3.3">1.3.3</a><a href="../../../../not-found-version.html?v=1.3.2">1.3.2</a><a href="../../../../not-found-version.html?v=1.3.1">1.3.1</a><a href="../../../../not-found-version.html?v=1.3.0">1.3.0</a><a href="../../../../not-found-version.html?v=1.2.0-beta">1.2.0-beta</a><a href="../../../../not-found-version.html?v=1.1.1">1.1.1</a><a href="../../../../not-found-version.html?v=1.1.0">1.1.0</a><a href="../../../../not-found-version.html?v=1.0.1">1.0.1</a><a href="../../../../not-found-version.html?v=1.0.0">1.0.0</a></div>
+</div>
+</dokka-template-command>            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":sdk:core:dokkaHtmlPartial/release">androidJvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="core::com.klaviyo.core.config/AutomaticPushTokenForwarding///PointingToDeclaration//-1357061740">
+  <div class="breadcrumbs"><a href="../../index.html">core</a><span class="delimiter">/</span><a href="../index.html">com.klaviyo.core.config</a><span class="delimiter">/</span><span class="current">AutomaticPushTokenForwarding</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Automatic</span><wbr><span>Push</span><wbr><span>Token</span><wbr><span><span>Forwarding</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">enum </span><a href="index.html">AutomaticPushTokenForwarding</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-enum/index.html">Enum</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="index.html">AutomaticPushTokenForwarding</a><span class="token operator">&gt; </span></div><p class="paragraph">Resolved state of the <a href="../../com.klaviyo.core/-constants/-a-u-t-o-m-a-t-i-c_-p-u-s-h_-t-o-k-e-n_-f-o-r-w-a-r-d-i-n-g.html">Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING</a> manifest flag, which is three-valued: an absent key is distinct from an explicit <code class="lang-kotlin">false</code>.</p><p class="paragraph">The SDK has two independent automatic-forwarding paths, and each state selects a combination of them via <a href="forwards-on-token-rotation.html">forwardsOnTokenRotation</a> and <a href="fetches-proactively.html">fetchesProactively</a>. Call sites read those properties rather than comparing enum entries.</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button><button class="section-tab" data-togglable="ENTRY">Entries</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="ENTRY">
+        <h2 class="">Entries</h2>
+        <div class="table"><a data-name="-857869680%2FClasslikes%2F-1357061740" anchor-label="UNSET" id="-857869680%2FClasslikes%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-togglable="ENTRY" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-u-n-s-e-t/index.html">UNSET</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-857869680%2FClasslikes%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><a href="-u-n-s-e-t/index.html">UNSET</a></div></div><div class="brief "><p class="paragraph">Manifest key absent.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-925529112%2FClasslikes%2F-1357061740" anchor-label="ENABLED" id="-925529112%2FClasslikes%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-togglable="ENTRY" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-e-n-a-b-l-e-d/index.html">ENABLED</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-925529112%2FClasslikes%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><a href="-e-n-a-b-l-e-d/index.html">ENABLED</a></div></div><div class="brief "><p class="paragraph">Manifest key present and <code class="lang-kotlin">true</code>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1076577917%2FClasslikes%2F-1357061740" anchor-label="DISABLED" id="1076577917%2FClasslikes%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-togglable="ENTRY" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-d-i-s-a-b-l-e-d/index.html">DISABLED</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1076577917%2FClasslikes%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><div class="block"><a href="-d-i-s-a-b-l-e-d/index.html">DISABLED</a></div></div><div class="brief "><p class="paragraph">Manifest key present and <code class="lang-kotlin">false</code>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="589560923%2FProperties%2F-1357061740" anchor-label="entries" id="589560923%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="entries.html"><span><span>entries</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="589560923%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="entries.html">entries</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.enums/-enum-entries/index.html">EnumEntries</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="index.html">AutomaticPushTokenForwarding</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Returns a representation of an immutable list of all enum entries, in the order they're declared.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2121305111%2FProperties%2F-1357061740" anchor-label="fetchesProactively" id="2121305111%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="fetches-proactively.html"><span>fetches</span><wbr><span><span>Proactively</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2121305111%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="fetches-proactively.html">fetchesProactively</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Whether to pull the current token from the provider at <code class="lang-kotlin">Klaviyo.initialize</code> and on each foreground, via <code class="lang-kotlin">PushTokenFetcher.maybeAutoRegisterPushToken</code>. Requires an explicit opt-in.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="557606241%2FProperties%2F-1357061740" anchor-label="forwardsOnTokenRotation" id="557606241%2FProperties%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="forwards-on-token-rotation.html"><span>forwards</span><wbr><span>On</span><wbr><span>Token</span><wbr><span><span>Rotation</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="557606241%2FProperties%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="forwards-on-token-rotation.html">forwardsOnTokenRotation</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Whether to forward a token the push provider delivers to <code class="lang-kotlin">KlaviyoPushService.onNewToken</code>. Enabled unless forwarding is explicitly disabled.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-405271263%2FFunctions%2F-1357061740" anchor-label="valueOf" id="-405271263%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="value-of.html"><span>value</span><wbr><span><span>Of</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-405271263%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="value-of.html"><span class="token function">valueOf</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">value<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">AutomaticPushTokenForwarding</a></div><div class="brief "><p class="paragraph">Returns the enum constant of this type with the specified name. The string must match exactly an identifier used to declare an enum constant in this type. (Extraneous whitespace characters are not permitted.)</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1996556307%2FFunctions%2F-1357061740" anchor-label="values" id="-1996556307%2FFunctions%2F-1357061740" data-filterable-set=":sdk:core:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":sdk:core:dokkaHtmlPartial/release" data-filterable-set=":sdk:core:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="values.html"><span><span>values</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1996556307%2FFunctions%2F-1357061740"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":sdk:core:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="values.html"><span class="token function">values</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-array/index.html">Array</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="index.html">AutomaticPushTokenForwarding</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Returns an array containing the constants of this enum type, in the order they're declared.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
