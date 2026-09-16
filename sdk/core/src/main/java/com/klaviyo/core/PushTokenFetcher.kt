@@ -1,5 +1,8 @@
 package com.klaviyo.core
 
+import com.klaviyo.core.config.AutomaticPushTokenForwarding
+import com.klaviyo.core.config.automaticPushTokenForwarding
+
 /**
  * Pulls the current push token from the device's push provider (e.g. FCM) and forwards it to
  * Klaviyo. Implemented in `push-fcm` and resolved lazily via [Registry]; when that module is absent
@@ -24,28 +27,27 @@ interface PushTokenFetcher {
 
     companion object {
         /**
-         * Automatic push token registration (via [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING], default
-         * [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT]): pull the current token and forward
-         * it to Klaviyo. Called on `Klaviyo.initialize` and on each app foreground so token rotations
-         * are picked up. No-op when the flag is explicitly off or when `push-fcm` is absent.
+         * Automatic push token registration: pull the current token and forward it to Klaviyo. Called
+         * on `Klaviyo.initialize` and on each app foreground so token rotations are picked up.
          *
-         * Reads the flag and default that also govern `KlaviyoPushService.onNewToken` (which reads them
-         * from its own Context, safe before init), so the two automatic-collection paths can't drift.
+         * Requires an explicit opt-in via [Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING] — see
+         * [AutomaticPushTokenForwarding.fetchesProactively]. No-op when that key is absent or `false`,
+         * or when `push-fcm` is absent. `KlaviyoPushService.onNewToken` reads the same key from its own
+         * Context (safe before init) but stays enabled when the key is absent.
          *
          * Independent of [Constants.AUTOMATIC_PUSH_OPEN_TRACKING] (which gates only automatic open tracking) —
          * this flag alone controls token forwarding.
+         *
+         * @return whether a fetch was dispatched; callers refresh push state themselves when it was not.
          */
         fun maybeAutoRegisterPushToken(onUnavailable: () -> Unit = {}): Boolean = safeCall {
             // Reading Registry.config throws MissingConfig before Klaviyo.initialize. Contained
             // here rather than at the call sites so this reports "nothing was dispatched" instead
             // of making every caller guard a side effect it only opted into.
-            val forwardingEnabled = Registry.config.getManifestBoolean(
-                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
-                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT
-            )
-            if (!forwardingEnabled) {
+            val forwarding = Registry.config.automaticPushTokenForwarding()
+            if (!forwarding.fetchesProactively) {
                 Registry.log.verbose(
-                    "Skipping automatic push token registration (automaticTokenForwarding=false)"
+                    "Skipping automatic push token registration (automaticTokenForwarding=$forwarding)"
                 )
                 return@safeCall false
             }

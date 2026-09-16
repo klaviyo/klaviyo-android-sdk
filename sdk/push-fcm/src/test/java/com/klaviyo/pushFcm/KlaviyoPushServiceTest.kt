@@ -3,7 +3,9 @@ package com.klaviyo.pushFcm
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Constants
+import com.klaviyo.core.config.AutomaticPushTokenForwarding
 import com.klaviyo.core.config.getManifestBoolean
+import com.klaviyo.core.config.hasManifestKey
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.KEY_VALUE_PAIRS_KEY
@@ -49,10 +51,21 @@ class KlaviyoPushServiceTest : BaseTest() {
         every { anyConstructed<KlaviyoNotification>().displayNotification(any()) } returns true
 
         // onNewToken reads the forwarding flag from the service Context (not Registry.config), so
-        // stub the Context.getManifestBoolean extension. Default: return the passed default (on).
+        // stub the Context extensions it resolves the three-valued flag through. Default: no key
+        // present, i.e. UNSET.
         every { pushService.applicationContext } returns mockContext
         mockkStatic("com.klaviyo.core.config.KlaviyoConfigKt")
         every { mockContext.getManifestBoolean(any(), any()) } answers { thirdArg() }
+        every { mockContext.hasManifestKey(any()) } returns false
+    }
+
+    private fun setAutomaticPushTokenForwarding(state: AutomaticPushTokenForwarding) {
+        every {
+            mockContext.hasManifestKey(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING)
+        } returns (state != AutomaticPushTokenForwarding.UNSET)
+        every {
+            mockContext.getManifestBoolean(Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING, false)
+        } returns (state == AutomaticPushTokenForwarding.ENABLED)
     }
 
     @After
@@ -63,20 +76,26 @@ class KlaviyoPushServiceTest : BaseTest() {
     }
 
     @Test
-    fun `FCM onNewToken forwards the new token by default when the forwarding flag is absent`() {
-        // Default ON: BaseTest returns the manifest default (true) when the key is unset
+    fun `FCM onNewToken forwards the new token when the forwarding flag is absent`() {
+        setAutomaticPushTokenForwarding(AutomaticPushTokenForwarding.UNSET)
+
         pushService.onNewToken(stubPushToken)
+
+        verify { Klaviyo.setPushToken(stubPushToken) }
+    }
+
+    @Test
+    fun `FCM onNewToken forwards the new token when automatic token forwarding is explicitly on`() {
+        setAutomaticPushTokenForwarding(AutomaticPushTokenForwarding.ENABLED)
+
+        pushService.onNewToken(stubPushToken)
+
         verify { Klaviyo.setPushToken(stubPushToken) }
     }
 
     @Test
     fun `FCM onNewToken does not forward the token when automatic token forwarding is off`() {
-        every {
-            mockContext.getManifestBoolean(
-                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING,
-                Constants.AUTOMATIC_PUSH_TOKEN_FORWARDING_DEFAULT
-            )
-        } returns false
+        setAutomaticPushTokenForwarding(AutomaticPushTokenForwarding.DISABLED)
 
         pushService.onNewToken(stubPushToken)
 

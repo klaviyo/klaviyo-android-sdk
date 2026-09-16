@@ -2,11 +2,12 @@
 
     <!--
         SETUP NOTE (Manual / Option B): This overlay is the ONLY difference in the manual flavor's
-        manifest. Automatic push TOKEN forwarding defaults to ON, so to genuinely demonstrate the
-        manual integration (the app fetches the token and calls Klaviyo.setPushToken() itself) this
-        flavor must explicitly opt OUT:
+        manifest. To genuinely demonstrate the manual integration (the app fetches the token and calls
+        Klaviyo.setPushToken() itself) this flavor explicitly opts OUT, because omitting the key would
+        still leave KlaviyoPushService.onNewToken forwarding (that is the `unset` flavor):
           - com.klaviyo.push.automatic_push_token_forwarding="false" — turns off the SDK's automatic
-            token forwarding (both the initialize()/foreground fetch and KlaviyoPushService.onNewToken).
+            token forwarding entirely (both the initialize()/foreground fetch and
+            KlaviyoPushService.onNewToken).
         Automatic push OPEN tracking (com.klaviyo.push.automatic_push_open_tracking) is opt-in / OFF by
         default, so it is simply omitted here — the app calls Klaviyo.handlePush() itself.
         Note the key's "com.klaviyo.push." prefix is required — the bare "com.klaviyo.*" form silently no-ops.

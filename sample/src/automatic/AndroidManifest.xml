@@ -10,9 +10,10 @@
             fetches and registers the token at Klaviyo.initialize() and on every foreground (no
             FirebaseMessaging fetch / Klaviyo.setPushToken() in your app).
         The two flags are fully independent — set either one without the other to opt into just that
-        behavior. Token forwarding is ON by default, so the `manual` flavor overrides it to "false"
-        (see src/manual/AndroidManifest.xml) to demonstrate the manual (Option B) path; open tracking
-        is off by default, so `manual` simply omits it.
+        behavior. Token forwarding is three-valued: "true" here, "false" in the `manual` flavor for a
+        complete opt-out (see src/manual/AndroidManifest.xml), and absent in the `unset` flavor, where
+        only KlaviyoPushService.onNewToken forwards (see src/unset/AndroidManifest.xml). Open tracking
+        is opt-in, so both other flavors simply omit it.
         Note the keys' "com.klaviyo.push." prefix is required — the bare "com.klaviyo.*" form silently no-ops.
     -->
     <application>
