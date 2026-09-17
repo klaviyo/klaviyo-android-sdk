@@ -19,7 +19,8 @@ internal class KlaviyoJsBridge : JsBridge {
         openForm,
         closeForm,
         profileEvent,
-        setSafeArea
+        setSafeArea,
+        jwtMutation
     }
 
     override val handshake: List<HandshakeSpec> = listOf(
@@ -37,6 +38,10 @@ internal class KlaviyoJsBridge : JsBridge {
         ),
         HandshakeSpec(
             type = HelperFunction.profileEvent.name,
+            version = 1
+        ),
+        HandshakeSpec(
+            type = HelperFunction.jwtMutation.name,
             version = 1
         )
     )
@@ -80,6 +85,11 @@ internal class KlaviyoJsBridge : JsBridge {
             right.toString(),
             bottom.toString()
         )
+
+    override fun jwtMutation(token: String) = evaluateJavascript(
+        HelperFunction.jwtMutation,
+        token
+    )
 
     /**
      * Evaluates a JS function in the webview with the given arguments
