@@ -48,6 +48,8 @@ for module in analytics push-fcm forms location; do
 done
 
 # Update docs/index.html
-sed -i '' "s/$currentVersion/$nextVersion/g" "docs/index.html"
+# Match whatever version the redirect points at: it can drift from $currentVersion,
+# and a literal substitution then silently leaves it stale.
+sed -i '' -E "s|url=\./[0-9]+\.[0-9]+\.[0-9]+/|url=./$nextVersion/|g" "docs/index.html"
 
 echo "Version bumped successfully to $nextVersion"
