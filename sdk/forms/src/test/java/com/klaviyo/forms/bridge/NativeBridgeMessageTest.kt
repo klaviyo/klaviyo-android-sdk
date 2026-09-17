@@ -196,6 +196,116 @@ class NativeBridgeMessageTest : BaseTest() {
         assertEquals(2, result.event[EventKey.CUSTOM("key2")])
     }
 
+    private fun decodeProfileEvent(extraDataFields: String = "", properties: String = "") =
+        NativeBridgeMessage.decodeWebviewMessage(
+            """
+               {
+                  "type": "trackProfileEvent",
+                  "data": {
+                    $extraDataFields
+                    "metric": "Form completed by profile",
+                    "properties": { $properties }
+                  }
+               }
+            """.trimIndent()
+        ) as NativeBridgeMessage.TrackProfileEvent
+
+    @Test
+    fun `profile event parses top-level float value`() {
+        val result = decodeProfileEvent(""""value": 12.5,""")
+
+        assertEquals(12.5, result.event.value)
+        assertEquals(12.5, result.event[EventKey.VALUE])
+    }
+
+    @Test
+    fun `profile event parses top-level integer value`() {
+        val result = decodeProfileEvent(""""value": 12,""")
+
+        assertEquals(12.0, result.event.value)
+    }
+
+    @Test
+    fun `profile event parses top-level unique_id`() {
+        val result = decodeProfileEvent(""""unique_id": "abc-123",""")
+
+        assertEquals("abc-123", result.event.uniqueId)
+        assertEquals("abc-123", result.event[EventKey.EVENT_ID])
+    }
+
+    @Test
+    fun `profile event parses top-level value_currency`() {
+        val result = decodeProfileEvent(""""value_currency": "USD",""")
+
+        assertEquals("USD", result.event.valueCurrency)
+        assertEquals("USD", result.event[EventKey.VALUE_CURRENCY])
+    }
+
+    @Test
+    fun `profile event with blank value_currency leaves it unset`() {
+        val result = decodeProfileEvent(""""value_currency": "   ",""")
+
+        assertNull(result.event.valueCurrency)
+        assertEquals(0, result.event.propertyCount())
+    }
+
+    @Test
+    fun `profile event without value, value_currency or unique_id leaves them all unset`() {
+        val result = decodeProfileEvent("")
+
+        assertNull(result.event.value)
+        assertNull(result.event.valueCurrency)
+        assertNull(result.event.uniqueId)
+        assertEquals(0, result.event.propertyCount())
+    }
+
+    @Test
+    fun `profile event with malformed value still decodes`() {
+        val result = decodeProfileEvent(""""value": "not a number",""")
+
+        assertEquals(EventMetric.CUSTOM("Form completed by profile"), result.event.metric)
+        assertNull(result.event.value)
+        assertEquals(0, result.event.propertyCount())
+    }
+
+    @Test
+    fun `profile event with blank unique_id leaves it unset`() {
+        val result = decodeProfileEvent(""""unique_id": "   ",""")
+
+        assertNull(result.event.uniqueId)
+        assertEquals(0, result.event.propertyCount())
+    }
+
+    @Test
+    fun `profile event does not clear reserved property keys when envelope fields are absent`() {
+        val result = decodeProfileEvent(
+            properties = """
+                "${'$'}value": 99.0, "${'$'}value_currency": "EUR", "${'$'}event_id": "nested-id"
+            """.trimIndent()
+        )
+
+        assertEquals(99.0, result.event.value)
+        assertEquals("EUR", result.event.valueCurrency)
+        assertEquals("nested-id", result.event.uniqueId)
+    }
+
+    @Test
+    fun `profile event envelope fields override colliding reserved property keys`() {
+        val result = decodeProfileEvent(
+            extraDataFields = """
+                "value": 12.5, "value_currency": "USD", "unique_id": "top-id",
+            """.trimIndent(),
+            properties = """
+                "${'$'}value": 99.0, "${'$'}value_currency": "EUR", "${'$'}event_id": "nested-id"
+            """.trimIndent()
+        )
+
+        assertEquals(12.5, result.event.value)
+        assertEquals("USD", result.event.valueCurrency)
+        assertEquals("top-id", result.event.uniqueId)
+        assertEquals(3, result.event.propertyCount())
+    }
+
     @Test
     fun `test aggregate event`() {
         // Setup
@@ -491,7 +601,7 @@ class NativeBridgeMessageTest : BaseTest() {
                   },
                   {
                     "type": "trackProfileEvent",
-                    "version": 1
+                    "version": 2
                   },
                   {
                     "type": "openDeepLink",
