@@ -18,6 +18,9 @@ abstract class BaseModel<Key, Self>(properties: Map<Key, Serializable>?)
 
     operator fun get(key: Key): Serializable? = propertyMap[key]
 
+    /**
+     * Read a property and remove it from this model, returning null if absent.
+     */
     fun pop(key: Key): Serializable? = propertyMap.remove(key)
 
     operator fun set(key: Key, value: Serializable?) {
