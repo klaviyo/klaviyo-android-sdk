@@ -104,6 +104,19 @@ internal class KlaviyoConfigTest : BaseTest() {
     }
 
     @Test
+    fun `KlaviyoConfig Builder trims trailing slashes from URLs`() {
+        KlaviyoConfig.Builder()
+            .apiKey(API_KEY)
+            .applicationContext(mockContext)
+            .baseUrl("https://fakeurl.com/")
+            .baseCdnUrl("https://spider-water.com///")
+            .build()
+
+        assertEquals("https://fakeurl.com", KlaviyoConfig.baseUrl)
+        assertEquals("https://spider-water.com", KlaviyoConfig.baseCdnUrl)
+    }
+
+    @Test
     fun `KlaviyoConfig Builder missing variables uses default values successfully`() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)

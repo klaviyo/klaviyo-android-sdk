@@ -91,11 +91,11 @@ object KlaviyoConfig : Config {
 
     override val isDebugBuild = BuildConfig.DEBUG
 
-    override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL
+    override var baseUrl: String = BuildConfig.KLAVIYO_SERVER_URL.trimEnd('/')
         private set
     override var apiRevision: String = BuildConfig.KLAVIYO_API_REVISION
         private set
-    override var baseCdnUrl: String = BuildConfig.KLAVIYO_CDN_URL
+    override var baseCdnUrl: String = BuildConfig.KLAVIYO_CDN_URL.trimEnd('/')
         private set
     override var assetSource: String? = BuildConfig.KLAVIYO_ASSET_SOURCE.ifEmpty { null }
         private set
@@ -184,8 +184,14 @@ object KlaviyoConfig : Config {
             this.applicationContext = context
         }
 
+        /**
+         * A trailing slash makes [baseUrl] an invalid origin for
+         * [androidx.webkit.WebViewCompat.addWebMessageListener], which rejects any rule carrying a
+         * path component and breaks in-app forms registration. It also yields a double slash in
+         * every request URL built by KlaviyoApiRequest. Normalize here, the single point of entry.
+         */
         override fun baseUrl(baseUrl: String): Config.Builder = apply {
-            this.baseUrl = baseUrl
+            this.baseUrl = baseUrl.trimEnd('/')
         }
 
         override fun apiRevision(apiRevision: String): Config.Builder = apply {
@@ -193,7 +199,7 @@ object KlaviyoConfig : Config {
         }
 
         override fun baseCdnUrl(baseCdnUrl: String): Config.Builder = apply {
-            this.baseCdnUrl = baseCdnUrl
+            this.baseCdnUrl = baseCdnUrl.trimEnd('/')
         }
 
         override fun assetSource(assetSource: String?): Config.Builder = apply {
