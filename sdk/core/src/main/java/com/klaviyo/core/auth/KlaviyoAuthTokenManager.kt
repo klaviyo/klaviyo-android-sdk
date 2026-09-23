@@ -496,7 +496,11 @@ internal class KlaviyoAuthTokenManager(
                 }
                 if (!canDeliver) return
                 try {
-                    observer(token.rawToken)
+                    observer(token.rawToken) {
+                        synchronized(stateLock) {
+                            canDeliverTokenLocked(token, profileGeneration)
+                        }
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {

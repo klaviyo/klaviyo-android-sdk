@@ -168,7 +168,7 @@ class JwtObserverTest : BaseTest() {
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
 
-        refreshObserver.captured.invoke("refreshed.token")
+        refreshObserver.captured.invoke("refreshed.token") { true }
 
         verify(exactly = 1) { mockJsBridge.jwtMutation("initial") }
         verify(exactly = 1) { mockJsBridge.jwtMutation("refreshed.token") }
@@ -187,7 +187,7 @@ class JwtObserverTest : BaseTest() {
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
 
-        refreshObserver.captured.invoke(token)
+        refreshObserver.captured.invoke(token) { true }
 
         verify(exactly = 1) { mockJsBridge.jwtMutation(token) }
     }
@@ -206,7 +206,7 @@ class JwtObserverTest : BaseTest() {
         val observer = JwtObserver()
         observer.startObserver() // session 1
         dispatcher.scheduler.advanceUntilIdle() // session-1 fetch queues its inject
-        refreshObserver.captured.invoke("stale-refresh") // session-1 refresh queues its inject
+        refreshObserver.captured.invoke("stale-refresh") { true }
 
         observer.stopObserver()
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-2")
@@ -249,7 +249,7 @@ class JwtObserverTest : BaseTest() {
         val captured = refreshObserver.captured
 
         observer.stopObserver()
-        captured.invoke("late.token")
+        captured.invoke("late.token") { true }
 
         verify { mockAuthTokenManager.offTokenRefresh(any()) }
         verify(inverse = true) { mockJsBridge.jwtMutation("late.token") }
@@ -272,7 +272,7 @@ class JwtObserverTest : BaseTest() {
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle() // initial fetch queues its UI callback (index 0)
 
-        refreshObserver.captured.invoke("fresh-refreshed") // refresh queues its callback (index 1)
+        refreshObserver.captured.invoke("fresh-refreshed") { true }
 
         // Run the refresh callback first, then the stale initial callback.
         uiQueue[1].invoke()
@@ -290,7 +290,7 @@ class JwtObserverTest : BaseTest() {
 
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
-        refreshObserver.captured.invoke("late-token")
+        refreshObserver.captured.invoke("late-token") { true }
 
         verify(exactly = 1) { mockJsBridge.jwtMutation("late-token") }
     }
@@ -309,7 +309,7 @@ class JwtObserverTest : BaseTest() {
         dispatcher.scheduler.runCurrent() // initial fetch launched and suspended on currentToken
 
         // Refresh lands while the initial fetch is still in flight.
-        refreshObserver.captured.invoke("fresh-refreshed")
+        refreshObserver.captured.invoke("fresh-refreshed") { true }
 
         // Initial fetch then fails — its callback would inject an empty JWT.
         fetchCompletion.completeExceptionally(AuthTokenException.ValidationFailed("Malformed"))
