@@ -11,7 +11,7 @@ internal class KlaviyoObserverCollection : JsBridgeObserverCollection {
             CompanyObserver(),
             LifecycleObserver(),
             jwtObserver,
-            ProfileMutationObserver(jwtObserver),
+            ProfileMutationObserver(),
             ProfileEventObserver()
         )
     }

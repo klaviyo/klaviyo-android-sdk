@@ -18,10 +18,7 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -56,7 +53,7 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
-    fun `startOn defaults to JsReady so JWT is delivered before profile`() {
+    fun `startOn defaults to JsReady for independent JWT delivery`() {
         assert(JwtObserver().startOn == NativeBridgeMessage.JsReady)
     }
 
@@ -69,6 +66,9 @@ class JwtObserverTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify { mockJsBridge.jwtMutation(token) }
+        coVerify(exactly = 1) {
+            mockAuthTokenManager.currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
+        }
     }
 
     @Test
@@ -110,75 +110,6 @@ class JwtObserverTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(inverse = true) { mockJsBridge.jwtMutation(any()) }
-    }
-
-    @Test
-    fun `startObserver completes jwtReady after successful injection`() {
-        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("token")
-
-        val observer = JwtObserver()
-        observer.startObserver()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertTrue(observer.jwtReady.isCompleted)
-        assertFalse(observer.jwtReady.isCancelled)
-    }
-
-    @Test
-    fun `startObserver completes jwtReady even when auth is not enabled`() {
-        coEvery { mockAuthTokenManager.currentToken(any()) } throws
-            AuthTokenException.NoProviderRegistered
-
-        val observer = JwtObserver()
-        observer.startObserver()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertTrue(observer.jwtReady.isCompleted)
-        assertFalse(observer.jwtReady.isCancelled)
-    }
-
-    @Test
-    fun `startObserver allocates a fresh jwtReady on reinit after the previous completed`() {
-        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-1")
-        val observer = JwtObserver()
-
-        observer.startObserver()
-        dispatcher.scheduler.advanceUntilIdle()
-        val firstSessionDeferred = observer.jwtReady
-        assertTrue(firstSessionDeferred.isCompleted)
-
-        observer.stopObserver()
-
-        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-2")
-        observer.startObserver()
-        dispatcher.scheduler.advanceUntilIdle()
-        val secondSessionDeferred = observer.jwtReady
-        assertNotSame(firstSessionDeferred, secondSessionDeferred)
-        assertTrue(secondSessionDeferred.isCompleted)
-        assertFalse(secondSessionDeferred.isCancelled)
-        verify(exactly = 1) { mockJsBridge.jwtMutation("session-1") }
-        verify(exactly = 1) { mockJsBridge.jwtMutation("session-2") }
-    }
-
-    @Test
-    fun `startObserver reuses jwtReady when previous session is still in flight`() {
-        val firstCompletion = CompletableDeferred<ValidatedToken>()
-        coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers { firstCompletion.await() }
-
-        val observer = JwtObserver()
-        val initialDeferred = observer.jwtReady
-
-        observer.startObserver()
-        dispatcher.scheduler.runCurrent()
-        assertSame(initialDeferred, observer.jwtReady)
-
-        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("second")
-        observer.startObserver()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertSame(initialDeferred, observer.jwtReady)
-        assertTrue(observer.jwtReady.isCompleted)
-        verify(exactly = 1) { mockJsBridge.jwtMutation("second") }
     }
 
     @Test
@@ -349,7 +280,19 @@ class JwtObserverTest : BaseTest() {
 
         verify(exactly = 1) { mockJsBridge.jwtMutation("fresh-refreshed") }
         verify(inverse = true) { mockJsBridge.jwtMutation("stale-cached") }
-        assertTrue(observer.jwtReady.isCompleted)
+    }
+
+    @Test
+    fun `token arriving after the interactive attempt is still delivered`() {
+        val refreshObserver = captureRefreshObserver()
+        coEvery { mockAuthTokenManager.currentToken(any()) } throws AuthTokenException.TimedOut
+        val observer = JwtObserver()
+
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        refreshObserver.captured.invoke("late-token")
+
+        verify(exactly = 1) { mockJsBridge.jwtMutation("late-token") }
     }
 
     @Test

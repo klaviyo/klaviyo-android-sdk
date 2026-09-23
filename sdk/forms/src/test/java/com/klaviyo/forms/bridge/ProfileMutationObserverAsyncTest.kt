@@ -12,123 +12,73 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
+import io.mockk.verifyOrder
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
-import org.junit.Assert.assertNotSame
 import org.junit.Before
 import org.junit.Test
 
-/**
- * Tests for [ProfileMutationObserver] behaviour when a [JwtObserver] is provided —
- * i.e. the coordination path used by [KlaviyoObserverCollection] to prevent profile injection
- * from racing ahead of JWT delivery.
- */
 class ProfileMutationObserverAsyncTest : BaseTest() {
 
-    private val stubProfile = Profile()
+    private val stubProfile = Profile(email = EMAIL)
     private val stateMock = mockk<State>(relaxed = true).apply {
         every { getAsProfile() } returns stubProfile
     }
     private val mockBridge = mockk<JsBridge>(relaxed = true)
+    private val mockAuth = mockk<AuthTokenManager>().apply {
+        every { onTokenRefresh(any()) } just runs
+        every { offTokenRefresh(any()) } just runs
+    }
 
     @Before
     override fun setup() {
         super.setup()
         Registry.register<State>(stateMock)
         Registry.register<JsBridge>(mockBridge)
+        Registry.register<AuthTokenManager>(mockAuth)
     }
 
     @After
     override fun cleanup() {
         Registry.unregister<State>()
         Registry.unregister<JsBridge>()
+        Registry.unregister<AuthTokenManager>()
         super.cleanup()
     }
 
     @Test
-    fun `startObserver awaits jwtReady before injecting profile`() {
-        // JwtObserver created but not started — jwtReady is the initial incomplete deferred,
-        // which we complete manually below to simulate JWT delivery.
+    fun `profile delivery does not wait for a slow initial JWT`() {
+        val token = CompletableDeferred<ValidatedToken>()
+        coEvery { mockAuth.currentToken(any()) } coAnswers { token.await() }
         val jwtObserver = JwtObserver()
-        ProfileMutationObserver(jwtObserver).startObserver()
+
+        jwtObserver.startObserver()
         dispatcher.scheduler.runCurrent()
-
-        // JWT not yet delivered — profile must not have been injected
-        verify(inverse = true) { mockBridge.profileMutation(any()) }
-
-        // JWT arrives — profile injection should now proceed
-        jwtObserver.jwtReady.complete(Unit)
-        dispatcher.scheduler.advanceUntilIdle()
+        ProfileMutationObserver().startObserver()
 
         verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
+        verify(exactly = 0) { mockBridge.jwtMutation(any()) }
+
+        token.complete(ValidatedToken("late", 0L, 0L))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { mockBridge.jwtMutation("late") }
+        jwtObserver.stopObserver()
     }
 
     @Test
-    fun `startObserver does not inject profile if jwtReady is cancelled`() {
+    fun `initial JWT may arrive before profile delivery`() {
+        coEvery { mockAuth.currentToken(any()) } returns ValidatedToken("early", 0L, 0L)
         val jwtObserver = JwtObserver()
-        val observer = ProfileMutationObserver(jwtObserver)
-        observer.startObserver()
-        dispatcher.scheduler.runCurrent()
 
-        // WebView destroyed before JWT delivered — deferred is cancelled
-        jwtObserver.jwtReady.cancel()
+        jwtObserver.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
+        ProfileMutationObserver().startObserver()
 
-        verify(inverse = true) { mockBridge.profileMutation(any()) }
-    }
-
-    @Test
-    fun `startObserver works on reinit after stop — scope must not be permanently cancelled`() {
-        // Regression test: the old implementation called scope.cancel() in stopObserver(),
-        // which permanently destroyed the scope and made subsequent startObserver calls a no-op.
-        val jwtObserver = JwtObserver()
-        val observer = ProfileMutationObserver(jwtObserver)
-
-        // First session: start and immediately stop
-        observer.startObserver()
-        observer.stopObserver()
-
-        // Second session: should work even though stopObserver was previously called
-        observer.startObserver()
-        jwtObserver.jwtReady.complete(Unit)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
-    }
-
-    @Test
-    fun `startObserver reads jwtReady fresh each session — regression for capture-at-construction`() {
-        val jwtObserver = JwtObserver()
-        val observer = ProfileMutationObserver(jwtObserver)
-        val sessionOneDeferred = jwtObserver.jwtReady
-
-        observer.startObserver()
-        sessionOneDeferred.cancel()
-        dispatcher.scheduler.advanceUntilIdle()
-        verify(inverse = true) { mockBridge.profileMutation(any()) }
-        observer.stopObserver()
-
-        val mockAuth = mockk<AuthTokenManager>()
-        coEvery { mockAuth.currentToken(any()) } returns ValidatedToken(
-            rawToken = "tok",
-            expiresAtEpochSeconds = 0L,
-            issuedAtEpochSeconds = 0L
-        )
-        every { mockAuth.onTokenRefresh(any()) } just runs
-        every { mockAuth.offTokenRefresh(any()) } just runs
-        Registry.register<AuthTokenManager>(mockAuth)
-        try {
-            jwtObserver.startObserver()
-            dispatcher.scheduler.advanceUntilIdle()
-            assertNotSame(sessionOneDeferred, jwtObserver.jwtReady)
-
-            observer.startObserver()
-            dispatcher.scheduler.advanceUntilIdle()
-
-            verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
-
-            jwtObserver.stopObserver()
-        } finally {
-            Registry.unregister<AuthTokenManager>()
+        verifyOrder {
+            mockBridge.jwtMutation("early")
+            mockBridge.profileMutation(stubProfile)
         }
+        jwtObserver.stopObserver()
     }
 }
