@@ -11,6 +11,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.utils.hasAllowedOpenUrlScheme
 import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.FormLifecycleEvent
@@ -221,7 +222,10 @@ internal class KlaviyoNativeBridge : NativeBridge {
      * error, so it degrades gracefully — the form continues unauthenticated — and we log at warning
      * rather than throwing.
      */
-    private fun badJwt() = Registry.log.warning("Webview rejected the injected JWT (BadJWT)")
+    private fun badJwt() {
+        Registry.get<AuthTokenManager>().rejectCurrentToken()
+        Registry.log.warning("Webview rejected the injected JWT (BadJWT)")
+    }
 
     /**
      * Invoke the registered form lifecycle callback on the main thread, if one is registered.

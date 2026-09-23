@@ -14,6 +14,7 @@ package com.klaviyo.core.auth
  * (e.g. for a WebView call that must run on the UI thread), the observer is responsible for it.
  */
 typealias TokenRefreshObserver = (jwt: String, isCurrent: () -> Boolean) -> Unit
+typealias TokenInvalidationObserver = () -> Unit
 
 /**
  * Manages the lifecycle of the host-supplied [AuthTokenProvider] and the resulting JWTs used by
@@ -59,6 +60,8 @@ interface AuthTokenManager {
      * all teardown is synchronous.
      */
     fun unregisterProvider()
+
+    fun rejectCurrentToken()
 
     /**
      * Return a currently-valid [ValidatedToken], fetching from the registered provider if no
@@ -113,6 +116,10 @@ interface AuthTokenManager {
      * is not currently registered.
      */
     fun offTokenRefresh(observer: TokenRefreshObserver)
+
+    fun onTokenInvalidated(observer: TokenInvalidationObserver)
+
+    fun offTokenInvalidated(observer: TokenInvalidationObserver)
 
     /**
      * Synchronously mark the current profile as stale, preventing any in-flight proactive refresh
