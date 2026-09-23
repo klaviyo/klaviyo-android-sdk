@@ -196,26 +196,14 @@ object Klaviyo {
     @JvmStatic
     fun setProfile(profile: Profile): Klaviyo = safeApply {
         val state = Registry.get<State>()
-        if (!state.replacesCurrentProfile(profile)) {
+        val requiresNewToken = state.replacesCurrentProfile(profile) ||
+            (!state.hasProfileIdentifier() && profile.hasProfileIdentifier())
+        if (!requiresNewToken) {
             state.setProfile(profile)
             return@safeApply
         }
 
-        val auth = Registry.get<AuthTokenManager>()
-        val generation = auth.invalidate()
-        state.setProfile(profile)
-        CoroutineScope(Registry.dispatcher).safeLaunch {
-            auth.clearTokenState(expectedGeneration = generation)
-            try {
-                auth.currentToken()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: AuthTokenException.NoProviderRegistered) {
-                Unit
-            } catch (e: Exception) {
-                Registry.log.warning("Auth token fetch failed after profile replacement", e)
-            }
-        }
+        replaceProfileAuth { state.setProfile(profile) }
     }
 
     /**
@@ -336,8 +324,40 @@ object Klaviyo {
      */
     @JvmStatic
     fun setProfileAttribute(propertyKey: ProfileKey, value: Serializable): Klaviyo = safeApply {
-        Registry.get<State>().setAttribute(propertyKey, value)
+        val state = Registry.get<State>()
+        val identifiesAnonymousProfile = !state.hasProfileIdentifier() &&
+            propertyKey.name in ProfileKey.IDENTIFIERS &&
+            (value as? String)?.trim()?.isNotEmpty() == true
+        if (identifiesAnonymousProfile) {
+            replaceProfileAuth { state.setAttribute(propertyKey, value) }
+        } else {
+            state.setAttribute(propertyKey, value)
+        }
     }
+
+    private fun replaceProfileAuth(updateProfile: () -> Unit) {
+        val auth = Registry.get<AuthTokenManager>()
+        val generation = auth.invalidate()
+        updateProfile()
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            auth.clearTokenState(expectedGeneration = generation)
+            try {
+                auth.currentToken()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: AuthTokenException.NoProviderRegistered) {
+                Unit
+            } catch (e: Exception) {
+                Registry.log.warning("Auth token fetch failed after profile change", e)
+            }
+        }
+    }
+
+    private fun State.hasProfileIdentifier(): Boolean =
+        listOf(externalId, email, phoneNumber).any { !it.isNullOrEmpty() }
+
+    private fun Profile.hasProfileIdentifier(): Boolean =
+        listOf(externalId, email, phoneNumber).any { !it.isNullOrBlank() }
 
     /**
      * Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile

@@ -159,8 +159,7 @@ internal class StateSideEffects(
         }
 
         is StateChange.ProfileIdentifier,
-        is StateChange.ProfileReset,
-        is StateChange.ProfileReplaced -> {
+        is StateChange.ProfileReset -> {
             onUserStateChange()
         }
 

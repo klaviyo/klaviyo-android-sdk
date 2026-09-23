@@ -131,7 +131,7 @@ internal class KlaviyoState : State {
         } finally {
             replacingProfile = false
         }
-        oldProfile?.let { broadcastChange(StateChange.ProfileReplaced(it)) }
+        oldProfile?.let { broadcastChange(StateChange.ProfileReset(it)) }
     }
 
     /**

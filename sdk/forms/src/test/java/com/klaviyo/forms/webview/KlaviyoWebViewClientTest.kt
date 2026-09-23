@@ -250,7 +250,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `initializeWebView embeds current profile identifiers as escaped initial document state`() {
-        val special = "O'Brien & <Admin> \"quoted\"\n\t\u0001雪😀"
+        val special = "O'Brien & <Admin> \"quoted\" DEVICE_INFO\n\t\u0001雪😀"
         every { mockState.getAsProfile() } returns Profile(
             externalId = special,
             email = "mail+$special@example.com",

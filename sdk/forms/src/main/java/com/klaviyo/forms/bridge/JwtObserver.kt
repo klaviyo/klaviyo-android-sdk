@@ -120,6 +120,16 @@ internal class JwtObserver : JsBridgeObserver {
         fetchJob = null
     }
 
+    internal fun clearToken() {
+        val sequence = injectionSequence.incrementAndGet()
+        val session = latestFetch
+        Registry.threadHelper.runOnUiThread {
+            if (!stopped && latestFetch === session) {
+                injectIfLatest(sequence, "")
+            }
+        }
+    }
+
     /**
      * Re-inject a proactively-refreshed token into the webview. The manager only notifies on a
      * successful fetch, so [jwt] is always a real (non-empty) token here. Captures the current
