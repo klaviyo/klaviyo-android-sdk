@@ -154,15 +154,7 @@ internal class JwtObserver : JsBridgeObserver {
         }
     }
 
-    private fun onTokenInvalidated() {
-        val sequence = injectionSequence.incrementAndGet()
-        val session = latestFetch
-        Registry.threadHelper.runOnUiThread {
-            if (!stopped && latestFetch === session) {
-                injectIfLatest(sequence, "")
-            }
-        }
-    }
+    private fun onTokenInvalidated() = clearToken()
 
     /**
      * Inject [token] only if [sequence] is newer than any already applied, so an out-of-order
