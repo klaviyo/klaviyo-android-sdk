@@ -120,9 +120,7 @@ window.setSafeArea = function(left, top, right, bottom) {
 /**
  * Updates the data-klaviyo-jwt attribute on the document head.
  *
- * Delivered via the JS bridge (rather than a static HTML attribute) so the SDK controls
- * ordering: the JWT is set at jsReady, before profile identifiers are injected at handshake,
- * which is what the onsite personalization module needs to trigger the authenticated fetch.
+ * Delivered via the JS bridge so initial acquisition and later refreshes can update the document.
  *
  * @param token - JWT string, or empty string if auth is not enabled / token fetch failed
  * @returns {boolean}

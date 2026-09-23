@@ -24,6 +24,7 @@ import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.core.config.AutomaticPushTokenForwarding
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
@@ -31,8 +32,10 @@ import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.Runs
+import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -420,6 +423,69 @@ internal class KlaviyoTest : BaseTest() {
         assertEquals(EXTERNAL_ID, Registry.get<State>().externalId)
         assertNull(Registry.get<State>().email)
         assertNotEquals(anonId, Registry.get<State>().anonymousId)
+    }
+
+    @Test
+    fun `setProfile replacement clears outgoing token state and acquires a token for the new profile`() =
+        runTest(dispatcher) {
+            Registry.get<State>().email = "old@example.com"
+            val newToken = ValidatedToken("new-token", 0L, 0L)
+            coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers {
+                assertEquals("new@example.com", Registry.get<State>().email)
+                newToken
+            }
+
+            Klaviyo.setProfile(Profile(email = "new@example.com"))
+
+            verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerifyOrder {
+                mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
+                mockAuthTokenManager.currentToken()
+            }
+        }
+
+    @Test
+    fun `setProfile identification acquires a token for an anonymous profile`() =
+        runTest(dispatcher) {
+            Klaviyo.setProfile(Profile(email = EMAIL))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+            coVerifyOrder {
+                mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
+                mockAuthTokenManager.currentToken()
+            }
+        }
+
+    @Test
+    fun `fluent identifier acquires a token after profile reset`() = runTest(dispatcher) {
+        Registry.get<State>().email = "old@example.com"
+        Klaviyo.resetProfile()
+        dispatcher.scheduler.advanceUntilIdle()
+        clearMocks(mockAuthTokenManager, answers = false)
+
+        Klaviyo.setEmail(EMAIL)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerifyOrder {
+            mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
+            mockAuthTokenManager.currentToken()
+        }
+    }
+
+    @Test
+    fun `setProfile with unchanged identifiers does not churn token state`() = runTest(dispatcher) {
+        Registry.get<State>().email = EMAIL
+
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
+        coVerify(exactly = 0) { mockAuthTokenManager.currentToken(any()) }
     }
 
     @Test

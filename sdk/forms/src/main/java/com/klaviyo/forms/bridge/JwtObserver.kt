@@ -7,32 +7,16 @@ import com.klaviyo.core.auth.TokenRefreshObserver
 import com.klaviyo.core.safeLaunch
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 
 /**
- * Delivers the auth token to the webview via [JsBridge.jwtMutation] at [NativeBridgeMessage.JsReady],
- * before [ProfileMutationObserver] injects profile identifiers at HandShook.
- *
- * The onsite personalization module only triggers the authenticated profile fetch when both a JWT
- * and profile identifiers are present, so the JWT must land first.
- *
- * Beyond the initial delivery, this observer subscribes to [AuthTokenManager.onTokenRefresh] so that
- * a token proactively refreshed while a form is displayed is re-injected into the webview, keeping
- * onsite from acting on a stale (eventually expired) JWT.
+ * Delivers the auth token to the webview via [JsBridge.jwtMutation] independently of profile
+ * delivery. It also subscribes to [AuthTokenManager.onTokenRefresh] so a token refreshed while a
+ * form is displayed is re-injected into the webview.
  */
 internal class JwtObserver : JsBridgeObserver {
-
-    /**
-     * Completes once the JWT has been delivered. [ProfileMutationObserver] awaits this before
-     * injecting profile identifiers. Reused while still pending so a re-entrant start does not
-     * orphan a waiter that captured the previous reference.
-     */
-    @Volatile
-    internal var jwtReady: CompletableDeferred<Unit> = CompletableDeferred()
-        private set
 
     @Volatile private var stopped = false
 
@@ -52,7 +36,9 @@ internal class JwtObserver : JsBridgeObserver {
      * Stable instance so it can be unregistered by reference via [AuthTokenManager.offTokenRefresh].
      * Invoked on the manager's IO dispatcher, so it hops to the UI thread before touching the bridge.
      */
-    private val refreshObserver: TokenRefreshObserver = { jwt -> onTokenRefreshed(jwt) }
+    private val refreshObserver: TokenRefreshObserver = { jwt, isCurrent ->
+        onTokenRefreshed(jwt, isCurrent)
+    }
 
     /**
      * Monotonic sequence claimed by each token source when its injection is *requested*, not when it
@@ -98,12 +84,6 @@ internal class JwtObserver : JsBridgeObserver {
         // refresh that fires while the fetch is still in flight outranks it. Assigning the sequence
         // only once the token resolved let a slow or failed fetch clobber a fresher refreshed token.
         val fetchSequence = injectionSequence.incrementAndGet()
-        val currentJwtReady = if (jwtReady.isCompleted) {
-            CompletableDeferred<Unit>().also { jwtReady = it }
-        } else {
-            jwtReady
-        }
-
         // off-then-on guarantees a single registration across re-entrant starts (duplicate
         // registrations would inject the refreshed token more than once).
         Registry.get<AuthTokenManager>().apply {
@@ -130,7 +110,6 @@ internal class JwtObserver : JsBridgeObserver {
             Registry.threadHelper.runOnUiThread {
                 if (latestFetch === thisFetch && !stopped) {
                     injectIfLatest(fetchSequence, token ?: "")
-                    currentJwtReady.complete(Unit)
                 }
             }
         }
@@ -143,6 +122,16 @@ internal class JwtObserver : JsBridgeObserver {
         fetchJob = null
     }
 
+    internal fun clearToken() {
+        val sequence = injectionSequence.incrementAndGet()
+        val session = latestFetch
+        Registry.threadHelper.runOnUiThread {
+            if (!stopped && latestFetch === session) {
+                injectIfLatest(sequence, "")
+            }
+        }
+    }
+
     /**
      * Re-inject a proactively-refreshed token into the webview. The manager only notifies on a
      * successful fetch, so [jwt] is always a real (non-empty) token here. Captures the current
@@ -150,11 +139,11 @@ internal class JwtObserver : JsBridgeObserver {
      * a previous session could otherwise run after a stop/start cycle flipped [stopped] back to
      * false and inject a stale token into the freshly loaded webview.
      */
-    private fun onTokenRefreshed(jwt: String) {
+    private fun onTokenRefreshed(jwt: String, isCurrent: () -> Boolean) {
         val sequence = injectionSequence.incrementAndGet()
         val session = latestFetch
         Registry.threadHelper.runOnUiThread {
-            if (!stopped && latestFetch === session) {
+            if (!stopped && latestFetch === session && isCurrent()) {
                 injectIfLatest(sequence, jwt)
             }
         }

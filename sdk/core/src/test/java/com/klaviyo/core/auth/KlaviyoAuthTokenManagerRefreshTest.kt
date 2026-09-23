@@ -21,6 +21,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -568,7 +569,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val manager = KlaviyoAuthTokenManager()
 
         val receivedTokens = mutableListOf<String>()
-        manager.onTokenRefresh { receivedTokens.add(it) }
+        manager.onTokenRefresh { token, _ -> receivedTokens.add(token) }
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -599,8 +600,8 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
 
         val receivedA = mutableListOf<String>()
         val receivedB = mutableListOf<String>()
-        manager.onTokenRefresh { receivedA.add(it) }
-        manager.onTokenRefresh { receivedB.add(it) }
+        manager.onTokenRefresh { token, _ -> receivedA.add(token) }
+        manager.onTokenRefresh { token, _ -> receivedB.add(token) }
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -622,7 +623,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val manager = KlaviyoAuthTokenManager()
 
         val received = mutableListOf<String>()
-        manager.onTokenRefresh { received.add(it) }
+        manager.onTokenRefresh { token, _ -> received.add(token) }
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -637,6 +638,20 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     @Test
+    fun `refresh delivery validity changes when profile is invalidated`() = runTest(dispatcher) {
+        val manager = KlaviyoAuthTokenManager()
+        var isCurrent: (() -> Boolean)? = null
+        manager.onTokenRefresh { _, deliveryIsCurrent -> isCurrent = deliveryIsCurrent }
+
+        manager.registerProvider(CountingSuccessProvider(makeJwt()))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(requireNotNull(isCurrent).invoke())
+        manager.invalidate()
+        assertFalse(requireNotNull(isCurrent).invoke())
+    }
+
+    @Test
     fun `observer notified when initial fetch completes after interactive timeout`() =
         runTest(dispatcher) {
             // Reproduces the forms scenario: a slow initial fetch is still in flight when a form
@@ -648,7 +663,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             val manager = KlaviyoAuthTokenManager()
 
             val received = mutableListOf<String>()
-            manager.onTokenRefresh { received.add(it) }
+            manager.onTokenRefresh { token, _ -> received.add(token) }
 
             manager.registerProvider(provider)
             dispatcher.scheduler.runCurrent() // eager fetch starts and suspends on the provider
@@ -693,8 +708,8 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val manager = KlaviyoAuthTokenManager()
 
         val receivedBySecond = mutableListOf<String>()
-        manager.onTokenRefresh { throw RuntimeException("boom") }
-        manager.onTokenRefresh { receivedBySecond.add(it) }
+        manager.onTokenRefresh { _, _ -> throw RuntimeException("boom") }
+        manager.onTokenRefresh { token, _ -> receivedBySecond.add(token) }
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -719,11 +734,11 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             var firstObserverCalls = 0
             val receivedBySecond = mutableListOf<String>()
 
-            manager.onTokenRefresh {
+            manager.onTokenRefresh { _, _ ->
                 firstObserverCalls++
                 manager.invalidate()
             }
-            manager.onTokenRefresh { receivedBySecond.add(it) }
+            manager.onTokenRefresh { token, _ -> receivedBySecond.add(token) }
 
             manager.registerProvider(CountingSuccessProvider(jwt))
             dispatcher.scheduler.advanceUntilIdle()
@@ -744,7 +759,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val invalidationCompleted = CountDownLatch(1)
         val manager = KlaviyoAuthTokenManager()
 
-        manager.onTokenRefresh {
+        manager.onTokenRefresh { _, _ ->
             observerStarted.countDown()
             releaseObserver.await(5, TimeUnit.SECONDS)
         }
@@ -773,7 +788,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val manager = KlaviyoAuthTokenManager()
 
         var notified = false
-        val observer: TokenRefreshObserver = { notified = true }
+        val observer: TokenRefreshObserver = { _, _ -> notified = true }
         manager.onTokenRefresh(observer)
         manager.offTokenRefresh(observer)
 
@@ -898,7 +913,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val manager = KlaviyoAuthTokenManager()
 
         val received = mutableListOf<String>()
-        manager.onTokenRefresh { received.add(it) }
+        manager.onTokenRefresh { token, _ -> received.add(token) }
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -938,7 +953,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             val manager = KlaviyoAuthTokenManager()
 
             val received = mutableListOf<String>()
-            manager.onTokenRefresh { received.add(it) }
+            manager.onTokenRefresh { token, _ -> received.add(token) }
 
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
@@ -1047,7 +1062,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             val manager = KlaviyoAuthTokenManager()
 
             val received = mutableListOf<String>()
-            manager.onTokenRefresh { received.add(it) }
+            manager.onTokenRefresh { token, _ -> received.add(token) }
 
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
@@ -1090,7 +1105,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             val manager = KlaviyoAuthTokenManager()
 
             val received = mutableListOf<String>()
-            manager.onTokenRefresh { received.add(it) }
+            manager.onTokenRefresh { token, _ -> received.add(token) }
 
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()

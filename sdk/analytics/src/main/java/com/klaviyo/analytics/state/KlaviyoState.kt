@@ -28,6 +28,8 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 internal class KlaviyoState : State {
 
+    private var replacingProfile = false
+
     private val _apiKey = PersistentObservableString(API_KEY, ::broadcastChange)
     override var apiKey by _apiKey
 
@@ -47,7 +49,9 @@ internal class KlaviyoState : State {
     override val anonymousId by _anonymousId
 
     private val _attributes = PersistentObservableProfile(PROFILE_ATTRIBUTES) { _, oldValue ->
-        broadcastChange(StateChange.ProfileAttributes(oldValue))
+        if (!replacingProfile) {
+            broadcastChange(StateChange.ProfileAttributes(oldValue))
+        }
     }
     private var attributes by _attributes
 
@@ -115,28 +119,19 @@ internal class KlaviyoState : State {
      * Update user state from a new [Profile] model object
      */
     override fun setProfile(profile: Profile) {
-        val currentIds = listOf(externalId, email, phoneNumber)
-        val isIdentified = currentIds.any { !it.isNullOrEmpty() }
-        val incomingIds = listOf(profile.externalId, profile.email, profile.phoneNumber).map {
-            // Normalize incoming values the same way PersistentObservableString does
-            // (trim whitespace, treat empty as null) so padded inputs match stored state.
-            it?.trim()?.ifEmpty { null }
-        }
+        val oldProfile = if (replacesCurrentProfile(profile)) getAsProfile(true) else null
+        replacingProfile = oldProfile != null
+        try {
+            if (oldProfile != null) resetValues()
 
-        // Only reset if the incoming profile has different identifiers.
-        // Anonymous ID is the lowest-order identifier, so there's no reason to regenerate it
-        // when higher-order identifiers haven't changed. Resetting with the same identifiers
-        // causes unnecessary anonymous ID churn, which triggers spurious API requests.
-        // resetProfile() remains available for explicitly clobbering all state.
-        if (isIdentified && currentIds != incomingIds) {
-            reset()
+            this.externalId = profile.externalId
+            this.email = profile.email
+            this.phoneNumber = profile.phoneNumber
+            this.attributes = profile.attributes
+        } finally {
+            replacingProfile = false
         }
-
-        // Move any identifiers and attributes to their specified state variables
-        this.externalId = profile.externalId
-        this.email = profile.email
-        this.phoneNumber = profile.phoneNumber
-        this.attributes = profile.attributes
+        oldProfile?.let { broadcastChange(StateChange.ProfileReset(it)) }
     }
 
     /**
@@ -176,15 +171,17 @@ internal class KlaviyoState : State {
      */
     override fun reset() {
         val oldProfile = getAsProfile(true)
+        resetValues()
+        broadcastChange(StateChange.ProfileReset(oldProfile))
+        Registry.log.verbose("Reset internal user state")
+    }
 
+    private fun resetValues() {
         _externalId.reset()
         _email.reset()
         _phoneNumber.reset()
         _anonymousId.reset()
         _attributes.reset()
-
-        broadcastChange(StateChange.ProfileReset(oldProfile))
-        Registry.log.verbose("Reset internal user state")
     }
 
     /**
@@ -237,15 +234,17 @@ internal class KlaviyoState : State {
         oldValue: String?
     ) = when (property.key) {
         is API_KEY -> broadcastChange(StateChange.ApiKey(oldValue))
-        is ProfileKey -> if (property.key.name in IDENTIFIERS) {
-            broadcastChange(
-                StateChange.ProfileIdentifier(
-                    property.key,
-                    oldValue
+        is ProfileKey -> when {
+            replacingProfile -> Unit
+            property.key.name in IDENTIFIERS -> {
+                broadcastChange(
+                    StateChange.ProfileIdentifier(
+                        property.key,
+                        oldValue
+                    )
                 )
-            )
-        } else {
-            broadcastChange(StateChange.KeyValue(property.key, oldValue))
+            }
+            else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))
         }
 
         else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))
@@ -273,4 +272,15 @@ internal class KlaviyoState : State {
     internal fun resetPhoneNumber() {
         _phoneNumber.reset()
     }
+}
+
+internal fun State.replacesCurrentProfile(profile: Profile): Boolean {
+    val currentIdentifiers = listOf(externalId, email, phoneNumber)
+    val incomingIdentifiers = listOf(
+        profile.externalId,
+        profile.email,
+        profile.phoneNumber
+    ).map { it?.trim()?.ifEmpty { null } }
+    return currentIdentifiers.any { !it.isNullOrEmpty() } &&
+        currentIdentifiers != incomingIdentifiers
 }

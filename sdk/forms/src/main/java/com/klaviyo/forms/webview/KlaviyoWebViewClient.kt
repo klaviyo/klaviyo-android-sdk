@@ -14,6 +14,7 @@ import androidx.core.net.toUri
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.WeakReferenceDelegate
@@ -50,10 +51,9 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head.
      *
-     * All template substitutions (SDK metadata, bridge config, device info) run synchronously on
-     * the calling (UI) thread. The auth token is no longer injected into the template here — it is
-     * delivered after load via [JwtObserver] over the JS bridge so the SDK can control
-     * JWT/profile ordering. Live token refresh remains out of scope here.
+     * All template substitutions (SDK metadata, bridge config, profile, device info) run
+     * synchronously on the calling (UI) thread. The auth token is delivered independently after
+     * load via [JwtObserver] over the JS bridge.
      */
     override fun initializeWebView() {
         if (webView != null) {
@@ -77,19 +77,25 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         // Apply all substitutions that can run synchronously on the calling (UI) thread.
         // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
         // decorView.rootWindowInsets) — snapshot it here while we are still on the main thread.
-        val partialHtml = Registry.config.applicationContext.assets
+        val template = Registry.config.applicationContext.assets
             .open("InAppFormsTemplate.html")
             .bufferedReader()
             .use(BufferedReader::readText)
-            .replace("SDK_NAME", Registry.config.sdkName)
-            .replace("SDK_VERSION", Registry.config.sdkVersion)
-            .replace("BRIDGE_NAME", nativeBridge.name)
-            .replace("BRIDGE_HANDSHAKE", handshake.compileJson())
-            .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
-            .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
-            // Raw JSON is safe inside the single-quoted HTML attribute because JSONObject emits
-            // double-quoted strings.
-            .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
+        val partialHtml = template.replaceTemplateValues(
+            mapOf(
+                "SDK_NAME" to Registry.config.sdkName,
+                "SDK_VERSION" to Registry.config.sdkVersion,
+                "BRIDGE_NAME" to nativeBridge.name,
+                "BRIDGE_HANDSHAKE" to handshake.compileJson(),
+                "KLAVIYO_JS_URL" to klaviyoJsUrl.toString(),
+                "FORMS_ENVIRONMENT" to Registry.config.formEnvironment.templateName,
+                "KLAVIYO_PROFILE" to Registry.get<State>()
+                    .getAsProfile()
+                    .toString()
+                    .escapeHtmlAttribute(),
+                "DEVICE_INFO" to DeviceInfoProvider.current().toJson()
+            )
+        )
 
         webView.loadTemplate(partialHtml, this, nativeBridge)
         handshakeTimer?.cancel()
@@ -274,3 +280,18 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         appendQueryParameter("assetSource", assetSource)
     } ?: this
 }
+
+private fun String.escapeHtmlAttribute(): String =
+    replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&#39;")
+
+private val templatePlaceholder = Regex(
+    "SDK_NAME|SDK_VERSION|BRIDGE_NAME|BRIDGE_HANDSHAKE|KLAVIYO_JS_URL|" +
+        "FORMS_ENVIRONMENT|KLAVIYO_PROFILE|DEVICE_INFO"
+)
+
+private fun String.replaceTemplateValues(values: Map<String, String>): String =
+    templatePlaceholder.replace(this) { match -> values.getValue(match.value) }

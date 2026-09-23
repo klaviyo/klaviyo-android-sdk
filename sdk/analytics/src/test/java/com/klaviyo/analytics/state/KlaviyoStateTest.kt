@@ -287,6 +287,32 @@ internal class KlaviyoStateTest : BaseTest() {
     }
 
     @Test
+    fun `Profile replacement reuses reset event after the complete profile is installed`() {
+        state.email = "old@example.com"
+        val replacement = Profile(
+            email = "new@example.com",
+            externalId = "new-external-id",
+            phoneNumber = "+15555550123"
+        )
+        val changes = mutableListOf<StateChange>()
+        var profileAtReplacement: Profile? = null
+        state.onStateChange { change ->
+            changes += change
+            if (change is StateChange.ProfileReset) {
+                profileAtReplacement = state.getAsProfile()
+            }
+        }
+
+        state.setProfile(replacement)
+
+        assertEquals(1, changes.size)
+        assert(changes.single() is StateChange.ProfileReset)
+        assertEquals(replacement.email, profileAtReplacement?.email)
+        assertEquals(replacement.externalId, profileAtReplacement?.externalId)
+        assertEquals(replacement.phoneNumber, profileAtReplacement?.phoneNumber)
+    }
+
+    @Test
     fun `Resetting profile email and phone number values`() {
         state.email = EMAIL
         state.phoneNumber = PHONE

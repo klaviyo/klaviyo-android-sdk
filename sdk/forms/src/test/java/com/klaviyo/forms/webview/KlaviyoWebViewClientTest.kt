@@ -13,6 +13,8 @@ import android.webkit.WebSettings
 import androidx.core.view.ViewCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
@@ -31,10 +33,13 @@ import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
 import io.mockk.runs
+import io.mockk.slot
 import io.mockk.verify
 import java.io.ByteArrayInputStream
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -50,7 +55,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-native-bridge-handshake='BRIDGE_HANDSHAKE'
                   data-forms-data-environment='FORMS_ENVIRONMENT'
                   data-klaviyo-local-tracking="1"
-                  data-klaviyo-profile="{}"
+                  data-klaviyo-profile='KLAVIYO_PROFILE'
                   data-klaviyo-jwt=''
             >
                 <meta charset="UTF-8">
@@ -110,6 +115,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     private val mockObserverCollection = mockk<JsBridgeObserverCollection>(relaxed = true)
+    private val mockState = mockk<State>(relaxed = true).apply {
+        every { getAsProfile() } returns Profile()
+    }
 
     @Before
     override fun setup() {
@@ -117,6 +125,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Registry.register<JsBridge>(mockJsBridge)
         Registry.register<JsBridgeObserverCollection>(mockObserverCollection)
         Registry.register<NativeBridge>(mockBridge)
+        Registry.register<State>(mockState)
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
         every { mockContext.assets } returns mockAssets
@@ -160,6 +169,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @After
     override fun cleanup() {
         Registry.unregister<NativeBridge>()
+        Registry.unregister<State>()
         Registry.unregister<JsBridgeObserverCollection>()
         clearAllMocks()
         super.cleanup()
@@ -200,7 +210,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-native-bridge-handshake='${expectedHandshake.compileJson()}'
                   data-forms-data-environment='in-app'
                   data-klaviyo-local-tracking="1"
-                  data-klaviyo-profile="{}"
+                  data-klaviyo-profile='{}'
                   data-klaviyo-jwt=''
             >
                 <meta charset="UTF-8">
@@ -236,6 +246,44 @@ class KlaviyoWebViewClientTest : BaseTest() {
         verify { mockConfig.sdkVersion }
         // tells us timer has started
         assertEquals(staticClock.scheduledTasks.size, 1)
+    }
+
+    @Test
+    fun `initializeWebView embeds current profile identifiers as escaped initial document state`() {
+        val special = "O'Brien & <Admin> \"quoted\" DEVICE_INFO\n\t\u0001雪😀"
+        every { mockState.getAsProfile() } returns Profile(
+            externalId = special,
+            email = "mail+$special@example.com",
+            phoneNumber = "+1<$special>"
+        ).setProperty("anonymous_id", "anon-$special")
+        val html = slot<String>()
+        every {
+            anyConstructed<KlaviyoWebView>().loadTemplate(capture(html), any(), any())
+        } just runs
+
+        KlaviyoWebViewClient().initializeWebView()
+
+        val encodedProfile = requireNotNull(
+            Regex("data-klaviyo-profile='([^']*)'").find(html.captured)?.groupValues?.get(1)
+        )
+        assertTrue(encodedProfile.contains("&amp;"))
+        assertTrue(encodedProfile.contains("&lt;"))
+        assertTrue(encodedProfile.contains("&gt;"))
+        assertTrue(encodedProfile.contains("&quot;"))
+        assertTrue(encodedProfile.contains("&#39;"))
+
+        val profile = JSONObject(
+            encodedProfile
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
+                .replace("&amp;", "&")
+        )
+        assertEquals(special, profile.getString("external_id"))
+        assertEquals("mail+$special@example.com", profile.getString("email"))
+        assertEquals("+1<$special>", profile.getString("phone_number"))
+        assertEquals("anon-$special", profile.getString("anonymous_id"))
     }
 
     @Test

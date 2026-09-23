@@ -17,6 +17,7 @@ import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.analytics.state.replacesCurrentProfile
 import com.klaviyo.core.Constants.BUTTON_LINK_PARAMETER
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
@@ -24,6 +25,7 @@ import com.klaviyo.core.Constants.URL_PARAMETER
 import com.klaviyo.core.Operation
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.auth.AuthTokenProvider
 import com.klaviyo.core.config.Config
@@ -35,6 +37,7 @@ import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -192,7 +195,15 @@ object Klaviyo {
      */
     @JvmStatic
     fun setProfile(profile: Profile): Klaviyo = safeApply {
-        Registry.get<State>().setProfile(profile)
+        val state = Registry.get<State>()
+        val requiresNewToken = state.replacesCurrentProfile(profile) ||
+            (!state.hasProfileIdentifier() && profile.hasProfileIdentifier())
+        if (!requiresNewToken) {
+            state.setProfile(profile)
+            return@safeApply
+        }
+
+        replaceProfileAuth { state.setProfile(profile) }
     }
 
     /**
@@ -313,8 +324,40 @@ object Klaviyo {
      */
     @JvmStatic
     fun setProfileAttribute(propertyKey: ProfileKey, value: Serializable): Klaviyo = safeApply {
-        Registry.get<State>().setAttribute(propertyKey, value)
+        val state = Registry.get<State>()
+        val identifiesAnonymousProfile = !state.hasProfileIdentifier() &&
+            propertyKey.name in ProfileKey.IDENTIFIERS &&
+            (value as? String)?.trim()?.isNotEmpty() == true
+        if (identifiesAnonymousProfile) {
+            replaceProfileAuth { state.setAttribute(propertyKey, value) }
+        } else {
+            state.setAttribute(propertyKey, value)
+        }
     }
+
+    private fun replaceProfileAuth(updateProfile: () -> Unit) {
+        val auth = Registry.get<AuthTokenManager>()
+        val generation = auth.invalidate()
+        updateProfile()
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            auth.clearTokenState(expectedGeneration = generation)
+            try {
+                auth.currentToken()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: AuthTokenException.NoProviderRegistered) {
+                Unit
+            } catch (e: Exception) {
+                Registry.log.warning("Auth token fetch failed after profile change", e)
+            }
+        }
+    }
+
+    private fun State.hasProfileIdentifier(): Boolean =
+        listOf(externalId, email, phoneNumber).any { !it.isNullOrEmpty() }
+
+    private fun Profile.hasProfileIdentifier(): Boolean =
+        listOf(externalId, email, phoneNumber).any { !it.isNullOrBlank() }
 
     /**
      * Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile
