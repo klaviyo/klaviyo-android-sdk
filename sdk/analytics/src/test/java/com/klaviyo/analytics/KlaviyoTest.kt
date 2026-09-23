@@ -276,13 +276,10 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `Initialize with a new company invalidates and clears auth token state`() =
         runTest(dispatcher) {
-            var replacementConfigBuilt = false
-            every { mockBuilder.build() } answers {
-                replacementConfigBuilt = true
-                mockConfig
-            }
+            val replacementConfig = mockk<Config>()
+            every { mockBuilder.build() } returns replacementConfig
             every { mockAuthTokenManager.invalidate() } answers {
-                assertFalse(replacementConfigBuilt)
+                assertFalse(Registry.get<Config>() === replacementConfig)
                 1L
             }
 
@@ -299,6 +296,7 @@ internal class KlaviyoTest : BaseTest() {
             coVerify(exactly = 1) {
                 mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
             }
+            assertTrue(Registry.get<Config>() === replacementConfig)
         }
 
     @Test
@@ -325,6 +323,26 @@ internal class KlaviyoTest : BaseTest() {
             verify(exactly = 0) { mockAuthTokenManager.invalidate() }
             coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
         }
+
+    @Test
+    fun `Failed company config does not fence current company before retry`() = runTest(dispatcher) {
+        every { mockBuilder.build() } throws MissingAPIKey()
+
+        Klaviyo.initialize(
+            apiKey = "new-$API_KEY",
+            applicationContext = mockContext
+        )
+
+        every { mockBuilder.build() } returns mockConfig
+        Klaviyo.initialize(
+            apiKey = API_KEY,
+            applicationContext = mockContext
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
+    }
 
     private fun verifyProfileDebounced() {
         staticClock.execute(debounceTime.toLong())
