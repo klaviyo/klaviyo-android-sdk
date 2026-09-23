@@ -125,9 +125,40 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
         profileObserver.startObserver()
         stateObserver.captured.invoke(StateChange.ProfileReset(Profile()))
-        refreshObserver.captured.invoke("same-token")
+        refreshObserver.captured.invoke("same-token") { true }
 
         verify(exactly = 1) { mockBridge.jwtMutation("") }
         verify(exactly = 2) { mockBridge.jwtMutation("same-token") }
+    }
+
+    @Test
+    fun `profile replacement rejects outgoing refresh paused before observer dispatch`() {
+        val refreshObserver = captureRefreshObserver()
+        val initialToken = CompletableDeferred<ValidatedToken>()
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue += firstArg<() -> Unit>() }
+        coEvery { mockAuth.currentToken(any()) } coAnswers { initialToken.await() }
+        val replacement = Profile(email = "replacement@klaviyo.com")
+        every { stateMock.getAsProfile() } returns stubProfile andThen replacement
+        val jwtObserver = JwtObserver()
+        val profileObserver = ProfileMutationObserver(jwtObserver)
+
+        jwtObserver.startObserver()
+        dispatcher.scheduler.runCurrent()
+        profileObserver.startObserver()
+
+        var outgoingGenerationCurrent = true
+        val isOutgoingTokenCurrent = { outgoingGenerationCurrent }
+        outgoingGenerationCurrent = false
+        stateObserver.captured.invoke(StateChange.ProfileReset(stubProfile))
+        refreshObserver.captured.invoke("outgoing-token", isOutgoingTokenCurrent)
+        uiQueue.forEach { it.invoke() }
+
+        verifyOrder {
+            mockBridge.profileMutation(stubProfile)
+            mockBridge.profileMutation(replacement)
+            mockBridge.jwtMutation("")
+        }
+        verify(exactly = 0) { mockBridge.jwtMutation("outgoing-token") }
     }
 }

@@ -36,7 +36,9 @@ internal class JwtObserver : JsBridgeObserver {
      * Stable instance so it can be unregistered by reference via [AuthTokenManager.offTokenRefresh].
      * Invoked on the manager's IO dispatcher, so it hops to the UI thread before touching the bridge.
      */
-    private val refreshObserver: TokenRefreshObserver = { jwt -> onTokenRefreshed(jwt) }
+    private val refreshObserver: TokenRefreshObserver = { jwt, isCurrent ->
+        onTokenRefreshed(jwt, isCurrent)
+    }
 
     /**
      * Monotonic sequence claimed by each token source when its injection is *requested*, not when it
@@ -137,11 +139,11 @@ internal class JwtObserver : JsBridgeObserver {
      * a previous session could otherwise run after a stop/start cycle flipped [stopped] back to
      * false and inject a stale token into the freshly loaded webview.
      */
-    private fun onTokenRefreshed(jwt: String) {
+    private fun onTokenRefreshed(jwt: String, isCurrent: () -> Boolean) {
         val sequence = injectionSequence.incrementAndGet()
         val session = latestFetch
         Registry.threadHelper.runOnUiThread {
-            if (!stopped && latestFetch === session) {
+            if (!stopped && latestFetch === session && isCurrent()) {
                 injectIfLatest(sequence, jwt)
             }
         }
