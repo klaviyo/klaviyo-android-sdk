@@ -28,6 +28,8 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 internal class KlaviyoState : State {
 
+    private var replacingProfile = false
+
     private val _apiKey = PersistentObservableString(API_KEY, ::broadcastChange)
     override var apiKey by _apiKey
 
@@ -47,7 +49,9 @@ internal class KlaviyoState : State {
     override val anonymousId by _anonymousId
 
     private val _attributes = PersistentObservableProfile(PROFILE_ATTRIBUTES) { _, oldValue ->
-        broadcastChange(StateChange.ProfileAttributes(oldValue))
+        if (!replacingProfile) {
+            broadcastChange(StateChange.ProfileAttributes(oldValue))
+        }
     }
     private var attributes by _attributes
 
@@ -115,15 +119,19 @@ internal class KlaviyoState : State {
      * Update user state from a new [Profile] model object
      */
     override fun setProfile(profile: Profile) {
-        if (replacesCurrentProfile(profile)) {
-            reset()
-        }
+        val oldProfile = if (replacesCurrentProfile(profile)) getAsProfile(true) else null
+        replacingProfile = oldProfile != null
+        try {
+            if (oldProfile != null) resetValues()
 
-        // Move any identifiers and attributes to their specified state variables
-        this.externalId = profile.externalId
-        this.email = profile.email
-        this.phoneNumber = profile.phoneNumber
-        this.attributes = profile.attributes
+            this.externalId = profile.externalId
+            this.email = profile.email
+            this.phoneNumber = profile.phoneNumber
+            this.attributes = profile.attributes
+        } finally {
+            replacingProfile = false
+        }
+        oldProfile?.let { broadcastChange(StateChange.ProfileReplaced(it)) }
     }
 
     /**
@@ -163,15 +171,17 @@ internal class KlaviyoState : State {
      */
     override fun reset() {
         val oldProfile = getAsProfile(true)
+        resetValues()
+        broadcastChange(StateChange.ProfileReset(oldProfile))
+        Registry.log.verbose("Reset internal user state")
+    }
 
+    private fun resetValues() {
         _externalId.reset()
         _email.reset()
         _phoneNumber.reset()
         _anonymousId.reset()
         _attributes.reset()
-
-        broadcastChange(StateChange.ProfileReset(oldProfile))
-        Registry.log.verbose("Reset internal user state")
     }
 
     /**
@@ -224,15 +234,17 @@ internal class KlaviyoState : State {
         oldValue: String?
     ) = when (property.key) {
         is API_KEY -> broadcastChange(StateChange.ApiKey(oldValue))
-        is ProfileKey -> if (property.key.name in IDENTIFIERS) {
-            broadcastChange(
-                StateChange.ProfileIdentifier(
-                    property.key,
-                    oldValue
+        is ProfileKey -> when {
+            replacingProfile -> Unit
+            property.key.name in IDENTIFIERS -> {
+                broadcastChange(
+                    StateChange.ProfileIdentifier(
+                        property.key,
+                        oldValue
+                    )
                 )
-            )
-        } else {
-            broadcastChange(StateChange.KeyValue(property.key, oldValue))
+            }
+            else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))
         }
 
         else -> broadcastChange(StateChange.KeyValue(property.key, oldValue))

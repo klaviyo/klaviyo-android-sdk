@@ -158,7 +158,9 @@ internal class StateSideEffects(
             onApiKeyChange(oldApiKey = change.oldValue)
         }
 
-        is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> {
+        is StateChange.ProfileIdentifier,
+        is StateChange.ProfileReset,
+        is StateChange.ProfileReplaced -> {
             onUserStateChange()
         }
 

@@ -48,7 +48,8 @@ internal class ProfileMutationObserver : JsBridgeObserver, StateChangeObserver {
     override fun invoke(change: StateChange) {
         when (change) {
             is StateChange.ProfileIdentifier -> injectProfile()
-            is StateChange.ProfileReset -> {
+            is StateChange.ProfileReset,
+            is StateChange.ProfileReplaced -> {
                 injectProfile()
                 Registry.get<JsBridge>().jwtMutation("")
             }
