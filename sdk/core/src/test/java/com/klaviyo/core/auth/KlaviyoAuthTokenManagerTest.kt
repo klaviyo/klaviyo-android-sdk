@@ -670,7 +670,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         )
         val headerSegment = base64UrlEncode(header.toString().toByteArray())
         val payloadSegment = base64UrlEncode(payload.toString().toByteArray())
-        return "$headerSegment.$payloadSegment.signature"
+        return "$headerSegment.$payloadSegment.c2lnbmF0dXJl"
     }
 
     private fun base64UrlEncode(bytes: ByteArray): String =

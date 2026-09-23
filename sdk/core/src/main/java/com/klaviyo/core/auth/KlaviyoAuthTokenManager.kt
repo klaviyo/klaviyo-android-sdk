@@ -7,7 +7,6 @@ import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
-import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -163,13 +162,20 @@ internal class KlaviyoAuthTokenManager(
     private suspend fun getOrFetchToken(
         timeoutMs: Long,
         allowCachedToken: Boolean,
-        guard: RequestGuard? = null
+        guard: RequestGuard? = null,
+        resumeImmediatelyOnNetworkFailure: Boolean = true
     ): ValidatedToken {
         require(timeoutMs > 0L) { "timeoutMs must be positive, but was $timeoutMs" }
 
         val token = withTimeoutOrNull(timeoutMs) {
             while (true) {
-                when (val request = tokenRequest(allowCachedToken, guard)) {
+                when (
+                    val request = tokenRequest(
+                        allowCachedToken,
+                        guard,
+                        resumeImmediatelyOnNetworkFailure
+                    )
+                ) {
                     is TokenRequest.Cached -> return@withTimeoutOrNull request.token
                     is TokenRequest.Fetch -> when (val outcome = request.outcome.await()) {
                         is FetchOutcome.Success -> {
@@ -193,7 +199,11 @@ internal class KlaviyoAuthTokenManager(
         throw error
     }
 
-    private fun tokenRequest(allowCachedToken: Boolean, guard: RequestGuard?): TokenRequest {
+    private fun tokenRequest(
+        allowCachedToken: Boolean,
+        guard: RequestGuard?,
+        resumeImmediatelyOnNetworkFailure: Boolean
+    ): TokenRequest {
         var fetchToStart: InFlightFetch? = null
         val nowSeconds = Registry.clock.currentTimeMillis() / 1000L
         val request = synchronized(stateLock) {
@@ -204,7 +214,10 @@ internal class KlaviyoAuthTokenManager(
                     return@synchronized TokenRequest.Cached(it)
                 }
             }
-            val inFlight = state.inFlightFetch ?: createFetchLocked(provider).also {
+            val inFlight = state.inFlightFetch ?: createFetchLocked(
+                provider,
+                resumeImmediatelyOnNetworkFailure
+            ).also {
                 state.inFlightFetch = it
                 fetchToStart = it
             }
@@ -220,9 +233,13 @@ internal class KlaviyoAuthTokenManager(
      * Creates the shared fetch slot before starting its coroutine. A synchronous host callback can
      * therefore never complete before [state.inFlightFetch] contains the matching fetch identity.
      */
-    private fun createFetchLocked(provider: AuthTokenProvider): InFlightFetch {
+    private fun createFetchLocked(
+        provider: AuthTokenProvider,
+        resumeImmediatelyOnNetworkFailure: Boolean
+    ): InFlightFetch {
         val fetchId = ++state.nextFetchId
         val profileGeneration = state.profileGeneration
+        val resetGeneration = state.resetGeneration
         val outcome = CompletableDeferred<FetchOutcome>()
         val job = scope.safeLaunch(start = CoroutineStart.LAZY) {
             val result = try {
@@ -239,6 +256,8 @@ internal class KlaviyoAuthTokenManager(
         return InFlightFetch(
             id = fetchId,
             profileGeneration = profileGeneration,
+            resetGeneration = resetGeneration,
+            resumeImmediatelyOnNetworkFailure = resumeImmediatelyOnNetworkFailure,
             outcome = outcome,
             job = job
         )
@@ -256,6 +275,7 @@ internal class KlaviyoAuthTokenManager(
         outcome: CompletableDeferred<FetchOutcome>,
         result: FetchOutcome
     ) {
+        var connectivityRetry: ConnectivityRetry? = null
         val tokenToNotify = synchronized(completionBarrier) {
             val scheduleTiming = (result as? FetchOutcome.Success)?.let {
                 val nowMs = Registry.clock.currentTimeMillis()
@@ -276,11 +296,19 @@ internal class KlaviyoAuthTokenManager(
                 }
                 state.inFlightFetch = null
                 if (state.profileGeneration != profileGeneration ||
-                    state.profileResetPending ||
-                    result !is FetchOutcome.Success
+                    state.profileResetPending
                 ) {
                     return@state null
                 }
+
+                if (result is FetchOutcome.Failure && isNetworkException(result.error)) {
+                    connectivityRetry = ConnectivityRetry(
+                        profileGeneration = profileGeneration,
+                        resetGeneration = inFlight.resetGeneration,
+                        resumeImmediately = inFlight.resumeImmediatelyOnNetworkFailure
+                    )
+                }
+                if (result !is FetchOutcome.Success) return@state null
 
                 state.cachedToken = result.token
                 prepareRefreshScheduleLocked(requireNotNull(scheduleTiming))
@@ -305,6 +333,13 @@ internal class KlaviyoAuthTokenManager(
         // Host callbacks run after the completion/lifecycle barrier is released. They remain
         // serialized by observerDispatchLock, which lifecycle APIs never acquire.
         tokenToNotify?.let { notifyRefreshObservers(it, profileGeneration) }
+        connectivityRetry?.let {
+            armConnectivityWaitJob(
+                expectedProfileGeneration = it.profileGeneration,
+                expectedResetGeneration = it.resetGeneration,
+                resumeImmediatelyIfConnected = it.resumeImmediately
+            )
+        }
     }
 
     private fun canReturnFetchResult(profileGeneration: Long): Boolean =
@@ -447,16 +482,16 @@ internal class KlaviyoAuthTokenManager(
         timerGeneration: Long? = null,
         allowImmediateConnectivityRetry: Boolean = true
     ) {
-        val (profileGenerationAtStart, resetGenerationAtStart) = synchronized(stateLock) {
+        synchronized(stateLock) {
             if (!guard.matchesLocked() || state.provider == null) return
-            state.profileGeneration to state.resetGeneration
         }
         Registry.log.info("Proactive token refresh fired")
         try {
             getOrFetchToken(
                 timeoutMs = AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,
                 allowCachedToken = false,
-                guard = guard
+                guard = guard,
+                resumeImmediatelyOnNetworkFailure = allowImmediateConnectivityRetry
             )
             Registry.log.info("Proactive token refresh succeeded")
         } catch (_: StaleTriggerException) {
@@ -466,13 +501,6 @@ internal class KlaviyoAuthTokenManager(
         } catch (e: Exception) {
             if (timerGeneration != null) clearFiredFlagForFailedRefresh(timerGeneration)
             Registry.log.warning("Proactive token refresh failed: ${e.javaClass.simpleName}", e)
-            if (isNetworkException(e)) {
-                armConnectivityWaitJob(
-                    expectedProfileGeneration = profileGenerationAtStart,
-                    expectedResetGeneration = resetGenerationAtStart,
-                    resumeImmediatelyIfConnected = allowImmediateConnectivityRetry
-                )
-            }
         }
     }
 
@@ -514,11 +542,10 @@ internal class KlaviyoAuthTokenManager(
             !state.profileResetPending &&
             state.cachedToken?.rawToken == token.rawToken
 
-    private fun isNetworkException(e: Exception): Boolean =
+    private fun isNetworkException(e: Throwable): Boolean =
         e is UnknownHostException ||
             e is SocketTimeoutException ||
-            e is ConnectException ||
-            e is IOException
+            e is ConnectException
 
     private fun armConnectivityWaitJob(
         expectedProfileGeneration: Long,
@@ -541,7 +568,7 @@ internal class KlaviyoAuthTokenManager(
                     awaitConnectivity(resumeImmediatelyIfConnected)
                     currentCoroutineContext().ensureActive()
                     Registry.log.info(
-                        "AuthTokenManager: connectivity restored — retrying proactive refresh"
+                        "AuthTokenManager: connectivity restored — retrying token acquisition"
                     )
                     performScheduledRefresh(
                         guard = RequestGuard(
@@ -565,7 +592,7 @@ internal class KlaviyoAuthTokenManager(
         waitJob ?: return
         previousJob?.cancel()
         Registry.log.info(
-            "AuthTokenManager: network failure — waiting for connectivity to retry refresh"
+            "AuthTokenManager: network failure — waiting to retry token acquisition"
         )
         // Register the generation-tagged slot before starting work, but never invoke the network
         // monitor while holding stateLock (including with an unconfined test dispatcher).
@@ -675,8 +702,16 @@ internal class KlaviyoAuthTokenManager(
     private data class InFlightFetch(
         val id: Long,
         val profileGeneration: Long,
+        val resetGeneration: Long,
+        val resumeImmediatelyOnNetworkFailure: Boolean,
         val outcome: CompletableDeferred<FetchOutcome>,
         val job: Job
+    )
+
+    private data class ConnectivityRetry(
+        val profileGeneration: Long,
+        val resetGeneration: Long,
+        val resumeImmediately: Boolean
     )
 
     private data class ConnectivityWait(
