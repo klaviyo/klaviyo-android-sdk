@@ -276,6 +276,16 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `Initialize with a new company invalidates and clears auth token state`() =
         runTest(dispatcher) {
+            var replacementConfigBuilt = false
+            every { mockBuilder.build() } answers {
+                replacementConfigBuilt = true
+                mockConfig
+            }
+            every { mockAuthTokenManager.invalidate() } answers {
+                assertFalse(replacementConfigBuilt)
+                1L
+            }
+
             Klaviyo.initialize(
                 apiKey = "new-$API_KEY",
                 applicationContext = mockContext
