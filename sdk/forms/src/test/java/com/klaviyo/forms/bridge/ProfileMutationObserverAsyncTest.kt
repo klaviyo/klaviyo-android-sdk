@@ -37,6 +37,8 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
         every { onTokenRefresh(any()) } just runs
         every { offTokenRefresh(any()) } just runs
         every { isCurrentToken(any()) } returns true
+        every { onTokenInvalidated(any()) } just runs
+        every { offTokenInvalidated(any()) } just runs
     }
 
     private fun captureRefreshObserver(): CapturingSlot<TokenRefreshObserver> =

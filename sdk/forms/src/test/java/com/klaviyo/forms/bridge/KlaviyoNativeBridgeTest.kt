@@ -11,6 +11,7 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
@@ -47,6 +48,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     private val mockState: State = mockk(relaxed = true)
     private val mockWebViewClient: WebViewClient = mockk(relaxed = true)
     private val mockPresentationManager: PresentationManager = mockk(relaxed = true)
+    private val mockAuthTokenManager: AuthTokenManager = mockk(relaxed = true)
 
     private val mockUri = mockk<Uri>(relaxed = true)
 
@@ -61,6 +63,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.register<State>(mockState)
         Registry.register<WebViewClient>(mockWebViewClient)
         Registry.register<PresentationManager>(mockPresentationManager)
+        Registry.register<AuthTokenManager>(mockAuthTokenManager)
 
         every {
             mockPresentationManager.presentationState
@@ -81,6 +84,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.unregister<State>()
         Registry.unregister<WebViewClient>()
         Registry.unregister<PresentationManager>()
+        Registry.unregister<AuthTokenManager>()
         super.cleanup()
     }
 
@@ -609,6 +613,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         // hitting the error-level catch block. See KlaviyoNativeBridge.badJwt.
         postMessage("""{"type":"BadJWT","data":{}}""")
         verify { spyLog.warning(any()) }
+        verify(exactly = 1) { mockAuthTokenManager.rejectCurrentToken() }
         verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
     }
 

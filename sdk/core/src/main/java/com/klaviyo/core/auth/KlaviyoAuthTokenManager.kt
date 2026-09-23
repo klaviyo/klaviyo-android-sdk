@@ -59,6 +59,7 @@ internal class KlaviyoAuthTokenManager(
                 state.profileGeneration++
                 pendingToComplete = finishPendingTransitionLocked()
                 state.cachedToken = null
+                state.rejectedToken = null
                 state.provider = provider
                 LifecycleTransition(cleanup, state.profileGeneration)
             }
@@ -74,6 +75,7 @@ internal class KlaviyoAuthTokenManager(
 
     override fun unregisterProvider() {
         var pendingToComplete: CompletableDeferred<Unit>? = null
+        var invalidationGeneration: Long? = null
         val didUnregister = synchronized(completionBarrier) {
             val cleanup = synchronized(stateLock) state@{
                 if (state.provider == null) return@state null
@@ -82,7 +84,9 @@ internal class KlaviyoAuthTokenManager(
                 state.resetGeneration++
                 val detached = detachTokenStateLocked()
                 state.cachedToken = null
+                state.rejectedToken = null
                 pendingToComplete = finishPendingTransitionLocked()
+                invalidationGeneration = state.profileGeneration
                 detached
             }
             cleanup ?: return@synchronized false
@@ -92,6 +96,24 @@ internal class KlaviyoAuthTokenManager(
         pendingToComplete?.complete(Unit)
         if (!didUnregister) return
         Registry.log.info("AuthTokenProvider unregistered")
+        invalidationGeneration?.let(::notifyInvalidationObservers)
+    }
+
+    override fun rejectCurrentToken() {
+        val generation = synchronized(completionBarrier) {
+            val transition = synchronized(stateLock) {
+                val cleanup = detachTokenStateLocked()
+                state.rejectedToken = state.cachedToken?.rawToken
+                state.cachedToken = null
+                state.profileGeneration++
+                state.resetGeneration++
+                state.profileResetPending = false
+                LifecycleTransition(cleanup, state.profileGeneration)
+            }
+            completeCleanup(transition.cleanup)
+            transition.profileGeneration
+        }
+        notifyInvalidationObservers(generation)
     }
 
     override fun onTokenRefresh(observer: TokenRefreshObserver) {
@@ -100,6 +122,14 @@ internal class KlaviyoAuthTokenManager(
 
     override fun offTokenRefresh(observer: TokenRefreshObserver) {
         synchronized(stateLock) { state.refreshObservers.remove(observer) }
+    }
+
+    override fun onTokenInvalidated(observer: TokenInvalidationObserver) {
+        synchronized(stateLock) { state.invalidationObservers.add(observer) }
+    }
+
+    override fun offTokenInvalidated(observer: TokenInvalidationObserver) {
+        synchronized(stateLock) { state.invalidationObservers.remove(observer) }
     }
 
     override fun invalidate(): Long = synchronized(completionBarrier) {
@@ -142,6 +172,7 @@ internal class KlaviyoAuthTokenManager(
                 } else {
                     val detached = detachTokenStateLocked()
                     state.cachedToken = null
+                    state.rejectedToken = null
                     state.profileGeneration++
                     state.resetGeneration++
                     pendingToComplete = finishPendingTransitionLocked()
@@ -340,6 +371,7 @@ internal class KlaviyoAuthTokenManager(
                 }
 
                 state.cachedToken = result.token
+                state.rejectedToken = null
                 RefreshPlan(
                     schedule = prepareRefreshScheduleLocked(requireNotNull(scheduleTiming)),
                     connectivityJob = detachConnectivityWaitLocked()
@@ -388,8 +420,11 @@ internal class KlaviyoAuthTokenManager(
             provider.fetchToken(callback)
         }
 
-    private fun validateOrThrow(jwt: String): ValidatedToken =
-        when (val result = JWTParser.parseAndValidate(jwt)) {
+    private fun validateOrThrow(jwt: String): ValidatedToken {
+        if (synchronized(stateLock) { state.rejectedToken == jwt }) {
+            throw AuthTokenException.ValidationFailed("ServerRejected")
+        }
+        return when (val result = JWTParser.parseAndValidate(jwt)) {
             is JWTValidationResult.Valid -> result.token
             else -> {
                 val reason = result::class.simpleName ?: "Unknown"
@@ -398,6 +433,7 @@ internal class KlaviyoAuthTokenManager(
                 throw error
             }
         }
+    }
 
     private fun usableCachedTokenLocked(nowSeconds: Long): ValidatedToken? =
         state.cachedToken?.takeIf {
@@ -582,6 +618,28 @@ internal class KlaviyoAuthTokenManager(
             !state.profileResetPending &&
             state.cachedToken === token
 
+    private fun notifyInvalidationObservers(profileGeneration: Long) {
+        synchronized(observerDispatchLock) {
+            val observers = synchronized(stateLock) {
+                if (state.profileGeneration != profileGeneration) return
+                state.invalidationObservers.toList()
+            }
+            observers.forEach { observer ->
+                if (synchronized(stateLock) { state.profileGeneration != profileGeneration }) return
+                try {
+                    observer()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Registry.log.warning(
+                        "TokenInvalidationObserver threw ${e.javaClass.simpleName} — skipping",
+                        e
+                    )
+                }
+            }
+        }
+    }
+
     private fun isNetworkException(e: Exception): Boolean =
         e is UnknownHostException ||
             e is SocketTimeoutException ||
@@ -731,6 +789,7 @@ internal class KlaviyoAuthTokenManager(
     private class State {
         var provider: AuthTokenProvider? = null
         var cachedToken: ValidatedToken? = null
+        var rejectedToken: String? = null
         var inFlightFetch: InFlightFetch? = null
         val detachedFetches = mutableListOf<InFlightFetch>()
         var nextFetchId: Long = 0L
@@ -743,6 +802,7 @@ internal class KlaviyoAuthTokenManager(
         var profileResetPending: Boolean = false
         var pendingTransition: CompletableDeferred<Unit>? = null
         val refreshObservers = mutableListOf<TokenRefreshObserver>()
+        val invalidationObservers = mutableListOf<TokenInvalidationObserver>()
         var connectivityWait: ConnectivityWait? = null
         var connectivityWaitGeneration: Long = 0L
     }

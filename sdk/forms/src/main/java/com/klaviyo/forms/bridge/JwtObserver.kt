@@ -3,6 +3,7 @@ package com.klaviyo.forms.bridge
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.TokenInvalidationObserver
 import com.klaviyo.core.auth.TokenRefreshObserver
 import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.core.safeLaunch
@@ -40,6 +41,7 @@ internal class JwtObserver : JsBridgeObserver {
     private val refreshObserver: TokenRefreshObserver = { jwt, isCurrent ->
         onTokenRefreshed(jwt, isCurrent)
     }
+    private val invalidationObserver: TokenInvalidationObserver = { onTokenInvalidated() }
 
     /**
      * Monotonic sequence claimed by each token source when its injection is *requested*, not when it
@@ -90,7 +92,9 @@ internal class JwtObserver : JsBridgeObserver {
         // registrations would inject the refreshed token more than once).
         Registry.get<AuthTokenManager>().apply {
             offTokenRefresh(refreshObserver)
+            offTokenInvalidated(invalidationObserver)
             onTokenRefresh(refreshObserver)
+            onTokenInvalidated(invalidationObserver)
         }
 
         fetchJob?.cancel()
@@ -121,6 +125,7 @@ internal class JwtObserver : JsBridgeObserver {
     override fun stopObserver() {
         stopped = true
         Registry.get<AuthTokenManager>().offTokenRefresh(refreshObserver)
+        Registry.get<AuthTokenManager>().offTokenInvalidated(invalidationObserver)
         fetchJob?.cancel()
         fetchJob = null
     }
@@ -149,6 +154,16 @@ internal class JwtObserver : JsBridgeObserver {
         Registry.threadHelper.runOnUiThread {
             if (!stopped && latestFetch === session && isCurrent()) {
                 injectIfLatest(sequence, jwt)
+            }
+        }
+    }
+
+    private fun onTokenInvalidated() {
+        val sequence = injectionSequence.incrementAndGet()
+        val session = latestFetch
+        Registry.threadHelper.runOnUiThread {
+            if (!stopped && latestFetch === session) {
+                injectIfLatest(sequence, "")
             }
         }
     }
