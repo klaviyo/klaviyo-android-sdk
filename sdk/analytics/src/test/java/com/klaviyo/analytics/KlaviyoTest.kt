@@ -313,6 +313,19 @@ internal class KlaviyoTest : BaseTest() {
         coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
     }
 
+    @Test
+    fun `Initialize with the same normalized company does not churn auth token state`() =
+        runTest(dispatcher) {
+            Klaviyo.initialize(
+                apiKey = " $API_KEY ",
+                applicationContext = mockContext
+            )
+            dispatcher.scheduler.advanceUntilIdle()
+
+            verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+            coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
+        }
+
     private fun verifyProfileDebounced() {
         staticClock.execute(debounceTime.toLong())
         verify(exactly = 1) { mockApiClient.enqueueProfile(any()) }
