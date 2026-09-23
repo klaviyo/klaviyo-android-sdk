@@ -15,17 +15,24 @@ import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Constants
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.AutomaticPushTokenForwarding
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.Runs
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -36,6 +43,10 @@ class StateSideEffectsTest : BaseTest() {
     private val capturedApiObserver = slot<ApiObserver>()
     private val capturedStateChangeObserver = slot<StateChangeObserver>()
     private val capturedPushState = slot<String?>()
+    private val authTokenManagerMock = mockk<AuthTokenManager>().apply {
+        every { invalidate() } returns 42L
+        coEvery { clearTokenState(any()) } just Runs
+    }
     private val apiClientMock: ApiClient = mockk<ApiClient>().apply {
         every { onApiRequest(any(), capture(capturedApiObserver)) } returns Unit
         every { offApiRequest(any()) } returns Unit
@@ -63,13 +74,55 @@ class StateSideEffectsTest : BaseTest() {
     override fun setup() {
         super.setup()
         Registry.register<ApiClient>(apiClientMock)
+        Registry.register<AuthTokenManager>(authTokenManagerMock)
     }
 
     @After
     override fun cleanup() {
         Registry.unregister<ApiClient>()
+        Registry.unregister<AuthTokenManager>()
         Registry.unregister<PushTokenFetcher>()
         super.cleanup()
+    }
+
+    @Test
+    fun `Company change synchronously invalidates and asynchronously clears token state`() =
+        runTest(dispatcher) {
+            val state = KlaviyoState().apply { apiKey = "company-a" }
+            var invalidated = false
+            every { authTokenManagerMock.invalidate() } answers {
+                invalidated = true
+                42L
+            }
+            StateSideEffects(state, apiClientMock)
+            var laterObserverSawInvalidation = false
+            state.onStateChange {
+                laterObserverSawInvalidation = invalidated
+            }
+
+            state.apiKey = "company-b"
+
+            assertTrue(laterObserverSawInvalidation)
+            verify(exactly = 1) { authTokenManagerMock.invalidate() }
+            coVerify(exactly = 0) { authTokenManagerMock.clearTokenState(any()) }
+
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify(exactly = 1) {
+                authTokenManagerMock.clearTokenState(expectedGeneration = 42L)
+            }
+        }
+
+    @Test
+    fun `Same company assignment does not churn token state`() = runTest(dispatcher) {
+        val state = KlaviyoState().apply { apiKey = "company-a" }
+        StateSideEffects(state, apiClientMock)
+
+        state.apiKey = "company-a"
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 0) { authTokenManagerMock.invalidate() }
+        coVerify(exactly = 0) { authTokenManagerMock.clearTokenState(any()) }
     }
 
     @Test
