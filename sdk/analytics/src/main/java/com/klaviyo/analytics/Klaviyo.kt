@@ -90,12 +90,14 @@ object Klaviyo {
      */
     @JvmStatic
     fun initialize(apiKey: String, applicationContext: Context) = safeApply {
-        Registry.register<Config>(
-            Registry.configBuilder
-                .apiKey(apiKey)
-                .applicationContext(applicationContext)
-                .build()
-        )
+        val normalizedApiKey = apiKey.trim()
+        val config = Registry.configBuilder
+            .apiKey(normalizedApiKey)
+            .applicationContext(applicationContext)
+            .build()
+
+        Registry.getOrNull<StateSideEffects>()?.fenceApiKeyChange(normalizedApiKey)
+        Registry.register<Config>(config)
 
         registerForLifecycleCallbacks(applicationContext)
 
@@ -107,7 +109,7 @@ object Klaviyo {
 
         Registry.get<ApiClient>().startService()
 
-        Registry.get<State>().apiKey = apiKey
+        Registry.get<State>().apiKey = normalizedApiKey
 
         if (preInitQueue.isNotEmpty()) {
             Registry.log.info(

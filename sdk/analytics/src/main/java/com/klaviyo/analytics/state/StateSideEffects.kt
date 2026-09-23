@@ -13,17 +13,23 @@ import com.klaviyo.analytics.networking.requests.KlaviyoErrorSource
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.safeApply
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
+import kotlinx.coroutines.CoroutineScope
 
 internal class StateSideEffects(
     private val state: State = Registry.get<State>(),
     private val apiClient: ApiClient = Registry.get<ApiClient>(),
     private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
 ) {
+    private val apiKeyFenceLock = Any()
+    private var pendingApiKeyFence: Pair<String, Long>? = null
+
     /**
      * Debounce timer for enqueuing profile API calls
      */
@@ -56,6 +62,18 @@ internal class StateSideEffects(
     }
 
     private fun onApiKeyChange(oldApiKey: String?) {
+        val auth = Registry.get<AuthTokenManager>()
+        val generation = synchronized(apiKeyFenceLock) {
+            pendingApiKeyFence
+                ?.takeIf { it.first == state.apiKey }
+                ?.second
+                ?.also { pendingApiKeyFence = null }
+                ?: auth.invalidate()
+        }
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            auth.clearTokenState(expectedGeneration = generation)
+        }
+
         // Clear event buffer to prevent cross-account data leakage
         GenericEventBuffer.clearBuffer()
 
@@ -67,6 +85,13 @@ internal class StateSideEffects(
                 }
                 apiClient.enqueuePushToken(it, state.getAsProfile())
             }
+        }
+    }
+
+    internal fun fenceApiKeyChange(apiKey: String) {
+        synchronized(apiKeyFenceLock) {
+            if (state.apiKey == apiKey) return
+            pendingApiKeyFence = apiKey to Registry.get<AuthTokenManager>().invalidate()
         }
     }
 
