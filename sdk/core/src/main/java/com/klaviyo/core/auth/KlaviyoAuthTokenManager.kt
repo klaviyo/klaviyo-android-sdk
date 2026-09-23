@@ -53,14 +53,17 @@ internal class KlaviyoAuthTokenManager(
 
     override fun registerProvider(provider: AuthTokenProvider) {
         var pendingToComplete: CompletableDeferred<Unit>? = null
+        var invalidationGeneration: Long? = null
         val transition = synchronized(completionBarrier) {
             val lifecycleTransition = synchronized(stateLock) {
+                val replacesProvider = state.provider != null
                 val cleanup = detachTokenStateLocked()
                 state.profileGeneration++
                 pendingToComplete = finishPendingTransitionLocked()
                 state.cachedToken = null
                 state.rejectedToken = null
                 state.provider = provider
+                if (replacesProvider) invalidationGeneration = state.profileGeneration
                 LifecycleTransition(cleanup, state.profileGeneration)
             }
             completeCleanup(lifecycleTransition.cleanup)
@@ -68,6 +71,7 @@ internal class KlaviyoAuthTokenManager(
         }
         pendingToComplete?.complete(Unit)
         Registry.log.info("AuthTokenProvider registered")
+        invalidationGeneration?.let(::notifyInvalidationObservers)
         scope.safeLaunch {
             tryEagerFetch(RequestGuard(profileGeneration = transition.profileGeneration))
         }
@@ -103,7 +107,7 @@ internal class KlaviyoAuthTokenManager(
         val generation = synchronized(completionBarrier) {
             val transition = synchronized(stateLock) {
                 val cleanup = detachTokenStateLocked()
-                state.rejectedToken = state.cachedToken?.rawToken
+                state.cachedToken?.rawToken?.let { state.rejectedToken = it }
                 state.cachedToken = null
                 state.profileGeneration++
                 state.resetGeneration++
