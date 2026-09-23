@@ -74,6 +74,21 @@ class ProfileObserverTest {
     }
 
     @Test
+    fun `observer installs replacement profile before clearing outgoing JWT`() {
+        val replacement = Profile(email = "new@example.com")
+        every { stateMock.getAsProfile() } returns replacement
+        val mockBridge = withBridge()
+        clearMocks(mockBridge, answers = false)
+
+        observerSlot.captured.invoke(StateChange.ProfileReplaced(stubProfile))
+
+        verifyOrder {
+            mockBridge.profileMutation(replacement)
+            mockBridge.jwtMutation("")
+        }
+    }
+
+    @Test
     fun `observer ignores other keys`() {
         val mockBridge = withBridge()
         val mockKeyword = mockk<Keyword>(relaxed = true).apply {

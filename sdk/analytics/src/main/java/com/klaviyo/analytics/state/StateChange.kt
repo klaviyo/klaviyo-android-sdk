@@ -45,6 +45,12 @@ sealed interface StateChange {
         override val key: Keyword? = null
     }
 
+    data class ProfileReplaced(
+        override val oldValue: ImmutableProfile
+    ) : StateChange {
+        override val key: Keyword? = null
+    }
+
     /**
      * Catch-all change to a value in state
      */
