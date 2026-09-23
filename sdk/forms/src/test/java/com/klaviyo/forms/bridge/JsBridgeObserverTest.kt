@@ -59,14 +59,15 @@ class JsBridgeObserverTest {
     }
 
     @Test
-    fun `JwtObserver is ordered before ProfileMutationObserver`() {
+    fun `JWT and profile observers both start on JsReady`() {
         val observers = KlaviyoObserverCollection().observers
-        val jwtIndex = observers.indexOfFirst { it is JwtObserver }
-        val profileIndex = observers.indexOfFirst { it is ProfileMutationObserver }
-        assert(jwtIndex >= 0) { "JwtObserver not found in collection" }
-        assert(profileIndex >= 0) { "ProfileMutationObserver not found in collection" }
-        assert(jwtIndex < profileIndex) {
-            "JwtObserver ($jwtIndex) must precede ProfileMutationObserver ($profileIndex)"
-        }
+        assertEquals(
+            NativeBridgeMessage.JsReady,
+            observers.single { it is JwtObserver }.startOn
+        )
+        assertEquals(
+            NativeBridgeMessage.JsReady,
+            observers.single { it is ProfileMutationObserver }.startOn
+        )
     }
 }

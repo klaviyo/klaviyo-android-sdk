@@ -7,10 +7,12 @@ import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateChange
 import com.klaviyo.analytics.state.StateChangeObserver
 import com.klaviyo.core.Registry
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -44,8 +46,8 @@ class ProfileObserverTest {
     }
 
     @Test
-    fun `observer starts on HandShook so JWT is injected before profile`() {
-        assertEquals(NativeBridgeMessage.HandShook, ProfileMutationObserver().startOn)
+    fun `observer starts on JsReady without waiting for handshake or JWT`() {
+        assertEquals(NativeBridgeMessage.JsReady, ProfileMutationObserver().startOn)
     }
 
     @Test
@@ -53,13 +55,22 @@ class ProfileObserverTest {
         val mockBridge = withBridge()
         verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
         assert(observerSlot.isCaptured)
+        verifyOrder {
+            stateMock.onStateChange(any())
+            stateMock.getAsProfile()
+            mockBridge.profileMutation(stubProfile)
+        }
     }
 
     @Test
     fun `observer calls set profile when profile resets`() {
         val mockBridge = withBridge()
+        clearMocks(mockBridge, answers = false)
         observerSlot.captured.invoke(StateChange.ProfileReset(mockk()))
-        verify(exactly = 2) { mockBridge.profileMutation(stubProfile) }
+        verifyOrder {
+            mockBridge.profileMutation(stubProfile)
+            mockBridge.jwtMutation("")
+        }
     }
 
     @Test
@@ -99,5 +110,33 @@ class ProfileObserverTest {
         observer.startObserver()
         observer.stopObserver()
         verify(exactly = 1) { stateMock.offStateChange(observerSlot.captured) }
+    }
+
+    @Test
+    fun `repeated start does not duplicate state subscription or initial delivery`() {
+        val mockBridge = mockk<JsBridge>(relaxed = true)
+        Registry.register<JsBridge>(mockBridge)
+        val observer = ProfileMutationObserver()
+
+        observer.startObserver()
+        observer.startObserver()
+
+        verify(exactly = 1) { stateMock.onStateChange(observer) }
+        verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
+    }
+
+    @Test
+    fun `observer can subscribe again after teardown`() {
+        val mockBridge = mockk<JsBridge>(relaxed = true)
+        Registry.register<JsBridge>(mockBridge)
+        val observer = ProfileMutationObserver()
+
+        observer.startObserver()
+        observer.stopObserver()
+        observer.startObserver()
+
+        verify(exactly = 2) { stateMock.onStateChange(observer) }
+        verify(exactly = 1) { stateMock.offStateChange(observer) }
+        verify(exactly = 2) { mockBridge.profileMutation(stubProfile) }
     }
 }
