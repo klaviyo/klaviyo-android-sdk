@@ -205,6 +205,7 @@ internal class KlaviyoAuthTokenManager(
         resumeImmediatelyOnNetworkFailure: Boolean
     ): TokenRequest {
         var fetchToStart: InFlightFetch? = null
+        var connectivityJobToCancel: Job? = null
         val nowSeconds = Registry.clock.currentTimeMillis() / 1000L
         val request = synchronized(stateLock) {
             if (guard != null && !guard.matchesLocked()) throw StaleTriggerException()
@@ -218,6 +219,9 @@ internal class KlaviyoAuthTokenManager(
                 provider,
                 resumeImmediatelyOnNetworkFailure
             ).also {
+                if (guard?.connectivityGeneration == null) {
+                    connectivityJobToCancel = detachConnectivityWaitLocked()
+                }
                 state.inFlightFetch = it
                 fetchToStart = it
             }
@@ -225,6 +229,7 @@ internal class KlaviyoAuthTokenManager(
         }
         // Start only after publishing the slot and releasing stateLock. This remains safe if a
         // concurrent lifecycle transition retires the lazy job before start() is reached.
+        connectivityJobToCancel?.cancel()
         fetchToStart?.job?.start()
         return request
     }
@@ -303,6 +308,7 @@ internal class KlaviyoAuthTokenManager(
 
                 if (result is FetchOutcome.Failure && isNetworkException(result.error)) {
                     connectivityRetry = ConnectivityRetry(
+                        fetchId = fetchId,
                         profileGeneration = profileGeneration,
                         resetGeneration = inFlight.resetGeneration,
                         resumeImmediately = inFlight.resumeImmediatelyOnNetworkFailure
@@ -335,6 +341,7 @@ internal class KlaviyoAuthTokenManager(
         tokenToNotify?.let { notifyRefreshObservers(it, profileGeneration) }
         connectivityRetry?.let {
             armConnectivityWaitJob(
+                expectedFetchId = it.fetchId,
                 expectedProfileGeneration = it.profileGeneration,
                 expectedResetGeneration = it.resetGeneration,
                 resumeImmediatelyIfConnected = it.resumeImmediately
@@ -548,13 +555,16 @@ internal class KlaviyoAuthTokenManager(
             e is ConnectException
 
     private fun armConnectivityWaitJob(
+        expectedFetchId: Long,
         expectedProfileGeneration: Long,
         expectedResetGeneration: Long,
         resumeImmediatelyIfConnected: Boolean = true
     ) {
         var previousJob: Job? = null
         val waitJob = synchronized(stateLock) {
-            if (state.profileGeneration != expectedProfileGeneration ||
+            if (state.nextFetchId != expectedFetchId ||
+                state.inFlightFetch != null ||
+                state.profileGeneration != expectedProfileGeneration ||
                 state.resetGeneration != expectedResetGeneration ||
                 state.provider == null ||
                 state.profileResetPending
@@ -709,6 +719,7 @@ internal class KlaviyoAuthTokenManager(
     )
 
     private data class ConnectivityRetry(
+        val fetchId: Long,
         val profileGeneration: Long,
         val resetGeneration: Long,
         val resumeImmediately: Boolean

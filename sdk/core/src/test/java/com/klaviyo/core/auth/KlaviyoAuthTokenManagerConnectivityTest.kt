@@ -155,6 +155,31 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     }
 
     @Test
+    fun `new demand fetch supersedes connectivity recovery from an older failure`() =
+        runTest(dispatcher) {
+            val freshToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+            val provider = ScriptedProvider(
+                ArrayDeque(
+                    listOf(
+                        Result.failure(UnknownHostException("offline")),
+                        Result.success(freshToken)
+                    )
+                )
+            )
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNotNull(manager.connectivityWaitJob)
+
+            assertEquals(freshToken, manager.currentToken().rawToken)
+
+            assertNull(manager.connectivityWaitJob)
+            fakeNetworkMonitor.simulateConnected(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(2, provider.callCount)
+        }
+
+    @Test
     fun `connectivity retry fires after UnknownHostException`() {
         assertConnectivityRetryFires(UnknownHostException("host unknown"))
     }
