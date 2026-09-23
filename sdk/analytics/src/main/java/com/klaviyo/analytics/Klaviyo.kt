@@ -90,6 +90,8 @@ object Klaviyo {
      */
     @JvmStatic
     fun initialize(apiKey: String, applicationContext: Context) = safeApply {
+        Registry.getOrNull<StateSideEffects>()?.fenceApiKeyChange(apiKey)
+
         Registry.register<Config>(
             Registry.configBuilder
                 .apiKey(apiKey)
