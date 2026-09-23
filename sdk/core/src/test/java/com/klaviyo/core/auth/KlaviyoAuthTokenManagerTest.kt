@@ -534,6 +534,84 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     // MARK: - unregisterProvider
 
     @Test
+    fun `rejectCurrentToken evicts and blocks the rejected token`() = runTest(dispatcher) {
+        val rejectedToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val acceptedToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val provider = SequenceProvider(rejectedToken, rejectedToken, acceptedToken)
+        val manager = KlaviyoAuthTokenManager()
+        var invalidations = 0
+        manager.onTokenInvalidated { invalidations++ }
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        manager.rejectCurrentToken()
+
+        assertEquals(1, invalidations)
+        try {
+            manager.currentToken()
+            fail("Expected the server-rejected token to remain blocked")
+        } catch (_: AuthTokenException.ValidationFailed) { /* expected */ }
+        assertEquals(acceptedToken, manager.currentToken().rawToken)
+        assertEquals(3, provider.callCount)
+    }
+
+    @Test
+    fun `repeated rejection preserves the categorical token block`() = runTest(dispatcher) {
+        val rejectedToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val acceptedToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val provider = SequenceProvider(rejectedToken, rejectedToken, acceptedToken)
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        manager.rejectCurrentToken()
+        manager.rejectCurrentToken()
+
+        try {
+            manager.currentToken()
+            fail("Expected the categorical rejection block to survive repeated BadJWT messages")
+        } catch (_: AuthTokenException.ValidationFailed) { /* expected */ }
+        assertEquals(acceptedToken, manager.currentToken().rawToken)
+    }
+
+    @Test
+    fun `provider replacement invalidates observers before eager fetch`() = runTest(dispatcher) {
+        val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val secondToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val manager = KlaviyoAuthTokenManager()
+        var invalidations = 0
+        manager.onTokenInvalidated { invalidations++ }
+        manager.registerProvider(SuccessProvider(firstToken))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(0, invalidations)
+        val replacementProvider = object : AuthTokenProvider {
+            override fun fetchToken(callback: AuthTokenProvider.Callback) {
+                assertEquals(1, invalidations)
+                callback.onSuccess(secondToken)
+            }
+        }
+
+        manager.registerProvider(replacementProvider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(secondToken, manager.currentToken().rawToken)
+    }
+
+    @Test
+    fun `unregisterProvider notifies token invalidation observers`() = runTest(dispatcher) {
+        val manager = KlaviyoAuthTokenManager()
+        var invalidations = 0
+        manager.onTokenInvalidated { invalidations++ }
+        manager.registerProvider(SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS)))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        manager.unregisterProvider()
+        manager.unregisterProvider()
+
+        assertEquals(1, invalidations)
+    }
+
+    @Test
     fun `unregisterProvider while idle clears provider and subsequent currentToken throws`() = runTest(
         dispatcher
     ) {
@@ -645,6 +723,17 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         }
     }
 
+    private class SequenceProvider(vararg tokens: String) : AuthTokenProvider {
+        private val tokens = ArrayDeque(tokens.toList())
+        var callCount: Int = 0
+            private set
+
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callCount++
+            callback.onSuccess(tokens.removeFirst())
+        }
+    }
+
     private class FailureProvider(private val error: Throwable) : AuthTokenProvider {
         override fun fetchToken(callback: AuthTokenProvider.Callback) {
             callback.onFailure(error)
@@ -670,7 +759,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         )
         val headerSegment = base64UrlEncode(header.toString().toByteArray())
         val payloadSegment = base64UrlEncode(payload.toString().toByteArray())
-        return "$headerSegment.$payloadSegment.signature"
+        return "$headerSegment.$payloadSegment.c2lnbmF0dXJl"
     }
 
     private fun base64UrlEncode(bytes: ByteArray): String =

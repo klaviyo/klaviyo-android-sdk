@@ -3,6 +3,7 @@ package com.klaviyo.forms.bridge
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.TokenInvalidationObserver
 import com.klaviyo.core.auth.TokenRefreshObserver
 import com.klaviyo.core.safeLaunch
 import java.util.concurrent.atomic.AtomicLong
@@ -39,6 +40,7 @@ internal class JwtObserver : JsBridgeObserver {
     private val refreshObserver: TokenRefreshObserver = { jwt, isCurrent ->
         onTokenRefreshed(jwt, isCurrent)
     }
+    private val invalidationObserver: TokenInvalidationObserver = { onTokenInvalidated() }
 
     /**
      * Monotonic sequence claimed by each token source when its injection is *requested*, not when it
@@ -88,7 +90,9 @@ internal class JwtObserver : JsBridgeObserver {
         // registrations would inject the refreshed token more than once).
         Registry.get<AuthTokenManager>().apply {
             offTokenRefresh(refreshObserver)
+            offTokenInvalidated(invalidationObserver)
             onTokenRefresh(refreshObserver)
+            onTokenInvalidated(invalidationObserver)
         }
 
         fetchJob?.cancel()
@@ -118,6 +122,7 @@ internal class JwtObserver : JsBridgeObserver {
     override fun stopObserver() {
         stopped = true
         Registry.get<AuthTokenManager>().offTokenRefresh(refreshObserver)
+        Registry.get<AuthTokenManager>().offTokenInvalidated(invalidationObserver)
         fetchJob?.cancel()
         fetchJob = null
     }
@@ -148,6 +153,8 @@ internal class JwtObserver : JsBridgeObserver {
             }
         }
     }
+
+    private fun onTokenInvalidated() = clearToken()
 
     /**
      * Inject [token] only if [sequence] is newer than any already applied, so an out-of-order

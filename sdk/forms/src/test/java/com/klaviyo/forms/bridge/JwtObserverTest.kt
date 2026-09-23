@@ -3,6 +3,7 @@ package com.klaviyo.forms.bridge
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.TokenInvalidationObserver
 import com.klaviyo.core.auth.TokenRefreshObserver
 import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
@@ -36,6 +37,11 @@ class JwtObserverTest : BaseTest() {
             every { mockAuthTokenManager.onTokenRefresh(capture(slot)) } just runs
         }
 
+    private fun captureInvalidationObserver(): CapturingSlot<TokenInvalidationObserver> =
+        slot<TokenInvalidationObserver>().also { slot ->
+            every { mockAuthTokenManager.onTokenInvalidated(capture(slot)) } just runs
+        }
+
     @Before
     override fun setup() {
         super.setup()
@@ -43,6 +49,8 @@ class JwtObserverTest : BaseTest() {
         Registry.register<JsBridge>(mockJsBridge)
         every { mockAuthTokenManager.onTokenRefresh(any()) } just runs
         every { mockAuthTokenManager.offTokenRefresh(any()) } just runs
+        every { mockAuthTokenManager.onTokenInvalidated(any()) } just runs
+        every { mockAuthTokenManager.offTokenInvalidated(any()) } just runs
     }
 
     @After
@@ -55,6 +63,33 @@ class JwtObserverTest : BaseTest() {
     @Test
     fun `startOn defaults to JsReady for independent JWT delivery`() {
         assert(JwtObserver().startOn == NativeBridgeMessage.JsReady)
+    }
+
+    @Test
+    fun `token invalidation clears JWT in the active webview`() {
+        val invalidationObserver = captureInvalidationObserver()
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        invalidationObserver.captured.invoke()
+
+        verify(exactly = 1) { mockJsBridge.jwtMutation("") }
+    }
+
+    @Test
+    fun `token invalidation queued after stop cannot clear a new session`() {
+        val invalidationObserver = captureInvalidationObserver()
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        observer.stopObserver()
+
+        invalidationObserver.captured.invoke()
+
+        verify(exactly = 0) { mockJsBridge.jwtMutation("") }
     }
 
     @Test
