@@ -205,12 +205,13 @@ internal class KlaviyoState : State {
                     setProperty(entry.key, entry.value)
                 }
             }
-        }.also { enrichedEvent ->
+        }.let { enrichedEvent ->
             // Add enriched event to buffer for multi-consumer access
             GenericEventBuffer.addEvent(enrichedEvent)
             eventObserver.forEach {
-                it?.invoke(enrichedEvent)
+                it?.invoke(enrichedEvent.copy())
             }
+            enrichedEvent.copy()
         }
 
     override fun onProfileEvent(observer: ProfileEventObserver) {
