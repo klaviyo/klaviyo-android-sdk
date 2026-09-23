@@ -91,14 +91,13 @@ object Klaviyo {
     @JvmStatic
     fun initialize(apiKey: String, applicationContext: Context) = safeApply {
         val normalizedApiKey = apiKey.trim()
-        Registry.getOrNull<StateSideEffects>()?.fenceApiKeyChange(normalizedApiKey)
+        val config = Registry.configBuilder
+            .apiKey(normalizedApiKey)
+            .applicationContext(applicationContext)
+            .build()
 
-        Registry.register<Config>(
-            Registry.configBuilder
-                .apiKey(normalizedApiKey)
-                .applicationContext(applicationContext)
-                .build()
-        )
+        Registry.getOrNull<StateSideEffects>()?.fenceApiKeyChange(normalizedApiKey)
+        Registry.register<Config>(config)
 
         registerForLifecycleCallbacks(applicationContext)
 
