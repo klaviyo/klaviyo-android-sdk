@@ -19,10 +19,12 @@ internal object JWTParser {
             return JWTValidationResult.MalformedStructure
         }
 
-        val payloadBytes = base64UrlDecode(segments[1]) ?: run {
-            Registry.log.warning("JWT validation failed: malformed base64URL payload")
+        val decodedSegments = segments.map(::base64UrlDecode)
+        if (decodedSegments.any { it == null }) {
+            Registry.log.warning("JWT validation failed: malformed base64URL segment")
             return JWTValidationResult.MalformedBase64
         }
+        val payloadBytes = requireNotNull(decodedSegments[1])
 
         val claims = try {
             JSONObject(String(payloadBytes, Charsets.UTF_8))
@@ -66,6 +68,9 @@ internal object JWTParser {
     }
 
     private fun base64UrlDecode(value: String): ByteArray? {
+        if (value.isEmpty() || !value.matches(BASE64_URL_PATTERN) || value.length % 4 == 1) {
+            return null
+        }
         val normalized = value
             .replace('-', '+')
             .replace('_', '/')
@@ -77,6 +82,8 @@ internal object JWTParser {
             null
         }
     }
+
+    private val BASE64_URL_PATTERN = Regex("^[A-Za-z0-9_-]+$")
 
     private fun JSONObject.numericClaim(key: String): Double? {
         if (!has(key) || isNull(key)) return null
