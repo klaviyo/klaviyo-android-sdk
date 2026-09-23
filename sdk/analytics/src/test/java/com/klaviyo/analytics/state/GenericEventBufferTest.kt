@@ -87,8 +87,8 @@ internal class GenericEventBufferTest : BaseTest() {
 
         val bufferedEvents = GenericEventBuffer.getEvents()
         assertEquals(2, bufferedEvents.size)
-        assertTrue(bufferedEvents.any { it.metric.name == event1.metric.name })
-        assertTrue(bufferedEvents.any { it.metric.name == event2.metric.name })
+        assertSameEvent(event1, bufferedEvents[0])
+        assertSameEvent(event2, bufferedEvents[1])
     }
 
     @Test

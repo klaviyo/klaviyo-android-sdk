@@ -48,6 +48,7 @@ internal class KlaviyoStateTest : BaseTest() {
     override fun cleanup() {
         unmockkStatic(DeviceProperties::buildEventMetaData)
         state.reset()
+        GenericEventBuffer.clearBuffer()
         super.cleanup()
     }
 
@@ -352,6 +353,25 @@ internal class KlaviyoStateTest : BaseTest() {
             Event(EventMetric.CUSTOM("test_event")).apply { value = 42.0 },
             Profile()
         )
+
+        val buffered = GenericEventBuffer.getEvents().single()
+        assertNotEquals(null, buffered.uniqueId)
+        assertNotEquals(null, buffered[EventKey.TIME])
+        assertEquals(42.0, buffered.value)
+    }
+
+    @Test
+    fun `createEvent returns a copy so the caller cannot mutate the buffered event`() {
+        GenericEventBuffer.clearBuffer()
+
+        val returnedEvent = state.createEvent(
+            Event(EventMetric.CUSTOM("test_event")).apply { value = 42.0 },
+            Profile()
+        )
+
+        returnedEvent.pop(EventKey.EVENT_ID)
+        returnedEvent.pop(EventKey.TIME)
+        returnedEvent.pop(EventKey.VALUE)
 
         val buffered = GenericEventBuffer.getEvents().single()
         assertNotEquals(null, buffered.uniqueId)

@@ -75,7 +75,7 @@ interface State {
     /**
      * Create new profile-related event, buffer it in memory, and enqueue API request
      *
-     * @return The enriched Event that was enqueued
+     * @return A copy of the enriched Event that was enqueued
      */
     fun createEvent(event: Event, profile: Profile): Event
 
