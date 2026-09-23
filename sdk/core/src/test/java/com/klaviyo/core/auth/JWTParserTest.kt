@@ -105,6 +105,46 @@ class JWTParserTest : BaseTest() {
         assertEquals(JWTValidationResult.MalformedStructure, result)
     }
 
+    @Test
+    fun malformedBase64Header() {
+        val payload = base64UrlEncode(
+            JSONObject(
+                mapOf("exp" to EXP_SECONDS.toDouble(), "iat" to IAT_SECONDS.toDouble())
+            ).toString().toByteArray()
+        )
+
+        val result = JWTParser.parseAndValidate("****.$payload.signature", NOW_SECONDS)
+
+        assertEquals(JWTValidationResult.MalformedBase64, result)
+    }
+
+    @Test
+    fun malformedBase64Signature() {
+        val token = makeJwt(mapOf("exp" to EXP_SECONDS.toDouble(), "iat" to IAT_SECONDS.toDouble()))
+        val segments = token.split('.')
+
+        val result = JWTParser.parseAndValidate("${segments[0]}.${segments[1]}.****", NOW_SECONDS)
+
+        assertEquals(JWTValidationResult.MalformedBase64, result)
+    }
+
+    @Test
+    fun emptyJwtSegmentIsMalformedBase64() {
+        val token = makeJwt(mapOf("exp" to EXP_SECONDS.toDouble(), "iat" to IAT_SECONDS.toDouble()))
+        val segments = token.split('.')
+
+        listOf(
+            ".${segments[1]}.${segments[2]}",
+            "${segments[0]}..${segments[2]}",
+            "${segments[0]}.${segments[1]}."
+        ).forEach { malformed ->
+            assertEquals(
+                JWTValidationResult.MalformedBase64,
+                JWTParser.parseAndValidate(malformed, NOW_SECONDS)
+            )
+        }
+    }
+
     // MARK: - Malformed Base64
 
     @Test
@@ -166,7 +206,7 @@ class JWTParserTest : BaseTest() {
 
         val result = JWTParser.parseAndValidate(token, nowEpochSeconds = NOW_SECONDS)
 
-        assertEquals(JWTValidationResult.MalformedJson, result)
+        assertEquals(JWTValidationResult.MalformedBase64, result)
     }
 
     // MARK: - Missing claims
@@ -341,8 +381,8 @@ class JWTParserTest : BaseTest() {
             makeJwt(mapOf("exp" to EXP_SECONDS.toDouble())), // MissingIatClaim
             makeJwt(mapOf("exp" to "not-a-number", "iat" to IAT_SECONDS.toDouble())), // exp non-numeric
             makeJwt(mapOf("exp" to EXP_SECONDS.toDouble(), "iat" to "not-a-number")), // iat non-numeric
-            "$expiredHeader.****.signature", // MalformedBase64
-            "$expiredHeader.${base64UrlEncode("not-json".toByteArray())}.signature", // MalformedJson
+            "$expiredHeader.****.c2lnbmF0dXJl", // MalformedBase64
+            "$expiredHeader.${base64UrlEncode("not-json".toByteArray())}.c2lnbmF0dXJl", // MalformedJson
             makeJwt(mapOf("exp" to NOW_SECONDS.toDouble() - 1, "iat" to IAT_SECONDS.toDouble())) // ExpiredOnReceipt
         )
 
@@ -375,7 +415,7 @@ class JWTParserTest : BaseTest() {
         val header = mapOf("alg" to "HS256", "typ" to "JWT")
         val headerSegment = base64UrlEncode(JSONObject(header).toString().toByteArray())
         val payloadSegment = base64UrlEncode(JSONObject(claims).toString().toByteArray())
-        return "$headerSegment.$payloadSegment.signature"
+        return "$headerSegment.$payloadSegment.c2lnbmF0dXJl"
     }
 
     private fun base64UrlEncode(bytes: ByteArray): String {
