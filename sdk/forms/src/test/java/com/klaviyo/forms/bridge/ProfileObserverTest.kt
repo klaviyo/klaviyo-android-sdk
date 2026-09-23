@@ -22,6 +22,7 @@ class ProfileObserverTest {
 
     private val stubProfile = Profile()
     private val observerSlot = slot<StateChangeObserver>()
+    private val jwtObserver = mockk<JwtObserver>(relaxed = true)
     private val stateMock = mockk<State>(relaxed = true).apply {
         every { onStateChange(capture(observerSlot)) } returns Unit
         every { getAsProfile() } returns stubProfile
@@ -41,13 +42,13 @@ class ProfileObserverTest {
     private fun withBridge(): JsBridge {
         val mockBridge = mockk<JsBridge>(relaxed = true)
         Registry.register<JsBridge>(mockBridge)
-        ProfileMutationObserver().startObserver()
+        ProfileMutationObserver(jwtObserver).startObserver()
         return mockBridge
     }
 
     @Test
     fun `observer starts on JsReady without waiting for handshake or JWT`() {
-        assertEquals(NativeBridgeMessage.JsReady, ProfileMutationObserver().startOn)
+        assertEquals(NativeBridgeMessage.JsReady, ProfileMutationObserver(jwtObserver).startOn)
     }
 
     @Test
@@ -69,7 +70,7 @@ class ProfileObserverTest {
         observerSlot.captured.invoke(StateChange.ProfileReset(mockk()))
         verifyOrder {
             mockBridge.profileMutation(stubProfile)
-            mockBridge.jwtMutation("")
+            jwtObserver.clearToken()
         }
     }
 
@@ -80,11 +81,11 @@ class ProfileObserverTest {
         val mockBridge = withBridge()
         clearMocks(mockBridge, answers = false)
 
-        observerSlot.captured.invoke(StateChange.ProfileReplaced(stubProfile))
+        observerSlot.captured.invoke(StateChange.ProfileReset(stubProfile))
 
         verifyOrder {
             mockBridge.profileMutation(replacement)
-            mockBridge.jwtMutation("")
+            jwtObserver.clearToken()
         }
     }
 
@@ -119,9 +120,29 @@ class ProfileObserverTest {
     }
 
     @Test
+    fun `observer clears outgoing JWT when anonymous profile becomes identified`() {
+        val anonymousProfile = Profile()
+        val identifiedProfile = Profile(email = "new@example.com")
+        every { stateMock.getAsProfile() } returns anonymousProfile
+        val mockBridge = withBridge()
+        clearMocks(mockBridge, jwtObserver, answers = false)
+        every { stateMock.getAsProfile() } returns identifiedProfile
+        val emailKey = mockk<ProfileKey>(relaxed = true).apply {
+            every { name } returns "email"
+        }
+
+        observerSlot.captured.invoke(StateChange.ProfileIdentifier(emailKey, null))
+
+        verifyOrder {
+            mockBridge.profileMutation(identifiedProfile)
+            jwtObserver.clearToken()
+        }
+    }
+
+    @Test
     fun `stopObserver removes the lambda from state change listeners`() {
         withBridge()
-        val observer = ProfileMutationObserver()
+        val observer = ProfileMutationObserver(jwtObserver)
         observer.startObserver()
         observer.stopObserver()
         verify(exactly = 1) { stateMock.offStateChange(observerSlot.captured) }
@@ -131,7 +152,7 @@ class ProfileObserverTest {
     fun `repeated start does not duplicate state subscription or initial delivery`() {
         val mockBridge = mockk<JsBridge>(relaxed = true)
         Registry.register<JsBridge>(mockBridge)
-        val observer = ProfileMutationObserver()
+        val observer = ProfileMutationObserver(jwtObserver)
 
         observer.startObserver()
         observer.startObserver()
@@ -144,7 +165,7 @@ class ProfileObserverTest {
     fun `observer can subscribe again after teardown`() {
         val mockBridge = mockk<JsBridge>(relaxed = true)
         Registry.register<JsBridge>(mockBridge)
-        val observer = ProfileMutationObserver()
+        val observer = ProfileMutationObserver(jwtObserver)
 
         observer.startObserver()
         observer.stopObserver()

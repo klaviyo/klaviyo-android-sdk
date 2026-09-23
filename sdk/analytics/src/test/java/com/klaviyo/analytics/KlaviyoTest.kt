@@ -32,6 +32,7 @@ import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.Runs
+import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -444,6 +445,36 @@ internal class KlaviyoTest : BaseTest() {
                 mockAuthTokenManager.currentToken()
             }
         }
+
+    @Test
+    fun `setProfile identification acquires a token for an anonymous profile`() =
+        runTest(dispatcher) {
+            Klaviyo.setProfile(Profile(email = EMAIL))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+            coVerifyOrder {
+                mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
+                mockAuthTokenManager.currentToken()
+            }
+        }
+
+    @Test
+    fun `fluent identifier acquires a token after profile reset`() = runTest(dispatcher) {
+        Registry.get<State>().email = "old@example.com"
+        Klaviyo.resetProfile()
+        dispatcher.scheduler.advanceUntilIdle()
+        clearMocks(mockAuthTokenManager, answers = false)
+
+        Klaviyo.setEmail(EMAIL)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerifyOrder {
+            mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
+            mockAuthTokenManager.currentToken()
+        }
+    }
 
     @Test
     fun `setProfile with unchanged identifiers does not churn token state`() = runTest(dispatcher) {

@@ -287,7 +287,7 @@ internal class KlaviyoStateTest : BaseTest() {
     }
 
     @Test
-    fun `Profile replacement broadcasts once after the complete profile is installed`() {
+    fun `Profile replacement reuses reset event after the complete profile is installed`() {
         state.email = "old@example.com"
         val replacement = Profile(
             email = "new@example.com",
@@ -298,7 +298,7 @@ internal class KlaviyoStateTest : BaseTest() {
         var profileAtReplacement: Profile? = null
         state.onStateChange { change ->
             changes += change
-            if (change is StateChange.ProfileReplaced) {
+            if (change is StateChange.ProfileReset) {
                 profileAtReplacement = state.getAsProfile()
             }
         }
@@ -306,7 +306,7 @@ internal class KlaviyoStateTest : BaseTest() {
         state.setProfile(replacement)
 
         assertEquals(1, changes.size)
-        assert(changes.single() is StateChange.ProfileReplaced)
+        assert(changes.single() is StateChange.ProfileReset)
         assertEquals(replacement.email, profileAtReplacement?.email)
         assertEquals(replacement.externalId, profileAtReplacement?.externalId)
         assertEquals(replacement.phoneNumber, profileAtReplacement?.phoneNumber)
