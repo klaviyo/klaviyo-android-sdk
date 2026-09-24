@@ -1,6 +1,7 @@
 package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.core.Constants
+import com.klaviyo.core.DeviceProperties
 import io.mockk.every
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -96,6 +97,48 @@ internal class PushTokenApiRequestTest : BaseApiRequestTest<PushTokenApiRequest>
         val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
         compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
     }
+
+    @Test
+    fun `Reading the request body does not affect equality or hashing`() {
+        val aRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        val bRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+
+        // Reading one request's body must not enrich it into something unequal to its twin
+        aRequest.requestBody
+
+        assertEquals(aRequest, bRequest)
+        assertEquals(bRequest, aRequest)
+        assertEquals(aRequest.hashCode(), bRequest.hashCode())
+    }
+
+    @Test
+    fun `Reading the request body does not affect the persisted JSON`() {
+        val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        val beforeRead = request.toJson().toString()
+
+        request.requestBody
+
+        assertEquals(beforeRead, request.toJson().toString())
+    }
+
+    @Test
+    fun `Request body reflects current device state on every read`() {
+        val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+        val authorized = JSONObject(request.requestBody!!).attributes()
+
+        // Permission and background availability are read fresh, not frozen by the first render
+        every { DeviceProperties.notificationPermissionGranted } returns false
+        every { DeviceProperties.backgroundDataEnabled } returns false
+        val unauthorized = JSONObject(request.requestBody!!).attributes()
+
+        assertEquals("AUTHORIZED", authorized.getString("enablement_status"))
+        assertEquals("AVAILABLE", authorized.getString("background"))
+        assertEquals("UNAUTHORIZED", unauthorized.getString("enablement_status"))
+        assertEquals("DENIED", unauthorized.getString("background"))
+    }
+
+    private fun JSONObject.attributes(): JSONObject =
+        getJSONObject("data").getJSONObject("attributes")
 
     @Test
     fun `Does not include SDK features header when neither manifest key is present`() {
