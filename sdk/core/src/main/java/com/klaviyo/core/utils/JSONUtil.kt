@@ -13,6 +13,11 @@ object JSONUtil {
         if (has(key) && !isNull(key)) getString(key) else null
 
     /**
+     * Produce an independent copy of a [JSONObject], nested values included
+     */
+    fun JSONObject.deepCopy(): JSONObject = JSONObject(toString())
+
+    /**
      * Converts a [JSONArray] to a typesafe serializable Kotlin [Array]
      */
     fun JSONArray.toArray(): Array<Serializable?> = List(length()) { index ->

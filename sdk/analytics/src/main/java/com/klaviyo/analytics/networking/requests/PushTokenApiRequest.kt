@@ -5,6 +5,7 @@ import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.core.SdkFeatureScope
 import com.klaviyo.core.SdkFeatures
+import com.klaviyo.core.utils.JSONUtil.deepCopy
 import org.json.JSONObject
 
 /**
@@ -67,9 +68,12 @@ internal class PushTokenApiRequest(
         )
     }
 
-    // Update body to include Device metadata whenever the body is retrieved (typically during sending) so the latest data is included
+    /**
+     * Render the body with device metadata, notification authorization and background availability
+     * as of right now, so that sending the request reports the latest device state.
+     */
     override val requestBody: String?
-        get() = body?.apply {
+        get() = body?.deepCopy()?.apply {
             optJSONObject(DATA)?.optJSONObject(ATTRIBUTES)?.apply {
                 put(
                     ENABLEMENT_STATUS,
