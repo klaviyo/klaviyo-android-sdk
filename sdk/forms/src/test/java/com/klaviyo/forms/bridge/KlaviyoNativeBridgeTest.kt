@@ -604,6 +604,15 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
+    fun `BadJWT logs a warning and does not throw`() {
+        // A rejected JWT is a normal outcome, so it should degrade gracefully rather than
+        // hitting the error-level catch block. See KlaviyoNativeBridge.badJwt.
+        postMessage("""{"type":"BadJWT","data":{}}""")
+        verify { spyLog.warning(any()) }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
     fun `malformed message throws an error`() {
         postMessage("sawr a warewolf with a chinese menu inhis hands")
         verify { spyLog.error(any(), any<JSONException>()) }

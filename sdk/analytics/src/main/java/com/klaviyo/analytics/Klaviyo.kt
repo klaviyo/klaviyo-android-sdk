@@ -24,14 +24,18 @@ import com.klaviyo.core.Constants.URL_PARAMETER
 import com.klaviyo.core.Operation
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.AuthTokenProvider
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -140,6 +144,38 @@ object Klaviyo {
     @JvmStatic
     fun unregisterDeepLinkHandler() = safeApply {
         Registry.unregister<DeepLinkHandler>()
+    }
+
+    /**
+     * Register an [AuthTokenProvider] that supplies JWTs to authenticate personalized Klaviyo
+     * features (such as in-app forms that target a known profile).
+     *
+     * Re-registering replaces the previously registered provider and discards any cached token.
+     * The SDK will invoke [AuthTokenProvider.fetchToken] whenever a fresh token is needed; the
+     * host MUST invoke exactly one of [AuthTokenProvider.Callback.onSuccess] or
+     * [AuthTokenProvider.Callback.onFailure] per call.
+     */
+    @JvmStatic
+    fun registerAuthTokenProvider(provider: AuthTokenProvider) = safeApply {
+        Registry.get<AuthTokenManager>().registerProvider(provider)
+    }
+
+    /**
+     * Detach the registered auth token provider and tear down all associated token state.
+     *
+     * Call this when the user logs out and the app can no longer supply a valid JWT. Cancels any
+     * in-flight token fetch, scheduled proactive refresh, and connectivity-retry job, then clears
+     * the cached token and the provider reference. Subsequent personalized form displays will
+     * render without authentication until a new provider is registered via
+     * [registerAuthTokenProvider].
+     *
+     * Has no effect if no provider is currently registered.
+     *
+     * @return Returns [Klaviyo] for call chaining
+     */
+    @JvmStatic
+    fun unregisterAuthTokenProvider() = safeApply {
+        Registry.get<AuthTokenManager>().unregisterProvider()
     }
 
     /**
@@ -287,7 +323,19 @@ object Klaviyo {
      * (e.g. after a logout)
      */
     @JvmStatic
-    fun resetProfile() = safeApply { Registry.get<State>().reset() }
+    fun resetProfile() = safeApply {
+        // invalidate() runs first (synchronous) so any in-flight proactive refresh completing in
+        // the gap before State.reset() sees profileResetPending=true and skips observer dispatch.
+        val auth = Registry.get<AuthTokenManager>()
+        val gen = auth.invalidate()
+        Registry.get<State>().reset()
+        // clearTokenState(gen) is fire-and-forget. Passing the captured generation makes it
+        // conditional: if registerAuthTokenProvider() runs first, profileGeneration has advanced
+        // and the clear is skipped, preserving the new session's token state.
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            auth.clearTokenState(expectedGeneration = gen)
+        }
+    }
 
     /**
      * Creates an [Event] associated with the currently tracked profile

@@ -16,6 +16,7 @@ import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
+import com.klaviyo.forms.bridge.NativeBridgeMessage.BadJwt
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear
 import com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook
@@ -77,6 +78,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 is OpenDeepLink -> openCtaUrl(bridgeMessage)
                 is FormDisappeared -> close(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
+                BadJwt -> badJwt()
             }
         } catch (e: Exception) {
             Registry.log.error("Failed to relay webview message: $message", e)
@@ -212,6 +214,14 @@ internal class KlaviyoNativeBridge : NativeBridge {
     private fun abort(reason: String) = Klaviyo.unregisterFromInAppForms().also {
         Registry.log.error("IAF aborted, reason: $reason")
     }
+
+    /**
+     * Handle a [BadJwt] message: the webview rejected the injected JWT (e.g. bad signature or a
+     * token that does not resolve to a profile). This is an expected outcome rather than an SDK
+     * error, so it degrades gracefully — the form continues unauthenticated — and we log at warning
+     * rather than throwing.
+     */
+    private fun badJwt() = Registry.log.warning("Webview rejected the injected JWT (BadJWT)")
 
     /**
      * Invoke the registered form lifecycle callback on the main thread, if one is registered.
