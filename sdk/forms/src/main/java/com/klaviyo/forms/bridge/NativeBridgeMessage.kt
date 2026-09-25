@@ -3,6 +3,7 @@ package com.klaviyo.forms.bridge
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
+import com.klaviyo.core.utils.JSONUtil.getStringNullable
 import java.io.Serializable
 import org.json.JSONObject
 
@@ -196,24 +197,24 @@ internal sealed class NativeBridgeMessage {
 
         /**
          * Parse the top-level event value for a [TrackProfileEvent] message,
-         * returning null if absent or not coercible to a number
+         * returning null if absent or not coercible to a finite number
          */
         private fun JSONObject.getEventValue(): Double? =
-            optDouble("value").takeIf { !it.isNaN() }
+            optDouble("value").takeIf { it.isFinite() }
 
         /**
          * Parse the top-level event value currency for a [TrackProfileEvent] message,
-         * returning null if absent or blank
+         * returning null if absent, null or blank
          */
         private fun JSONObject.getValueCurrency(): String? =
-            optString("value_currency").takeIf { it.isNotBlank() }
+            getStringNullable("value_currency")?.takeIf { it.isNotBlank() }
 
         /**
          * Parse the top-level event deduplication ID for a [TrackProfileEvent] message,
-         * returning null if absent or blank
+         * returning null if absent, null or blank
          */
         private fun JSONObject.getUniqueId(): String? =
-            optString("unique_id").takeIf { it.isNotBlank() }
+            getStringNullable("unique_id")?.takeIf { it.isNotBlank() }
 
         /**
          * Parse out the android platform deep link, returning null if not present or empty

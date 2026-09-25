@@ -290,6 +290,44 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
+    fun `profile event with non-finite value leaves it unset`() {
+        listOf(""""value": 1e309,""", """"value": "Infinity",""", """"value": "-Infinity",""").forEach {
+            val result = decodeProfileEvent(it)
+
+            assertNull(result.event.value)
+            assertEquals(0, result.event.propertyCount())
+        }
+    }
+
+    @Test
+    fun `profile event with explicit null envelope fields leaves them unset`() {
+        val result = decodeProfileEvent(
+            """"value": null, "value_currency": null, "unique_id": null,"""
+        )
+
+        assertNull(result.event.value)
+        assertNull(result.event.valueCurrency)
+        assertNull(result.event.uniqueId)
+        assertEquals(0, result.event.propertyCount())
+    }
+
+    @Test
+    fun `profile event with explicit null envelope fields preserves reserved property keys`() {
+        val result = decodeProfileEvent(
+            extraDataFields = """
+                "value": null, "value_currency": null, "unique_id": null,
+            """.trimIndent(),
+            properties = """
+                "${'$'}value": 99.0, "${'$'}value_currency": "EUR", "${'$'}event_id": "nested-id"
+            """.trimIndent()
+        )
+
+        assertEquals(99.0, result.event.value)
+        assertEquals("EUR", result.event.valueCurrency)
+        assertEquals("nested-id", result.event.uniqueId)
+    }
+
+    @Test
     fun `profile event envelope fields override colliding reserved property keys`() {
         val result = decodeProfileEvent(
             extraDataFields = """
