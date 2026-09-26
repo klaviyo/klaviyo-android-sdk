@@ -558,6 +558,68 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `setProfile compatible identifier enrichment retains token state`() = runTest(dispatcher) {
+        Registry.get<State>().email = EMAIL
+
+        Klaviyo.setProfile(Profile(email = EMAIL, externalId = EXTERNAL_ID))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(EMAIL, Registry.get<State>().email)
+        assertEquals(EXTERNAL_ID, Registry.get<State>().externalId)
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
+        coVerify(exactly = 0) { mockAuthTokenManager.currentToken(any()) }
+    }
+
+    @Test
+    fun `setProfile compatible identifier reduction retains token state`() = runTest(dispatcher) {
+        Registry.get<State>().email = EMAIL
+        Registry.get<State>().externalId = EXTERNAL_ID
+
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(EMAIL, Registry.get<State>().email)
+        assertNull(Registry.get<State>().externalId)
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
+        coVerify(exactly = 0) { mockAuthTokenManager.currentToken(any()) }
+    }
+
+    @Test
+    fun `individual identifier replacement fences old token and acquires a new token`() =
+        runTest(dispatcher) {
+            Registry.get<State>().email = "old@example.com"
+            coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers {
+                assertEquals("new@example.com", Registry.get<State>().email)
+                ValidatedToken("new-token", 0L, 0L)
+            }
+
+            Klaviyo.setEmail("new@example.com")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+            coVerifyOrder {
+                mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
+                mockAuthTokenManager.currentToken()
+            }
+        }
+
+    @Test
+    fun `individual compatible identifier enrichment retains token state`() = runTest(dispatcher) {
+        Registry.get<State>().email = EMAIL
+
+        Klaviyo.setExternalId(EXTERNAL_ID)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(EMAIL, Registry.get<State>().email)
+        assertEquals(EXTERNAL_ID, Registry.get<State>().externalId)
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
+        coVerify(exactly = 0) { mockAuthTokenManager.currentToken(any()) }
+    }
+
+    @Test
     fun `Sets user external ID into info`() {
         Klaviyo.setExternalId(EXTERNAL_ID)
 

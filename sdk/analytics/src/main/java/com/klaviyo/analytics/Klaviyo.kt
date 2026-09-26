@@ -15,9 +15,10 @@ import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.analytics.state.KlaviyoState
+import com.klaviyo.analytics.state.ProfileTransition
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
-import com.klaviyo.analytics.state.replacesCurrentProfile
+import com.klaviyo.analytics.state.profileTransition
 import com.klaviyo.core.Constants.BUTTON_LINK_PARAMETER
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
@@ -196,16 +197,13 @@ object Klaviyo {
     @JvmStatic
     fun setProfile(profile: Profile): Klaviyo = safeApply {
         val state = Registry.get<State>()
-        val requiresNewToken = state.replacesCurrentProfile(profile) ||
-            (!state.hasProfileIdentifier() && profile.hasProfileIdentifier())
-        if (!requiresNewToken) {
-            state.setProfile(profile)
-            return@safeApply
+        when (state.profileTransition(profile)) {
+            ProfileTransition.Replacement -> replaceProfileAuth(
+                refreshToken = profile.hasProfileIdentifier()
+            ) { state.setProfile(profile) }
+            ProfileTransition.Unchanged,
+            ProfileTransition.Compatible -> state.setProfile(profile)
         }
-
-        replaceProfileAuth(
-            refreshToken = profile.hasProfileIdentifier()
-        ) { state.setProfile(profile) }
     }
 
     /**
@@ -327,17 +325,19 @@ object Klaviyo {
     @JvmStatic
     fun setProfileAttribute(propertyKey: ProfileKey, value: Serializable): Klaviyo = safeApply {
         val state = Registry.get<State>()
-        val incoming = (value as? String)?.trim()?.takeIf { it.isNotEmpty() }
-        val changesIdentifier = incoming != null && when (propertyKey) {
-            ProfileKey.EMAIL -> incoming != state.email
-            ProfileKey.EXTERNAL_ID -> incoming != state.externalId
-            ProfileKey.PHONE_NUMBER -> incoming != state.phoneNumber
-            else -> false
-        }
-        if (changesIdentifier) {
-            replaceProfileAuth { state.setAttribute(propertyKey, value) }
-        } else {
+        val identifier = (value as? String)?.trim()?.takeIf { it.isNotEmpty() }
+        if (propertyKey.name !in ProfileKey.IDENTIFIERS || identifier == null) {
             state.setAttribute(propertyKey, value)
+            return@safeApply
+        }
+
+        val updatedProfile = state.getAsProfile(withAttributes = true).apply {
+            setProperty(propertyKey, identifier)
+        }
+        when (state.profileTransition(updatedProfile)) {
+            ProfileTransition.Replacement -> replaceProfileAuth { state.setProfile(updatedProfile) }
+            ProfileTransition.Unchanged -> state.setAttribute(propertyKey, identifier)
+            ProfileTransition.Compatible -> state.setProfile(updatedProfile)
         }
     }
 
@@ -361,12 +361,6 @@ object Klaviyo {
             }
         }
     }
-
-    private fun State.hasProfileIdentifier(): Boolean =
-        listOf(externalId, email, phoneNumber).any { !it.isNullOrEmpty() }
-
-    private fun Profile.hasProfileIdentifier(): Boolean =
-        listOf(externalId, email, phoneNumber).any { !it.isNullOrBlank() }
 
     /**
      * Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile

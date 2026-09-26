@@ -15,6 +15,7 @@ internal class ProfileMutationObserver(
 
     private val observerLock = Any()
     private class Session(val id: Any, val callback: StateChangeObserver) {
+        var hasProfileIdentifier = false
         var receivedChange = false
     }
     private var activeSession: Session? = null
@@ -31,7 +32,7 @@ internal class ProfileMutationObserver(
         }
 
         val profile = Registry.get<State>().getAsProfile()
-        injectProfile(profile, session.id, false)
+        injectProfile(profile, session.id, null)
     }
 
     override fun stopObserver() {
@@ -47,25 +48,30 @@ internal class ProfileMutationObserver(
      */
     private fun onStateChange(change: StateChange, sessionId: Any) {
         when (change) {
-            is StateChange.ProfileIdentifier -> {
+            is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> {
                 val profile = Registry.get<State>().getAsProfile()
-                injectProfile(profile, sessionId, true)
-            }
-            is StateChange.ProfileReset -> {
-                val profile = Registry.get<State>().getAsProfile()
-                injectProfile(profile, sessionId, true)
+                injectProfile(profile, sessionId, change)
             }
             else -> Unit
         }
     }
 
-    private fun injectProfile(profile: Profile, sessionId: Any, clearJwt: Boolean) {
+    private fun injectProfile(profile: Profile, sessionId: Any, change: StateChange?) {
         synchronized(observerLock) {
             val session = activeSession?.takeIf { it.id === sessionId } ?: return
-            if (!clearJwt && session.receivedChange) return
-            if (clearJwt) session.receivedChange = true
-            if (clearJwt) jwtObserver.clearToken()
+            if (change == null && session.receivedChange) return
+            val newlyIdentified = !session.hasProfileIdentifier && profile.hasIdentifier()
+            session.hasProfileIdentifier = profile.hasIdentifier()
+            if (change != null) session.receivedChange = true
+            if (change is StateChange.ProfileReset ||
+                change is StateChange.ProfileIdentifier && newlyIdentified
+            ) {
+                jwtObserver.clearToken()
+            }
             Registry.get<JsBridge>().profileMutation(profile)
         }
     }
+
+    private fun Profile.hasIdentifier(): Boolean =
+        listOf(externalId, email, phoneNumber).any { !it.isNullOrEmpty() }
 }

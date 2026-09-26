@@ -119,19 +119,37 @@ internal class KlaviyoState : State {
      * Update user state from a new [Profile] model object
      */
     override fun setProfile(profile: Profile) {
-        val oldProfile = if (replacesCurrentProfile(profile)) getAsProfile(true) else null
+        val removedIdentifiers = listOf(
+            EXTERNAL_ID to externalId,
+            EMAIL to email,
+            PHONE_NUMBER to phoneNumber
+        ).filter { (key, value) ->
+            value != null && identifierValue(profile, key) == null
+        }
+        val oldProfile = if (
+            hasExplicitIdentifier() && profileTransition(profile) == ProfileTransition.Replacement
+        ) {
+            getAsProfile(true)
+        } else {
+            null
+        }
         replacingProfile = oldProfile != null
         try {
             if (oldProfile != null) resetValues()
 
-            this.externalId = profile.externalId
-            this.email = profile.email
-            this.phoneNumber = profile.phoneNumber
+            setIdentifier(EXTERNAL_ID, profile.externalId)
+            setIdentifier(EMAIL, profile.email)
+            setIdentifier(PHONE_NUMBER, profile.phoneNumber)
             this.attributes = profile.attributes
         } finally {
             replacingProfile = false
         }
         oldProfile?.let { broadcastChange(StateChange.ProfileReset(it)) }
+        if (oldProfile == null) {
+            removedIdentifiers.forEach { (key, oldValue) ->
+                broadcastChange(StateChange.ProfileIdentifier(key, oldValue))
+            }
+        }
     }
 
     /**
@@ -182,6 +200,34 @@ internal class KlaviyoState : State {
         _phoneNumber.reset()
         _anonymousId.reset()
         _attributes.reset()
+    }
+
+    private fun hasExplicitIdentifier(): Boolean =
+        listOf(externalId, email, phoneNumber).any { it != null }
+
+    private fun identifierValue(profile: Profile, key: ProfileKey): String? = when (key) {
+        EXTERNAL_ID -> profile.externalId?.trim()?.ifEmpty { null }
+        EMAIL -> profile.email?.trim()?.ifEmpty { null }
+        PHONE_NUMBER -> profile.phoneNumber?.trim()?.ifEmpty { null }
+        else -> null
+    }
+
+    private fun setIdentifier(key: ProfileKey, value: String?) {
+        if (value.isNullOrBlank()) {
+            when (key) {
+                EXTERNAL_ID -> _externalId.reset()
+                EMAIL -> _email.reset()
+                PHONE_NUMBER -> _phoneNumber.reset()
+                else -> Unit
+            }
+        } else {
+            when (key) {
+                EXTERNAL_ID -> externalId = value
+                EMAIL -> email = value
+                PHONE_NUMBER -> phoneNumber = value
+                else -> Unit
+            }
+        }
     }
 
     /**
@@ -272,15 +318,4 @@ internal class KlaviyoState : State {
     internal fun resetPhoneNumber() {
         _phoneNumber.reset()
     }
-}
-
-internal fun State.replacesCurrentProfile(profile: Profile): Boolean {
-    val currentIdentifiers = listOf(externalId, email, phoneNumber)
-    val incomingIdentifiers = listOf(
-        profile.externalId,
-        profile.email,
-        profile.phoneNumber
-    ).map { it?.trim()?.ifEmpty { null } }
-    return currentIdentifiers.any { !it.isNullOrEmpty() } &&
-        currentIdentifiers != incomingIdentifiers
 }

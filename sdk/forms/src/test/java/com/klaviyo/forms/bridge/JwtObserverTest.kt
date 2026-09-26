@@ -164,6 +164,20 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
+    fun `reinjectCurrentToken delivers retained JWT after a profile mutation`() {
+        val token = "header.payload.signature"
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken(token)
+        val observer = JwtObserver()
+
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        observer.reinjectCurrentToken()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 2) { mockJsBridge.jwtMutation(token) }
+    }
+
+    @Test
     fun `startObserver injects empty string and logs debug when no provider registered`() {
         coEvery { mockAuthTokenManager.currentToken(any()) } throws
             AuthTokenException.NoProviderRegistered
