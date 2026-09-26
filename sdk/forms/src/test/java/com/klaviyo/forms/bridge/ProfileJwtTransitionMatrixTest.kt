@@ -56,28 +56,94 @@ class ProfileJwtTransitionMatrixTest : BaseTest() {
     }
 
     @Test
-    fun `live webview matrix retains compatible JWT and clears every replacement`() = runTest(
-        dispatcher
-    ) {
-        val retained = Profile(email = EMAIL, externalId = EXTERNAL_ID)
-        val reduced = Profile(email = EMAIL)
-        every { state.getAsProfile() } returns retained andThen retained andThen reduced
+    fun `live webview leaves unchanged profile and JWT untouched`() = runTest(dispatcher) {
+        val profile = Profile(email = EMAIL, externalId = EXTERNAL_ID)
+        every { state.getAsProfile() } returns profile
         coEvery { auth.currentToken(any()) } returns ValidatedToken("retained", 0L, 0L)
         val collection = KlaviyoObserverCollection()
 
         collection.startObservers(NativeBridgeMessage.JsReady)
         dispatcher.scheduler.advanceUntilIdle()
-        stateObservers.forEach { it(StateChange.ProfileIdentifier(mockk(), null)) }
-        stateObservers.forEach { it(StateChange.ProfileIdentifier(mockk(), EXTERNAL_ID)) }
-        stateObservers.forEach { it(StateChange.ProfileReset(retained)) }
+        clearMocks(bridge, answers = false)
+        emit(StateChange.ProfileAttributes(profile))
+
+        verify(inverse = true) { bridge.profileMutation(any()) }
+        verify(inverse = true) { bridge.jwtMutation(any()) }
+        collection.stopObservers()
+    }
+
+    @Test
+    fun `live webview retains JWT through compatible enrichment and reduction`() = runTest(
+        dispatcher
+    ) {
+        val retained = Profile(email = EMAIL, externalId = EXTERNAL_ID)
+        val enriched = Profile(email = EMAIL, externalId = EXTERNAL_ID, phoneNumber = PHONE)
+        val reduced = Profile(email = EMAIL)
+        every { state.getAsProfile() } returns retained andThen enriched andThen reduced
+        coEvery { auth.currentToken(any()) } returns ValidatedToken("retained", 0L, 0L)
+        val collection = KlaviyoObserverCollection()
+
+        collection.startObservers(NativeBridgeMessage.JsReady)
+        dispatcher.scheduler.advanceUntilIdle()
+        emit(StateChange.ProfileIdentifier(mockk(), null))
+        emit(StateChange.ProfileIdentifier(mockk(), EXTERNAL_ID))
 
         verify(exactly = 1) { bridge.jwtMutation("retained") }
-        verify(exactly = 1) { bridge.jwtMutation("") }
         verifyOrder {
+            bridge.profileMutation(enriched)
             bridge.profileMutation(reduced)
+        }
+        verify(inverse = true) { bridge.jwtMutation("") }
+        collection.stopObservers()
+    }
+
+    @Test
+    fun `live webview fences conflicting identifier overlap before a fresh JWT`() = runTest(
+        dispatcher
+    ) {
+        assertLiveReplacement(
+            outgoing = Profile(email = EMAIL, externalId = EXTERNAL_ID),
+            replacement = Profile(email = "conflict@example.com", externalId = EXTERNAL_ID)
+        )
+    }
+
+    @Test
+    fun `live webview fences no overlap replacement before a fresh JWT`() = runTest(dispatcher) {
+        assertLiveReplacement(
+            outgoing = Profile(email = EMAIL),
+            replacement = Profile(externalId = "replacement")
+        )
+    }
+
+    @Test
+    fun `live webview fences anonymous to identified transition before a fresh JWT`() = runTest(
+        dispatcher
+    ) {
+        val anonymous = Profile().apply { anonymousId = "anonymous" }
+        val identified = Profile(email = EMAIL)
+        every { state.getAsProfile() } returns anonymous andThen identified
+        coEvery { auth.currentToken(any()) } returns ValidatedToken("outgoing", 0L, 0L)
+        val collection = KlaviyoObserverCollection()
+
+        collection.startObservers(NativeBridgeMessage.JsReady)
+        dispatcher.scheduler.advanceUntilIdle()
+        clearMocks(bridge, answers = false)
+        emit(StateChange.ProfileIdentifier(mockk(), null))
+
+        verifyOrder {
+            bridge.profileMutation(identified)
             bridge.jwtMutation("")
         }
+        verify(inverse = true) { bridge.jwtMutation("outgoing") }
         collection.stopObservers()
+    }
+
+    @Test
+    fun `live webview fences reset before a fresh JWT`() = runTest(dispatcher) {
+        assertLiveReplacement(
+            outgoing = Profile(email = EMAIL),
+            replacement = Profile()
+        )
     }
 
     @Test
@@ -98,7 +164,7 @@ class ProfileJwtTransitionMatrixTest : BaseTest() {
 
         fresh.startObservers(NativeBridgeMessage.JsReady)
         dispatcher.scheduler.advanceUntilIdle()
-        stateObservers.forEach { it(StateChange.ProfileReset(outgoing)) }
+        emit(StateChange.ProfileReset(outgoing))
         refresh.captured("fresh") { true }
         outgoingFetch.complete(ValidatedToken("old", 0L, 0L))
         dispatcher.scheduler.advanceUntilIdle()
@@ -114,5 +180,31 @@ class ProfileJwtTransitionMatrixTest : BaseTest() {
 
     private fun refreshObserver(): CapturingSlot<TokenRefreshObserver> = slot<TokenRefreshObserver>().also {
         every { auth.onTokenRefresh(capture(it)) } just runs
+    }
+
+    private suspend fun assertLiveReplacement(outgoing: Profile, replacement: Profile) {
+        every { state.getAsProfile() } returns outgoing andThen replacement
+        coEvery { auth.currentToken(any()) } returns ValidatedToken("outgoing", 0L, 0L)
+        val collection = KlaviyoObserverCollection()
+
+        collection.startObservers(NativeBridgeMessage.JsReady)
+        dispatcher.scheduler.advanceUntilIdle()
+        clearMocks(bridge, answers = false)
+        emit(StateChange.ProfileReset(outgoing))
+
+        verifyOrder {
+            bridge.profileMutation(replacement)
+            bridge.jwtMutation("")
+        }
+        verify(inverse = true) { bridge.jwtMutation("outgoing") }
+        collection.stopObservers()
+    }
+
+    private fun emit(change: StateChange) = stateObservers.forEach { it(change) }
+
+    private companion object {
+        const val EMAIL = "email@example.com"
+        const val EXTERNAL_ID = "external-id"
+        const val PHONE = "+15555555555"
     }
 }
