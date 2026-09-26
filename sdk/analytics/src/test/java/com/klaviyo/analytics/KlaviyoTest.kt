@@ -620,6 +620,45 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `unchanged email does not republish pending attributes`() {
+        Registry.get<State>().email = EMAIL
+        staticClock.execute(debounceTime.toLong())
+        clearMocks(mockApiClient, answers = false)
+
+        Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, "A")
+        Klaviyo.setEmail(EMAIL)
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 1) { mockApiClient.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `unchanged external ID does not republish pending attributes`() {
+        Registry.get<State>().externalId = EXTERNAL_ID
+        staticClock.execute(debounceTime.toLong())
+        clearMocks(mockApiClient, answers = false)
+
+        Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, "A")
+        Klaviyo.setExternalId(EXTERNAL_ID)
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 1) { mockApiClient.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `unchanged phone number does not republish pending attributes`() {
+        Registry.get<State>().phoneNumber = PHONE
+        staticClock.execute(debounceTime.toLong())
+        clearMocks(mockApiClient, answers = false)
+
+        Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, "A")
+        Klaviyo.setPhoneNumber(PHONE)
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 1) { mockApiClient.enqueueProfile(any()) }
+    }
+
+    @Test
     fun `Sets user external ID into info`() {
         Klaviyo.setExternalId(EXTERNAL_ID)
 

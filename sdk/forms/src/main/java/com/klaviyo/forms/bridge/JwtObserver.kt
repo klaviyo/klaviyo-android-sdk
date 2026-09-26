@@ -161,28 +161,6 @@ internal class JwtObserver : JsBridgeObserver {
         }
     }
 
-    internal fun reinjectCurrentToken() {
-        val sequence = injectionSequence.incrementAndGet()
-        val session = latestFetch
-        scope.safeLaunch {
-            val token = try {
-                Registry.get<AuthTokenManager>()
-                    .currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
-                    .rawToken
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                null
-            }
-
-            Registry.threadHelper.runOnUiThread {
-                if (latestFetch === session && !stopped) {
-                    injectIfLatest(sequence, token ?: "", force = true)
-                }
-            }
-        }
-    }
-
     /**
      * Re-inject a proactively-refreshed token into the webview. The manager only notifies on a
      * successful fetch, so [jwt] is always a real (non-empty) token here. Captures the current
@@ -209,7 +187,7 @@ internal class JwtObserver : JsBridgeObserver {
      * reopened form still receives an unchanged token. Must be called on the UI thread, where
      * [lastInjectedSequence] and [lastInjectedToken] are exclusively accessed.
      */
-    private fun injectIfLatest(sequence: Long, token: String, force: Boolean = false) {
+    private fun injectIfLatest(sequence: Long, token: String) {
         if (sequence < clearedSequence.get()) return
         if (resetDedupOnNextInjection) {
             resetDedupOnNextInjection = false
@@ -217,7 +195,7 @@ internal class JwtObserver : JsBridgeObserver {
         }
         if (sequence > lastInjectedSequence) {
             lastInjectedSequence = sequence
-            if (force || token != lastInjectedToken) {
+            if (token != lastInjectedToken) {
                 lastInjectedToken = token
                 Registry.get<JsBridge>().jwtMutation(token)
             }

@@ -124,26 +124,6 @@ class ProfileObserverTest {
     }
 
     @Test
-    fun `observer republishes retained JWT after compatible identifier mutation`() {
-        val current = Profile(email = "current@example.com")
-        val enriched = Profile(email = "current@example.com", externalId = "external-id")
-        every { stateMock.getAsProfile() } returns current
-        val mockBridge = withBridge()
-        clearMocks(mockBridge, jwtObserver, answers = false)
-        every { stateMock.getAsProfile() } returns enriched
-        val externalIdKey = mockk<ProfileKey>(relaxed = true).apply {
-            every { name } returns "external_id"
-        }
-
-        observerSlot.captured.invoke(StateChange.ProfileIdentifier(externalIdKey, null))
-
-        verifyOrder {
-            mockBridge.profileMutation(enriched)
-            jwtObserver.reinjectCurrentToken()
-        }
-    }
-
-    @Test
     fun `observer clears JWT when anonymous profile becomes identified`() {
         val anonymousProfile = Profile()
         val identifiedProfile = Profile(email = "new@example.com")

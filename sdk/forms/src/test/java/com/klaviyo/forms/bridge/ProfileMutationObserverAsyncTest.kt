@@ -141,6 +141,43 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
     }
 
     @Test
+    fun `compatible identifier enrichment preserves the live webview JWT`() {
+        val enriched = Profile(email = EMAIL, externalId = "external-id")
+        coEvery { mockAuth.currentToken(any()) } returns ValidatedToken("retained", 0L, 0L)
+        every { stateMock.getAsProfile() } returns stubProfile andThen enriched
+        val jwtObserver = JwtObserver()
+
+        jwtObserver.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        val profileObserver = ProfileMutationObserver(jwtObserver)
+        profileObserver.startObserver()
+        stateObserver.captured.invoke(StateChange.ProfileIdentifier(mockk(), null))
+
+        verify(exactly = 1) { mockBridge.jwtMutation("retained") }
+        verify(exactly = 0) { mockBridge.jwtMutation("") }
+        verifyOrder {
+            mockBridge.profileMutation(stubProfile)
+            mockBridge.profileMutation(enriched)
+        }
+        jwtObserver.stopObserver()
+    }
+
+    @Test
+    fun `fresh webview receives retained JWT once after compatible profile state`() {
+        coEvery { mockAuth.currentToken(any()) } returns ValidatedToken("retained", 0L, 0L)
+        val jwtObserver = JwtObserver()
+
+        jwtObserver.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        jwtObserver.stopObserver()
+        jwtObserver.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 2) { mockBridge.jwtMutation("retained") }
+        jwtObserver.stopObserver()
+    }
+
+    @Test
     fun `profile reset clear prevents queued initial JWT reinjection`() {
         val uiQueue = mutableListOf<() -> Unit>()
         every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue += firstArg<() -> Unit>() }
