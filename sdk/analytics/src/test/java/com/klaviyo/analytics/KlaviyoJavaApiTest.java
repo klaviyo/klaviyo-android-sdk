@@ -24,6 +24,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -462,12 +463,24 @@ public class KlaviyoJavaApiTest {
     public void testEventSetters() {
         Event event = new Event(EventMetric.STARTED_CHECKOUT.INSTANCE)
                 .setValue(99.99)
+                .setValueCurrency("USD")
                 .setUniqueId("order-123")
                 .setProperty(new EventKey.CUSTOM("items_count"), 3);
 
         assertEquals(Double.valueOf(99.99), event.getValue());
+        assertEquals("USD", event.getValueCurrency());
         assertEquals("order-123", event.getUniqueId());
         assertNotNull(event);
+    }
+
+    @Test
+    public void testEventValueCurrencyClearedByNull() {
+        Event event = new Event(EventMetric.STARTED_CHECKOUT.INSTANCE)
+                .setValueCurrency("USD")
+                .setValueCurrency(null);
+
+        assertNull(event.getValueCurrency());
+        assertEquals(0, event.propertyCount());
     }
 
     @Test
@@ -558,9 +571,11 @@ public class KlaviyoJavaApiTest {
     public void testEventKeyObjectMembersRequireInstance() {
         EventKey eventId = EventKey.EVENT_ID.INSTANCE;
         EventKey value = EventKey.VALUE.INSTANCE;
+        EventKey valueCurrency = EventKey.VALUE_CURRENCY.INSTANCE;
 
         assertNotNull(eventId);
         assertNotNull(value);
+        assertNotNull(valueCurrency);
 
         EventKey customKey = new EventKey.CUSTOM("my_custom_key");
         assertNotNull(customKey);

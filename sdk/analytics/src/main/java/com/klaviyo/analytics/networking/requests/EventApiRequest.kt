@@ -24,6 +24,7 @@ internal class EventApiRequest(
         const val METRIC = "metric"
         const val NAME = "name"
         const val VALUE = "value"
+        const val VALUE_CURRENCY = "value_currency"
         const val TIME = "time"
         const val UNIQUE_ID = "unique_id"
     }
@@ -64,6 +65,7 @@ internal class EventApiRequest(
                     ),
                     UNIQUE_ID to event.uniqueId.let { if (it.isNullOrEmpty()) uuid else it },
                     VALUE to event.value,
+                    VALUE_CURRENCY to event.valueCurrency,
                     TIME to Registry.clock.isoTime(queuedTime),
                     PROPERTIES to event.toMap(),
                     allowEmptyMaps = true
