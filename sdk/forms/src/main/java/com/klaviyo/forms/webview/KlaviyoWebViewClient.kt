@@ -56,6 +56,13 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * JWT/profile ordering. Live token refresh remains out of scope here.
      */
     override fun initializeWebView() {
+        // TEMP DEBUG — remove before merge. Direct check of what the SDK's Config actually holds
+        // and whether initializeWebView is even running this time, one layer more direct than
+        // the CDN readback in onPageFinished below.
+        println(
+            "[MAGE1170_DEBUG] initializeWebView: webViewAlreadyExists=${webView != null} " +
+                "Registry.config.assetSource=${Registry.config.assetSource}"
+        )
         if (webView != null) {
             Registry.log.debug("Klaviyo webview is already initialized")
             return
@@ -73,6 +80,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .appendQueryParameter("env", "in-app")
             .appendAssetSource()
             .build()
+        println("[MAGE1170_DEBUG] initializeWebView: klaviyoJsUrl=$klaviyoJsUrl")
 
         // Apply all substitutions that can run synchronously on the calling (UI) thread.
         // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
