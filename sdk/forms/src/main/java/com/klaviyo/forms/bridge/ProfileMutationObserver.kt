@@ -84,6 +84,10 @@ internal class ProfileMutationObserver(
      * set is what matters.
      */
     override fun invoke(change: StateChange) {
+        println(
+            "[MAGE1170_DEBUG] ProfileMutationObserver.invoke: change=${change::class.simpleName} " +
+                "jwtObserverIsNull=${jwtObserver == null}"
+        )
         when (change) {
             is StateChange.ProfileIdentifier -> {
                 jwtObserver?.refreshForProfileChange()
@@ -99,7 +103,13 @@ internal class ProfileMutationObserver(
         Registry.get<State>().onStateChange(this)
     }
 
-    private fun injectProfile() = Registry.get<JsBridge>().profileMutation(
-        Registry.get<State>().getAsProfile()
-    )
+    private fun injectProfile() {
+        val profile = Registry.get<State>().getAsProfile()
+        println(
+            "[MAGE1170_DEBUG] injectProfile: externalId=${profile.externalId} " +
+                "email=${profile.email} phoneNumber=${profile.phoneNumber} " +
+                "anonymousId=${profile.anonymousId}"
+        )
+        Registry.get<JsBridge>().profileMutation(profile)
+    }
 }

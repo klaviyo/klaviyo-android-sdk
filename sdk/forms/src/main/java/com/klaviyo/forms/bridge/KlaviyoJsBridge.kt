@@ -97,9 +97,11 @@ internal class KlaviyoJsBridge : JsBridge {
     private fun evaluateJavascript(function: HelperFunction, vararg arguments: Any?) {
         val args = arguments.joinToString(",") { it.toJsonString() }
         val javaScript = "window.$function($args)"
+        println("[MAGE1170_DEBUG] evaluateJavascript: $javaScript")
 
         Registry.get<JavaScriptEvaluator>().evaluateJavascript(javaScript) { result ->
             if (result) {
+                println("[MAGE1170_DEBUG] JS $function evaluation succeeded")
                 Registry.log.verbose("JS $function evaluation succeeded")
             } else {
                 Registry.log.error("JS $function evaluation failed")

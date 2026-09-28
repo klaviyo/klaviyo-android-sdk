@@ -120,14 +120,24 @@ internal class JwtObserver : JsBridgeObserver {
             onTokenRefresh(refreshObserver)
         }
 
+        println("[MAGE1170_DEBUG] startObserver: fetchSequence=$fetchSequence")
         fetchJob?.cancel()
         fetchJob = scope.safeLaunch {
             val token = fetchTokenOrEmpty()
+            println(
+                "[MAGE1170_DEBUG] startObserver fetch resolved: " +
+                    "tokenIsEmpty=${token.isEmpty()} tokenPrefix=${token.take(12)}"
+            )
 
             Registry.threadHelper.runOnUiThread {
                 if (latestFetch === thisFetch && !stopped) {
                     injectIfLatest(fetchSequence, token)
                     currentJwtReady.complete(Unit)
+                } else {
+                    println(
+                        "[MAGE1170_DEBUG] startObserver fetch DROPPED " +
+                            "(sameSession=${latestFetch === thisFetch}, stopped=$stopped)"
+                    )
                 }
             }
         }
@@ -163,20 +173,35 @@ internal class JwtObserver : JsBridgeObserver {
      * current webview session — there is nothing to refresh into.
      */
     fun refreshForProfileChange() {
-        val session = latestFetch ?: return
+        val session = latestFetch
+        println(
+            "[MAGE1170_DEBUG] refreshForProfileChange called: " +
+                "session=${session != null} stopped=$stopped"
+        )
+        if (session == null) return
         if (stopped) return
         val sequence = injectionSequence.incrementAndGet()
+        println("[MAGE1170_DEBUG] refreshForProfileChange: sequence=$sequence")
 
         scope.safeLaunch {
             // Background budget, not the interactive one [startObserver] uses: nothing awaits this
             // result (unlike jwtReady), so there is no user-visible latency to protect — give the
             // provider more time to actually succeed rather than giving up early and injecting empty.
             val token = fetchTokenOrEmpty(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS)
+            println(
+                "[MAGE1170_DEBUG] refreshForProfileChange fetch resolved: " +
+                    "tokenIsEmpty=${token.isEmpty()} tokenPrefix=${token.take(12)}"
+            )
             if (token.isEmpty()) return@safeLaunch
 
             Registry.threadHelper.runOnUiThread {
                 if (latestFetch === session && !stopped) {
                     injectIfLatest(sequence, token, forceReinject = true)
+                } else {
+                    println(
+                        "[MAGE1170_DEBUG] refreshForProfileChange result DROPPED " +
+                            "(sameSession=${latestFetch === session}, stopped=$stopped)"
+                    )
                 }
             }
         }
@@ -207,6 +232,9 @@ internal class JwtObserver : JsBridgeObserver {
     private fun onTokenRefreshed(jwt: String) {
         val sequence = injectionSequence.incrementAndGet()
         val session = latestFetch
+        println(
+            "[MAGE1170_DEBUG] onTokenRefreshed: sequence=$sequence tokenPrefix=${jwt.take(12)}"
+        )
         Registry.threadHelper.runOnUiThread {
             if (!stopped && latestFetch === session) {
                 injectIfLatest(sequence, jwt)
@@ -232,12 +260,22 @@ internal class JwtObserver : JsBridgeObserver {
             resetDedupOnNextInjection = false
             lastInjectedToken = null
         }
+        println(
+            "[MAGE1170_DEBUG] injectIfLatest: sequence=$sequence lastInjectedSequence=" +
+                "$lastInjectedSequence forceReinject=$forceReinject " +
+                "tokenPrefix=${token.take(12)} lastInjectedTokenPrefix=${lastInjectedToken?.take(12)}"
+        )
         if (sequence > lastInjectedSequence) {
             lastInjectedSequence = sequence
             if (forceReinject || token != lastInjectedToken) {
                 lastInjectedToken = token
+                println("[MAGE1170_DEBUG] injectIfLatest: CALLING jwtMutation")
                 Registry.get<JsBridge>().jwtMutation(token)
+            } else {
+                println("[MAGE1170_DEBUG] injectIfLatest: deduped (same value)")
             }
+        } else {
+            println("[MAGE1170_DEBUG] injectIfLatest: STALE sequence, dropped")
         }
     }
 }
