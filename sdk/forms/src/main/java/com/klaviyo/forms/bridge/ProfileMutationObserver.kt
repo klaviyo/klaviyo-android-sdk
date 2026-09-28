@@ -63,11 +63,23 @@ internal class ProfileMutationObserver(
     }
 
     /**
-     * Update profile in webview whenever an identifier changes, or profile is reset
+     * Update profile in webview whenever an identifier changes, or profile is reset.
+     *
+     * Also nudges [jwtObserver] to fetch a fresh token first: `Klaviyo.setProfile`/the individual
+     * identifier setters never touch `AuthTokenManager`, but onsite-personalization unconditionally
+     * drops its own cached JWT whenever the profile identity changes. Without this, nothing would
+     * refill it until the auth token's own unrelated refresh schedule next happened to fire, leaving
+     * personalization broken for the new identity until then. Kicking off the refresh before
+     * injecting the profile isn't strictly required for correctness — onsite-personalization
+     * proactively retries whichever of {profile, JWT} lands second — but it minimizes the window
+     * where personalization is broken and avoids a wasted fetch attempt against a stale JWT.
      */
     override fun invoke(change: StateChange) {
         when (change) {
-            is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> injectProfile()
+            is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> {
+                jwtObserver?.refreshForProfileChange()
+                injectProfile()
+            }
             else -> Unit
         }
     }

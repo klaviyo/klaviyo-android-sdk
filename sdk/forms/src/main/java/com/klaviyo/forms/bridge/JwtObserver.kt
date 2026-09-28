@@ -22,6 +22,15 @@ import kotlinx.coroutines.SupervisorJob
  * Beyond the initial delivery, this observer subscribes to [AuthTokenManager.onTokenRefresh] so that
  * a token proactively refreshed while a form is displayed is re-injected into the webview, keeping
  * onsite from acting on a stale (eventually expired) JWT.
+ *
+ * It is also re-primed explicitly via [refreshForProfileChange], which [ProfileMutationObserver]
+ * calls whenever the profile identity is replaced mid-session. `Klaviyo.setProfile`/the individual
+ * identifier setters never touch [AuthTokenManager] — unlike `resetProfile`, they don't invalidate
+ * the cached auth token — but onsite-personalization unconditionally drops its own copy of the JWT
+ * whenever the profile identity changes (see onsite-personalization's `clearPersonalizationState`).
+ * Without an explicit nudge here, nothing would refill it until the auth token's own unrelated
+ * refresh schedule next happened to fire, leaving personalization broken for the new identity in
+ * the meantime.
  */
 internal class JwtObserver : JsBridgeObserver {
 
@@ -113,23 +122,11 @@ internal class JwtObserver : JsBridgeObserver {
 
         fetchJob?.cancel()
         fetchJob = scope.safeLaunch {
-            val token = try {
-                Registry.get<AuthTokenManager>()
-                    .currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
-                    .rawToken
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: AuthTokenException.NoProviderRegistered) {
-                Registry.log.debug("Auth not enabled — injecting empty JWT")
-                null
-            } catch (_: Exception) {
-                Registry.log.warning("Auth token fetch failed — injecting empty JWT")
-                null
-            }
+            val token = fetchTokenOrEmpty()
 
             Registry.threadHelper.runOnUiThread {
                 if (latestFetch === thisFetch && !stopped) {
-                    injectIfLatest(fetchSequence, token ?: "")
+                    injectIfLatest(fetchSequence, token)
                     currentJwtReady.complete(Unit)
                 }
             }
@@ -141,6 +138,55 @@ internal class JwtObserver : JsBridgeObserver {
         Registry.get<AuthTokenManager>().offTokenRefresh(refreshObserver)
         fetchJob?.cancel()
         fetchJob = null
+    }
+
+    /**
+     * Fetches a fresh token when the profile identity is replaced mid-session — not the initial
+     * identify, which [startObserver] already coordinates via [jwtReady]. See the class doc for why
+     * this is needed: profile identity changes never touch [AuthTokenManager] on their own.
+     *
+     * Reuses the same injection-sequence protocol as the initial fetch and the refresh stream (see
+     * [injectIfLatest]) — whichever of the three actually resolves newest wins, regardless of
+     * completion order. Unlike those two, this always re-injects even when the fetched token is
+     * unchanged from the last one injected: onsite-personalization dropped its own copy because the
+     * *identity* changed, not because the token did, so a value-based dedup here would leave it
+     * without a fresh push whenever the underlying auth token happens to still be valid.
+     *
+     * No-ops silently if the observer has not been started (or has since been stopped) for the
+     * current webview session — there is nothing to refresh into.
+     */
+    fun refreshForProfileChange() {
+        val session = latestFetch ?: return
+        if (stopped) return
+        val sequence = injectionSequence.incrementAndGet()
+
+        scope.safeLaunch {
+            // Background budget, not the interactive one [startObserver] uses: nothing awaits this
+            // result (unlike jwtReady), so there is no user-visible latency to protect — give the
+            // provider more time to actually succeed rather than giving up early and injecting empty.
+            val token = fetchTokenOrEmpty(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS)
+
+            Registry.threadHelper.runOnUiThread {
+                if (latestFetch === session && !stopped) {
+                    injectIfLatest(sequence, token, forceReinject = true)
+                }
+            }
+        }
+    }
+
+    /** Fetches the current token via [AuthTokenManager], or "" (with a log) on failure. */
+    private suspend fun fetchTokenOrEmpty(
+        timeoutMs: Long = AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS
+    ): String = try {
+        Registry.get<AuthTokenManager>().currentToken(timeoutMs).rawToken
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: AuthTokenException.NoProviderRegistered) {
+        Registry.log.debug("Auth not enabled — injecting empty JWT")
+        ""
+    } catch (_: Exception) {
+        Registry.log.warning("Auth token fetch failed — injecting empty JWT")
+        ""
     }
 
     /**
@@ -168,15 +214,19 @@ internal class JwtObserver : JsBridgeObserver {
      * webview once; a new session first clears that baseline (see [resetDedupOnNextInjection]) so a
      * reopened form still receives an unchanged token. Must be called on the UI thread, where
      * [lastInjectedSequence] and [lastInjectedToken] are exclusively accessed.
+     *
+     * [forceReinject] bypasses the value-based dedup (the sequence-ordering check still applies).
+     * [refreshForProfileChange] passes this because the webview dropped its own copy of the JWT
+     * when the profile changed, independent of whether the token value itself changed.
      */
-    private fun injectIfLatest(sequence: Long, token: String) {
+    private fun injectIfLatest(sequence: Long, token: String, forceReinject: Boolean = false) {
         if (resetDedupOnNextInjection) {
             resetDedupOnNextInjection = false
             lastInjectedToken = null
         }
         if (sequence > lastInjectedSequence) {
             lastInjectedSequence = sequence
-            if (token != lastInjectedToken) {
+            if (forceReinject || token != lastInjectedToken) {
                 lastInjectedToken = token
                 Registry.get<JsBridge>().jwtMutation(token)
             }
