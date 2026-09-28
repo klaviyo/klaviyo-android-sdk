@@ -54,8 +54,15 @@ internal class KlaviyoWebView : WebView {
         if (Registry.config.isDebugBuild) {
             setWebContentsDebuggingEnabled(true)
 
-            // Disable webview resources cache when debugging:
-            // settings.cacheMode = WebSettings.LOAD_NO_CACHE
+            // TEMP DEBUG — remove before merge (or decide to keep permanently for debug
+            // builds). Uncommented while chasing why assetSource never seemed to take
+            // effect during MAGE-1170 testing: onPageFinished's CDN readback
+            // (window.klaviyoModulesObject?.assetSource) came back empty on every test today
+            // despite the request URL demonstrably including the correct assetSource param —
+            // consistent with the WebView's persistent on-disk HTTP cache serving a stale
+            // klaviyo.js response from an earlier load (e.g. before assetSource was ever
+            // configured), which a full app *process* restart does not clear.
+            settings.cacheMode = WebSettings.LOAD_NO_CACHE
 
             // Allow mixed content when CDN URL is HTTP (local development only)
             if (Registry.config.baseCdnUrl.startsWith("http://")) {
