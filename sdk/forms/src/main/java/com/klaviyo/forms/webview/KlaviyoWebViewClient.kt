@@ -195,11 +195,29 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     /**
      * When an assetSource is specified, log whether we actually got it
      */
-    override fun onPageFinished(view: WebView?, url: String?) = Registry.config.assetSource?.let { expected ->
-        view?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
-            Registry.log.debug("Actual Asset Source: $actual. Expected $expected")
+    override fun onPageFinished(view: WebView?, url: String?) {
+        Registry.config.assetSource?.let { expected ->
+            view?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
+                Registry.log.debug("Actual Asset Source: $actual. Expected $expected")
+            }
         }
-    } ?: Unit
+
+        // TEMP DEBUG — remove before merge. Polls fender's onsite-personalization debug state
+        // (see the paired change to profileApi.ts on the MAGE-1272 fender debug branch) a few
+        // seconds after page load, once personalization has had time to resolve. No chrome
+        // inspect needed: this reads the JS expression's actual return value back into Kotlin,
+        // the same mechanism as the assetSource check just above, just with a real payload
+        // instead of a boolean.
+        Registry.clock.schedule(4_000L) {
+            Registry.threadHelper.runOnUiThread {
+                view?.evaluateJavascript(
+                    "JSON.stringify(window.__KL_DEBUG_MAGE1170 || null)"
+                ) { result ->
+                    println("[MAGE1170_DEBUG] fender debug state: $result")
+                }
+            }
+        }
+    }
 
     /**
      * If the webview renderer crashes or gets cleaned up to reclaim memory,
