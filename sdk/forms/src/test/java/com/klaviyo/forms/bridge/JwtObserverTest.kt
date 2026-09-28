@@ -448,7 +448,7 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
-    fun `refreshForProfileChange injects empty string and logs warning when the fetch fails`() {
+    fun `refreshForProfileChange injects nothing and logs warning when the fetch fails`() {
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
         val observer = JwtObserver()
         observer.startObserver()
@@ -459,7 +459,11 @@ class JwtObserverTest : BaseTest() {
         observer.refreshForProfileChange()
         dispatcher.scheduler.advanceUntilIdle()
 
-        verify(exactly = 1) { mockJsBridge.jwtMutation("") }
+        // Unlike startObserver's empty-string fallback, a failed profile-change refresh must not
+        // inject anything — it already reserved a sequence number, so force-injecting "" here would
+        // let a transient failure permanently outrank a legitimately good token arriving afterward.
+        verify(exactly = 1) { mockJsBridge.jwtMutation("initial") }
+        verify(inverse = true) { mockJsBridge.jwtMutation("") }
         verify { spyLog.warning(match { it.contains("Auth token fetch failed") }) }
     }
 

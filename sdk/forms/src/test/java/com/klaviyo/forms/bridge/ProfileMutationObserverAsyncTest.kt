@@ -2,15 +2,19 @@ package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.StateChange
+import com.klaviyo.analytics.state.StateChangeObserver
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
+import io.mockk.slot
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertNotSame
@@ -127,6 +131,79 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
             verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
 
             jwtObserver.stopObserver()
+        } finally {
+            Registry.unregister<AuthTokenManager>()
+        }
+    }
+
+    @Test
+    fun `invoke with ProfileIdentifier triggers a JWT refresh before injecting the profile`() {
+        val observerSlot = slot<StateChangeObserver>()
+        every { stateMock.onStateChange(capture(observerSlot)) } returns Unit
+
+        val mockAuth = mockk<AuthTokenManager>()
+        coEvery { mockAuth.currentToken(any()) } returns ValidatedToken(
+            rawToken = "refreshed",
+            expiresAtEpochSeconds = 0L,
+            issuedAtEpochSeconds = 0L
+        )
+        every { mockAuth.onTokenRefresh(any()) } just runs
+        every { mockAuth.offTokenRefresh(any()) } just runs
+        Registry.register<AuthTokenManager>(mockAuth)
+
+        try {
+            val jwtObserver = JwtObserver()
+            jwtObserver.startObserver()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val observer = ProfileMutationObserver(jwtObserver)
+            observer.startObserver()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            observerSlot.captured.invoke(StateChange.ProfileIdentifier(mockk(relaxed = true), null))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // Once from JwtObserver's own initial fetch, once from the profile-identifier refresh —
+            // forceReinject means the second call isn't deduped away despite the unchanged value.
+            verify(exactly = 2) { mockBridge.jwtMutation("refreshed") }
+        } finally {
+            Registry.unregister<AuthTokenManager>()
+        }
+    }
+
+    @Test
+    fun `invoke with ProfileReset injects the profile but does not trigger a JWT refresh`() {
+        val observerSlot = slot<StateChangeObserver>()
+        every { stateMock.onStateChange(capture(observerSlot)) } returns Unit
+
+        val mockAuth = mockk<AuthTokenManager>()
+        coEvery { mockAuth.currentToken(any()) } returns ValidatedToken(
+            rawToken = "initial",
+            expiresAtEpochSeconds = 0L,
+            issuedAtEpochSeconds = 0L
+        )
+        every { mockAuth.onTokenRefresh(any()) } just runs
+        every { mockAuth.offTokenRefresh(any()) } just runs
+        Registry.register<AuthTokenManager>(mockAuth)
+
+        try {
+            val jwtObserver = JwtObserver()
+            jwtObserver.startObserver()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val observer = ProfileMutationObserver(jwtObserver)
+            observer.startObserver()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            observerSlot.captured.invoke(StateChange.ProfileReset(mockk(relaxed = true)))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // Only JwtObserver's own initial fetch — the bare reset must not trigger another one.
+            coVerify(exactly = 1) { mockAuth.currentToken(any()) }
+            verify(exactly = 1) { mockBridge.jwtMutation("initial") }
+            // The profile is still re-injected for the reset — just without a JWT refresh alongside
+            // it (initial injection at startObserver, plus one for this ProfileReset).
+            verify(exactly = 2) { mockBridge.profileMutation(stubProfile) }
         } finally {
             Registry.unregister<AuthTokenManager>()
         }

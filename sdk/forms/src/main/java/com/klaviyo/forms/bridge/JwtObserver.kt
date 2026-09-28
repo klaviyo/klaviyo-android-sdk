@@ -147,10 +147,17 @@ internal class JwtObserver : JsBridgeObserver {
      *
      * Reuses the same injection-sequence protocol as the initial fetch and the refresh stream (see
      * [injectIfLatest]) — whichever of the three actually resolves newest wins, regardless of
-     * completion order. Unlike those two, this always re-injects even when the fetched token is
-     * unchanged from the last one injected: onsite-personalization dropped its own copy because the
-     * *identity* changed, not because the token did, so a value-based dedup here would leave it
+     * completion order. Unlike those two, a successful fetch always re-injects even when the token
+     * is unchanged from the last one injected: onsite-personalization dropped its own copy because
+     * the *identity* changed, not because the token did, so a value-based dedup here would leave it
      * without a fresh push whenever the underlying auth token happens to still be valid.
+     *
+     * A failed fetch injects nothing at all, unlike [startObserver]'s empty-string fallback — this
+     * call already reserved a sequence number, so force-injecting an empty result here would let a
+     * merely-transient failure permanently block a legitimately good token that was already in
+     * flight, or that arrives moments later via a different path with a lower sequence number.
+     * There's no equivalent risk at the initial fetch: nothing has been injected into the fresh
+     * webview yet for an empty result to wrongly outrank.
      *
      * No-ops silently if the observer has not been started (or has since been stopped) for the
      * current webview session — there is nothing to refresh into.
@@ -165,6 +172,7 @@ internal class JwtObserver : JsBridgeObserver {
             // result (unlike jwtReady), so there is no user-visible latency to protect — give the
             // provider more time to actually succeed rather than giving up early and injecting empty.
             val token = fetchTokenOrEmpty(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS)
+            if (token.isEmpty()) return@safeLaunch
 
             Registry.threadHelper.runOnUiThread {
                 if (latestFetch === session && !stopped) {
