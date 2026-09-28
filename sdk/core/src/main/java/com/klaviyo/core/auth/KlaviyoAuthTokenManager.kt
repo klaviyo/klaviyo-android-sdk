@@ -29,8 +29,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 /**
  * Serializes every auth-token state transition behind [stateLock]. Provider calls, timers, and
  * connectivity waits run outside the critical section and report their results back with the
- * generation they started in. This keeps the public synchronous lifecycle methods synchronous
- * without spreading coordination across mutexes, volatile fields, and independent atomics.
+ * generation they started in.
  */
 internal class KlaviyoAuthTokenManager(
     private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
@@ -210,8 +209,7 @@ internal class KlaviyoAuthTokenManager(
             }
             TokenRequest.Fetch(inFlight.profileGeneration, inFlight.outcome)
         }
-        // Start only after publishing the slot and releasing stateLock. This remains safe if a
-        // concurrent lifecycle transition retires the lazy job before start() is reached.
+        // Starts after publishing the slot and releasing stateLock.
         fetchToStart?.job?.start()
         return request
     }
@@ -283,12 +281,15 @@ internal class KlaviyoAuthTokenManager(
                 }
 
                 state.cachedToken = result.token
-                prepareRefreshScheduleLocked(requireNotNull(scheduleTiming))
+                RefreshPlan(
+                    schedule = prepareRefreshScheduleLocked(requireNotNull(scheduleTiming)),
+                    connectivityJob = detachConnectivityWaitLocked()
+                )
             }
 
-            refreshPlan?.let(::installRefreshSchedule)
-            // Completing outside stateLock prevents unconfined waiters from observing a partially
-            // applied lifecycle transition or running application code under the global monitor.
+            refreshPlan?.connectivityJob?.cancel()
+            refreshPlan?.schedule?.let(::installRefreshSchedule)
+            // Waiters complete after the lifecycle transition has been applied.
             outcome.complete(result)
 
             val token = (result as? FetchOutcome.Success)?.token
@@ -417,11 +418,7 @@ internal class KlaviyoAuthTokenManager(
         !state.profileResetPending &&
             (profileGeneration == null || state.profileGeneration == profileGeneration) &&
             (resetGeneration == null || state.resetGeneration == resetGeneration) &&
-            (refreshGeneration == null || state.refreshGeneration == refreshGeneration) &&
-            (
-                connectivityGeneration == null ||
-                    state.connectivityWait?.generation == connectivityGeneration
-                )
+            (refreshGeneration == null || state.refreshGeneration == refreshGeneration)
 
     private fun onRefreshTimer(generation: Long) {
         val guard = synchronized(stateLock) {
@@ -527,11 +524,11 @@ internal class KlaviyoAuthTokenManager(
     ) {
         var previousJob: Job? = null
         val waitJob = synchronized(stateLock) {
-            if (state.profileGeneration != expectedProfileGeneration ||
-                state.resetGeneration != expectedResetGeneration ||
-                state.provider == null ||
-                state.profileResetPending
-            ) {
+            val armGuard = RequestGuard(
+                profileGeneration = expectedProfileGeneration,
+                resetGeneration = expectedResetGeneration
+            )
+            if (!armGuard.matchesLocked() || state.provider == null) {
                 return@synchronized null
             }
             previousJob = state.connectivityWait?.job
@@ -540,15 +537,22 @@ internal class KlaviyoAuthTokenManager(
                 try {
                     awaitConnectivity(resumeImmediatelyIfConnected)
                     currentCoroutineContext().ensureActive()
+                    val retryGuard = synchronized(stateLock) retry@{
+                        if (state.connectivityWait?.generation != generation) {
+                            return@retry null
+                        }
+                        state.connectivityWait = null
+                        state.connectivityWaitGeneration++
+                        RequestGuard(
+                            profileGeneration = expectedProfileGeneration,
+                            resetGeneration = expectedResetGeneration
+                        )
+                    } ?: return@safeLaunch
                     Registry.log.info(
                         "AuthTokenManager: connectivity restored — retrying proactive refresh"
                     )
                     performScheduledRefresh(
-                        guard = RequestGuard(
-                            profileGeneration = expectedProfileGeneration,
-                            resetGeneration = expectedResetGeneration,
-                            connectivityGeneration = generation
-                        ),
+                        guard = retryGuard,
                         allowImmediateConnectivityRetry = false
                     )
                 } finally {
@@ -567,8 +571,7 @@ internal class KlaviyoAuthTokenManager(
         Registry.log.info(
             "AuthTokenManager: network failure — waiting for connectivity to retry refresh"
         )
-        // Register the generation-tagged slot before starting work, but never invoke the network
-        // monitor while holding stateLock (including with an unconfined test dispatcher).
+        // Registers the generation-tagged slot before starting work.
         waitJob.start()
     }
 
@@ -702,6 +705,11 @@ internal class KlaviyoAuthTokenManager(
         val previousJob: Clock.Cancellable?
     )
 
+    private data class RefreshPlan(
+        val schedule: RefreshSchedule,
+        val connectivityJob: Job?
+    )
+
     private data class RefreshTiming(
         val nowMs: Long,
         val targetMs: Long
@@ -710,8 +718,7 @@ internal class KlaviyoAuthTokenManager(
     private data class RequestGuard(
         val profileGeneration: Long? = null,
         val resetGeneration: Long? = null,
-        val refreshGeneration: Long? = null,
-        val connectivityGeneration: Long? = null
+        val refreshGeneration: Long? = null
     )
 
     private class StaleTriggerException : Exception()

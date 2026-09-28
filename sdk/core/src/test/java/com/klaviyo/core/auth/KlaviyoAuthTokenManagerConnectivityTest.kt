@@ -1,10 +1,13 @@
 package com.klaviyo.core.auth
 
 import com.klaviyo.core.Registry
+import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
+import io.mockk.slot
 import io.mockk.verify
 import java.io.IOException
 import java.net.ConnectException
@@ -38,12 +41,14 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     }
 
     private lateinit var fakeNetworkMonitor: FakeNetworkMonitor
+    private val lifecycleObserver = slot<ActivityObserver>()
 
     @Before
     override fun setup() {
         super.setup()
         fakeNetworkMonitor = FakeNetworkMonitor()
         every { Registry.networkMonitor } returns fakeNetworkMonitor
+        every { mockLifecycleMonitor.onActivityEvent(capture(lifecycleObserver)) } returns Unit
     }
 
     // MARK: - Helpers
@@ -141,6 +146,60 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             provider.callCount
         )
         verify { spyLog.info(any()) }
+    }
+
+    @Test
+    fun `foreground refresh cancels pending connectivity retry after network failure`() = runTest(
+        dispatcher
+    ) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("network down")),
+                    Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)),
+                    Result.success(makeJwt(EXP_SECONDS + 1200, IAT_SECONDS + 1200))
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        var refreshDeliveries = 0
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        manager.onTokenRefresh { refreshDeliveries++ }
+
+        executeScheduledRefresh()
+        assertNotNull(
+            "network failure should arm a connectivity wait",
+            manager.connectivityWaitJob
+        )
+        assertEquals(
+            "network failure should register one observer",
+            1,
+            fakeNetworkMonitor.observerCount()
+        )
+
+        lifecycleObserver.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("foreground refresh should succeed once", 3, provider.callCount)
+        assertEquals("foreground refresh should deliver one token", 1, refreshDeliveries)
+        assertNull(
+            "successful foreground refresh should clear connectivity wait",
+            manager.connectivityWaitJob
+        )
+        assertEquals(
+            "successful foreground refresh should remove its observer",
+            0,
+            fakeNetworkMonitor.observerCount()
+        )
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("later connectivity must not retry", 3, provider.callCount)
+        assertEquals("later connectivity must not redeliver", 1, refreshDeliveries)
     }
 
     @Test
