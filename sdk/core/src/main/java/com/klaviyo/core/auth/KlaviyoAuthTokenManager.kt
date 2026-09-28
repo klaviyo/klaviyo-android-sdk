@@ -8,6 +8,7 @@ import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
 import java.net.ConnectException
+import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -599,6 +600,7 @@ internal class KlaviyoAuthTokenManager(
     private fun isNetworkException(e: Throwable): Boolean =
         e is UnknownHostException ||
             e is SocketTimeoutException ||
+            e is NoRouteToHostException ||
             e is ConnectException
 
     private fun armConnectivityWaitJob(

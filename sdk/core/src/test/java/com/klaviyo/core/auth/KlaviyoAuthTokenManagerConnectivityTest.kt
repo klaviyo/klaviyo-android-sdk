@@ -11,6 +11,7 @@ import io.mockk.slot
 import io.mockk.verify
 import java.io.IOException
 import java.net.ConnectException
+import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.Base64
@@ -252,6 +253,11 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     @Test
     fun `connectivity retry fires after ConnectException`() {
         assertConnectivityRetryFires(ConnectException("connection refused"))
+    }
+
+    @Test
+    fun `connectivity retry fires after NoRouteToHostException`() {
+        assertConnectivityRetryFires(NoRouteToHostException("no route to host"))
     }
 
     @Test

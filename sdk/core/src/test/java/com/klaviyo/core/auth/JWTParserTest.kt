@@ -113,7 +113,7 @@ class JWTParserTest : BaseTest() {
             ).toString().toByteArray()
         )
 
-        val result = JWTParser.parseAndValidate("****.$payload.signature", NOW_SECONDS)
+        val result = JWTParser.parseAndValidate("****.$payload.c2lnbmF0dXJl", NOW_SECONDS)
 
         assertEquals(JWTValidationResult.MalformedBase64, result)
     }
