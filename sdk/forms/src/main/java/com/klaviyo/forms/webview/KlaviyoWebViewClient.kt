@@ -199,8 +199,14 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         Registry.config.assetSource?.let { expected ->
             view?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
                 Registry.log.debug("Actual Asset Source: $actual. Expected $expected")
+                // TEMP DEBUG — remove before merge. Same info, just visible: this was
+                // previously only logged at .debug(), below the default threshold, so it's
+                // been silently invisible in every capture so far.
+                println("[MAGE1170_DEBUG] Actual Asset Source: $actual. Expected $expected")
             }
-        }
+        } ?: println(
+            "[MAGE1170_DEBUG] no assetSource configured — loading default/production klaviyo.js"
+        )
 
         // TEMP DEBUG — remove before merge. Polls fender's onsite-personalization debug state
         // (see the paired change to profileApi.ts on the MAGE-1272 fender debug branch) a few
