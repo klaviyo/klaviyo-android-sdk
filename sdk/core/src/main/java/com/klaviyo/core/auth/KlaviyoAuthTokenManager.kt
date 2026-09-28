@@ -117,29 +117,46 @@ internal class KlaviyoAuthTokenManager(
     }
 
     override suspend fun clearTokenState(expectedGeneration: Long) {
+        clearTokenStateIfCurrent(expectedGeneration)
+    }
+
+    override suspend fun refreshAfterProfileChange(expectedGeneration: Long) {
+        val generation = clearTokenStateIfCurrent(expectedGeneration) ?: return
+        try {
+            getOrFetchToken(
+                timeoutMs = AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,
+                allowCachedToken = true,
+                guard = RequestGuard(profileGeneration = generation)
+            )
+        } catch (_: StaleTriggerException) {
+            Unit
+        }
+    }
+
+    private fun clearTokenStateIfCurrent(expectedGeneration: Long): Long? {
         var pendingToComplete: CompletableDeferred<Unit>? = null
-        val cleared = synchronized(completionBarrier) {
-            val cleanup = synchronized(stateLock) state@{
+        val generation = synchronized(completionBarrier) {
+            val transition = synchronized(stateLock) {
                 if (expectedGeneration >= 0L && state.profileGeneration != expectedGeneration) {
-                    return@state null
+                    null
+                } else {
+                    val detached = detachTokenStateLocked()
+                    state.cachedToken = null
+                    state.profileGeneration++
+                    state.resetGeneration++
+                    pendingToComplete = finishPendingTransitionLocked()
+                    LifecycleTransition(detached, state.profileGeneration)
                 }
-                val detached = detachTokenStateLocked()
-                state.cachedToken = null
-                state.profileGeneration++
-                state.resetGeneration++
-                pendingToComplete = finishPendingTransitionLocked()
-                detached
             }
-            cleanup ?: return@synchronized false
-            completeCleanup(cleanup)
-            true
+            transition?.also { completeCleanup(it.cleanup) }?.profileGeneration
         }
         pendingToComplete?.complete(Unit)
-        if (!cleared) {
+        if (generation == null) {
             Registry.log.verbose("clearTokenState: skipped — provider re-registered since reset")
-            return
+            return null
         }
         Registry.log.info("Token state cleared")
+        return generation
     }
 
     override suspend fun currentToken(timeoutMs: Long): ValidatedToken =

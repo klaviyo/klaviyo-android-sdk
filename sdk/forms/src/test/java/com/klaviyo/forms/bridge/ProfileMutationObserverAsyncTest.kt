@@ -115,6 +115,26 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
     }
 
     @Test
+    fun `profile reset fences initial JWT callback before clear reaches UI thread`() {
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue += firstArg<() -> Unit>() }
+        coEvery { mockAuth.currentToken(any()) } returns ValidatedToken("stale", 0L, 0L)
+        val jwtObserver = JwtObserver()
+        val profileObserver = ProfileMutationObserver(jwtObserver)
+
+        jwtObserver.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        profileObserver.startObserver()
+        stateObserver.captured.invoke(StateChange.ProfileReset(Profile()))
+
+        uiQueue[0].invoke()
+        uiQueue[1].invoke()
+
+        verify(exactly = 0) { mockBridge.jwtMutation("stale") }
+        verify(exactly = 1) { mockBridge.jwtMutation("") }
+    }
+
+    @Test
     fun `profile reset clear allows unchanged token to be reinjected`() {
         val refreshObserver = captureRefreshObserver()
         coEvery { mockAuth.currentToken(any()) } returns ValidatedToken("same-token", 0L, 0L)

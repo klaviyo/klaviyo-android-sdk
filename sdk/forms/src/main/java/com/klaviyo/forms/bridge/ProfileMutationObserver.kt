@@ -15,7 +15,6 @@ internal class ProfileMutationObserver(
 
     private val observerLock = Any()
     private var isObserving = false
-    private var hasProfileIdentifier = false
 
     override fun startObserver() {
         val shouldStart = synchronized(observerLock) {
@@ -30,7 +29,6 @@ internal class ProfileMutationObserver(
 
         Registry.get<State>().onStateChange(this)
         val profile = Registry.get<State>().getAsProfile()
-        hasProfileIdentifier = profile.hasIdentifier()
         injectProfile(profile)
     }
 
@@ -55,14 +53,11 @@ internal class ProfileMutationObserver(
         when (change) {
             is StateChange.ProfileIdentifier -> {
                 val profile = Registry.get<State>().getAsProfile()
-                val newlyIdentified = !hasProfileIdentifier && profile.hasIdentifier()
-                hasProfileIdentifier = profile.hasIdentifier()
                 injectProfile(profile)
-                if (newlyIdentified) jwtObserver.clearToken()
+                jwtObserver.clearToken()
             }
             is StateChange.ProfileReset -> {
                 val profile = Registry.get<State>().getAsProfile()
-                hasProfileIdentifier = profile.hasIdentifier()
                 injectProfile(profile)
                 jwtObserver.clearToken()
             }
@@ -71,7 +66,4 @@ internal class ProfileMutationObserver(
     }
 
     private fun injectProfile(profile: Profile) = Registry.get<JsBridge>().profileMutation(profile)
-
-    private fun Profile.hasIdentifier(): Boolean =
-        listOf(externalId, email, phoneNumber).any { !it.isNullOrEmpty() }
 }

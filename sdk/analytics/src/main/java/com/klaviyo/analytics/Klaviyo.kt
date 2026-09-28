@@ -325,10 +325,14 @@ object Klaviyo {
     @JvmStatic
     fun setProfileAttribute(propertyKey: ProfileKey, value: Serializable): Klaviyo = safeApply {
         val state = Registry.get<State>()
-        val identifiesAnonymousProfile = !state.hasProfileIdentifier() &&
-            propertyKey.name in ProfileKey.IDENTIFIERS &&
-            (value as? String)?.trim()?.isNotEmpty() == true
-        if (identifiesAnonymousProfile) {
+        val incoming = (value as? String)?.trim()?.takeIf { it.isNotEmpty() }
+        val changesIdentifier = incoming != null && when (propertyKey) {
+            ProfileKey.EMAIL -> incoming != state.email
+            ProfileKey.EXTERNAL_ID -> incoming != state.externalId
+            ProfileKey.PHONE_NUMBER -> incoming != state.phoneNumber
+            else -> false
+        }
+        if (changesIdentifier) {
             replaceProfileAuth { state.setAttribute(propertyKey, value) }
         } else {
             state.setAttribute(propertyKey, value)
@@ -340,9 +344,8 @@ object Klaviyo {
         val generation = auth.invalidate()
         updateProfile()
         CoroutineScope(Registry.dispatcher).safeLaunch {
-            auth.clearTokenState(expectedGeneration = generation)
             try {
-                auth.currentToken()
+                auth.refreshAfterProfileChange(expectedGeneration = generation)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: AuthTokenException.NoProviderRegistered) {

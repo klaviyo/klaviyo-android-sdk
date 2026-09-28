@@ -50,6 +50,7 @@ internal class JwtObserver : JsBridgeObserver {
      * always wins regardless of UI-callback ordering.
      */
     private val injectionSequence = AtomicLong(0L)
+    private val clearedSequence = AtomicLong(0L)
 
     /** Highest sequence applied to the webview. Only read/written on the UI thread. */
     private var lastInjectedSequence = 0L
@@ -124,6 +125,7 @@ internal class JwtObserver : JsBridgeObserver {
 
     internal fun clearToken() {
         val sequence = injectionSequence.incrementAndGet()
+        clearedSequence.set(sequence)
         val session = latestFetch
         Registry.threadHelper.runOnUiThread {
             if (!stopped && latestFetch === session) {
@@ -159,6 +161,7 @@ internal class JwtObserver : JsBridgeObserver {
      * [lastInjectedSequence] and [lastInjectedToken] are exclusively accessed.
      */
     private fun injectIfLatest(sequence: Long, token: String) {
+        if (sequence < clearedSequence.get()) return
         if (resetDedupOnNextInjection) {
             resetDedupOnNextInjection = false
             lastInjectedToken = null

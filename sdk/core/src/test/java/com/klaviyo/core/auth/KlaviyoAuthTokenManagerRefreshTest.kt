@@ -1073,6 +1073,62 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         }
 
     @Test
+    fun `profile change fetch is skipped when logout retired its generation`() = runTest(dispatcher) {
+        val provider = CountingSuccessProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        val profileChangeGeneration = manager.invalidate()
+        val logoutGeneration = manager.invalidate()
+        manager.clearTokenState(logoutGeneration)
+        manager.refreshAfterProfileChange(profileChangeGeneration)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
+    fun `profile change fetch runs when its generation remains current`() = runTest(dispatcher) {
+        val provider = CountingSuccessProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        val profileChangeGeneration = manager.invalidate()
+        manager.refreshAfterProfileChange(profileChangeGeneration)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, provider.callCount)
+    }
+
+    @Test
+    fun `profile change fetch does not retry after logout during acquisition`() = runTest(
+        dispatcher
+    ) {
+        val provider = InitialThenResolvableProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        val profileChangeGeneration = manager.invalidate()
+        val fetch = async { manager.refreshAfterProfileChange(profileChangeGeneration) }
+        dispatcher.scheduler.runCurrent()
+        assertEquals(2, provider.callCount)
+
+        val logoutGeneration = manager.invalidate()
+        manager.clearTokenState(logoutGeneration)
+        provider.resolve(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+        dispatcher.scheduler.advanceUntilIdle()
+        fetch.await()
+
+        assertEquals(2, provider.callCount)
+    }
+
+    @Test
     fun `invalidate causes currentToken to bypass cache and trigger new fetch`() =
         runTest(dispatcher) {
             val jwt = makeJwt()

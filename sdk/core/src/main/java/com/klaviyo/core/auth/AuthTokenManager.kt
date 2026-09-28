@@ -159,4 +159,10 @@ interface AuthTokenManager {
      * Option A, this method's name and behavior will change.
      */
     suspend fun clearTokenState(expectedGeneration: Long = -1L)
+
+    /**
+     * Clear the outgoing profile's token state and acquire a token only while that profile change
+     * remains current. A later profile reset or provider replacement prevents the acquisition.
+     */
+    suspend fun refreshAfterProfileChange(expectedGeneration: Long)
 }

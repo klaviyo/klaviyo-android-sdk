@@ -140,6 +140,24 @@ class ProfileObserverTest {
     }
 
     @Test
+    fun `observer clears outgoing JWT when an identified profile changes identifier`() {
+        every { stateMock.getAsProfile() } returns Profile(email = "old@example.com")
+        val mockBridge = withBridge()
+        clearMocks(mockBridge, jwtObserver, answers = false)
+        every { stateMock.getAsProfile() } returns Profile(email = "new@example.com")
+
+        val emailKey = mockk<ProfileKey>(relaxed = true).apply {
+            every { name } returns "email"
+        }
+        observerSlot.captured.invoke(StateChange.ProfileIdentifier(emailKey, "old@example.com"))
+
+        verifyOrder {
+            mockBridge.profileMutation(any())
+            jwtObserver.clearToken()
+        }
+    }
+
+    @Test
     fun `stopObserver removes the lambda from state change listeners`() {
         withBridge()
         val observer = ProfileMutationObserver(jwtObserver)
