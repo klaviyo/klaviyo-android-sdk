@@ -167,7 +167,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
-        manager.onTokenRefresh { refreshDeliveries++ }
+        manager.onTokenRefresh { _, _ -> refreshDeliveries++ }
 
         executeScheduledRefresh()
         assertNotNull(
