@@ -509,7 +509,8 @@ internal class KlaviyoAuthTokenManager(
         !state.profileResetPending &&
             (profileGeneration == null || state.profileGeneration == profileGeneration) &&
             (resetGeneration == null || state.resetGeneration == resetGeneration) &&
-            (refreshGeneration == null || state.refreshGeneration == refreshGeneration)
+            (refreshGeneration == null || state.refreshGeneration == refreshGeneration) &&
+            (expectedFetchId == null || state.nextFetchId == expectedFetchId)
 
     private fun onRefreshTimer(generation: Long) {
         val guard = synchronized(stateLock) {
@@ -634,7 +635,8 @@ internal class KlaviyoAuthTokenManager(
                         state.connectivityWaitGeneration++
                         RequestGuard(
                             profileGeneration = expectedProfileGeneration,
-                            resetGeneration = expectedResetGeneration
+                            resetGeneration = expectedResetGeneration,
+                            expectedFetchId = expectedFetchId
                         )
                     } ?: return@safeLaunch
                     Registry.log.info(
@@ -817,7 +819,8 @@ internal class KlaviyoAuthTokenManager(
     private data class RequestGuard(
         val profileGeneration: Long? = null,
         val resetGeneration: Long? = null,
-        val refreshGeneration: Long? = null
+        val refreshGeneration: Long? = null,
+        val expectedFetchId: Long? = null
     )
 
     private class StaleTriggerException : Exception()

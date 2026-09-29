@@ -15,7 +15,9 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.Base64
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
@@ -237,6 +239,41 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             fakeNetworkMonitor.simulateConnected(true)
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals(2, provider.callCount)
+        }
+
+    @Test
+    fun `demand fetch after reconnect supersedes retry before fetch reservation`() =
+        runTest(dispatcher) {
+            val demandToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+            val retryToken = makeJwt(EXP_SECONDS + 1200, IAT_SECONDS + 1200)
+            val provider = ScriptedProvider(
+                ArrayDeque(
+                    listOf(
+                        Result.failure(UnknownHostException("offline")),
+                        Result.success(demandToken),
+                        Result.success(retryToken)
+                    )
+                )
+            )
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            var receivedByDemand: String? = null
+            val interceptNextInfo = AtomicBoolean(true)
+            every { spyLog.info(any()) } answers {
+                if (interceptNextInfo.compareAndSet(true, false)) {
+                    launch { receivedByDemand = manager.currentToken().rawToken }
+                    dispatcher.scheduler.advanceUntilIdle()
+                }
+            }
+
+            fakeNetworkMonitor.simulateConnected(true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(demandToken, receivedByDemand)
+            assertEquals(2, provider.callCount)
+            assertEquals(demandToken, manager.currentToken().rawToken)
         }
 
     @Test
