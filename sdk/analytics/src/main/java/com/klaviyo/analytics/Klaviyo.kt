@@ -60,6 +60,10 @@ object Klaviyo {
      */
     @JvmStatic
     fun registerForLifecycleCallbacks(applicationContext: Context) = safeApply {
+        registerLifecycleCallbacks(applicationContext)
+    }
+
+    private fun registerLifecycleCallbacks(applicationContext: Context) {
         if (!Registry.isRegistered<Config>()) {
             // Register a partial config, missing API Key, to allow lifecycle tracking and context access for partial functionality
             Registry.register<Config>(
@@ -96,7 +100,7 @@ object Klaviyo {
             .applicationContext(applicationContext)
             .prepare()
 
-        registerForLifecycleCallbacks(applicationContext)
+        registerLifecycleCallbacks(applicationContext)
         Registry.get<ApiClient>().restoreQueue(forceRestore = false)
 
         Registry.getOrNull<StateSideEffects>()?.fenceApiKeyChange(normalizedApiKey)
