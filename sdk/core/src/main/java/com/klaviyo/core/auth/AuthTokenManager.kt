@@ -71,9 +71,9 @@ interface AuthTokenManager {
      * of that single fetch rather than each triggering a new provider invocation. Each caller's
      * [timeoutMs] budget is enforced independently — a caller that times out does not cancel the
      * underlying fetch, so a later caller with a larger budget can still receive the result.
-     * If the profile is invalidated while a caller is waiting, an outgoing-profile success is
-     * discarded and the caller retries against the current generation within its original timeout
-     * budget.
+     * While a profile transition is pending, callers wait for token-state cleanup or provider
+     * replacement before fetching. Outgoing-profile results are discarded and retried within the
+     * caller's original timeout budget.
      *
      * @param timeoutMs Maximum milliseconds to wait for the provider to return a token. Must be
      *   positive. Defaults to [BACKGROUND_FETCH_TIMEOUT_MS], pass [INTERACTIVE_FETCH_TIMEOUT_MS]

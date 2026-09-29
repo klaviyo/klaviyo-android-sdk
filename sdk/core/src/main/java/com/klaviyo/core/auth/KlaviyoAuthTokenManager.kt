@@ -52,11 +52,12 @@ internal class KlaviyoAuthTokenManager(
     }
 
     override fun registerProvider(provider: AuthTokenProvider) {
+        var pendingToComplete: CompletableDeferred<Unit>? = null
         val transition = synchronized(completionBarrier) {
             val lifecycleTransition = synchronized(stateLock) {
                 val cleanup = detachTokenStateLocked()
                 state.profileGeneration++
-                state.profileResetPending = false
+                pendingToComplete = finishPendingTransitionLocked()
                 state.cachedToken = null
                 state.provider = provider
                 LifecycleTransition(cleanup, state.profileGeneration)
@@ -64,6 +65,7 @@ internal class KlaviyoAuthTokenManager(
             completeCleanup(lifecycleTransition.cleanup)
             lifecycleTransition
         }
+        pendingToComplete?.complete(Unit)
         Registry.log.info("AuthTokenProvider registered")
         scope.safeLaunch {
             tryEagerFetch(RequestGuard(profileGeneration = transition.profileGeneration))
@@ -71,6 +73,7 @@ internal class KlaviyoAuthTokenManager(
     }
 
     override fun unregisterProvider() {
+        var pendingToComplete: CompletableDeferred<Unit>? = null
         val didUnregister = synchronized(completionBarrier) {
             val cleanup = synchronized(stateLock) state@{
                 if (state.provider == null) return@state null
@@ -79,13 +82,14 @@ internal class KlaviyoAuthTokenManager(
                 state.resetGeneration++
                 val detached = detachTokenStateLocked()
                 state.cachedToken = null
-                state.profileResetPending = false
+                pendingToComplete = finishPendingTransitionLocked()
                 detached
             }
             cleanup ?: return@synchronized false
             completeCleanup(cleanup)
             true
         }
+        pendingToComplete?.complete(Unit)
         if (!didUnregister) return
         Registry.log.info("AuthTokenProvider unregistered")
     }
@@ -104,6 +108,7 @@ internal class KlaviyoAuthTokenManager(
             // the generation and retry; later callers cannot join the outgoing-profile fetch.
             state.inFlightFetch?.let(state.detachedFetches::add)
             state.inFlightFetch = null
+            state.pendingTransition = state.pendingTransition ?: CompletableDeferred()
             state.profileResetPending = true
             state.profileGeneration++
             state.resetGeneration++
@@ -112,6 +117,7 @@ internal class KlaviyoAuthTokenManager(
     }
 
     override suspend fun clearTokenState(expectedGeneration: Long) {
+        var pendingToComplete: CompletableDeferred<Unit>? = null
         val cleared = synchronized(completionBarrier) {
             val cleanup = synchronized(stateLock) state@{
                 if (expectedGeneration >= 0L && state.profileGeneration != expectedGeneration) {
@@ -121,13 +127,14 @@ internal class KlaviyoAuthTokenManager(
                 state.cachedToken = null
                 state.profileGeneration++
                 state.resetGeneration++
-                state.profileResetPending = false
+                pendingToComplete = finishPendingTransitionLocked()
                 detached
             }
             cleanup ?: return@synchronized false
             completeCleanup(cleanup)
             true
         }
+        pendingToComplete?.complete(Unit)
         if (!cleared) {
             Registry.log.verbose("clearTokenState: skipped — provider re-registered since reset")
             return
@@ -169,7 +176,16 @@ internal class KlaviyoAuthTokenManager(
         val token = withTimeoutOrNull(timeoutMs) {
             while (true) {
                 when (val request = tokenRequest(allowCachedToken, guard)) {
-                    is TokenRequest.Cached -> return@withTimeoutOrNull request.token
+                    is TokenRequest.Cached -> {
+                        if (canReturnFetchResult(request.profileGeneration)) {
+                            return@withTimeoutOrNull request.token
+                        }
+                        continue
+                    }
+                    is TokenRequest.Pending -> {
+                        request.transition.await()
+                        continue
+                    }
                     is TokenRequest.Fetch -> when (val outcome = request.outcome.await()) {
                         is FetchOutcome.Success -> {
                             if (canReturnFetchResult(request.profileGeneration)) {
@@ -203,9 +219,14 @@ internal class KlaviyoAuthTokenManager(
         val request = synchronized(stateLock) {
             if (guard != null && !guard.matchesLocked()) throw StaleTriggerException()
             val provider = state.provider ?: throw AuthTokenException.NoProviderRegistered
+            if (state.profileResetPending) {
+                return@synchronized TokenRequest.Pending(
+                    requireNotNull(state.pendingTransition)
+                )
+            }
             if (allowCachedToken) {
                 usableCachedTokenLocked(nowSeconds)?.let {
-                    return@synchronized TokenRequest.Cached(it)
+                    return@synchronized TokenRequest.Cached(state.profileGeneration, it)
                 }
             }
             val inFlight = state.inFlightFetch ?: createFetchLocked(provider).also {
@@ -327,7 +348,9 @@ internal class KlaviyoAuthTokenManager(
 
     private fun canReturnFetchResult(profileGeneration: Long): Boolean =
         synchronized(completionBarrier) {
-            synchronized(stateLock) { state.profileGeneration == profileGeneration }
+            synchronized(stateLock) {
+                state.profileGeneration == profileGeneration && !state.profileResetPending
+            }
         }
 
     private suspend fun invokeProvider(provider: AuthTokenProvider): String =
@@ -358,6 +381,12 @@ internal class KlaviyoAuthTokenManager(
     private fun usableCachedTokenLocked(nowSeconds: Long): ValidatedToken? =
         state.cachedToken?.takeIf {
             isStillValid(it, nowSeconds) && !state.profileResetPending
+        }
+
+    private fun finishPendingTransitionLocked(): CompletableDeferred<Unit>? =
+        state.pendingTransition.also {
+            state.pendingTransition = null
+            state.profileResetPending = false
         }
 
     private fun isStillValid(token: ValidatedToken, nowSeconds: Long): Boolean =
@@ -687,6 +716,7 @@ internal class KlaviyoAuthTokenManager(
         var profileGeneration: Long = 0L
         var resetGeneration: Long = 0L
         var profileResetPending: Boolean = false
+        var pendingTransition: CompletableDeferred<Unit>? = null
         val refreshObservers = mutableListOf<TokenRefreshObserver>()
         var connectivityWait: ConnectivityWait? = null
         var connectivityWaitGeneration: Long = 0L
@@ -747,7 +777,8 @@ internal class KlaviyoAuthTokenManager(
     }
 
     private sealed interface TokenRequest {
-        data class Cached(val token: ValidatedToken) : TokenRequest
+        data class Cached(val profileGeneration: Long, val token: ValidatedToken) : TokenRequest
+        data class Pending(val transition: CompletableDeferred<Unit>) : TokenRequest
         data class Fetch(
             val profileGeneration: Long,
             val outcome: CompletableDeferred<FetchOutcome>

@@ -1027,9 +1027,11 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             assertEquals("cache hit — provider not called again", 1, provider.callCount)
 
             // invalidate() sets profileResetPending; cachedToken is still non-null at this point.
-            manager.invalidate()
+            val generation = manager.invalidate()
 
-            // currentToken() must not return the stale cached value — falls through to a fetch.
+            manager.clearTokenState(expectedGeneration = generation)
+
+            // currentToken() must not return the stale cached value after cleanup.
             manager.currentToken()
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals("invalidate forces a new provider fetch", 2, provider.callCount)
