@@ -327,6 +327,82 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
+    fun `refresh invalidated before queued ui delivery does not inject its token`() {
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue.add(firstArg()) }
+        val refreshObserver = captureRefreshObserver()
+        val invalidationObserver = captureInvalidationObserver()
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
+        var current = true
+        val observer = JwtObserver()
+
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        uiQueue.forEach { it.invoke() }
+        uiQueue.clear()
+        clearMocks(mockJsBridge, answers = false)
+
+        refreshObserver.captured.invoke("stale-refresh") { current }
+        current = false
+        invalidationObserver.captured.invoke()
+        uiQueue.forEach { it.invoke() }
+
+        verify(inverse = true) { mockJsBridge.jwtMutation("stale-refresh") }
+        verify(exactly = 1) { mockJsBridge.jwtMutation("") }
+    }
+
+    @Test
+    fun `invalidation during final refresh check fences injection and queues clear`() {
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue.add(firstArg()) }
+        val refreshObserver = captureRefreshObserver()
+        val invalidationObserver = captureInvalidationObserver()
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
+        val observer = JwtObserver()
+
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        uiQueue.forEach { it.invoke() }
+        uiQueue.clear()
+        clearMocks(mockJsBridge, answers = false)
+
+        refreshObserver.captured.invoke("stale-refresh") {
+            invalidationObserver.captured.invoke()
+            true
+        }
+        while (uiQueue.isNotEmpty()) uiQueue.removeAt(0).invoke()
+
+        verify(inverse = true) { mockJsBridge.jwtMutation("stale-refresh") }
+        verify(exactly = 1) { mockJsBridge.jwtMutation("") }
+    }
+
+    @Test
+    fun `invalidation after final refresh check clears the injected token`() {
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue.add(firstArg()) }
+        val refreshObserver = captureRefreshObserver()
+        val invalidationObserver = captureInvalidationObserver()
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
+        val observer = JwtObserver()
+
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        while (uiQueue.isNotEmpty()) uiQueue.removeAt(0).invoke()
+        clearMocks(mockJsBridge, answers = false)
+        every { mockJsBridge.jwtMutation(any()) } answers {
+            if (firstArg<String>() == "refreshed") invalidationObserver.captured.invoke()
+        }
+
+        refreshObserver.captured.invoke("refreshed") { true }
+        while (uiQueue.isNotEmpty()) uiQueue.removeAt(0).invoke()
+
+        verifyOrder {
+            mockJsBridge.jwtMutation("refreshed")
+            mockJsBridge.jwtMutation("")
+        }
+    }
+
+    @Test
     fun `unchanged token is re-injected into a fresh webview after a form restart`() {
         // JwtObserver is a shared instance across form sessions, but each session loads a new
         // webview with no JWT. The value-dedup must be scoped to the current webview: reopening a

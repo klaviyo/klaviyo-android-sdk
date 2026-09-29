@@ -131,7 +131,8 @@ interface AuthTokenManager {
      * This method is intentionally non-suspending so it can be called on any thread (including the
      * main thread from `Klaviyo.resetProfile()`) without blocking. The actual token-state cleanup
      * is deferred to [clearTokenState], which callers should dispatch asynchronously after calling
-     * this method.
+     * this method. Callers must synchronously publish the corresponding profile state change so
+     * observers can clear a token that has already been delivered.
      *
      * @return The new profile generation value, which should be passed to [clearTokenState] as
      *   [clearTokenState]'s `expectedGeneration` argument. If a new provider is registered before
