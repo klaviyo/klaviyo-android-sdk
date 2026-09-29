@@ -15,6 +15,12 @@ internal class ProfileMutationObserver(
     private val jwtObserver: JwtObserver
 ) : JsBridgeObserver {
 
+    private companion object {
+        const val EMAIL_IDENTIFIER = "email"
+        const val EXTERNAL_ID_IDENTIFIER = "external_id"
+        const val PHONE_NUMBER_IDENTIFIER = "phone_number"
+    }
+
     private val observerLock = Any()
     private class Session(val id: Any, val callback: StateChangeObserver) {
         var lastProfile: Profile? = null
@@ -63,7 +69,9 @@ internal class ProfileMutationObserver(
             val session = activeSession?.takeIf { it.id === sessionId } ?: return
             if (change == null && session.receivedChange) return
             val transition = session.lastProfile?.profileTransition(profile)
-                ?: (change as? StateChange.ProfileIdentifier)?.profileTransition(profile)
+                ?: (change as? StateChange.ProfileIdentifier)?.let {
+                    transitionFromIdentifierChange(it, profile)
+                }
             session.lastProfile = profile.copy()
             if (change != null) session.receivedChange = true
             if (change is StateChange.ProfileReset ||
@@ -74,5 +82,19 @@ internal class ProfileMutationObserver(
             }
             Registry.get<JsBridge>().profileMutation(profile)
         }
+    }
+
+    private fun transitionFromIdentifierChange(
+        change: StateChange.ProfileIdentifier,
+        profile: Profile
+    ): ProfileTransition {
+        val previous = profile.copy()
+        when (change.key.name) {
+            EMAIL_IDENTIFIER -> previous.email = change.oldValue
+            EXTERNAL_ID_IDENTIFIER -> previous.externalId = change.oldValue
+            PHONE_NUMBER_IDENTIFIER -> previous.phoneNumber = change.oldValue
+            else -> return ProfileTransition.Replacement
+        }
+        return previous.profileTransition(profile)
     }
 }
