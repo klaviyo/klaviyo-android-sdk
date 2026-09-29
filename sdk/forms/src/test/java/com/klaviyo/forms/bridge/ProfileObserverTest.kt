@@ -13,8 +13,12 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyOrder
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -175,7 +179,7 @@ class ProfileObserverTest {
         observer.startObserver()
         observer.startObserver()
 
-        verify(exactly = 1) { stateMock.onStateChange(observer) }
+        verify(exactly = 1) { stateMock.onStateChange(any()) }
         verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
     }
 
@@ -189,8 +193,58 @@ class ProfileObserverTest {
         observer.stopObserver()
         observer.startObserver()
 
-        verify(exactly = 2) { stateMock.onStateChange(observer) }
-        verify(exactly = 1) { stateMock.offStateChange(observer) }
+        verify(exactly = 2) { stateMock.onStateChange(any()) }
+        verify(exactly = 1) { stateMock.offStateChange(any()) }
         verify(exactly = 2) { mockBridge.profileMutation(stubProfile) }
+    }
+
+    @Test
+    fun `queued state callback from prior session cannot mutate restarted bridge`() {
+        val mockBridge = mockk<JsBridge>(relaxed = true)
+        Registry.register<JsBridge>(mockBridge)
+        val observer = ProfileMutationObserver(jwtObserver)
+        observer.startObserver()
+        val oldCallback = observerSlot.captured
+        observer.stopObserver()
+        observer.startObserver()
+        clearMocks(mockBridge, jwtObserver, answers = false)
+
+        oldCallback.invoke(StateChange.ProfileReset(stubProfile))
+
+        verify(exactly = 0) { mockBridge.profileMutation(any()) }
+        verify(exactly = 0) { jwtObserver.clearToken() }
+    }
+
+    @Test
+    fun `late initial profile from prior session cannot mutate restarted bridge`() {
+        val oldProfile = Profile(email = "old@example.com")
+        val newProfile = Profile(email = "new@example.com")
+        val firstReadStarted = CountDownLatch(1)
+        val releaseFirstRead = CountDownLatch(1)
+        var reads = 0
+        every { stateMock.getAsProfile() } answers {
+            if (++reads == 1) {
+                firstReadStarted.countDown()
+                assertTrue(releaseFirstRead.await(5, TimeUnit.SECONDS))
+                oldProfile
+            } else {
+                newProfile
+            }
+        }
+        val mockBridge = mockk<JsBridge>(relaxed = true)
+        Registry.register<JsBridge>(mockBridge)
+        val observer = ProfileMutationObserver(jwtObserver)
+        val firstStart = thread { observer.startObserver() }
+        try {
+            assertTrue(firstReadStarted.await(5, TimeUnit.SECONDS))
+            observer.stopObserver()
+            observer.startObserver()
+        } finally {
+            releaseFirstRead.countDown()
+            firstStart.join(5_000)
+        }
+
+        verify(exactly = 1) { mockBridge.profileMutation(newProfile) }
+        verify(exactly = 0) { mockBridge.profileMutation(oldProfile) }
     }
 }

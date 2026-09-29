@@ -11,59 +11,57 @@ import com.klaviyo.core.Registry
  */
 internal class ProfileMutationObserver(
     private val jwtObserver: JwtObserver
-) : JsBridgeObserver, StateChangeObserver {
+) : JsBridgeObserver {
 
     private val observerLock = Any()
-    private var isObserving = false
+    private data class Session(val id: Any, val callback: StateChangeObserver)
+    private var activeSession: Session? = null
 
     override fun startObserver() {
-        val shouldStart = synchronized(observerLock) {
-            if (isObserving) {
-                false
-            } else {
-                isObserving = true
-                true
+        val session = synchronized(observerLock) {
+            if (activeSession != null) return
+            val id = Any()
+            val callback: StateChangeObserver = { change -> onStateChange(change, id) }
+            Session(id, callback).also {
+                activeSession = it
+                Registry.get<State>().onStateChange(callback)
             }
         }
-        if (!shouldStart) return
 
-        Registry.get<State>().onStateChange(this)
         val profile = Registry.get<State>().getAsProfile()
-        injectProfile(profile)
+        injectProfile(profile, session.id, false)
     }
 
     override fun stopObserver() {
-        val shouldStop = synchronized(observerLock) {
-            if (isObserving) {
-                isObserving = false
-                true
-            } else {
-                false
-            }
+        synchronized(observerLock) {
+            val session = activeSession ?: return
+            activeSession = null
+            Registry.get<State>().offStateChange(session.callback)
         }
-        if (!shouldStop) return
-
-        Registry.get<State>().offStateChange(this)
     }
 
     /**
      * Update profile in webview whenever an identifier changes, or profile is reset
      */
-    override fun invoke(change: StateChange) {
+    private fun onStateChange(change: StateChange, sessionId: Any) {
         when (change) {
             is StateChange.ProfileIdentifier -> {
                 val profile = Registry.get<State>().getAsProfile()
-                injectProfile(profile)
-                jwtObserver.clearToken()
+                injectProfile(profile, sessionId, true)
             }
             is StateChange.ProfileReset -> {
                 val profile = Registry.get<State>().getAsProfile()
-                injectProfile(profile)
-                jwtObserver.clearToken()
+                injectProfile(profile, sessionId, true)
             }
             else -> Unit
         }
     }
 
-    private fun injectProfile(profile: Profile) = Registry.get<JsBridge>().profileMutation(profile)
+    private fun injectProfile(profile: Profile, sessionId: Any, clearJwt: Boolean) {
+        synchronized(observerLock) {
+            if (activeSession?.id !== sessionId) return
+            Registry.get<JsBridge>().profileMutation(profile)
+            if (clearJwt) jwtObserver.clearToken()
+        }
+    }
 }
