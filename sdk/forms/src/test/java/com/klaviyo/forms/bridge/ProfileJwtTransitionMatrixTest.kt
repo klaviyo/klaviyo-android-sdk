@@ -136,8 +136,8 @@ class ProfileJwtTransitionMatrixTest : BaseTest() {
         emit(StateChange.ProfileIdentifier(identifierKey("email"), null))
 
         verifyOrder {
-            bridge.profileMutation(identified)
             bridge.jwtMutation("")
+            bridge.profileMutation(identified)
         }
         verify(inverse = true) { bridge.jwtMutation("outgoing") }
         collection.stopObservers()
@@ -169,6 +169,7 @@ class ProfileJwtTransitionMatrixTest : BaseTest() {
 
         fresh.startObservers(NativeBridgeMessage.JsReady)
         dispatcher.scheduler.advanceUntilIdle()
+        clearMocks(bridge, answers = false)
         emit(StateChange.ProfileReset(outgoing))
         refresh.captured("fresh") { true }
         outgoingFetch.complete(ValidatedToken("old", 0L, 0L))
@@ -176,8 +177,8 @@ class ProfileJwtTransitionMatrixTest : BaseTest() {
 
         verify(inverse = true) { bridge.jwtMutation("old") }
         verifyOrder {
-            bridge.profileMutation(replacement)
             bridge.jwtMutation("")
+            bridge.profileMutation(replacement)
             bridge.jwtMutation("fresh")
         }
         fresh.stopObservers()
@@ -198,8 +199,8 @@ class ProfileJwtTransitionMatrixTest : BaseTest() {
         emit(StateChange.ProfileReset(outgoing))
 
         verifyOrder {
-            bridge.profileMutation(replacement)
             bridge.jwtMutation("")
+            bridge.profileMutation(replacement)
         }
         verify(inverse = true) { bridge.jwtMutation("outgoing") }
         collection.stopObservers()
