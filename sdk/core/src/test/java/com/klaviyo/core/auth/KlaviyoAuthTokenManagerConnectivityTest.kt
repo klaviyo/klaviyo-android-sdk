@@ -8,7 +8,6 @@ import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.slot
-import io.mockk.verify
 import java.io.IOException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
@@ -169,7 +168,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(makeJwt()),
-                    Result.failure(IOException("network down")),
+                    Result.failure(UnknownHostException("network down")),
                     Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)),
                     Result.success(makeJwt(EXP_SECONDS + 1200, IAT_SECONDS + 1200))
                 )

@@ -249,9 +249,7 @@ internal class KlaviyoAuthTokenManager(
                 provider,
                 resumeImmediatelyOnNetworkFailure
             ).also {
-                if (guard?.connectivityGeneration == null) {
-                    connectivityJobToCancel = detachConnectivityWaitLocked()
-                }
+                connectivityJobToCancel = detachConnectivityWaitLocked()
                 state.inFlightFetch = it
                 fetchToStart = it
             }
