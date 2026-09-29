@@ -177,7 +177,12 @@ internal class KlaviyoAuthTokenManager(
                             }
                             continue
                         }
-                        is FetchOutcome.Failure -> throw outcome.error
+                        is FetchOutcome.Failure -> {
+                            if (canReturnFetchResult(request.profileGeneration)) {
+                                throw outcome.error
+                            }
+                            continue
+                        }
                         FetchOutcome.Superseded -> continue
                     }
                 }

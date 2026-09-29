@@ -2,6 +2,7 @@ package com.klaviyo.core.auth
 
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.verify
+import java.io.IOException
 import java.util.Base64
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -479,6 +480,35 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         callerJob.join()
         assertNull("Caller should not have thrown but got: $caught", caught)
         assertEquals(freshToken, result?.rawToken)
+    }
+
+    @Test
+    fun `caller retries when outgoing profile fetch fails after invalidation`() = runTest(
+        dispatcher
+    ) {
+        val provider = ResolvableProvider()
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent()
+
+        var caught: Throwable? = null
+        val callerJob = launch {
+            try {
+                manager.currentToken(timeoutMs = 5_000)
+            } catch (e: Throwable) {
+                caught = e
+            }
+        }
+        dispatcher.scheduler.runCurrent()
+
+        manager.invalidate()
+        provider.reject(IOException("outgoing profile"))
+        dispatcher.scheduler.runCurrent()
+
+        assertTrue("Caller propagated a stale failure: $caught", !callerJob.isCompleted)
+        assertEquals(2, provider.callCount)
+        callerJob.cancel()
+        callerJob.join()
     }
 
     @Test
