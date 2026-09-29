@@ -6,6 +6,7 @@ import io.mockk.every
 import io.mockk.verify
 import java.io.IOException
 import java.util.Base64
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -15,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -772,6 +774,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         manager.rejectCurrentToken()
+        dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, invalidations)
         try {
@@ -840,6 +843,43 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
+    fun `provider replacement publishes invalidation before concurrent demand token`() =
+        runTest(dispatcher) {
+            val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+            val secondToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(SuccessProvider(firstToken))
+            dispatcher.scheduler.advanceUntilIdle()
+            val deliveries = CopyOnWriteArrayList<String>()
+            manager.onTokenInvalidated { deliveries += "clear" }
+            manager.onTokenRefresh { token, _ -> deliveries += token }
+
+            val registrationPublished = CountDownLatch(1)
+            val releaseRegistration = CountDownLatch(1)
+            every { spyLog.info("AuthTokenProvider registered") } answers {
+                registrationPublished.countDown()
+                assertTrue(releaseRegistration.await(5, TimeUnit.SECONDS))
+            }
+            val replacement = Thread {
+                manager.registerProvider(SuccessProvider(secondToken))
+            }.apply { start() }
+
+            try {
+                assertTrue(registrationPublished.await(5, TimeUnit.SECONDS))
+                val demand = async { manager.currentToken() }
+                dispatcher.scheduler.advanceUntilIdle()
+                assertEquals(secondToken, demand.await().rawToken)
+            } finally {
+                releaseRegistration.countDown()
+                replacement.join(5_000)
+                dispatcher.scheduler.advanceUntilIdle()
+                manager.scope.cancel()
+            }
+
+            assertEquals(listOf("clear", secondToken), deliveries)
+        }
+
+    @Test
     fun `unregisterProvider notifies token invalidation observers`() = runTest(dispatcher) {
         val manager = KlaviyoAuthTokenManager()
         var invalidations = 0
@@ -849,22 +889,25 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
 
         manager.unregisterProvider()
         manager.unregisterProvider()
+        dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, invalidations)
     }
 
     @Test
-    fun `register after concurrent unregister still invalidates old token`() {
+    fun `lifecycle calls return while invalidation observer is slow`() {
         every { Registry.dispatcher } returns Dispatchers.IO
         val manager = KlaviyoAuthTokenManager()
         val invalidationStarted = CountDownLatch(1)
         val releaseInvalidation = CountDownLatch(1)
+        val allInvalidations = CountDownLatch(3)
         val invalidations = AtomicInteger()
         manager.onTokenInvalidated {
             if (invalidations.incrementAndGet() == 1) {
                 invalidationStarted.countDown()
                 releaseInvalidation.await(5, TimeUnit.SECONDS)
             }
+            allInvalidations.countDown()
         }
         manager.registerProvider(DeferredProvider())
 
@@ -872,33 +915,99 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         assertTrue(invalidationStarted.await(5, TimeUnit.SECONDS))
         val unregister = Thread { manager.unregisterProvider() }.apply { start() }
         try {
-            assertTrue(
-                waitUntilBlockedOrFinished(unregister) &&
-                    unregister.state == Thread.State.BLOCKED
-            )
+            rejection.join(5_000L)
+            unregister.join(5_000L)
+            assertTrue(!rejection.isAlive)
+            assertTrue(!unregister.isAlive)
             val register = Thread { manager.registerProvider(DeferredProvider()) }.apply { start() }
             try {
-                assertTrue(waitUntilBlockedOrFinished(register))
+                register.join(5_000L)
+                assertTrue(!register.isAlive)
             } finally {
                 releaseInvalidation.countDown()
                 register.join(5_000L)
             }
-            unregister.join(5_000L)
-            rejection.join(5_000L)
-            assertEquals(2, invalidations.get())
+            assertTrue(allInvalidations.await(5, TimeUnit.SECONDS))
+            assertEquals(3, invalidations.get())
         } finally {
             releaseInvalidation.countDown()
             manager.scope.cancel()
         }
     }
 
-    private fun waitUntilBlockedOrFinished(thread: Thread): Boolean {
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
-        while (System.nanoTime() < deadline) {
-            if (thread.state == Thread.State.BLOCKED || !thread.isAlive) return true
-            Thread.yield()
+    @Test
+    fun `invalidation observer can remove itself and register a provider`() = runTest(dispatcher) {
+        val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val secondToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val thirdToken = makeJwt(EXP_SECONDS + 1200, IAT_SECONDS + 1200)
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(SuccessProvider(firstToken))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val deliveries = mutableListOf<String>()
+        lateinit var reentrantObserver: TokenInvalidationObserver
+        reentrantObserver = {
+            deliveries += "reentrant"
+            manager.offTokenInvalidated(reentrantObserver)
+            manager.registerProvider(SuccessProvider(thirdToken))
         }
-        return false
+        manager.onTokenInvalidated(reentrantObserver)
+        manager.onTokenInvalidated { deliveries += "persistent" }
+        manager.registerProvider(SuccessProvider(secondToken))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf("reentrant", "persistent", "persistent"), deliveries)
+        assertEquals(thirdToken, manager.currentToken().rawToken)
+    }
+
+    @Test
+    fun `throwing invalidation observer does not stall later events`() = runTest(dispatcher) {
+        val manager = KlaviyoAuthTokenManager()
+        val deliveries = mutableListOf<String>()
+        manager.registerProvider(DeferredProvider())
+        manager.onTokenInvalidated { throw IllegalStateException("observer failure") }
+        manager.onTokenInvalidated { deliveries += "clear" }
+
+        manager.rejectCurrentToken()
+        manager.rejectCurrentToken()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf("clear", "clear"), deliveries)
+    }
+
+    @Test
+    fun `rejection clear survives timed out and cancelled token callers`() = runBlocking {
+        every { Registry.dispatcher } returns Dispatchers.IO
+        val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val secondToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val provider = SequenceProvider(firstToken, secondToken)
+        val manager = KlaviyoAuthTokenManager()
+        val invalidationStarted = CountDownLatch(1)
+        val releaseInvalidation = CountDownLatch(1)
+        manager.registerProvider(provider)
+        assertEquals(firstToken, manager.currentToken().rawToken)
+        manager.onTokenInvalidated {
+            invalidationStarted.countDown()
+            releaseInvalidation.await(5, TimeUnit.SECONDS)
+        }
+
+        try {
+            manager.rejectCurrentToken()
+            assertTrue(invalidationStarted.await(5, TimeUnit.SECONDS))
+
+            try {
+                manager.currentToken(timeoutMs = 25L)
+                fail("Expected the demand to time out while invalidation is pending")
+            } catch (_: AuthTokenException.TimedOut) { /* expected */ }
+            val cancelled = async(Dispatchers.IO) { manager.currentToken() }
+            cancelled.cancel()
+            assertEquals(1, provider.callCount)
+        } finally {
+            releaseInvalidation.countDown()
+        }
+
+        assertEquals(secondToken, manager.currentToken().rawToken)
+        manager.scope.cancel()
     }
 
     @Test

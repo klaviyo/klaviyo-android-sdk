@@ -14,6 +14,8 @@ package com.klaviyo.core.auth
  * (e.g. for a WebView call that must run on the UI thread), the observer is responsible for it.
  */
 typealias TokenRefreshObserver = (jwt: String, isCurrent: () -> Boolean) -> Unit
+
+/** Invoked serially on the manager dispatcher when registered token state is invalidated. */
 typealias TokenInvalidationObserver = () -> Unit
 
 /**
@@ -43,8 +45,8 @@ interface AuthTokenManager {
      * Replace the registered [AuthTokenProvider] (if any), discard any cached token, and
      * asynchronously pre-warm the cache with a fresh token via the new provider.
      *
-     * This method returns immediately — provider registration is synchronous; the eager fetch
-     * runs fire-and-forget on the manager's internal scope.
+     * This method returns after publishing the provider and queuing any invalidation notification;
+     * observer delivery and the eager fetch run on the manager's internal scope.
      */
     fun registerProvider(provider: AuthTokenProvider)
 
@@ -56,8 +58,8 @@ interface AuthTokenManager {
      * will throw [AuthTokenException.NoProviderRegistered] until a new provider is registered via
      * [Klaviyo.registerAuthTokenProvider][com.klaviyo.analytics.Klaviyo.registerAuthTokenProvider].
      *
-     * Has no effect if no provider is currently registered. This method returns immediately —
-     * all teardown is synchronous.
+     * Has no effect if no provider is currently registered. State teardown is synchronous;
+     * invalidation observers are notified asynchronously.
      */
     fun unregisterProvider()
 
@@ -106,22 +108,26 @@ interface AuthTokenManager {
      * an [Exception], it is logged at WARNING and remaining observers are still called.
      * Delivery stops for the remaining observers if the token is invalidated during delivery
      * (for example, an observer calls [invalidate], or a profile reset lands concurrently).
-     * [kotlinx.coroutines.CancellationException] is rethrown per structured-concurrency contract.
+     * If an observer throws [kotlinx.coroutines.CancellationException], delivery continues unless
+     * the manager's own observer-dispatch coroutine has been cancelled.
      *
      * Registration is by reference — pass the same lambda instance to [offTokenRefresh] to
-     * unregister. Duplicate registrations (same instance) add the observer twice.
+     * unregister. Duplicate registrations (same instance) add the observer twice. Events include
+     * observers registered when the token is published.
      */
     fun onTokenRefresh(observer: TokenRefreshObserver)
 
     /**
      * Remove a previously registered [TokenRefreshObserver]. The [observer] must be the same
      * instance (by reference) as the one passed to [onTokenRefresh]. Has no effect if the observer
-     * is not currently registered.
+     * is not currently registered. Removal affects future queued events, not events already queued.
      */
     fun offTokenRefresh(observer: TokenRefreshObserver)
 
+    /** Events include observers registered when the invalidation is queued. */
     fun onTokenInvalidated(observer: TokenInvalidationObserver)
 
+    /** Removal affects future queued events, not events already queued. */
     fun offTokenInvalidated(observer: TokenInvalidationObserver)
 
     /**

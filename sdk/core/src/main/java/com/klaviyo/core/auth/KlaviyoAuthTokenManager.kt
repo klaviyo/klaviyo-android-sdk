@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
@@ -41,19 +42,19 @@ internal class KlaviyoAuthTokenManager(
 
     private val stateLock = Any()
     private val completionBarrier = Any()
-    private val observerDispatchLock = Any()
     private val state = State()
+    private val observerEvents = Channel<ObserverEvent>(Channel.UNLIMITED)
 
     internal val connectivityWaitJob: Job?
         get() = synchronized(stateLock) { state.connectivityWait?.job }
 
     init {
+        scope.safeLaunch { drainObserverEvents() }
         lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
     }
 
     override fun registerProvider(provider: AuthTokenProvider) {
         var pendingToComplete: CompletableDeferred<Unit>? = null
-        var invalidationGeneration: Long? = null
         val transition = synchronized(completionBarrier) {
             val lifecycleTransition = synchronized(stateLock) {
                 val invalidatesPreviousProvider =
@@ -65,7 +66,7 @@ internal class KlaviyoAuthTokenManager(
                 state.rejectedToken = null
                 state.provider = provider
                 state.providerWasUnregistered = false
-                if (invalidatesPreviousProvider) invalidationGeneration = state.profileGeneration
+                if (invalidatesPreviousProvider) enqueueInvalidationLocked()
                 LifecycleTransition(cleanup, state.profileGeneration)
             }
             completeCleanup(lifecycleTransition.cleanup)
@@ -73,7 +74,6 @@ internal class KlaviyoAuthTokenManager(
         }
         pendingToComplete?.complete(Unit)
         Registry.log.info("AuthTokenProvider registered")
-        invalidationGeneration?.let(::notifyInvalidationObservers)
         scope.safeLaunch {
             tryEagerFetch(RequestGuard(profileGeneration = transition.profileGeneration))
         }
@@ -81,7 +81,6 @@ internal class KlaviyoAuthTokenManager(
 
     override fun unregisterProvider() {
         var pendingToComplete: CompletableDeferred<Unit>? = null
-        var invalidationGeneration: Long? = null
         val didUnregister = synchronized(completionBarrier) {
             val cleanup = synchronized(stateLock) state@{
                 if (state.provider == null) return@state null
@@ -93,7 +92,7 @@ internal class KlaviyoAuthTokenManager(
                 state.cachedToken = null
                 state.rejectedToken = null
                 pendingToComplete = finishPendingTransitionLocked()
-                invalidationGeneration = state.profileGeneration
+                enqueueInvalidationLocked()
                 detached
             }
             cleanup ?: return@synchronized false
@@ -103,11 +102,10 @@ internal class KlaviyoAuthTokenManager(
         pendingToComplete?.complete(Unit)
         if (!didUnregister) return
         Registry.log.info("AuthTokenProvider unregistered")
-        invalidationGeneration?.let(::notifyInvalidationObservers)
     }
 
     override fun rejectCurrentToken() {
-        val generation = synchronized(completionBarrier) {
+        synchronized(completionBarrier) {
             val transition = synchronized(stateLock) {
                 val cleanup = detachTokenStateLocked()
                 state.cachedToken?.rawToken?.let { state.rejectedToken = it }
@@ -116,12 +114,11 @@ internal class KlaviyoAuthTokenManager(
                     state.profileGeneration++
                     state.resetGeneration++
                 }
+                enqueueInvalidationLocked()
                 LifecycleTransition(cleanup, state.profileGeneration)
             }
             completeCleanup(transition.cleanup)
-            transition.profileGeneration
         }
-        notifyInvalidationObservers(generation)
     }
 
     override fun onTokenRefresh(observer: TokenRefreshObserver) {
@@ -284,6 +281,9 @@ internal class KlaviyoAuthTokenManager(
                     requireNotNull(state.pendingTransition)
                 )
             }
+            state.pendingInvalidation?.let {
+                return@synchronized TokenRequest.Pending(it)
+            }
             if (allowCachedToken) {
                 usableCachedTokenLocked(nowSeconds)?.let {
                     return@synchronized TokenRequest.Cached(state.profileGeneration, it)
@@ -352,7 +352,7 @@ internal class KlaviyoAuthTokenManager(
         outcome: CompletableDeferred<FetchOutcome>,
         result: FetchOutcome
     ) {
-        val tokenToNotify = synchronized(completionBarrier) {
+        val tokenToLog = synchronized(completionBarrier) {
             val scheduleTiming = (result as? FetchOutcome.Success)?.let {
                 val nowMs = Registry.clock.currentTimeMillis()
                 RefreshTiming(
@@ -380,6 +380,7 @@ internal class KlaviyoAuthTokenManager(
 
                 state.cachedToken = result.token
                 state.rejectedToken = null
+                enqueueRefreshLocked(result.token, profileGeneration)
                 RefreshPlan(
                     schedule = prepareRefreshScheduleLocked(requireNotNull(scheduleTiming)),
                     connectivityJob = detachConnectivityWaitLocked()
@@ -391,26 +392,22 @@ internal class KlaviyoAuthTokenManager(
             // Waiters complete after the lifecycle transition has been applied.
             outcome.complete(result)
 
-            val token = (result as? FetchOutcome.Success)?.token
-            if (refreshPlan != null && token != null) {
-                Registry.log.info(
-                    "Auth token acquired " +
-                        "(exp=${token.expiresAtEpochSeconds}, iat=${token.issuedAtEpochSeconds})"
-                )
-                token
-            } else {
-                null
-            }
+            if (refreshPlan != null) (result as? FetchOutcome.Success)?.token else null
         }
-        // Host callbacks run after the completion/lifecycle barrier is released. They remain
-        // serialized by observerDispatchLock, which lifecycle APIs never acquire.
-        tokenToNotify?.let { notifyRefreshObservers(it, profileGeneration) }
+        tokenToLog?.let {
+            Registry.log.info(
+                "Auth token acquired " +
+                    "(exp=${it.expiresAtEpochSeconds}, iat=${it.issuedAtEpochSeconds})"
+            )
+        }
     }
 
     private fun canReturnFetchResult(profileGeneration: Long): Boolean =
         synchronized(completionBarrier) {
             synchronized(stateLock) {
-                state.profileGeneration == profileGeneration && !state.profileResetPending
+                state.profileGeneration == profileGeneration &&
+                    !state.profileResetPending &&
+                    state.pendingInvalidation == null
             }
         }
 
@@ -592,61 +589,88 @@ internal class KlaviyoAuthTokenManager(
         }
     }
 
-    private fun notifyRefreshObservers(token: ValidatedToken, profileGeneration: Long) {
-        synchronized(observerDispatchLock) {
-            val observers = synchronized(stateLock) {
-                if (!canDeliverTokenLocked(token, profileGeneration)) return
-                state.refreshObservers.toList()
-            }
-            observers.forEach { observer ->
-                val canDeliver = synchronized(stateLock) {
-                    canDeliverTokenLocked(token, profileGeneration)
-                }
-                if (!canDeliver) return
-                try {
-                    observer(token.rawToken) {
-                        synchronized(stateLock) {
-                            canDeliverTokenLocked(token, profileGeneration)
+    private fun enqueueRefreshLocked(token: ValidatedToken, profileGeneration: Long) {
+        observerEvents.trySend(
+            ObserverEvent.Refresh(token, profileGeneration, state.refreshObservers.toList())
+        )
+    }
+
+    private fun enqueueInvalidationLocked() {
+        if (state.invalidationObservers.isEmpty()) return
+        val completion = CompletableDeferred<Unit>()
+        val event = ObserverEvent.Invalidation(state.invalidationObservers.toList(), completion)
+        if (observerEvents.trySend(event).isSuccess) {
+            state.pendingInvalidation = completion
+        }
+    }
+
+    private suspend fun drainObserverEvents() {
+        try {
+            for (event in observerEvents) {
+                when (event) {
+                    is ObserverEvent.Refresh -> event.observers.forEach { observer ->
+                        val canDeliver = synchronized(stateLock) {
+                            canDeliverTokenLocked(event.token, event.profileGeneration)
+                        }
+                        if (!canDeliver) return@forEach
+                        try {
+                            observer(event.token.rawToken) {
+                                synchronized(stateLock) {
+                                    canDeliverTokenLocked(event.token, event.profileGeneration)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            if (!currentCoroutineContext().isActive) throw e
+                            Registry.log.warning(
+                                "TokenRefreshObserver threw ${e.javaClass.simpleName} — skipping",
+                                e
+                            )
                         }
                     }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Registry.log.warning(
-                        "TokenRefreshObserver threw ${e.javaClass.simpleName} — skipping",
-                        e
-                    )
+                    is ObserverEvent.Invalidation -> {
+                        try {
+                            event.observers.forEach { observer ->
+                                try {
+                                    observer()
+                                } catch (e: Exception) {
+                                    if (!currentCoroutineContext().isActive) throw e
+                                    Registry.log.warning(
+                                        "TokenInvalidationObserver threw ${e.javaClass.simpleName} — skipping",
+                                        e
+                                    )
+                                }
+                            }
+                        } finally {
+                            synchronized(stateLock) {
+                                if (state.pendingInvalidation === event.completion) {
+                                    state.pendingInvalidation = null
+                                }
+                            }
+                            event.completion.complete(Unit)
+                        }
+                    }
                 }
             }
+        } finally {
+            observerEvents.close()
+            while (true) {
+                val event = observerEvents.tryReceive().getOrNull() ?: break
+                if (event is ObserverEvent.Invalidation) event.completion.complete(Unit)
+            }
+            val pending = synchronized(stateLock) {
+                val current = state.pendingInvalidation
+                state.pendingInvalidation = null
+                current
+            }
+            pending?.complete(Unit)
         }
     }
 
     private fun canDeliverTokenLocked(token: ValidatedToken, profileGeneration: Long): Boolean =
         state.profileGeneration == profileGeneration &&
             !state.profileResetPending &&
+            state.pendingInvalidation == null &&
             state.cachedToken === token
-
-    private fun notifyInvalidationObservers(profileGeneration: Long) {
-        synchronized(observerDispatchLock) {
-            val observers = synchronized(stateLock) {
-                if (state.profileGeneration != profileGeneration) return
-                state.invalidationObservers.toList()
-            }
-            observers.forEach { observer ->
-                if (synchronized(stateLock) { state.profileGeneration != profileGeneration }) return
-                try {
-                    observer()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Registry.log.warning(
-                        "TokenInvalidationObserver threw ${e.javaClass.simpleName} — skipping",
-                        e
-                    )
-                }
-            }
-        }
-    }
 
     private fun isNetworkException(e: Exception): Boolean =
         e is UnknownHostException ||
@@ -810,6 +834,7 @@ internal class KlaviyoAuthTokenManager(
         var resetGeneration: Long = 0L
         var profileResetPending: Boolean = false
         var pendingTransition: CompletableDeferred<Unit>? = null
+        var pendingInvalidation: CompletableDeferred<Unit>? = null
         val refreshObservers = mutableListOf<TokenRefreshObserver>()
         val invalidationObservers = mutableListOf<TokenInvalidationObserver>()
         var connectivityWait: ConnectivityWait? = null
@@ -877,6 +902,19 @@ internal class KlaviyoAuthTokenManager(
             val profileGeneration: Long,
             val outcome: CompletableDeferred<FetchOutcome>
         ) : TokenRequest
+    }
+
+    private sealed interface ObserverEvent {
+        data class Refresh(
+            val token: ValidatedToken,
+            val profileGeneration: Long,
+            val observers: List<TokenRefreshObserver>
+        ) : ObserverEvent
+
+        data class Invalidation(
+            val observers: List<TokenInvalidationObserver>,
+            val completion: CompletableDeferred<Unit>
+        ) : ObserverEvent
     }
 
     private sealed interface ForegroundAction {
