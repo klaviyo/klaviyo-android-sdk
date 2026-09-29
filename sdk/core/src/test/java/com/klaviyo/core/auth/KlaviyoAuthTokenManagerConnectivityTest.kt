@@ -211,6 +211,38 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     }
 
     @Test
+    fun `failed foreground fetch retains an armed connectivity retry`() = runTest(dispatcher) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("scheduled refresh offline")),
+                    Result.failure(IOException("foreground fetch offline")),
+                    Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        executeScheduledRefresh()
+        assertEquals(2, provider.callCount)
+        assertNotNull(manager.connectivityWaitJob())
+
+        staticClock.time = EXP_SECONDS * 1000L
+        lifecycleObserver.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(3, provider.callCount)
+        assertNotNull(manager.connectivityWaitJob())
+        assertEquals(1, fakeNetworkMonitor.observerCount())
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(4, provider.callCount)
+    }
+
+    @Test
     fun `queued connectivity retry cannot fetch after clearTokenState returns`() = runTest(
         dispatcher
     ) {

@@ -293,9 +293,6 @@ internal class KlaviyoAuthTokenManager(
             return
         }
         val provider = state.provider ?: return
-        state.connectivityId++
-        state.connectivityJob?.cancel()
-        state.connectivityJob = null
         val id = ++state.fetchId
         state.fetchJob = scope.safeLaunch {
             val result = runCatching {
