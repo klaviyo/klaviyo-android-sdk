@@ -114,16 +114,16 @@ object Klaviyo {
             registerLifecycleCallbacks(applicationContext)
             Registry.get<ApiClient>().restoreQueue(forceRestore = false)
 
-            Registry.getOrNull<StateSideEffects>()?.fenceApiKeyChange(normalizedApiKey)
-            Registry.register<Config>(configBuilder.build())
-
             Registry.registerOnce<State> {
                 KlaviyoState().also { state ->
                     Registry.register<StateSideEffects>(StateSideEffects(state))
                 }
             }
 
-            Registry.get<State>().apiKey = normalizedApiKey
+            val state = Registry.get<State>()
+            Registry.get<StateSideEffects>().fenceApiKeyChange(normalizedApiKey)
+            Registry.register<Config>(configBuilder.build())
+            state.apiKey = normalizedApiKey
             Registry.get<ApiClient>().startService()
 
             if (preInitQueue.isNotEmpty()) {

@@ -312,6 +312,25 @@ internal class KlaviyoTest : BaseTest() {
         }
 
     @Test
+    fun `First state materialization fences auth before company config publication`() =
+        runTest(dispatcher) {
+            Registry.get<StateSideEffects>().detach()
+            Registry.unregister<StateSideEffects>()
+            Registry.unregister<State>()
+            val replacementConfig = mockk<Config>()
+            every { mockBuilder.build() } returns replacementConfig
+            every { mockAuthTokenManager.invalidate() } answers {
+                assertFalse(Registry.get<Config>() === replacementConfig)
+                1L
+            }
+
+            Klaviyo.initialize(apiKey = "new-$API_KEY", applicationContext = mockContext)
+
+            verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+            assertTrue(Registry.get<Config>() === replacementConfig)
+        }
+
+    @Test
     fun `Initialize with the same company does not churn auth token state`() = runTest(dispatcher) {
         Klaviyo.initialize(
             apiKey = API_KEY,
