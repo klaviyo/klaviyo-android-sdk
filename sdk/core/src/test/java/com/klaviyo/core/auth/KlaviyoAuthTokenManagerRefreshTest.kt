@@ -764,7 +764,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val replacementNotificationStarted = AtomicBoolean()
         val manager = KlaviyoAuthTokenManager()
 
-        manager.onTokenRefresh {
+        manager.onTokenRefresh { _, _ ->
             if (firstObserverCalls.incrementAndGet() == 1) {
                 firstObserverStarted.countDown()
                 releaseFirstObserver.await(5, TimeUnit.SECONDS)
@@ -772,7 +772,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
                 replacementNotificationStarted.set(true)
             }
         }
-        manager.onTokenRefresh {
+        manager.onTokenRefresh { _, _ ->
             secondObserverCalls.incrementAndGet()
             if (replacementNotificationStarted.get()) replacementDelivered.countDown()
         }
