@@ -71,6 +71,7 @@ internal class PushTokenApiRequest(
     /**
      * Render the body with device metadata, notification authorization and background availability
      * as of right now, so that sending the request reports the latest device state.
+     * Renders onto a copy, so reading the body does not change equality, hashing, or the persisted JSON.
      */
     override val requestBody: String?
         get() = body?.deepCopy()?.apply {

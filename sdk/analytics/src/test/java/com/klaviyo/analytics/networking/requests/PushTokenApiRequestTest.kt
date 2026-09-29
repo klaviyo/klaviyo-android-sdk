@@ -128,9 +128,11 @@ internal class PushTokenApiRequestTest : BaseApiRequestTest<PushTokenApiRequest>
         every { DeviceProperties.notificationPermissionGranted } returns false
         every { DeviceProperties.backgroundDataEnabled } returns false
         every { DeviceProperties.appVersion } returns "9.9.9"
+        aRequest.requestBody
         val bRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
 
         assertEquals(aRequest, bRequest)
+        assertEquals(bRequest, aRequest)
         assertEquals(aRequest.hashCode(), bRequest.hashCode())
     }
 
