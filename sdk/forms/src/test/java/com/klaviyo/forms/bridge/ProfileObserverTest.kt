@@ -73,13 +73,13 @@ class ProfileObserverTest {
         clearMocks(mockBridge, answers = false)
         observerSlot.captured.invoke(StateChange.ProfileReset(mockk()))
         verifyOrder {
-            mockBridge.profileMutation(stubProfile)
             jwtObserver.clearToken()
+            mockBridge.profileMutation(stubProfile)
         }
     }
 
     @Test
-    fun `observer installs replacement profile before clearing outgoing JWT`() {
+    fun `observer clears outgoing JWT before installing replacement profile`() {
         val replacement = Profile(email = "new@example.com")
         every { stateMock.getAsProfile() } returns replacement
         val mockBridge = withBridge()
@@ -88,8 +88,8 @@ class ProfileObserverTest {
         observerSlot.captured.invoke(StateChange.ProfileReset(stubProfile))
 
         verifyOrder {
-            mockBridge.profileMutation(replacement)
             jwtObserver.clearToken()
+            mockBridge.profileMutation(replacement)
         }
     }
 
@@ -138,8 +138,8 @@ class ProfileObserverTest {
         observerSlot.captured.invoke(StateChange.ProfileIdentifier(emailKey, null))
 
         verifyOrder {
-            mockBridge.profileMutation(identifiedProfile)
             jwtObserver.clearToken()
+            mockBridge.profileMutation(identifiedProfile)
         }
     }
 
@@ -156,8 +156,8 @@ class ProfileObserverTest {
         observerSlot.captured.invoke(StateChange.ProfileIdentifier(emailKey, "old@example.com"))
 
         verifyOrder {
-            mockBridge.profileMutation(any())
             jwtObserver.clearToken()
+            mockBridge.profileMutation(any())
         }
     }
 

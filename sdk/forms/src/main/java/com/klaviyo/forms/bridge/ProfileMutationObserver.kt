@@ -64,8 +64,8 @@ internal class ProfileMutationObserver(
             val session = activeSession?.takeIf { it.id === sessionId } ?: return
             if (!clearJwt && session.receivedChange) return
             if (clearJwt) session.receivedChange = true
-            Registry.get<JsBridge>().profileMutation(profile)
             if (clearJwt) jwtObserver.clearToken()
+            Registry.get<JsBridge>().profileMutation(profile)
         }
     }
 }

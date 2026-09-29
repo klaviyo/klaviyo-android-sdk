@@ -20,6 +20,7 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -93,6 +94,48 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
             mockBridge.profileMutation(stubProfile)
         }
         jwtObserver.stopObserver()
+    }
+
+    @Test
+    fun `profile replacement clears outgoing JWT before publishing replacement profile`() {
+        val uiQueue = mutableListOf<() -> Unit>()
+        val webviewEvents = mutableListOf<String>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue += firstArg<() -> Unit>() }
+        every { mockBridge.profileMutation(any()) } answers {
+            val email = firstArg<Profile>().email
+            mockThreadHelper.runOnUiThread { webviewEvents += "profile:$email" }
+        }
+        every { mockBridge.jwtMutation(any()) } answers {
+            webviewEvents += "jwt:${firstArg<String>()}"
+        }
+        val refreshObserver = captureRefreshObserver()
+        val replacement = Profile(email = "replacement@klaviyo.com")
+        every { stateMock.getAsProfile() } returns stubProfile andThen replacement
+        coEvery { mockAuth.currentToken(any()) } returns ValidatedToken("outgoing-jwt", 0L, 0L)
+        val jwtObserver = JwtObserver()
+        val profileObserver = ProfileMutationObserver(jwtObserver)
+
+        jwtObserver.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        while (uiQueue.isNotEmpty()) uiQueue.removeAt(0).invoke()
+        profileObserver.startObserver()
+        while (uiQueue.isNotEmpty()) uiQueue.removeAt(0).invoke()
+
+        stateObserver.captured.invoke(StateChange.ProfileReset(stubProfile))
+        while (uiQueue.isNotEmpty()) uiQueue.removeAt(0).invoke()
+        refreshObserver.captured.invoke("replacement-jwt") { true }
+        while (uiQueue.isNotEmpty()) uiQueue.removeAt(0).invoke()
+
+        assertEquals(
+            listOf(
+                "jwt:outgoing-jwt",
+                "profile:$EMAIL",
+                "jwt:",
+                "profile:${replacement.email}",
+                "jwt:replacement-jwt"
+            ),
+            webviewEvents
+        )
     }
 
     @Test
@@ -178,8 +221,8 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
         verifyOrder {
             mockBridge.profileMutation(stubProfile)
             mockBridge.profileMutation(replacement)
-            mockBridge.jwtMutation("")
         }
+        verify(exactly = 1) { mockBridge.jwtMutation("") }
         verify(exactly = 0) { mockBridge.jwtMutation("outgoing-token") }
     }
 }
