@@ -18,10 +18,14 @@ import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyOrder
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -398,5 +402,34 @@ class JwtObserverTest : BaseTest() {
         }
         assertSame(onObservers.first(), offObserver.captured)
         assertNotSame(onObservers.first(), onObservers.last())
+    }
+
+    @Test
+    fun `concurrent stop unregisters callback from an in-progress start`() {
+        val registrationStarted = CountDownLatch(1)
+        val releaseRegistration = CountDownLatch(1)
+        val stopStarted = CountDownLatch(1)
+        val callbacks = mutableListOf<TokenRefreshObserver>()
+        every { mockAuthTokenManager.onTokenRefresh(any()) } answers {
+            callbacks += firstArg<TokenRefreshObserver>()
+            registrationStarted.countDown()
+            assertTrue(releaseRegistration.await(5, TimeUnit.SECONDS))
+        }
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
+        val observer = JwtObserver()
+        val start = thread { observer.startObserver() }
+        assertTrue(registrationStarted.await(5, TimeUnit.SECONDS))
+        val stop = thread {
+            stopStarted.countDown()
+            observer.stopObserver()
+        }
+        assertTrue(stopStarted.await(5, TimeUnit.SECONDS))
+        stop.join(200)
+        releaseRegistration.countDown()
+        start.join(5_000)
+        stop.join(5_000)
+
+        assertTrue(!start.isAlive && !stop.isAlive)
+        verify(exactly = 1) { mockAuthTokenManager.offTokenRefresh(callbacks.single()) }
     }
 }

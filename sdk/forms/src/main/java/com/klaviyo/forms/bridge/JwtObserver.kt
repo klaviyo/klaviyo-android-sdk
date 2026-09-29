@@ -20,6 +20,8 @@ import kotlinx.coroutines.SupervisorJob
  */
 internal class JwtObserver : JsBridgeObserver {
 
+    private val sessionLock = Any()
+
     @Volatile private var stopped = false
 
     /**
@@ -76,67 +78,71 @@ internal class JwtObserver : JsBridgeObserver {
     @Volatile private var resetDedupOnNextInjection = false
 
     override fun startObserver() {
-        // A new session loads a fresh webview; forget the previous session's injected value so an
-        // unchanged token is re-delivered rather than deduped away. Consumed on the UI thread.
-        resetDedupOnNextInjection = true
-        val thisFetch = Any()
-        latestFetch = thisFetch
-        stopped = false
-        // Reserve the initial fetch's place in the injection order now, at request time, so any
-        // refresh that fires while the fetch is still in flight outranks it. Assigning the sequence
-        // only once the token resolved let a slow or failed fetch clobber a fresher refreshed token.
-        val fetchSequence = injectionSequence.incrementAndGet()
-        // off-then-on guarantees a single registration across re-entrant starts (duplicate
-        // registrations would inject the refreshed token more than once).
-        val nextRefreshObserver: TokenRefreshObserver = { jwt, isCurrent ->
-            onTokenRefreshed(jwt, isCurrent, thisFetch)
-        }
-        val nextInvalidationObserver: TokenInvalidationObserver = {
-            clearToken(thisFetch)
-        }
-        Registry.get<AuthTokenManager>().apply {
-            refreshObserver?.let(::offTokenRefresh)
-            invalidationObserver?.let(::offTokenInvalidated)
-            onTokenRefresh(nextRefreshObserver)
-            onTokenInvalidated(nextInvalidationObserver)
-        }
-        refreshObserver = nextRefreshObserver
-        invalidationObserver = nextInvalidationObserver
-
-        fetchJob?.cancel()
-        fetchJob = scope.safeLaunch {
-            val token: ValidatedToken? = try {
-                Registry.get<AuthTokenManager>()
-                    .currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: AuthTokenException.NoProviderRegistered) {
-                Registry.log.debug("Auth not enabled — injecting empty JWT")
-                null
-            } catch (_: Exception) {
-                Registry.log.warning("Auth token fetch failed — injecting empty JWT")
-                null
+        synchronized(sessionLock) {
+            // A new session loads a fresh webview; forget the previous session's injected value so an
+            // unchanged token is re-delivered rather than deduped away. Consumed on the UI thread.
+            resetDedupOnNextInjection = true
+            val thisFetch = Any()
+            latestFetch = thisFetch
+            stopped = false
+            // Reserve the initial fetch's place in the injection order now, at request time, so any
+            // refresh that fires while the fetch is still in flight outranks it. Assigning the sequence
+            // only once the token resolved let a slow or failed fetch clobber a fresher refreshed token.
+            val fetchSequence = injectionSequence.incrementAndGet()
+            // off-then-on guarantees a single registration across re-entrant starts (duplicate
+            // registrations would inject the refreshed token more than once).
+            val nextRefreshObserver: TokenRefreshObserver = { jwt, isCurrent ->
+                onTokenRefreshed(jwt, isCurrent, thisFetch)
             }
+            val nextInvalidationObserver: TokenInvalidationObserver = {
+                clearToken(thisFetch)
+            }
+            Registry.get<AuthTokenManager>().apply {
+                refreshObserver?.let(::offTokenRefresh)
+                invalidationObserver?.let(::offTokenInvalidated)
+                onTokenRefresh(nextRefreshObserver)
+                onTokenInvalidated(nextInvalidationObserver)
+            }
+            refreshObserver = nextRefreshObserver
+            invalidationObserver = nextInvalidationObserver
 
-            Registry.threadHelper.runOnUiThread {
-                if (latestFetch === thisFetch && !stopped &&
-                    (token == null || Registry.get<AuthTokenManager>().isCurrentToken(token))
-                ) {
-                    injectIfLatest(fetchSequence, token?.rawToken ?: "")
+            fetchJob?.cancel()
+            fetchJob = scope.safeLaunch {
+                val token: ValidatedToken? = try {
+                    Registry.get<AuthTokenManager>()
+                        .currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: AuthTokenException.NoProviderRegistered) {
+                    Registry.log.debug("Auth not enabled — injecting empty JWT")
+                    null
+                } catch (_: Exception) {
+                    Registry.log.warning("Auth token fetch failed — injecting empty JWT")
+                    null
+                }
+
+                Registry.threadHelper.runOnUiThread {
+                    if (latestFetch === thisFetch && !stopped &&
+                        (token == null || Registry.get<AuthTokenManager>().isCurrentToken(token))
+                    ) {
+                        injectIfLatest(fetchSequence, token?.rawToken ?: "")
+                    }
                 }
             }
         }
     }
 
     override fun stopObserver() {
-        stopped = true
-        latestFetch = null
-        refreshObserver?.let(Registry.get<AuthTokenManager>()::offTokenRefresh)
-        invalidationObserver?.let(Registry.get<AuthTokenManager>()::offTokenInvalidated)
-        refreshObserver = null
-        invalidationObserver = null
-        fetchJob?.cancel()
-        fetchJob = null
+        synchronized(sessionLock) {
+            stopped = true
+            latestFetch = null
+            refreshObserver?.let(Registry.get<AuthTokenManager>()::offTokenRefresh)
+            invalidationObserver?.let(Registry.get<AuthTokenManager>()::offTokenInvalidated)
+            refreshObserver = null
+            invalidationObserver = null
+            fetchJob?.cancel()
+            fetchJob = null
+        }
     }
 
     internal fun clearToken() {
