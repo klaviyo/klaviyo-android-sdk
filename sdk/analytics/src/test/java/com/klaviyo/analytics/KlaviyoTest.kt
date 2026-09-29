@@ -47,6 +47,10 @@ import io.mockk.spyk
 import io.mockk.unmockkAll
 import io.mockk.verify
 import io.mockk.verifyAll
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -363,6 +367,42 @@ internal class KlaviyoTest : BaseTest() {
 
         assertEquals(API_KEY, Registry.get<State>().apiKey)
         verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+    }
+
+    @Test
+    fun `overlapping initialization commits each company in call order`() {
+        val firstPrepareStarted = CountDownLatch(1)
+        val releaseFirstPrepare = CountDownLatch(1)
+        val secondStarted = CountDownLatch(1)
+        val secondFinished = CountDownLatch(1)
+        val prepares = AtomicInteger()
+        every { mockBuilder.prepare() } answers {
+            if (prepares.incrementAndGet() == 1) {
+                firstPrepareStarted.countDown()
+                assertTrue(releaseFirstPrepare.await(5, TimeUnit.SECONDS))
+            }
+            mockBuilder
+        }
+
+        val first = thread { Klaviyo.initialize("first-$API_KEY", mockContext) }
+        assertTrue(firstPrepareStarted.await(5, TimeUnit.SECONDS))
+        val second = thread {
+            secondStarted.countDown()
+            Klaviyo.initialize("second-$API_KEY", mockContext)
+            secondFinished.countDown()
+        }
+        try {
+            assertTrue(secondStarted.await(5, TimeUnit.SECONDS))
+            assertFalse(secondFinished.await(200, TimeUnit.MILLISECONDS))
+        } finally {
+            releaseFirstPrepare.countDown()
+            first.join(5_000)
+            second.join(5_000)
+        }
+
+        assertEquals(2, prepares.get())
+        assertEquals(0L, secondFinished.count)
+        assertEquals("second-$API_KEY", Registry.get<State>().apiKey)
     }
 
     @Test

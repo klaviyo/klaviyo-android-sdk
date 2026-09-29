@@ -44,6 +44,8 @@ import kotlinx.coroutines.CoroutineScope
  */
 object Klaviyo {
 
+    private val initializationLock = Any()
+
     /**
      * Queue of failed operations attempted prior to [initialize]
      */
@@ -60,7 +62,9 @@ object Klaviyo {
      */
     @JvmStatic
     fun registerForLifecycleCallbacks(applicationContext: Context) = safeApply {
-        registerLifecycleCallbacks(applicationContext)
+        synchronized(initializationLock) {
+            registerLifecycleCallbacks(applicationContext)
+        }
     }
 
     private fun registerLifecycleCallbacks(applicationContext: Context) {
@@ -94,39 +98,41 @@ object Klaviyo {
      */
     @JvmStatic
     fun initialize(apiKey: String, applicationContext: Context) = safeApply {
-        val normalizedApiKey = apiKey.trim()
-        val configBuilder = Registry.configBuilder
-            .apiKey(normalizedApiKey)
-            .applicationContext(applicationContext)
-            .prepare()
+        synchronized(initializationLock) {
+            val normalizedApiKey = apiKey.trim()
+            val configBuilder = Registry.configBuilder
+                .apiKey(normalizedApiKey)
+                .applicationContext(applicationContext)
+                .prepare()
 
-        registerLifecycleCallbacks(applicationContext)
-        Registry.get<ApiClient>().restoreQueue(forceRestore = false)
+            registerLifecycleCallbacks(applicationContext)
+            Registry.get<ApiClient>().restoreQueue(forceRestore = false)
 
-        Registry.getOrNull<StateSideEffects>()?.fenceApiKeyChange(normalizedApiKey)
-        Registry.register<Config>(configBuilder.build())
+            Registry.getOrNull<StateSideEffects>()?.fenceApiKeyChange(normalizedApiKey)
+            Registry.register<Config>(configBuilder.build())
 
-        Registry.registerOnce<State> {
-            KlaviyoState().also { state ->
-                Registry.register<StateSideEffects>(StateSideEffects(state))
+            Registry.registerOnce<State> {
+                KlaviyoState().also { state ->
+                    Registry.register<StateSideEffects>(StateSideEffects(state))
+                }
             }
-        }
 
-        Registry.get<State>().apiKey = normalizedApiKey
-        Registry.get<ApiClient>().startService()
+            Registry.get<State>().apiKey = normalizedApiKey
+            Registry.get<ApiClient>().startService()
 
-        if (preInitQueue.isNotEmpty()) {
-            Registry.log.info(
-                "Replaying ${preInitQueue.count()} operation(s) invoked prior to Klaviyo initialization."
-            )
+            if (preInitQueue.isNotEmpty()) {
+                Registry.log.info(
+                    "Replaying ${preInitQueue.count()} operation(s) invoked prior to Klaviyo initialization."
+                )
 
-            while (preInitQueue.isNotEmpty()) {
-                preInitQueue.poll()?.let { safeCall(null, it) }
+                while (preInitQueue.isNotEmpty()) {
+                    preInitQueue.poll()?.let { safeCall(null, it) }
+                }
             }
-        }
 
-        // Optional side effect, kept last so it can never interfere with core initialization
-        PushTokenFetcher.maybeAutoRegisterPushToken()
+            // Optional side effect, kept last so it can never interfere with core initialization
+            PushTokenFetcher.maybeAutoRegisterPushToken()
+        }
     }
 
     /**
