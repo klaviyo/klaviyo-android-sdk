@@ -247,4 +247,37 @@ class ProfileObserverTest {
         verify(exactly = 1) { mockBridge.profileMutation(newProfile) }
         verify(exactly = 0) { mockBridge.profileMutation(oldProfile) }
     }
+
+    @Test
+    fun `late initial profile cannot overwrite a newer state delivery`() {
+        val oldProfile = Profile(email = "old@example.com")
+        val newProfile = Profile(email = "new@example.com")
+        val firstReadStarted = CountDownLatch(1)
+        val releaseFirstRead = CountDownLatch(1)
+        var reads = 0
+        every { stateMock.getAsProfile() } answers {
+            if (++reads == 1) {
+                firstReadStarted.countDown()
+                assertTrue(releaseFirstRead.await(5, TimeUnit.SECONDS))
+                oldProfile
+            } else {
+                newProfile
+            }
+        }
+        val mockBridge = mockk<JsBridge>(relaxed = true)
+        Registry.register<JsBridge>(mockBridge)
+        val observer = ProfileMutationObserver(jwtObserver)
+        val firstStart = thread { observer.startObserver() }
+        try {
+            assertTrue(firstReadStarted.await(5, TimeUnit.SECONDS))
+            observerSlot.captured.invoke(StateChange.ProfileReset(oldProfile))
+        } finally {
+            releaseFirstRead.countDown()
+            firstStart.join(5_000)
+        }
+
+        verify(exactly = 1) { mockBridge.profileMutation(newProfile) }
+        verify(exactly = 0) { mockBridge.profileMutation(oldProfile) }
+        verify(exactly = 1) { jwtObserver.clearToken() }
+    }
 }

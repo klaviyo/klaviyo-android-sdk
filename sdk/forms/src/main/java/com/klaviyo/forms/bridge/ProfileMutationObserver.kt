@@ -14,7 +14,9 @@ internal class ProfileMutationObserver(
 ) : JsBridgeObserver {
 
     private val observerLock = Any()
-    private data class Session(val id: Any, val callback: StateChangeObserver)
+    private class Session(val id: Any, val callback: StateChangeObserver) {
+        var receivedChange = false
+    }
     private var activeSession: Session? = null
 
     override fun startObserver() {
@@ -59,7 +61,9 @@ internal class ProfileMutationObserver(
 
     private fun injectProfile(profile: Profile, sessionId: Any, clearJwt: Boolean) {
         synchronized(observerLock) {
-            if (activeSession?.id !== sessionId) return
+            val session = activeSession?.takeIf { it.id === sessionId } ?: return
+            if (!clearJwt && session.receivedChange) return
+            if (clearJwt) session.receivedChange = true
             Registry.get<JsBridge>().profileMutation(profile)
             if (clearJwt) jwtObserver.clearToken()
         }
