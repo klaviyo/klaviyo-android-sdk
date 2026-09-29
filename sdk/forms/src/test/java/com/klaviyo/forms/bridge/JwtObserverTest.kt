@@ -20,6 +20,7 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
@@ -101,6 +102,51 @@ class JwtObserverTest : BaseTest() {
         oldCallback.invoke()
 
         verify(exactly = 0) { mockJsBridge.jwtMutation("") }
+    }
+
+    @Test
+    fun `stale clear cannot outrank a restarted session token`() {
+        val invalidationObserver = captureInvalidationObserver()
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        val oldCallback = invalidationObserver.captured
+        clearMocks(mockJsBridge, answers = false)
+
+        val clearAtSequence = CountDownLatch(1)
+        val releaseClear = CountDownLatch(1)
+        val sequence = AtomicLong(1)
+        val controlledSequence = mockk<AtomicLong>()
+        every { controlledSequence.incrementAndGet() } answers {
+            if (Thread.currentThread().name == "stale-clear") {
+                clearAtSequence.countDown()
+                assertTrue(releaseClear.await(5, TimeUnit.SECONDS))
+            }
+            sequence.incrementAndGet()
+        }
+        JwtObserver::class.java.getDeclaredField("injectionSequence").apply {
+            isAccessible = true
+            set(observer, controlledSequence)
+        }
+
+        val staleClear = thread(name = "stale-clear") { oldCallback.invoke() }
+        assertTrue(clearAtSequence.await(5, TimeUnit.SECONDS))
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("new")
+        val restart = thread {
+            observer.stopObserver()
+            observer.startObserver()
+        }
+        try {
+            restart.join(200)
+        } finally {
+            releaseClear.countDown()
+            staleClear.join(5_000)
+            restart.join(5_000)
+        }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { mockJsBridge.jwtMutation("new") }
     }
 
     @Test

@@ -150,9 +150,10 @@ internal class JwtObserver : JsBridgeObserver {
     }
 
     private fun clearToken(session: Any) {
-        if (stopped || latestFetch !== session) return
-        val sequence = injectionSequence.incrementAndGet()
-        clearedSequence.set(sequence)
+        val sequence = synchronized(sessionLock) {
+            if (stopped || latestFetch !== session) return
+            injectionSequence.incrementAndGet().also(clearedSequence::set)
+        }
         Registry.threadHelper.runOnUiThread {
             if (!stopped && latestFetch === session) {
                 injectIfLatest(sequence, "")
