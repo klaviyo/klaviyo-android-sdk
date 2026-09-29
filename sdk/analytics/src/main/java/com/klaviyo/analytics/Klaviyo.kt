@@ -197,9 +197,11 @@ object Klaviyo {
     @JvmStatic
     fun setProfile(profile: Profile): Klaviyo = safeApply {
         val state = Registry.get<State>()
+        val hasIdentifier = listOf(profile.externalId, profile.email, profile.phoneNumber)
+            .any { !it.isNullOrBlank() }
         when (state.profileTransition(profile)) {
             ProfileTransition.Replacement -> replaceProfileAuth(
-                refreshToken = profile.hasProfileIdentifier()
+                refreshToken = hasIdentifier
             ) { state.setProfile(profile) }
             ProfileTransition.Unchanged,
             ProfileTransition.Compatible -> state.setProfile(profile)
