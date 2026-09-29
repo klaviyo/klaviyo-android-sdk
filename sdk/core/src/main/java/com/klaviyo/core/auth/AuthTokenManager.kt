@@ -40,8 +40,7 @@ interface AuthTokenManager {
      * Replace the registered [AuthTokenProvider] (if any), discard any cached token, and
      * asynchronously pre-warm the cache with a fresh token via the new provider.
      *
-     * This method returns immediately — provider registration is synchronous; the eager fetch
-     * runs fire-and-forget on the manager's internal scope.
+     * This method returns after queuing registration. The eager fetch runs asynchronously.
      */
     fun registerProvider(provider: AuthTokenProvider)
 
@@ -53,8 +52,7 @@ interface AuthTokenManager {
      * will throw [AuthTokenException.NoProviderRegistered] until a new provider is registered via
      * [Klaviyo.registerAuthTokenProvider][com.klaviyo.analytics.Klaviyo.registerAuthTokenProvider].
      *
-     * Has no effect if no provider is currently registered. This method returns immediately —
-     * all teardown is synchronous.
+     * Has no effect if no provider is currently registered. Teardown runs asynchronously.
      */
     fun unregisterProvider()
 
@@ -106,20 +104,12 @@ interface AuthTokenManager {
     fun offTokenRefresh(observer: TokenRefreshObserver)
 
     /**
-     * Synchronously mark the current profile as stale, preventing any in-flight proactive refresh
+     * Queue a transition marking the current profile as stale, preventing any in-flight proactive refresh
      * from dispatching its result to registered [TokenRefreshObserver]s.
      *
-     * This method is intentionally non-suspending so it can be called on any thread (including the
-     * main thread from `Klaviyo.resetProfile()`) without blocking. The actual token-state cleanup
-     * is deferred to [clearTokenState], which callers should dispatch asynchronously after calling
-     * this method.
-     *
-     * @return The new profile generation value, which should be passed to [clearTokenState] as
-     *   [clearTokenState]'s `expectedGeneration` argument. If a new provider is registered before
-     *   [clearTokenState] runs, the generation will have advanced and [clearTokenState] will skip
-     *   the clear to preserve the new session's state.
+     * This method is non-suspending. [clearTokenState] completes the cleanup.
      */
-    fun invalidate(): Long
+    fun invalidate()
 
     /**
      * Clear all token-acquisition state tied to the current user, called from
@@ -136,15 +126,13 @@ interface AuthTokenManager {
      * - Registered [TokenRefreshObserver]s — active form displays should keep their subscriptions
      *   alive across a reset; the stream simply goes quiet until the next successful refresh.
      *
-     * @param expectedGeneration When non-negative, the clear is skipped if the profile generation
-     *   has advanced past this value (indicating a new provider was registered between [invalidate]
-     *   and this call). Pass the value returned by [invalidate], or omit / pass `-1` for an
-     *   unconditional clear. Callers that do not use [invalidate] should always use the default.
+     * @param onlyIfPendingReset When true, the clear is skipped if a later provider registration
+     *   superseded the queued [invalidate]. The default performs an unconditional clear.
      *
      * NOTE: This method's behavior may change in a future revision. The current design ("Option B")
      * retains the provider across resets. An alternative ("Option A") would fully unregister the
      * provider on reset, requiring the host to re-register after each login. If we switch to
      * Option A, this method's name and behavior will change.
      */
-    suspend fun clearTokenState(expectedGeneration: Long = -1L)
+    suspend fun clearTokenState(onlyIfPendingReset: Boolean = false)
 }

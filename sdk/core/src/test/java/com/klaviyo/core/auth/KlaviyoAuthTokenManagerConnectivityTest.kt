@@ -127,7 +127,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         // connectivityWaitJob should be armed
         assertNotNull(
             "connectivityWaitJob should be armed after network failure",
-            manager.connectivityWaitJob
+            manager.connectivityWaitJob()
         )
         verify { spyLog.info(any()) }
 
@@ -141,6 +141,33 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             provider.callCount
         )
         verify { spyLog.info(any()) }
+    }
+
+    @Test
+    fun `queued connectivity retry cannot fetch after clearTokenState returns`() = runTest(
+        dispatcher
+    ) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("network down")),
+                    Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        executeScheduledRefresh()
+        assertEquals(2, provider.callCount)
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        manager.clearTokenState()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, provider.callCount)
     }
 
     @Test
@@ -262,11 +289,11 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             // After advanceUntilIdle the coroutine tree is idle with arm2 waiting.
             executeScheduledRefresh()
             assertEquals("two failures, no extra calls", 3, provider.callCount)
-            assertNotNull("arm2 should be waiting (not looping)", manager.connectivityWaitJob)
+            assertNotNull("arm2 should be waiting (not looping)", manager.connectivityWaitJob())
             assertEquals(
                 "arm2 should be active — it is waiting, not looping",
                 false,
-                manager.connectivityWaitJob?.isCancelled ?: true
+                manager.connectivityWaitJob()?.isCancelled ?: true
             )
 
             // Simulate a genuine connectivity transition — arm2 resumes, retry succeeds
@@ -302,7 +329,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         executeScheduledRefresh()
         assertEquals(2, provider.callCount)
 
-        val firstJob = manager.connectivityWaitJob
+        val firstJob = manager.connectivityWaitJob()
         assertNotNull("first job should be armed", firstJob)
 
         // Simulate connectivity restored → retry fires → fails again → re-arms
@@ -311,7 +338,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         assertEquals("first retry fired", 3, provider.callCount)
 
         // Re-armed after second failure
-        val secondJob = manager.connectivityWaitJob
+        val secondJob = manager.connectivityWaitJob()
         assertNotNull("second job should be re-armed", secondJob)
 
         assertEquals("second job should be active", false, secondJob?.isCancelled ?: true)
@@ -346,7 +373,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         executeScheduledRefresh()
-        val armedJob = manager.connectivityWaitJob
+        val armedJob = manager.connectivityWaitJob()
         assertNotNull("connectivityWaitJob should be armed", armedJob)
 
         // Register new provider — should cancel the pending connectivity wait
@@ -355,7 +382,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         assertNull(
             "connectivityWaitJob should be cleared after registerProvider",
-            manager.connectivityWaitJob
+            manager.connectivityWaitJob()
         )
         assertEquals("cancelled job should be inactive", true, armedJob?.isCancelled ?: false)
         assertEquals(
@@ -393,7 +420,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         assertNull(
             "armConnectivityWaitJob must not fire when profileResetPending is true",
-            manager.connectivityWaitJob
+            manager.connectivityWaitJob()
         )
         assertEquals(0, fakeNetworkMonitor.observerCount())
     }
@@ -435,7 +462,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
             assertNull(
                 "connectivity job must not arm when resetGeneration advanced mid-fetch",
-                manager.connectivityWaitJob
+                manager.connectivityWaitJob()
             )
             assertEquals(0, fakeNetworkMonitor.observerCount())
         }
@@ -459,7 +486,10 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         executeScheduledRefresh()
 
-        assertNull("RuntimeException must not arm connectivityWaitJob", manager.connectivityWaitJob)
+        assertNull(
+            "RuntimeException must not arm connectivityWaitJob",
+            manager.connectivityWaitJob()
+        )
         assertEquals(
             "no observer registered for non-network failure",
             0,
@@ -483,7 +513,10 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         executeScheduledRefresh()
 
-        assertNull("ValidationFailed must not arm connectivityWaitJob", manager.connectivityWaitJob)
+        assertNull(
+            "ValidationFailed must not arm connectivityWaitJob",
+            manager.connectivityWaitJob()
+        )
         assertEquals(0, fakeNetworkMonitor.observerCount())
     }
 
@@ -505,7 +538,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         executeScheduledRefresh()
 
-        val armedJob = manager.connectivityWaitJob
+        val armedJob = manager.connectivityWaitJob()
         assertNotNull("connectivityWaitJob should be armed after network failure", armedJob)
 
         manager.unregisterProvider()
@@ -513,7 +546,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         assertNull(
             "connectivityWaitJob should be null after unregisterProvider",
-            manager.connectivityWaitJob
+            manager.connectivityWaitJob()
         )
         assertEquals("armed job must be cancelled", true, armedJob?.isCancelled ?: false)
         assertEquals(
@@ -542,7 +575,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         executeScheduledRefresh()
 
-        val armedJob = manager.connectivityWaitJob
+        val armedJob = manager.connectivityWaitJob()
         assertNotNull("job must be armed before clear", armedJob)
 
         // Clear token state (simulates logout / resetProfile)
@@ -550,7 +583,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         assertNull(
             "connectivityWaitJob must be null after clearTokenState",
-            manager.connectivityWaitJob
+            manager.connectivityWaitJob()
         )
         assertEquals("armed job must be cancelled", true, armedJob?.isCancelled ?: false)
         assertEquals(
@@ -587,16 +620,13 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         executeScheduledRefresh()
 
-        // Capture generation before registering new provider
-        val gen = manager.invalidate()
+        manager.invalidate()
 
-        // New provider registration clears connectivityWaitJob
         manager.registerProvider(secondProvider)
         dispatcher.scheduler.advanceUntilIdle()
-        assertNull("registerProvider cleared connectivity job", manager.connectivityWaitJob)
+        assertNull("registerProvider cleared connectivity job", manager.connectivityWaitJob())
 
-        // A late clearTokenState with the old generation is a no-op — must not wipe new state
-        manager.clearTokenState(expectedGeneration = gen)
+        manager.clearTokenState(onlyIfPendingReset = true)
         dispatcher.scheduler.advanceUntilIdle()
 
         // New session is still healthy
