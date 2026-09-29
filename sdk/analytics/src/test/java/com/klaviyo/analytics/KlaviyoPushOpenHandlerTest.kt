@@ -65,6 +65,7 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
 
     private val mockApiClient: ApiClient = mockk<ApiClient>().apply {
         every { startService() } returns Unit
+        every { restoreQueue(false) } returns Unit
         every { onApiRequest(any(), any()) } returns Unit
         every { offApiRequest(any()) } returns Unit
         every { enqueueProfile(any()) } returns mockk(relaxed = true)

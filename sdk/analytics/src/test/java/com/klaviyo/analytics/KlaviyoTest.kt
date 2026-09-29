@@ -127,6 +127,7 @@ internal class KlaviyoTest : BaseTest() {
     private val capturedProfile = slot<Profile>()
     private val mockApiClient: ApiClient = mockk<ApiClient>().apply {
         every { startService() } returns Unit
+        every { restoreQueue(false) } returns Unit
         every { onApiRequest(any(), any()) } returns Unit
         every { offApiRequest(any()) } returns Unit
         every { enqueueProfile(capture(capturedProfile)) } returns mockk(relaxed = true)
@@ -365,7 +366,7 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `Failed service startup does not publish or fence a new company`() = runTest(dispatcher) {
+    fun `Failed service startup leaves committed company and cleared JWT`() = runTest(dispatcher) {
         every { mockApiClient.startService() } throws IllegalStateException("startup failed")
 
         runCatching {
@@ -373,9 +374,9 @@ internal class KlaviyoTest : BaseTest() {
         }
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(API_KEY, Registry.get<State>().apiKey)
-        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
-        coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
+        assertEquals("new-$API_KEY", Registry.get<State>().apiKey)
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(1L) }
     }
 
     private fun verifyProfileDebounced() {
@@ -807,8 +808,11 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `reinitialize fences outgoing JWT before publishing the new company key`() {
         val transitions = mutableListOf<String>()
-        every { mockApiClient.startService() } answers {
+        every { mockApiClient.restoreQueue(false) } answers {
             transitions += "restore"
+        }
+        every { mockApiClient.startService() } answers {
+            transitions += "start"
         }
         every { mockAuthTokenManager.invalidate() } answers {
             transitions += "fence"
@@ -821,7 +825,7 @@ internal class KlaviyoTest : BaseTest() {
 
         Klaviyo.initialize(apiKey = "company-key-two", applicationContext = mockContext)
 
-        assertEquals(listOf("restore", "fence", "build"), transitions.take(3))
+        assertEquals(listOf("restore", "fence", "build", "start"), transitions.take(4))
     }
 
     @Test
