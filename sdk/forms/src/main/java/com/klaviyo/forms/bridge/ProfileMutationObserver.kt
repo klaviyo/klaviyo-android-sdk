@@ -63,11 +63,37 @@ internal class ProfileMutationObserver(
     }
 
     /**
-     * Update profile in webview whenever an identifier changes, or profile is reset
+     * Update profile in webview whenever an identifier changes, or profile is reset.
+     *
+     * A [StateChange.ProfileIdentifier] additionally nudges [jwtObserver] to fetch a fresh token
+     * first: `Klaviyo.setProfile`/the individual identifier setters never touch `AuthTokenManager`,
+     * but onsite-personalization unconditionally drops its own cached JWT whenever the profile
+     * identity changes. Without this, nothing would refill it until the auth token's own unrelated
+     * refresh schedule next happened to fire, leaving personalization broken for the new identity
+     * until then. Kicking off the refresh before injecting the profile isn't strictly required for
+     * correctness — onsite-personalization proactively retries whichever of {profile, JWT} lands
+     * second — but it minimizes the window where personalization is broken and avoids a wasted fetch
+     * attempt against a stale JWT.
+     *
+     * [StateChange.ProfileReset] deliberately does *not* trigger the same nudge: a bare reset (e.g.
+     * from `Klaviyo.resetProfile()`, or fired internally by `setProfile()` before it reapplies the
+     * new values) has no new identity to personalize yet — [injectProfile] for this state is a
+     * harmless no-op on the JS side (an all-null profile parses to no identifiers). Firing the JWT
+     * refresh anyway would race `AuthTokenManager`'s own in-flight reset bookkeeping for no benefit,
+     * and the [StateChange.ProfileIdentifier] that reliably follows once a real identity is actually
+     * set is what matters.
      */
     override fun invoke(change: StateChange) {
+        println(
+            "[MAGE1170_DEBUG] ProfileMutationObserver.invoke: change=${change::class.simpleName} " +
+                "jwtObserverIsNull=${jwtObserver == null}"
+        )
         when (change) {
-            is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> injectProfile()
+            is StateChange.ProfileIdentifier -> {
+                jwtObserver?.refreshForProfileChange()
+                injectProfile()
+            }
+            is StateChange.ProfileReset -> injectProfile()
             else -> Unit
         }
     }
@@ -77,7 +103,13 @@ internal class ProfileMutationObserver(
         Registry.get<State>().onStateChange(this)
     }
 
-    private fun injectProfile() = Registry.get<JsBridge>().profileMutation(
-        Registry.get<State>().getAsProfile()
-    )
+    private fun injectProfile() {
+        val profile = Registry.get<State>().getAsProfile()
+        println(
+            "[MAGE1170_DEBUG] injectProfile: externalId=${profile.externalId} " +
+                "email=${profile.email} phoneNumber=${profile.phoneNumber} " +
+                "anonymousId=${profile.anonymousId}"
+        )
+        Registry.get<JsBridge>().profileMutation(profile)
+    }
 }

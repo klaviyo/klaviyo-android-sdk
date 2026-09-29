@@ -394,4 +394,123 @@ class JwtObserverTest : BaseTest() {
         }
         assertSame(offObserver.captured, onObserver.captured)
     }
+
+    @Test
+    fun `refreshForProfileChange no-ops when the observer has not been started`() {
+        JwtObserver().refreshForProfileChange()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coVerify(exactly = 0) { mockAuthTokenManager.currentToken(any()) }
+    }
+
+    @Test
+    fun `refreshForProfileChange no-ops after stopObserver`() {
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        observer.stopObserver()
+
+        observer.refreshForProfileChange()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockAuthTokenManager.currentToken(any()) } // only the initial fetch
+    }
+
+    @Test
+    fun `refreshForProfileChange uses the background timeout budget, not the interactive one`() {
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        observer.refreshForProfileChange()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { mockAuthTokenManager.currentToken(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS) }
+    }
+
+    @Test
+    fun `refreshForProfileChange re-injects even when the fetched token is unchanged`() {
+        val token = "unchanged.token.value"
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken(token)
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        observer.refreshForProfileChange()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // The initial fetch injects once, then the profile-change refresh injects again despite
+        // the value being identical — dedup would otherwise leave onsite-personalization without a
+        // fresh push after it dropped its own copy.
+        verify(exactly = 2) { mockJsBridge.jwtMutation(token) }
+    }
+
+    @Test
+    fun `refreshForProfileChange injects nothing and logs warning when the fetch fails`() {
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coEvery { mockAuthTokenManager.currentToken(any()) } throws
+            AuthTokenException.ValidationFailed("Malformed")
+        observer.refreshForProfileChange()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Unlike startObserver's empty-string fallback, a failed profile-change refresh must not
+        // inject anything — it already reserved a sequence number, so force-injecting "" here would
+        // let a transient failure permanently outrank a legitimately good token arriving afterward.
+        verify(exactly = 1) { mockJsBridge.jwtMutation("initial") }
+        verify(inverse = true) { mockJsBridge.jwtMutation("") }
+        verify { spyLog.warning(match { it.contains("Auth token fetch failed") }) }
+    }
+
+    @Test
+    fun `a stale refreshForProfileChange result does not clobber a fresher proactive refresh`() {
+        // Mirrors the existing initial-fetch-vs-refresh race test: refreshForProfileChange reserves
+        // its sequence at request time, so if a proactive refresh resolves and injects before it
+        // does, the profile-change fetch's later (lower-sequence) result must not overwrite it.
+        val refreshObserver = captureRefreshObserver()
+        val fetchCompletion = CompletableDeferred<ValidatedToken>()
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
+
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers { fetchCompletion.await() }
+        observer.refreshForProfileChange()
+        dispatcher.scheduler.runCurrent() // profile-change fetch launched and suspended
+
+        // A proactive refresh reserves a later sequence and resolves first.
+        refreshObserver.captured.invoke("fresher-refresh")
+
+        // The profile-change fetch (lower sequence) finally resolves — must not clobber it.
+        fetchCompletion.complete(validatedToken("stale-profile-change-result"))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { mockJsBridge.jwtMutation("fresher-refresh") }
+        verify(inverse = true) { mockJsBridge.jwtMutation("stale-profile-change-result") }
+    }
+
+    @Test
+    fun `refreshForProfileChange queued into a torn-down session does not inject`() {
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-1")
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle() // initial fetch injects immediately
+
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue.add(firstArg()) }
+
+        observer.refreshForProfileChange()
+        dispatcher.scheduler.advanceUntilIdle() // queues the profile-change fetch's UI callback
+
+        observer.stopObserver()
+        uiQueue.forEach { it.invoke() }
+
+        verify(exactly = 1) { mockJsBridge.jwtMutation("session-1") } // only the initial injection
+    }
 }

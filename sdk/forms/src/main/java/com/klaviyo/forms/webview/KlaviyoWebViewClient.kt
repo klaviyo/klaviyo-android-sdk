@@ -56,6 +56,13 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * JWT/profile ordering. Live token refresh remains out of scope here.
      */
     override fun initializeWebView() {
+        // TEMP DEBUG — remove before merge. Direct check of what the SDK's Config actually holds
+        // and whether initializeWebView is even running this time, one layer more direct than
+        // the CDN readback in onPageFinished below.
+        println(
+            "[MAGE1170_DEBUG] initializeWebView: webViewAlreadyExists=${webView != null} " +
+                "Registry.config.assetSource=${Registry.config.assetSource}"
+        )
         if (webView != null) {
             Registry.log.debug("Klaviyo webview is already initialized")
             return
@@ -73,6 +80,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .appendQueryParameter("env", "in-app")
             .appendAssetSource()
             .build()
+        println("[MAGE1170_DEBUG] initializeWebView: klaviyoJsUrl=$klaviyoJsUrl")
 
         // Apply all substitutions that can run synchronously on the calling (UI) thread.
         // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
@@ -195,11 +203,35 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     /**
      * When an assetSource is specified, log whether we actually got it
      */
-    override fun onPageFinished(view: WebView?, url: String?) = Registry.config.assetSource?.let { expected ->
-        view?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
-            Registry.log.debug("Actual Asset Source: $actual. Expected $expected")
+    override fun onPageFinished(view: WebView?, url: String?) {
+        Registry.config.assetSource?.let { expected ->
+            view?.evaluateJavascript("window.klaviyoModulesObject?.assetSource") { actual ->
+                Registry.log.debug("Actual Asset Source: $actual. Expected $expected")
+                // TEMP DEBUG — remove before merge. Same info, just visible: this was
+                // previously only logged at .debug(), below the default threshold, so it's
+                // been silently invisible in every capture so far.
+                println("[MAGE1170_DEBUG] Actual Asset Source: $actual. Expected $expected")
+            }
+        } ?: println(
+            "[MAGE1170_DEBUG] no assetSource configured — loading default/production klaviyo.js"
+        )
+
+        // TEMP DEBUG — remove before merge. Polls fender's onsite-personalization debug state
+        // (see the paired change to profileApi.ts on the MAGE-1272 fender debug branch) a few
+        // seconds after page load, once personalization has had time to resolve. No chrome
+        // inspect needed: this reads the JS expression's actual return value back into Kotlin,
+        // the same mechanism as the assetSource check just above, just with a real payload
+        // instead of a boolean.
+        Registry.clock.schedule(4_000L) {
+            Registry.threadHelper.runOnUiThread {
+                view?.evaluateJavascript(
+                    "JSON.stringify(window.__KL_DEBUG_MAGE1170 || null)"
+                ) { result ->
+                    println("[MAGE1170_DEBUG] fender debug state: $result")
+                }
+            }
         }
-    } ?: Unit
+    }
 
     /**
      * If the webview renderer crashes or gets cleaned up to reclaim memory,
