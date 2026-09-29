@@ -81,7 +81,7 @@ internal class StateSideEffects(
         Registry.log.verbose("${pendingProfile?.let { "Merging" } ?: "Starting"} profile update")
 
         // Merge changes into pending transaction, or start a new one
-        pendingProfile = pendingProfile?.copy()?.merge(profile) ?: profile
+        pendingProfile = pendingProfile?.copy()?.mergeWithCurrentIdentifiers(profile) ?: profile
 
         // Reset timer
         timer?.cancel()
@@ -115,6 +115,13 @@ internal class StateSideEffects(
         state.pushToken?.let {
             apiClient.enqueuePushToken(it, profile)
         } ?: apiClient.enqueueProfile(profile)
+    }
+
+    private fun Profile.mergeWithCurrentIdentifiers(current: Profile): Profile = merge(current).apply {
+        externalId = current.externalId
+        email = current.email
+        phoneNumber = current.phoneNumber
+        anonymousId = current.anonymousId
     }
 
     private fun afterApiRequest(request: ApiRequest) = when {

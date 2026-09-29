@@ -595,6 +595,45 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `compatible identifier reduction removes external ID from queued profile`() {
+        Klaviyo.setEmail(EMAIL)
+        Klaviyo.setExternalId(EXTERNAL_ID)
+        val anonymousId = Registry.get<State>().anonymousId
+        Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, "Ada")
+
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 1) { mockApiClient.enqueueProfile(any()) }
+        assertEquals(EMAIL, capturedProfile.captured.email)
+        assertNull(capturedProfile.captured.externalId)
+        assertEquals(anonymousId, capturedProfile.captured.anonymousId)
+        assertEquals("Ada", capturedProfile.captured[ProfileKey.FIRST_NAME])
+    }
+
+    @Test
+    fun `compatible identifier reduction removes external ID from queued push profile`() {
+        val queuedProfile = slot<Profile>()
+        every { mockApiClient.enqueuePushToken(PUSH_TOKEN, capture(queuedProfile)) } returns
+            mockk(relaxed = true)
+        Klaviyo.setPushToken(PUSH_TOKEN)
+        clearMocks(mockApiClient, answers = false)
+        Klaviyo.setEmail(EMAIL)
+        Klaviyo.setExternalId(EXTERNAL_ID)
+        val anonymousId = Registry.get<State>().anonymousId
+        Klaviyo.setProfileAttribute(ProfileKey.FIRST_NAME, "Ada")
+
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 1) { mockApiClient.enqueuePushToken(PUSH_TOKEN, any()) }
+        assertEquals(EMAIL, queuedProfile.captured.email)
+        assertNull(queuedProfile.captured.externalId)
+        assertEquals(anonymousId, queuedProfile.captured.anonymousId)
+        assertEquals("Ada", queuedProfile.captured[ProfileKey.FIRST_NAME])
+    }
+
+    @Test
     fun `individual identifier replacement fences old token and acquires a new token`() =
         runTest(dispatcher) {
             Registry.get<State>().email = "old@example.com"
