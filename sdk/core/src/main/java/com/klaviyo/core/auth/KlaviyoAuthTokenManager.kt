@@ -145,6 +145,10 @@ internal class KlaviyoAuthTokenManager(
     override suspend fun currentToken(timeoutMs: Long): ValidatedToken =
         getOrFetchToken(timeoutMs = timeoutMs, allowCachedToken = true)
 
+    override fun isCurrentToken(token: ValidatedToken): Boolean = synchronized(stateLock) {
+        !state.profileResetPending && state.cachedToken === token
+    }
+
     private suspend fun tryEagerFetch(guard: RequestGuard) {
         try {
             getOrFetchToken(

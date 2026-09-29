@@ -73,6 +73,27 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
+    fun `delivery check rejects a token from an invalidated generation with the same raw JWT`() =
+        runTest(dispatcher) {
+            val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(SuccessProvider(token))
+            dispatcher.scheduler.advanceUntilIdle()
+            val original = manager.currentToken()
+            assertTrue(manager.isCurrentToken(original))
+
+            val generation = manager.invalidate()
+            assertTrue(!manager.isCurrentToken(original))
+            manager.clearTokenState(generation)
+            assertTrue(!manager.isCurrentToken(original))
+
+            val replacement = manager.currentToken()
+            assertEquals(original.rawToken, replacement.rawToken)
+            assertTrue(manager.isCurrentToken(replacement))
+            assertTrue(!manager.isCurrentToken(original))
+        }
+
+    @Test
     fun `registerProvider replaces previous provider and discards cached token`() = runTest(
         dispatcher
     ) {
