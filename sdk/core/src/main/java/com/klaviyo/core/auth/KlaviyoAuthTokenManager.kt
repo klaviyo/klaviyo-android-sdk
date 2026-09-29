@@ -210,7 +210,19 @@ internal class KlaviyoAuthTokenManager(
             TokenRequest.Fetch(inFlight.profileGeneration, inFlight.outcome)
         }
         // Starts after publishing the slot and releasing stateLock.
-        fetchToStart?.job?.start()
+        fetchToStart?.let { fetch ->
+            fetch.job.start()
+            fetch.job.invokeOnCompletion { cause ->
+                if (cause != null) {
+                    completeFetch(
+                        fetch.id,
+                        fetch.profileGeneration,
+                        fetch.outcome,
+                        FetchOutcome.Failure(cause)
+                    )
+                }
+            }
+        }
         return request
     }
 

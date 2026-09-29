@@ -5,6 +5,7 @@ import io.mockk.verify
 import java.util.Base64
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -123,6 +124,24 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
             spyLog.warning(any(), any<Throwable>())
         }
     }
+
+    @Test
+    fun `manager cancellation completes the shared fetch for waiting callers`() =
+        runTest(dispatcher) {
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(DeferredProvider())
+            dispatcher.scheduler.runCurrent()
+            val waitingCaller = async {
+                runCatching { manager.currentToken(timeoutMs = 5_000) }
+            }
+            dispatcher.scheduler.runCurrent()
+
+            manager.scope.cancel(CancellationException("teardown"))
+            dispatcher.scheduler.runCurrent()
+
+            assertTrue(waitingCaller.isCompleted)
+            assertTrue(waitingCaller.await().exceptionOrNull() is CancellationException)
+        }
 
     @Test
     fun `currentToken throws when provider invokes onFailure`() = runTest(dispatcher) {
