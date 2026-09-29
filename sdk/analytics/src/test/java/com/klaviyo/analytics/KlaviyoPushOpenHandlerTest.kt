@@ -75,6 +75,7 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     private val mockBuilder = mockk<Config.Builder>().apply {
         every { apiKey(any()) } returns this
         every { applicationContext(any()) } returns this
+        every { prepare() } returns this
         every { build() } returns mockConfig
     }
 

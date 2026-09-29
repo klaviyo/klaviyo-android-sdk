@@ -55,6 +55,9 @@ interface Config {
         )
         fun networkFlushDepth(networkFlushDepth: Int): Builder
 
+        /** Validate and resolve fallible configuration inputs before [build] publishes them. */
+        fun prepare(): Builder = this
+
         fun build(): Config
     }
 }

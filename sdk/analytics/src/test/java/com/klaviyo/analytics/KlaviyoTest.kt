@@ -138,6 +138,7 @@ internal class KlaviyoTest : BaseTest() {
     private val mockBuilder = mockk<Config.Builder>().apply {
         every { apiKey(any()) } returns this
         every { applicationContext(any()) } returns this
+        every { prepare() } returns this
         every { build() } returns mockConfig
     }
 
@@ -270,6 +271,7 @@ internal class KlaviyoTest : BaseTest() {
         verifyAll {
             mockBuilder.apiKey(API_KEY)
             mockBuilder.applicationContext(mockContext)
+            mockBuilder.prepare()
             mockBuilder.build()
             mockApplication.unregisterActivityLifecycleCallbacks(match { it == expectedListener })
             mockApplication.registerActivityLifecycleCallbacks(match { it == expectedListener })
@@ -331,14 +333,14 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `Failed company config does not fence current company before retry`() = runTest(dispatcher) {
-        every { mockBuilder.build() } throws MissingAPIKey()
+        every { mockBuilder.prepare() } throws MissingAPIKey()
 
         Klaviyo.initialize(
             apiKey = "new-$API_KEY",
             applicationContext = mockContext
         )
 
-        every { mockBuilder.build() } returns mockConfig
+        every { mockBuilder.prepare() } returns mockBuilder
         Klaviyo.initialize(
             apiKey = API_KEY,
             applicationContext = mockContext
@@ -774,6 +776,23 @@ internal class KlaviyoTest : BaseTest() {
 
     private fun reinitialize() =
         Klaviyo.initialize(apiKey = API_KEY, applicationContext = mockContext)
+
+    @Test
+    fun `reinitialize fences outgoing JWT before publishing the new company key`() {
+        val transitions = mutableListOf<String>()
+        every { mockAuthTokenManager.invalidate() } answers {
+            transitions += "fence"
+            1L
+        }
+        every { mockBuilder.build() } answers {
+            transitions += "build"
+            mockConfig
+        }
+
+        Klaviyo.initialize(apiKey = "company-key-two", applicationContext = mockContext)
+
+        assertEquals(listOf("fence", "build"), transitions.take(2))
+    }
 
     @Test
     fun `initialize triggers automatic push token fetch when token forwarding is on and fetcher is registered`() {

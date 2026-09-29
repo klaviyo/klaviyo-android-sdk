@@ -28,6 +28,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
 
         every { apiKey(any()) } returns this
         every { applicationContext(any()) } returns this
+        every { prepare() } returns this
         every { build() } answers {
             configBuilt = true
             mockConfig

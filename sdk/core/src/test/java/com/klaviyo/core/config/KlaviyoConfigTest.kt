@@ -133,6 +133,40 @@ internal class KlaviyoConfigTest : BaseTest() {
     }
 
     @Test
+    fun `preparing a new configuration leaves the registered company key untouched`() {
+        KlaviyoConfig.Builder()
+            .apiKey("old-company")
+            .applicationContext(mockContext)
+            .build()
+
+        val pending = KlaviyoConfig.Builder()
+            .apiKey("new-company")
+            .applicationContext(mockContext)
+            .prepare()
+
+        assertEquals("old-company", KlaviyoConfig.apiKey)
+        pending.build()
+        assertEquals("new-company", KlaviyoConfig.apiKey)
+    }
+
+    @Test
+    fun `preparation rejects missing permissions before publishing a company key`() {
+        KlaviyoConfig.Builder()
+            .apiKey("old-company")
+            .applicationContext(mockContext)
+            .build()
+        mockPackageInfo.requestedPermissions = arrayOf()
+
+        assertThrows(MissingPermission::class.java) {
+            KlaviyoConfig.Builder()
+                .apiKey("new-company")
+                .applicationContext(mockContext)
+                .prepare()
+        }
+        assertEquals("old-company", KlaviyoConfig.apiKey)
+    }
+
+    @Test
     fun `KlaviyoConfig Builder rejects bad values and uses default values`() {
         KlaviyoConfig.Builder()
             .apiKey(API_KEY)

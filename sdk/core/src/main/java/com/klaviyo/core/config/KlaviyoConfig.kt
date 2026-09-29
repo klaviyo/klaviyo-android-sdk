@@ -153,6 +153,7 @@ object KlaviyoConfig : Config {
     class Builder : Config.Builder {
         private var apiKey: String = ""
         private var applicationContext: Context? = null
+        private var preparedConfig: PreparedConfig? = null
         private var baseUrl: String? = null
         private var apiRevision: String? = null
         private var baseCdnUrl: String? = null
@@ -182,6 +183,7 @@ object KlaviyoConfig : Config {
 
         override fun applicationContext(context: Context) = apply {
             this.applicationContext = context
+            preparedConfig = null
         }
 
         override fun baseUrl(baseUrl: String): Config.Builder = apply {
@@ -289,7 +291,7 @@ object KlaviyoConfig : Config {
             )
         }
 
-        override fun build(): Config {
+        override fun prepare(): Config.Builder = apply {
             val context = applicationContext ?: throw MissingContext()
             val packageInfo = context.packageManager.getPackageInfoCompat(
                 context.packageName,
@@ -297,21 +299,32 @@ object KlaviyoConfig : Config {
             )
             packageInfo.assertRequiredPermissions(requiredPermissions)
 
+            val sdkName = this.sdkName ?: context.resources.getString(
+                R.string.klaviyo_sdk_name_override
+            )
+            val sdkVersion = this.sdkVersion ?: context.resources.getString(
+                R.string.klaviyo_sdk_version_override
+            )
+            preparedConfig = PreparedConfig(context, sdkName, sdkVersion)
+        }
+
+        override fun build(): Config {
+            val prepared = preparedConfig ?: run {
+                prepare()
+                requireNotNull(preparedConfig)
+            }
+
             baseUrl?.let { KlaviyoConfig.baseUrl = it }
             apiRevision?.let { KlaviyoConfig.apiRevision = it }
             baseCdnUrl?.let { KlaviyoConfig.baseCdnUrl = it }
             assetSource?.let { KlaviyoConfig.assetSource = it }
             formEnvironment.let { KlaviyoConfig.formEnvironment = it }
 
-            KlaviyoConfig.sdkName = this.sdkName ?: context.resources.getString(
-                R.string.klaviyo_sdk_name_override
-            )
-            KlaviyoConfig.sdkVersion = this.sdkVersion ?: context.resources.getString(
-                R.string.klaviyo_sdk_version_override
-            )
+            KlaviyoConfig.sdkName = prepared.sdkName
+            KlaviyoConfig.sdkVersion = prepared.sdkVersion
 
             KlaviyoConfig.apiKey = apiKey
-            KlaviyoConfig.applicationContext = context
+            KlaviyoConfig.applicationContext = prepared.context
 
             KlaviyoConfig.debounceInterval = debounceInterval
             KlaviyoConfig.networkTimeout = networkTimeout
@@ -322,6 +335,12 @@ object KlaviyoConfig : Config {
 
             return KlaviyoConfig
         }
+
+        private data class PreparedConfig(
+            val context: Context,
+            val sdkName: String,
+            val sdkVersion: String
+        )
     }
 }
 
