@@ -1,6 +1,7 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateChange
 import com.klaviyo.analytics.state.StateChangeObserver
@@ -10,6 +11,7 @@ import com.klaviyo.core.auth.TokenRefreshObserver
 import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.CapturingSlot
+import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
@@ -45,6 +47,9 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
         slot<TokenRefreshObserver>().also { observer ->
             every { mockAuth.onTokenRefresh(capture(observer)) } just runs
         }
+
+    private fun identifierKey(identifierName: String): ProfileKey =
+        mockk<ProfileKey>().also { every { it.name } returns identifierName }
 
     @Before
     override fun setup() {
@@ -141,6 +146,29 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
     }
 
     @Test
+    fun `identifier change already reflected in startup snapshot still clears outgoing JWT`() {
+        val outgoing = "outgoing@example.com"
+        val replacement = Profile(email = "replacement@example.com")
+        val emailKey = identifierKey("email")
+        every { stateMock.getAsProfile() } returns replacement
+        coEvery { mockAuth.currentToken(any()) } returns ValidatedToken("outgoing-jwt", 0L, 0L)
+        val jwtObserver = JwtObserver()
+        val profileObserver = ProfileMutationObserver(jwtObserver)
+
+        jwtObserver.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        profileObserver.startObserver()
+        verify(exactly = 1) { mockBridge.jwtMutation("outgoing-jwt") }
+        clearMocks(mockBridge, answers = false)
+        stateObserver.captured.invoke(StateChange.ProfileIdentifier(emailKey, outgoing))
+
+        verifyOrder {
+            mockBridge.jwtMutation("")
+            mockBridge.profileMutation(replacement)
+        }
+    }
+
+    @Test
     fun `compatible identifier enrichment preserves the live webview JWT`() {
         val enriched = Profile(email = EMAIL, externalId = "external-id")
         coEvery { mockAuth.currentToken(any()) } returns ValidatedToken("retained", 0L, 0L)
@@ -151,7 +179,9 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
         val profileObserver = ProfileMutationObserver(jwtObserver)
         profileObserver.startObserver()
-        stateObserver.captured.invoke(StateChange.ProfileIdentifier(mockk(), null))
+        stateObserver.captured.invoke(
+            StateChange.ProfileIdentifier(identifierKey("external_id"), null)
+        )
 
         verify(exactly = 1) { mockBridge.jwtMutation("retained") }
         verify(exactly = 0) { mockBridge.jwtMutation("") }

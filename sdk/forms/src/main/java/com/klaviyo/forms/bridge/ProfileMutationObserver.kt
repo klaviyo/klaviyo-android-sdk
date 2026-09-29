@@ -68,16 +68,16 @@ internal class ProfileMutationObserver(
         synchronized(observerLock) {
             val session = activeSession?.takeIf { it.id === sessionId } ?: return
             if (change == null && session.receivedChange) return
-            val transition = session.lastProfile?.profileTransition(profile)
-                ?: (change as? StateChange.ProfileIdentifier)?.let {
-                    transitionFromIdentifierChange(it, profile)
-                }
+            val previousProfileIsReplacement = session.lastProfile?.profileTransition(profile) ==
+                ProfileTransition.Replacement
+            val changedIdentifierIsReplacement =
+                (change as? StateChange.ProfileIdentifier)?.let {
+                    transitionFromIdentifierChange(it, profile) == ProfileTransition.Replacement
+                } == true
+            val replacement = previousProfileIsReplacement || changedIdentifierIsReplacement
             session.lastProfile = profile.copy()
             if (change != null) session.receivedChange = true
-            if (change is StateChange.ProfileReset ||
-                change is StateChange.ProfileIdentifier &&
-                transition == ProfileTransition.Replacement
-            ) {
+            if (change is StateChange.ProfileReset || replacement) {
                 jwtObserver.clearToken()
             }
             Registry.get<JsBridge>().profileMutation(profile)

@@ -1,6 +1,7 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateChange
 import com.klaviyo.analytics.state.StateChangeObserver
@@ -39,6 +40,9 @@ class ProfileJwtTransitionMatrixTest : BaseTest() {
         every { offTokenInvalidated(any()) } just runs
         every { isCurrentToken(any()) } returns true
     }
+
+    private fun identifierKey(identifierName: String): ProfileKey =
+        mockk<ProfileKey>().also { every { it.name } returns identifierName }
 
     @Before
     override fun setup() {
@@ -86,8 +90,8 @@ class ProfileJwtTransitionMatrixTest : BaseTest() {
 
         collection.startObservers(NativeBridgeMessage.JsReady)
         dispatcher.scheduler.advanceUntilIdle()
-        emit(StateChange.ProfileIdentifier(mockk(), null))
-        emit(StateChange.ProfileIdentifier(mockk(), EXTERNAL_ID))
+        emit(StateChange.ProfileIdentifier(identifierKey("phone_number"), null))
+        emit(StateChange.ProfileIdentifier(identifierKey("external_id"), EXTERNAL_ID))
 
         verify(exactly = 1) { bridge.jwtMutation("retained") }
         verifyOrder {
@@ -129,7 +133,7 @@ class ProfileJwtTransitionMatrixTest : BaseTest() {
         collection.startObservers(NativeBridgeMessage.JsReady)
         dispatcher.scheduler.advanceUntilIdle()
         clearMocks(bridge, answers = false)
-        emit(StateChange.ProfileIdentifier(mockk(), null))
+        emit(StateChange.ProfileIdentifier(identifierKey("email"), null))
 
         verifyOrder {
             bridge.profileMutation(identified)
