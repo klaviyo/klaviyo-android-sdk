@@ -23,9 +23,15 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.concurrent.thread
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -102,6 +108,67 @@ class StateSideEffectsTest : BaseTest() {
                 }
             )
         }
+    }
+
+    @Test
+    fun `older profile callback cannot remove identifier from newer callback`() {
+        val oldProfile = Profile(email = EMAIL, externalId = EXTERNAL_ID).apply {
+            anonymousId = ANON_ID
+        }
+        val newProfile = Profile(email = EMAIL, externalId = EXTERNAL_ID, phoneNumber = PHONE).apply {
+            anonymousId = ANON_ID
+        }
+        val oldReadStarted = CountDownLatch(1)
+        val releaseOldRead = CountDownLatch(1)
+        every { stateMock.getAsProfile(withAttributes = true) } answers {
+            if (Thread.currentThread().name == "older-profile-change") {
+                oldReadStarted.countDown()
+                assertTrue(releaseOldRead.await(10, TimeUnit.SECONDS))
+                oldProfile
+            } else {
+                newProfile
+            }
+        }
+        StateSideEffects(stateMock, apiClientMock)
+
+        val olderFailure = AtomicReference<Throwable?>()
+        val older = thread(name = "older-profile-change") {
+            try {
+                capturedStateChangeObserver.captured(
+                    StateChange.ProfileIdentifier(ProfileKey.EMAIL, null)
+                )
+            } catch (e: Throwable) {
+                olderFailure.set(e)
+            }
+        }
+        try {
+            assertTrue(oldReadStarted.await(5, TimeUnit.SECONDS))
+            val newerFailure = AtomicReference<Throwable?>()
+            val newer = thread(name = "newer-profile-change") {
+                try {
+                    capturedStateChangeObserver.captured(
+                        StateChange.ProfileIdentifier(ProfileKey.PHONE_NUMBER, null)
+                    )
+                } catch (e: Throwable) {
+                    newerFailure.set(e)
+                }
+            }
+            newer.join(5_000)
+            assertFalse(newer.isAlive)
+            assertNull(newerFailure.get())
+        } finally {
+            releaseOldRead.countDown()
+            older.join(5_000)
+        }
+        assertFalse(older.isAlive)
+        assertNull(olderFailure.get())
+
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+        assertEquals(PHONE, capturedProfile.captured.phoneNumber)
+        assertEquals(EXTERNAL_ID, capturedProfile.captured.externalId)
+        assertEquals(ANON_ID, capturedProfile.captured.anonymousId)
     }
 
     @Test

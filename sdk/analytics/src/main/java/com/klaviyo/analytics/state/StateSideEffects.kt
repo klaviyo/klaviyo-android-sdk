@@ -24,6 +24,11 @@ internal class StateSideEffects(
     private val apiClient: ApiClient = Registry.get<ApiClient>(),
     private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
 ) {
+    private val profileLock = Any()
+    private var nextProfileRevision = 0L
+    private var appliedProfileRevision = 0L
+    private var timerGeneration = 0L
+
     /**
      * Debounce timer for enqueuing profile API calls
      */
@@ -70,35 +75,53 @@ internal class StateSideEffects(
         }
     }
 
-    private fun onUserStateChange() {
+    private fun onUserStateChange(requireAttributes: Boolean = false) {
+        val revision = synchronized(profileLock) { ++nextProfileRevision }
         val profile = state.getAsProfile(withAttributes = true)
+        if (requireAttributes && profile.attributes.propertyCount() == 0) return
 
-        // Anonymous ID indicates a profile reset, we should flush any pending profile changes immediately
-        pendingProfile?.takeIf { it.anonymousId != profile.anonymousId }?.also {
-            flushProfile()
+        val outgoing = synchronized(profileLock) {
+            if (revision < appliedProfileRevision) return
+            appliedProfileRevision = revision
+            val previous = pendingProfile?.takeIf { it.anonymousId != profile.anonymousId }
+                ?.let { takePendingProfileLocked() }
+
+            Registry.log.verbose(
+                "${pendingProfile?.let { "Merging" } ?: "Starting"} profile update"
+            )
+
+            // Merge changes into pending transaction, or start a new one
+            pendingProfile = pendingProfile?.copy()?.mergeWithCurrentIdentifiers(profile) ?: profile
+
+            // Reset timer
+            timer?.cancel()
+            val generation = ++timerGeneration
+            timer = Registry.clock.schedule(Registry.config.debounceInterval.toLong()) {
+                flushProfile(generation)
+            }
+            previous
         }
-
-        Registry.log.verbose("${pendingProfile?.let { "Merging" } ?: "Starting"} profile update")
-
-        // Merge changes into pending transaction, or start a new one
-        pendingProfile = pendingProfile?.copy()?.mergeWithCurrentIdentifiers(profile) ?: profile
-
-        // Reset timer
-        timer?.cancel()
-        timer = Registry.clock.schedule(Registry.config.debounceInterval.toLong()) {
-            flushProfile()
-        }
+        outgoing?.let { enqueueTokenOrProfile(it) }
     }
 
     /**
      * Enqueue pending profile changes as an API call and then clear slate
      */
-    private fun flushProfile() = pendingProfile?.let {
+    private fun flushProfile(generation: Long) {
+        val profile = synchronized(profileLock) {
+            if (generation != timerGeneration) return
+            takePendingProfileLocked()
+        } ?: return
+        enqueueTokenOrProfile(profile)
+    }
+
+    private fun takePendingProfileLocked(): Profile? = pendingProfile?.copy()?.also {
         timer?.cancel()
-        Registry.log.verbose("Flushing profile update")
-        enqueueTokenOrProfile(it.copy())
-        state.resetAttributes() // Once captured in a request, we don't keep profile attributes in state/on disk
+        timer = null
+        timerGeneration++
         pendingProfile = null
+        Registry.log.verbose("Flushing profile update")
+        state.resetAttributes() // Once captured in a request, we don't keep profile attributes in state/on disk
     }
 
     /**
@@ -170,11 +193,7 @@ internal class StateSideEffects(
             onUserStateChange()
         }
 
-        is StateChange.ProfileAttributes -> if (state.getAsProfile(withAttributes = true).attributes.propertyCount() > 0) {
-            onUserStateChange()
-        } else {
-            Unit
-        }
+        is StateChange.ProfileAttributes -> onUserStateChange(requireAttributes = true)
 
         is StateChange.KeyValue -> when (change.key) {
             StateKey.PUSH_STATE -> onPushStateChange()
