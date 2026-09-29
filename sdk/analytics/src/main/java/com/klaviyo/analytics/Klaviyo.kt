@@ -68,7 +68,8 @@ object Klaviyo {
     }
 
     private fun registerLifecycleCallbacks(applicationContext: Context) {
-        if (!Registry.isRegistered<Config>()) {
+        val registeredPartialConfig = !Registry.isRegistered<Config>()
+        if (registeredPartialConfig) {
             // Register a partial config, missing API Key, to allow lifecycle tracking and context access for partial functionality
             Registry.register<Config>(
                 Registry.configBuilder
@@ -77,16 +78,21 @@ object Klaviyo {
             )
         }
 
-        // Some APIs (such as deep linking) work without an API key, so we can register the core service now
-        Registry.registerOnce<ApiClient> { KlaviyoApiClient }
+        try {
+            // Some APIs (such as deep linking) work without an API key, so we can register the core service now
+            Registry.registerOnce<ApiClient> { KlaviyoApiClient }
 
-        // Register lifecycle callbacks to monitor app foreground/background state
-        applicationContext.applicationContext.takeIf<Application>()?.apply {
-            unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
-            unregisterComponentCallbacks(Registry.componentCallbacks)
-            registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
-            registerComponentCallbacks(Registry.componentCallbacks)
-        } ?: throw LifecycleException()
+            // Register lifecycle callbacks to monitor app foreground/background state
+            applicationContext.applicationContext.takeIf<Application>()?.apply {
+                unregisterActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+                unregisterComponentCallbacks(Registry.componentCallbacks)
+                registerActivityLifecycleCallbacks(Registry.lifecycleCallbacks)
+                registerComponentCallbacks(Registry.componentCallbacks)
+            } ?: throw LifecycleException()
+        } catch (error: Exception) {
+            if (registeredPartialConfig) Registry.unregister<Config>()
+            throw error
+        }
     }
 
     /**

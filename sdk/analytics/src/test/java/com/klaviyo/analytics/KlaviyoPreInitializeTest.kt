@@ -18,6 +18,8 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
 
@@ -125,5 +127,26 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
                 any()
             )
         }
+    }
+
+    @Test
+    fun `failed first lifecycle registration does not retain keyless config`() {
+        val application = mockk<Application>().apply {
+            every { unregisterActivityLifecycleCallbacks(any()) } returns Unit
+            every { unregisterComponentCallbacks(any()) } returns Unit
+            every { registerActivityLifecycleCallbacks(any()) } throws
+                IllegalStateException("registration failed")
+        }
+        every { mockContext.applicationContext } returns application
+
+        runCatching { Klaviyo.initialize(API_KEY, mockContext) }
+
+        assertFalse(Registry.isRegistered<Config>())
+
+        every { application.registerActivityLifecycleCallbacks(any()) } returns Unit
+        every { application.registerComponentCallbacks(any()) } returns Unit
+        Klaviyo.initialize(API_KEY, mockContext)
+
+        assertEquals(API_KEY, Registry.get<State>().apiKey)
     }
 }
