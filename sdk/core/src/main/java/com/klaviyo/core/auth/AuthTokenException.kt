@@ -32,4 +32,7 @@ sealed class AuthTokenException(message: String) : RuntimeException(message) {
      *
      */
     data object TimedOut : AuthTokenException("Auth token request timed out")
+
+    /** The manager stopped before a queued token request could complete. */
+    data object ManagerStopped : AuthTokenException("Auth token manager stopped")
 }

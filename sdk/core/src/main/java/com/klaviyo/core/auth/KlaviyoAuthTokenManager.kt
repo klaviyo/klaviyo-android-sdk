@@ -5,8 +5,10 @@ import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.networking.NetworkObserver
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
@@ -15,47 +17,66 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 
+/**
+ * Serializes token state transitions through one command consumer. The generation is advanced by
+ * synchronous lifecycle calls, then paired with their queued commands. Only the consumer writes
+ * [tokenSnapshot]; synchronous callers compare it with the latest generation.
+ *
+ * Work called by the consumer, including clock scheduling and logging, must not block waiting for
+ * a manager command. Observer callbacks run on a separate serial delivery coroutine.
+ */
 internal class KlaviyoAuthTokenManager(
     private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
 ) : AuthTokenManager {
 
     internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
     private val commands = Channel<Command>(Channel.UNLIMITED)
+    private val deliveries = Channel<Delivery>(Channel.UNLIMITED)
+    private val generation = AtomicLong()
+
+    @Volatile private var tokenSnapshot = TokenSnapshot(-1L, null)
     private val state = State()
 
     init {
-        scope.launch {
+        scope.safeLaunch {
             try {
-                for (command in commands) handle(command)
+                for (command in commands) {
+                    runCatching { handle(command) }.onFailure { error ->
+                        failReply(command, error)
+                        failWaiters(error)
+                        retireWork()
+                        state.cachedToken = null
+                        tokenSnapshot = TokenSnapshot(state.generation, null)
+                        Registry.log.error("Auth token command failed", error)
+                    }
+                }
             } finally {
                 retireWork()
                 commands.close()
-                val failure = CancellationException("Auth token manager stopped")
-                state.waiters.forEach { it.completeExceptionally(failure) }
+                deliveries.close()
+                val failure = AuthTokenException.ManagerStopped
+                failWaiters(failure)
                 while (true) {
-                    when (val pending = commands.tryReceive().getOrNull() ?: break) {
-                        is Command.Token -> pending.reply.completeExceptionally(failure)
-                        is Command.Clear -> pending.reply.completeExceptionally(failure)
-                        is Command.ConnectivityJob -> pending.reply.completeExceptionally(failure)
-                        is Command.CanDeliver -> pending.reply.complete(false)
-                        else -> Unit
-                    }
+                    val pending = commands.tryReceive().getOrNull() ?: break
+                    failReply(pending, failure)
                 }
             }
+        }
+        scope.safeLaunch {
+            for (delivery in deliveries) deliver(delivery)
         }
         lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
     }
 
     override fun registerProvider(provider: AuthTokenProvider) {
-        post(Command.Register(provider))
+        post(Command.Register(generation.incrementAndGet(), provider))
     }
 
     override fun unregisterProvider() {
-        post(Command.Unregister)
+        post(Command.Unregister(generation.incrementAndGet()))
     }
 
     override fun onTokenRefresh(observer: TokenRefreshObserver) {
@@ -66,18 +87,23 @@ internal class KlaviyoAuthTokenManager(
         post(Command.Unobserve(observer))
     }
 
-    override fun invalidate() {
-        post(Command.Invalidate)
+    override fun invalidate(): Long = generation.incrementAndGet().also {
+        post(Command.Invalidate(it))
     }
 
-    override suspend fun clearTokenState(onlyIfPendingReset: Boolean) {
+    override suspend fun clearTokenState(expectedGeneration: Long) {
         val reply = CompletableDeferred<Unit>()
-        post(Command.Clear(onlyIfPendingReset, reply))
+        post(Command.Clear(expectedGeneration, reply))
         reply.await()
     }
 
     override suspend fun currentToken(timeoutMs: Long): ValidatedToken =
         requestToken(timeoutMs)
+
+    override fun isCurrentToken(token: ValidatedToken): Boolean {
+        val snapshot = tokenSnapshot
+        return snapshot.generation == generation.get() && snapshot.token === token
+    }
 
     internal suspend fun connectivityWaitJob(): Job? {
         val reply = CompletableDeferred<Job?>()
@@ -109,8 +135,19 @@ internal class KlaviyoAuthTokenManager(
     }
 
     private fun post(command: Command) {
-        check(scope.coroutineContext[Job]?.isActive == true && commands.trySend(command).isSuccess) {
-            "Auth token manager is closed"
+        if (scope.coroutineContext[Job]?.isActive != true || commands.trySend(command).isFailure) {
+            Registry.log.warning("Auth token manager is closed", AuthTokenException.ManagerStopped)
+            failReply(command, AuthTokenException.ManagerStopped)
+        }
+    }
+
+    private fun failReply(command: Command, error: Throwable) {
+        when (command) {
+            is Command.Token -> command.reply.completeExceptionally(error)
+            is Command.Clear -> command.reply.completeExceptionally(error)
+            is Command.ConnectivityJob -> command.reply.completeExceptionally(error)
+            is Command.CanDeliver -> command.reply.complete(false)
+            else -> Unit
         }
     }
 
@@ -126,33 +163,60 @@ internal class KlaviyoAuthTokenManager(
     private fun handle(command: Command) {
         when (command) {
             is Command.Register -> {
+                if (command.generation < state.generation) {
+                    Registry.log.verbose("Dropping stale provider registration")
+                    return
+                }
                 retireWork()
+                state.generation = command.generation
                 state.provider = command.provider
                 state.cachedToken = null
                 state.resetPending = false
+                tokenSnapshot = TokenSnapshot(state.generation, null)
                 Registry.log.info("AuthTokenProvider registered")
                 startFetch()
             }
-            Command.Unregister -> {
+            is Command.Unregister -> {
+                if (command.generation < state.generation) {
+                    Registry.log.verbose("Dropping stale provider unregistration")
+                    return
+                }
+                if (state.provider == null) return
                 retireWork()
+                state.generation = command.generation
                 state.provider = null
                 state.cachedToken = null
                 state.resetPending = false
+                tokenSnapshot = TokenSnapshot(state.generation, null)
                 failWaiters(AuthTokenException.NoProviderRegistered)
                 Registry.log.info("AuthTokenProvider unregistered")
             }
-            Command.Invalidate -> {
+            is Command.Invalidate -> {
+                if (command.generation < state.generation) {
+                    Registry.log.verbose("Dropping stale profile invalidation")
+                    return
+                }
                 retireWork()
+                state.generation = command.generation
+                state.resetId = maxOf(state.resetId, command.generation)
                 state.cachedToken = null
                 state.resetPending = true
+                tokenSnapshot = TokenSnapshot(state.generation, null)
             }
             is Command.Clear -> {
-                if (!command.onlyIfPendingReset || state.resetPending) {
+                val shouldClear = command.expectedGeneration < 0L ||
+                    state.resetPending &&
+                    command.expectedGeneration == state.resetId &&
+                    command.expectedGeneration == generation.get()
+                if (shouldClear) {
                     retireWork()
                     state.cachedToken = null
                     state.resetPending = false
+                    tokenSnapshot = TokenSnapshot(state.generation, null)
                     if (state.waiters.isNotEmpty()) startFetch()
                     Registry.log.info("Token state cleared")
+                } else {
+                    Registry.log.verbose("Dropping stale token clear")
                 }
                 command.reply.complete(Unit)
             }
@@ -162,18 +226,18 @@ internal class KlaviyoAuthTokenManager(
                 } else if (state.provider == null) {
                     command.reply.completeExceptionally(AuthTokenException.NoProviderRegistered)
                 } else if (state.resetPending) {
-                    state.waiters.add(command.reply)
+                    state.waiters.add(Waiter(command.reply, command.refreshId))
                 } else {
                     val cached = state.cachedToken?.takeIf { isStillValid(it) }
                     if (cached != null && !command.forceRefresh) {
                         command.reply.complete(cached)
                     } else {
-                        state.waiters.add(command.reply)
+                        state.waiters.add(Waiter(command.reply, command.refreshId))
                         startFetch()
                     }
                 }
             }
-            is Command.CallerDone -> state.waiters.remove(command.reply)
+            is Command.CallerDone -> state.waiters.removeAll { it.reply === command.reply }
             is Command.FetchDone -> onFetchDone(command)
             is Command.TimerFired -> {
                 if (command.id == state.refreshId && !state.resetPending) {
@@ -199,9 +263,11 @@ internal class KlaviyoAuthTokenManager(
                     launchRefresh(state.refreshId, false)
                 }
             }
-            is Command.CanDeliver -> command.reply.complete(
-                command.id == state.deliveryId && !state.resetPending
-            )
+            is Command.CanDeliver -> {
+                val canDeliver = command.id == state.deliveryId && !state.resetPending &&
+                    state.generation == generation.get()
+                command.reply.complete(canDeliver)
+            }
             Command.Foreground -> onForeground()
             is Command.Observe -> state.observers.add(command.observer)
             is Command.Unobserve -> state.observers.remove(command.observer)
@@ -212,8 +278,11 @@ internal class KlaviyoAuthTokenManager(
     private fun startFetch() {
         if (state.fetchJob != null || state.resetPending) return
         val provider = state.provider ?: return
+        state.connectivityId++
+        state.connectivityJob?.cancel()
+        state.connectivityJob = null
         val id = ++state.fetchId
-        state.fetchJob = scope.launch {
+        state.fetchJob = scope.safeLaunch {
             val result = runCatching {
                 val jwt = invokeProvider(provider)
                 validateOrThrow(jwt)
@@ -223,11 +292,18 @@ internal class KlaviyoAuthTokenManager(
     }
 
     private fun onFetchDone(command: Command.FetchDone) {
-        if (command.id != state.fetchId) return
+        if (command.id != state.fetchId || state.generation != generation.get()) {
+            Registry.log.verbose("Dropping stale token fetch result")
+            return
+        }
         state.fetchJob = null
         command.result.fold(
             onSuccess = { token ->
                 state.cachedToken = token
+                tokenSnapshot = TokenSnapshot(state.generation, token)
+                state.connectivityId++
+                state.connectivityJob?.cancel()
+                state.connectivityJob = null
                 scheduleRefresh(token)
                 completeWaiters(token)
                 val deliveryId = ++state.deliveryId
@@ -235,39 +311,46 @@ internal class KlaviyoAuthTokenManager(
                     "Auth token acquired (exp=${token.expiresAtEpochSeconds}, iat=${token.issuedAtEpochSeconds})"
                 )
                 val observers = state.observers.toList()
-                scope.launch {
-                    observers.forEach { observer ->
-                        val permission = CompletableDeferred<Boolean>()
-                        if (!postFromWorker(Command.CanDeliver(deliveryId, permission))) return@launch
-                        if (!permission.await()) return@launch
-                        try {
-                            observer(token.rawToken)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            Registry.log.warning(
-                                "TokenRefreshObserver threw ${e.javaClass.simpleName}",
-                                e
-                            )
-                        }
-                    }
-                }
+                deliveries.trySend(Delivery(deliveryId, state.generation, token, observers))
             },
             onFailure = ::failWaiters
         )
     }
 
+    private suspend fun deliver(delivery: Delivery) {
+        for (observer in delivery.observers) {
+            val permission = CompletableDeferred<Boolean>()
+            if (!postFromWorker(Command.CanDeliver(delivery.id, permission))) return
+            if (!permission.await() || generation.get() != delivery.generation) return
+            try {
+                observer(delivery.token.rawToken)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Registry.log.warning("TokenRefreshObserver threw ${e.javaClass.simpleName}", e)
+            }
+        }
+    }
+
     private fun completeWaiters(token: ValidatedToken) {
-        state.waiters.forEach { it.complete(token) }
+        state.waiters.forEach { it.reply.complete(token) }
         state.waiters.clear()
     }
 
     private fun failWaiters(error: Throwable) {
-        state.waiters.forEach { it.completeExceptionally(error) }
+        state.waiters.forEach { it.reply.completeExceptionally(error) }
         state.waiters.clear()
     }
 
     private fun retireWork() {
+        state.waiters.removeAll { waiter ->
+            if (waiter.refreshId == null) {
+                false
+            } else {
+                waiter.reply.completeExceptionally(StaleRefreshException())
+                true
+            }
+        }
         state.fetchId++
         state.deliveryId++
         state.fetchJob?.cancel()
@@ -299,7 +382,7 @@ internal class KlaviyoAuthTokenManager(
 
     private fun launchRefresh(id: Long, allowImmediateRetry: Boolean) {
         Registry.log.info("Proactive token refresh fired")
-        scope.launch {
+        scope.safeLaunch {
             try {
                 requestToken(
                     AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,
@@ -320,7 +403,7 @@ internal class KlaviyoAuthTokenManager(
     private fun armConnectivityWait(resumeImmediately: Boolean) {
         state.connectivityJob?.cancel()
         val id = ++state.connectivityId
-        state.connectivityJob = scope.launch {
+        state.connectivityJob = scope.safeLaunch {
             val signal = CompletableDeferred<Unit>()
             val observer: NetworkObserver = { connected ->
                 if (connected) signal.complete(Unit)
@@ -346,6 +429,8 @@ internal class KlaviyoAuthTokenManager(
             state.resetPending -> Unit
             cached != null && !isStillValid(cached) -> {
                 state.cachedToken = null
+                tokenSnapshot = TokenSnapshot(state.generation, null)
+                state.deliveryId++
                 state.refreshId++
                 state.refreshTimer?.cancel()
                 state.refreshTimer = null
@@ -402,11 +487,14 @@ internal class KlaviyoAuthTokenManager(
         Registry.clock.currentTimeMillis() / 1000L <
             token.expiresAtEpochSeconds - JWTParser.DEFAULT_LEEWAY_SECONDS
 
+    /** Mutable data accessed only by the command consumer. */
     private class State {
         var provider: AuthTokenProvider? = null
         var cachedToken: ValidatedToken? = null
+        var generation = 0L
+        var resetId = 0L
         var resetPending = false
-        val waiters = mutableListOf<CompletableDeferred<ValidatedToken>>()
+        val waiters = mutableListOf<Waiter>()
         var fetchId = 0L
         var deliveryId = 0L
         var fetchJob: Job? = null
@@ -419,12 +507,29 @@ internal class KlaviyoAuthTokenManager(
         val observers = mutableListOf<TokenRefreshObserver>()
     }
 
+    private data class Waiter(
+        val reply: CompletableDeferred<ValidatedToken>,
+        val refreshId: Long?
+    )
+
+    private data class TokenSnapshot(val generation: Long, val token: ValidatedToken?)
+
+    private data class Delivery(
+        val id: Long,
+        val generation: Long,
+        val token: ValidatedToken,
+        val observers: List<TokenRefreshObserver>
+    )
+
+    private class StaleRefreshException : CancellationException("Refresh superseded")
+
+    /** Generation IDs pair each reset with its clear and reject superseded async completions. */
     private sealed interface Command {
-        data class Register(val provider: AuthTokenProvider) : Command
-        data object Unregister : Command
-        data object Invalidate : Command
+        data class Register(val generation: Long, val provider: AuthTokenProvider) : Command
+        data class Unregister(val generation: Long) : Command
+        data class Invalidate(val generation: Long) : Command
         data class Clear(
-            val onlyIfPendingReset: Boolean,
+            val expectedGeneration: Long,
             val reply: CompletableDeferred<Unit>
         ) : Command
         data class Token(

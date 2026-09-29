@@ -1,15 +1,25 @@
 package com.klaviyo.core.auth
 
+import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.every
 import io.mockk.verify
 import java.util.Base64
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -81,7 +91,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         dispatcher.scheduler.runCurrent()
         assertEquals(1, provider.callCount)
 
-        manager.invalidate()
+        val generation = manager.invalidate()
         var received: ValidatedToken? = null
         val postInvalidationCaller = launch { received = manager.currentToken() }
         dispatcher.scheduler.runCurrent()
@@ -92,7 +102,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         assertEquals(null, received)
         assertEquals(false, postInvalidationCaller.isCompleted)
 
-        manager.clearTokenState(onlyIfPendingReset = true)
+        manager.clearTokenState(generation)
         dispatcher.scheduler.runCurrent()
         assertEquals(2, provider.callCount)
 
@@ -100,6 +110,100 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
         postInvalidationCaller.join()
         assertEquals(nextToken, received?.rawToken)
+    }
+
+    @Test
+    fun `stale profile clear does not release callers parked by a later reset`() = runTest(
+        dispatcher
+    ) {
+        val provider = ResolvableProvider()
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent()
+
+        val firstReset = manager.invalidate()
+        val secondReset = manager.invalidate()
+        val waitingCaller = async { manager.currentToken() }
+        dispatcher.scheduler.runCurrent()
+
+        manager.clearTokenState(firstReset)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(1, provider.callCount)
+        assertTrue(!waitingCaller.isCompleted)
+
+        manager.clearTokenState(secondReset)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(2, provider.callCount)
+        provider.resolve(makeJwt(EXP_SECONDS - 100, IAT_SECONDS - 100))
+        provider.resolve(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(waitingCaller.isCompleted)
+    }
+
+    @Test
+    fun `isCurrentToken rejects cached token immediately on invalidation`() = runTest(dispatcher) {
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS)))
+        dispatcher.scheduler.advanceUntilIdle()
+        val token = manager.currentToken()
+        assertTrue(manager.isCurrentToken(token))
+
+        manager.invalidate()
+        assertTrue(!manager.isCurrentToken(token))
+    }
+
+    @Test
+    fun `stopping the manager fails a waiting caller with ManagerStopped`() = runTest(dispatcher) {
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(DeferredProvider())
+        val waitingCaller = async { runCatching { manager.currentToken() } }
+        dispatcher.scheduler.runCurrent()
+
+        manager.scope.cancel()
+        dispatcher.scheduler.runCurrent()
+
+        assertTrue(waitingCaller.await().exceptionOrNull() is AuthTokenException.ManagerStopped)
+        manager.registerProvider(SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS)))
+        assertTrue(
+            runCatching { manager.currentToken() }.exceptionOrNull() is
+            AuthTokenException.ManagerStopped
+        )
+    }
+
+    @Test
+    fun `observer deliveries never overlap across successful fetches`() {
+        every { Registry.dispatcher } returns Dispatchers.Default
+        val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val secondToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val firstEntered = CountDownLatch(1)
+        val releaseFirst = CountDownLatch(1)
+        val secondEntered = CountDownLatch(1)
+        val calls = AtomicInteger()
+        val manager = KlaviyoAuthTokenManager()
+        manager.onTokenRefresh {
+            when (calls.incrementAndGet()) {
+                1 -> {
+                    firstEntered.countDown()
+                    releaseFirst.await(5, TimeUnit.SECONDS)
+                }
+                2 -> secondEntered.countDown()
+            }
+        }
+
+        try {
+            manager.registerProvider(SuccessProvider(firstToken))
+            assertTrue(firstEntered.await(5, TimeUnit.SECONDS))
+
+            manager.registerProvider(SuccessProvider(secondToken))
+            runBlocking {
+                withTimeout(5_000L) { assertEquals(secondToken, manager.currentToken().rawToken) }
+            }
+            assertFalse(secondEntered.await(200, TimeUnit.MILLISECONDS))
+        } finally {
+            releaseFirst.countDown()
+            assertTrue(secondEntered.await(5, TimeUnit.SECONDS))
+            manager.scope.cancel()
+        }
     }
 
     @Test

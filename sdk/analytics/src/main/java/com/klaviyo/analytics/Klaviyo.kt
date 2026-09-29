@@ -325,10 +325,13 @@ object Klaviyo {
     @JvmStatic
     fun resetProfile() = safeApply {
         val auth = Registry.get<AuthTokenManager>()
-        auth.invalidate()
-        Registry.get<State>().reset()
-        CoroutineScope(Registry.dispatcher).safeLaunch {
-            auth.clearTokenState(onlyIfPendingReset = true)
+        val generation = auth.invalidate()
+        try {
+            Registry.get<State>().reset()
+        } finally {
+            CoroutineScope(Registry.dispatcher).safeLaunch {
+                auth.clearTokenState(expectedGeneration = generation)
+            }
         }
     }
 

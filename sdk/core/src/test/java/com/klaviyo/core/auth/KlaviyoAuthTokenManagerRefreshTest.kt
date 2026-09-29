@@ -149,6 +149,33 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     @Test
+    fun `logout retires a scheduled refresh without restarting the provider`() = runTest(dispatcher) {
+        val provider = InitialThenResolvableProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(2, provider.callCount)
+
+        val generation = manager.invalidate()
+        dispatcher.scheduler.runCurrent()
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(2, provider.callCount)
+        val demand = async { manager.currentToken() }
+        dispatcher.scheduler.runCurrent()
+        assertEquals(3, provider.callCount)
+        provider.resolve(makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100))
+        provider.resolve(makeJwt(EXP_SECONDS + 200, IAT_SECONDS + 200))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(EXP_SECONDS + 200, demand.await().expiresAtEpochSeconds)
+    }
+
+    @Test
     fun `manager scope cancellation cancels scheduled refresh`() = runTest(dispatcher) {
         val manager = KlaviyoAuthTokenManager()
         manager.registerProvider(CountingSuccessProvider(makeJwt()))
@@ -917,13 +944,13 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals("first eager fetch", 1, provider1.callCount)
 
-            manager.invalidate()
+            val generation = manager.invalidate()
 
             manager.registerProvider(provider2)
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals("new provider eager fetch", 1, provider2.callCount)
 
-            manager.clearTokenState(onlyIfPendingReset = true)
+            manager.clearTokenState(generation)
 
             // New session's cache is intact: currentToken() must NOT invoke provider2 again.
             manager.currentToken()
@@ -951,8 +978,8 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals("cache hit — provider not called again", 1, provider.callCount)
 
-            manager.invalidate()
-            manager.clearTokenState(onlyIfPendingReset = true)
+            val generation = manager.invalidate()
+            manager.clearTokenState(generation)
             manager.currentToken()
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals("invalidate forces a new provider fetch", 2, provider.callCount)

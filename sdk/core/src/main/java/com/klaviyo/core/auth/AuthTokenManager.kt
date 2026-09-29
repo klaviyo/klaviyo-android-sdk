@@ -8,7 +8,7 @@ package com.klaviyo.core.auth
  * for the full [ValidatedToken] wrapper (exp/iat metadata) callers should use
  * [AuthTokenManager.currentToken].
  *
- * Observers are invoked on the manager's internal dispatcher (IO). If a thread handoff is needed
+ * Observers are invoked serially on the manager's internal dispatcher (IO). If a thread handoff is needed
  * (e.g. for a WebView call that must run on the UI thread), the observer is responsible for it.
  */
 typealias TokenRefreshObserver = (jwt: String) -> Unit
@@ -80,12 +80,15 @@ interface AuthTokenManager {
      */
     suspend fun currentToken(timeoutMs: Long = BACKGROUND_FETCH_TIMEOUT_MS): ValidatedToken
 
+    /** Return whether [token] is the cached token instance for the active profile. */
+    fun isCurrentToken(token: ValidatedToken): Boolean
+
     /**
      * Register an observer that will be invoked each time the auth token is acquired or refreshed,
      * including the initial fetch — so a consumer that subscribes while the first fetch is still in
      * flight (e.g. a form displayed before the token resolves) still receives it once it lands.
      *
-     * Multiple observers are supported. Each is invoked on the manager's internal dispatcher
+     * Multiple observers are supported. Each is invoked serially on the manager's internal dispatcher
      * (IO); the observer is responsible for any thread handoff it needs (e.g. hopping to the UI
      * thread for WebView calls). Dispatch is best-effort: if an observer throws an [Exception], it
      * is logged at WARNING and remaining observers are still called.
@@ -104,35 +107,32 @@ interface AuthTokenManager {
     fun offTokenRefresh(observer: TokenRefreshObserver)
 
     /**
-     * Queue a transition marking the current profile as stale, preventing any in-flight proactive refresh
-     * from dispatching its result to registered [TokenRefreshObserver]s.
+     * Synchronously mark the current profile as stale, preventing in-flight refresh results from
+     * reaching registered [TokenRefreshObserver]s. Token-state cleanup is queued.
      *
-     * This method is non-suspending. [clearTokenState] completes the cleanup.
+     * @return A generation ID to pass to [clearTokenState] so an older clear cannot finish a
+     *   later reset or clear a replacement provider.
      */
-    fun invalidate()
+    fun invalidate(): Long
 
     /**
      * Clear all token-acquisition state tied to the current user, called from
      * `Klaviyo.resetProfile()` on logout. Discards the cached token, cancels the scheduled
-     * proactive refresh and its wall-clock target, and cancels any in-flight fetch. Does **not**
-     * eagerly re-invoke the provider — the next call to [currentToken] drives the next acquisition.
+     * proactive refresh and its wall-clock target, and cancels any in-flight fetch. Without a
+     * pending [currentToken] caller, the next call to [currentToken] drives acquisition.
      *
-     * Deliberately retains:
-     * - The registered [AuthTokenProvider] — it is host integration code ("how to ask my auth
-     *   system for a token"), not user identity. The provider is expected to read the current user
-     *   fresh on each invocation, so the same provider correctly serves the next identified profile.
-     * - The lifecycle observer — safe to leave running across profile resets; its handler is a
-     *   no-op when no cached token or scheduled refresh exists.
-     * - Registered [TokenRefreshObserver]s — active form displays should keep their subscriptions
-     *   alive across a reset; the stream simply goes quiet until the next successful refresh.
+     * Retains:
+     * - The registered [AuthTokenProvider], which reads the current user on each invocation.
+     * - The lifecycle observer, which is idle without a cached token or scheduled refresh.
+     * - Registered [TokenRefreshObserver]s, whose stream resumes on the next successful fetch.
      *
-     * @param onlyIfPendingReset When true, the clear is skipped if a later provider registration
-     *   superseded the queued [invalidate]. The default performs an unconditional clear.
+     * @param expectedGeneration The ID returned by [invalidate]. The clear is skipped when a
+     *   later profile transition superseded that ID. The default performs an unconditional clear.
      *
      * NOTE: This method's behavior may change in a future revision. The current design ("Option B")
      * retains the provider across resets. An alternative ("Option A") would fully unregister the
      * provider on reset, requiring the host to re-register after each login. If we switch to
      * Option A, this method's name and behavior will change.
      */
-    suspend fun clearTokenState(onlyIfPendingReset: Boolean = false)
+    suspend fun clearTokenState(expectedGeneration: Long = -1L)
 }

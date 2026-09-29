@@ -1,10 +1,13 @@
 package com.klaviyo.core.auth
 
 import com.klaviyo.core.Registry
+import com.klaviyo.core.lifecycle.ActivityEvent
+import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
+import io.mockk.slot
 import io.mockk.verify
 import java.io.IOException
 import java.net.ConnectException
@@ -38,12 +41,14 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     }
 
     private lateinit var fakeNetworkMonitor: FakeNetworkMonitor
+    private val lifecycleObserver = slot<ActivityObserver>()
 
     @Before
     override fun setup() {
         super.setup()
         fakeNetworkMonitor = FakeNetworkMonitor()
         every { Registry.networkMonitor } returns fakeNetworkMonitor
+        every { mockLifecycleMonitor.onActivityEvent(capture(lifecycleObserver)) } returns Unit
     }
 
     // MARK: - Helpers
@@ -141,6 +146,39 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             provider.callCount
         )
         verify { spyLog.info(any()) }
+    }
+
+    @Test
+    fun `foreground refresh cancels pending connectivity retry after network failure`() = runTest(
+        dispatcher
+    ) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("network down")),
+                    Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        executeScheduledRefresh()
+        assertNotNull(manager.connectivityWaitJob())
+        assertEquals(1, fakeNetworkMonitor.observerCount())
+
+        lifecycleObserver.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(3, provider.callCount)
+        assertNull(manager.connectivityWaitJob())
+        assertEquals(0, fakeNetworkMonitor.observerCount())
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(3, provider.callCount)
     }
 
     @Test
@@ -620,13 +658,13 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         executeScheduledRefresh()
 
-        manager.invalidate()
+        val generation = manager.invalidate()
 
         manager.registerProvider(secondProvider)
         dispatcher.scheduler.advanceUntilIdle()
         assertNull("registerProvider cleared connectivity job", manager.connectivityWaitJob())
 
-        manager.clearTokenState(onlyIfPendingReset = true)
+        manager.clearTokenState(generation)
         dispatcher.scheduler.advanceUntilIdle()
 
         // New session is still healthy

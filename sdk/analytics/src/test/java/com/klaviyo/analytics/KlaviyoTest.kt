@@ -23,9 +23,11 @@ import com.klaviyo.core.Constants
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.AutomaticPushTokenForwarding
 import com.klaviyo.core.config.Config
+import com.klaviyo.core.config.KlaviyoConfig
 import com.klaviyo.core.config.MissingAPIKey
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
@@ -44,11 +46,14 @@ import io.mockk.spyk
 import io.mockk.unmockkAll
 import io.mockk.verify
 import io.mockk.verifyAll
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -113,7 +118,7 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     private val mockAuthTokenManager = mockk<AuthTokenManager>().apply {
-        every { invalidate() } returns Unit
+        every { invalidate() } returns 1L
         coEvery { clearTokenState(any()) } returns Unit
         every { unregisterProvider() } just Runs
     }
@@ -521,8 +526,35 @@ internal class KlaviyoTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
         verify(exactly = 1) { mockAuthTokenManager.invalidate() }
         coVerify(exactly = 1) {
-            mockAuthTokenManager.clearTokenState(onlyIfPendingReset = true)
+            mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
         }
+    }
+
+    @Test
+    fun `resetProfile clears auth token state when a state observer throws`() = runTest(dispatcher) {
+        val cleared = CompletableDeferred<Unit>()
+        coEvery { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) } answers {
+            cleared.complete(Unit)
+        }
+        coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers {
+            cleared.await()
+            throw AuthTokenException.NoProviderRegistered
+        }
+        Registry.get<State>().onStateChange { throw IllegalStateException("observer failure") }
+
+        val resetError = runCatching { Klaviyo.resetProfile() }.exceptionOrNull()
+        if (KlaviyoConfig.isDebugBuild) {
+            assertTrue(resetError is IllegalStateException)
+        } else {
+            assertNull(resetError)
+        }
+        val tokenResult = async {
+            runCatching { withTimeout(100L) { mockAuthTokenManager.currentToken() } }
+        }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(tokenResult.await().exceptionOrNull() is AuthTokenException.NoProviderRegistered)
+        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
     }
 
     @Test
