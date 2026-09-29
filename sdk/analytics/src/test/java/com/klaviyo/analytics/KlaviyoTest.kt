@@ -365,7 +365,7 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `Failed service startup leaves committed company and cleared JWT`() = runTest(dispatcher) {
+    fun `Failed service startup does not publish or fence a new company`() = runTest(dispatcher) {
         every { mockApiClient.startService() } throws IllegalStateException("startup failed")
 
         runCatching {
@@ -373,9 +373,9 @@ internal class KlaviyoTest : BaseTest() {
         }
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals("new-$API_KEY", Registry.get<State>().apiKey)
-        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
-        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(1L) }
+        assertEquals(API_KEY, Registry.get<State>().apiKey)
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
     }
 
     private fun verifyProfileDebounced() {
@@ -807,6 +807,9 @@ internal class KlaviyoTest : BaseTest() {
     @Test
     fun `reinitialize fences outgoing JWT before publishing the new company key`() {
         val transitions = mutableListOf<String>()
+        every { mockApiClient.startService() } answers {
+            transitions += "restore"
+        }
         every { mockAuthTokenManager.invalidate() } answers {
             transitions += "fence"
             1L
@@ -818,7 +821,7 @@ internal class KlaviyoTest : BaseTest() {
 
         Klaviyo.initialize(apiKey = "company-key-two", applicationContext = mockContext)
 
-        assertEquals(listOf("fence", "build"), transitions.take(2))
+        assertEquals(listOf("restore", "fence", "build"), transitions.take(3))
     }
 
     @Test
