@@ -37,6 +37,7 @@ class ProfileJwtTransitionMatrixTest : BaseTest() {
         every { offTokenRefresh(any()) } just runs
         every { onTokenInvalidated(any()) } just runs
         every { offTokenInvalidated(any()) } just runs
+        every { isCurrentToken(any()) } returns true
     }
 
     @Before
