@@ -2,7 +2,7 @@ package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.Profile
 
-internal enum class ProfileTransition {
+enum class ProfileTransition {
     Unchanged,
     Compatible,
     Replacement
@@ -10,8 +10,19 @@ internal enum class ProfileTransition {
 
 internal fun State.profileTransition(profile: Profile): ProfileTransition {
     val current = listOf(externalId, email, phoneNumber).map(::normalizedIdentifier)
-    val incoming = listOf(profile.externalId, profile.email, profile.phoneNumber)
-        .map(::normalizedIdentifier)
+    return classifyProfileTransition(current, profile.identifiers())
+}
+
+fun Profile.profileTransition(next: Profile): ProfileTransition =
+    classifyProfileTransition(identifiers(), next.identifiers())
+
+private fun Profile.identifiers(): List<String?> =
+    listOf(externalId, email, phoneNumber).map(::normalizedIdentifier)
+
+private fun classifyProfileTransition(
+    current: List<String?>,
+    incoming: List<String?>
+): ProfileTransition {
     if (current == incoming) return ProfileTransition.Unchanged
 
     val sharedIdentifiers = current.zip(incoming).filter { (existing, next) ->

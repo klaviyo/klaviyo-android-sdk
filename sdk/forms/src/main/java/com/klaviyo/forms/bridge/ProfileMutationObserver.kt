@@ -1,9 +1,11 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.state.ProfileTransition
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateChange
 import com.klaviyo.analytics.state.StateChangeObserver
+import com.klaviyo.analytics.state.profileTransition
 import com.klaviyo.core.Registry
 
 /**
@@ -15,7 +17,7 @@ internal class ProfileMutationObserver(
 
     private val observerLock = Any()
     private class Session(val id: Any, val callback: StateChangeObserver) {
-        var hasProfileIdentifier = false
+        var lastProfile: Profile? = null
         var receivedChange = false
     }
     private var activeSession: Session? = null
@@ -60,18 +62,16 @@ internal class ProfileMutationObserver(
         synchronized(observerLock) {
             val session = activeSession?.takeIf { it.id === sessionId } ?: return
             if (change == null && session.receivedChange) return
-            val newlyIdentified = !session.hasProfileIdentifier && profile.hasIdentifier()
-            session.hasProfileIdentifier = profile.hasIdentifier()
+            val transition = session.lastProfile?.profileTransition(profile)
+            session.lastProfile = profile.copy()
             if (change != null) session.receivedChange = true
             if (change is StateChange.ProfileReset ||
-                change is StateChange.ProfileIdentifier && newlyIdentified
+                change is StateChange.ProfileIdentifier &&
+                (transition == null || transition == ProfileTransition.Replacement)
             ) {
                 jwtObserver.clearToken()
             }
             Registry.get<JsBridge>().profileMutation(profile)
         }
     }
-
-    private fun Profile.hasIdentifier(): Boolean =
-        listOf(externalId, email, phoneNumber).any { !it.isNullOrEmpty() }
 }

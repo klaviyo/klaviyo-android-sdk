@@ -520,17 +520,15 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `adding an identifier to an identified profile refreshes its token`() = runTest(dispatcher) {
+    fun `adding a compatible identifier retains its token`() = runTest(dispatcher) {
         Registry.get<State>().email = EMAIL
 
         Klaviyo.setExternalId(EXTERNAL_ID)
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(EXTERNAL_ID, Registry.get<State>().externalId)
-        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
-        coVerify(exactly = 1) {
-            mockAuthTokenManager.refreshAfterProfileChange(expectedGeneration = 1L)
-        }
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 0) { mockAuthTokenManager.refreshAfterProfileChange(any()) }
     }
 
     @Test
@@ -590,18 +588,16 @@ internal class KlaviyoTest : BaseTest() {
     fun `individual identifier replacement fences old token and acquires a new token`() =
         runTest(dispatcher) {
             Registry.get<State>().email = "old@example.com"
-            coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers {
+            coEvery { mockAuthTokenManager.refreshAfterProfileChange(any()) } coAnswers {
                 assertEquals("new@example.com", Registry.get<State>().email)
-                ValidatedToken("new-token", 0L, 0L)
             }
 
             Klaviyo.setEmail("new@example.com")
             dispatcher.scheduler.advanceUntilIdle()
 
             verify(exactly = 1) { mockAuthTokenManager.invalidate() }
-            coVerifyOrder {
-                mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
-                mockAuthTokenManager.currentToken()
+            coVerify(exactly = 1) {
+                mockAuthTokenManager.refreshAfterProfileChange(expectedGeneration = 1L)
             }
         }
 
