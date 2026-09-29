@@ -26,8 +26,10 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -49,6 +51,9 @@ internal object KlaviyoApiClient : ApiClient {
      */
     internal const val MAX_QUEUE_SIZE: Int = 200
 
+    /** Maximum combined UTF-8 size of the serialized requests held by the queue. */
+    internal const val MAX_QUEUE_BYTES: Long = 2L * 1024 * 1024
+
     /**
      * Largest persisted queue whose entries are all examined when restoring.
      *
@@ -62,6 +67,8 @@ internal object KlaviyoApiClient : ApiClient {
     )
     private var handler: Handler? = null
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
+    private val requestSizes = ConcurrentHashMap<String, Int>()
+    private val queuedBytes = AtomicLong(0)
     private var queueInitialized = false
 
     private val scheduler get() = Registry.getOrNull<QueueScheduler>()
@@ -220,6 +227,7 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
         var addedRequest = false
+        val evictedUuids = mutableListOf<String>()
         requests.let {
             // Reverse the arg order if headOfLine is true, so that first arg winds up first in line
             if (headOfLine) {
@@ -229,20 +237,30 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }.forEach { request ->
             if (!apiQueue.contains(request)) {
-                Registry.dataStore.store(request.uuid, request.toString())
+                val serialized = request.toString()
+                val requestSize = serialized.toByteArray(Charsets.UTF_8).size
+                evictedUuids += evictToMakeRoom(requestSize)
+                // A later argument can re-admit a request evicted earlier in this same batch.
+                // Its newly stored JSON must not be removed by the batched cleanup below.
+                evictedUuids.remove(request.uuid)
+                Registry.dataStore.store(request.uuid, serialized)
                 if (headOfLine) {
                     apiQueue.offerFirst(request)
                 } else {
                     apiQueue.offer(request)
                 }
+                requestSizes[request.uuid] = requestSize
+                queuedBytes.addAndGet(requestSize.toLong())
                 broadcastApiRequest(request)
                 addedRequest = true
             }
         }
 
-        val trimmed = trimToCapacity()
+        if (evictedUuids.isNotEmpty()) {
+            Registry.dataStore.clear(evictedUuids)
+        }
 
-        if (addedRequest || trimmed) {
+        if (addedRequest || evictedUuids.isNotEmpty()) {
             persistQueue()
         }
     }
@@ -315,6 +333,9 @@ internal object KlaviyoApiClient : ApiClient {
      */
     fun getQueueSize(): Int = apiQueue.size
 
+    /** Gets the combined UTF-8 size of serialized requests counted against the byte budget. */
+    internal fun getQueueByteSize(): Long = queuedBytes.get()
+
     /**
      * Reset the in-memory queue to the queue from data store
      *
@@ -327,6 +348,8 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
         apiQueue.clear()
+        requestSizes.clear()
+        queuedBytes.set(0)
 
         // Keep track if there's any errors restoring from persistent store
         var wasMutated = false
@@ -357,6 +380,9 @@ internal object KlaviyoApiClient : ApiClient {
                         val request = KlaviyoApiRequestDecoder.fromJson(JSONObject(json))
                         if (!apiQueue.contains(request)) {
                             apiQueue.offer(request)
+                            val requestSize = json.toByteArray(Charsets.UTF_8).size
+                            requestSizes[request.uuid] = requestSize
+                            queuedBytes.addAndGet(requestSize.toLong())
                         }
                     } catch (exception: JSONException) {
                         wasMutated = true
@@ -447,8 +473,8 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Drop the oldest requests by [KlaviyoApiRequest.queuedTime] until the queue is within
-     * [MAX_QUEUE_SIZE], removing them from the persistent store in a single write.
+     * Drop the oldest requests by [KlaviyoApiRequest.queuedTime] until one request can be added
+     * without exceeding either queue budget.
      *
      * Requests are evicted by enqueue timestamp rather than deque position, because head-of-line
      * requests are inserted at the front but are the newest.
@@ -458,25 +484,29 @@ internal object KlaviyoApiClient : ApiClient {
      * boolean: a request another thread already removed is not reported or cleared, making this a
      * best-effort soft bound rather than a hard guarantee.
      *
-     * @return whether any requests were dropped
+     * A request larger than [MAX_QUEUE_BYTES] evicts everything else and is then admitted by
+     * itself. This prevents an unbounded queue without silently rejecting a developer's event.
+     *
+     * @return UUIDs removed from the queue, for one batched persistent-store cleanup
      */
-    private fun trimToCapacity(): Boolean {
-        val overflow = apiQueue.size - MAX_QUEUE_SIZE
-        if (overflow <= 0) return false
+    private fun evictToMakeRoom(newSize: Int): List<String> {
+        val evictedUuids = mutableListOf<String>()
+        while (
+            apiQueue.isNotEmpty() &&
+            (apiQueue.size >= MAX_QUEUE_SIZE || queuedBytes.get() + newSize > MAX_QUEUE_BYTES)
+        ) {
+            val oldest = apiQueue.minByOrNull { it.queuedTime } ?: break
+            if (!apiQueue.remove(oldest)) continue
 
-        val evictedUuids = apiQueue.sortedBy { it.queuedTime }
-            .take(overflow)
-            .filter { apiQueue.remove(it) }
-            .map { request ->
-                Registry.log.warning(
-                    "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${request.type}"
-                )
-                request.uuid
-            }
-
-        Registry.dataStore.clear(evictedUuids)
-
-        return evictedUuids.isNotEmpty()
+            val removedSize = requestSizes.remove(oldest.uuid) ?: 0
+            queuedBytes.addAndGet(-removedSize.toLong())
+            Registry.log.warning(
+                "API queue at capacity ($MAX_QUEUE_SIZE requests / $MAX_QUEUE_BYTES bytes), " +
+                    "evicting oldest request: ${oldest.type}"
+            )
+            evictedUuids += oldest.uuid
+        }
+        return evictedUuids
     }
 
     /**
@@ -563,11 +593,19 @@ internal object KlaviyoApiClient : ApiClient {
 
         while (apiQueue.isNotEmpty()) {
             val request = apiQueue.poll() ?: continue
+            val storedRequestSize = requestSizes.remove(request.uuid)
+            val requestSize = storedRequestSize
+                ?: request.toString().toByteArray(Charsets.UTF_8).size
+            if (storedRequestSize != null) {
+                queuedBytes.addAndGet(-requestSize.toLong())
+            }
 
             when (request.sendAndBroadcast()) {
                 Status.Unsent -> {
                     // Incomplete state: put it back on the queue and break out of serial queue
                     apiQueue.offerFirst(request)
+                    requestSizes[request.uuid] = requestSize
+                    queuedBytes.addAndGet(requestSize.toLong())
                     break
                 }
 
@@ -582,6 +620,8 @@ internal object KlaviyoApiClient : ApiClient {
                     // Encountered a retryable error
                     // Put this back on top of the queue, and we'll try again with backoff
                     apiQueue.offerFirst(request)
+                    requestSizes[request.uuid] = requestSize
+                    queuedBytes.addAndGet(requestSize.toLong())
                     retryAfter = request.computeRetryInterval()
                     break
                 }

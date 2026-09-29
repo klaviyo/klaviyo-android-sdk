@@ -134,7 +134,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private fun mockRequest(
         uuid: String = "uuid",
         status: KlaviyoApiRequest.Status = KlaviyoApiRequest.Status.Complete,
-        codeOverride: Int? = null
+        codeOverride: Int? = null,
+        serializedPadding: Int = 0
     ): KlaviyoApiRequest =
         spyk(KlaviyoApiRequest("https://mock.com", RequestMethod.GET)).also {
             every { it.status } returns status
@@ -184,6 +185,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
                   "query": {
                     "queryKey": "queryValue"
                   },
+                  "padding": "${"x".repeat(serializedPadding)}",
                   "time": "time",
                   "uuid": "$uuid",
                   "url_path": "test"
@@ -556,6 +558,44 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `Byte cap evicts oldest requests before count cap`() {
+        val padding = (KlaviyoApiClient.MAX_QUEUE_BYTES / 3).toInt()
+        val first = mockRequest("byte-0", serializedPadding = padding)
+        KlaviyoApiClient.enqueueRequest(first)
+        staticClock.time += 1
+        val second = mockRequest("byte-1", serializedPadding = padding)
+        KlaviyoApiClient.enqueueRequest(second)
+        staticClock.time += 1
+        val third = mockRequest("byte-2", serializedPadding = padding)
+
+        KlaviyoApiClient.enqueueRequest(third)
+
+        assertEquals(2, KlaviyoApiClient.getQueueSize())
+        assert(KlaviyoApiClient.getQueueByteSize() <= KlaviyoApiClient.MAX_QUEUE_BYTES)
+        assertNull(spyDataStore.fetch(first.uuid))
+        assertNotNull(spyDataStore.fetch(second.uuid))
+        assertNotNull(spyDataStore.fetch(third.uuid))
+    }
+
+    @Test
+    fun `Lone oversized request evicts everything else and is admitted`() {
+        val existing = mockRequest("existing")
+        KlaviyoApiClient.enqueueRequest(existing)
+        staticClock.time += 1
+        val oversized = mockRequest(
+            "oversized",
+            serializedPadding = KlaviyoApiClient.MAX_QUEUE_BYTES.toInt()
+        )
+
+        KlaviyoApiClient.enqueueRequest(oversized)
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assert(KlaviyoApiClient.getQueueByteSize() > KlaviyoApiClient.MAX_QUEUE_BYTES)
+        assertNull(spyDataStore.fetch(existing.uuid))
+        assertNotNull(spyDataStore.fetch(oversized.uuid))
+    }
+
+    @Test
     fun `Flush queue with outcome reports Complete if all requests send`() = runTest {
         // Enqueue a request that will complete successfully
         val request = mockRequest(
@@ -564,11 +604,13 @@ internal class KlaviyoApiClientTest : BaseTest() {
         )
         KlaviyoApiClient.enqueueRequest(request)
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assert(KlaviyoApiClient.getQueueByteSize() > 0)
 
         val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
 
         assert(outcome is FlushOutcome.Complete)
         assertEquals(0, KlaviyoApiClient.getQueueSize())
+        assertEquals(0, KlaviyoApiClient.getQueueByteSize())
         assertNull(spyDataStore.fetch("complete-uuid"))
     }
 
@@ -583,12 +625,15 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         KlaviyoApiClient.enqueueRequest(request)
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        val queuedBytes = KlaviyoApiClient.getQueueByteSize()
+        assert(queuedBytes > 0)
 
         val outcome = KlaviyoApiClient.awaitFlushQueueOutcome()
 
         assert(outcome is FlushOutcome.Incomplete)
         assertEquals(1234L, outcome.takeIf<FlushOutcome.Incomplete>()?.retryAfter)
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(queuedBytes, KlaviyoApiClient.getQueueByteSize())
         assertEquals(request.toJson().toString(), spyDataStore.fetch("incomplete-uuid"))
     }
 
@@ -609,9 +654,12 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.enqueueRequest(mockRequest(uuid, KlaviyoApiRequest.Status.Unsent))
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        val queuedBytes = KlaviyoApiClient.getQueueByteSize()
+        assert(queuedBytes > 0)
         KlaviyoApiClient.flushQueue()
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(queuedBytes, KlaviyoApiClient.getQueueByteSize())
         assertNotNull(spyDataStore.fetch(uuid))
     }
 
