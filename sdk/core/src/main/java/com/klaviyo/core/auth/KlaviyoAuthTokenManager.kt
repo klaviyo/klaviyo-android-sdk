@@ -17,6 +17,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -66,7 +68,13 @@ internal class KlaviyoAuthTokenManager(
             }
         }
         scope.safeLaunch {
-            for (delivery in deliveries) deliver(delivery)
+            for (delivery in deliveries) {
+                try {
+                    deliver(delivery)
+                } catch (_: CancellationException) {
+                    currentCoroutineContext().ensureActive()
+                }
+            }
         }
         lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
     }
@@ -221,11 +229,13 @@ internal class KlaviyoAuthTokenManager(
                 command.reply.complete(Unit)
             }
             is Command.Token -> {
-                if (command.refreshId != null && command.refreshId != state.refreshId) {
-                    command.reply.completeExceptionally(CancellationException("Refresh superseded"))
+                if (command.refreshId != null &&
+                    (command.refreshId != state.refreshId || state.generation != generation.get())
+                ) {
+                    command.reply.completeExceptionally(StaleRefreshException())
                 } else if (state.provider == null) {
                     command.reply.completeExceptionally(AuthTokenException.NoProviderRegistered)
-                } else if (state.resetPending) {
+                } else if (state.resetPending || state.generation != generation.get()) {
                     state.waiters.add(Waiter(command.reply, command.refreshId))
                 } else {
                     val cached = state.cachedToken?.takeIf { isStillValid(it) }
@@ -276,7 +286,9 @@ internal class KlaviyoAuthTokenManager(
     }
 
     private fun startFetch() {
-        if (state.fetchJob != null || state.resetPending) return
+        if (state.fetchJob != null || state.resetPending || state.generation != generation.get()) {
+            return
+        }
         val provider = state.provider ?: return
         state.connectivityId++
         state.connectivityJob?.cancel()

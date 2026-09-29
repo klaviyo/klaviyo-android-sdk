@@ -1,8 +1,10 @@
 package com.klaviyo.core.auth
 
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Clock
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
+import io.mockk.mockk
 import io.mockk.verify
 import java.util.Base64
 import java.util.concurrent.CountDownLatch
@@ -153,6 +155,66 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
+    fun `same JWT text does not make an old token current after reset`() = runTest(dispatcher) {
+        val jwt = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(SuccessProvider(jwt))
+        dispatcher.scheduler.advanceUntilIdle()
+        val oldToken = manager.currentToken()
+
+        val generation = manager.invalidate()
+        manager.clearTokenState(generation)
+        val newToken = manager.currentToken()
+
+        assertEquals(oldToken.rawToken, newToken.rawToken)
+        assertTrue(oldToken !== newToken)
+        assertTrue(!manager.isCurrentToken(oldToken))
+        assertTrue(manager.isCurrentToken(newToken))
+    }
+
+    @Test
+    fun `caller waiting before invalidation receives the next profile token`() = runTest(dispatcher) {
+        val outgoingToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val nextToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val provider = ResolvableProvider()
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        val waitingCaller = async { manager.currentToken() }
+        dispatcher.scheduler.runCurrent()
+
+        val generation = manager.invalidate()
+        provider.resolve(outgoingToken)
+        dispatcher.scheduler.runCurrent()
+        assertTrue(!waitingCaller.isCompleted)
+
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.runCurrent()
+        provider.resolve(nextToken)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(nextToken, waitingCaller.await().rawToken)
+    }
+
+    @Test
+    fun `canceling one waiting caller keeps the shared fetch for another`() = runTest(dispatcher) {
+        val provider = ResolvableProvider()
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        val canceledCaller = async { manager.currentToken() }
+        val waitingCaller = async { manager.currentToken() }
+        dispatcher.scheduler.runCurrent()
+
+        canceledCaller.cancel()
+        dispatcher.scheduler.runCurrent()
+        val jwt = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        provider.resolve(jwt)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(jwt, waitingCaller.await().rawToken)
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
     fun `stopping the manager fails a waiting caller with ManagerStopped`() = runTest(dispatcher) {
         val manager = KlaviyoAuthTokenManager()
         manager.registerProvider(DeferredProvider())
@@ -204,6 +266,46 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
             assertTrue(secondEntered.await(5, TimeUnit.SECONDS))
             manager.scope.cancel()
         }
+    }
+
+    @Test
+    fun `observer cancellation does not stop later token deliveries`() = runTest(dispatcher) {
+        val manager = KlaviyoAuthTokenManager()
+        var calls = 0
+        manager.onTokenRefresh {
+            calls++
+            if (calls == 1) throw CancellationException("observer cancelled")
+        }
+
+        manager.registerProvider(SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS)))
+        dispatcher.scheduler.advanceUntilIdle()
+        manager.registerProvider(SuccessProvider(makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, calls)
+    }
+
+    @Test
+    fun `clock failure while scheduling does not kill the actor`() = runTest(dispatcher) {
+        val clock = mockk<Clock>()
+        var schedules = 0
+        every { clock.currentTimeMillis() } returns staticClock.time
+        every { clock.isoTime(any()) } returns "time"
+        every { clock.schedule(any(), any()) } answers {
+            schedules++
+            if (schedules == 1) throw IllegalStateException("clock failed")
+            staticClock.schedule(firstArg(), secondArg())
+        }
+        every { Registry.clock } returns clock
+        val manager = KlaviyoAuthTokenManager()
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        val token = manager.currentToken()
+
+        assertEquals(EXP_SECONDS, token.expiresAtEpochSeconds)
+        assertEquals(2, provider.callCount)
     }
 
     @Test
