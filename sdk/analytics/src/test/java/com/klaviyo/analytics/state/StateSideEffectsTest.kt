@@ -172,6 +172,51 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
+    fun `concurrent anonymous ID changes enqueue profiles in transition order`() {
+        val currentProfile = AtomicReference(
+            Profile(email = EMAIL).apply { anonymousId = "anon-one" }
+        )
+        val firstEnqueueStarted = CountDownLatch(1)
+        val releaseFirstEnqueue = CountDownLatch(1)
+        val enqueuedIds = mutableListOf<String?>()
+        val identifierChange = StateChange.ProfileIdentifier(ProfileKey.EMAIL, null)
+        every { stateMock.getAsProfile(withAttributes = true) } answers { currentProfile.get() }
+        every { apiClientMock.enqueueProfile(any()) } answers {
+            val id = firstArg<Profile>().anonymousId
+            if (id == "anon-one") {
+                firstEnqueueStarted.countDown()
+                assertTrue(releaseFirstEnqueue.await(10, TimeUnit.SECONDS))
+            }
+            synchronized(enqueuedIds) { enqueuedIds.add(id) }
+            mockk(relaxed = true)
+        }
+        StateSideEffects(stateMock, apiClientMock)
+        capturedStateChangeObserver.captured(identifierChange)
+
+        val firstFailure = AtomicReference<Throwable?>()
+        currentProfile.set(Profile(email = EMAIL).apply { anonymousId = "anon-two" })
+        val first = thread {
+            try {
+                capturedStateChangeObserver.captured(identifierChange)
+            } catch (e: Throwable) {
+                firstFailure.set(e)
+            }
+        }
+        try {
+            assertTrue(firstEnqueueStarted.await(5, TimeUnit.SECONDS))
+            currentProfile.set(Profile(email = EMAIL).apply { anonymousId = "anon-three" })
+            capturedStateChangeObserver.captured(identifierChange)
+        } finally {
+            releaseFirstEnqueue.countDown()
+            first.join(5_000)
+        }
+        assertFalse(first.isAlive)
+        assertNull(firstFailure.get())
+        val actualEnqueuedIds = synchronized(enqueuedIds) { enqueuedIds.toList() }
+        assertEquals(listOf("anon-one", "anon-two"), actualEnqueuedIds)
+    }
+
+    @Test
     fun `Empty attributes do not enqueue a profile API request`() {
         StateSideEffects(
             stateMock.apply {

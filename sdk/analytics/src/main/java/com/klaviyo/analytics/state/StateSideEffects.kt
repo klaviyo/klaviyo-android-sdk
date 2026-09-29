@@ -18,6 +18,7 @@ import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.utils.takeIf
+import java.util.ArrayDeque
 
 internal class StateSideEffects(
     private val state: State = Registry.get<State>(),
@@ -28,6 +29,8 @@ internal class StateSideEffects(
     private var nextProfileRevision = 0L
     private var appliedProfileRevision = 0L
     private var timerGeneration = 0L
+    private val readyProfiles = ArrayDeque<Profile>()
+    private var drainingProfiles = false
 
     /**
      * Debounce timer for enqueuing profile API calls
@@ -80,11 +83,12 @@ internal class StateSideEffects(
         val profile = state.getAsProfile(withAttributes = true)
         if (requireAttributes && profile.attributes.propertyCount() == 0) return
 
-        val outgoing = synchronized(profileLock) {
+        synchronized(profileLock) {
             if (revision < appliedProfileRevision) return
             appliedProfileRevision = revision
             val previous = pendingProfile?.takeIf { it.anonymousId != profile.anonymousId }
                 ?.let { takePendingProfileLocked() }
+            previous?.let(readyProfiles::addLast)
 
             Registry.log.verbose(
                 "${pendingProfile?.let { "Merging" } ?: "Starting"} profile update"
@@ -99,20 +103,44 @@ internal class StateSideEffects(
             timer = Registry.clock.schedule(Registry.config.debounceInterval.toLong()) {
                 flushProfile(generation)
             }
-            previous
         }
-        outgoing?.let { enqueueTokenOrProfile(it) }
+        drainProfiles()
     }
 
     /**
      * Enqueue pending profile changes as an API call and then clear slate
      */
     private fun flushProfile(generation: Long) {
-        val profile = synchronized(profileLock) {
+        synchronized(profileLock) {
             if (generation != timerGeneration) return
-            takePendingProfileLocked()
-        } ?: return
-        enqueueTokenOrProfile(profile)
+            takePendingProfileLocked()?.let(readyProfiles::addLast)
+        }
+        drainProfiles()
+    }
+
+    private fun drainProfiles() {
+        synchronized(profileLock) {
+            if (drainingProfiles) return
+            drainingProfiles = true
+        }
+
+        var failure: Exception? = null
+        while (true) {
+            val profile = synchronized(profileLock) {
+                if (readyProfiles.isEmpty()) {
+                    drainingProfiles = false
+                    null
+                } else {
+                    readyProfiles.removeFirst()
+                }
+            } ?: break
+            try {
+                enqueueTokenOrProfile(profile)
+            } catch (e: Exception) {
+                if (failure == null) failure = e else failure.addSuppressed(e)
+            }
+        }
+        failure?.let { throw it }
     }
 
     private fun takePendingProfileLocked(): Profile? = pendingProfile?.copy()?.also {
