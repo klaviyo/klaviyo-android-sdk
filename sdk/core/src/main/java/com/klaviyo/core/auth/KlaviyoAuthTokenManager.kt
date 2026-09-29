@@ -559,7 +559,7 @@ internal class KlaviyoAuthTokenManager(
     private fun canDeliverTokenLocked(token: ValidatedToken, profileGeneration: Long): Boolean =
         state.profileGeneration == profileGeneration &&
             !state.profileResetPending &&
-            state.cachedToken?.rawToken == token.rawToken
+            state.cachedToken === token
 
     private fun isNetworkException(e: Exception): Boolean =
         e is UnknownHostException ||

@@ -11,6 +11,8 @@ import io.mockk.verify
 import java.util.Base64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -735,6 +737,51 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
                 receivedBySecond
             )
         }
+
+    @Test
+    fun `same raw JWT refresh suppresses delivery from replaced token instance`() {
+        every { Registry.dispatcher } returns Dispatchers.IO
+        val firstObserverStarted = CountDownLatch(1)
+        val releaseFirstObserver = CountDownLatch(1)
+        val replacementDelivered = CountDownLatch(1)
+        val firstObserverCalls = AtomicInteger()
+        val secondObserverCalls = AtomicInteger()
+        val replacementNotificationStarted = AtomicBoolean()
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.onTokenRefresh {
+            if (firstObserverCalls.incrementAndGet() == 1) {
+                firstObserverStarted.countDown()
+                releaseFirstObserver.await(5, TimeUnit.SECONDS)
+            } else {
+                replacementNotificationStarted.set(true)
+            }
+        }
+        manager.onTokenRefresh {
+            secondObserverCalls.incrementAndGet()
+            if (replacementNotificationStarted.get()) replacementDelivered.countDown()
+        }
+
+        try {
+            manager.registerProvider(CountingSuccessProvider(makeJwt()))
+            assertTrue(firstObserverStarted.await(5, TimeUnit.SECONDS))
+            val original = runBlocking { manager.currentToken() }
+            val timerTask = staticClock.scheduledTasks.first()
+            staticClock.execute(timerTask.time - staticClock.time)
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (manager.isCurrentToken(original) && System.nanoTime() < deadline) {
+                Thread.yield()
+            }
+            assertTrue(!manager.isCurrentToken(original))
+            releaseFirstObserver.countDown()
+
+            assertTrue(replacementDelivered.await(5, TimeUnit.SECONDS))
+            assertEquals(1, secondObserverCalls.get())
+        } finally {
+            releaseFirstObserver.countDown()
+            manager.scope.cancel()
+        }
+    }
 
     @Test
     fun `slow observer does not block synchronous invalidation`() {
