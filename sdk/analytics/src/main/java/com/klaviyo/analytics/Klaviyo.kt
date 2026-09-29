@@ -335,7 +335,8 @@ object Klaviyo {
             setProperty(propertyKey, identifier)
         }
         when (state.profileTransition(updatedProfile)) {
-            ProfileTransition.Replacement -> replaceProfileAuth { state.setProfile(updatedProfile) }
+            ProfileTransition.Replacement ->
+                replaceProfileAuth { state.setAttribute(propertyKey, identifier) }
             ProfileTransition.Unchanged -> state.setAttribute(propertyKey, identifier)
             ProfileTransition.Compatible -> state.setProfile(updatedProfile)
         }

@@ -63,11 +63,12 @@ internal class ProfileMutationObserver(
             val session = activeSession?.takeIf { it.id === sessionId } ?: return
             if (change == null && session.receivedChange) return
             val transition = session.lastProfile?.profileTransition(profile)
+                ?: (change as? StateChange.ProfileIdentifier)?.profileTransition(profile)
             session.lastProfile = profile.copy()
             if (change != null) session.receivedChange = true
             if (change is StateChange.ProfileReset ||
                 change is StateChange.ProfileIdentifier &&
-                (transition == null || transition == ProfileTransition.Replacement)
+                transition == ProfileTransition.Replacement
             ) {
                 jwtObserver.clearToken()
             }

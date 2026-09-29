@@ -316,4 +316,40 @@ class ProfileObserverTest {
         verify(exactly = 0) { mockBridge.profileMutation(oldProfile) }
         verify(exactly = 1) { jwtObserver.clearToken() }
     }
+
+    @Test
+    fun `compatible identifier change during initial read retains JWT`() {
+        val initialProfile = Profile(email = "old@example.com")
+        val enrichedProfile = Profile(email = "old@example.com", externalId = "external-id")
+        val firstReadStarted = CountDownLatch(1)
+        val releaseFirstRead = CountDownLatch(1)
+        var reads = 0
+        every { stateMock.getAsProfile() } answers {
+            if (++reads == 1) {
+                firstReadStarted.countDown()
+                assertTrue(releaseFirstRead.await(5, TimeUnit.SECONDS))
+                initialProfile
+            } else {
+                enrichedProfile
+            }
+        }
+        val mockBridge = mockk<JsBridge>(relaxed = true)
+        Registry.register<JsBridge>(mockBridge)
+        val observer = ProfileMutationObserver(jwtObserver)
+        val firstStart = thread { observer.startObserver() }
+        try {
+            assertTrue(firstReadStarted.await(5, TimeUnit.SECONDS))
+            val externalIdKey = mockk<ProfileKey>(relaxed = true).apply {
+                every { name } returns "external_id"
+            }
+            observerSlot.captured.invoke(StateChange.ProfileIdentifier(externalIdKey, null))
+        } finally {
+            releaseFirstRead.countDown()
+            firstStart.join(5_000)
+        }
+
+        verify(exactly = 1) { mockBridge.profileMutation(enrichedProfile) }
+        verify(exactly = 0) { mockBridge.profileMutation(initialProfile) }
+        verify(exactly = 0) { jwtObserver.clearToken() }
+    }
 }

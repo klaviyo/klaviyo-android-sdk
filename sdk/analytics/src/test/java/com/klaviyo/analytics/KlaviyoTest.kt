@@ -520,6 +520,16 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
+    fun `fluent email replacement retains anonymous identity`() = runTest(dispatcher) {
+        Registry.get<State>().email = "old@example.com"
+        val anonymousId = Registry.get<State>().anonymousId
+
+        Klaviyo.setEmail("new@example.com")
+
+        assertEquals(anonymousId, Registry.get<State>().anonymousId)
+    }
+
+    @Test
     fun `adding a compatible identifier retains its token`() = runTest(dispatcher) {
         Registry.get<State>().email = EMAIL
 

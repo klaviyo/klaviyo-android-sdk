@@ -1,6 +1,10 @@
 package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.ProfileKey.ANONYMOUS_ID
+import com.klaviyo.analytics.model.ProfileKey.EMAIL
+import com.klaviyo.analytics.model.ProfileKey.EXTERNAL_ID
+import com.klaviyo.analytics.model.ProfileKey.PHONE_NUMBER
 
 enum class ProfileTransition {
     Unchanged,
@@ -15,6 +19,18 @@ internal fun State.profileTransition(profile: Profile): ProfileTransition {
 
 fun Profile.profileTransition(next: Profile): ProfileTransition =
     classifyProfileTransition(identifiers(), next.identifiers())
+
+fun StateChange.ProfileIdentifier.profileTransition(next: Profile): ProfileTransition {
+    val previous = next.copy()
+    when (key.name) {
+        EMAIL.name -> previous.email = oldValue
+        EXTERNAL_ID.name -> previous.externalId = oldValue
+        PHONE_NUMBER.name -> previous.phoneNumber = oldValue
+        ANONYMOUS_ID.name -> return ProfileTransition.Replacement
+        else -> return ProfileTransition.Replacement
+    }
+    return previous.profileTransition(next)
+}
 
 private fun Profile.identifiers(): List<String?> =
     listOf(externalId, email, phoneNumber).map(::normalizedIdentifier)
