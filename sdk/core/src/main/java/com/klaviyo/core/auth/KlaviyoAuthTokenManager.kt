@@ -56,14 +56,16 @@ internal class KlaviyoAuthTokenManager(
         var invalidationGeneration: Long? = null
         val transition = synchronized(completionBarrier) {
             val lifecycleTransition = synchronized(stateLock) {
-                val replacesProvider = state.provider != null
+                val invalidatesPreviousProvider =
+                    state.provider != null || state.providerWasUnregistered
                 val cleanup = detachTokenStateLocked()
                 state.profileGeneration++
                 pendingToComplete = finishPendingTransitionLocked()
                 state.cachedToken = null
                 state.rejectedToken = null
                 state.provider = provider
-                if (replacesProvider) invalidationGeneration = state.profileGeneration
+                state.providerWasUnregistered = false
+                if (invalidatesPreviousProvider) invalidationGeneration = state.profileGeneration
                 LifecycleTransition(cleanup, state.profileGeneration)
             }
             completeCleanup(lifecycleTransition.cleanup)
@@ -84,6 +86,7 @@ internal class KlaviyoAuthTokenManager(
             val cleanup = synchronized(stateLock) state@{
                 if (state.provider == null) return@state null
                 state.provider = null
+                state.providerWasUnregistered = true
                 state.profileGeneration++
                 state.resetGeneration++
                 val detached = detachTokenStateLocked()
@@ -793,6 +796,7 @@ internal class KlaviyoAuthTokenManager(
 
     private class State {
         var provider: AuthTokenProvider? = null
+        var providerWasUnregistered: Boolean = false
         var cachedToken: ValidatedToken? = null
         var rejectedToken: String? = null
         var inFlightFetch: InFlightFetch? = null

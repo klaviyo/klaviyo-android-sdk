@@ -1,10 +1,16 @@
 package com.klaviyo.core.auth
 
+import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.every
 import io.mockk.verify
 import java.io.IOException
 import java.util.Base64
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
@@ -845,6 +851,54 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         manager.unregisterProvider()
 
         assertEquals(1, invalidations)
+    }
+
+    @Test
+    fun `register after concurrent unregister still invalidates old token`() {
+        every { Registry.dispatcher } returns Dispatchers.IO
+        val manager = KlaviyoAuthTokenManager()
+        val invalidationStarted = CountDownLatch(1)
+        val releaseInvalidation = CountDownLatch(1)
+        val invalidations = AtomicInteger()
+        manager.onTokenInvalidated {
+            if (invalidations.incrementAndGet() == 1) {
+                invalidationStarted.countDown()
+                releaseInvalidation.await(5, TimeUnit.SECONDS)
+            }
+        }
+        manager.registerProvider(DeferredProvider())
+
+        val rejection = Thread { manager.rejectCurrentToken() }.apply { start() }
+        assertTrue(invalidationStarted.await(5, TimeUnit.SECONDS))
+        val unregister = Thread { manager.unregisterProvider() }.apply { start() }
+        try {
+            assertTrue(
+                waitUntilBlockedOrFinished(unregister) &&
+                    unregister.state == Thread.State.BLOCKED
+            )
+            val register = Thread { manager.registerProvider(DeferredProvider()) }.apply { start() }
+            try {
+                assertTrue(waitUntilBlockedOrFinished(register))
+            } finally {
+                releaseInvalidation.countDown()
+                register.join(5_000L)
+            }
+            unregister.join(5_000L)
+            rejection.join(5_000L)
+            assertEquals(2, invalidations.get())
+        } finally {
+            releaseInvalidation.countDown()
+            manager.scope.cancel()
+        }
+    }
+
+    private fun waitUntilBlockedOrFinished(thread: Thread): Boolean {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (System.nanoTime() < deadline) {
+            if (thread.state == Thread.State.BLOCKED || !thread.isAlive) return true
+            Thread.yield()
+        }
+        return false
     }
 
     @Test
