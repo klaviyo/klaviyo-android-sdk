@@ -122,6 +122,19 @@ internal class PushTokenApiRequestTest : BaseApiRequestTest<PushTokenApiRequest>
     }
 
     @Test
+    fun `Requests with the same token and profile are equal even if device metadata differs`() {
+        val aRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+
+        every { DeviceProperties.notificationPermissionGranted } returns false
+        every { DeviceProperties.backgroundDataEnabled } returns false
+        every { DeviceProperties.appVersion } returns "9.9.9"
+        val bRequest = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
+
+        assertEquals(aRequest, bRequest)
+        assertEquals(aRequest.hashCode(), bRequest.hashCode())
+    }
+
+    @Test
     fun `Request body reflects current device state on every read`() {
         val request = PushTokenApiRequest(PUSH_TOKEN, stubProfile)
         val authorized = JSONObject(request.requestBody!!).attributes()
