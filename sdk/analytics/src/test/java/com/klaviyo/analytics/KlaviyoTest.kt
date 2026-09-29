@@ -460,6 +460,21 @@ internal class KlaviyoTest : BaseTest() {
         }
 
     @Test
+    fun `setProfile without identifiers clears token state without reacquiring`() = runTest(
+        dispatcher
+    ) {
+        Registry.get<State>().email = EMAIL
+
+        Klaviyo.setProfile(Profile())
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(Registry.get<State>().email)
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
+        coVerify(exactly = 0) { mockAuthTokenManager.refreshAfterProfileChange(any()) }
+    }
+
+    @Test
     fun `queued profile identification uses guarded acquisition after logout`() = runTest(
         dispatcher
     ) {

@@ -203,7 +203,9 @@ object Klaviyo {
             return@safeApply
         }
 
-        replaceProfileAuth { state.setProfile(profile) }
+        replaceProfileAuth(
+            refreshToken = profile.hasProfileIdentifier()
+        ) { state.setProfile(profile) }
     }
 
     /**
@@ -339,13 +341,17 @@ object Klaviyo {
         }
     }
 
-    private fun replaceProfileAuth(updateProfile: () -> Unit) {
+    private fun replaceProfileAuth(refreshToken: Boolean = true, updateProfile: () -> Unit) {
         val auth = Registry.get<AuthTokenManager>()
         val generation = auth.invalidate()
         updateProfile()
         CoroutineScope(Registry.dispatcher).safeLaunch {
             try {
-                auth.refreshAfterProfileChange(expectedGeneration = generation)
+                if (refreshToken) {
+                    auth.refreshAfterProfileChange(expectedGeneration = generation)
+                } else {
+                    auth.clearTokenState(expectedGeneration = generation)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: AuthTokenException.NoProviderRegistered) {
