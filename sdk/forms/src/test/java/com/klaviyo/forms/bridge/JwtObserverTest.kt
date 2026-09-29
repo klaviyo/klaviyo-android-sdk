@@ -8,6 +8,7 @@ import com.klaviyo.core.auth.TokenRefreshObserver
 import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.CapturingSlot
+import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -19,6 +20,7 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Before
 import org.junit.Test
@@ -86,9 +88,13 @@ class JwtObserverTest : BaseTest() {
         val observer = JwtObserver()
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
+        val oldCallback = invalidationObserver.captured
         observer.stopObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        clearMocks(mockJsBridge, answers = false)
 
-        invalidationObserver.captured.invoke()
+        oldCallback.invoke()
 
         verify(exactly = 0) { mockJsBridge.jwtMutation("") }
     }
@@ -371,14 +377,18 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
-    fun `startObserver deregisters before registering so the refresh observer is not duplicated`() {
+    fun `restarting deregisters the prior refresh callback before registering the new one`() {
         val offObserver = slot<TokenRefreshObserver>()
-        val onObserver = slot<TokenRefreshObserver>()
+        val onObservers = mutableListOf<TokenRefreshObserver>()
         every { mockAuthTokenManager.offTokenRefresh(capture(offObserver)) } just runs
-        every { mockAuthTokenManager.onTokenRefresh(capture(onObserver)) } just runs
+        every { mockAuthTokenManager.onTokenRefresh(any()) } answers {
+            onObservers += firstArg<TokenRefreshObserver>()
+        }
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("initial")
 
         val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -386,6 +396,7 @@ class JwtObserverTest : BaseTest() {
             mockAuthTokenManager.offTokenRefresh(any())
             mockAuthTokenManager.onTokenRefresh(any())
         }
-        assertSame(offObserver.captured, onObserver.captured)
+        assertSame(onObservers.first(), offObserver.captured)
+        assertNotSame(onObservers.first(), onObservers.last())
     }
 }

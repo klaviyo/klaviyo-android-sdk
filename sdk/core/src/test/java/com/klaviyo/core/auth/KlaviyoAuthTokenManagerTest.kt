@@ -796,6 +796,21 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
+    fun `rejection during profile reset preserves pending clear generation`() =
+        runTest(dispatcher) {
+            val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(SuccessProvider(token))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val resetGeneration = manager.invalidate()
+            manager.rejectCurrentToken()
+            manager.clearTokenState(resetGeneration)
+
+            assertEquals(token, manager.currentToken().rawToken)
+        }
+
+    @Test
     fun `provider replacement invalidates observers before eager fetch`() = runTest(dispatcher) {
         val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
         val secondToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)

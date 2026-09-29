@@ -109,9 +109,10 @@ internal class KlaviyoAuthTokenManager(
                 val cleanup = detachTokenStateLocked()
                 state.cachedToken?.rawToken?.let { state.rejectedToken = it }
                 state.cachedToken = null
-                state.profileGeneration++
-                state.resetGeneration++
-                state.profileResetPending = false
+                if (!state.profileResetPending) {
+                    state.profileGeneration++
+                    state.resetGeneration++
+                }
                 LifecycleTransition(cleanup, state.profileGeneration)
             }
             completeCleanup(transition.cleanup)

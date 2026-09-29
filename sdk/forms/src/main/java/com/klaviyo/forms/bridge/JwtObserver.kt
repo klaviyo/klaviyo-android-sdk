@@ -38,10 +38,8 @@ internal class JwtObserver : JsBridgeObserver {
      * Stable instance so it can be unregistered by reference via [AuthTokenManager.offTokenRefresh].
      * Invoked on the manager's IO dispatcher, so it hops to the UI thread before touching the bridge.
      */
-    private val refreshObserver: TokenRefreshObserver = { jwt, isCurrent ->
-        onTokenRefreshed(jwt, isCurrent)
-    }
-    private val invalidationObserver: TokenInvalidationObserver = { onTokenInvalidated() }
+    private var refreshObserver: TokenRefreshObserver? = null
+    private var invalidationObserver: TokenInvalidationObserver? = null
 
     /**
      * Monotonic sequence claimed by each token source when its injection is *requested*, not when it
@@ -78,24 +76,32 @@ internal class JwtObserver : JsBridgeObserver {
     @Volatile private var resetDedupOnNextInjection = false
 
     override fun startObserver() {
-        stopped = false
         // A new session loads a fresh webview; forget the previous session's injected value so an
         // unchanged token is re-delivered rather than deduped away. Consumed on the UI thread.
         resetDedupOnNextInjection = true
         val thisFetch = Any()
         latestFetch = thisFetch
+        stopped = false
         // Reserve the initial fetch's place in the injection order now, at request time, so any
         // refresh that fires while the fetch is still in flight outranks it. Assigning the sequence
         // only once the token resolved let a slow or failed fetch clobber a fresher refreshed token.
         val fetchSequence = injectionSequence.incrementAndGet()
         // off-then-on guarantees a single registration across re-entrant starts (duplicate
         // registrations would inject the refreshed token more than once).
-        Registry.get<AuthTokenManager>().apply {
-            offTokenRefresh(refreshObserver)
-            offTokenInvalidated(invalidationObserver)
-            onTokenRefresh(refreshObserver)
-            onTokenInvalidated(invalidationObserver)
+        val nextRefreshObserver: TokenRefreshObserver = { jwt, isCurrent ->
+            onTokenRefreshed(jwt, isCurrent, thisFetch)
         }
+        val nextInvalidationObserver: TokenInvalidationObserver = {
+            clearToken(thisFetch)
+        }
+        Registry.get<AuthTokenManager>().apply {
+            refreshObserver?.let(::offTokenRefresh)
+            invalidationObserver?.let(::offTokenInvalidated)
+            onTokenRefresh(nextRefreshObserver)
+            onTokenInvalidated(nextInvalidationObserver)
+        }
+        refreshObserver = nextRefreshObserver
+        invalidationObserver = nextInvalidationObserver
 
         fetchJob?.cancel()
         fetchJob = scope.safeLaunch {
@@ -124,16 +130,23 @@ internal class JwtObserver : JsBridgeObserver {
 
     override fun stopObserver() {
         stopped = true
-        Registry.get<AuthTokenManager>().offTokenRefresh(refreshObserver)
-        Registry.get<AuthTokenManager>().offTokenInvalidated(invalidationObserver)
+        latestFetch = null
+        refreshObserver?.let(Registry.get<AuthTokenManager>()::offTokenRefresh)
+        invalidationObserver?.let(Registry.get<AuthTokenManager>()::offTokenInvalidated)
+        refreshObserver = null
+        invalidationObserver = null
         fetchJob?.cancel()
         fetchJob = null
     }
 
     internal fun clearToken() {
+        latestFetch?.let { clearToken(it) }
+    }
+
+    private fun clearToken(session: Any) {
+        if (stopped || latestFetch !== session) return
         val sequence = injectionSequence.incrementAndGet()
         clearedSequence.set(sequence)
-        val session = latestFetch
         Registry.threadHelper.runOnUiThread {
             if (!stopped && latestFetch === session) {
                 injectIfLatest(sequence, "")
@@ -148,17 +161,15 @@ internal class JwtObserver : JsBridgeObserver {
      * a previous session could otherwise run after a stop/start cycle flipped [stopped] back to
      * false and inject a stale token into the freshly loaded webview.
      */
-    private fun onTokenRefreshed(jwt: String, isCurrent: () -> Boolean) {
+    private fun onTokenRefreshed(jwt: String, isCurrent: () -> Boolean, session: Any) {
+        if (stopped || latestFetch !== session) return
         val sequence = injectionSequence.incrementAndGet()
-        val session = latestFetch
         Registry.threadHelper.runOnUiThread {
             if (!stopped && latestFetch === session && isCurrent()) {
                 injectIfLatest(sequence, jwt)
             }
         }
     }
-
-    private fun onTokenInvalidated() = clearToken()
 
     /**
      * Inject [token] only if [sequence] is newer than any already applied, so an out-of-order
