@@ -126,6 +126,24 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
+    fun `Unmatched company change discards pending fence before a later matching key`() =
+        runTest(dispatcher) {
+            val state = KlaviyoState().apply { apiKey = "company-a" }
+            val sideEffects = StateSideEffects(state, apiClientMock)
+            var generation = 40L
+            every { authTokenManagerMock.invalidate() } answers { ++generation }
+
+            sideEffects.fenceApiKeyChange("company-b")
+            state.apiKey = "company-c"
+            state.apiKey = "company-b"
+            dispatcher.scheduler.advanceUntilIdle()
+
+            verify(exactly = 3) { authTokenManagerMock.invalidate() }
+            coVerify(exactly = 1) { authTokenManagerMock.clearTokenState(42L) }
+            coVerify(exactly = 1) { authTokenManagerMock.clearTokenState(43L) }
+        }
+
+    @Test
     fun `Subscribes on init and detach unsubscribes`() {
         val sideEffects = StateSideEffects(stateMock, apiClientMock)
         verify { stateMock.onStateChange(any<StateChangeObserver>()) }

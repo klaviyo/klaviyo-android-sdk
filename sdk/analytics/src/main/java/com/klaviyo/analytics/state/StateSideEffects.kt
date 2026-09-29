@@ -64,11 +64,9 @@ internal class StateSideEffects(
     private fun onApiKeyChange(oldApiKey: String?) {
         val auth = Registry.get<AuthTokenManager>()
         val generation = synchronized(apiKeyFenceLock) {
-            pendingApiKeyFence
-                ?.takeIf { it.first == state.apiKey }
-                ?.second
-                ?.also { pendingApiKeyFence = null }
-                ?: auth.invalidate()
+            val pending = pendingApiKeyFence
+            pendingApiKeyFence = null
+            pending?.takeIf { it.first == state.apiKey }?.second ?: auth.invalidate()
         }
         CoroutineScope(Registry.dispatcher).safeLaunch {
             auth.clearTokenState(expectedGeneration = generation)

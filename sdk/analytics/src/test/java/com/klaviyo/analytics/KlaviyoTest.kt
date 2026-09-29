@@ -351,6 +351,33 @@ internal class KlaviyoTest : BaseTest() {
         coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
     }
 
+    @Test
+    fun `Failed lifecycle registration does not fence current company`() = runTest(dispatcher) {
+        every { mockApplication.registerActivityLifecycleCallbacks(any()) } throws
+            IllegalStateException("registration failed")
+
+        runCatching {
+            Klaviyo.initialize("new-$API_KEY", mockContext)
+        }
+
+        assertEquals(API_KEY, Registry.get<State>().apiKey)
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+    }
+
+    @Test
+    fun `Failed service startup leaves committed company and cleared JWT`() = runTest(dispatcher) {
+        every { mockApiClient.startService() } throws IllegalStateException("startup failed")
+
+        runCatching {
+            Klaviyo.initialize("new-$API_KEY", mockContext)
+        }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("new-$API_KEY", Registry.get<State>().apiKey)
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(1L) }
+    }
+
     private fun verifyProfileDebounced() {
         staticClock.execute(debounceTime.toLong())
         verify(exactly = 1) { mockApiClient.enqueueProfile(any()) }

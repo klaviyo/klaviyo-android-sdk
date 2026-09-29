@@ -96,10 +96,10 @@ object Klaviyo {
             .applicationContext(applicationContext)
             .prepare()
 
+        registerForLifecycleCallbacks(applicationContext)
+
         Registry.getOrNull<StateSideEffects>()?.fenceApiKeyChange(normalizedApiKey)
         Registry.register<Config>(configBuilder.build())
-
-        registerForLifecycleCallbacks(applicationContext)
 
         Registry.registerOnce<State> {
             KlaviyoState().also { state ->
@@ -107,9 +107,9 @@ object Klaviyo {
             }
         }
 
-        Registry.get<ApiClient>().startService()
-
         Registry.get<State>().apiKey = normalizedApiKey
+
+        Registry.get<ApiClient>().startService()
 
         if (preInitQueue.isNotEmpty()) {
             Registry.log.info(
