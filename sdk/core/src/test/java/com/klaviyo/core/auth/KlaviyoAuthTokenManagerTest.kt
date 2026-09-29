@@ -10,11 +10,13 @@ import java.util.Base64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
@@ -306,6 +308,41 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
 
         assertEquals(EXP_SECONDS, token.expiresAtEpochSeconds)
         assertEquals(2, provider.callCount)
+    }
+
+    @Test
+    fun `unregister before a delayed registration rejects the stale provider`() = runTest(
+        dispatcher
+    ) {
+        val manager = KlaviyoAuthTokenManager()
+        val generationField = manager.javaClass.getDeclaredField("generation").apply {
+            isAccessible = true
+        }
+        (generationField.get(manager) as AtomicLong).set(2L)
+        val mailboxField = manager.javaClass.getDeclaredField("commands").apply {
+            isAccessible = true
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val mailbox = mailboxField.get(manager) as Channel<Any>
+        val commandPrefix = "${KlaviyoAuthTokenManager::class.java.name}\$Command"
+        val unregisterType = Class.forName("$commandPrefix\$Unregister")
+        val registerType = Class.forName("$commandPrefix\$Register")
+        val unregister = unregisterType.getDeclaredConstructor(Long::class.javaPrimitiveType).apply {
+            isAccessible = true
+        }.newInstance(2L)
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val register = registerType.getDeclaredConstructor(
+            Long::class.javaPrimitiveType,
+            AuthTokenProvider::class.java
+        ).apply { isAccessible = true }.newInstance(1L, provider)
+        mailbox.trySend(unregister)
+        mailbox.trySend(register)
+        dispatcher.scheduler.runCurrent()
+
+        val failure = runCatching { manager.currentToken(timeoutMs = 100L) }.exceptionOrNull()
+        assertTrue(failure is AuthTokenException.NoProviderRegistered)
+        assertEquals(0, provider.callCount)
     }
 
     @Test

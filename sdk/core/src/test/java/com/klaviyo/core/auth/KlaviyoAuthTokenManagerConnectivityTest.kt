@@ -182,6 +182,35 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     }
 
     @Test
+    fun `foreground expiration preserves recovery for an in-flight scheduled refresh`() = runTest(
+        dispatcher
+    ) {
+        val provider = InitialThenPendingProvider(
+            makeJwt(),
+            makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val timer = staticClock.scheduledTasks.first()
+        staticClock.execute(timer.time - staticClock.time)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(2, provider.callCount)
+
+        staticClock.time = EXP_SECONDS * 1000L
+        lifecycleObserver.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
+        dispatcher.scheduler.runCurrent()
+        provider.failPending(IOException("network down"))
+        dispatcher.scheduler.runCurrent()
+
+        assertNotNull(manager.connectivityWaitJob())
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(3, provider.callCount)
+    }
+
+    @Test
     fun `queued connectivity retry cannot fetch after clearTokenState returns`() = runTest(
         dispatcher
     ) {
@@ -730,6 +759,29 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         override fun fetchToken(callback: AuthTokenProvider.Callback) {
             callCount++
             callback.onSuccess(jwt)
+        }
+    }
+
+    private class InitialThenPendingProvider(
+        private val initialJwt: String,
+        private val retryJwt: String
+    ) : AuthTokenProvider {
+        var callCount = 0
+            private set
+        private var pending: AuthTokenProvider.Callback? = null
+
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callCount++
+            when (callCount) {
+                1 -> callback.onSuccess(initialJwt)
+                2 -> pending = callback
+                else -> callback.onSuccess(retryJwt)
+            }
+        }
+
+        fun failPending(error: Throwable) {
+            requireNotNull(pending).onFailure(error)
+            pending = null
         }
     }
 }

@@ -189,7 +189,10 @@ internal class KlaviyoAuthTokenManager(
                     Registry.log.verbose("Dropping stale provider unregistration")
                     return
                 }
-                if (state.provider == null) return
+                if (state.provider == null) {
+                    state.generation = command.generation
+                    return
+                }
                 retireWork()
                 state.generation = command.generation
                 state.provider = null
@@ -443,11 +446,13 @@ internal class KlaviyoAuthTokenManager(
                 state.cachedToken = null
                 tokenSnapshot = TokenSnapshot(state.generation, null)
                 state.deliveryId++
-                state.refreshId++
-                state.refreshTimer?.cancel()
-                state.refreshTimer = null
-                state.refreshAt = null
-                startFetch()
+                if (!state.refreshFired) {
+                    state.refreshId++
+                    state.refreshTimer?.cancel()
+                    state.refreshTimer = null
+                    state.refreshAt = null
+                    startFetch()
+                }
                 Registry.log.info(
                     "AuthTokenManager: foreground transition (case=expired-cached-token)"
                 )
