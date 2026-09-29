@@ -4,6 +4,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.auth.TokenRefreshObserver
+import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.core.safeLaunch
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
@@ -94,10 +95,9 @@ internal class JwtObserver : JsBridgeObserver {
 
         fetchJob?.cancel()
         fetchJob = scope.safeLaunch {
-            val token = try {
+            val token: ValidatedToken? = try {
                 Registry.get<AuthTokenManager>()
                     .currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
-                    .rawToken
             } catch (e: CancellationException) {
                 throw e
             } catch (_: AuthTokenException.NoProviderRegistered) {
@@ -109,8 +109,10 @@ internal class JwtObserver : JsBridgeObserver {
             }
 
             Registry.threadHelper.runOnUiThread {
-                if (latestFetch === thisFetch && !stopped) {
-                    injectIfLatest(fetchSequence, token ?: "")
+                if (latestFetch === thisFetch && !stopped &&
+                    (token == null || Registry.get<AuthTokenManager>().isCurrentToken(token))
+                ) {
+                    injectIfLatest(fetchSequence, token?.rawToken ?: "")
                 }
             }
         }

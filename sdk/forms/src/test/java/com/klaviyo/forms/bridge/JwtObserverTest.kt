@@ -43,6 +43,7 @@ class JwtObserverTest : BaseTest() {
         Registry.register<JsBridge>(mockJsBridge)
         every { mockAuthTokenManager.onTokenRefresh(any()) } just runs
         every { mockAuthTokenManager.offTokenRefresh(any()) } just runs
+        every { mockAuthTokenManager.isCurrentToken(any()) } returns true
     }
 
     @After
@@ -190,6 +191,21 @@ class JwtObserverTest : BaseTest() {
         refreshObserver.captured.invoke(token) { true }
 
         verify(exactly = 1) { mockJsBridge.jwtMutation(token) }
+    }
+
+    @Test
+    fun `initial fetch invalidated before queued ui delivery does not inject its token`() {
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue.add(firstArg()) }
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("stale")
+        val observer = JwtObserver()
+
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        every { mockAuthTokenManager.isCurrentToken(any()) } returns false
+        uiQueue.forEach { it.invoke() }
+
+        verify(inverse = true) { mockJsBridge.jwtMutation("stale") }
     }
 
     @Test

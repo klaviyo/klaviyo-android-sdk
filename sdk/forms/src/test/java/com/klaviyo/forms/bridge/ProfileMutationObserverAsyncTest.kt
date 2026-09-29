@@ -35,6 +35,7 @@ class ProfileMutationObserverAsyncTest : BaseTest() {
     private val mockAuth = mockk<AuthTokenManager>().apply {
         every { onTokenRefresh(any()) } just runs
         every { offTokenRefresh(any()) } just runs
+        every { isCurrentToken(any()) } returns true
     }
 
     private fun captureRefreshObserver(): CapturingSlot<TokenRefreshObserver> =
