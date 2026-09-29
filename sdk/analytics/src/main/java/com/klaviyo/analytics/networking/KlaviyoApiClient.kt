@@ -49,6 +49,14 @@ internal object KlaviyoApiClient : ApiClient {
      */
     internal const val MAX_QUEUE_SIZE: Int = 200
 
+    /**
+     * Largest persisted queue whose entries are all examined when restoring.
+     *
+     * Beyond this, only a [MAX_QUEUE_SIZE] window from each end is read, so the cost of restoring
+     * stays bounded no matter how large a backlog grew.
+     */
+    internal const val MAX_RESTORE_CANDIDATES: Int = MAX_QUEUE_SIZE * 2
+
     private var handlerThread = Registry.threadHelper.getHandlerThread(
         KlaviyoApiClient::class.simpleName
     )
@@ -221,22 +229,6 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }.forEach { request ->
             if (!apiQueue.contains(request)) {
-                while (apiQueue.size >= MAX_QUEUE_SIZE) {
-                    // Evict the oldest request by enqueue timestamp, not the front of the deque —
-                    // head-of-line requests are inserted at the front but are the newest.
-                    // The minByOrNull + remove pair is not atomic on the ConcurrentLinkedDeque, so a
-                    // concurrent enqueue could target the same victim. We gate the side effects on
-                    // remove()'s boolean: if another thread already evicted this request, remove()
-                    // returns false and the while-loop simply re-scans — a best-effort, self-healing
-                    // soft bound rather than a hard guarantee.
-                    val evicted = apiQueue.minByOrNull { it.queuedTime } ?: break
-                    if (apiQueue.remove(evicted)) {
-                        Registry.dataStore.clear(evicted.uuid)
-                        Registry.log.warning(
-                            "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${evicted.type}"
-                        )
-                    }
-                }
                 Registry.dataStore.store(request.uuid, request.toString())
                 if (headOfLine) {
                     apiQueue.offerFirst(request)
@@ -247,7 +239,10 @@ internal object KlaviyoApiClient : ApiClient {
                 addedRequest = true
             }
         }
-        if (addedRequest) {
+
+        val trimmed = trimToCapacity()
+
+        if (addedRequest || trimmed) {
             persistQueue()
         }
     }
@@ -348,6 +343,10 @@ internal object KlaviyoApiClient : ApiClient {
                 Registry.log.info(it)
                 emptyArray<String>()
             }
+        }?.let { uuids ->
+            selectNewestWithinCapacity(uuids).also {
+                if (it.size < uuids.size) wasMutated = true
+            }
         }?.forEach { uuid ->
             Registry.dataStore.fetch(uuid).let { json ->
                 if (json == null) {
@@ -375,6 +374,109 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
         queueInitialized = true
+    }
+
+    /**
+     * Narrow a persisted queue to the entries worth examining, so the cost of restoring is bounded
+     * by [MAX_QUEUE_SIZE] rather than by how large the backlog grew.
+     *
+     * Reading a request's timestamp costs a JSON parse, so examining every entry of an unbounded
+     * backlog scales without limit — a queue an order of magnitude beyond capacity would spend
+     * seconds on it before the SDK finishes starting up.
+     *
+     * Entries are taken from both ends because each holds requests worth keeping: priority
+     * requests are inserted at the front of the deque, and the most recently enqueued are appended
+     * at the back. Anything in between is older than a full queue's worth of requests on both
+     * sides, and is discarded without being read.
+     */
+    private fun boundCandidates(uuids: List<String>): List<String> {
+        Registry.log.warning(
+            "Persisted queue of ${uuids.size} exceeds capacity ($MAX_QUEUE_SIZE), " +
+                "discarding the most outdated requests"
+        )
+
+        if (uuids.size <= MAX_RESTORE_CANDIDATES) return uuids
+
+        return uuids.take(MAX_QUEUE_SIZE) + uuids.takeLast(MAX_QUEUE_SIZE)
+    }
+
+    /**
+     * Narrow a persisted uuid list to the newest [MAX_QUEUE_SIZE] entries by enqueue timestamp,
+     * clearing the rest from the persistent store.
+     *
+     * A store written by an SDK version that predates the queue cap can hold an unbounded number
+     * of requests. Selecting before decoding keeps the discarded requests from being decoded into
+     * [KlaviyoApiRequest] objects: only each entry's timestamp is read here, and the JSON is
+     * released before the next entry is examined. The raw bodies are resident in the
+     * SharedPreferences map for the process lifetime regardless, so this bounds the decoded
+     * request objects, not the store's own footprint.
+     *
+     * Entries whose timestamp cannot be read sort as oldest, so they are discarded first.
+     *
+     * @return the uuids to restore, in their original order
+     */
+    private fun selectNewestWithinCapacity(persisted: Array<String>): Array<String> {
+        // A malformed index can repeat a uuid, and retaining every occurrence of one would both
+        // exceed the cap and re-decode the same request. Deduplicating also marks the index as
+        // mutated, so the normalized form replaces it on disk.
+        val uuids = persisted.distinct()
+        if (uuids.size <= MAX_QUEUE_SIZE) return uuids.toTypedArray()
+
+        val candidates = boundCandidates(uuids)
+
+        // Read each timestamp exactly once: a sort selector is re-invoked per comparison, which
+        // would re-parse every request body O(n log n) times.
+        val queuedTimes = candidates.associateWith { uuid ->
+            Registry.dataStore.fetch(uuid)?.let { json ->
+                try {
+                    JSONObject(json).optLong(KlaviyoApiRequest.TIME_JSON_KEY, Long.MIN_VALUE)
+                } catch (exception: JSONException) {
+                    Registry.log.debug("Invalid request JSON $uuid", exception)
+                    Long.MIN_VALUE
+                }
+            } ?: Long.MIN_VALUE
+        }
+
+        val retained = candidates.sortedByDescending { queuedTimes[it] }
+            .take(MAX_QUEUE_SIZE)
+            .toSet()
+
+        Registry.dataStore.clear(uuids.filterNot(retained::contains))
+
+        return uuids.filter(retained::contains).toTypedArray()
+    }
+
+    /**
+     * Drop the oldest requests by [KlaviyoApiRequest.queuedTime] until the queue is within
+     * [MAX_QUEUE_SIZE], removing them from the persistent store in a single write.
+     *
+     * Requests are evicted by enqueue timestamp rather than deque position, because head-of-line
+     * requests are inserted at the front but are the newest.
+     *
+     * Selecting victims and removing them is not atomic on the [ConcurrentLinkedDeque], so a
+     * concurrent enqueue could target the same victim. Side effects are gated on `remove()`'s
+     * boolean: a request another thread already removed is not reported or cleared, making this a
+     * best-effort soft bound rather than a hard guarantee.
+     *
+     * @return whether any requests were dropped
+     */
+    private fun trimToCapacity(): Boolean {
+        val overflow = apiQueue.size - MAX_QUEUE_SIZE
+        if (overflow <= 0) return false
+
+        val evictedUuids = apiQueue.sortedBy { it.queuedTime }
+            .take(overflow)
+            .filter { apiQueue.remove(it) }
+            .map { request ->
+                Registry.log.warning(
+                    "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${request.type}"
+                )
+                request.uuid
+            }
+
+        Registry.dataStore.clear(evictedUuids)
+
+        return evictedUuids.isNotEmpty()
     }
 
     /**
