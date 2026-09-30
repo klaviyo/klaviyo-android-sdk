@@ -712,6 +712,41 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         assertEquals(5, provider.callCount)
     }
 
+    @Test
+    fun `connectivity retry that outlives its refresh waiter does not retry immediately on failure`() =
+        runTest(dispatcher) {
+            val provider = PendingScriptedProvider(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(UnknownHostException("scheduled refresh offline")),
+                    null,
+                    Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                )
+            )
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            executeScheduledRefresh()
+            assertEquals(2, provider.callCount)
+            assertNotNull(manager.connectivityWaitJob())
+
+            fakeNetworkMonitor.simulateConnected(isConnected = true)
+            dispatcher.scheduler.runCurrent()
+            assertEquals(3, provider.callCount)
+
+            dispatcher.scheduler.advanceTimeBy(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS + 1)
+            dispatcher.scheduler.runCurrent()
+            assertNull(manager.connectivityWaitJob())
+
+            provider.failPending(ConnectException("connectivity retry offline"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(3, provider.callCount)
+            assertNull(manager.connectivityWaitJob())
+            assertEquals(0, fakeNetworkMonitor.observerCount())
+        }
+
     // MARK: - At-most-one job invariant
 
     @Test

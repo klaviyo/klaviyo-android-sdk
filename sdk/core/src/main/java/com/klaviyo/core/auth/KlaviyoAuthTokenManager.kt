@@ -231,13 +231,13 @@ internal class KlaviyoAuthTokenManager(
                 } else if (state.provider == null) {
                     command.reply.completeExceptionally(AuthTokenException.NoProviderRegistered)
                 } else if (state.resetPending || state.generation != generation.get()) {
-                    state.waiters.add(Waiter(command.reply, command.refreshId))
+                    addWaiter(command)
                 } else {
                     val cached = state.cachedToken?.takeIf { isStillValid(it) }
                     if (cached != null && !command.forceRefresh) {
                         command.reply.complete(cached)
                     } else {
-                        state.waiters.add(Waiter(command.reply, command.refreshId))
+                        addWaiter(command)
                         startFetch()
                     }
                 }
@@ -279,6 +279,11 @@ internal class KlaviyoAuthTokenManager(
         }
     }
 
+    private fun addWaiter(command: Command.Token) {
+        state.waiters.add(Waiter(command.reply, command.refreshId))
+        if (command.refreshId != null) state.fetchServesRefresh = true
+    }
+
     private fun startFetch() {
         if (state.fetchJob != null || state.resetPending || state.generation != generation.get()) {
             return
@@ -300,6 +305,8 @@ internal class KlaviyoAuthTokenManager(
             return
         }
         state.fetchJob = null
+        val servedRefresh = state.fetchServesRefresh || state.waiters.any { it.refreshId != null }
+        state.fetchServesRefresh = false
         command.result.fold(
             onSuccess = { token ->
                 state.cachedToken = token
@@ -316,10 +323,7 @@ internal class KlaviyoAuthTokenManager(
                 deliveries.trySend(Delivery(deliveryId, state.generation, token, observers))
             },
             onFailure = { error ->
-                if (isConnectivityError(error) &&
-                    state.connectivityJob == null &&
-                    state.waiters.none { it.refreshId != null }
-                ) {
+                if (isConnectivityError(error) && state.connectivityJob == null && !servedRefresh) {
                     armConnectivityWait(true)
                 }
                 failWaiters(error)
@@ -365,6 +369,7 @@ internal class KlaviyoAuthTokenManager(
         state.deliveryId++
         state.fetchJob?.cancel()
         state.fetchJob = null
+        state.fetchServesRefresh = false
         retireRefresh()
         state.connectivityId++
         state.connectivityJob?.cancel()
@@ -521,6 +526,7 @@ internal class KlaviyoAuthTokenManager(
         var fetchId = 0L
         var deliveryId = 0L
         var fetchJob: Job? = null
+        var fetchServesRefresh = false
         var refreshId = 0L
         var refreshTimer: Clock.Cancellable? = null
         var refreshAt: Long? = null
