@@ -1,5 +1,6 @@
 package com.klaviyo.core.auth
 
+import androidx.annotation.VisibleForTesting
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
@@ -34,9 +35,13 @@ internal class KlaviyoAuthTokenManager(
 ) : AuthTokenManager {
 
     internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
-    private val commands = Channel<Command>(Channel.UNLIMITED)
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal val commands = Channel<Command>(Channel.UNLIMITED)
     private val deliveries = Channel<Delivery>(Channel.UNLIMITED)
-    private val generation = AtomicLong()
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal val generation = AtomicLong()
 
     private val state = State()
 
@@ -522,7 +527,8 @@ internal class KlaviyoAuthTokenManager(
     private class StaleRefreshException : CancellationException("Refresh superseded")
 
     /** Generation IDs pair each reset with its clear and reject superseded async completions. */
-    private sealed interface Command {
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal sealed interface Command {
         data class Register(val generation: Long, val provider: AuthTokenProvider) : Command
         data class Unregister(val generation: Long) : Command
         data class Invalidate(val generation: Long) : Command
