@@ -180,17 +180,14 @@ internal class KlaviyoAuthTokenManager(
                     Registry.log.verbose("Dropping stale provider unregistration")
                     return
                 }
-                if (state.provider == null) {
-                    state.generation = command.generation
-                    return
-                }
+                val hadProvider = state.provider != null
                 retireWork()
                 state.generation = command.generation
                 state.provider = null
                 state.cachedToken = null
                 state.resetPending = false
                 failWaiters(AuthTokenException.NoProviderRegistered)
-                Registry.log.info("AuthTokenProvider unregistered")
+                if (hadProvider) Registry.log.info("AuthTokenProvider unregistered")
             }
             is Command.Invalidate -> {
                 if (command.generation < state.generation) {

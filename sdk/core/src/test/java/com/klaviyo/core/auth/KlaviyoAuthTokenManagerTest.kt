@@ -829,6 +829,23 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         )
     }
 
+    @Test
+    fun `unregister without a provider clears a pending reset before registration`() = runTest(
+        dispatcher
+    ) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val provider = SuccessProvider(token)
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.invalidate()
+        manager.unregisterProvider()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+        assertEquals(token, manager.currentToken().rawToken)
+    }
+
     // MARK: - Helpers
 
     private class SuccessProvider(private val jwt: String) : AuthTokenProvider {
