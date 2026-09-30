@@ -254,13 +254,12 @@ internal class KlaviyoAuthTokenManager(
             is Command.FetchDone -> onFetchDone(command)
             is Command.TimerFired -> {
                 if (command.id == state.refreshId && !state.resetPending) {
-                    state.refreshFired = true
                     launchRefresh(command.id, true)
                 }
             }
             is Command.RefreshFailed -> {
                 if (command.id == state.refreshId && !state.resetPending) {
-                    if (command.timerFired) state.refreshFired = false
+                    state.refreshInFlight = false
                     Registry.log.warning(
                         "Proactive token refresh failed: ${command.error.javaClass.simpleName}",
                         command.error
@@ -371,7 +370,7 @@ internal class KlaviyoAuthTokenManager(
         state.refreshTimer?.cancel()
         state.refreshTimer = null
         state.refreshAt = null
-        state.refreshFired = false
+        state.refreshInFlight = false
         state.connectivityId++
         state.connectivityJob?.cancel()
         state.connectivityJob = null
@@ -383,7 +382,7 @@ internal class KlaviyoAuthTokenManager(
         val id = ++state.refreshId
         state.refreshTimer?.cancel()
         state.refreshAt = target
-        state.refreshFired = false
+        state.refreshInFlight = false
         state.refreshTimer = Registry.clock.schedule((target - now).coerceAtLeast(0)) {
             postFromWorker(Command.TimerFired(id))
         }
@@ -393,6 +392,7 @@ internal class KlaviyoAuthTokenManager(
     }
 
     private fun launchRefresh(id: Long, allowImmediateRetry: Boolean) {
+        state.refreshInFlight = true
         Registry.log.info("Proactive token refresh fired")
         scope.safeLaunch {
             try {
@@ -405,9 +405,7 @@ internal class KlaviyoAuthTokenManager(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                postFromWorker(
-                    Command.RefreshFailed(id, e, allowImmediateRetry, allowImmediateRetry)
-                )
+                postFromWorker(Command.RefreshFailed(id, e, allowImmediateRetry))
             }
         }
     }
@@ -443,7 +441,7 @@ internal class KlaviyoAuthTokenManager(
                 state.cachedToken = null
                 tokenSnapshot = TokenSnapshot(state.generation, null)
                 state.deliveryId++
-                if (!state.refreshFired) {
+                if (!state.refreshInFlight) {
                     state.refreshId++
                     state.refreshTimer?.cancel()
                     state.refreshTimer = null
@@ -454,7 +452,7 @@ internal class KlaviyoAuthTokenManager(
                     "AuthTokenManager: foreground transition (case=expired-cached-token)"
                 )
             }
-            target != null && Registry.clock.currentTimeMillis() >= target && !state.refreshFired -> {
+            target != null && Registry.clock.currentTimeMillis() >= target && !state.refreshInFlight -> {
                 state.refreshId++
                 state.refreshTimer?.cancel()
                 state.refreshTimer = null
@@ -515,7 +513,7 @@ internal class KlaviyoAuthTokenManager(
         var refreshId = 0L
         var refreshTimer: Clock.Cancellable? = null
         var refreshAt: Long? = null
-        var refreshFired = false
+        var refreshInFlight = false
         var connectivityId = 0L
         var connectivityJob: Job? = null
         val observers = mutableListOf<TokenRefreshObserver>()
@@ -557,7 +555,6 @@ internal class KlaviyoAuthTokenManager(
         data class RefreshFailed(
             val id: Long,
             val error: Exception,
-            val timerFired: Boolean,
             val allowImmediateRetry: Boolean
         ) : Command
         data class Connected(val id: Long) : Command

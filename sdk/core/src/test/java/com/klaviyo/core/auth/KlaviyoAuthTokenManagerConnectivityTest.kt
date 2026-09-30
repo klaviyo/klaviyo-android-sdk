@@ -185,9 +185,12 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     fun `foreground expiration preserves recovery for an in-flight scheduled refresh`() = runTest(
         dispatcher
     ) {
-        val provider = InitialThenPendingProvider(
-            makeJwt(),
-            makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val provider = PendingScriptedProvider(
+            listOf(
+                Result.success(makeJwt()),
+                null,
+                Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+            )
         )
         val manager = KlaviyoAuthTokenManager()
         manager.registerProvider(provider)
@@ -209,6 +212,72 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals(3, provider.callCount)
     }
+
+    @Test
+    fun `foreground expiration preserves recovery for an in-flight connectivity refresh`() =
+        runTest(dispatcher) {
+            val provider = PendingScriptedProvider(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("scheduled refresh offline")),
+                    null,
+                    Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                )
+            )
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            executeScheduledRefresh()
+            assertEquals(2, provider.callCount)
+            assertNotNull(manager.connectivityWaitJob())
+
+            fakeNetworkMonitor.simulateConnected(isConnected = true)
+            dispatcher.scheduler.runCurrent()
+            assertEquals(3, provider.callCount)
+
+            staticClock.time = EXP_SECONDS * 1000L
+            lifecycleObserver.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
+            dispatcher.scheduler.runCurrent()
+            provider.failPending(IOException("connectivity refresh offline"))
+            dispatcher.scheduler.runCurrent()
+
+            assertNotNull(manager.connectivityWaitJob())
+            fakeNetworkMonitor.simulateConnected(isConnected = true)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(4, provider.callCount)
+        }
+
+    @Test
+    fun `foreground expiration fetches after a connectivity refresh fails without IOException`() =
+        runTest(dispatcher) {
+            val provider = ScriptedProvider(
+                ArrayDeque(
+                    listOf(
+                        Result.success(makeJwt()),
+                        Result.failure(IOException("scheduled refresh offline")),
+                        Result.failure(RuntimeException("http 500")),
+                        Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                    )
+                )
+            )
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            executeScheduledRefresh()
+            assertEquals(2, provider.callCount)
+
+            fakeNetworkMonitor.simulateConnected(isConnected = true)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(3, provider.callCount)
+            assertNull(manager.connectivityWaitJob())
+
+            staticClock.time = EXP_SECONDS * 1000L
+            lifecycleObserver.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(4, provider.callCount)
+        }
 
     @Test
     fun `failed foreground fetch retains an armed connectivity retry`() = runTest(dispatcher) {
@@ -794,9 +863,9 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         }
     }
 
-    private class InitialThenPendingProvider(
-        private val initialJwt: String,
-        private val retryJwt: String
+    /** Replays [steps] in order; a null step holds the callback until [failPending]. */
+    private class PendingScriptedProvider(
+        private val steps: List<Result<String>?>
     ) : AuthTokenProvider {
         var callCount = 0
             private set
@@ -804,10 +873,15 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         override fun fetchToken(callback: AuthTokenProvider.Callback) {
             callCount++
-            when (callCount) {
-                1 -> callback.onSuccess(initialJwt)
-                2 -> pending = callback
-                else -> callback.onSuccess(retryJwt)
+            val step = steps.getOrElse(callCount - 1) {
+                throw AssertionError(
+                    "PendingScriptedProvider: unexpected call #$callCount — no more scripted results"
+                )
+            }
+            if (step == null) {
+                pending = callback
+            } else {
+                step.fold(onSuccess = callback::onSuccess, onFailure = callback::onFailure)
             }
         }
 
