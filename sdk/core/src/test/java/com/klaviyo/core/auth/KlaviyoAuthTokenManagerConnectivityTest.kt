@@ -11,6 +11,7 @@ import io.mockk.slot
 import io.mockk.verify
 import java.io.IOException
 import java.net.ConnectException
+import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.Base64
@@ -103,10 +104,138 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         assertEquals("retry after ${exception::class.simpleName}", 3, provider.callCount)
     }
 
+    /**
+     * Fails the eager fetch and then the scheduled refresh with [exception], asserting neither
+     * failure arms connectivity recovery.
+     */
+    private fun assertConnectivityWaitNotArmed(exception: Exception) = runTest(dispatcher) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.failure(exception),
+                    Result.success(makeJwt()),
+                    Result.failure(exception)
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertNull("eager ${exception::class.simpleName}", manager.connectivityWaitJob())
+
+        manager.currentToken()
+        executeScheduledRefresh()
+        assertEquals(3, provider.callCount)
+        assertNull("refresh ${exception::class.simpleName}", manager.connectivityWaitJob())
+        assertEquals(0, fakeNetworkMonitor.observerCount())
+    }
+
     // MARK: - Retry fires after reconnect
 
     @Test
-    fun `connectivity retry fires after network comes back online after IOException`() = runTest(
+    fun `initial eager network failure retries after reconnect`() = runTest(dispatcher) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.failure(UnknownHostException("offline")),
+                    Result.success(makeJwt())
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+        assertNotNull(manager.connectivityWaitJob())
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, provider.callCount)
+        assertEquals(makeJwt(), manager.currentToken().rawToken)
+    }
+
+    @Test
+    fun `interactive network failure retries after reconnect`() = runTest(dispatcher) {
+        val retryToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(ConnectException("offline")),
+                    Result.success(retryToken)
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        manager.clearTokenState()
+
+        runCatching { manager.currentToken() }
+        assertEquals(2, provider.callCount)
+        assertNotNull(manager.connectivityWaitJob())
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(3, provider.callCount)
+        assertEquals(retryToken, manager.currentToken().rawToken)
+    }
+
+    @Test
+    fun `new demand supersedes recovery from an older failure`() = runTest(dispatcher) {
+        val demandToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.failure(UnknownHostException("offline")),
+                    Result.success(demandToken)
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertNotNull(manager.connectivityWaitJob())
+
+        assertEquals(demandToken, manager.currentToken().rawToken)
+        assertNull(manager.connectivityWaitJob())
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(2, provider.callCount)
+    }
+
+    @Test
+    fun `initial failure on a connected device retries once then waits`() = runTest(
+        dispatcher
+    ) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.failure(UnknownHostException("endpoint down")),
+                    Result.failure(UnknownHostException("still down")),
+                    Result.success(makeJwt())
+                )
+            )
+        )
+        fakeNetworkMonitor.connected = true
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(2, provider.callCount)
+        assertEquals(false, manager.connectivityWaitJob()?.isCancelled ?: true)
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(3, provider.callCount)
+    }
+
+    @Test
+    fun `connectivity retry fires after network comes back online`() = runTest(
         dispatcher
     ) {
         val initialToken = makeJwt()
@@ -115,7 +244,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(initialToken),
-                    Result.failure(IOException("network down")),
+                    Result.failure(UnknownHostException("network down")),
                     Result.success(retryToken)
                 )
             )
@@ -157,7 +286,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(makeJwt()),
-                    Result.failure(IOException("network down")),
+                    Result.failure(UnknownHostException("network down")),
                     Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                 )
             )
@@ -205,7 +334,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         staticClock.time = EXP_SECONDS * 1000L
         lifecycleObserver.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
         dispatcher.scheduler.runCurrent()
-        provider.failPending(IOException("network down"))
+        provider.failPending(UnknownHostException("network down"))
         dispatcher.scheduler.runCurrent()
 
         assertNotNull(manager.connectivityWaitJob())
@@ -220,7 +349,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             val provider = PendingScriptedProvider(
                 listOf(
                     Result.success(makeJwt()),
-                    Result.failure(IOException("scheduled refresh offline")),
+                    Result.failure(UnknownHostException("scheduled refresh offline")),
                     null,
                     Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                 )
@@ -240,7 +369,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             staticClock.time = EXP_SECONDS * 1000L
             lifecycleObserver.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
             dispatcher.scheduler.runCurrent()
-            provider.failPending(IOException("connectivity refresh offline"))
+            provider.failPending(UnknownHostException("connectivity refresh offline"))
             dispatcher.scheduler.runCurrent()
 
             assertNotNull(manager.connectivityWaitJob())
@@ -258,7 +387,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             val provider = PendingScriptedProvider(
                 listOf(
                     Result.success(makeJwt()),
-                    Result.failure(IOException("scheduled refresh offline")),
+                    Result.failure(UnknownHostException("scheduled refresh offline")),
                     null,
                     Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                 )
@@ -279,7 +408,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             dispatcher.scheduler.runCurrent()
             assertEquals("reconnect shares the in-flight fetch", 3, provider.callCount)
 
-            provider.failPending(IOException("foreground refresh offline"))
+            provider.failPending(UnknownHostException("foreground refresh offline"))
             dispatcher.scheduler.runCurrent()
 
             assertEquals(
@@ -292,13 +421,13 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         }
 
     @Test
-    fun `foreground expiration fetches after a connectivity refresh fails without IOException`() =
+    fun `foreground expiration fetches after a connectivity refresh fails with a non-connectivity error`() =
         runTest(dispatcher) {
             val provider = ScriptedProvider(
                 ArrayDeque(
                     listOf(
                         Result.success(makeJwt()),
-                        Result.failure(IOException("scheduled refresh offline")),
+                        Result.failure(UnknownHostException("scheduled refresh offline")),
                         Result.failure(RuntimeException("http 500")),
                         Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                     )
@@ -329,7 +458,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 ArrayDeque(
                     listOf(
                         Result.success(makeJwt()),
-                        Result.failure(IOException("scheduled refresh offline")),
+                        Result.failure(UnknownHostException("scheduled refresh offline")),
                         Result.failure(CancellationException("host scope cancelled")),
                         Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                     )
@@ -359,8 +488,8 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(makeJwt()),
-                    Result.failure(IOException("scheduled refresh offline")),
-                    Result.failure(IOException("foreground fetch offline")),
+                    Result.failure(UnknownHostException("scheduled refresh offline")),
+                    Result.failure(UnknownHostException("foreground fetch offline")),
                     Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                 )
             )
@@ -393,7 +522,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(makeJwt()),
-                    Result.failure(IOException("network down")),
+                    Result.failure(UnknownHostException("network down")),
                     Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                 )
             )
@@ -418,8 +547,13 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     }
 
     @Test
-    fun `connectivity retry fires after SocketTimeoutException`() {
-        assertConnectivityRetryFires(SocketTimeoutException("timed out"))
+    fun `connectivity retry fires after NoRouteToHostException`() {
+        assertConnectivityRetryFires(NoRouteToHostException("no route"))
+    }
+
+    @Test
+    fun `connectivity retry fires after a wrapped connectivity cause`() {
+        assertConnectivityRetryFires(IOException("request failed", ConnectException("refused")))
     }
 
     @Test
@@ -437,7 +571,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(initialToken),
-                    Result.failure(IOException("network down")),
+                    Result.failure(UnknownHostException("network down")),
                     Result.success(retryToken)
                 )
             )
@@ -470,7 +604,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(initialToken),
-                    Result.failure(SocketTimeoutException("timed out")),
+                    Result.failure(UnknownHostException("host unknown")),
                     Result.success(retryToken)
                 )
             )
@@ -484,7 +618,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         fakeNetworkMonitor.connected = true
 
         // executeScheduledRefresh() calls advanceUntilIdle() internally, which runs:
-        //  1. performScheduledRefresh → fails with SocketTimeoutException → arms connectivity job
+        //  1. performScheduledRefresh → fails with UnknownHostException → arms connectivity job
         //  2. the armed coroutine → isNetworkConnected() is true → resumes immediately → retries
         // Both happen in the same advanceUntilIdle pass, so count is 3 on return.
         executeScheduledRefresh()
@@ -499,7 +633,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     fun `persistent provider failure on connected device arms a waiting job not a tight loop`() =
         runTest(dispatcher) {
             // Scenario: device is online the whole time, but the provider keeps failing with
-            // IOException (e.g. the JWT endpoint itself is down). The first arm should resume
+            // UnknownHostException (e.g. the JWT endpoint itself is down). The first arm should resume
             // immediately (resumeImmediatelyIfConnected=true). The second arm, kicked off by
             // performScheduledRefresh(allowImmediateConnectivityRetry=false), must NOT resume
             // immediately again — it waits for an actual connectivity transition. This prevents
@@ -509,8 +643,8 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 ArrayDeque(
                     listOf(
                         Result.success(makeJwt()), // eager fetch succeeds
-                        Result.failure(IOException("endpoint down")), // timer refresh fails
-                        Result.failure(IOException("still down")), // immediate retry fails
+                        Result.failure(UnknownHostException("endpoint down")), // timer refresh fails
+                        Result.failure(UnknownHostException("still down")), // immediate retry fails
                         Result.success(successToken) // eventual success
                     )
                 )
@@ -544,6 +678,40 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             assertEquals("eventual success on real connectivity event", 4, provider.callCount)
         }
 
+    @Test
+    fun `foreground failure on a connected device keeps the armed wait`() = runTest(dispatcher) {
+        val provider = ScriptedProvider(
+            ArrayDeque(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(UnknownHostException("endpoint down")),
+                    Result.failure(UnknownHostException("still down")),
+                    Result.failure(UnknownHostException("foreground fetch down")),
+                    Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                )
+            )
+        )
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        fakeNetworkMonitor.connected = true
+
+        executeScheduledRefresh()
+        assertEquals(3, provider.callCount)
+        val armedJob = manager.connectivityWaitJob()
+        assertNotNull(armedJob)
+
+        staticClock.time = EXP_SECONDS * 1000L
+        lifecycleObserver.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(4, provider.callCount)
+        assertEquals(armedJob, manager.connectivityWaitJob())
+
+        fakeNetworkMonitor.simulateConnected(isConnected = true)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(5, provider.callCount)
+    }
+
     // MARK: - At-most-one job invariant
 
     @Test
@@ -556,9 +724,9 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(initialToken),
-                    Result.failure(IOException("flap 1")),
-                    Result.failure(IOException("flap 2")),
-                    Result.failure(IOException("flap 3")),
+                    Result.failure(UnknownHostException("flap 1")),
+                    Result.failure(UnknownHostException("flap 2")),
+                    Result.failure(UnknownHostException("flap 3")),
                     Result.success(makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100))
                 )
             )
@@ -604,7 +772,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(initialToken),
-                    Result.failure(IOException("network down"))
+                    Result.failure(UnknownHostException("network down"))
                 )
             )
         )
@@ -647,7 +815,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(makeJwt()),
-                    Result.failure(IOException("network down"))
+                    Result.failure(UnknownHostException("network down"))
                 )
             )
         )
@@ -688,7 +856,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                         callback.onSuccess(makeJwt())
                     } else {
                         invalidatedGeneration = manager.invalidate()
-                        callback.onFailure(IOException("network down"))
+                        callback.onFailure(UnknownHostException("network down"))
                     }
                 }
             }
@@ -709,6 +877,16 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         }
 
     // MARK: - Non-network failures do not arm the retry
+
+    @Test
+    fun `generic IOException does not arm connectivity wait job`() {
+        assertConnectivityWaitNotArmed(IOException("not a connectivity failure"))
+    }
+
+    @Test
+    fun `SocketTimeoutException does not arm connectivity wait job`() {
+        assertConnectivityWaitNotArmed(SocketTimeoutException("timed out"))
+    }
 
     @Test
     fun `non-network exception does not arm connectivity wait job`() = runTest(dispatcher) {
@@ -769,7 +947,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(makeJwt()),
-                    Result.failure(IOException("network down"))
+                    Result.failure(UnknownHostException("network down"))
                 )
             )
         )
@@ -806,7 +984,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(initialToken),
-                    Result.failure(IOException("network down"))
+                    Result.failure(UnknownHostException("network down"))
                 )
             )
         )
@@ -849,7 +1027,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             ArrayDeque(
                 listOf(
                     Result.success(initialToken),
-                    Result.failure(IOException("network down"))
+                    Result.failure(UnknownHostException("network down"))
                 )
             )
         )

@@ -8,7 +8,9 @@ import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
-import java.io.IOException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.UnknownHostException
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -254,7 +256,7 @@ internal class KlaviyoAuthTokenManager(
                         "Proactive token refresh failed: ${command.error.javaClass.simpleName}",
                         command.error
                     )
-                    if (command.error is IOException && state.provider != null) {
+                    if (isConnectivityError(command.error) && state.provider != null) {
                         armConnectivityWait(command.allowImmediateRetry)
                     }
                 }
@@ -313,7 +315,15 @@ internal class KlaviyoAuthTokenManager(
                 val observers = state.observers.toList()
                 deliveries.trySend(Delivery(deliveryId, state.generation, token, observers))
             },
-            onFailure = ::failWaiters
+            onFailure = { error ->
+                if (isConnectivityError(error) &&
+                    state.connectivityJob == null &&
+                    state.waiters.none { it.refreshId != null }
+                ) {
+                    armConnectivityWait(true)
+                }
+                failWaiters(error)
+            }
         )
     }
 
@@ -424,6 +434,14 @@ internal class KlaviyoAuthTokenManager(
         }
         Registry.log.info("AuthTokenManager: network failure — waiting for connectivity")
     }
+
+    /** True when [error] or one of its causes indicates the device could not reach the network. */
+    private fun isConnectivityError(error: Throwable): Boolean =
+        generateSequence(error) { it.cause }
+            .take(MAX_CAUSE_DEPTH)
+            .any {
+                it is UnknownHostException || it is ConnectException || it is NoRouteToHostException
+            }
 
     private fun onForeground() {
         val cached = state.cachedToken
@@ -558,6 +576,8 @@ internal class KlaviyoAuthTokenManager(
     }
 
     companion object {
+        private const val MAX_CAUSE_DEPTH = 8
+
         internal fun computeRefreshTarget(token: ValidatedToken, nowMs: Long): Long {
             val iatMs = token.issuedAtEpochSeconds * 1000L
             val expMs = token.expiresAtEpochSeconds * 1000L
