@@ -115,10 +115,10 @@ interface AuthTokenManager {
 
     /**
      * Clear all token-acquisition state tied to the current user, called from the analytics
-     * `StateSideEffects` observer on profile reset. A profile reset happens on
-     * `Klaviyo.resetProfile()` and when `Klaviyo.setProfile()` gives an identified profile
-     * different identifiers. Discards the cached token, cancels the scheduled proactive refresh
-     * and its wall-clock target, and cancels any in-flight fetch. Without a pending
+     * `StateSideEffects` observer on profile reset and company (API key) change. A profile reset
+     * happens on `Klaviyo.resetProfile()` and when `Klaviyo.setProfile()` gives an identified
+     * profile different identifiers. Discards the cached token, cancels the scheduled proactive
+     * refresh and its wall-clock target, and cancels any in-flight fetch. Without a pending
      * [currentToken] caller, the next call to [currentToken] drives acquisition.
      *
      * Retains:
