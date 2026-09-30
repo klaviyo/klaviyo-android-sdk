@@ -20,6 +20,7 @@ import com.klaviyo.core.config.AutomaticPushTokenForwarding
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -28,6 +29,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -220,16 +222,6 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
-    fun `Profile identifier change does not reset auth token state`() {
-        StateSideEffects(stateMock, apiClientMock)
-
-        capturedStateChangeObserver.captured(StateChange.ProfileIdentifier(ProfileKey.EMAIL, null))
-        dispatcher.scheduler.advanceUntilIdle()
-
-        verify(exactly = 0) { authTokenManagerMock.invalidate() }
-    }
-
-    @Test
     fun `Attributes do enqueue a profile API request`() {
         StateSideEffects(stateMock, apiClientMock)
 
@@ -284,6 +276,65 @@ class StateSideEffectsTest : BaseTest() {
             authTokenManagerMock.invalidate()
             authTokenManagerMock.clearTokenState(expectedGeneration = AUTH_GENERATION)
         }
+    }
+
+    @Test
+    fun `Profile identifier changes invalidate and clear auth token state`() {
+        StateSideEffects(stateMock, apiClientMock)
+
+        listOf(
+            StateChange.ProfileIdentifier(ProfileKey.EXTERNAL_ID, null),
+            StateChange.ProfileIdentifier(ProfileKey.EMAIL, EMAIL),
+            StateChange.ProfileIdentifier(ProfileKey.PHONE_NUMBER, null)
+        ).forEach { change ->
+            clearMocks(authTokenManagerMock, answers = false)
+
+            capturedStateChangeObserver.captured(change)
+
+            try {
+                verifyTokenStateReset(times = 1)
+            } catch (e: AssertionError) {
+                throw AssertionError(change.toString(), e)
+            }
+        }
+    }
+
+    @Test
+    fun `Anonymous ID and attribute changes do not touch auth token state`() {
+        StateSideEffects(stateMock, apiClientMock)
+
+        capturedStateChangeObserver.captured(
+            StateChange.ProfileIdentifier(ProfileKey.ANONYMOUS_ID, null)
+        )
+        capturedStateChangeObserver.captured(StateChange.ProfileAttributes(mockk()))
+        staticClock.execute(debounceTime.toLong())
+
+        verifyTokenStateReset(times = 0)
+    }
+
+    @Test
+    fun `Later state observers see the auth token already invalidated`() {
+        var invalidated = false
+        every { authTokenManagerMock.invalidate() } answers {
+            invalidated = true
+            AUTH_GENERATION
+        }
+        every { authTokenManagerMock.isCurrentToken(OLD_TOKEN) } answers { !invalidated }
+        val state = KlaviyoState()
+        StateSideEffects(state, apiClientMock)
+        val observedIsCurrent = mutableListOf<Boolean>()
+        state.onStateChange { change ->
+            if (change.key != ProfileKey.ANONYMOUS_ID) {
+                observedIsCurrent += authTokenManagerMock.isCurrentToken(OLD_TOKEN)
+            }
+        }
+
+        listOf({ state.email = EMAIL }, { state.reset() }).forEach { act ->
+            invalidated = false
+            act()
+        }
+
+        assertEquals(listOf(false, false), observedIsCurrent)
     }
 
     @Test
@@ -575,7 +626,18 @@ class StateSideEffectsTest : BaseTest() {
         capturedLifecycleObserver.captured(event)
     }
 
+    private fun verifyTokenStateReset(times: Int) {
+        verify(exactly = times) { authTokenManagerMock.invalidate() }
+
+        dispatcher.scheduler.advanceUntilIdle()
+        coVerify(exactly = times) { authTokenManagerMock.clearTokenState(any()) }
+        coVerify(exactly = times) {
+            authTokenManagerMock.clearTokenState(expectedGeneration = AUTH_GENERATION)
+        }
+    }
+
     private companion object {
         const val AUTH_GENERATION = 7L
+        const val OLD_TOKEN = "old.jwt.token"
     }
 }
