@@ -350,14 +350,18 @@ internal class KlaviyoAuthTokenManager(
         state.deliveryId++
         state.fetchJob?.cancel()
         state.fetchJob = null
+        retireRefresh()
+        state.connectivityId++
+        state.connectivityJob?.cancel()
+        state.connectivityJob = null
+    }
+
+    private fun retireRefresh() {
         state.refreshId++
         state.refreshTimer?.cancel()
         state.refreshTimer = null
         state.refreshAt = null
         state.refreshInFlight = false
-        state.connectivityId++
-        state.connectivityJob?.cancel()
-        state.connectivityJob = null
     }
 
     private fun scheduleRefresh(token: ValidatedToken) {
@@ -425,10 +429,7 @@ internal class KlaviyoAuthTokenManager(
                 state.cachedToken = null
                 state.deliveryId++
                 if (!state.refreshInFlight) {
-                    state.refreshId++
-                    state.refreshTimer?.cancel()
-                    state.refreshTimer = null
-                    state.refreshAt = null
+                    retireRefresh()
                     startFetch()
                 }
                 Registry.log.info(
@@ -436,10 +437,7 @@ internal class KlaviyoAuthTokenManager(
                 )
             }
             target != null && Registry.clock.currentTimeMillis() >= target && !state.refreshInFlight -> {
-                state.refreshId++
-                state.refreshTimer?.cancel()
-                state.refreshTimer = null
-                state.refreshAt = null
+                retireRefresh()
                 launchRefresh(state.refreshId, true)
                 Registry.log.info("AuthTokenManager: foreground transition (case=missed-refresh)")
             }
