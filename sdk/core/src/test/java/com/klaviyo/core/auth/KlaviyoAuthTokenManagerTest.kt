@@ -145,36 +145,6 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `isCurrentToken rejects cached token immediately on invalidation`() = runTest(dispatcher) {
-        val manager = KlaviyoAuthTokenManager()
-        manager.registerProvider(SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS)))
-        dispatcher.scheduler.advanceUntilIdle()
-        val token = manager.currentToken()
-        assertTrue(manager.isCurrentToken(token))
-
-        manager.invalidate()
-        assertTrue(!manager.isCurrentToken(token))
-    }
-
-    @Test
-    fun `same JWT text does not make an old token current after reset`() = runTest(dispatcher) {
-        val jwt = makeJwt(EXP_SECONDS, IAT_SECONDS)
-        val manager = KlaviyoAuthTokenManager()
-        manager.registerProvider(SuccessProvider(jwt))
-        dispatcher.scheduler.advanceUntilIdle()
-        val oldToken = manager.currentToken()
-
-        val generation = manager.invalidate()
-        manager.clearTokenState(generation)
-        val newToken = manager.currentToken()
-
-        assertEquals(oldToken.rawToken, newToken.rawToken)
-        assertTrue(oldToken !== newToken)
-        assertTrue(!manager.isCurrentToken(oldToken))
-        assertTrue(manager.isCurrentToken(newToken))
-    }
-
-    @Test
     fun `caller waiting before invalidation receives the next profile token`() = runTest(dispatcher) {
         val outgoingToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
         val nextToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)

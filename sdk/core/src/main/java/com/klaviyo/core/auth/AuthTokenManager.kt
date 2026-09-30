@@ -80,9 +80,6 @@ interface AuthTokenManager {
      */
     suspend fun currentToken(timeoutMs: Long = BACKGROUND_FETCH_TIMEOUT_MS): ValidatedToken
 
-    /** Return whether [token] is the cached token instance for the active profile. */
-    fun isCurrentToken(token: ValidatedToken): Boolean
-
     /**
      * Register an observer that will be invoked each time the auth token is acquired or refreshed,
      * including the initial fetch — so a consumer that subscribes while the first fetch is still in
