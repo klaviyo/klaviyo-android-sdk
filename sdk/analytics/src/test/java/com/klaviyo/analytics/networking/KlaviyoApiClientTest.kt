@@ -88,6 +88,10 @@ internal class KlaviyoApiClientTest : BaseTest() {
         mockDeviceProperties()
         mockkStatic(DeviceProperties::buildEventMetaData)
         every { DeviceProperties.buildEventMetaData() } returns emptyMap()
+        // buildMetaData is an extension function too, so it needs its own mockkStatic. Without
+        // one, mockk binds this stub to the last real property the matcher touched (environment),
+        // which then returns a Map where a String is expected.
+        mockkStatic(DeviceProperties::buildMetaData)
         every { DeviceProperties.buildMetaData() } returns emptyMap()
 
         postedJob = null
@@ -128,6 +132,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         unmockkObject(KlaviyoApiRequestDecoder)
         unmockDeviceProperties()
         unmockkStatic(DeviceProperties::buildEventMetaData)
+        unmockkStatic(DeviceProperties::buildMetaData)
         Registry.unregister<QueueScheduler>()
     }
 
@@ -265,6 +270,30 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         verify(exactly = 1) { spyLog.verbose("Persisting queue") }
+    }
+
+    @Test
+    fun `Enqueuing the same push token API call still dedupes when an observer reads the body`() {
+        // An observer that renders each request's body must not change how the queue dedupes:
+        // reading the body used to enrich the first request with device state, leaving the second
+        // equivalent request looking different and queueing it as well.
+        val observedBodies = mutableListOf<String?>()
+        val observer: ApiObserver = { observedBodies += it.requestBody }
+        KlaviyoApiClient.onApiRequest(observer = observer)
+
+        try {
+            repeat(2) {
+                KlaviyoApiClient.enqueuePushToken(
+                    PUSH_TOKEN,
+                    Profile().setAnonymousId(ANON_ID)
+                )
+            }
+        } finally {
+            KlaviyoApiClient.offApiRequest(observer)
+        }
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertEquals(1, observedBodies.size)
     }
 
     @Test

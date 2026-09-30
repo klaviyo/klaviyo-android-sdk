@@ -569,6 +569,34 @@ internal class KlaviyoStateTest : BaseTest() {
     }
 
     @Test
+    fun `refreshPushState recomputes pushState when background availability or device metadata change`() {
+        mockDeviceProperties()
+        try {
+            state.pushToken = PUSH_TOKEN
+            val originalPushState = state.pushState
+
+            every { DeviceProperties.backgroundDataEnabled } returns false
+            state.refreshPushState()
+            val afterBackgroundChange = state.pushState
+            assertNotEquals(originalPushState, afterBackgroundChange)
+
+            every { DeviceProperties.appVersion } returns "9.9.9"
+            every { DeviceProperties.deviceId } returns "New Device ID"
+            state.refreshPushState()
+            val afterMetadataChange = state.pushState
+            assertNotEquals(afterBackgroundChange, afterMetadataChange)
+
+            assertEquals(PUSH_TOKEN, state.pushToken)
+            assertEquals(
+                PushTokenApiRequest(PUSH_TOKEN, state.getAsProfile()).requestBody,
+                state.pushState
+            )
+        } finally {
+            unmockDeviceProperties()
+        }
+    }
+
+    @Test
     fun `refreshPushState leaves pushState falsy when there is no stored token`() {
         mockDeviceProperties()
         try {
