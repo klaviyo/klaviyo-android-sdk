@@ -17,6 +17,7 @@ import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
+import com.klaviyo.analytics.state.resetTokenState
 import com.klaviyo.core.Constants.BUTTON_LINK_PARAMETER
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
@@ -30,12 +31,10 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
-import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
-import kotlinx.coroutines.CoroutineScope
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -324,14 +323,8 @@ object Klaviyo {
      */
     @JvmStatic
     fun resetProfile() = safeApply {
-        val auth = Registry.get<AuthTokenManager>()
-        val generation = auth.invalidate()
-        try {
+        Registry.get<AuthTokenManager>().resetTokenState {
             Registry.get<State>().reset()
-        } finally {
-            CoroutineScope(Registry.dispatcher).safeLaunch {
-                auth.clearTokenState(expectedGeneration = generation)
-            }
         }
     }
 
