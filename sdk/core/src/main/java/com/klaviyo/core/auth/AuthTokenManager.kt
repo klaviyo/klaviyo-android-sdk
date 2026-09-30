@@ -93,6 +93,12 @@ interface AuthTokenManager {
     fun refreshRejectedToken()
 
     /**
+     * Return whether [rawToken] is the raw JWT of the cached token for the active profile.
+     * Returns false when no token is cached or the profile was invalidated since it was fetched.
+     */
+    fun isCurrentToken(rawToken: String): Boolean
+
+    /**
      * Register an observer that will be invoked each time the auth token is acquired or refreshed,
      * including the initial fetch — so a consumer that subscribes while the first fetch is still in
      * flight (e.g. a form displayed before the token resolves) still receives it once it lands.
