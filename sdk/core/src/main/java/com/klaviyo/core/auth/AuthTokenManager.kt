@@ -75,6 +75,7 @@ interface AuthTokenManager {
      * @throws [AuthTokenException.NoProviderRegistered] if no provider has been registered.
      * @throws [AuthTokenException.ValidationFailed] if the returned token fails validation.
      * @throws [AuthTokenException.TimedOut] if the provider does not respond within [timeoutMs].
+     * @throws [AuthTokenException.ProviderCancelled] if the provider reports a cancellation.
      * @throws IllegalArgumentException if [timeoutMs] is not positive.
      * @throws Throwable whatever error the provider passed to [AuthTokenProvider.Callback.onFailure].
      */

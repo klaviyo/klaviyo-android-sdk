@@ -463,7 +463,14 @@ internal class KlaviyoAuthTokenManager(
                 }
 
                 override fun onFailure(error: Throwable) {
-                    if (continuation.isActive) continuation.resumeWithException(error)
+                    if (!continuation.isActive) return
+                    if (error is CancellationException) {
+                        val wrapped = AuthTokenException.ProviderCancelled(error)
+                        Registry.log.warning(requireNotNull(wrapped.message), error)
+                        continuation.resumeWithException(wrapped)
+                    } else {
+                        continuation.resumeWithException(error)
+                    }
                 }
             }
             provider.fetchToken(callback)

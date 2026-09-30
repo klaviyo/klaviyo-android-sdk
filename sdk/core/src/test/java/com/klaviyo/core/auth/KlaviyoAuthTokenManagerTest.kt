@@ -26,6 +26,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -384,6 +385,31 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         } catch (e: RuntimeException) {
             assertEquals("network down", e.message)
         }
+    }
+
+    @Test
+    fun `currentToken throws ProviderCancelled when provider reports a cancellation`() = runTest(
+        dispatcher
+    ) {
+        val cancellation = CancellationException("host scope cancelled")
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(FailureProvider(cancellation))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        var caught: AuthTokenException.ProviderCancelled? = null
+        val caller = launch {
+            try {
+                manager.currentToken()
+            } catch (e: AuthTokenException.ProviderCancelled) {
+                caught = e
+            }
+        }
+        dispatcher.scheduler.advanceUntilIdle()
+        caller.join()
+
+        assertFalse("caller coroutine must not be cancelled", caller.isCancelled)
+        assertSame(cancellation, caught?.cause)
+        verify { spyLog.warning(any(), cancellation) }
     }
 
     @Test

@@ -15,6 +15,7 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.Base64
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -257,6 +258,37 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                         Result.success(makeJwt()),
                         Result.failure(IOException("scheduled refresh offline")),
                         Result.failure(RuntimeException("http 500")),
+                        Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                    )
+                )
+            )
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            executeScheduledRefresh()
+            assertEquals(2, provider.callCount)
+
+            fakeNetworkMonitor.simulateConnected(isConnected = true)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(3, provider.callCount)
+            assertNull(manager.connectivityWaitJob())
+
+            staticClock.time = EXP_SECONDS * 1000L
+            lifecycleObserver.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(4, provider.callCount)
+        }
+
+    @Test
+    fun `foreground expiration fetches after a connectivity refresh reports provider cancellation`() =
+        runTest(dispatcher) {
+            val provider = ScriptedProvider(
+                ArrayDeque(
+                    listOf(
+                        Result.success(makeJwt()),
+                        Result.failure(IOException("scheduled refresh offline")),
+                        Result.failure(CancellationException("host scope cancelled")),
                         Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                     )
                 )
