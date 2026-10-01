@@ -17,7 +17,7 @@ analytics, push notifications, and in-app messaging (aka forms).
 ./gradlew build
 
 # Build a specific module (pattern applies to all modules under sdk/)
-# Modules: core, analytics, forms, forms-core, push-fcm, location, location-core
+# Modules: core, analytics, forms, forms-core, push-fcm, location, location-core, inbox, inbox-core
 ./gradlew :sdk:{module}:build
 
 # Assemble only (compile without testing)
@@ -100,6 +100,15 @@ The Klaviyo Android SDK is organized into multiple modules, each with specific r
 7. **Location-Core Module** (`sdk/location-core`):
     - Auto-registers location services via ContentProvider (no runtime permissions required)
     - Enables location feature without the full location module
+
+8. **Inbox Module** (`sdk/inbox`):
+    - Mobile Inbox implementation: persisted enablement and the on-device inbox store
+    - Auto-registers inbox services via ContentProvider
+    - Depends on inbox-core for its public API
+
+9. **Inbox-Core Module** (`sdk/inbox-core`):
+    - Public Mobile Inbox API and configuration
+    - Lets hybrid SDKs compile against the inbox API without the full inbox module
 
 ### Key Components
 
