@@ -9,6 +9,7 @@ import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
@@ -16,7 +17,9 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -38,10 +41,12 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
             if (!configBuilt) {
                 throw MissingConfig()
             } else {
-                "value"
+                PERSISTED_VALUE
             }
         }
     }
+
+    private val mockAuthTokenManager = mockk<AuthTokenManager>(relaxed = true)
 
     private val mockApiClient: ApiClient = mockk<ApiClient>().apply {
         every { startService() } returns Unit
@@ -64,6 +69,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
             every { registerComponentCallbacks(any()) } returns Unit
         }
         Registry.register<ApiClient>(mockApiClient)
+        Registry.register<AuthTokenManager>(mockAuthTokenManager)
         mockkStatic(DeviceProperties::buildEventMetaData)
         every { DeviceProperties.buildEventMetaData() } returns emptyMap()
     }
@@ -76,7 +82,28 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
         Registry.unregister<State>()
         Registry.unregister<StateSideEffects>()
         Registry.unregister<ApiClient>()
+        Registry.unregister<AuthTokenManager>()
         super.cleanup()
+    }
+
+    @Test
+    fun `Profile changes before initialize are dropped and the token gate opens after replay`() {
+        Klaviyo.registerAuthTokenProvider(mockk(relaxed = true))
+        Klaviyo.setEmail(EMAIL)
+
+        Klaviyo.initialize(
+            apiKey = API_KEY,
+            applicationContext = mockContext
+        )
+
+        assertEquals(PERSISTED_VALUE, Klaviyo.getEmail())
+        verifyOrder {
+            mockAuthTokenManager.registerProvider(any())
+            mockAuthTokenManager.setIdentified(true)
+        }
+        verify(exactly = 1) { mockAuthTokenManager.setIdentified(any()) }
+        // The only fence is the company change from the persisted API key to API_KEY
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
     }
 
     @Test
@@ -118,5 +145,9 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
                 any()
             )
         }
+    }
+
+    private companion object {
+        const val PERSISTED_VALUE = "value"
     }
 }

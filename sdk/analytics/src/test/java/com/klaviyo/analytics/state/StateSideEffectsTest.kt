@@ -28,6 +28,12 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import io.mockk.verifyOrder
+import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -62,11 +68,13 @@ class StateSideEffectsTest : BaseTest() {
 
     private val authTokenManagerMock = mockk<AuthTokenManager>().apply {
         every { invalidate() } returns AUTH_GENERATION
+        every { setIdentified(any()) } returns Unit
         coEvery { clearTokenState(any()) } returns Unit
     }
 
     private val klaviyoStateMock = mockk<KlaviyoState>().apply {
         every { onStateChange(capture(capturedStateChangeObserver)) } returns Unit
+        every { getAsProfile(withAttributes = any()) } returns Profile()
         every { resetPhoneNumber() } returns Unit
         every { resetEmail() } returns Unit
     }
@@ -105,7 +113,7 @@ class StateSideEffectsTest : BaseTest() {
 
         capturedStateChangeObserver.captured(StateChange.ProfileIdentifier(ProfileKey.EMAIL, null))
         capturedStateChangeObserver.captured(StateChange.ProfileAttributes(mockk()))
-        capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(Profile(email = OTHER_EMAIL)))
 
         staticClock.execute(debounceTime.toLong())
 
@@ -185,7 +193,7 @@ class StateSideEffectsTest : BaseTest() {
             )
         )
 
-        capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(Profile(email = OTHER_EMAIL)))
 
         verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
 
@@ -218,7 +226,7 @@ class StateSideEffectsTest : BaseTest() {
             )
         )
 
-        capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(Profile(email = OTHER_EMAIL)))
 
         verify(exactly = 1) { apiClientMock.enqueuePushToken(PUSH_TOKEN, any()) }
     }
@@ -226,8 +234,9 @@ class StateSideEffectsTest : BaseTest() {
     @Test
     fun `Profile reset invalidates auth token state then queues generation-matched clear`() {
         StateSideEffects(stateMock, apiClientMock)
+        every { stateMock.getAsProfile(withAttributes = any()) } returns Profile()
 
-        capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(Profile(email = OTHER_EMAIL)))
         dispatcher.scheduler.advanceUntilIdle()
 
         coVerifyOrder {
@@ -308,16 +317,17 @@ class StateSideEffectsTest : BaseTest() {
 
     @Test
     fun `Profile identifier changes invalidate and clear auth token state`() {
-        every { stateMock.getAsProfile(withAttributes = any()) } returns
-            Profile(externalId = EXTERNAL_ID, email = EMAIL, phoneNumber = PHONE)
+        var current = Profile(externalId = EXTERNAL_ID, email = EMAIL, phoneNumber = PHONE)
+        every { stateMock.getAsProfile(withAttributes = any()) } answers { current }
         StateSideEffects(stateMock, apiClientMock)
 
         listOf(
-            StateChange.ProfileIdentifier(ProfileKey.EXTERNAL_ID, OTHER_EXTERNAL_ID),
-            StateChange.ProfileIdentifier(ProfileKey.EMAIL, OTHER_EMAIL),
-            StateChange.ProfileIdentifier(ProfileKey.PHONE_NUMBER, OTHER_PHONE)
-        ).forEach { change ->
+            StateChange.ProfileIdentifier(ProfileKey.EXTERNAL_ID, EXTERNAL_ID) to OTHER_EXTERNAL_ID,
+            StateChange.ProfileIdentifier(ProfileKey.EMAIL, EMAIL) to OTHER_EMAIL,
+            StateChange.ProfileIdentifier(ProfileKey.PHONE_NUMBER, PHONE) to OTHER_PHONE
+        ).forEach { (change, newValue) ->
             clearMocks(authTokenManagerMock, answers = false)
+            current = current.copy().setProperty(change.key, newValue)
 
             capturedStateChangeObserver.captured(change)
 
@@ -448,6 +458,212 @@ class StateSideEffectsTest : BaseTest() {
         verify(exactly = 1) { authTokenManagerMock.invalidate() }
         assertTrue(staticClock.scheduledTasks.isEmpty())
         Registry.unregister<State>()
+    }
+
+    @Test
+    fun `Identity gate follows state after the replacement fence`() {
+        val state = KlaviyoState()
+        StateSideEffects(state, apiClientMock)
+        listOf(
+            { state.email = EMAIL } to true,
+            { state.externalId = EXTERNAL_ID } to true,
+            { state.setProfile(Profile(phoneNumber = PHONE)) } to true,
+            { state.reset() } to false
+        ).forEach { (act, identified) ->
+            clearMocks(authTokenManagerMock, answers = false)
+
+            act()
+
+            verify(exactly = 1) { authTokenManagerMock.setIdentified(identified) }
+        }
+
+        clearMocks(authTokenManagerMock, answers = false)
+        state.email = EMAIL
+        verifyOrder {
+            authTokenManagerMock.invalidate()
+            authTokenManagerMock.setIdentified(true)
+        }
+        clearMocks(authTokenManagerMock, answers = false)
+        state.resetEmail()
+        verifyOrder {
+            authTokenManagerMock.invalidate()
+            authTokenManagerMock.setIdentified(false)
+        }
+        state.reset()
+    }
+
+    @Test
+    fun `Identity gate ends on the profile in state when a reset races an identification`() {
+        val state = KlaviyoState()
+        StateSideEffects(state, apiClientMock)
+
+        val calls = raceAuthCalls(
+            IDENTIFIED,
+            first = { state.email = EMAIL },
+            second = { state.reset() }
+        )
+
+        assertEquals(listOf(INVALIDATE, IDENTIFIED, INVALIDATE, ANONYMOUS), calls)
+    }
+
+    @Test
+    fun `Identity gate sync racing a reset ends with the gate closed`() {
+        val state = KlaviyoState()
+        val sideEffects = StateSideEffects(state, apiClientMock)
+        state.email = EMAIL
+
+        val calls = raceAuthCalls(
+            IDENTIFIED,
+            first = { sideEffects.syncIdentityGate() },
+            second = { state.reset() }
+        )
+
+        assertEquals(listOf(IDENTIFIED, INVALIDATE, ANONYMOUS), calls)
+    }
+
+    @Test
+    fun `Identity gate sync racing an identification ends with the gate open`() {
+        val state = KlaviyoState()
+        val sideEffects = StateSideEffects(state, apiClientMock)
+
+        val calls = raceAuthCalls(
+            ANONYMOUS,
+            first = { sideEffects.syncIdentityGate() },
+            second = { state.email = EMAIL }
+        )
+
+        assertEquals(listOf(ANONYMOUS, INVALIDATE, IDENTIFIED), calls)
+    }
+
+    @Test
+    fun `Identity for a replaced profile is posted before its token clear runs`() {
+        every { Registry.dispatcher } returns UnconfinedTestDispatcher()
+        val state = KlaviyoState()
+        StateSideEffects(state, apiClientMock)
+        listOf(
+            { state.email = EMAIL } to true,
+            { state.email = OTHER_EMAIL } to true,
+            { state.reset() } to false
+        ).forEach { (act, identified) ->
+            clearMocks(authTokenManagerMock, answers = false)
+
+            act()
+
+            coVerifyOrder {
+                authTokenManagerMock.invalidate()
+                authTokenManagerMock.setIdentified(identified)
+                authTokenManagerMock.clearTokenState(AUTH_GENERATION)
+            }
+        }
+    }
+
+    @Test
+    fun `API key change before a racing profile reset is fenced before the reset`() {
+        val state = KlaviyoState()
+        StateSideEffects(state, apiClientMock)
+        state.email = EMAIL
+
+        val calls = raceAuthCalls(
+            INVALIDATE,
+            first = { state.apiKey = API_KEY },
+            second = { state.reset() }
+        )
+
+        assertEquals(listOf(INVALIDATE, INVALIDATE, ANONYMOUS), calls)
+    }
+
+    @Test
+    fun `API key change racing an identification is fenced after the identity is posted`() {
+        val state = KlaviyoState()
+        StateSideEffects(state, apiClientMock)
+
+        val calls = raceAuthCalls(
+            IDENTIFIED,
+            first = { state.email = EMAIL },
+            second = { state.apiKey = API_KEY }
+        )
+
+        assertEquals(listOf(INVALIDATE, IDENTIFIED, INVALIDATE), calls)
+    }
+
+    @Test
+    fun `API key change fences the token without an identity change`() {
+        listOf(EMAIL, null).forEach { email ->
+            val state = KlaviyoState()
+            StateSideEffects(state, apiClientMock)
+            email?.let { state.email = it }
+            dispatcher.scheduler.advanceUntilIdle()
+            clearMocks(authTokenManagerMock, answers = false)
+
+            state.apiKey = "$API_KEY-$email"
+            dispatcher.scheduler.advanceUntilIdle()
+
+            verify(exactly = 1) { authTokenManagerMock.invalidate() }
+            coVerify(exactly = 1) { authTokenManagerMock.clearTokenState(AUTH_GENERATION) }
+            verify(exactly = 0) { authTokenManagerMock.setIdentified(any()) }
+            state.reset()
+        }
+    }
+
+    @Test
+    fun `Compatible change after an API key change does not fence again`() {
+        val state = KlaviyoState()
+        StateSideEffects(state, apiClientMock)
+        state.email = EMAIL
+        state.apiKey = API_KEY
+        dispatcher.scheduler.advanceUntilIdle()
+        clearMocks(authTokenManagerMock, answers = false)
+
+        state.apiKey = "other-$API_KEY"
+        state.externalId = EXTERNAL_ID
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { authTokenManagerMock.invalidate() }
+        verify(exactly = 1) { authTokenManagerMock.setIdentified(true) }
+        state.reset()
+    }
+
+    @Test
+    fun `Concurrent identifier writes from anonymous are fenced once whichever callback runs first`() {
+        listOf(
+            listOf(ProfileKey.EMAIL, ProfileKey.EXTERNAL_ID),
+            listOf(ProfileKey.EXTERNAL_ID, ProfileKey.EMAIL)
+        ).forEach { callbackOrder ->
+            var current = Profile().apply { anonymousId = ANON_ID }
+            var profileGeneration = 0L
+            every { stateMock.getAsProfile(withAttributes = any()) } answers { current }
+            every { authTokenManagerMock.invalidate() } answers {
+                profileGeneration++
+                AUTH_GENERATION
+            }
+            StateSideEffects(stateMock, apiClientMock)
+            clearMocks(authTokenManagerMock, answers = false)
+
+            current = Profile(externalId = EXTERNAL_ID, email = EMAIL).apply { anonymousId = ANON_ID }
+            callbackOrder.forEach { key ->
+                capturedStateChangeObserver.captured(StateChange.ProfileIdentifier(key, null))
+            }
+
+            assertEquals("$callbackOrder", 1L, profileGeneration)
+            verify(exactly = 1) { authTokenManagerMock.invalidate() }
+            verify(exactly = 0) { authTokenManagerMock.setIdentified(false) }
+            verify(atLeast = 1) { authTokenManagerMock.setIdentified(true) }
+        }
+    }
+
+    @Test
+    fun `Profile reset is classified from the last observed profile`() {
+        every { stateMock.getAsProfile(withAttributes = any()) } returns Profile(email = EMAIL)
+        StateSideEffects(stateMock, apiClientMock)
+
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(Profile(email = EMAIL)))
+        verifyTokenStateReset(times = 0)
+
+        every { stateMock.getAsProfile(withAttributes = any()) } returns Profile(
+            email = OTHER_EMAIL
+        )
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(Profile(email = EMAIL)))
+        verifyTokenStateReset(times = 1)
     }
 
     @Test
@@ -824,6 +1040,42 @@ class StateSideEffectsTest : BaseTest() {
             )
         }
 
+    /**
+     * Run [first] on one thread until it makes the auth token manager call labelled [pauseOn], then
+     * run [second] on another thread. [first] resumes when [second] finishes, or after
+     * [RACE_WAIT_MS] if [second] is blocked. Returns the labelled auth token manager calls in the
+     * order they were made.
+     */
+    private fun raceAuthCalls(pauseOn: String, first: () -> Unit, second: () -> Unit): List<String> {
+        val paused = CountDownLatch(1)
+        val secondDone = CountDownLatch(1)
+        val calls = Collections.synchronizedList(mutableListOf<String>())
+        val record: (String) -> Unit = { label ->
+            if (label == pauseOn && paused.count > 0) {
+                paused.countDown()
+                secondDone.await(RACE_WAIT_MS, TimeUnit.MILLISECONDS)
+            }
+            calls += label
+        }
+        every { authTokenManagerMock.invalidate() } answers {
+            record(INVALIDATE)
+            AUTH_GENERATION
+        }
+        every { authTokenManagerMock.setIdentified(any()) } answers {
+            record(if (firstArg()) IDENTIFIED else ANONYMOUS)
+        }
+
+        val firstThread = thread { first() }
+        paused.await()
+        val secondThread = thread {
+            second()
+            secondDone.countDown()
+        }
+        firstThread.join()
+        secondThread.join()
+        return calls.toList()
+    }
+
     private class TokenResetCase(
         val description: String,
         val expectReset: Boolean,
@@ -868,6 +1120,10 @@ class StateSideEffectsTest : BaseTest() {
         const val AUTH_GENERATION = 7L
         const val OLD_TOKEN = "old.jwt.token"
         const val OTHER_EMAIL = "other@domain.com"
+        const val RACE_WAIT_MS = 500L
+        const val INVALIDATE = "invalidate"
+        const val IDENTIFIED = "identified"
+        const val ANONYMOUS = "anonymous"
         const val OTHER_PHONE = "+15556667777"
         const val OTHER_EXTERNAL_ID = "hijklmn"
     }
