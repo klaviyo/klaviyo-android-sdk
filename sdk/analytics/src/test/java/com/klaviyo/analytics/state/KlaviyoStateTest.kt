@@ -304,6 +304,34 @@ internal class KlaviyoStateTest : BaseTest() {
     }
 
     @Test
+    fun `Resetting email and phone number broadcasts each removal`() {
+        state.email = EMAIL
+        state.phoneNumber = PHONE
+        val changes = recordChanges()
+
+        state.resetEmail()
+        state.resetPhoneNumber()
+
+        assertEquals(
+            listOf(
+                StateChange.ProfileIdentifier(ProfileKey.EMAIL, EMAIL),
+                StateChange.ProfileIdentifier(ProfileKey.PHONE_NUMBER, PHONE)
+            ),
+            changes
+        )
+    }
+
+    @Test
+    fun `Resetting unset email and phone number does not broadcast`() {
+        val changes = recordChanges()
+
+        state.resetEmail()
+        state.resetPhoneNumber()
+
+        assertTrue(changes.isEmpty())
+    }
+
+    @Test
     fun `createEvent adds enriched event to buffer`() {
         GenericEventBuffer.clearBuffer()
 
