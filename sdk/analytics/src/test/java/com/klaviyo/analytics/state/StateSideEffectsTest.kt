@@ -357,6 +357,36 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
+    fun `setProfile resets auth token state only on replacement`() {
+        listOf(
+            TokenResetCase("anonymous to identified", true) {
+                setProfile(Profile(externalId = EXTERNAL_ID, email = EMAIL))
+            },
+            TokenResetCase("compatible addition", false, { email = EMAIL }) {
+                setProfile(Profile(externalId = EXTERNAL_ID, email = EMAIL, phoneNumber = PHONE))
+            },
+            TokenResetCase("compatible removal", false, { setProfile(Profile(EXTERNAL_ID, EMAIL)) }) {
+                setProfile(Profile(email = EMAIL))
+            },
+            TokenResetCase("compatible swap", false, { setProfile(Profile(EXTERNAL_ID, EMAIL)) }) {
+                setProfile(Profile(email = EMAIL, phoneNumber = PHONE))
+            },
+            TokenResetCase("unchanged", false, { setProfile(Profile(EXTERNAL_ID, EMAIL)) }) {
+                setProfile(Profile(EXTERNAL_ID, EMAIL))
+            },
+            TokenResetCase("conflicting email", true, { setProfile(Profile(EXTERNAL_ID, EMAIL)) }) {
+                setProfile(Profile(EXTERNAL_ID, OTHER_EMAIL))
+            },
+            TokenResetCase("no shared identifier", true, { email = EMAIL }) {
+                setProfile(Profile(phoneNumber = PHONE))
+            },
+            TokenResetCase("identified to anonymous", true, { email = EMAIL }) {
+                setProfile(Profile())
+            }
+        ).forEach(::verifyTokenResetCase)
+    }
+
+    @Test
     fun `Anonymous ID and attribute changes do not touch auth token state`() {
         StateSideEffects(stateMock, apiClientMock)
 

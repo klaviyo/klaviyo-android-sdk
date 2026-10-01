@@ -538,8 +538,8 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.setProfile(Profile(externalId = EXTERNAL_ID))
         dispatcher.scheduler.advanceUntilIdle()
 
-        verify(exactly = 2) { mockAuthTokenManager.invalidate() }
-        coVerify(exactly = 2) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
     }
 
     @Test
