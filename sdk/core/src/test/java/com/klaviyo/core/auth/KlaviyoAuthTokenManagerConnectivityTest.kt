@@ -634,15 +634,15 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         )
     }
 
-    // MARK: - Stale-guard: profileResetPending prevents arming
+    // MARK: - Stale-guard: profile reset prevents arming
 
     @Test
     fun `network failure during profile reset does not arm connectivity wait job`() = runTest(
         dispatcher
     ) {
-        // invalidate() sets profileResetPending = true but does NOT cancel the refresh job, so
-        // the scheduled refresh fires normally — the new guard is the profileResetPending check
-        // in the catch block, not the generation guard in markRefreshTimerFired.
+        // A refresh timer is scheduled, then invalidate() queues its Invalidate command before the
+        // timer fires and queues TimerFired. Invalidate runs first and retires the refresh id, so
+        // the stale TimerFired is rejected and the scripted network failure is never reached.
         val provider = ScriptedProvider(
             ArrayDeque(
                 listOf(
@@ -654,14 +654,17 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         val manager = KlaviyoAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("eager fetch ran", 1, provider.callCount)
+        assertEquals("refresh timer scheduled", 1, staticClock.scheduledTasks.size)
 
-        // Set profileResetPending = true before the scheduled refresh fires
         manager.invalidate()
 
         executeScheduledRefresh()
+        assertEquals("refresh timer fired", 0, staticClock.scheduledTasks.size)
+        assertEquals("stale timer must not launch a refresh", 1, provider.callCount)
 
         assertNull(
-            "armConnectivityWaitJob must not fire when profileResetPending is true",
+            "connectivity job must not arm after the profile reset",
             manager.connectivityWaitJob()
         )
         assertEquals(0, fakeNetworkMonitor.observerCount())
@@ -670,26 +673,21 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     @Test
     fun `network failure after mid-fetch profile transition does not arm connectivity wait job`() =
         runTest(dispatcher) {
-            // Simulates the narrow race where a logout fires while the refresh is suspended on
-            // the network call, then the catch block runs after profileResetPending has been
-            // cleared by clearTokenState(). Without the resetGeneration snapshot guard the catch
-            // block would see provider != null && !profileResetPending and arm a zombie job.
-            //
-            // We reproduce by injecting invalidate() from inside the fetchToken callback — this
-            // bumps resetGeneration during the active fetch, so the snapshot captured at the
-            // start of performScheduledRefresh no longer matches by the time the catch runs.
+            // The timer refresh is mid-fetch when invalidate() runs inside fetchToken, before the
+            // provider reports its network failure. Invalidate is handled before the fetch result,
+            // so it fails the refresh waiter as superseded and drops the stale fetch result. The
+            // superseded refresh never posts RefreshFailed, so no connectivity wait is armed.
             val manager = KlaviyoAuthTokenManager()
             val provider = object : AuthTokenProvider {
                 var callCount = 0
+                var invalidatedGeneration: Long? = null
 
                 override fun fetchToken(callback: AuthTokenProvider.Callback) {
                     callCount++
                     if (callCount == 1) {
                         callback.onSuccess(makeJwt())
                     } else {
-                        // Mid-fetch profile transition: bump profileGeneration while the
-                        // refresh coroutine is running, before the failure is delivered.
-                        manager.invalidate()
+                        invalidatedGeneration = manager.invalidate()
                         callback.onFailure(IOException("network down"))
                     }
                 }
@@ -700,10 +698,11 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             assertEquals("eager fetch ran", 1, provider.callCount)
 
             executeScheduledRefresh()
-            assertEquals("timer refresh ran (and failed)", 2, provider.callCount)
+            assertEquals("timer refresh invoked the provider", 2, provider.callCount)
+            assertNotNull("profile reset ran mid-fetch", provider.invalidatedGeneration)
 
             assertNull(
-                "connectivity job must not arm when resetGeneration advanced mid-fetch",
+                "connectivity job must not arm for a superseded refresh",
                 manager.connectivityWaitJob()
             )
             assertEquals(0, fakeNetworkMonitor.observerCount())
