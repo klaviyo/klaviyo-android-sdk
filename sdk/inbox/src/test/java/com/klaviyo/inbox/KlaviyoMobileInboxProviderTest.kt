@@ -135,6 +135,25 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
     }
 
     @Test
+    fun `registering again before the delete runs keeps the store`() {
+        Klaviyo.registerForMobileInbox()
+        Klaviyo.unregisterFromMobileInbox()
+        Klaviyo.registerForMobileInbox()
+        deleteStoreJobs()
+
+        verify(exactly = 0) { mockContext.deleteDatabase(any()) }
+        assertTrue(isInboxCaptureEnabled())
+    }
+
+    @Test
+    fun `register and unregister log at info`() {
+        Klaviyo.registerForMobileInbox()
+        Klaviyo.unregisterFromMobileInbox()
+
+        verify(exactly = 2) { spyLog.info(any(), any()) }
+    }
+
+    @Test
     fun `capture is disabled when notification permission is not granted`() {
         every { DeviceProperties.notificationPermissionGranted } returns false
         Klaviyo.registerForMobileInbox()
@@ -178,5 +197,16 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
         Klaviyo.registerForMobileInbox()
 
         verify { spyLog.error(any(), any()) }
+    }
+
+    @Test
+    fun `unregister before initialize is caught and logged`() {
+        every { Registry.dataStore } throws MissingConfig()
+
+        Klaviyo.unregisterFromMobileInbox()
+        deleteStoreJobs()
+
+        verify { spyLog.error(any(), any()) }
+        verify(exactly = 0) { mockContext.deleteDatabase(any()) }
     }
 }

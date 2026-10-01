@@ -9,7 +9,7 @@ internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
         MobileInboxSettings.save(
             MobileInboxSettings(enabled = true, localRetentionLimit = config.localRetentionLimit)
         )
-        Registry.log.debug("Registered for Mobile Inbox with $config")
+        Registry.log.info("Registered for Mobile Inbox with $config")
     }
 
     override fun unregister() {
@@ -21,7 +21,12 @@ internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
                     ?: MobileInboxConfig.DEFAULT_LOCAL_RETENTION_LIMIT
             )
         )
-        CoroutineScope(Registry.dispatcher).safeLaunch { InboxStore.delete() }
-        Registry.log.debug("Unregistered from Mobile Inbox")
+        CoroutineScope(Registry.dispatcher).safeLaunch {
+            // Skip the delete if the host registered again before this ran
+            if (MobileInboxSettings.load()?.enabled != true) {
+                InboxStore.delete()
+            }
+        }
+        Registry.log.info("Unregistered from Mobile Inbox")
     }
 }
