@@ -118,6 +118,33 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
+    fun `Pending profile merge does not restore a removed identifier`() {
+        var current = Profile(externalId = EXTERNAL_ID, email = EMAIL).apply {
+            setProperty(ProfileKey.FIRST_NAME, "Kermit")
+        }
+        every { stateMock.getAsProfile(withAttributes = any()) } answers { current }
+        StateSideEffects(stateMock, apiClientMock)
+
+        capturedStateChangeObserver.captured(StateChange.ProfileIdentifier(ProfileKey.EMAIL, null))
+        current = Profile(externalId = EXTERNAL_ID).apply {
+            setProperty(ProfileKey.LAST_NAME, "Frog")
+        }
+        capturedStateChangeObserver.captured(StateChange.ProfileIdentifier(ProfileKey.EMAIL, EMAIL))
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 1) {
+            apiClientMock.enqueueProfile(
+                match {
+                    it.externalId == EXTERNAL_ID &&
+                        it.email == null &&
+                        it[ProfileKey.FIRST_NAME] == "Kermit" &&
+                        it[ProfileKey.LAST_NAME] == "Frog"
+                }
+            )
+        }
+    }
+
+    @Test
     fun `Empty attributes do not enqueue a profile API request`() {
         StateSideEffects(
             stateMock.apply {

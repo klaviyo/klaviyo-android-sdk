@@ -83,8 +83,13 @@ internal class StateSideEffects(
 
         Registry.log.verbose("${pendingProfile?.let { "Merging" } ?: "Starting"} profile update")
 
-        // Merge changes into pending transaction, or start a new one
-        pendingProfile = pendingProfile?.copy()?.merge(profile) ?: profile
+        // Merge attributes into pending transaction, taking identifiers from the latest state, or start a new one
+        pendingProfile = pendingProfile?.copy()?.merge(profile)?.apply {
+            externalId = profile.externalId
+            email = profile.email
+            phoneNumber = profile.phoneNumber
+            anonymousId = profile.anonymousId
+        } ?: profile
 
         // Reset timer
         timer?.cancel()
