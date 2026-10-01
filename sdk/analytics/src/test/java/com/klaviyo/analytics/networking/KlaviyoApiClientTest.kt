@@ -112,6 +112,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
         // Register mock QueueScheduler to prevent actual WorkManager operations
         Registry.register<QueueScheduler>(mockQueueScheduler)
 
+        // Run lane sends synchronously so drains are deterministic in tests
+        KlaviyoApiClient.laneSendExecutor = { it.run() }
+
         KlaviyoApiClient.startService()
     }
 
@@ -122,6 +125,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
 
         spyDataStore.clear(KlaviyoApiClient.QUEUE_KEY)
         KlaviyoApiClient.restoreQueue(forceRestore = true)
+        KlaviyoApiClient.resetLaneState()
         assertEquals(0, KlaviyoApiClient.getQueueSize())
         super.cleanup()
         unmockkObject(KlaviyoApiClient)
@@ -134,9 +138,10 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private fun mockRequest(
         uuid: String = "uuid",
         status: KlaviyoApiRequest.Status = KlaviyoApiRequest.Status.Complete,
-        codeOverride: Int? = null
+        codeOverride: Int? = null,
+        urlPath: String = "https://mock.com"
     ): KlaviyoApiRequest =
-        spyk(KlaviyoApiRequest("https://mock.com", RequestMethod.GET)).also {
+        spyk(KlaviyoApiRequest(urlPath, RequestMethod.GET)).also {
             every { it.status } returns status
             every { it.state } returns status.name
             val getState = {
@@ -1454,4 +1459,288 @@ internal class KlaviyoApiClientTest : BaseTest() {
         // Meanwhile an older entry inside the tail window is kept
         assertNotNull(spyDataStore.fetch("uuid-" + (uuids.size - 1)))
     }
+
+    // region Lane scheduling
+
+    /**
+     * Build a mock request classified into a specific lane via its endpoint path,
+     * recording the order in which sends occur.
+     */
+    private fun laneRequest(
+        uuid: String,
+        urlPath: String,
+        status: KlaviyoApiRequest.Status = KlaviyoApiRequest.Status.Complete,
+        sendLog: MutableList<String>? = null
+    ): KlaviyoApiRequest = mockRequest(uuid, status, urlPath = urlPath).also { request ->
+        if (sendLog != null) {
+            every { request.send(any()) } answers {
+                sendLog += uuid
+                status
+            }
+        }
+    }
+
+    @Test
+    fun `FIFO ordering is preserved within a lane`() {
+        val sendLog = mutableListOf<String>()
+        val first = laneRequest("e1", "client/events", sendLog = sendLog)
+        val second = laneRequest("e2", "client/events", sendLog = sendLog)
+        val third = laneRequest("e3", "client/events", sendLog = sendLog)
+
+        KlaviyoApiClient.enqueueRequest(first, second, third)
+        KlaviyoApiClient.flushQueue()
+
+        assertEquals(listOf("e1", "e2", "e3"), sendLog)
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `different lanes drain independently in one flush`() {
+        val sendLog = mutableListOf<String>()
+        val identity = laneRequest("id-1", "client/profiles", sendLog = sendLog)
+        val event = laneRequest("ev-1", "client/events", sendLog = sendLog)
+        val engagement = laneRequest("en-1", "onsite/track-analytics", sendLog = sendLog)
+
+        KlaviyoApiClient.enqueueRequest(identity, event, engagement)
+        KlaviyoApiClient.flushQueue()
+
+        // All three lanes sent their head request
+        assertEquals(3, sendLog.size)
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `global in-flight bound never exceeds MAX_IN_FLIGHT`() {
+        // Capture dispatched sends instead of running them, so each dispatch stays "in flight"
+        // and we observe exactly how many the scheduler will start before any completes.
+        val dispatched = ArrayDeque<Runnable>()
+        KlaviyoApiClient.laneSendExecutor = { dispatched += it }
+
+        // Enough work to fill all three lanes plus a backlog that only drains as slots free up.
+        val requests = listOf(
+            "client/profiles",
+            "client/events",
+            "onsite/track-analytics",
+            "client/push-tokens",
+            "client/events",
+            "onsite/track-analytics"
+        ).mapIndexed { i, path ->
+            mockRequest("bound-$i", KlaviyoApiRequest.Status.Complete, urlPath = path)
+        }
+
+        KlaviyoApiClient.enqueueRequest(*requests.toTypedArray())
+        KlaviyoApiClient.flushQueue()
+
+        // The first drain dispatched one send per lane and stopped at the global bound, even
+        // though more lanes' worth of requests remain queued.
+        assertEquals(KlaviyoApiClient.MAX_IN_FLIGHT, dispatched.size)
+
+        // Completing in-flight sends frees lanes, and the scheduler dispatches the backlog,
+        // never exceeding the bound at any moment.
+        while (dispatched.isNotEmpty()) {
+            val inFlightNow = dispatched.size
+            assert(inFlightNow <= KlaviyoApiClient.MAX_IN_FLIGHT) {
+                "in-flight $inFlightNow exceeded bound"
+            }
+            dispatched.removeFirst().run()
+        }
+
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `a retrying lane does not delay another lane`() {
+        // Identity lane fails and backs off; events lane should still send on the same flush.
+        val identity = mockRequest(
+            "id-retry",
+            KlaviyoApiRequest.Status.PendingRetry,
+            urlPath = "client/profiles"
+        ).also {
+            every { it.computeRetryInterval() } returns 60_000L
+        }
+        val event = laneRequest("ev-ok", "client/events")
+
+        KlaviyoApiClient.enqueueRequest(identity, event)
+
+        // Force flush: identity retries (fails -> PendingRetry, backs off), events succeeds
+        KlaviyoApiClient.flushQueue()
+
+        // Event was sent despite the identity lane's failure
+        verify(exactly = 1) { event.send(any()) }
+        // Identity request remains queued for its retry
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        assertNull(spyDataStore.fetch("ev-ok"))
+        assertNotNull(spyDataStore.fetch("id-retry"))
+    }
+
+    @Test
+    fun `retry backoff advances only the failing lane next-eligible time`() {
+        val failing = mockRequest(
+            "id-fail",
+            KlaviyoApiRequest.Status.PendingRetry,
+            urlPath = "client/profiles"
+        ).also {
+            every { it.computeRetryInterval() } returns 60_000L
+        }
+        KlaviyoApiClient.enqueueRequest(failing)
+        KlaviyoApiClient.flushQueue()
+        verify(exactly = 1) { failing.send(any()) }
+
+        // Immediately enqueue and flush an events request: it must not be gated by identity backoff
+        val event = laneRequest("ev-fast", "client/events")
+        KlaviyoApiClient.enqueueRequest(event)
+        KlaviyoApiClient.flushQueue()
+
+        verify(exactly = 1) { event.send(any()) }
+        // Identity did not retry again (still backing off)
+        verify(exactly = 1) { failing.send(any()) }
+    }
+
+    @Test
+    fun `round robin rotates among eligible lanes without starvation`() {
+        // With one continuously failing lane, the other lanes must still be served across flushes.
+        val sendLog = mutableListOf<String>()
+        val failing = mockRequest(
+            "id-fail",
+            KlaviyoApiRequest.Status.PendingRetry,
+            urlPath = "client/profiles"
+        ).also {
+            every { it.computeRetryInterval() } returns 1_000L
+            every { it.send(any()) } answers {
+                sendLog += "id-fail"
+                KlaviyoApiRequest.Status.PendingRetry
+            }
+        }
+        val event = laneRequest("ev-1", "client/events", sendLog = sendLog)
+        val engagement = laneRequest("en-1", "onsite/track-analytics", sendLog = sendLog)
+
+        KlaviyoApiClient.enqueueRequest(failing, event, engagement)
+
+        // First flush: all three lanes eligible, each sends once (round-robin).
+        KlaviyoApiClient.flushQueue()
+        assertEquals(3, sendLog.size)
+
+        // Advance past the 1s identity backoff and flush again: identity retries, and the
+        // (now empty) event/engagement lanes are done. No lane is starved.
+        staticClock.time += 2_000L
+        KlaviyoApiClient.flushQueue()
+
+        // Identity retried after its backoff elapsed
+        assertEquals(4, sendLog.size)
+        assertEquals("id-fail", sendLog.last())
+        // Event and engagement each sent exactly once (not re-sent, not starved)
+        assertEquals(1, sendLog.count { it == "ev-1" })
+        assertEquals(1, sendLog.count { it == "en-1" })
+    }
+
+    @Test
+    fun `restored mixed queue re-derives lanes and drains each once`() {
+        // Persist a mixed-lane queue; the decoder is mocked to rebuild a lane-classified
+        // mock request per uuid, mirroring how restore reconstructs requests from disk.
+        val paths = mapOf(
+            "r-id" to "client/profiles",
+            "r-ev" to "client/events",
+            "r-en" to "onsite/track-analytics"
+        )
+        mockkObject(KlaviyoApiRequestDecoder)
+        every { KlaviyoApiRequestDecoder.fromJson(any()) } answers { a ->
+            val json = a.invocation.args[0] as JSONObject
+            val uuid = json.getString("uuid")
+            mockRequest(uuid, urlPath = paths.getValue(uuid))
+        }
+
+        paths.entries.forEachIndexed { index, (uuid, path) ->
+            spyDataStore.store(
+                uuid,
+                KlaviyoApiRequest(
+                    path,
+                    RequestMethod.POST,
+                    queuedTime = index.toLong(),
+                    uuid = uuid
+                )
+                    .toString()
+            )
+        }
+        spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, "[\"r-id\",\"r-ev\",\"r-en\"]")
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+        assertEquals(3, KlaviyoApiClient.getQueueSize())
+
+        KlaviyoApiClient.flushQueue()
+
+        // Each restored request was drained from its re-derived lane exactly once.
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+        assertNull(spyDataStore.fetch("r-id"))
+        assertNull(spyDataStore.fetch("r-ev"))
+        assertNull(spyDataStore.fetch("r-en"))
+    }
+
+    @Test
+    fun `priority Klaviyo metric stays first within the events lane`() {
+        val sendLog = mutableListOf<String>()
+        val customEvent = laneRequest("ev-custom", "client/events", sendLog = sendLog)
+        KlaviyoApiClient.enqueueRequest(customEvent)
+
+        // Head-of-line priority event lands at the front of the events lane
+        val priorityEvent = laneRequest("ev-priority", "client/events", sendLog = sendLog)
+        KlaviyoApiClient.enqueueRequest(priorityEvent, headOfLine = true)
+
+        KlaviyoApiClient.flushQueue()
+
+        assertEquals(listOf("ev-priority", "ev-custom"), sendLog)
+    }
+
+    @Test
+    fun `force flush does not bypass lane backoff`() {
+        val failing = mockRequest(
+            "id-backoff",
+            KlaviyoApiRequest.Status.PendingRetry,
+            urlPath = "client/profiles"
+        ).also {
+            every { it.computeRetryInterval() } returns 60_000L
+        }
+        KlaviyoApiClient.enqueueRequest(failing)
+
+        // First flush sends and fails, advancing identity lane backoff by 60s
+        KlaviyoApiClient.flushQueue()
+        verify(exactly = 1) { failing.send(any()) }
+
+        // A forced flush while the lane is backing off must NOT resend the backing-off request
+        KlaviyoApiClient.flushQueue()
+        verify(exactly = 1) { failing.send(any()) }
+
+        // After the backoff elapses, a forced flush retries the lane
+        staticClock.time += 61_000L
+        KlaviyoApiClient.flushQueue()
+        verify(exactly = 2) { failing.send(any()) }
+    }
+
+    @Test
+    fun `one request in flight per lane during a drain`() {
+        // Capture sends so none completes until we run it. Two requests share the events lane,
+        // so the drain may only start the head; the second must wait for the first to finish.
+        val dispatched = ArrayDeque<Runnable>()
+        KlaviyoApiClient.laneSendExecutor = { dispatched += it }
+
+        val sendLog = mutableListOf<String>()
+        val first = laneRequest("same-1", "client/events", sendLog = sendLog)
+        val second = laneRequest("same-2", "client/events", sendLog = sendLog)
+
+        KlaviyoApiClient.enqueueRequest(first, second)
+        KlaviyoApiClient.flushQueue()
+
+        // Only the lane head was dispatched; the second request is still queued behind it.
+        assertEquals(1, dispatched.size)
+        assertEquals(2, KlaviyoApiClient.getQueueSize())
+
+        // Completing the head frees the lane and lets the next request dispatch.
+        while (dispatched.isNotEmpty()) {
+            dispatched.removeFirst().run()
+        }
+
+        assertEquals(listOf("same-1", "same-2"), sendLog)
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    // endregion
 }
