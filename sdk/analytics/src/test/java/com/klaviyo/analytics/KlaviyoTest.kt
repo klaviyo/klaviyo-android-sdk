@@ -119,6 +119,7 @@ internal class KlaviyoTest : BaseTest() {
 
     private val mockAuthTokenManager = mockk<AuthTokenManager>().apply {
         every { invalidate() } returns 1L
+        every { setIdentified(any()) } just Runs
         coEvery { clearTokenState(any()) } returns Unit
         every { unregisterProvider() } just Runs
     }
@@ -587,6 +588,29 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.setProfile(Profile(email = EMAIL))
         dispatcher.scheduler.advanceUntilIdle()
 
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+    }
+
+    @Test
+    fun `initialize with an anonymous profile keeps the token gate closed`() {
+        verify(exactly = 1) { mockAuthTokenManager.setIdentified(false) }
+        verify(exactly = 0) { mockAuthTokenManager.setIdentified(true) }
+    }
+
+    @Test
+    fun `initialize with a persisted identified profile opens the token gate without a fence`() {
+        Registry.unregister<State>()
+        Registry.unregister<StateSideEffects>()
+        spyDataStore.store(ProfileKey.EMAIL.name, EMAIL)
+        clearMocks(mockAuthTokenManager, answers = false)
+
+        Klaviyo.initialize(
+            apiKey = API_KEY,
+            applicationContext = mockContext
+        )
+
+        assertEquals(EMAIL, Klaviyo.getEmail())
+        verify(exactly = 1) { mockAuthTokenManager.setIdentified(true) }
         verify(exactly = 0) { mockAuthTokenManager.invalidate() }
     }
 
