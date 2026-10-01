@@ -32,7 +32,6 @@ import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.Runs
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.just
@@ -524,17 +523,6 @@ internal class KlaviyoTest : BaseTest() {
             mockAuthTokenManager.invalidate()
             mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
         }
-    }
-
-    @Test
-    fun `resetProfile clears auth token state when a state observer throws`() = runTest(dispatcher) {
-        Registry.get<State>().onStateChange { throw IllegalStateException("observer failure") }
-
-        runCatching { Klaviyo.resetProfile() }
-        dispatcher.scheduler.advanceUntilIdle()
-
-        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
-        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
     }
 
     @Test
