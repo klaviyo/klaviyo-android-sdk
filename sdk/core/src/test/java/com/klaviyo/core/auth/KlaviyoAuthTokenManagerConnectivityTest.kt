@@ -250,6 +250,48 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         }
 
     @Test
+    fun `reconnect during a foreground missed refresh does not launch a duplicate refresh`() =
+        runTest(dispatcher) {
+            // Scheduled refresh fails offline and arms a connectivity wait. Foregrounding past the
+            // missed target launches a new refresh, then the network returns while it is in
+            // flight. When that shared fetch fails, the immediate retry must still fire.
+            val provider = PendingScriptedProvider(
+                listOf(
+                    Result.success(makeJwt()),
+                    Result.failure(IOException("scheduled refresh offline")),
+                    null,
+                    Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
+                )
+            )
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            executeScheduledRefresh()
+            assertEquals(2, provider.callCount)
+            assertNotNull(manager.connectivityWaitJob())
+
+            lifecycleObserver.captured.invoke(ActivityEvent.FirstStarted(mockActivity))
+            dispatcher.scheduler.runCurrent()
+            assertEquals("foreground launched the missed refresh", 3, provider.callCount)
+
+            fakeNetworkMonitor.simulateConnected(isConnected = true)
+            dispatcher.scheduler.runCurrent()
+            assertEquals("reconnect shares the in-flight fetch", 3, provider.callCount)
+
+            provider.failPending(IOException("foreground refresh offline"))
+            dispatcher.scheduler.runCurrent()
+
+            assertEquals(
+                "immediate retry fires without another network event",
+                4,
+                provider.callCount
+            )
+            assertNull(manager.connectivityWaitJob())
+            assertEquals(0, fakeNetworkMonitor.observerCount())
+        }
+
+    @Test
     fun `foreground expiration fetches after a connectivity refresh fails without IOException`() =
         runTest(dispatcher) {
             val provider = ScriptedProvider(

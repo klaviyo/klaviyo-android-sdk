@@ -262,7 +262,7 @@ internal class KlaviyoAuthTokenManager(
             is Command.Connected -> {
                 if (command.id == state.connectivityId && !state.resetPending) {
                     state.connectivityJob = null
-                    launchRefresh(state.refreshId, false)
+                    if (!state.refreshInFlight) launchRefresh(state.refreshId, false)
                 }
             }
             is Command.CanDeliver -> {
