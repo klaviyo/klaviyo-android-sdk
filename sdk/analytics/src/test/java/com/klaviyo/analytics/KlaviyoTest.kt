@@ -524,6 +524,8 @@ internal class KlaviyoTest : BaseTest() {
             mockAuthTokenManager.invalidate()
             mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
         }
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(any()) }
     }
 
     @Test

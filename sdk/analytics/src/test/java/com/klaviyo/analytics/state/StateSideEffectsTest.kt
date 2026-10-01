@@ -21,6 +21,7 @@ import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
@@ -203,6 +204,8 @@ class StateSideEffectsTest : BaseTest() {
             authTokenManagerMock.invalidate()
             authTokenManagerMock.clearTokenState(expectedGeneration = AUTH_GENERATION)
         }
+        verify(exactly = 1) { authTokenManagerMock.invalidate() }
+        coVerify(exactly = 1) { authTokenManagerMock.clearTokenState(any()) }
     }
 
     @Test
