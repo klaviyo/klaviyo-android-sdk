@@ -45,6 +45,8 @@ internal class KlaviyoAuthTokenManager(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal val generation = AtomicLong()
 
+    private val profileGeneration = AtomicLong()
+
     @Volatile private var tokenSnapshot = TokenSnapshot(-1L, null)
     private val state = State()
 
@@ -100,7 +102,14 @@ internal class KlaviyoAuthTokenManager(
         post(Command.Unobserve(observer))
     }
 
+    override fun setIdentified(identified: Boolean) {
+        post(Command.Identity(identified))
+    }
+
+    override fun profileGeneration(): Long = profileGeneration.get()
+
     override fun invalidate(): Long = generation.incrementAndGet().also {
+        profileGeneration.incrementAndGet()
         post(Command.Invalidate(it))
     }
 
@@ -226,7 +235,7 @@ internal class KlaviyoAuthTokenManager(
                     retireWork()
                     cacheToken(null)
                     state.resetPending = false
-                    if (state.waiters.isNotEmpty()) startFetch()
+                    if (command.expectedGeneration >= 0L || state.waiters.isNotEmpty()) startFetch()
                     Registry.log.info("Token state cleared")
                 } else {
                     Registry.log.verbose("Dropping stale token clear")
@@ -240,6 +249,8 @@ internal class KlaviyoAuthTokenManager(
                     command.reply.completeExceptionally(StaleRefreshException())
                 } else if (state.provider == null) {
                     command.reply.completeExceptionally(AuthTokenException.NoProviderRegistered)
+                } else if (!state.identified) {
+                    command.reply.completeExceptionally(AuthTokenException.NotIdentified)
                 } else if (state.resetPending || state.generation != generation.get()) {
                     addWaiter(command)
                 } else {
@@ -253,6 +264,7 @@ internal class KlaviyoAuthTokenManager(
                 }
             }
             Command.RefreshRejected -> onTokenRejected()
+            is Command.Identity -> onIdentityChange(command.identified)
             is Command.CallerDone -> state.waiters.removeAll { it.reply === command.reply }
             is Command.FetchDone -> onFetchDone(command)
             is Command.TimerFired -> {
@@ -306,7 +318,9 @@ internal class KlaviyoAuthTokenManager(
     }
 
     private fun onTokenRejected() {
-        if (state.provider == null || state.resetPending || state.generation != generation.get()) {
+        if (!state.identified || state.provider == null || state.resetPending ||
+            state.generation != generation.get()
+        ) {
             Registry.log.debug("Rejected auth token refresh skipped")
             return
         }
@@ -317,8 +331,26 @@ internal class KlaviyoAuthTokenManager(
         startFetch()
     }
 
+    private fun onIdentityChange(identified: Boolean) {
+        if (identified == state.identified) return
+        state.identified = identified
+        if (identified) {
+            Registry.log.verbose("Profile identified")
+            startFetch()
+        } else {
+            retireWork()
+            cacheToken(null)
+            failWaiters(AuthTokenException.NotIdentified)
+            Registry.log.verbose(
+                "Profile not identified — auth token requests resolve without a token"
+            )
+        }
+    }
+
     private fun startFetch() {
-        if (state.fetchJob != null || state.resetPending || state.generation != generation.get()) {
+        if (!state.identified || state.fetchJob != null || state.resetPending ||
+            state.generation != generation.get()
+        ) {
             return
         }
         val provider = state.provider ?: return
@@ -565,6 +597,7 @@ internal class KlaviyoAuthTokenManager(
     /** Mutable data accessed only by the command consumer. */
     private class State {
         var provider: AuthTokenProvider? = null
+        var identified = false
         var cachedToken: ValidatedToken? = null
         var generation = 0L
         var resetId = 0L
@@ -617,6 +650,7 @@ internal class KlaviyoAuthTokenManager(
             val forceRefresh: Boolean,
             val refreshId: Long?
         ) : Command
+        data class Identity(val identified: Boolean) : Command
         data class CallerDone(val reply: CompletableDeferred<ValidatedToken>) : Command
         data class FetchDone(val id: Long, val result: Result<ValidatedToken>) : Command
         data class TimerFired(val id: Long) : Command

@@ -17,6 +17,9 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -108,7 +111,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     fun `scheduleRefresh fires at computed target and chains next refresh`() = runTest(dispatcher) {
         val token = makeJwt()
         val provider = CountingSuccessProvider(token)
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -134,7 +137,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
 
     @Test
     fun `invalidation inside observer suppresses later observers`() = runTest(dispatcher) {
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         val received = mutableListOf<String>()
         manager.onTokenRefresh {
             received.add("first")
@@ -151,7 +154,37 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     @Test
     fun `logout retires a scheduled refresh without restarting the provider`() = runTest(dispatcher) {
         val provider = InitialThenResolvableProvider(makeJwt())
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(2, provider.callCount)
+
+        val generation = manager.invalidate()
+        manager.setIdentified(false)
+        dispatcher.scheduler.runCurrent()
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(2, provider.callCount)
+        val demand = async { runCatching { manager.currentToken() } }
+        dispatcher.scheduler.runCurrent()
+        assertEquals(2, provider.callCount)
+        val retired = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        provider.resolve(retired)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertSame(AuthTokenException.NotIdentified, demand.await().exceptionOrNull())
+        assertFalse(manager.isCurrentToken(retired))
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+    }
+
+    @Test
+    fun `profile replacement retires a scheduled refresh and prewarms once`() = runTest(dispatcher) {
+        val provider = InitialThenResolvableProvider(makeJwt())
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -165,7 +198,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         manager.clearTokenState(generation)
         dispatcher.scheduler.runCurrent()
 
-        assertEquals(2, provider.callCount)
+        assertEquals(3, provider.callCount)
         val demand = async { manager.currentToken() }
         dispatcher.scheduler.runCurrent()
         assertEquals(3, provider.callCount)
@@ -177,7 +210,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
 
     @Test
     fun `manager scope cancellation cancels scheduled refresh`() = runTest(dispatcher) {
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(CountingSuccessProvider(makeJwt()))
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals(1, staticClock.scheduledTasks.size)
@@ -191,7 +224,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     @Test
     fun `queued timer refresh cannot fetch after clearTokenState returns`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -216,7 +249,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -253,7 +286,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val initialToken = makeJwt()
         val freshToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
         val provider = InitialThenResolvableProvider(initialToken)
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -292,7 +325,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             val initialToken = makeJwt()
             val freshToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
             val provider = InitialThenResolvableProvider(initialToken)
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
 
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
@@ -329,7 +362,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val tokenB = makeJwt(EXP_SECONDS + 1, IAT_SECONDS + 1)
         val providerA = CountingSuccessProvider(tokenA)
         val providerB = CountingSuccessProvider(tokenB)
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(providerA)
         dispatcher.scheduler.advanceUntilIdle()
@@ -351,7 +384,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     @Test
     fun `foreground with still-valid token is no-op`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -366,7 +399,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         dispatcher
     ) {
         val provider = CountingSuccessProvider(makeJwt())
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -383,7 +416,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     @Test
     fun `foreground with missed refresh fires exactly once`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -416,7 +449,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val initialToken = makeJwt()
         val refreshedToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
         val provider = InitialThenResolvableProvider(initialToken)
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -470,7 +503,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
                     }
                 }
             }
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
 
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
@@ -516,7 +549,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         val racingClock = FireOnCancelClock(TIME, ISO_TIME)
         every { Registry.clock } returns racingClock
         val provider = CountingSuccessProvider(makeJwt())
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -551,7 +584,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -587,7 +620,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -612,7 +645,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     @Test
     fun `foreground with expired token clears cache and eager-fetches`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -633,7 +666,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     fun `refresh observer receives jwt on proactive refresh`() = runTest(dispatcher) {
         val jwt = makeJwt()
         val provider = CountingSuccessProvider(jwt)
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         val receivedTokens = mutableListOf<String>()
         manager.onTokenRefresh { receivedTokens.add(it) }
@@ -663,7 +696,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     fun `multiple refresh observers all receive token`() = runTest(dispatcher) {
         val jwt = makeJwt()
         val provider = CountingSuccessProvider(jwt)
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         val receivedA = mutableListOf<String>()
         val receivedB = mutableListOf<String>()
@@ -687,7 +720,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     fun `refresh observer notified on initial eager fetch`() = runTest(dispatcher) {
         val jwt = makeJwt()
         val provider = CountingSuccessProvider(jwt)
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         val received = mutableListOf<String>()
         manager.onTokenRefresh { received.add(it) }
@@ -713,7 +746,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             // finally resolves, the observer must be notified so the webview can inject the token.
             val jwt = makeJwt()
             val provider = ResolvableProvider()
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
 
             val received = mutableListOf<String>()
             manager.onTokenRefresh { received.add(it) }
@@ -758,7 +791,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     fun `observer throwing does not prevent other observers`() = runTest(dispatcher) {
         val jwt = makeJwt()
         val provider = CountingSuccessProvider(jwt)
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         val receivedBySecond = mutableListOf<String>()
         manager.onTokenRefresh { throw RuntimeException("boom") }
@@ -782,7 +815,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     @Test
     fun `offTokenRefresh removes observer`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         var notified = false
         val observer: TokenRefreshObserver = { notified = true }
@@ -802,7 +835,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     @Test
     fun `clearTokenState drops cached token and cancels scheduled refresh`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -847,7 +880,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     @Test
     fun `clearTokenState retains provider and observers`() = runTest(dispatcher) {
         val provider = CountingSuccessProvider(makeJwt())
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         val received = mutableListOf<String>()
         manager.onTokenRefresh { received.add(it) }
@@ -894,7 +927,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             val initialToken = makeJwt()
             val refreshedToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
             val provider = InitialThenResolvableProvider(initialToken)
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
 
             val received = mutableListOf<String>()
             manager.onTokenRefresh { received.add(it) }
@@ -938,7 +971,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             val newJwt = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
             val provider1 = CountingSuccessProvider(initialJwt)
             val provider2 = CountingSuccessProvider(newJwt)
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
 
             manager.registerProvider(provider1)
             dispatcher.scheduler.advanceUntilIdle()
@@ -967,7 +1000,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         runTest(dispatcher) {
             val jwt = makeJwt()
             val provider = CountingSuccessProvider(jwt)
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
 
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
@@ -994,7 +1027,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             val initialToken = makeJwt()
             val refreshedToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
             val provider = InitialThenResolvableProvider(initialToken)
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
 
             val received = mutableListOf<String>()
             manager.onTokenRefresh { received.add(it) }
@@ -1037,7 +1070,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             // true when the refresh starts, so the post-fetch guard correctly skips observers.
             val jwt = makeJwt()
             val provider = CountingSuccessProvider(jwt)
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
 
             val received = mutableListOf<String>()
             manager.onTokenRefresh { received.add(it) }

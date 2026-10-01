@@ -21,6 +21,13 @@ sealed class AuthTokenException(
     data object NoProviderRegistered : AuthTokenException("No auth token provider registered")
 
     /**
+     * [AuthTokenManager.currentToken] was called while the active profile has no external ID,
+     * email or phone number. The provider is not invoked for such a profile. Callers should treat
+     * this as "no token" rather than "auth failed."
+     */
+    data object NotIdentified : AuthTokenException("Active profile has no identifier")
+
+    /**
      * The provider returned a token that did not pass [JWTParser] validation.
      * The [reason] is the name of the failing [JWTValidationResult] variant.
      */

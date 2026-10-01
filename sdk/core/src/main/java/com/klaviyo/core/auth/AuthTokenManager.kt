@@ -38,7 +38,8 @@ interface AuthTokenManager {
 
     /**
      * Replace the registered [AuthTokenProvider] (if any), discard any cached token, and
-     * asynchronously pre-warm the cache with a fresh token via the new provider.
+     * asynchronously pre-warm the cache with a fresh token via the new provider if the active
+     * profile is identified (see [setIdentified]).
      *
      * This method returns after queuing registration. The eager fetch runs asynchronously.
      */
@@ -73,6 +74,8 @@ interface AuthTokenManager {
      *   positive. Defaults to [BACKGROUND_FETCH_TIMEOUT_MS], pass [INTERACTIVE_FETCH_TIMEOUT_MS]
      *   at form-display time for a best-effort, non-blocking fetch.
      * @throws [AuthTokenException.NoProviderRegistered] if no provider has been registered.
+     * @throws [AuthTokenException.NotIdentified] if the active profile is not identified
+     *   (see [setIdentified]). Thrown without invoking the provider.
      * @throws [AuthTokenException.ValidationFailed] if the returned token fails validation.
      * @throws [AuthTokenException.TimedOut] if the provider does not respond within [timeoutMs].
      * @throws [AuthTokenException.ProviderCancelled] if the provider reports a cancellation.
@@ -122,6 +125,23 @@ interface AuthTokenManager {
     fun offTokenRefresh(observer: TokenRefreshObserver)
 
     /**
+     * Set whether the active profile has an external ID, email or phone number. Defaults to false.
+     *
+     * While false, the provider is never invoked: no pre-warm, fetch or proactive refresh runs,
+     * [currentToken] throws [AuthTokenException.NotIdentified], pending [currentToken] callers fail
+     * the same way, and the cached token is discarded. Changing to true with a provider registered
+     * pre-warms a token. Processed in order with the other commands, so a change queued after
+     * [invalidate] applies to the new profile.
+     */
+    fun setIdentified(identified: Boolean)
+
+    /**
+     * Number of [invalidate] calls so far. Changes only when the active profile is replaced, so
+     * callers can tell whether a token they hold may belong to a previous profile.
+     */
+    fun profileGeneration(): Long
+
+    /**
      * Synchronously mark the current profile as stale, preventing in-flight refresh results from
      * reaching registered [TokenRefreshObserver]s. Token-state cleanup is queued.
      *
@@ -132,10 +152,11 @@ interface AuthTokenManager {
 
     /**
      * Clear all token-acquisition state tied to the current user, called from the analytics
-     * `StateSideEffects` observer when a profile identifier changes, the profile is reset, or the
-     * company (API key) changes. Discards the cached token, cancels the scheduled proactive refresh
-     * and its wall-clock target, and cancels any in-flight fetch. Without a pending [currentToken]
-     * caller, the next call to [currentToken] drives acquisition.
+     * `StateSideEffects` observer after [invalidate] when the profile is replaced or the company
+     * (API key) changes. Discards the cached token, cancels the scheduled proactive refresh and its
+     * wall-clock target, and cancels any in-flight fetch. Then, if the active profile is identified
+     * (see [setIdentified]), fetches a token when [expectedGeneration] matched or a [currentToken]
+     * caller is pending.
      *
      * Retains:
      * - The registered [AuthTokenProvider], which reads the current user on each invocation.
