@@ -241,20 +241,29 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `observer cancellation does not stop later token deliveries`() = runTest(dispatcher) {
+    fun `observer cancellation stops the current delivery but not later ones`() = runTest(
+        dispatcher
+    ) {
         val manager = KlaviyoAuthTokenManager()
-        var calls = 0
-        manager.onTokenRefresh {
-            calls++
-            if (calls == 1) throw CancellationException("observer cancelled")
+        val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val secondToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val firstObserverTokens = mutableListOf<String>()
+        val secondObserverTokens = mutableListOf<String>()
+        manager.onTokenRefresh { token ->
+            firstObserverTokens += token
+            if (firstObserverTokens.size == 1) throw CancellationException("observer cancelled")
         }
+        manager.onTokenRefresh { token -> secondObserverTokens += token }
 
-        manager.registerProvider(SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS)))
+        manager.registerProvider(SuccessProvider(firstToken))
         dispatcher.scheduler.advanceUntilIdle()
-        manager.registerProvider(SuccessProvider(makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)))
-        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(listOf(firstToken), firstObserverTokens)
+        assertEquals(emptyList<String>(), secondObserverTokens)
 
-        assertEquals(2, calls)
+        manager.registerProvider(SuccessProvider(secondToken))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(listOf(firstToken, secondToken), firstObserverTokens)
+        assertEquals(listOf(secondToken), secondObserverTokens)
     }
 
     @Test
