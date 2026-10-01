@@ -165,6 +165,13 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
     }
 
     @Test
+    fun `capture gate returns false before initialize`() {
+        every { Registry.dataStore } throws MissingConfig()
+
+        assertFalse(isInboxCaptureEnabled())
+    }
+
+    @Test
     fun `register before initialize is caught and logged`() {
         every { Registry.dataStore } throws MissingConfig()
 

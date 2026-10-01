@@ -12,6 +12,7 @@ internal object InboxStore {
     /**
      * Delete the inbox database file and its journal files, without opening it.
      * Has no effect when the store has never been created.
+     * Any open connection to the store must be closed before calling this.
      */
     fun delete() {
         val deleted = Registry.config.applicationContext.deleteDatabase(DATABASE_NAME)
