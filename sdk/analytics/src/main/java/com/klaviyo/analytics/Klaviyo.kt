@@ -17,7 +17,6 @@ import com.klaviyo.analytics.networking.KlaviyoApiClient
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
-import com.klaviyo.analytics.state.resetTokenState
 import com.klaviyo.core.Constants.BUTTON_LINK_PARAMETER
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
@@ -323,9 +322,7 @@ object Klaviyo {
      */
     @JvmStatic
     fun resetProfile() = safeApply {
-        Registry.get<AuthTokenManager>().resetTokenState {
-            Registry.get<State>().reset()
-        }
+        Registry.get<State>().reset()
     }
 
     /**

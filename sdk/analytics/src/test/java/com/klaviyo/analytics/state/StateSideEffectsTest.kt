@@ -15,10 +15,13 @@ import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.Constants
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.AutomaticPushTokenForwarding
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.coEvery
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -53,6 +56,11 @@ class StateSideEffectsTest : BaseTest() {
         every { pushToken } returns null
     }
 
+    private val authTokenManagerMock = mockk<AuthTokenManager>().apply {
+        every { invalidate() } returns AUTH_GENERATION
+        coEvery { clearTokenState(any()) } returns Unit
+    }
+
     private val klaviyoStateMock = mockk<KlaviyoState>().apply {
         every { onStateChange(capture(capturedStateChangeObserver)) } returns Unit
         every { resetPhoneNumber() } returns Unit
@@ -63,11 +71,13 @@ class StateSideEffectsTest : BaseTest() {
     override fun setup() {
         super.setup()
         Registry.register<ApiClient>(apiClientMock)
+        Registry.register<AuthTokenManager>(authTokenManagerMock)
     }
 
     @After
     override fun cleanup() {
         Registry.unregister<ApiClient>()
+        Registry.unregister<AuthTokenManager>()
         Registry.unregister<PushTokenFetcher>()
         super.cleanup()
     }
@@ -180,6 +190,29 @@ class StateSideEffectsTest : BaseTest() {
         capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
 
         verify(exactly = 1) { apiClientMock.enqueuePushToken(PUSH_TOKEN, any()) }
+    }
+
+    @Test
+    fun `Profile reset invalidates auth token state then queues generation-matched clear`() {
+        StateSideEffects(stateMock, apiClientMock)
+
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coVerifyOrder {
+            authTokenManagerMock.invalidate()
+            authTokenManagerMock.clearTokenState(expectedGeneration = AUTH_GENERATION)
+        }
+    }
+
+    @Test
+    fun `Profile identifier change does not reset auth token state`() {
+        StateSideEffects(stateMock, apiClientMock)
+
+        capturedStateChangeObserver.captured(StateChange.ProfileIdentifier(ProfileKey.EMAIL, null))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 0) { authTokenManagerMock.invalidate() }
     }
 
     @Test
@@ -512,5 +545,9 @@ class StateSideEffectsTest : BaseTest() {
         )
 
         capturedLifecycleObserver.captured(event)
+    }
+
+    private companion object {
+        const val AUTH_GENERATION = 7L
     }
 }

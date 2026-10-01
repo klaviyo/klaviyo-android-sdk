@@ -9,6 +9,7 @@ import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
@@ -64,6 +65,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
             every { registerComponentCallbacks(any()) } returns Unit
         }
         Registry.register<ApiClient>(mockApiClient)
+        Registry.register<AuthTokenManager>(mockk<AuthTokenManager>(relaxed = true))
         mockkStatic(DeviceProperties::buildEventMetaData)
         every { DeviceProperties.buildEventMetaData() } returns emptyMap()
     }
@@ -76,6 +78,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
         Registry.unregister<State>()
         Registry.unregister<StateSideEffects>()
         Registry.unregister<ApiClient>()
+        Registry.unregister<AuthTokenManager>()
         super.cleanup()
     }
 
