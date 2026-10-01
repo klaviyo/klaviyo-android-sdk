@@ -303,16 +303,14 @@ internal class KlaviyoState : State {
     }
 
     /**
-     * For resetting user email field after an invalid input response
+     * For resetting user email field after an invalid input response.
+     * Broadcasts a [StateChange.ProfileIdentifier] if an email was set.
      */
-    internal fun resetEmail() {
-        _email.reset()
-    }
+    internal fun resetEmail() = clearIdentifier(_email, email)
 
     /**
-     * For resetting user email field after an invalid input response
+     * For resetting user phone number field after an invalid input response.
+     * Broadcasts a [StateChange.ProfileIdentifier] if a phone number was set.
      */
-    internal fun resetPhoneNumber() {
-        _phoneNumber.reset()
-    }
+    internal fun resetPhoneNumber() = clearIdentifier(_phoneNumber, phoneNumber)
 }

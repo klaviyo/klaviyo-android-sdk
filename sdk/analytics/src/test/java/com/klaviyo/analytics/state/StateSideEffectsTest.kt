@@ -32,6 +32,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -384,6 +385,69 @@ class StateSideEffectsTest : BaseTest() {
                 setProfile(Profile())
             }
         ).forEach(::verifyTokenResetCase)
+    }
+
+    @Test
+    fun `Resetting a rejected identifier resets auth token state only when none remain`() {
+        listOf(
+            TokenResetCase("email with phone remaining", false, {
+                setProfile(Profile(email = EMAIL, phoneNumber = PHONE))
+            }) { resetEmail() },
+            TokenResetCase("phone with external ID remaining", false, {
+                setProfile(Profile(externalId = EXTERNAL_ID, phoneNumber = PHONE))
+            }) { resetPhoneNumber() },
+            TokenResetCase("only email", true, { email = EMAIL }) { resetEmail() },
+            TokenResetCase("only phone", true, { phoneNumber = PHONE }) { resetPhoneNumber() },
+            TokenResetCase("unset email", false, { phoneNumber = PHONE }) { resetEmail() }
+        ).forEach(::verifyTokenResetCase)
+    }
+
+    @Test
+    fun `Invalid email response enqueues one profile update without the email`() {
+        val state = KlaviyoState()
+        Registry.register<State>(state)
+        StateSideEffects(state, apiClientMock)
+        state.setProfile(Profile(email = EMAIL, phoneNumber = PHONE))
+        staticClock.execute(debounceTime.toLong())
+        clearMocks(apiClientMock, authTokenManagerMock, answers = false)
+
+        repeat(2) {
+            capturedApiObserver.captured(invalidInputRequest("/data/attributes/email"))
+            staticClock.execute(debounceTime.toLong())
+        }
+
+        assertNull(state.email)
+        verify(exactly = 1) {
+            apiClientMock.enqueueProfile(match { it.email == null && it.phoneNumber == PHONE })
+        }
+        verify(exactly = 0) { authTokenManagerMock.invalidate() }
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+        Registry.unregister<State>()
+    }
+
+    @Test
+    fun `Invalid identifiers are removed one at a time until none remain`() {
+        val state = KlaviyoState()
+        Registry.register<State>(state)
+        StateSideEffects(state, apiClientMock)
+        state.setProfile(Profile(email = EMAIL, phoneNumber = PHONE))
+        staticClock.execute(debounceTime.toLong())
+        clearMocks(apiClientMock, authTokenManagerMock, answers = false)
+
+        listOf("/data/attributes/email", "/data/attributes/phone_number").forEach { pointer ->
+            repeat(2) {
+                capturedApiObserver.captured(invalidInputRequest(pointer))
+                staticClock.execute(debounceTime.toLong())
+            }
+        }
+
+        verify(exactly = 2) { apiClientMock.enqueueProfile(any()) }
+        verify(exactly = 1) {
+            apiClientMock.enqueueProfile(match { it.email == null && it.phoneNumber == null })
+        }
+        verify(exactly = 1) { authTokenManagerMock.invalidate() }
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+        Registry.unregister<State>()
     }
 
     @Test
@@ -742,6 +806,23 @@ class StateSideEffectsTest : BaseTest() {
 
         capturedLifecycleObserver.captured(event)
     }
+
+    private fun invalidInputRequest(pointer: String): ProfileApiRequest =
+        mockk<ProfileApiRequest>().apply {
+            every { status } returns KlaviyoApiRequest.Status.Failed
+            every { responseCode } returns 400
+            every { errorBody } returns KlaviyoErrorResponse(
+                listOf(
+                    KlaviyoError(
+                        id = "invalid-input",
+                        status = 400,
+                        title = KlaviyoErrorResponse.INVALID_INPUT_TITLE,
+                        detail = "Invalid input",
+                        source = KlaviyoErrorSource(pointer = pointer)
+                    )
+                )
+            )
+        }
 
     private class TokenResetCase(
         val description: String,
