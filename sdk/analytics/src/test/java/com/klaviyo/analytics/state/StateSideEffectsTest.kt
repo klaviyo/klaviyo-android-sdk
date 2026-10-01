@@ -280,12 +280,14 @@ class StateSideEffectsTest : BaseTest() {
 
     @Test
     fun `Profile identifier changes invalidate and clear auth token state`() {
+        every { stateMock.getAsProfile(withAttributes = any()) } returns
+            Profile(externalId = EXTERNAL_ID, email = EMAIL, phoneNumber = PHONE)
         StateSideEffects(stateMock, apiClientMock)
 
         listOf(
-            StateChange.ProfileIdentifier(ProfileKey.EXTERNAL_ID, null),
-            StateChange.ProfileIdentifier(ProfileKey.EMAIL, EMAIL),
-            StateChange.ProfileIdentifier(ProfileKey.PHONE_NUMBER, null)
+            StateChange.ProfileIdentifier(ProfileKey.EXTERNAL_ID, OTHER_EXTERNAL_ID),
+            StateChange.ProfileIdentifier(ProfileKey.EMAIL, OTHER_EMAIL),
+            StateChange.ProfileIdentifier(ProfileKey.PHONE_NUMBER, OTHER_PHONE)
         ).forEach { change ->
             clearMocks(authTokenManagerMock, answers = false)
 
@@ -297,6 +299,34 @@ class StateSideEffectsTest : BaseTest() {
                 throw AssertionError(change.toString(), e)
             }
         }
+    }
+
+    @Test
+    fun `Individual identifier setters reset auth token state only on replacement`() {
+        listOf(
+            TokenResetCase("anonymous to email", true) { email = EMAIL },
+            TokenResetCase("anonymous to phone", true) { phoneNumber = PHONE },
+            TokenResetCase("anonymous to external ID", true) { externalId = EXTERNAL_ID },
+            TokenResetCase("add external ID", false, { email = EMAIL }) { externalId = EXTERNAL_ID },
+            TokenResetCase("add phone", false, { email = EMAIL }) { phoneNumber = PHONE },
+            TokenResetCase("add email", false, { externalId = EXTERNAL_ID }) { email = EMAIL },
+            TokenResetCase("change email", true, { email = EMAIL }) { email = OTHER_EMAIL },
+            TokenResetCase(
+                "change phone",
+                true,
+                { setProfile(Profile(email = EMAIL, phoneNumber = PHONE)) }
+            ) {
+                phoneNumber = OTHER_PHONE
+            },
+            TokenResetCase("change external ID", true, { setProfile(Profile(EXTERNAL_ID, EMAIL)) }) {
+                externalId = OTHER_EXTERNAL_ID
+            },
+            TokenResetCase("case-only email change", true, { email = EMAIL }) {
+                email = EMAIL.uppercase()
+            },
+            TokenResetCase("same email", false, { email = EMAIL }) { email = EMAIL },
+            TokenResetCase("reset profile", true, { email = EMAIL }) { reset() }
+        ).forEach(::verifyTokenResetCase)
     }
 
     @Test
@@ -335,6 +365,36 @@ class StateSideEffectsTest : BaseTest() {
         }
 
         assertEquals(listOf(false, false), observedIsCurrent)
+    }
+
+    @Test
+    fun `Later state observers see the auth token invalidated only on replacement`() {
+        var invalidated = false
+        every { authTokenManagerMock.invalidate() } answers {
+            invalidated = true
+            AUTH_GENERATION
+        }
+        every { authTokenManagerMock.isCurrentToken(OLD_TOKEN) } answers { !invalidated }
+        val state = KlaviyoState()
+        StateSideEffects(state, apiClientMock)
+        val observedIsCurrent = mutableListOf<Boolean>()
+        state.onStateChange { change ->
+            if (change.key != ProfileKey.ANONYMOUS_ID) {
+                observedIsCurrent += authTokenManagerMock.isCurrentToken(OLD_TOKEN)
+            }
+        }
+
+        listOf(
+            { state.email = EMAIL },
+            { state.externalId = EXTERNAL_ID },
+            { state.email = OTHER_EMAIL },
+            { state.reset() }
+        ).forEach { act ->
+            invalidated = false
+            act()
+        }
+
+        assertEquals(listOf(false, true, false, false), observedIsCurrent)
     }
 
     @Test
@@ -626,6 +686,36 @@ class StateSideEffectsTest : BaseTest() {
         capturedLifecycleObserver.captured(event)
     }
 
+    private class TokenResetCase(
+        val description: String,
+        val expectReset: Boolean,
+        val arrange: KlaviyoState.() -> Unit = {},
+        val act: KlaviyoState.() -> Unit
+    )
+
+    /**
+     * Arrange a real [KlaviyoState] observed by [StateSideEffects], then verify whether [act]
+     * resets auth token state.
+     */
+    private fun verifyTokenResetCase(case: TokenResetCase) {
+        val state = KlaviyoState()
+        StateSideEffects(state, apiClientMock)
+        case.arrange(state)
+        dispatcher.scheduler.advanceUntilIdle()
+        clearMocks(authTokenManagerMock, answers = false)
+
+        case.act(state)
+
+        try {
+            verifyTokenStateReset(times = if (case.expectReset) 1 else 0)
+        } catch (e: AssertionError) {
+            throw AssertionError(case.description, e)
+        } finally {
+            state.reset()
+            dispatcher.scheduler.advanceUntilIdle()
+        }
+    }
+
     private fun verifyTokenStateReset(times: Int) {
         verify(exactly = times) { authTokenManagerMock.invalidate() }
 
@@ -639,5 +729,8 @@ class StateSideEffectsTest : BaseTest() {
     private companion object {
         const val AUTH_GENERATION = 7L
         const val OLD_TOKEN = "old.jwt.token"
+        const val OTHER_EMAIL = "other@domain.com"
+        const val OTHER_PHONE = "+15556667777"
+        const val OTHER_EXTERNAL_ID = "hijklmn"
     }
 }

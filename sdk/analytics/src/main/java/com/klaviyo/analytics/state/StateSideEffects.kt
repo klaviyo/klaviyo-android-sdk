@@ -156,15 +156,28 @@ internal class StateSideEffects(
         else -> Unit
     }
 
+    /**
+     * Classify an identifier change from the identifiers in state before [change] to those in state now.
+     */
+    private fun identifierTransition(change: StateChange.ProfileIdentifier): ProfileTransition {
+        val current = state.getAsProfile().profileIdentifiers
+        return current.withIdentifier(change.key, change.oldValue).transitionTo(current)
+    }
+
     private fun onStateChange(change: StateChange) = when (change) {
         is StateChange.ApiKey -> {
             onApiKeyChange(oldApiKey = change.oldValue)
         }
 
-        is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> {
-            if (change.key != ProfileKey.ANONYMOUS_ID) {
+        is StateChange.ProfileIdentifier -> {
+            if (identifierTransition(change) == ProfileTransition.REPLACEMENT) {
                 Registry.getOrNull<AuthTokenManager>()?.resetTokenState()
             }
+            onUserStateChange()
+        }
+
+        is StateChange.ProfileReset -> {
+            Registry.getOrNull<AuthTokenManager>()?.resetTokenState()
             onUserStateChange()
         }
 
