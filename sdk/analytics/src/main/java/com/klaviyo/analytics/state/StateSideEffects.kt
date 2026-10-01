@@ -166,7 +166,7 @@ internal class StateSideEffects(
      */
     private fun identifierTransition(change: StateChange.ProfileIdentifier): ProfileTransition {
         val current = state.getAsProfile().profileIdentifiers
-        return current.withIdentifier(change.key, change.oldValue).transitionTo(current)
+        return classify(current.withIdentifier(change.key, change.oldValue), current)
     }
 
     private fun onStateChange(change: StateChange) = when (change) {

@@ -122,7 +122,13 @@ internal class KlaviyoState : State {
      */
     override fun setProfile(profile: Profile) {
         val current = profileIdentifiers
-        val transition = current.transitionTo(profile.profileIdentifiers)
+        val incoming = ProfileIdentifiers(
+            profile.externalId,
+            profile.email,
+            profile.phoneNumber,
+            anonymousId
+        )
+        val transition = classify(current, incoming)
 
         if (current.isIdentified && transition == ProfileTransition.REPLACEMENT) {
             replaceProfile(profile)
