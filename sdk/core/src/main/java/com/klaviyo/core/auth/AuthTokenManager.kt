@@ -1,8 +1,8 @@
 package com.klaviyo.core.auth
 
 /**
- * Callback invoked whenever the auth token is acquired or refreshed — both the initial demand
- * fetch and each subsequent proactive refresh.
+ * Callback invoked whenever the auth token is acquired or refreshed — the initial demand fetch,
+ * each subsequent proactive refresh, and each replacement for a rejected token.
  *
  * Receives the raw JWT string. Observers must not retain the string beyond their immediate use —
  * for the full [ValidatedToken] wrapper (exp/iat metadata) callers should use
@@ -80,6 +80,17 @@ interface AuthTokenManager {
      * @throws Throwable whatever error the provider passed to [AuthTokenProvider.Callback.onFailure].
      */
     suspend fun currentToken(timeoutMs: Long = BACKGROUND_FETCH_TIMEOUT_MS): ValidatedToken
+
+    /**
+     * Discard the cached token because a server rejected it, cancel the refresh scheduled for that
+     * token, then fetch one replacement from the registered provider. The replacement reaches
+     * [TokenRefreshObserver]s like any other acquisition and schedules its own refresh.
+     *
+     * Each call starts at most one provider fetch, and joins a fetch that is already in flight
+     * instead of starting another. Does nothing when no provider is registered or a profile reset
+     * is pending. The replacement fetch follows the same retry behavior as any other token fetch.
+     */
+    fun refreshRejectedToken()
 
     /**
      * Register an observer that will be invoked each time the auth token is acquired or refreshed,
