@@ -469,6 +469,8 @@ internal class KlaviyoAuthTokenManager(
                 launchRefresh(state.refreshId, true)
                 Registry.log.info("AuthTokenManager: foreground transition (case=missed-refresh)")
             }
+            cached == null ->
+                Registry.log.info("AuthTokenManager: foreground transition (case=no-cached-token)")
             else -> Registry.log.info("AuthTokenManager: foreground transition (case=still-valid)")
         }
     }

@@ -3,8 +3,6 @@ package com.klaviyo.core.auth
 import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.ActivityObserver
-import com.klaviyo.core.networking.NetworkMonitor
-import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.slot
@@ -15,7 +13,6 @@ import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.Base64
-import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -1086,36 +1083,6 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         // New session is still healthy
         val result = manager.currentToken()
         assertEquals(newToken, result.rawToken)
-    }
-
-    // MARK: - Fake NetworkMonitor
-
-    /**
-     * A controllable [NetworkMonitor] implementation that lets tests drive connectivity transitions.
-     * Set [connected] to control the return value of [isNetworkConnected].
-     */
-    private class FakeNetworkMonitor : NetworkMonitor {
-        private val observers = CopyOnWriteArrayList<NetworkObserver>()
-        var connected: Boolean = false
-
-        fun simulateConnected(isConnected: Boolean) {
-            connected = isConnected
-            observers.forEach { it(isConnected) }
-        }
-
-        fun observerCount(): Int = observers.size
-
-        override fun onNetworkChange(observer: NetworkObserver) {
-            observers += observer
-        }
-
-        override fun offNetworkChange(observer: NetworkObserver) {
-            observers -= observer
-        }
-
-        override fun isNetworkConnected(): Boolean = connected
-
-        override fun getNetworkType(): NetworkMonitor.NetworkType = NetworkMonitor.NetworkType.Offline
     }
 
     // MARK: - Test doubles
