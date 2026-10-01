@@ -91,7 +91,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals(1, provider.callCount)
@@ -118,7 +118,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
         assertNull("eager ${exception::class.simpleName}", manager.connectivityWaitJob())
@@ -173,7 +173,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -201,7 +201,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
         manager.clearTokenState()
@@ -228,7 +228,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
         assertNotNull(manager.connectivityWaitJob())
@@ -255,7 +255,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             )
         )
         fakeNetworkMonitor.connected = true
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -282,7 +282,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -324,7 +324,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -355,7 +355,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -387,7 +387,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                     Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                 )
             )
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
 
@@ -425,7 +425,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                     Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                 )
             )
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
 
@@ -466,7 +466,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                     )
                 )
             )
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
 
@@ -497,7 +497,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                     )
                 )
             )
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
 
@@ -527,7 +527,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -560,7 +560,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -621,7 +621,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -654,7 +654,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals(1, provider.callCount)
@@ -694,7 +694,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                     )
                 )
             )
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals(1, provider.callCount)
@@ -736,7 +736,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
         fakeNetworkMonitor.connected = true
@@ -768,7 +768,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                     Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                 )
             )
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
 
@@ -789,7 +789,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                     Result.success(makeJwt())
                 )
             )
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals(1, provider.callCount)
@@ -809,7 +809,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                     Result.success(makeJwt())
                 )
             )
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
 
@@ -843,7 +843,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                     Result.success(makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600))
                 )
             )
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
             manager.registerProvider(provider)
             dispatcher.scheduler.advanceUntilIdle()
             fakeNetworkMonitor.connected = true
@@ -891,7 +891,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -937,7 +937,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             )
         )
         val secondProvider = CountingSuccessProvider(newToken)
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(firstProvider)
         dispatcher.scheduler.advanceUntilIdle()
@@ -979,7 +979,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals("eager fetch ran", 1, provider.callCount)
@@ -1005,7 +1005,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             // provider reports its network failure. Invalidate is handled before the fetch result,
             // so it fails the refresh waiter as superseded and drops the stale fetch result. The
             // superseded refresh never posts RefreshFailed, so no connectivity wait is armed.
-            val manager = KlaviyoAuthTokenManager()
+            val manager = identifiedAuthTokenManager()
             val provider = object : AuthTokenProvider {
                 var callCount = 0
                 var invalidatedGeneration: Long? = null
@@ -1064,7 +1064,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -1091,7 +1091,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -1116,7 +1116,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -1153,7 +1153,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
                 )
             )
         )
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -1197,7 +1197,7 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
             )
         )
         val secondProvider = CountingSuccessProvider(newToken)
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
 
         manager.registerProvider(firstProvider)
         dispatcher.scheduler.advanceUntilIdle()
