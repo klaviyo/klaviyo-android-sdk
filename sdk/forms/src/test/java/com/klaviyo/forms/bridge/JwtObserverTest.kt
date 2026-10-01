@@ -363,6 +363,22 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
+    fun `unchanged token is re-injected once after a profile change`() {
+        val refreshObserver = captureRefreshObserver()
+        val token = "same.token.value"
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken(token)
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        observer.refetchToken()
+        dispatcher.scheduler.advanceUntilIdle()
+        refreshObserver.captured.invoke(token)
+
+        verify(exactly = 2) { mockJsBridge.jwtMutation(token) }
+    }
+
+    @Test
     fun `token completing after interactive timeout reaches the same WebView`() {
         val refreshObserver = captureRefreshObserver()
         val lateToken = validatedToken("late.token.value")

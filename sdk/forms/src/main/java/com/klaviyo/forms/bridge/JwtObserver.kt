@@ -55,7 +55,10 @@ internal class JwtObserver : JsBridgeObserver {
      */
     private var lastInjectedToken: String? = null
 
-    /** Set by [startObserver] so the next injection on the UI thread clears [lastInjectedToken]. */
+    /**
+     * Set by [startObserver] and [refetchToken] so the next injection that passes the sequence
+     * check on the UI thread clears [lastInjectedToken].
+     */
     @Volatile private var resetDedupOnNextInjection = false
 
     override fun startObserver() {
@@ -85,10 +88,12 @@ internal class JwtObserver : JsBridgeObserver {
     /**
      * Cancel any in-flight fetch and fetch a token for the active profile with the background
      * timeout. Does nothing while stopped. The webview keeps its current token until the new one
-     * is injected.
+     * is injected. The next token injected afterwards is always written to the webview, even if it
+     * matches the previously injected value.
      */
     internal fun refetchToken() {
         val current = session ?: return
+        resetDedupOnNextInjection = true
         fetchToken(
             current,
             AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,
@@ -145,19 +150,20 @@ internal class JwtObserver : JsBridgeObserver {
 
     /**
      * Inject [token] only if [sequence] is newer than any already applied, skipping the bridge call
-     * when the value is unchanged within the session. Must be called on the UI thread.
+     * when the value is unchanged since the last injection. A pending dedupe reset from
+     * [startObserver] or [refetchToken] is consumed by the first injection that passes the sequence
+     * check, which is then always written. Must be called on the UI thread.
      */
     private fun injectIfLatest(sequence: Long, token: String) {
+        if (sequence <= lastInjectedSequence) return
+        lastInjectedSequence = sequence
         if (resetDedupOnNextInjection) {
             resetDedupOnNextInjection = false
             lastInjectedToken = null
         }
-        if (sequence > lastInjectedSequence) {
-            lastInjectedSequence = sequence
-            if (token != lastInjectedToken) {
-                lastInjectedToken = token
-                Registry.get<JsBridge>().jwtMutation(token)
-            }
+        if (token != lastInjectedToken) {
+            lastInjectedToken = token
+            Registry.get<JsBridge>().jwtMutation(token)
         }
     }
 }
