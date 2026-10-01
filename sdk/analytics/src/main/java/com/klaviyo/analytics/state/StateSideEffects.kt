@@ -164,7 +164,7 @@ internal class StateSideEffects(
         }
 
         is StateChange.ProfileReset -> {
-            Registry.get<AuthTokenManager>().resetTokenState()
+            Registry.getOrNull<AuthTokenManager>()?.resetTokenState()
             onUserStateChange()
         }
 

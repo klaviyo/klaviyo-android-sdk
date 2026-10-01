@@ -206,6 +206,17 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
+    fun `Profile reset without a registered AuthTokenManager still enqueues the profile`() {
+        Registry.unregister<AuthTokenManager>()
+        StateSideEffects(stateMock, apiClientMock)
+
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
+        staticClock.execute(debounceTime.toLong())
+
+        verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
+    }
+
+    @Test
     fun `Profile identifier change does not reset auth token state`() {
         StateSideEffects(stateMock, apiClientMock)
 
