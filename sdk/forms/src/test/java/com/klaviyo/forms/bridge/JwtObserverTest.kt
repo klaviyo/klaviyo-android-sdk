@@ -300,7 +300,7 @@ class JwtObserverTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(exactly = 1) { mockJsBridge.jwtMutation("fresh-refreshed") }
-        verify(inverse = true) { mockJsBridge.jwtMutation("") }
+        verify(exactly = 0) { mockJsBridge.jwtMutation("") }
     }
 
     @Test
@@ -323,17 +323,17 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
-    fun `clearToken does nothing while stopped`() {
+    fun `refetchToken does nothing while stopped`() {
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("token")
         val observer = JwtObserver()
         observer.startObserver()
         dispatcher.scheduler.advanceUntilIdle()
         observer.stopObserver()
 
-        observer.clearToken()
+        observer.refetchToken()
         dispatcher.scheduler.advanceUntilIdle()
 
-        verify(exactly = 0) { mockJsBridge.jwtMutation("") }
+        verify(exactly = 1) { mockJsBridge.jwtMutation(any()) }
         coVerify(exactly = 1) { mockAuthTokenManager.currentToken(any()) }
     }
 
@@ -349,16 +349,14 @@ class JwtObserverTest : BaseTest() {
 
         every { mockAuthTokenManager.isCurrentToken("jwt-a") } returns false
         coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("jwt-b")
-        observer.clearToken()
+        observer.refetchToken()
         refreshObserver.captured.invoke("jwt-a")
         dispatcher.scheduler.advanceUntilIdle()
         uiQueue.forEach { it.invoke() }
 
         verify(exactly = 0) { mockJsBridge.jwtMutation("jwt-a") }
-        verifyOrder {
-            mockJsBridge.jwtMutation("")
-            mockJsBridge.jwtMutation("jwt-b")
-        }
+        verify(exactly = 0) { mockJsBridge.jwtMutation("") }
+        verify(exactly = 1) { mockJsBridge.jwtMutation("jwt-b") }
         coVerify(exactly = 1) {
             mockAuthTokenManager.currentToken(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS)
         }
@@ -377,6 +375,8 @@ class JwtObserverTest : BaseTest() {
         coVerify(exactly = 1) {
             mockAuthTokenManager.currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
         }
+
+        verify(exactly = 0) { mockJsBridge.jwtMutation("") }
 
         refreshObserver.captured.invoke(lateToken.rawToken)
 

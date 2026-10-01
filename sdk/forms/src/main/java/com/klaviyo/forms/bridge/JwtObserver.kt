@@ -14,7 +14,8 @@ import kotlinx.coroutines.SupervisorJob
 /**
  * Delivers the auth token to the webview via [JsBridge.jwtMutation], independently of profile
  * delivery. Fetches a token when started, re-injects tokens acquired or refreshed while a form is
- * displayed, and clears the page's token on profile changes via [clearToken].
+ * displayed, and fetches a token for the new profile on profile changes via [refetchToken].
+ * Never injects an empty token.
  */
 internal class JwtObserver : JsBridgeObserver {
 
@@ -82,15 +83,12 @@ internal class JwtObserver : JsBridgeObserver {
     }
 
     /**
-     * Clear the token in the current webview, then fetch a token for the active profile.
-     * Callers must invoke this before publishing the new profile to the webview.
+     * Cancel any in-flight fetch and fetch a token for the active profile with the background
+     * timeout. Does nothing while stopped. The webview keeps its current token until the new one
+     * is injected.
      */
-    internal fun clearToken() {
+    internal fun refetchToken() {
         val current = session ?: return
-        val sequence = injectionSequence.incrementAndGet()
-        Registry.threadHelper.runOnUiThread {
-            if (session === current) injectIfLatest(sequence, "")
-        }
         fetchToken(
             current,
             AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,

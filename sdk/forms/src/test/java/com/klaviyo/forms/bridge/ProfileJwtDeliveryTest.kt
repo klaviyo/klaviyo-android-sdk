@@ -89,7 +89,7 @@ class ProfileJwtDeliveryTest : BaseTest() {
     }
 
     @Test
-    fun `replacement clears outgoing JWT, publishes new profile, then delivers new JWT`() {
+    fun `replacement publishes new profile, then delivers new JWT`() {
         coEvery { auth.currentToken(any()) } returns token("jwt-a")
         startObservers()
         dispatcher.scheduler.advanceUntilIdle()
@@ -100,11 +100,11 @@ class ProfileJwtDeliveryTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verifyOrder {
-            mockBridge.jwtMutation("")
             mockBridge.profileMutation(replacement)
             mockBridge.jwtMutation("jwt-b")
         }
         verify(exactly = 0) { mockBridge.jwtMutation("jwt-a") }
+        verify(exactly = 0) { mockBridge.jwtMutation("") }
     }
 
     @Test
@@ -120,7 +120,6 @@ class ProfileJwtDeliveryTest : BaseTest() {
 
         verifyOrder {
             mockBridge.profileMutation(outgoing)
-            mockBridge.jwtMutation("")
             mockBridge.profileMutation(replacement)
             mockBridge.jwtMutation("jwt-b")
         }

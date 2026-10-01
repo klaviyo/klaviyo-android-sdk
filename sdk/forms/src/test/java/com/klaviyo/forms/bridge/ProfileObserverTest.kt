@@ -12,6 +12,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -58,10 +59,15 @@ class ProfileObserverTest {
     }
 
     @Test
-    fun `observer calls set profile when profile resets`() {
+    fun `observer sets profile then refetches token when profile resets`() {
         val mockBridge = withBridge()
+        clearMocks(mockBridge, answers = false)
         observerSlot.captured.invoke(StateChange.ProfileReset(mockk()))
-        verify(exactly = 2) { mockBridge.profileMutation(stubProfile) }
+        verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
+        verifyOrder {
+            mockBridge.profileMutation(stubProfile)
+            jwtObserver.refetchToken()
+        }
     }
 
     @Test
@@ -92,6 +98,7 @@ class ProfileObserverTest {
         }
 
         verify(exactly = keys.count() + 1) { mockBridge.profileMutation(stubProfile) }
+        verify(exactly = keys.count()) { jwtObserver.refetchToken() }
     }
 
     @Test
@@ -130,5 +137,6 @@ class ProfileObserverTest {
         priorCallback.invoke(StateChange.ProfileReset(stubProfile))
 
         verify(exactly = 0) { bridge.profileMutation(any()) }
+        verify(exactly = 0) { jwtObserver.refetchToken() }
     }
 }

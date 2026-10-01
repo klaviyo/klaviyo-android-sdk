@@ -7,8 +7,8 @@ import com.klaviyo.core.Registry
 
 /**
  * Observe [State] in the analytics package to synchronize profile identifiers with the webview.
- * On an identifier change or reset, clears the webview's token via [JwtObserver.clearToken]
- * before publishing the new profile.
+ * On an identifier change or reset, publishes the new profile, then fetches a token for it via
+ * [JwtObserver.refetchToken].
  */
 internal class ProfileMutationObserver(
     private val jwtObserver: JwtObserver
@@ -45,8 +45,8 @@ internal class ProfileMutationObserver(
         when (change) {
             is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> synchronized(lock) {
                 if (activeSession !== session) return
-                jwtObserver.clearToken()
                 injectProfile()
+                jwtObserver.refetchToken()
             }
             else -> Unit
         }
