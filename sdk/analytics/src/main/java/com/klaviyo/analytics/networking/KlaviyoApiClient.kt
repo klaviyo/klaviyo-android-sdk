@@ -544,13 +544,17 @@ internal object KlaviyoApiClient : ApiClient {
         if (overflow <= 0) return false
 
         // Requests mid-send stay queued until their lane completes, so never evict them;
-        // the cap may be briefly exceeded by at most MAX_IN_FLIGHT entries.
-        val inFlight = withLaneLock { laneRuntime.values.mapNotNullTo(HashSet()) { it.inFlightRequest } }
+        // the cap may be briefly exceeded by at most MAX_IN_FLIGHT entries. Selection and
+        // removal share the lane lock with dispatch, so no victim can start sending mid-trim.
+        val evicted = withLaneLock {
+            val inFlight = laneRuntime.values.mapNotNullTo(HashSet()) { it.inFlightRequest }
+            apiQueue.sortedBy { it.queuedTime }
+                .filterNot(inFlight::contains)
+                .take(overflow)
+                .filter { apiQueue.remove(it) }
+        }
 
-        val evictedUuids = apiQueue.sortedBy { it.queuedTime }
-            .filterNot(inFlight::contains)
-            .take(overflow)
-            .filter { apiQueue.remove(it) }
+        val evictedUuids = evicted
             .map { request ->
                 Registry.log.warning(
                     "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${request.type}"
