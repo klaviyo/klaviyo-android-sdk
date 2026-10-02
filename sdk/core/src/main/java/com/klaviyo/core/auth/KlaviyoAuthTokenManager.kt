@@ -8,8 +8,7 @@ import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
-import java.net.ConnectException
-import java.net.NoRouteToHostException
+import java.net.SocketException
 import java.net.UnknownHostException
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
@@ -438,13 +437,14 @@ internal class KlaviyoAuthTokenManager(
         Registry.log.info("AuthTokenManager: network failure — waiting for connectivity")
     }
 
-    /** True when [error] or one of its causes indicates the device could not reach the network. */
+    /**
+     * True when [error] or one of its causes is a DNS failure or a socket-level failure (refused,
+     * no route, reset). Timeouts are excluded.
+     */
     private fun isConnectivityError(error: Throwable): Boolean =
         generateSequence(error) { it.cause }
             .take(MAX_CAUSE_DEPTH)
-            .any {
-                it is UnknownHostException || it is ConnectException || it is NoRouteToHostException
-            }
+            .any { it is UnknownHostException || it is SocketException }
 
     private fun onForeground() {
         val cached = state.cachedToken

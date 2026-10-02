@@ -10,9 +10,11 @@ import io.mockk.verify
 import java.io.IOException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.Base64
+import javax.net.ssl.SSLException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -591,6 +593,18 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     }
 
     @Test
+    fun `connectivity retry fires after a connection reset`() {
+        assertConnectivityRetryFires(SocketException("Connection reset"))
+    }
+
+    @Test
+    fun `connectivity retry fires after a TLS failure caused by a socket drop`() {
+        assertConnectivityRetryFires(
+            SSLException("read error", SocketException("Connection reset"))
+        )
+    }
+
+    @Test
     fun `connectivity wait job is not armed when connectivity notification is offline`() = runTest(
         dispatcher
     ) {
@@ -997,6 +1011,11 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
     @Test
     fun `SocketTimeoutException does not arm connectivity wait job`() {
         assertConnectivityWaitNotArmed(SocketTimeoutException("timed out"))
+    }
+
+    @Test
+    fun `bare SSLException does not arm connectivity wait job`() {
+        assertConnectivityWaitNotArmed(SSLException("certificate rejected"))
     }
 
     @Test
