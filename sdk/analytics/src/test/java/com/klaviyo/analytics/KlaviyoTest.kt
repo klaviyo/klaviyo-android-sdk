@@ -532,24 +532,22 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `setProfile with different identifiers clears auth token state`() = runTest(dispatcher) {
-        clearInitialAuthCalls()
         Klaviyo.setProfile(Profile(email = EMAIL))
-        dispatcher.scheduler.advanceUntilIdle()
+        clearInitialAuthCalls()
 
         Klaviyo.setProfile(Profile(externalId = EXTERNAL_ID))
         dispatcher.scheduler.advanceUntilIdle()
 
-        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
-        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
+        verify(exactly = 2) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 2) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
     }
 
     @Test
     fun `setProfile with the same identifiers does not clear auth token state`() = runTest(
         dispatcher
     ) {
-        clearInitialAuthCalls()
         Klaviyo.setProfile(Profile(email = EMAIL))
-        dispatcher.scheduler.advanceUntilIdle()
+        clearInitialAuthCalls()
 
         Klaviyo.setProfile(Profile(email = EMAIL))
         dispatcher.scheduler.advanceUntilIdle()

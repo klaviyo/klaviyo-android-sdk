@@ -145,6 +145,59 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
+    fun `isCurrentToken rejects cached token immediately on invalidation`() = runTest(dispatcher) {
+        val jwt = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(SuccessProvider(jwt))
+        dispatcher.scheduler.advanceUntilIdle()
+        manager.currentToken()
+        assertTrue(manager.isCurrentToken(jwt))
+        assertTrue(!manager.isCurrentToken(makeJwt(EXP_SECONDS + 100, IAT_SECONDS)))
+
+        manager.invalidate()
+        assertTrue(!manager.isCurrentToken(jwt))
+    }
+
+    @Test
+    fun `token is current again only once refetched after reset`() = runTest(dispatcher) {
+        val jwt = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(SuccessProvider(jwt))
+        dispatcher.scheduler.advanceUntilIdle()
+        manager.currentToken()
+
+        val generation = manager.invalidate()
+        manager.clearTokenState(generation)
+        assertTrue(!manager.isCurrentToken(jwt))
+
+        manager.currentToken()
+        assertTrue(manager.isCurrentToken(jwt))
+    }
+
+    @Test
+    fun `rejected token is no longer current while its replacement is fetched`() = runTest(
+        dispatcher
+    ) {
+        val rejected = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val replacement = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val provider = ResolvableProvider()
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent()
+        provider.resolve(rejected)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(manager.isCurrentToken(rejected))
+
+        manager.refreshRejectedToken()
+        dispatcher.scheduler.runCurrent()
+        assertTrue(!manager.isCurrentToken(rejected))
+
+        provider.resolve(replacement)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(manager.isCurrentToken(replacement))
+    }
+
+    @Test
     fun `caller waiting before invalidation receives the next profile token`() = runTest(dispatcher) {
         val outgoingToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
         val nextToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
