@@ -8,6 +8,8 @@ import org.json.JSONObject
 internal object JWTParser {
     const val DEFAULT_LEEWAY_SECONDS: Long = 30L
 
+    private val BASE64_URL_ALPHABET = Regex("[A-Za-z0-9_-]*")
+
     fun parseAndValidate(
         token: String,
         nowEpochSeconds: Long = Registry.clock.currentTimeMillis() / 1000L,
@@ -17,6 +19,11 @@ internal object JWTParser {
         if (segments.size != 3) {
             Registry.log.warning("JWT validation failed: malformed structure")
             return JWTValidationResult.MalformedStructure
+        }
+
+        if (segments.any { !it.matches(BASE64_URL_ALPHABET) }) {
+            Registry.log.warning("JWT validation failed: malformed base64URL segment")
+            return JWTValidationResult.MalformedBase64
         }
 
         val payloadBytes = base64UrlDecode(segments[1]) ?: run {
