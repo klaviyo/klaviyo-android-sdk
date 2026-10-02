@@ -730,10 +730,18 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Hand a lane's head request to the [laneSendExecutor]. The request stays in the queue
      * until its send completes, so a process death mid-flight restores it on next launch.
+     *
+     * An unexpected throw from the send is treated as [Status.Unsent] so the lane's in-flight
+     * slot is always released and the request is retried after the default flush interval.
      */
     private fun dispatchLaneSend(lane: ApiLane, request: KlaviyoApiRequest) {
         laneSendExecutor {
-            val status = request.sendAndBroadcast()
+            val status = try {
+                request.sendAndBroadcast()
+            } catch (exception: Exception) {
+                Registry.log.error("Unexpected error sending ${request.type}", exception)
+                Status.Unsent
+            }
             onLaneSendComplete(lane, request, status)
         }
     }

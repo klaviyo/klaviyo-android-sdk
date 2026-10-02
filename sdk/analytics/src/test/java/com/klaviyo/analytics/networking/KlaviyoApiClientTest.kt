@@ -1742,5 +1742,26 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
     }
 
+    @Test
+    fun `a send that throws releases its lane for retry`() {
+        val request = laneRequest("throws", "client/events")
+        every { request.send(any()) } throws IllegalStateException("boom")
+
+        KlaviyoApiClient.enqueueRequest(request)
+        KlaviyoApiClient.flushQueue()
+
+        // The request stays queued and the error is logged
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        verify { spyLog.error(any(), any<Throwable>()) }
+
+        // Once the lane's retry delay elapses it sends again, proving the slot was released
+        every { request.send(any()) } returns KlaviyoApiRequest.Status.Complete
+        staticClock.time += flushIntervalWifi + 1
+        KlaviyoApiClient.flushQueue()
+
+        verify(exactly = 2) { request.send(any()) }
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
     // endregion
 }
