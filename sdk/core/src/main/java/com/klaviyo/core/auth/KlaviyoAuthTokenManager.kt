@@ -281,7 +281,6 @@ internal class KlaviyoAuthTokenManager(
 
     private fun addWaiter(command: Command.Token) {
         state.waiters.add(Waiter(command.reply, command.refreshId))
-        if (command.refreshId != null) state.fetchServesRefresh = true
     }
 
     private fun startFetch() {
@@ -290,6 +289,7 @@ internal class KlaviyoAuthTokenManager(
         }
         val provider = state.provider ?: return
         val id = ++state.fetchId
+        state.fetchAllowsImmediateRetry = state.waiters.none { it.refreshId != null }
         state.fetchJob = scope.safeLaunch {
             val result = runCatching {
                 val jwt = invokeProvider(provider)
@@ -305,8 +305,7 @@ internal class KlaviyoAuthTokenManager(
             return
         }
         state.fetchJob = null
-        val servedRefresh = state.fetchServesRefresh || state.waiters.any { it.refreshId != null }
-        state.fetchServesRefresh = false
+        val refreshWaiting = state.waiters.any { it.refreshId != null }
         command.result.fold(
             onSuccess = { token ->
                 state.cachedToken = token
@@ -323,8 +322,8 @@ internal class KlaviyoAuthTokenManager(
                 deliveries.trySend(Delivery(deliveryId, state.generation, token, observers))
             },
             onFailure = { error ->
-                if (isConnectivityError(error) && state.connectivityJob == null && !servedRefresh) {
-                    armConnectivityWait(true)
+                if (isConnectivityError(error) && state.connectivityJob == null && !refreshWaiting) {
+                    armConnectivityWait(state.fetchAllowsImmediateRetry)
                 }
                 failWaiters(error)
             }
@@ -369,7 +368,6 @@ internal class KlaviyoAuthTokenManager(
         state.deliveryId++
         state.fetchJob?.cancel()
         state.fetchJob = null
-        state.fetchServesRefresh = false
         retireRefresh()
         state.connectivityId++
         state.connectivityJob?.cancel()
@@ -528,7 +526,7 @@ internal class KlaviyoAuthTokenManager(
         var fetchId = 0L
         var deliveryId = 0L
         var fetchJob: Job? = null
-        var fetchServesRefresh = false
+        var fetchAllowsImmediateRetry = true
         var refreshId = 0L
         var refreshTimer: Clock.Cancellable? = null
         var refreshAt: Long? = null
