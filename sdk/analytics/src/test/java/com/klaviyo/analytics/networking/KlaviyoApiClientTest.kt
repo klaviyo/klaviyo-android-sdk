@@ -580,6 +580,10 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertNull(spyDataStore.fetch(first.uuid))
         assertNotNull(spyDataStore.fetch(second.uuid))
         assertNotNull(spyDataStore.fetch(third.uuid))
+
+        // Eviction clears the store in one batched write, not one call per evicted request
+        verify(exactly = 1) { spyDataStore.clear(any<Collection<String>>()) }
+        verify(exactly = 0) { spyDataStore.clear("byte-0") }
     }
 
     @Test
@@ -598,6 +602,9 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assert(KlaviyoApiClient.getQueueByteSize() > KlaviyoApiClient.MAX_QUEUE_BYTES)
         assertNull(spyDataStore.fetch(existing.uuid))
         assertNotNull(spyDataStore.fetch(oversized.uuid))
+
+        verify(exactly = 1) { spyDataStore.clear(any<Collection<String>>()) }
+        verify(exactly = 0) { spyDataStore.clear("existing") }
     }
 
     @Test
