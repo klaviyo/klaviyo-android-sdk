@@ -49,6 +49,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -1760,6 +1761,30 @@ internal class KlaviyoApiClientTest : BaseTest() {
         KlaviyoApiClient.flushQueue()
 
         verify(exactly = 2) { request.send(any()) }
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `awaitFlushQueueOutcome suspends until dispatched lane sends finish`() = runTest(dispatcher) {
+        // Hold sends so they stay in flight until released, as with the async pool in production
+        val dispatched = ArrayDeque<Runnable>()
+        KlaviyoApiClient.laneSendExecutor = { dispatched += it }
+
+        val request = laneRequest("await-1", "client/events")
+        KlaviyoApiClient.enqueueRequest(request)
+
+        var outcome: FlushOutcome? = null
+        launch { outcome = KlaviyoApiClient.awaitFlushQueueOutcome() }
+        advanceUntilIdle()
+
+        // The send was dispatched but hasn't finished, so the flush must still be waiting
+        assertEquals(1, dispatched.size)
+        assertNull(outcome)
+
+        dispatched.removeFirst().run()
+        advanceUntilIdle()
+
+        assert(outcome is FlushOutcome.Complete)
         assertEquals(0, KlaviyoApiClient.getQueueSize())
     }
 

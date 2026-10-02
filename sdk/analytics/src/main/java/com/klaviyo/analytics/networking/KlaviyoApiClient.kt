@@ -31,8 +31,10 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
@@ -95,8 +97,11 @@ internal object KlaviyoApiClient : ApiClient {
     /** Runtime scheduling state per lane, created on demand. */
     private val laneRuntime = ConcurrentHashMap<ApiLane, LaneRuntime>()
 
-    /** Number of requests currently being sent across all lanes. */
-    private val inFlightCount = AtomicInteger(0)
+    /**
+     * Number of requests currently being sent across all lanes. Observable so
+     * [awaitFlushQueueOutcome] can suspend until dispatched sends finish.
+     */
+    private val inFlightCount = MutableStateFlow(0)
 
     /** Round-robin cursor for fair selection among eligible lanes. */
     private var roundRobinCursor = 0
@@ -130,7 +135,7 @@ internal object KlaviyoApiClient : ApiClient {
         withLaneLock {
             laneRuntime.clear()
             roundRobinCursor = 0
-            inFlightCount.set(0)
+            inFlightCount.value = 0
         }
     }
 
@@ -568,12 +573,21 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Flushes the queue in a background context
+     * Flushes the queue in a background context, suspending until every dispatched lane send
+     * has finished so callers (e.g. a WorkManager job) don't release their hold mid-send.
      *
-     * @returns Boolean to indicate whether requests remain in the queue
+     * Each time in-flight sends settle, lanes are drained again to dispatch work that became
+     * eligible; the loop ends once a drain leaves nothing in flight.
+     *
+     * @returns [FlushOutcome] indicating whether requests remain in the queue
      */
     override suspend fun awaitFlushQueueOutcome() = withContext(Registry.dispatcher) {
-        drainEligibleLanes()
+        var outcome = drainEligibleLanes()
+        while (inFlightCount.value > 0) {
+            inFlightCount.first { it == 0 }
+            outcome = drainEligibleLanes()
+        }
+        outcome
     }
 
     /**
@@ -667,12 +681,12 @@ internal object KlaviyoApiClient : ApiClient {
         // Each pass either dispatches at least one send or finds nothing eligible and exits.
         while (true) {
             val dispatched = withLaneLock {
-                if (inFlightCount.get() >= MAX_IN_FLIGHT) {
+                if (inFlightCount.value >= MAX_IN_FLIGHT) {
                     false
                 } else {
                     nextDispatchCandidate(now)?.let { (lane, request) ->
                         laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlight = true
-                        inFlightCount.incrementAndGet()
+                        inFlightCount.update { it + 1 }
                         dispatchLaneSend(lane, request)
                         true
                     } ?: false
@@ -765,7 +779,7 @@ internal object KlaviyoApiClient : ApiClient {
                         inFlight = false
                         nextEligibleTime = Registry.clock.currentTimeMillis() + defaultFlushInterval
                     }
-                    inFlightCount.decrementAndGet()
+                    inFlightCount.update { it - 1 }
                 }
             }
 
@@ -775,7 +789,7 @@ internal object KlaviyoApiClient : ApiClient {
                 Registry.dataStore.clear(request.uuid)
                 withLaneLock {
                     laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlight = false
-                    inFlightCount.decrementAndGet()
+                    inFlightCount.update { it - 1 }
                 }
             }
 
@@ -788,7 +802,7 @@ internal object KlaviyoApiClient : ApiClient {
                         inFlight = false
                         nextEligibleTime = Registry.clock.currentTimeMillis() + retryAfter
                     }
-                    inFlightCount.decrementAndGet()
+                    inFlightCount.update { it - 1 }
                 }
             }
 
@@ -798,7 +812,7 @@ internal object KlaviyoApiClient : ApiClient {
                 Registry.log.wtf("Request state was not updated from Inflight")
                 withLaneLock {
                     laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlight = false
-                    inFlightCount.decrementAndGet()
+                    inFlightCount.update { it - 1 }
                 }
             }
         }
