@@ -98,24 +98,14 @@ internal sealed class NativeBridgeMessage {
     ) : NativeBridgeMessage()
 
     /**
-     * Sent from the onsite-in-app-forms when it rejects an injected JWT — e.g. a bad signature, or
-     * a token that does not resolve to a profile for the account.
-     *
-     * A rejected token is a normal, expected outcome rather than an SDK error, so this is handled
-     * as a graceful no-op (logged at warning) instead of throwing.
+     * Sent from the onsite-in-app-forms when the Profiles API rejects the injected JWT, asking the
+     * SDK to discard it and inject a replacement via [JsBridge.jwtMutation]. Carries no data.
      */
-    data object BadJwt : NativeBridgeMessage()
+    data object RefreshJwt : NativeBridgeMessage()
 
     companion object {
         private const val MESSAGE_TYPE_KEY = HandshakeSpec.SPEC_TYPE_KEY
         private const val MESSAGE_DATA_KEY = "data"
-
-        /**
-         * Wire type for [BadJwt]. Fender sends this in PascalCase ("BadJWT"), which does not follow
-         * the lower-camelCase [keyName] convention used by the other message types, so it is matched
-         * against this literal instead.
-         */
-        private const val BAD_JWT_TYPE = "BadJWT"
 
         /**
          * Convert a [NativeBridgeMessage] subclass to its "type" by convention (lower camel case)
@@ -136,7 +126,8 @@ internal sealed class NativeBridgeMessage {
                 // v3 carries both deep links and external URLs in one message, keyed by `openExternally`.
                 HandshakeSpec(keyName<OpenDeepLink>(), 3),
                 HandshakeSpec(keyName<FormDisappeared>(), 1),
-                HandshakeSpec(keyName<Abort>(), 1)
+                HandshakeSpec(keyName<Abort>(), 1),
+                HandshakeSpec(keyName<RefreshJwt>(), 1)
             )
         }
 
@@ -188,7 +179,7 @@ internal sealed class NativeBridgeMessage {
                     reason = jsonData.optString("reason").ifEmpty { "Unknown" }
                 )
 
-                BAD_JWT_TYPE -> BadJwt
+                keyName<RefreshJwt>() -> RefreshJwt
 
                 else -> throw IllegalStateException("Unrecognized message type $type")
             }

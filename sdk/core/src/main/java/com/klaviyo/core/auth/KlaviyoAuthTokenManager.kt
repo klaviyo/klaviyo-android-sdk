@@ -111,6 +111,10 @@ internal class KlaviyoAuthTokenManager(
     override suspend fun currentToken(timeoutMs: Long): ValidatedToken =
         requestToken(timeoutMs)
 
+    override fun refreshRejectedToken() {
+        post(Command.RefreshRejected)
+    }
+
     internal suspend fun connectivityWaitJob(): Job? {
         val reply = CompletableDeferred<Job?>()
         post(Command.ConnectivityJob(reply))
@@ -241,6 +245,7 @@ internal class KlaviyoAuthTokenManager(
                     }
                 }
             }
+            Command.RefreshRejected -> onTokenRejected()
             is Command.CallerDone -> state.waiters.removeAll { it.reply === command.reply }
             is Command.FetchDone -> onFetchDone(command)
             is Command.TimerFired -> {
@@ -291,6 +296,18 @@ internal class KlaviyoAuthTokenManager(
 
     private fun addWaiter(command: Command.Token) {
         state.waiters.add(Waiter(command.reply, command.refreshId))
+    }
+
+    private fun onTokenRejected() {
+        if (state.provider == null || state.resetPending || state.generation != generation.get()) {
+            Registry.log.debug("Rejected auth token refresh skipped")
+            return
+        }
+        state.cachedToken = null
+        state.deliveryId++
+        if (!state.refreshInFlight) retireRefresh()
+        Registry.log.info("Auth token rejected; fetching a replacement")
+        startFetch()
     }
 
     private fun startFetch() {
@@ -596,6 +613,7 @@ internal class KlaviyoAuthTokenManager(
         data class Connected(val id: Long) : Command
         data class CanDeliver(val id: Long, val reply: CompletableDeferred<Boolean>) : Command
         data object Foreground : Command
+        data object RefreshRejected : Command
         data class Observe(val observer: TokenRefreshObserver) : Command
         data class Unobserve(val observer: TokenRefreshObserver) : Command
         data class ConnectivityJob(val reply: CompletableDeferred<Job?>) : Command
