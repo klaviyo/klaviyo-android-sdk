@@ -185,6 +185,8 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
 
         assertEquals(2, provider.callCount)
         assertEquals(makeJwt(), manager.currentToken().rawToken)
+        verify { spyLog.info(match { it.contains("connectivity restored") }) }
+        verify(exactly = 0) { spyLog.info("Proactive token refresh fired") }
     }
 
     @Test

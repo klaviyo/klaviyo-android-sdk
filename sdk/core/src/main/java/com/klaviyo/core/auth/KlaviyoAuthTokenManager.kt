@@ -245,6 +245,7 @@ internal class KlaviyoAuthTokenManager(
             is Command.FetchDone -> onFetchDone(command)
             is Command.TimerFired -> {
                 if (command.id == state.refreshId && !state.resetPending) {
+                    Registry.log.info(PROACTIVE_REFRESH_FIRED)
                     launchRefresh(command.id, true)
                 }
             }
@@ -263,7 +264,12 @@ internal class KlaviyoAuthTokenManager(
             is Command.Connected -> {
                 if (command.id == state.connectivityId && !state.resetPending) {
                     state.connectivityJob = null
-                    if (!state.refreshInFlight) launchRefresh(state.refreshId, false)
+                    if (!state.refreshInFlight) {
+                        Registry.log.info(
+                            "AuthTokenManager: connectivity restored — retrying token fetch"
+                        )
+                        launchRefresh(state.refreshId, false)
+                    }
                 }
             }
             is Command.CanDeliver -> {
@@ -398,7 +404,6 @@ internal class KlaviyoAuthTokenManager(
 
     private fun launchRefresh(id: Long, allowImmediateRetry: Boolean) {
         state.refreshInFlight = true
-        Registry.log.info("Proactive token refresh fired")
         scope.safeLaunch {
             try {
                 requestToken(
@@ -464,6 +469,7 @@ internal class KlaviyoAuthTokenManager(
             }
             target != null && Registry.clock.currentTimeMillis() >= target && !state.refreshInFlight -> {
                 retireRefresh()
+                Registry.log.info(PROACTIVE_REFRESH_FIRED)
                 launchRefresh(state.refreshId, true)
                 Registry.log.info("AuthTokenManager: foreground transition (case=missed-refresh)")
             }
@@ -583,6 +589,7 @@ internal class KlaviyoAuthTokenManager(
 
     companion object {
         private const val MAX_CAUSE_DEPTH = 8
+        private const val PROACTIVE_REFRESH_FIRED = "Proactive token refresh fired"
 
         internal fun computeRefreshTarget(token: ValidatedToken, nowMs: Long): Long {
             val iatMs = token.issuedAtEpochSeconds * 1000L
