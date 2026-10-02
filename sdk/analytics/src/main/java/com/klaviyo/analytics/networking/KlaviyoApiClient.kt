@@ -394,6 +394,15 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }
 
+        // The count cap alone admits a backlog of large payloads, so enforce the byte budget too.
+        // A lone request over the budget is kept, matching enqueue.
+        evictOldestWhile { apiQueue.size > 1 && queuedBytes.get() > MAX_QUEUE_BYTES }.let {
+            if (it.isNotEmpty()) {
+                Registry.dataStore.clear(it)
+                wasMutated = true
+            }
+        }
+
         // If errors were encountered, update persistent store with corrected queue
         if (wasMutated) {
             persistQueue()
@@ -476,6 +485,21 @@ internal object KlaviyoApiClient : ApiClient {
      * Drop the oldest requests by [KlaviyoApiRequest.queuedTime] until one request can be added
      * without exceeding either queue budget.
      *
+     * A request larger than [MAX_QUEUE_BYTES] evicts everything else and is then admitted by
+     * itself rather than rejected outright. It only survives until the next enqueue, though: any
+     * later request pushes the total over budget again and evicts it as the oldest, so it is sent
+     * only if a flush runs first.
+     *
+     * @return UUIDs removed from the queue, for one batched persistent-store cleanup
+     */
+    private fun evictToMakeRoom(newSize: Int): List<String> = evictOldestWhile {
+        apiQueue.size >= MAX_QUEUE_SIZE || queuedBytes.get() + newSize > MAX_QUEUE_BYTES
+    }
+
+    /**
+     * Drop the oldest requests by [KlaviyoApiRequest.queuedTime] while [overBudget] holds and the
+     * queue is not empty.
+     *
      * Requests are evicted by enqueue timestamp rather than deque position, because head-of-line
      * requests are inserted at the front but are the newest.
      *
@@ -484,17 +508,11 @@ internal object KlaviyoApiClient : ApiClient {
      * boolean: a request another thread already removed is not reported or cleared, making this a
      * best-effort soft bound rather than a hard guarantee.
      *
-     * A request larger than [MAX_QUEUE_BYTES] evicts everything else and is then admitted by
-     * itself. This prevents an unbounded queue without silently rejecting a developer's event.
-     *
      * @return UUIDs removed from the queue, for one batched persistent-store cleanup
      */
-    private fun evictToMakeRoom(newSize: Int): List<String> {
+    private fun evictOldestWhile(overBudget: () -> Boolean): List<String> {
         val evictedUuids = mutableListOf<String>()
-        while (
-            apiQueue.isNotEmpty() &&
-            (apiQueue.size >= MAX_QUEUE_SIZE || queuedBytes.get() + newSize > MAX_QUEUE_BYTES)
-        ) {
+        while (apiQueue.isNotEmpty() && overBudget()) {
             val oldest = apiQueue.minByOrNull { it.queuedTime } ?: break
             if (!apiQueue.remove(oldest)) continue
 

@@ -1297,6 +1297,31 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `Restoring a count-legal persisted queue over the byte budget evicts the oldest`() {
+        val uuids = (0 until 3).map { "byte-$it" }
+        seedPersistedQueue(uuids)
+        val padding = "x".repeat((KlaviyoApiClient.MAX_QUEUE_BYTES / 3).toInt())
+        uuids.forEach { uuid ->
+            val json = JSONObject(spyDataStore.fetch(uuid).orEmpty()).put("padding", padding)
+            spyDataStore.store(uuid, json.toString())
+        }
+
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+
+        assertEquals(2, KlaviyoApiClient.getQueueSize())
+        assert(KlaviyoApiClient.getQueueByteSize() <= KlaviyoApiClient.MAX_QUEUE_BYTES)
+        assertNull(spyDataStore.fetch("byte-0"))
+        assertNotNull(spyDataStore.fetch("byte-1"))
+        assertNotNull(spyDataStore.fetch("byte-2"))
+
+        // The corrected index is persisted, and the trim clears bodies in one batched write
+        val persisted = JSONArray(spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY).orEmpty())
+        val persistedUuids = (0 until persisted.length()).map(persisted::getString)
+        assertEquals(listOf("byte-1", "byte-2"), persistedUuids)
+        verify(exactly = 1) { spyDataStore.clear(any<Collection<String>>()) }
+    }
+
+    @Test
     fun `Restoring an over-capacity persisted queue trims to the newest MAX_QUEUE_SIZE`() {
         val overflow = 50
         val uuids = (0 until KlaviyoApiClient.MAX_QUEUE_SIZE + overflow).map { "uuid-$it" }
