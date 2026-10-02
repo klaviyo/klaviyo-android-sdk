@@ -84,8 +84,11 @@ internal object KlaviyoApiClient : ApiClient {
      * [KlaviyoApiClient] monitor via [withLaneLock]; nothing here is persisted.
      */
     private class LaneRuntime {
+        /** The request from this lane currently being sent, if any. */
+        var inFlightRequest: KlaviyoApiRequest? = null
+
         /** Whether a request from this lane is currently being sent. */
-        var inFlight: Boolean = false
+        val inFlight: Boolean get() = inFlightRequest != null
 
         /**
          * Earliest wall-clock time (per [com.klaviyo.core.Registry.clock]) at which this lane
@@ -531,7 +534,8 @@ internal object KlaviyoApiClient : ApiClient {
      * Selecting victims and removing them is not atomic on the [ConcurrentLinkedDeque], so a
      * concurrent enqueue could target the same victim. Side effects are gated on `remove()`'s
      * boolean: a request another thread already removed is not reported or cleared, making this a
-     * best-effort soft bound rather than a hard guarantee.
+     * best-effort soft bound rather than a hard guarantee. Requests currently in flight are never
+     * evicted.
      *
      * @return whether any requests were dropped
      */
@@ -539,7 +543,12 @@ internal object KlaviyoApiClient : ApiClient {
         val overflow = apiQueue.size - MAX_QUEUE_SIZE
         if (overflow <= 0) return false
 
+        // Requests mid-send stay queued until their lane completes, so never evict them;
+        // the cap may be briefly exceeded by at most MAX_IN_FLIGHT entries.
+        val inFlight = withLaneLock { laneRuntime.values.mapNotNullTo(HashSet()) { it.inFlightRequest } }
+
         val evictedUuids = apiQueue.sortedBy { it.queuedTime }
+            .filterNot(inFlight::contains)
             .take(overflow)
             .filter { apiQueue.remove(it) }
             .map { request ->
@@ -685,7 +694,7 @@ internal object KlaviyoApiClient : ApiClient {
                     false
                 } else {
                     nextDispatchCandidate(now)?.let { (lane, request) ->
-                        laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlight = true
+                        laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlightRequest = request
                         inFlightCount.update { it + 1 }
                         dispatchLaneSend(lane, request)
                         true
@@ -776,7 +785,7 @@ internal object KlaviyoApiClient : ApiClient {
                 // default flush interval rather than hot-looping.
                 withLaneLock {
                     laneRuntime.getOrPut(lane) { LaneRuntime() }.apply {
-                        inFlight = false
+                        inFlightRequest = null
                         nextEligibleTime = Registry.clock.currentTimeMillis() + defaultFlushInterval
                     }
                     inFlightCount.update { it - 1 }
@@ -788,7 +797,7 @@ internal object KlaviyoApiClient : ApiClient {
                 apiQueue.remove(request)
                 Registry.dataStore.clear(request.uuid)
                 withLaneLock {
-                    laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlight = false
+                    laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlightRequest = null
                     inFlightCount.update { it - 1 }
                 }
             }
@@ -799,7 +808,7 @@ internal object KlaviyoApiClient : ApiClient {
                 val retryAfter = request.computeRetryInterval()
                 withLaneLock {
                     laneRuntime.getOrPut(lane) { LaneRuntime() }.apply {
-                        inFlight = false
+                        inFlightRequest = null
                         nextEligibleTime = Registry.clock.currentTimeMillis() + retryAfter
                     }
                     inFlightCount.update { it - 1 }
@@ -811,7 +820,7 @@ internal object KlaviyoApiClient : ApiClient {
             Status.Inflight -> {
                 Registry.log.wtf("Request state was not updated from Inflight")
                 withLaneLock {
-                    laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlight = false
+                    laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlightRequest = null
                     inFlightCount.update { it - 1 }
                 }
             }

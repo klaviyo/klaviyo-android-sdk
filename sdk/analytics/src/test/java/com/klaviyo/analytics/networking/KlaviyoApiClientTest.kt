@@ -1788,5 +1788,35 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
     }
 
+    @Test
+    fun `capacity trim never evicts an in-flight request`() {
+        val dispatched = ArrayDeque<Runnable>()
+        KlaviyoApiClient.laneSendExecutor = { dispatched += it }
+
+        // The oldest request is dispatched and held in flight
+        val inFlight = laneRequest("in-flight", "client/events")
+        KlaviyoApiClient.enqueueRequest(inFlight)
+        KlaviyoApiClient.flushQueue()
+        assertEquals(1, dispatched.size)
+        staticClock.time += 1
+
+        // Fill to capacity with newer requests, then overflow by one
+        repeat(KlaviyoApiClient.MAX_QUEUE_SIZE) {
+            KlaviyoApiClient.enqueueRequest(mockRequest("uuid-$it", urlPath = "client/events"))
+            staticClock.time += 1
+        }
+
+        // The in-flight head survives; the oldest request not in flight is evicted instead
+        assertEquals(KlaviyoApiClient.MAX_QUEUE_SIZE, KlaviyoApiClient.getQueueSize())
+        assertNotNull(spyDataStore.fetch("in-flight"))
+        assertNull(spyDataStore.fetch("uuid-0"))
+
+        // Drain so cleanup sees an empty queue
+        while (dispatched.isNotEmpty()) {
+            dispatched.removeFirst().run()
+        }
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
     // endregion
 }
