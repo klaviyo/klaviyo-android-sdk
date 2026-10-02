@@ -113,30 +113,78 @@ internal class KlaviyoState : State {
 
     /**
      * Update user state from a new [Profile] model object
+     *
+     * When [profile] replaces an identified profile (see [ProfileTransition.REPLACEMENT]), all
+     * identifiers and attributes are replaced, a new anonymous ID is generated, and a single
+     * [StateChange.ProfileReset] is broadcast. Otherwise, identifiers present in [profile] are
+     * applied, identifiers it omits or leaves blank are cleared, each broadcasting a
+     * [StateChange.ProfileIdentifier], and attributes are applied.
      */
     override fun setProfile(profile: Profile) {
-        val currentIds = listOf(externalId, email, phoneNumber)
-        val isIdentified = currentIds.any { !it.isNullOrEmpty() }
-        val incomingIds = listOf(profile.externalId, profile.email, profile.phoneNumber).map {
-            // Normalize incoming values the same way PersistentObservableString does
-            // (trim whitespace, treat empty as null) so padded inputs match stored state.
-            it?.trim()?.ifEmpty { null }
+        val current = profileIdentifiers
+        val incoming = ProfileIdentifiers(
+            profile.externalId,
+            profile.email,
+            profile.phoneNumber,
+            anonymousId
+        )
+        val transition = classify(current, incoming)
+
+        if (current.isIdentified && transition == ProfileTransition.REPLACEMENT) {
+            replaceProfile(profile)
+        } else {
+            mergeProfile(profile)
+        }
+    }
+
+    private fun replaceProfile(profile: Profile) {
+        val oldProfile = getAsProfile(true)
+
+        try {
+            _externalId.replace(profile.externalId)
+            _email.replace(profile.email)
+            _phoneNumber.replace(profile.phoneNumber)
+            _anonymousId.reset()
+            _attributes.replace(profile.attributes)
+        } finally {
+            broadcastChange(StateChange.ProfileReset(oldProfile))
         }
 
-        // Only reset if the incoming profile has different identifiers.
-        // Anonymous ID is the lowest-order identifier, so there's no reason to regenerate it
-        // when higher-order identifiers haven't changed. Resetting with the same identifiers
-        // causes unnecessary anonymous ID churn, which triggers spurious API requests.
-        // resetProfile() remains available for explicitly clobbering all state.
-        if (isIdentified && currentIds != incomingIds) {
-            reset()
-        }
+        Registry.log.verbose("Replaced internal user state")
+    }
 
-        // Move any identifiers and attributes to their specified state variables
-        this.externalId = profile.externalId
-        this.email = profile.email
-        this.phoneNumber = profile.phoneNumber
+    private fun mergeProfile(profile: Profile) {
+        profile.externalId?.takeIf { it.isNotBlank() }?.let { externalId = it }
+        profile.email?.takeIf { it.isNotBlank() }?.let { email = it }
+        profile.phoneNumber?.takeIf { it.isNotBlank() }?.let { phoneNumber = it }
+
+        clearOmittedIdentifier(_externalId, externalId, profile.externalId)
+        clearOmittedIdentifier(_email, email, profile.email)
+        clearOmittedIdentifier(_phoneNumber, phoneNumber, profile.phoneNumber)
+
         this.attributes = profile.attributes
+    }
+
+    /**
+     * Clear [property] if [incoming] is null or blank, warning when it is blank
+     */
+    private fun clearOmittedIdentifier(
+        property: PersistentObservableString,
+        oldValue: String?,
+        incoming: String?
+    ) {
+        if (incoming?.isNotBlank() == true) return
+        if (incoming != null) property.warnEmptyValueCleared()
+        clearIdentifier(property, oldValue)
+    }
+
+    /**
+     * Clear [property] without validation, then broadcast its removal if it held [oldValue]
+     */
+    private fun clearIdentifier(property: PersistentObservableString, oldValue: String?) {
+        oldValue ?: return
+        property.reset()
+        broadcastChange(property, oldValue)
     }
 
     /**
@@ -261,16 +309,14 @@ internal class KlaviyoState : State {
     }
 
     /**
-     * For resetting user email field after an invalid input response
+     * For resetting user email field after an invalid input response.
+     * Broadcasts a [StateChange.ProfileIdentifier] if an email was set.
      */
-    internal fun resetEmail() {
-        _email.reset()
-    }
+    internal fun resetEmail() = clearIdentifier(_email, email)
 
     /**
-     * For resetting user email field after an invalid input response
+     * For resetting user phone number field after an invalid input response.
+     * Broadcasts a [StateChange.ProfileIdentifier] if a phone number was set.
      */
-    internal fun resetPhoneNumber() {
-        _phoneNumber.reset()
-    }
+    internal fun resetPhoneNumber() = clearIdentifier(_phoneNumber, phoneNumber)
 }

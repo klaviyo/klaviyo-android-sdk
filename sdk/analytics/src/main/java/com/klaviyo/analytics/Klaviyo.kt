@@ -117,6 +117,8 @@ object Klaviyo {
             }
         }
 
+        Registry.getOrNull<StateSideEffects>()?.syncIdentityGate()
+
         // Optional side effect, kept last so it can never interfere with core initialization
         PushTokenFetcher.maybeAutoRegisterPushToken()
     }

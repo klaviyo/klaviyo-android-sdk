@@ -12,10 +12,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 
 /**
- * Delivers the auth token to the webview via [JsBridge.jwtMutation], independently of profile
- * delivery. Fetches a token when started, re-injects tokens acquired or refreshed while a form is
- * displayed, and fetches a token for the new profile on profile changes via [refetchToken].
- * Never injects an empty token.
+ * Delivers the auth token to the webview via [JsBridge.jwtMutation]. Fetches a token when started,
+ * re-injects tokens acquired or refreshed while a form is displayed, and fetches a token for a
+ * replaced profile once that profile is published via [publishProfile]. A token is only injected
+ * after the profile of the current [AuthTokenManager.profileGeneration] has been published to the
+ * webview. Never injects an empty token.
  */
 internal class JwtObserver : JsBridgeObserver {
 
@@ -24,7 +25,22 @@ internal class JwtObserver : JsBridgeObserver {
      * Injections capture it and re-check it on the UI thread so callbacks from a previous session
      * cannot reach a new webview.
      */
-    @Volatile private var session: Any? = null
+    @Volatile private var session: Session? = null
+
+    /** State scoped to one webview session. */
+    private class Session {
+        /** [AuthTokenManager.profileGeneration] when a token was last requested for this webview. */
+        @Volatile var requestedGeneration = -1L
+
+        /** True once a profile has been published to this webview via [publishProfile]. UI thread only. */
+        var published = false
+
+        /** [AuthTokenManager.profileGeneration] of the profile last published. UI thread only. */
+        var publishedGeneration = -1L
+
+        /** Set when a token was withheld because its profile was not yet published. UI thread only. */
+        var injectionWithheld = false
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
 
@@ -63,7 +79,7 @@ internal class JwtObserver : JsBridgeObserver {
 
     override fun startObserver() {
         resetDedupOnNextInjection = true
-        val current = Any()
+        val current = Session()
         session = current
         val sequence = injectionSequence.incrementAndGet()
 
@@ -71,6 +87,7 @@ internal class JwtObserver : JsBridgeObserver {
         Registry.get<AuthTokenManager>().apply {
             offTokenRefresh(refreshObserver)
             onTokenRefresh(refreshObserver)
+            current.requestedGeneration = profileGeneration()
         }
 
         fetchToken(current, AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS, sequence)
@@ -94,6 +111,7 @@ internal class JwtObserver : JsBridgeObserver {
     internal fun refetchToken() {
         val current = session ?: return
         resetDedupOnNextInjection = true
+        current.requestedGeneration = Registry.get<AuthTokenManager>().profileGeneration()
         fetchToken(
             current,
             AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS,
@@ -102,11 +120,38 @@ internal class JwtObserver : JsBridgeObserver {
     }
 
     /**
+     * Run [publish], which must send the active profile to the webview, then allow tokens for that
+     * profile to be injected once the UI work queued so far has run. If the profile was replaced
+     * since the last token request, or a token was withheld awaiting this publish, calls
+     * [refetchToken].
+     */
+    internal fun publishProfile(publish: () -> Unit) {
+        val current = session
+        val generation = Registry.get<AuthTokenManager>().profileGeneration()
+        publish()
+        current ?: return
+        Registry.threadHelper.runOnUiThread { onProfilePublished(current, generation) }
+    }
+
+    /** Must be called on the UI thread. */
+    private fun onProfilePublished(forSession: Session, generation: Long) {
+        if (session !== forSession) return
+        if (!forSession.published || generation > forSession.publishedGeneration) {
+            forSession.published = true
+            forSession.publishedGeneration = generation
+        }
+        if (forSession.injectionWithheld || generation != forSession.requestedGeneration) {
+            forSession.injectionWithheld = false
+            refetchToken()
+        }
+    }
+
+    /**
      * Cancel any in-flight fetch and start a new one, unless [forSession] is no longer current.
      * The result is injected only if [forSession] is still current and the token is still the
      * manager's current token when it reaches the UI thread. A failed fetch injects nothing.
      */
-    private fun fetchToken(forSession: Any, timeoutMs: Long, sequence: Long) {
+    private fun fetchToken(forSession: Session, timeoutMs: Long, sequence: Long) {
         synchronized(fetchLock) {
             if (session !== forSession) return
             fetchJob?.cancel()
@@ -118,6 +163,9 @@ internal class JwtObserver : JsBridgeObserver {
                 } catch (_: AuthTokenException.NoProviderRegistered) {
                     Registry.log.debug("Auth not enabled — no JWT to inject")
                     return@safeLaunch
+                } catch (_: AuthTokenException.NotIdentified) {
+                    Registry.log.verbose("Profile not identified — no JWT to inject")
+                    return@safeLaunch
                 } catch (_: Exception) {
                     Registry.log.warning("Auth token fetch failed — no JWT injected")
                     return@safeLaunch
@@ -127,7 +175,7 @@ internal class JwtObserver : JsBridgeObserver {
                     if (session === forSession &&
                         Registry.get<AuthTokenManager>().isCurrentToken(token)
                     ) {
-                        injectIfLatest(sequence, token)
+                        injectIfPublished(forSession, sequence, token)
                     }
                 }
             }
@@ -143,8 +191,23 @@ internal class JwtObserver : JsBridgeObserver {
         val sequence = injectionSequence.incrementAndGet()
         Registry.threadHelper.runOnUiThread {
             if (session === current && Registry.get<AuthTokenManager>().isCurrentToken(jwt)) {
-                injectIfLatest(sequence, jwt)
+                injectIfPublished(current, sequence, jwt)
             }
+        }
+    }
+
+    /**
+     * [injectIfLatest] if the profile of the current generation has been published to
+     * [forSession]'s webview, otherwise withhold [token] until [publishProfile]. Must be called on
+     * the UI thread.
+     */
+    private fun injectIfPublished(forSession: Session, sequence: Long, token: String) {
+        val published = forSession.published &&
+            forSession.publishedGeneration == Registry.get<AuthTokenManager>().profileGeneration()
+        if (published) {
+            injectIfLatest(sequence, token)
+        } else {
+            forSession.injectionWithheld = true
         }
     }
 

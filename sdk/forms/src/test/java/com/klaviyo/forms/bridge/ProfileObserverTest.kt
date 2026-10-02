@@ -22,7 +22,9 @@ class ProfileObserverTest {
 
     private val stubProfile = Profile()
     private val observerSlot = slot<StateChangeObserver>()
-    private val jwtObserver = mockk<JwtObserver>(relaxed = true)
+    private val jwtObserver = mockk<JwtObserver>(relaxed = true).apply {
+        every { publishProfile(any()) } answers { firstArg<() -> Unit>().invoke() }
+    }
     private val stateMock = mockk<State>(relaxed = true).apply {
         every { onStateChange(capture(observerSlot)) } returns Unit
         every { getAsProfile() } returns stubProfile
@@ -62,11 +64,12 @@ class ProfileObserverTest {
     fun `observer sets profile then refetches token when profile resets`() {
         val mockBridge = withBridge()
         clearMocks(mockBridge, answers = false)
+        clearMocks(jwtObserver, answers = false)
         observerSlot.captured.invoke(StateChange.ProfileReset(mockk()))
         verify(exactly = 1) { mockBridge.profileMutation(stubProfile) }
         verifyOrder {
+            jwtObserver.publishProfile(any())
             mockBridge.profileMutation(stubProfile)
-            jwtObserver.refetchToken()
         }
     }
 
@@ -98,7 +101,7 @@ class ProfileObserverTest {
         }
 
         verify(exactly = keys.count() + 1) { mockBridge.profileMutation(stubProfile) }
-        verify(exactly = keys.count()) { jwtObserver.refetchToken() }
+        verify(exactly = keys.count() + 1) { jwtObserver.publishProfile(any()) }
     }
 
     @Test
