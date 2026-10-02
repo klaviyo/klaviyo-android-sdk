@@ -8,7 +8,7 @@ package com.klaviyo.core.auth
  * for the full [ValidatedToken] wrapper (exp/iat metadata) callers should use
  * [AuthTokenManager.currentToken].
  *
- * Observers are invoked on the manager's internal dispatcher (IO). If a thread handoff is needed
+ * Observers are invoked serially on the manager's internal dispatcher (IO). If a thread handoff is needed
  * (e.g. for a WebView call that must run on the UI thread), the observer is responsible for it.
  */
 typealias TokenRefreshObserver = (jwt: String) -> Unit
@@ -40,8 +40,7 @@ interface AuthTokenManager {
      * Replace the registered [AuthTokenProvider] (if any), discard any cached token, and
      * asynchronously pre-warm the cache with a fresh token via the new provider.
      *
-     * This method returns immediately — provider registration is synchronous; the eager fetch
-     * runs fire-and-forget on the manager's internal scope.
+     * This method returns after queuing registration. The eager fetch runs asynchronously.
      */
     fun registerProvider(provider: AuthTokenProvider)
 
@@ -53,8 +52,7 @@ interface AuthTokenManager {
      * will throw [AuthTokenException.NoProviderRegistered] until a new provider is registered via
      * [Klaviyo.registerAuthTokenProvider][com.klaviyo.analytics.Klaviyo.registerAuthTokenProvider].
      *
-     * Has no effect if no provider is currently registered. This method returns immediately —
-     * all teardown is synchronous.
+     * Has no effect if no provider is currently registered. Teardown runs asynchronously.
      */
     fun unregisterProvider()
 
@@ -77,6 +75,7 @@ interface AuthTokenManager {
      * @throws [AuthTokenException.NoProviderRegistered] if no provider has been registered.
      * @throws [AuthTokenException.ValidationFailed] if the returned token fails validation.
      * @throws [AuthTokenException.TimedOut] if the provider does not respond within [timeoutMs].
+     * @throws [AuthTokenException.ProviderCancelled] if the provider reports a cancellation.
      * @throws IllegalArgumentException if [timeoutMs] is not positive.
      * @throws Throwable whatever error the provider passed to [AuthTokenProvider.Callback.onFailure].
      */
@@ -87,11 +86,11 @@ interface AuthTokenManager {
      * including the initial fetch — so a consumer that subscribes while the first fetch is still in
      * flight (e.g. a form displayed before the token resolves) still receives it once it lands.
      *
-     * Multiple observers are supported. Each is invoked on the manager's internal dispatcher
+     * Multiple observers are supported. Each is invoked serially on the manager's internal dispatcher
      * (IO); the observer is responsible for any thread handoff it needs (e.g. hopping to the UI
      * thread for WebView calls). Dispatch is best-effort: if an observer throws an [Exception], it
-     * is logged at WARNING and remaining observers are still called.
-     * [kotlinx.coroutines.CancellationException] is rethrown per structured-concurrency contract.
+     * is logged at WARNING and remaining observers are still called. An observer-thrown
+     * [kotlinx.coroutines.CancellationException] stops delivery of the current token.
      *
      * Registration is by reference — pass the same lambda instance to [offTokenRefresh] to
      * unregister. Duplicate registrations (same instance) add the observer twice.
@@ -106,40 +105,29 @@ interface AuthTokenManager {
     fun offTokenRefresh(observer: TokenRefreshObserver)
 
     /**
-     * Synchronously mark the current profile as stale, preventing any in-flight proactive refresh
-     * from dispatching its result to registered [TokenRefreshObserver]s.
+     * Synchronously mark the current profile as stale, preventing in-flight refresh results from
+     * reaching registered [TokenRefreshObserver]s. Token-state cleanup is queued.
      *
-     * This method is intentionally non-suspending so it can be called on any thread (including the
-     * main thread from `Klaviyo.resetProfile()`) without blocking. The actual token-state cleanup
-     * is deferred to [clearTokenState], which callers should dispatch asynchronously after calling
-     * this method.
-     *
-     * @return The new profile generation value, which should be passed to [clearTokenState] as
-     *   [clearTokenState]'s `expectedGeneration` argument. If a new provider is registered before
-     *   [clearTokenState] runs, the generation will have advanced and [clearTokenState] will skip
-     *   the clear to preserve the new session's state.
+     * @return A generation ID to pass to [clearTokenState] so an older clear cannot finish a
+     *   later reset or clear a replacement provider.
      */
     fun invalidate(): Long
 
     /**
-     * Clear all token-acquisition state tied to the current user, called from
-     * `Klaviyo.resetProfile()` on logout. Discards the cached token, cancels the scheduled
-     * proactive refresh and its wall-clock target, and cancels any in-flight fetch. Does **not**
-     * eagerly re-invoke the provider — the next call to [currentToken] drives the next acquisition.
+     * Clear all token-acquisition state tied to the current user, called from the analytics
+     * `StateSideEffects` observer on profile reset. A profile reset happens on
+     * `Klaviyo.resetProfile()` and when `Klaviyo.setProfile()` gives an identified profile
+     * different identifiers. Discards the cached token, cancels the scheduled proactive refresh
+     * and its wall-clock target, and cancels any in-flight fetch. Without a pending
+     * [currentToken] caller, the next call to [currentToken] drives acquisition.
      *
-     * Deliberately retains:
-     * - The registered [AuthTokenProvider] — it is host integration code ("how to ask my auth
-     *   system for a token"), not user identity. The provider is expected to read the current user
-     *   fresh on each invocation, so the same provider correctly serves the next identified profile.
-     * - The lifecycle observer — safe to leave running across profile resets; its handler is a
-     *   no-op when no cached token or scheduled refresh exists.
-     * - Registered [TokenRefreshObserver]s — active form displays should keep their subscriptions
-     *   alive across a reset; the stream simply goes quiet until the next successful refresh.
+     * Retains:
+     * - The registered [AuthTokenProvider], which reads the current user on each invocation.
+     * - The lifecycle observer, which is idle without a cached token or scheduled refresh.
+     * - Registered [TokenRefreshObserver]s, whose stream resumes on the next successful fetch.
      *
-     * @param expectedGeneration When non-negative, the clear is skipped if the profile generation
-     *   has advanced past this value (indicating a new provider was registered between [invalidate]
-     *   and this call). Pass the value returned by [invalidate], or omit / pass `-1` for an
-     *   unconditional clear. Callers that do not use [invalidate] should always use the default.
+     * @param expectedGeneration The ID returned by [invalidate]. The clear is skipped when a
+     *   later profile transition superseded that ID. The default performs an unconditional clear.
      *
      * NOTE: This method's behavior may change in a future revision. The current design ("Option B")
      * retains the provider across resets. An alternative ("Option A") would fully unregister the

@@ -11,6 +11,7 @@ import io.mockk.verify
 import java.util.Base64
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -129,6 +130,79 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             1,
             staticClock.scheduledTasks.size
         )
+    }
+
+    @Test
+    fun `invalidation inside observer suppresses later observers`() = runTest(dispatcher) {
+        val manager = KlaviyoAuthTokenManager()
+        val received = mutableListOf<String>()
+        manager.onTokenRefresh {
+            received.add("first")
+            manager.invalidate()
+        }
+        manager.onTokenRefresh { received.add("second") }
+
+        manager.registerProvider(CountingSuccessProvider(makeJwt()))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf("first"), received)
+    }
+
+    @Test
+    fun `logout retires a scheduled refresh without restarting the provider`() = runTest(dispatcher) {
+        val provider = InitialThenResolvableProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(2, provider.callCount)
+
+        val generation = manager.invalidate()
+        dispatcher.scheduler.runCurrent()
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(2, provider.callCount)
+        val demand = async { manager.currentToken() }
+        dispatcher.scheduler.runCurrent()
+        assertEquals(3, provider.callCount)
+        provider.resolve(makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100))
+        provider.resolve(makeJwt(EXP_SECONDS + 200, IAT_SECONDS + 200))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(EXP_SECONDS + 200, demand.await().expiresAtEpochSeconds)
+    }
+
+    @Test
+    fun `manager scope cancellation cancels scheduled refresh`() = runTest(dispatcher) {
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(CountingSuccessProvider(makeJwt()))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, staticClock.scheduledTasks.size)
+
+        manager.scope.cancel()
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(0, staticClock.scheduledTasks.size)
+    }
+
+    @Test
+    fun `queued timer refresh cannot fetch after clearTokenState returns`() = runTest(dispatcher) {
+        val provider = CountingSuccessProvider(makeJwt())
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        val timerTask = staticClock.scheduledTasks.first()
+        staticClock.execute(timerTask.time - staticClock.time)
+        manager.clearTokenState()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
     }
 
     @Test
@@ -860,9 +934,6 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     @Test
     fun `clearTokenState with stale expectedGeneration is a no-op after new provider registers`() =
         runTest(dispatcher) {
-            // Scenario mirrors resetProfile() followed immediately by registerAuthTokenProvider():
-            // invalidate() captures gen=N, registerProvider() advances gen to N+1, then the
-            // async clearTokenState(gen=N) fires and must NOT wipe the new session's state.
             val initialJwt = makeJwt()
             val newJwt = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
             val provider1 = CountingSuccessProvider(initialJwt)
@@ -873,17 +944,13 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals("first eager fetch", 1, provider1.callCount)
 
-            // Step 1: invalidate() — simulates the sync part of resetProfile()
-            val gen = manager.invalidate()
+            val generation = manager.invalidate()
 
-            // Step 2: registerProvider() for the new user — advances profileGeneration past gen
             manager.registerProvider(provider2)
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals("new provider eager fetch", 1, provider2.callCount)
 
-            // Step 3: clearTokenState(gen) — simulates the async part of resetProfile();
-            // because profileGeneration > gen, this must be a no-op.
-            manager.clearTokenState(expectedGeneration = gen)
+            manager.clearTokenState(generation)
 
             // New session's cache is intact: currentToken() must NOT invoke provider2 again.
             manager.currentToken()
@@ -896,7 +963,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         }
 
     @Test
-    fun `invalidate causes currentToken to bypass cache and trigger new fetch`() =
+    fun `clear after invalidate causes currentToken to bypass cache and trigger new fetch`() =
         runTest(dispatcher) {
             val jwt = makeJwt()
             val provider = CountingSuccessProvider(jwt)
@@ -911,10 +978,8 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals("cache hit — provider not called again", 1, provider.callCount)
 
-            // invalidate() sets profileResetPending; cachedToken is still non-null at this point.
-            manager.invalidate()
-
-            // currentToken() must not return the stale cached value — falls through to a fetch.
+            val generation = manager.invalidate()
+            manager.clearTokenState(generation)
             manager.currentToken()
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals("invalidate forces a new provider fetch", 2, provider.callCount)

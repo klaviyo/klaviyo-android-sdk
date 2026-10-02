@@ -30,12 +30,10 @@ import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
-import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
 import java.util.LinkedList
 import java.util.Queue
-import kotlinx.coroutines.CoroutineScope
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -324,17 +322,7 @@ object Klaviyo {
      */
     @JvmStatic
     fun resetProfile() = safeApply {
-        // invalidate() runs first (synchronous) so any in-flight proactive refresh completing in
-        // the gap before State.reset() sees profileResetPending=true and skips observer dispatch.
-        val auth = Registry.get<AuthTokenManager>()
-        val gen = auth.invalidate()
         Registry.get<State>().reset()
-        // clearTokenState(gen) is fire-and-forget. Passing the captured generation makes it
-        // conditional: if registerAuthTokenProvider() runs first, profileGeneration has advanced
-        // and the clear is skipped, preserving the new session's token state.
-        CoroutineScope(Registry.dispatcher).safeLaunch {
-            auth.clearTokenState(expectedGeneration = gen)
-        }
     }
 
     /**

@@ -9,7 +9,10 @@ package com.klaviyo.core.auth
  *
  * Mirrors iOS `AuthTokenError`.
  */
-sealed class AuthTokenException(message: String) : RuntimeException(message) {
+sealed class AuthTokenException(
+    message: String,
+    cause: Throwable? = null
+) : RuntimeException(message, cause) {
 
     /**
      * [AuthTokenManager.currentToken] was called before any [AuthTokenProvider] was registered.
@@ -32,4 +35,16 @@ sealed class AuthTokenException(message: String) : RuntimeException(message) {
      *
      */
     data object TimedOut : AuthTokenException("Auth token request timed out")
+
+    /**
+     * The registered provider reported a cancellation instead of a token.
+     * The [cause] is the exception the provider passed to [AuthTokenProvider.Callback.onFailure].
+     */
+    data class ProviderCancelled(override val cause: Throwable) : AuthTokenException(
+        "Auth token provider reported a cancellation",
+        cause
+    )
+
+    /** The manager stopped before a queued token request could complete. */
+    data object ManagerStopped : AuthTokenException("Auth token manager stopped")
 }

@@ -33,6 +33,7 @@ import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -516,11 +517,40 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `resetProfile clears auth token state`() = runTest(dispatcher) {
+    fun `resetProfile clears auth token state through state side effects`() = runTest(dispatcher) {
         Klaviyo.resetProfile()
         dispatcher.scheduler.advanceUntilIdle()
+        coVerifyOrder {
+            mockAuthTokenManager.invalidate()
+            mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
+        }
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(any()) }
+    }
+
+    @Test
+    fun `setProfile with different identifiers clears auth token state`() = runTest(dispatcher) {
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        Klaviyo.setProfile(Profile(externalId = EXTERNAL_ID))
+        dispatcher.scheduler.advanceUntilIdle()
+
         verify(exactly = 1) { mockAuthTokenManager.invalidate() }
         coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
+    }
+
+    @Test
+    fun `setProfile with the same identifiers does not clear auth token state`() = runTest(
+        dispatcher
+    ) {
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
     }
 
     @Test

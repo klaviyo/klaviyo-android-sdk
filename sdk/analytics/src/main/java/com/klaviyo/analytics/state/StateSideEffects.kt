@@ -13,6 +13,7 @@ import com.klaviyo.analytics.networking.requests.KlaviyoErrorSource
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.LifecycleMonitor
@@ -158,7 +159,12 @@ internal class StateSideEffects(
             onApiKeyChange(oldApiKey = change.oldValue)
         }
 
-        is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> {
+        is StateChange.ProfileIdentifier -> {
+            onUserStateChange()
+        }
+
+        is StateChange.ProfileReset -> {
+            Registry.getOrNull<AuthTokenManager>()?.resetTokenState()
             onUserStateChange()
         }
 
