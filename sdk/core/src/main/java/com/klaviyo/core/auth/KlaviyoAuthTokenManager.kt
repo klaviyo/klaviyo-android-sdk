@@ -256,8 +256,13 @@ internal class KlaviyoAuthTokenManager(
                         "Proactive token refresh failed: ${command.error.javaClass.simpleName}",
                         command.error
                     )
-                    if (isConnectivityError(command.error) && state.provider != null) {
+                    val fetchFailedOffline = state.refreshFetchFailedOffline
+                    state.refreshFetchFailedOffline = false
+                    if (state.provider == null) return
+                    if (isConnectivityError(command.error)) {
                         armConnectivityWait(command.allowImmediateRetry)
+                    } else if (fetchFailedOffline && state.connectivityJob == null) {
+                        armConnectivityWait(false)
                     }
                 }
             }
@@ -295,6 +300,7 @@ internal class KlaviyoAuthTokenManager(
         val provider = state.provider ?: return
         val id = ++state.fetchId
         state.fetchAllowsImmediateRetry = state.waiters.none { it.refreshId != null }
+        state.refreshFetchFailedOffline = false
         state.fetchJob = scope.safeLaunch {
             val result = runCatching {
                 val jwt = invokeProvider(provider)
@@ -327,8 +333,12 @@ internal class KlaviyoAuthTokenManager(
                 deliveries.trySend(Delivery(deliveryId, state.generation, token, observers))
             },
             onFailure = { error ->
-                if (isConnectivityError(error) && state.connectivityJob == null && !refreshWaiting) {
-                    armConnectivityWait(state.fetchAllowsImmediateRetry)
+                if (isConnectivityError(error)) {
+                    if (refreshWaiting) {
+                        state.refreshFetchFailedOffline = true
+                    } else if (state.connectivityJob == null) {
+                        armConnectivityWait(state.fetchAllowsImmediateRetry)
+                    }
                 }
                 failWaiters(error)
             }
@@ -373,6 +383,7 @@ internal class KlaviyoAuthTokenManager(
         state.deliveryId++
         state.fetchJob?.cancel()
         state.fetchJob = null
+        state.refreshFetchFailedOffline = false
         retireRefresh()
         state.connectivityId++
         state.connectivityJob?.cancel()
@@ -533,6 +544,9 @@ internal class KlaviyoAuthTokenManager(
         var deliveryId = 0L
         var fetchJob: Job? = null
         var fetchAllowsImmediateRetry = true
+
+        /** Set when a fetch fails offline while a refresh waiter is attached; read by RefreshFailed. */
+        var refreshFetchFailedOffline = false
         var refreshId = 0L
         var refreshTimer: Clock.Cancellable? = null
         var refreshAt: Long? = null

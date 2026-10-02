@@ -800,6 +800,39 @@ class KlaviyoAuthTokenManagerConnectivityTest : BaseTest() {
         }
 
     @Test
+    fun `refresh that times out just before its fetch fails offline waits for a network change`() =
+        runTest(dispatcher) {
+            val provider = PendingScriptedProvider(
+                listOf(
+                    Result.failure(UnknownHostException("eager fetch offline")),
+                    null,
+                    Result.success(makeJwt())
+                )
+            )
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeNetworkMonitor.simulateConnected(isConnected = true)
+            dispatcher.scheduler.runCurrent()
+            assertEquals("connectivity retry pending", 2, provider.callCount)
+
+            // The waiter timeout and the fetch failure land at the same virtual time. The timeout
+            // task was queued first, so FetchDone is posted before the waiter's CallerDone.
+            dispatcher.scheduler.advanceTimeBy(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS)
+            provider.failPending(ConnectException("connectivity retry offline"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals("no immediate retry", 2, provider.callCount)
+            assertNotNull("late failure arms a wait", manager.connectivityWaitJob())
+            assertEquals(1, fakeNetworkMonitor.observerCount())
+
+            fakeNetworkMonitor.simulateConnected(isConnected = true)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("network change retries", 3, provider.callCount)
+        }
+
+    @Test
     fun `refresh that times out on a shared interactive fetch allows one immediate retry then waits`() =
         runTest(dispatcher) {
             val provider = PendingScriptedProvider(
