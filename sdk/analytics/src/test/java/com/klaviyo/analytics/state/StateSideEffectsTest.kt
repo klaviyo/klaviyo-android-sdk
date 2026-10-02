@@ -273,6 +273,20 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
+    fun `API key change invalidates auth token state then queues generation-matched clear`() {
+        every { stateMock.pushState } returns null
+        StateSideEffects(stateMock, apiClientMock)
+
+        capturedStateChangeObserver.captured(StateChange.ApiKey(API_KEY))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coVerifyOrder {
+            authTokenManagerMock.invalidate()
+            authTokenManagerMock.clearTokenState(expectedGeneration = AUTH_GENERATION)
+        }
+    }
+
+    @Test
     fun `Reset push state on push API failure`() {
         StateSideEffects(stateMock, apiClientMock)
 

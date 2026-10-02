@@ -57,6 +57,8 @@ internal class StateSideEffects(
     }
 
     private fun onApiKeyChange(oldApiKey: String?) {
+        Registry.getOrNull<AuthTokenManager>()?.resetTokenState()
+
         // Clear event buffer to prevent cross-account data leakage
         GenericEventBuffer.clearBuffer()
 

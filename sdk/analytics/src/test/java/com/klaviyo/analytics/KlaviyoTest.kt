@@ -31,6 +31,7 @@ import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.Runs
+import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -518,6 +519,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `resetProfile clears auth token state through state side effects`() = runTest(dispatcher) {
+        clearInitialAuthCalls()
         Klaviyo.resetProfile()
         dispatcher.scheduler.advanceUntilIdle()
         coVerifyOrder {
@@ -530,6 +532,7 @@ internal class KlaviyoTest : BaseTest() {
 
     @Test
     fun `setProfile with different identifiers clears auth token state`() = runTest(dispatcher) {
+        clearInitialAuthCalls()
         Klaviyo.setProfile(Profile(email = EMAIL))
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -544,6 +547,7 @@ internal class KlaviyoTest : BaseTest() {
     fun `setProfile with the same identifiers does not clear auth token state`() = runTest(
         dispatcher
     ) {
+        clearInitialAuthCalls()
         Klaviyo.setProfile(Profile(email = EMAIL))
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -551,6 +555,35 @@ internal class KlaviyoTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+    }
+
+    @Test
+    fun `initialize with a different API key clears auth token state`() = runTest(dispatcher) {
+        clearInitialAuthCalls()
+        Klaviyo.initialize(apiKey = "different-$API_KEY", applicationContext = mockContext)
+        dispatcher.scheduler.advanceUntilIdle()
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 1) {
+            mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
+        }
+    }
+
+    @Test
+    fun `initialize with the same API key does not clear auth token state`() = runTest(dispatcher) {
+        clearInitialAuthCalls()
+        Klaviyo.initialize(apiKey = API_KEY, applicationContext = mockContext)
+        dispatcher.scheduler.advanceUntilIdle()
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
+    }
+
+    /**
+     * Setup's initialize sets the API key for the first time, which resets auth token state.
+     * Runs that queued clear and forgets those recorded calls.
+     */
+    private fun clearInitialAuthCalls() {
+        dispatcher.scheduler.advanceUntilIdle()
+        clearMocks(mockAuthTokenManager, answers = false)
     }
 
     @Test
