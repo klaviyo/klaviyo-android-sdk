@@ -29,6 +29,7 @@ import com.klaviyo.core.utils.takeIf
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -129,6 +130,10 @@ internal class KlaviyoApiClientTest : BaseTest() {
         unmockDeviceProperties()
         unmockkStatic(DeviceProperties::buildEventMetaData)
         Registry.unregister<QueueScheduler>()
+
+        // Byte-cap tests pass multi-MB payloads through these spies. Drop the recorded calls so
+        // those payloads don't stay reachable and exhaust the shared test JVM heap.
+        clearMocks(spyDataStore, spyLog, answers = false, recordedCalls = true)
     }
 
     private fun mockRequest(
