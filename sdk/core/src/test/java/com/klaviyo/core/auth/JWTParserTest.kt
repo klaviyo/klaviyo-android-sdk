@@ -117,6 +117,40 @@ class JWTParserTest : BaseTest() {
         assertEquals(JWTValidationResult.MalformedBase64, result)
     }
 
+    @Test
+    fun nonBase64UrlCharacterInAnySegmentIsMalformedBase64() {
+        val segments = makeJwt(
+            mapOf("exp" to EXP_SECONDS.toDouble(), "iat" to IAT_SECONDS.toDouble())
+        ).split('.')
+
+        listOf("+", "/", "=", " ", "\n").forEach { invalid ->
+            segments.indices.forEach { index ->
+                val token = segments
+                    .mapIndexed { i, segment -> if (i == index) segment + invalid else segment }
+                    .joinToString(".")
+
+                assertEquals(
+                    "segment $index with '$invalid'",
+                    JWTValidationResult.MalformedBase64,
+                    JWTParser.parseAndValidate(token, nowEpochSeconds = NOW_SECONDS)
+                )
+            }
+        }
+    }
+
+    @Test
+    fun base64UrlAlphabetInEverySegmentIsValid() {
+        val token = makeJwt(mapOf("exp" to EXP_SECONDS.toDouble(), "iat" to IAT_SECONDS.toDouble()))
+        val (header, payload) = token.split('.')
+
+        val result = JWTParser.parseAndValidate(
+            "$header.$payload.AZaz09-_",
+            nowEpochSeconds = NOW_SECONDS
+        )
+
+        assertTrue(result is JWTValidationResult.Valid)
+    }
+
     // MARK: - Malformed JSON
 
     @Test

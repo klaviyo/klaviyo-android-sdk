@@ -8,7 +8,8 @@ import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.networking.NetworkObserver
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
-import java.io.IOException
+import java.net.SocketException
+import java.net.UnknownHostException
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -229,13 +230,13 @@ internal class KlaviyoAuthTokenManager(
                 } else if (state.provider == null) {
                     command.reply.completeExceptionally(AuthTokenException.NoProviderRegistered)
                 } else if (state.resetPending || state.generation != generation.get()) {
-                    state.waiters.add(Waiter(command.reply, command.refreshId))
+                    addWaiter(command)
                 } else {
                     val cached = state.cachedToken?.takeIf { isStillValid(it) }
                     if (cached != null && !command.forceRefresh) {
                         command.reply.complete(cached)
                     } else {
-                        state.waiters.add(Waiter(command.reply, command.refreshId))
+                        addWaiter(command)
                         startFetch()
                     }
                 }
@@ -244,6 +245,7 @@ internal class KlaviyoAuthTokenManager(
             is Command.FetchDone -> onFetchDone(command)
             is Command.TimerFired -> {
                 if (command.id == state.refreshId && !state.resetPending) {
+                    Registry.log.info(PROACTIVE_REFRESH_FIRED)
                     launchRefresh(command.id, true)
                 }
             }
@@ -254,15 +256,25 @@ internal class KlaviyoAuthTokenManager(
                         "Proactive token refresh failed: ${command.error.javaClass.simpleName}",
                         command.error
                     )
-                    if (command.error is IOException && state.provider != null) {
+                    val fetchFailedOffline = state.refreshFetchFailedOffline
+                    state.refreshFetchFailedOffline = false
+                    if (state.provider == null) return
+                    if (isConnectivityError(command.error)) {
                         armConnectivityWait(command.allowImmediateRetry)
+                    } else if (fetchFailedOffline && state.connectivityJob == null) {
+                        armConnectivityWait(false)
                     }
                 }
             }
             is Command.Connected -> {
                 if (command.id == state.connectivityId && !state.resetPending) {
                     state.connectivityJob = null
-                    if (!state.refreshInFlight) launchRefresh(state.refreshId, false)
+                    if (!state.refreshInFlight) {
+                        Registry.log.info(
+                            "AuthTokenManager: connectivity restored — retrying token fetch"
+                        )
+                        launchRefresh(state.refreshId, false)
+                    }
                 }
             }
             is Command.CanDeliver -> {
@@ -277,12 +289,18 @@ internal class KlaviyoAuthTokenManager(
         }
     }
 
+    private fun addWaiter(command: Command.Token) {
+        state.waiters.add(Waiter(command.reply, command.refreshId))
+    }
+
     private fun startFetch() {
         if (state.fetchJob != null || state.resetPending || state.generation != generation.get()) {
             return
         }
         val provider = state.provider ?: return
         val id = ++state.fetchId
+        state.fetchAllowsImmediateRetry = state.waiters.none { it.refreshId != null }
+        state.refreshFetchFailedOffline = false
         state.fetchJob = scope.safeLaunch {
             val result = runCatching {
                 val jwt = invokeProvider(provider)
@@ -298,6 +316,7 @@ internal class KlaviyoAuthTokenManager(
             return
         }
         state.fetchJob = null
+        val refreshWaiting = state.waiters.any { it.refreshId != null }
         command.result.fold(
             onSuccess = { token ->
                 state.cachedToken = token
@@ -313,7 +332,16 @@ internal class KlaviyoAuthTokenManager(
                 val observers = state.observers.toList()
                 deliveries.trySend(Delivery(deliveryId, state.generation, token, observers))
             },
-            onFailure = ::failWaiters
+            onFailure = { error ->
+                if (isConnectivityError(error)) {
+                    if (refreshWaiting) {
+                        state.refreshFetchFailedOffline = true
+                    } else if (state.connectivityJob == null) {
+                        armConnectivityWait(state.fetchAllowsImmediateRetry)
+                    }
+                }
+                failWaiters(error)
+            }
         )
     }
 
@@ -355,6 +383,7 @@ internal class KlaviyoAuthTokenManager(
         state.deliveryId++
         state.fetchJob?.cancel()
         state.fetchJob = null
+        state.refreshFetchFailedOffline = false
         retireRefresh()
         state.connectivityId++
         state.connectivityJob?.cancel()
@@ -386,7 +415,6 @@ internal class KlaviyoAuthTokenManager(
 
     private fun launchRefresh(id: Long, allowImmediateRetry: Boolean) {
         state.refreshInFlight = true
-        Registry.log.info("Proactive token refresh fired")
         scope.safeLaunch {
             try {
                 requestToken(
@@ -425,6 +453,15 @@ internal class KlaviyoAuthTokenManager(
         Registry.log.info("AuthTokenManager: network failure — waiting for connectivity")
     }
 
+    /**
+     * True when [error] or one of its causes is a DNS failure or a socket-level failure (refused,
+     * no route, reset). Timeouts are excluded.
+     */
+    private fun isConnectivityError(error: Throwable): Boolean =
+        generateSequence(error) { it.cause }
+            .take(MAX_CAUSE_DEPTH)
+            .any { it is UnknownHostException || it is SocketException }
+
     private fun onForeground() {
         val cached = state.cachedToken
         val target = state.refreshAt
@@ -443,9 +480,12 @@ internal class KlaviyoAuthTokenManager(
             }
             target != null && Registry.clock.currentTimeMillis() >= target && !state.refreshInFlight -> {
                 retireRefresh()
+                Registry.log.info(PROACTIVE_REFRESH_FIRED)
                 launchRefresh(state.refreshId, true)
                 Registry.log.info("AuthTokenManager: foreground transition (case=missed-refresh)")
             }
+            cached == null ->
+                Registry.log.info("AuthTokenManager: foreground transition (case=no-cached-token)")
             else -> Registry.log.info("AuthTokenManager: foreground transition (case=still-valid)")
         }
     }
@@ -503,6 +543,10 @@ internal class KlaviyoAuthTokenManager(
         var fetchId = 0L
         var deliveryId = 0L
         var fetchJob: Job? = null
+        var fetchAllowsImmediateRetry = true
+
+        /** Set when a fetch fails offline while a refresh waiter is attached; read by RefreshFailed. */
+        var refreshFetchFailedOffline = false
         var refreshId = 0L
         var refreshTimer: Clock.Cancellable? = null
         var refreshAt: Long? = null
@@ -558,6 +602,9 @@ internal class KlaviyoAuthTokenManager(
     }
 
     companion object {
+        private const val MAX_CAUSE_DEPTH = 8
+        private const val PROACTIVE_REFRESH_FIRED = "Proactive token refresh fired"
+
         internal fun computeRefreshTarget(token: ValidatedToken, nowMs: Long): Long {
             val iatMs = token.issuedAtEpochSeconds * 1000L
             val expMs = token.expiresAtEpochSeconds * 1000L
