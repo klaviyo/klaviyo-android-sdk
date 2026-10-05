@@ -11,6 +11,7 @@ import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
@@ -35,6 +36,7 @@ import org.json.JSONException
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -81,6 +83,8 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.unregister<State>()
         Registry.unregister<WebViewClient>()
         Registry.unregister<PresentationManager>()
+        Registry.unregister<AuthTokenManager>()
+        Registry.unregister<JsBridge>()
         super.cleanup()
     }
 
@@ -604,12 +608,25 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `BadJWT logs a warning and does not throw`() {
-        // A rejected JWT is a normal outcome, so it should degrade gracefully rather than
-        // hitting the error-level catch block. See KlaviyoNativeBridge.badJwt.
-        postMessage("""{"type":"BadJWT","data":{}}""")
-        verify { spyLog.warning(any()) }
+    fun `refreshJwt asks the auth token manager for one replacement without replying`() {
+        val mockAuthTokenManager = mockk<AuthTokenManager>(relaxed = true)
+        val mockJsBridge = mockk<JsBridge>(relaxed = true)
+        Registry.register<AuthTokenManager>(mockAuthTokenManager)
+        Registry.register<JsBridge>(mockJsBridge)
+
+        postMessage("""{"type":"refreshJwt","data":{}}""")
+
+        verify(exactly = 1) { mockAuthTokenManager.refreshRejectedToken() }
+        verify(exactly = 0) { mockJsBridge.jwtMutation(any()) }
         verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `handshake advertises refreshJwt and jwtMutation at version 1`() {
+        val handshake = bridgeMessageHandler.handshake + KlaviyoJsBridge().handshake
+
+        assertTrue(handshake.contains(HandshakeSpec("refreshJwt", 1)))
+        assertTrue(handshake.contains(HandshakeSpec("jwtMutation", 1)))
     }
 
     @Test
