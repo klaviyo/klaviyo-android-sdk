@@ -96,6 +96,21 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
+    fun `identifying after a failed warm-up does not invoke the provider`() = runTest(dispatcher) {
+        val provider = CountingFailureProvider(RuntimeException("fetch failed"))
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        manager.setIdentified(false)
+        manager.setIdentified(true)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
     fun `unregistering drops a deferred warm-up`() = runTest(dispatcher) {
         val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
         val manager = KlaviyoAuthTokenManager()
