@@ -1063,13 +1063,14 @@ class StateSideEffectsTest : BaseTest() {
         }
 
         val firstThread = thread { first() }
-        paused.await()
+        val firstPaused = paused.await(RACE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         val secondThread = thread {
             second()
             secondDone.countDown()
         }
         firstThread.join()
         secondThread.join()
+        assertTrue("first never made the $pauseOn call", firstPaused)
         return calls.toList()
     }
 
@@ -1118,6 +1119,7 @@ class StateSideEffectsTest : BaseTest() {
         const val OLD_TOKEN = "old.jwt.token"
         const val OTHER_EMAIL = "other@domain.com"
         const val RACE_WAIT_MS = 500L
+        const val RACE_TIMEOUT_MS = 5_000L
         const val INVALIDATE = "invalidate"
         const val IDENTIFIED = "identified"
         const val ANONYMOUS = "anonymous"

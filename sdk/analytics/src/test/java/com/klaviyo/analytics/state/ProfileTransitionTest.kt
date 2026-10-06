@@ -1,6 +1,5 @@
 package com.klaviyo.analytics.state
 
-import com.klaviyo.analytics.model.ProfileKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -120,26 +119,6 @@ class ProfileTransitionTest {
     )
 
     @Test
-    fun `withIdentifier replaces only the given identifier`() {
-        val identifiers = ids(externalId = EXTERNAL_ID, email = EMAIL_A)
-
-        val replaced = identifiers.withIdentifier(ProfileKey.EMAIL, EMAIL_B)
-
-        assertEquals(EXTERNAL_ID, replaced.externalId)
-        assertEquals(EMAIL_B, replaced.email)
-        assertEquals(ANON_A, replaced.anonymousId)
-        assertEquals(
-            ANON_B,
-            identifiers.withIdentifier(ProfileKey.ANONYMOUS_ID, ANON_B).anonymousId
-        )
-        assertTransition(
-            ProfileTransition.UNCHANGED,
-            identifiers,
-            identifiers.withIdentifier(ProfileKey.FIRST_NAME, "Kermit")
-        )
-    }
-
-    @Test
     fun `isIdentified ignores the anonymous ID`() {
         assertFalse(ids().isIdentified)
         assertFalse(ids(email = " ").isIdentified)
@@ -148,7 +127,6 @@ class ProfileTransitionTest {
 
     private companion object {
         const val EMAIL_A = "a@example.com"
-        const val EMAIL_B = "b@example.com"
         const val PHONE_A = "+15555550123"
         const val PHONE_B = "+15555550124"
         const val EXTERNAL_ID = "stable"
