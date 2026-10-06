@@ -35,7 +35,21 @@ internal class StateSideEffects(
      */
     private var pendingProfile: ImmutableProfile? = null
 
+    /**
+     * Guards [onIdentityChange], [lastIdentifiers] and the auth token reset in [onApiKeyChange]
+     */
+    private val identityLock = Any()
+
+    /**
+     * Identifiers in state when [onIdentityChange] last ran, starting from the persisted state.
+     * Guarded by [identityLock].
+     */
+    private var lastIdentifiers: ProfileIdentifiers = state.getAsProfile().profileIdentifiers
+
     init {
+        synchronized(identityLock) {
+            Registry.getOrNull<AuthTokenManager>()?.setIdentified(lastIdentifiers.isIdentified)
+        }
         apiClient.onApiRequest(false, ::afterApiRequest)
         state.onStateChange(::onStateChange)
         lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
@@ -57,7 +71,7 @@ internal class StateSideEffects(
     }
 
     private fun onApiKeyChange(oldApiKey: String?) {
-        Registry.getOrNull<AuthTokenManager>()?.resetTokenState()
+        synchronized(identityLock) { Registry.getOrNull<AuthTokenManager>()?.resetTokenState() }
 
         // Clear event buffer to prevent cross-account data leakage
         GenericEventBuffer.clearBuffer()
@@ -83,8 +97,13 @@ internal class StateSideEffects(
 
         Registry.log.verbose("${pendingProfile?.let { "Merging" } ?: "Starting"} profile update")
 
-        // Merge changes into pending transaction, or start a new one
-        pendingProfile = pendingProfile?.copy()?.merge(profile) ?: profile
+        // Merge attributes into pending transaction, taking identifiers from the latest state, or start a new one
+        pendingProfile = pendingProfile?.copy()?.merge(profile)?.apply {
+            externalId = profile.externalId
+            email = profile.email
+            phoneNumber = profile.phoneNumber
+            anonymousId = profile.anonymousId
+        } ?: profile
 
         // Reset timer
         timer?.cancel()
@@ -156,15 +175,38 @@ internal class StateSideEffects(
         else -> Unit
     }
 
+    /**
+     * Classify the change to the identifiers in state now and tell the auth token manager whether
+     * the profile now in state is identified. A [StateChange.ProfileReset] classifies from the
+     * profile it replaced, so a replacement still fences the auth token when other broadcasts
+     * interleave with the reset's silent identifier writes; any other change classifies from
+     * [lastIdentifiers]. On [ProfileTransition.REPLACEMENT], first invalidates the outgoing
+     * profile's auth token, and queues its token-state clear after the identity.
+     *
+     * Serialized under [identityLock] and reading state inside it, so the last call to run posts
+     * the identity of the profile in state at that time.
+     */
+    private fun onIdentityChange(change: StateChange) = synchronized(identityLock) {
+        val current = state.getAsProfile().profileIdentifiers
+        val previous = (change as? StateChange.ProfileReset)?.oldValue?.profileIdentifiers
+            ?: lastIdentifiers
+        val transition = classify(previous, current)
+        lastIdentifiers = current
+        val authTokenManager = Registry.getOrNull<AuthTokenManager>() ?: return@synchronized
+        if (transition == ProfileTransition.REPLACEMENT) {
+            authTokenManager.resetTokenState { authTokenManager.setIdentified(current.isIdentified) }
+        } else {
+            authTokenManager.setIdentified(current.isIdentified)
+        }
+    }
+
     private fun onStateChange(change: StateChange) = when (change) {
         is StateChange.ApiKey -> {
             onApiKeyChange(oldApiKey = change.oldValue)
         }
 
         is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> {
-            if (change.key != ProfileKey.ANONYMOUS_ID) {
-                Registry.getOrNull<AuthTokenManager>()?.resetTokenState()
-            }
+            onIdentityChange(change)
             onUserStateChange()
         }
 

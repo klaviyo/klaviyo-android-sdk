@@ -113,30 +113,59 @@ internal class KlaviyoState : State {
 
     /**
      * Update user state from a new [Profile] model object
+     *
+     * When the profile in state is identified and any external ID, email or phone number in
+     * [profile] differs from it (after trimming, with blank values treated as absent), all
+     * identifiers and attributes are replaced, a new anonymous ID is generated, and a single
+     * [StateChange.ProfileReset] is broadcast. Otherwise, identifiers present in [profile] are
+     * applied, each broadcasting a [StateChange.ProfileIdentifier], and attributes are applied.
      */
     override fun setProfile(profile: Profile) {
-        val currentIds = listOf(externalId, email, phoneNumber)
-        val isIdentified = currentIds.any { !it.isNullOrEmpty() }
-        val incomingIds = listOf(profile.externalId, profile.email, profile.phoneNumber).map {
-            // Normalize incoming values the same way PersistentObservableString does
-            // (trim whitespace, treat empty as null) so padded inputs match stored state.
-            it?.trim()?.ifEmpty { null }
+        val current = profileIdentifiers
+        val incoming = ProfileIdentifiers(
+            profile.externalId,
+            profile.email,
+            profile.phoneNumber,
+            anonymousId
+        )
+
+        if (current.isIdentified && current.identifiers != incoming.identifiers) {
+            replaceProfile(profile)
+        } else {
+            mergeProfile(profile)
+        }
+    }
+
+    private fun replaceProfile(profile: Profile) {
+        val oldProfile = getAsProfile(true)
+
+        try {
+            _externalId.replace(profile.externalId)
+            _email.replace(profile.email)
+            _phoneNumber.replace(profile.phoneNumber)
+            _anonymousId.reset()
+            _attributes.replace(profile.attributes)
+        } finally {
+            broadcastChange(StateChange.ProfileReset(oldProfile))
         }
 
-        // Only reset if the incoming profile has different identifiers.
-        // Anonymous ID is the lowest-order identifier, so there's no reason to regenerate it
-        // when higher-order identifiers haven't changed. Resetting with the same identifiers
-        // causes unnecessary anonymous ID churn, which triggers spurious API requests.
-        // resetProfile() remains available for explicitly clobbering all state.
-        if (isIdentified && currentIds != incomingIds) {
-            reset()
-        }
+        Registry.log.verbose("Replaced internal user state")
+    }
 
-        // Move any identifiers and attributes to their specified state variables
-        this.externalId = profile.externalId
-        this.email = profile.email
-        this.phoneNumber = profile.phoneNumber
+    private fun mergeProfile(profile: Profile) {
+        profile.externalId?.let { externalId = it }
+        profile.email?.let { email = it }
+        profile.phoneNumber?.let { phoneNumber = it }
         this.attributes = profile.attributes
+    }
+
+    /**
+     * Clear [property] without validation, then broadcast its removal if it held [oldValue]
+     */
+    private fun clearIdentifier(property: PersistentObservableString, oldValue: String?) {
+        oldValue ?: return
+        property.reset()
+        broadcastChange(property, oldValue)
     }
 
     /**
@@ -261,16 +290,14 @@ internal class KlaviyoState : State {
     }
 
     /**
-     * For resetting user email field after an invalid input response
+     * For resetting user email field after an invalid input response.
+     * Broadcasts a [StateChange.ProfileIdentifier] if an email was set.
      */
-    internal fun resetEmail() {
-        _email.reset()
-    }
+    internal fun resetEmail() = clearIdentifier(_email, email)
 
     /**
-     * For resetting user email field after an invalid input response
+     * For resetting user phone number field after an invalid input response.
+     * Broadcasts a [StateChange.ProfileIdentifier] if a phone number was set.
      */
-    internal fun resetPhoneNumber() {
-        _phoneNumber.reset()
-    }
+    internal fun resetPhoneNumber() = clearIdentifier(_phoneNumber, phoneNumber)
 }

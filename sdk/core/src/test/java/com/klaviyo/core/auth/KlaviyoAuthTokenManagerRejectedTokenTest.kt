@@ -51,7 +51,7 @@ class KlaviyoAuthTokenManagerRejectedTokenTest : BaseTest() {
 
     /** Registers [provider] and resolves its eager fetch with [rejectedJwt]. */
     private fun managerWithDeliveredToken(): KlaviyoAuthTokenManager =
-        KlaviyoAuthTokenManager().apply {
+        identifiedAuthTokenManager().apply {
             onTokenRefresh { received.add(it) }
             registerProvider(provider)
             dispatcher.scheduler.runCurrent()
@@ -59,6 +59,33 @@ class KlaviyoAuthTokenManagerRejectedTokenTest : BaseTest() {
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals(listOf(rejectedJwt), received)
             assertEquals(1, provider.callCount)
+        }
+
+    @Test
+    fun `rejected token refresh does not invoke the provider while not identified`() =
+        runTest(dispatcher) {
+            val manager = KlaviyoAuthTokenManager()
+            manager.registerProvider(provider)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            manager.refreshRejectedToken()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(0, provider.callCount)
+            assertTrue(received.isEmpty())
+        }
+
+    @Test
+    fun `rejected token refresh after de-identifying does not invoke the provider`() =
+        runTest(dispatcher) {
+            val manager = managerWithDeliveredToken()
+
+            manager.setIdentified(false)
+            manager.refreshRejectedToken()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, provider.callCount)
+            assertFalse(manager.isCurrentToken(rejectedJwt))
         }
 
     @Test
@@ -96,7 +123,7 @@ class KlaviyoAuthTokenManagerRejectedTokenTest : BaseTest() {
 
     @Test
     fun `pending delivery of the rejected token stops at the refresh`() = runTest(dispatcher) {
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.onTokenRefresh { jwt -> if (jwt == rejectedJwt) manager.refreshRejectedToken() }
         manager.onTokenRefresh { received.add(it) }
         manager.registerProvider(provider)
@@ -135,7 +162,7 @@ class KlaviyoAuthTokenManagerRejectedTokenTest : BaseTest() {
 
     @Test
     fun `refresh joins a fetch that is already in flight`() = runTest(dispatcher) {
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.onTokenRefresh { received.add(it) }
         manager.registerProvider(provider)
         dispatcher.scheduler.runCurrent()
@@ -153,7 +180,7 @@ class KlaviyoAuthTokenManagerRejectedTokenTest : BaseTest() {
 
     @Test
     fun `refresh without a provider does nothing`() = runTest(dispatcher) {
-        val manager = KlaviyoAuthTokenManager()
+        val manager = identifiedAuthTokenManager()
         manager.onTokenRefresh { received.add(it) }
 
         manager.refreshRejectedToken()
@@ -235,6 +262,7 @@ class KlaviyoAuthTokenManagerRejectedTokenTest : BaseTest() {
 
         val generation = manager.invalidate()
         manager.refreshRejectedToken()
+        manager.setIdentified(false)
         dispatcher.scheduler.advanceUntilIdle()
         manager.clearTokenState(generation)
         dispatcher.scheduler.advanceUntilIdle()
@@ -243,6 +271,23 @@ class KlaviyoAuthTokenManagerRejectedTokenTest : BaseTest() {
         assertEquals(listOf(rejectedJwt), received)
         verify { spyLog.debug(match { it.contains("skipped") }) }
     }
+
+    @Test
+    fun `refresh during a pending profile replacement is skipped and the clear does not fetch`() =
+        runTest(dispatcher) {
+            val manager = managerWithDeliveredToken()
+
+            val generation = manager.invalidate()
+            manager.refreshRejectedToken()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(1, provider.callCount)
+            manager.clearTokenState(generation)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, provider.callCount)
+            assertEquals(listOf(rejectedJwt), received)
+            verify { spyLog.debug(match { it.contains("skipped") }) }
+        }
 
     @Test
     fun `refresh queued before a provider replace does not reach either provider twice`() =

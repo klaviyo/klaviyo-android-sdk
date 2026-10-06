@@ -3,8 +3,10 @@ package com.klaviyo.analytics.state
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.analytics.model.PROFILE_ATTRIBUTES
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
+import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.analytics.networking.requests.buildEventMetaData
@@ -18,6 +20,7 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import kotlin.concurrent.thread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -26,6 +29,8 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -299,6 +304,34 @@ internal class KlaviyoStateTest : BaseTest() {
     }
 
     @Test
+    fun `Resetting email and phone number broadcasts each removal`() {
+        state.email = EMAIL
+        state.phoneNumber = PHONE
+        val changes = recordChanges()
+
+        state.resetEmail()
+        state.resetPhoneNumber()
+
+        assertEquals(
+            listOf(
+                StateChange.ProfileIdentifier(ProfileKey.EMAIL, EMAIL),
+                StateChange.ProfileIdentifier(ProfileKey.PHONE_NUMBER, PHONE)
+            ),
+            changes
+        )
+    }
+
+    @Test
+    fun `Resetting unset email and phone number does not broadcast`() {
+        val changes = recordChanges()
+
+        state.resetEmail()
+        state.resetPhoneNumber()
+
+        assertTrue(changes.isEmpty())
+    }
+
+    @Test
     fun `createEvent adds enriched event to buffer`() {
         GenericEventBuffer.clearBuffer()
 
@@ -349,6 +382,156 @@ internal class KlaviyoStateTest : BaseTest() {
 
         // Verify anonymous ID is preserved (no reset)
         assertEquals(initialAnonId, state.anonymousId)
+    }
+
+    @Test
+    fun `setProfile adding an identifier to an identified profile resets it`() {
+        state.email = EMAIL
+        val initialAnonId = state.anonymousId
+        val changes = recordChanges()
+
+        state.setProfile(Profile(externalId = EXTERNAL_ID, email = EMAIL, phoneNumber = PHONE))
+
+        assertEquals(EXTERNAL_ID, state.externalId)
+        assertEquals(EMAIL, state.email)
+        assertEquals(PHONE, state.phoneNumber)
+        assertSingleReset(changes, initialAnonId)
+    }
+
+    @Test
+    fun `setProfile dropping identifiers from an identified profile resets it without a warning`() {
+        state.externalId = EXTERNAL_ID
+        state.email = EMAIL
+        state.phoneNumber = PHONE
+        val initialAnonId = state.anonymousId
+        val changes = recordChanges()
+
+        state.setProfile(Profile(externalId = EXTERNAL_ID))
+
+        assertEquals(EXTERNAL_ID, state.externalId)
+        assertNull(state.email)
+        assertNull(state.phoneNumber)
+        assertNull(spyDataStore.fetch(ProfileKey.EMAIL.name))
+        assertSingleReset(changes, initialAnonId)
+        verify(exactly = 0) { spyLog.warning(any(), any()) }
+    }
+
+    @Test
+    fun `setProfile blank identifier on an anonymous profile is ignored with a warning`() {
+        val initialAnonId = state.anonymousId
+
+        state.setProfile(Profile(externalId = EXTERNAL_ID, email = " "))
+
+        assertEquals(EXTERNAL_ID, state.externalId)
+        assertNull(state.email)
+        assertEquals(initialAnonId, state.anonymousId)
+        verify(exactly = 1) { spyLog.warning(any(), any()) }
+    }
+
+    @Test
+    fun `setProfile with unchanged identifiers broadcasts no identifier change`() {
+        state.externalId = EXTERNAL_ID
+        state.email = EMAIL
+        val changes = recordChanges()
+
+        state.setProfile(Profile(externalId = " $EXTERNAL_ID ", email = EMAIL))
+
+        assertTrue(
+            changes.none { it is StateChange.ProfileIdentifier || it is StateChange.ProfileReset }
+        )
+    }
+
+    @Test
+    fun `setProfile anonymous to identified keeps anonymous ID without a reset`() {
+        val initialAnonId = state.anonymousId
+        val changes = recordChanges()
+
+        state.setProfile(Profile(email = EMAIL))
+
+        assertEquals(initialAnonId, state.anonymousId)
+        assertEquals(
+            listOf(StateChange.ProfileIdentifier(ProfileKey.EMAIL, null)),
+            changes.filterIsInstance<StateChange.ProfileIdentifier>()
+        )
+        assertTrue(changes.none { it is StateChange.ProfileReset })
+    }
+
+    @Test
+    fun `setProfile replacement broadcasts one reset with every new identifier installed`() {
+        state.email = "old@example.com"
+        state.setAttribute(ProfileKey.FIRST_NAME, "Kermit")
+        val initialAnonId = state.anonymousId
+        val replacement = Profile(
+            externalId = "new-external-id",
+            email = "new@example.com",
+            phoneNumber = "+15555550123"
+        ).setProperty(ProfileKey.LAST_NAME, "Frog")
+        val snapshots = mutableListOf<Profile>()
+        val changes = recordChanges { snapshots += state.getAsProfile(withAttributes = true) }
+
+        state.setProfile(replacement)
+
+        assertEquals(1, changes.size)
+        val reset = changes.single() as StateChange.ProfileReset
+        assertEquals("old@example.com", reset.oldValue.email)
+        assertEquals(initialAnonId, reset.oldValue.anonymousId)
+        assertEquals("Kermit", reset.oldValue[ProfileKey.FIRST_NAME])
+        val snapshot = snapshots.single()
+        assertEquals(replacement.externalId, snapshot.externalId)
+        assertEquals(replacement.email, snapshot.email)
+        assertEquals(replacement.phoneNumber, snapshot.phoneNumber)
+        assertEquals("Frog", snapshot[ProfileKey.LAST_NAME])
+        assertNull(snapshot[ProfileKey.FIRST_NAME])
+        assertNotEquals(initialAnonId, snapshot.anonymousId)
+    }
+
+    @Test
+    fun `setProfile replacement trims identifiers and warns on explicit blanks`() {
+        state.email = EMAIL
+
+        state.setProfile(Profile(externalId = " $EXTERNAL_ID ", email = "  "))
+
+        assertEquals(EXTERNAL_ID, state.externalId)
+        assertNull(state.email)
+        verify(exactly = 1) { spyLog.warning(match { it.contains("cleared") }, any()) }
+        verify(exactly = 1) { spyLog.warning(any(), any()) }
+    }
+
+    @Test
+    fun `setProfile replacement still broadcasts when persistence fails`() {
+        state.email = "old@example.com"
+        val failure = IllegalStateException("storage failed")
+        every { spyDataStore.store(PROFILE_ATTRIBUTES.name, any()) } throws failure
+        val changes = recordChanges()
+
+        val thrown = runCatching {
+            state.setProfile(Profile(email = "new@example.com").setProperty("tier", "gold"))
+        }.exceptionOrNull()
+
+        assertSame(failure, thrown)
+        assertEquals("new@example.com", state.email)
+        assertTrue(changes.single() is StateChange.ProfileReset)
+    }
+
+    @Test
+    fun `setProfile replacement does not suppress broadcasts from other threads`() {
+        mockDeviceProperties()
+        try {
+            state.email = EMAIL
+            every { spyDataStore.store(ProfileKey.EMAIL.name, OTHER_EMAIL) } answers {
+                thread { state.pushToken = PUSH_TOKEN }.join()
+                callOriginal()
+            }
+            val changes = recordChanges()
+
+            state.setProfile(Profile(email = OTHER_EMAIL))
+
+            assertEquals(1, changes.count { it is StateChange.ProfileReset })
+            assertTrue(changes.contains(StateChange.KeyValue(ProfileKey.PUSH_TOKEN, null)))
+            assertTrue(changes.any { it.key == StateKey.PUSH_STATE })
+        } finally {
+            unmockDeviceProperties()
+        }
     }
 
     @Test
@@ -538,5 +721,29 @@ internal class KlaviyoStateTest : BaseTest() {
         } finally {
             unmockDeviceProperties()
         }
+    }
+
+    /**
+     * Record every change broadcast by [state], invoking [onChange] after each is recorded
+     */
+    private fun recordChanges(onChange: () -> Unit = {}): List<StateChange> =
+        mutableListOf<StateChange>().also { changes ->
+            state.onStateChange { change ->
+                synchronized(changes) { changes += change }
+                onChange()
+            }
+        }
+
+    /**
+     * Assert [changes] holds exactly one [StateChange.ProfileReset] and nothing else, and that the
+     * anonymous ID was regenerated
+     */
+    private fun assertSingleReset(changes: List<StateChange>, initialAnonId: String?) {
+        assertTrue(changes.single() is StateChange.ProfileReset)
+        assertNotEquals(initialAnonId, state.anonymousId)
+    }
+
+    private companion object {
+        const val OTHER_EMAIL = "other@domain.com"
     }
 }
