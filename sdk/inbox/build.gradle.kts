@@ -19,6 +19,9 @@ android {
 dependencies {
     api(project(":sdk:inbox-core"))
     implementation(project(":sdk:core"))
+    implementation(project(":sdk:push-fcm"))
+    implementation(platform(Firebase.bom))
+    implementation(Firebase.cloudMessaging)
     implementation(KotlinX.coroutines.core)
     testImplementation(project(":sdk:fixtures"))
 }
