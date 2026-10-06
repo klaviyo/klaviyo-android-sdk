@@ -114,11 +114,11 @@ internal class KlaviyoState : State {
     /**
      * Update user state from a new [Profile] model object
      *
-     * When [profile] replaces an identified profile (see [ProfileTransition.REPLACEMENT]), all
+     * When the profile in state is identified and any external ID, email or phone number in
+     * [profile] differs from it (after trimming, with blank values treated as absent), all
      * identifiers and attributes are replaced, a new anonymous ID is generated, and a single
      * [StateChange.ProfileReset] is broadcast. Otherwise, identifiers present in [profile] are
-     * applied, identifiers it omits or leaves blank are cleared, each broadcasting a
-     * [StateChange.ProfileIdentifier], and attributes are applied.
+     * applied, each broadcasting a [StateChange.ProfileIdentifier], and attributes are applied.
      */
     override fun setProfile(profile: Profile) {
         val current = profileIdentifiers
@@ -128,9 +128,8 @@ internal class KlaviyoState : State {
             profile.phoneNumber,
             anonymousId
         )
-        val transition = classify(current, incoming)
 
-        if (current.isIdentified && transition == ProfileTransition.REPLACEMENT) {
+        if (current.isIdentified && current.identifiers != incoming.identifiers) {
             replaceProfile(profile)
         } else {
             mergeProfile(profile)
@@ -154,28 +153,10 @@ internal class KlaviyoState : State {
     }
 
     private fun mergeProfile(profile: Profile) {
-        profile.externalId?.takeIf { it.isNotBlank() }?.let { externalId = it }
-        profile.email?.takeIf { it.isNotBlank() }?.let { email = it }
-        profile.phoneNumber?.takeIf { it.isNotBlank() }?.let { phoneNumber = it }
-
-        clearOmittedIdentifier(_externalId, externalId, profile.externalId)
-        clearOmittedIdentifier(_email, email, profile.email)
-        clearOmittedIdentifier(_phoneNumber, phoneNumber, profile.phoneNumber)
-
+        profile.externalId?.let { externalId = it }
+        profile.email?.let { email = it }
+        profile.phoneNumber?.let { phoneNumber = it }
         this.attributes = profile.attributes
-    }
-
-    /**
-     * Clear [property] if [incoming] is null or blank, warning when it is blank
-     */
-    private fun clearOmittedIdentifier(
-        property: PersistentObservableString,
-        oldValue: String?,
-        incoming: String?
-    ) {
-        if (incoming?.isNotBlank() == true) return
-        if (incoming != null) property.warnEmptyValueCleared()
-        clearIdentifier(property, oldValue)
     }
 
     /**

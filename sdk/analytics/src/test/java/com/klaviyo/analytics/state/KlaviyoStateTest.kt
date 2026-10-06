@@ -385,26 +385,21 @@ internal class KlaviyoStateTest : BaseTest() {
     }
 
     @Test
-    fun `setProfile compatible addition broadcasts each added identifier and keeps anonymous ID`() {
+    fun `setProfile adding an identifier to an identified profile resets it`() {
         state.email = EMAIL
         val initialAnonId = state.anonymousId
         val changes = recordChanges()
 
         state.setProfile(Profile(externalId = EXTERNAL_ID, email = EMAIL, phoneNumber = PHONE))
 
-        assertEquals(initialAnonId, state.anonymousId)
-        assertEquals(
-            listOf(
-                StateChange.ProfileIdentifier(ProfileKey.EXTERNAL_ID, null),
-                StateChange.ProfileIdentifier(ProfileKey.PHONE_NUMBER, null)
-            ),
-            changes.filterIsInstance<StateChange.ProfileIdentifier>()
-        )
-        assertTrue(changes.none { it is StateChange.ProfileReset })
+        assertEquals(EXTERNAL_ID, state.externalId)
+        assertEquals(EMAIL, state.email)
+        assertEquals(PHONE, state.phoneNumber)
+        assertSingleReset(changes, initialAnonId)
     }
 
     @Test
-    fun `setProfile compatible removal clears omitted identifiers without a warning`() {
+    fun `setProfile dropping identifiers from an identified profile resets it without a warning`() {
         state.externalId = EXTERNAL_ID
         state.email = EMAIL
         state.phoneNumber = PHONE
@@ -417,26 +412,19 @@ internal class KlaviyoStateTest : BaseTest() {
         assertNull(state.email)
         assertNull(state.phoneNumber)
         assertNull(spyDataStore.fetch(ProfileKey.EMAIL.name))
-        assertEquals(initialAnonId, state.anonymousId)
-        assertEquals(
-            listOf(
-                StateChange.ProfileIdentifier(ProfileKey.EMAIL, EMAIL),
-                StateChange.ProfileIdentifier(ProfileKey.PHONE_NUMBER, PHONE)
-            ),
-            changes.filterIsInstance<StateChange.ProfileIdentifier>()
-        )
+        assertSingleReset(changes, initialAnonId)
         verify(exactly = 0) { spyLog.warning(any(), any()) }
     }
 
     @Test
-    fun `setProfile explicit blank identifier is cleared and still logs a warning`() {
-        state.externalId = EXTERNAL_ID
-        state.email = EMAIL
+    fun `setProfile blank identifier on an anonymous profile is ignored with a warning`() {
+        val initialAnonId = state.anonymousId
 
-        state.setProfile(Profile(externalId = EXTERNAL_ID, email = ""))
+        state.setProfile(Profile(externalId = EXTERNAL_ID, email = " "))
 
+        assertEquals(EXTERNAL_ID, state.externalId)
         assertNull(state.email)
-        verify(exactly = 1) { spyLog.warning(match { it.contains("cleared") }, any()) }
+        assertEquals(initialAnonId, state.anonymousId)
         verify(exactly = 1) { spyLog.warning(any(), any()) }
     }
 
@@ -745,6 +733,15 @@ internal class KlaviyoStateTest : BaseTest() {
                 onChange()
             }
         }
+
+    /**
+     * Assert [changes] holds exactly one [StateChange.ProfileReset] and nothing else, and that the
+     * anonymous ID was regenerated
+     */
+    private fun assertSingleReset(changes: List<StateChange>, initialAnonId: String?) {
+        assertTrue(changes.single() is StateChange.ProfileReset)
+        assertNotEquals(initialAnonId, state.anonymousId)
+    }
 
     private companion object {
         const val OTHER_EMAIL = "other@domain.com"

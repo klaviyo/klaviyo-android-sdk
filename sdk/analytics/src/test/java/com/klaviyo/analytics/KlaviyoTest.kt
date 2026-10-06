@@ -626,13 +626,29 @@ internal class KlaviyoTest : BaseTest() {
     }
 
     @Test
-    fun `dropping the external ID from an email profile retains the JWT`() {
+    fun `setProfile adding an identifier resets the profile but retains the JWT`() {
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        val anonId = Registry.get<State>().anonymousId
+        cacheToken(JWT_A)
+
         Klaviyo.setProfile(Profile(externalId = EXTERNAL_ID, email = EMAIL))
+
+        assertEquals(EXTERNAL_ID, Klaviyo.getExternalId())
+        assertNotEquals(anonId, Registry.get<State>().anonymousId)
+        assertTrue(mockAuthTokenManager.isCurrentToken(JWT_A))
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+    }
+
+    @Test
+    fun `setProfile dropping the external ID resets the profile but retains the JWT`() {
+        Klaviyo.setProfile(Profile(externalId = EXTERNAL_ID, email = EMAIL))
+        val anonId = Registry.get<State>().anonymousId
         cacheToken(JWT_A)
 
         Klaviyo.setProfile(Profile(email = EMAIL))
 
         assertNull(Klaviyo.getExternalId())
+        assertNotEquals(anonId, Registry.get<State>().anonymousId)
         assertTrue(mockAuthTokenManager.isCurrentToken(JWT_A))
         verify(exactly = 0) { mockAuthTokenManager.invalidate() }
     }

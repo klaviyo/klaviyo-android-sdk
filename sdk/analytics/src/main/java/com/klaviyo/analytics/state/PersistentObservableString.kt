@@ -49,7 +49,7 @@ internal class PersistentObservableString(
     /**
      * Log a warning that an empty value was given for this property and the property was cleared
      */
-    fun warnEmptyValueCleared() = Registry.log.warning(
+    private fun warnEmptyValueCleared() = Registry.log.warning(
         "Empty string value for $key, value cleared."
     )
 
