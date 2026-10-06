@@ -18,10 +18,7 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -46,6 +43,7 @@ class JwtObserverTest : BaseTest() {
         Registry.register<JsBridge>(mockJsBridge)
         every { mockAuthTokenManager.onTokenRefresh(any()) } just runs
         every { mockAuthTokenManager.offTokenRefresh(any()) } just runs
+        every { mockAuthTokenManager.isCurrentToken(any()) } returns true
     }
 
     @After
@@ -56,7 +54,7 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
-    fun `startOn defaults to JsReady so JWT is delivered before profile`() {
+    fun `startOn defaults to JsReady`() {
         assert(JwtObserver().startOn == NativeBridgeMessage.JsReady)
     }
 
@@ -72,26 +70,26 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
-    fun `startObserver injects empty string and logs debug when no provider registered`() {
+    fun `startObserver injects nothing and logs debug when no provider registered`() {
         coEvery { mockAuthTokenManager.currentToken(any()) } throws
             AuthTokenException.NoProviderRegistered
 
         JwtObserver().startObserver()
         dispatcher.scheduler.advanceUntilIdle()
 
-        verify { mockJsBridge.jwtMutation("") }
+        verify(exactly = 0) { mockJsBridge.jwtMutation(any()) }
         verify { spyLog.debug(match { it.contains("Auth not enabled") }) }
     }
 
     @Test
-    fun `startObserver injects empty string and logs warning when fetch fails`() {
+    fun `startObserver injects nothing and logs warning when fetch fails`() {
         coEvery { mockAuthTokenManager.currentToken(any()) } throws
             AuthTokenException.ValidationFailed("Malformed")
 
         JwtObserver().startObserver()
         dispatcher.scheduler.advanceUntilIdle()
 
-        verify { mockJsBridge.jwtMutation("") }
+        verify(exactly = 0) { mockJsBridge.jwtMutation(any()) }
         verify { spyLog.warning(match { it.contains("Auth token fetch failed") }) }
     }
 
@@ -110,75 +108,6 @@ class JwtObserverTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(inverse = true) { mockJsBridge.jwtMutation(any()) }
-    }
-
-    @Test
-    fun `startObserver completes jwtReady after successful injection`() {
-        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("token")
-
-        val observer = JwtObserver()
-        observer.startObserver()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertTrue(observer.jwtReady.isCompleted)
-        assertFalse(observer.jwtReady.isCancelled)
-    }
-
-    @Test
-    fun `startObserver completes jwtReady even when auth is not enabled`() {
-        coEvery { mockAuthTokenManager.currentToken(any()) } throws
-            AuthTokenException.NoProviderRegistered
-
-        val observer = JwtObserver()
-        observer.startObserver()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertTrue(observer.jwtReady.isCompleted)
-        assertFalse(observer.jwtReady.isCancelled)
-    }
-
-    @Test
-    fun `startObserver allocates a fresh jwtReady on reinit after the previous completed`() {
-        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-1")
-        val observer = JwtObserver()
-
-        observer.startObserver()
-        dispatcher.scheduler.advanceUntilIdle()
-        val firstSessionDeferred = observer.jwtReady
-        assertTrue(firstSessionDeferred.isCompleted)
-
-        observer.stopObserver()
-
-        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("session-2")
-        observer.startObserver()
-        dispatcher.scheduler.advanceUntilIdle()
-        val secondSessionDeferred = observer.jwtReady
-        assertNotSame(firstSessionDeferred, secondSessionDeferred)
-        assertTrue(secondSessionDeferred.isCompleted)
-        assertFalse(secondSessionDeferred.isCancelled)
-        verify(exactly = 1) { mockJsBridge.jwtMutation("session-1") }
-        verify(exactly = 1) { mockJsBridge.jwtMutation("session-2") }
-    }
-
-    @Test
-    fun `startObserver reuses jwtReady when previous session is still in flight`() {
-        val firstCompletion = CompletableDeferred<ValidatedToken>()
-        coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers { firstCompletion.await() }
-
-        val observer = JwtObserver()
-        val initialDeferred = observer.jwtReady
-
-        observer.startObserver()
-        dispatcher.scheduler.runCurrent()
-        assertSame(initialDeferred, observer.jwtReady)
-
-        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("second")
-        observer.startObserver()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertSame(initialDeferred, observer.jwtReady)
-        assertTrue(observer.jwtReady.isCompleted)
-        verify(exactly = 1) { mockJsBridge.jwtMutation("second") }
     }
 
     @Test
@@ -265,7 +194,7 @@ class JwtObserverTest : BaseTest() {
     fun `a refresh queued in a previous session does not inject into the new webview`() {
         // A proactive refresh dispatched during session 1 queues its UI callback, then the form is
         // closed and reopened (session 2) before that callback runs. The stale refresh must not
-        // reach the fresh webview even though stopObserver/startObserver flipped `stopped` back.
+        // reach the fresh webview.
         val uiQueue = mutableListOf<() -> Unit>()
         every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue.add(firstArg()) }
 
@@ -349,14 +278,12 @@ class JwtObserverTest : BaseTest() {
 
         verify(exactly = 1) { mockJsBridge.jwtMutation("fresh-refreshed") }
         verify(inverse = true) { mockJsBridge.jwtMutation("stale-cached") }
-        assertTrue(observer.jwtReady.isCompleted)
     }
 
     @Test
     fun `a failed initial fetch does not clobber a token delivered by an in-flight refresh`() {
         // The initial fetch is still suspended when a proactive refresh delivers a fresh token.
-        // Because the fetch reserves its (lower) injection sequence at request time, its later
-        // empty-string injection is dropped rather than overwriting the fresher refreshed token.
+        // Its later failure must not overwrite the fresher refreshed token.
         val refreshObserver = captureRefreshObserver()
         val fetchCompletion = CompletableDeferred<ValidatedToken>()
         coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers { fetchCompletion.await() }
@@ -368,12 +295,12 @@ class JwtObserverTest : BaseTest() {
         // Refresh lands while the initial fetch is still in flight.
         refreshObserver.captured.invoke("fresh-refreshed")
 
-        // Initial fetch then fails — its callback would inject an empty JWT.
+        // Initial fetch then fails.
         fetchCompletion.completeExceptionally(AuthTokenException.ValidationFailed("Malformed"))
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(exactly = 1) { mockJsBridge.jwtMutation("fresh-refreshed") }
-        verify(inverse = true) { mockJsBridge.jwtMutation("") }
+        verify(exactly = 0) { mockJsBridge.jwtMutation("") }
     }
 
     @Test
@@ -393,5 +320,83 @@ class JwtObserverTest : BaseTest() {
             mockAuthTokenManager.onTokenRefresh(any())
         }
         assertSame(offObserver.captured, onObserver.captured)
+    }
+
+    @Test
+    fun `refetchToken does nothing while stopped`() {
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("token")
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+        observer.stopObserver()
+
+        observer.refetchToken()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { mockJsBridge.jwtMutation(any()) }
+        coVerify(exactly = 1) { mockAuthTokenManager.currentToken(any()) }
+    }
+
+    @Test
+    fun `JWT-A from the initial fetch or a late echo is discarded after profile invalidation`() {
+        val refreshObserver = captureRefreshObserver()
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue.add(firstArg()) }
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("jwt-a")
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        every { mockAuthTokenManager.isCurrentToken("jwt-a") } returns false
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("jwt-b")
+        observer.refetchToken()
+        refreshObserver.captured.invoke("jwt-a")
+        dispatcher.scheduler.advanceUntilIdle()
+        uiQueue.forEach { it.invoke() }
+
+        verify(exactly = 0) { mockJsBridge.jwtMutation("jwt-a") }
+        verify(exactly = 0) { mockJsBridge.jwtMutation("") }
+        verify(exactly = 1) { mockJsBridge.jwtMutation("jwt-b") }
+        coVerify(exactly = 1) {
+            mockAuthTokenManager.currentToken(AuthTokenManager.BACKGROUND_FETCH_TIMEOUT_MS)
+        }
+    }
+
+    @Test
+    fun `unchanged token is re-injected once after a profile change`() {
+        val refreshObserver = captureRefreshObserver()
+        val token = "same.token.value"
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken(token)
+        val observer = JwtObserver()
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        observer.refetchToken()
+        dispatcher.scheduler.advanceUntilIdle()
+        refreshObserver.captured.invoke(token)
+
+        verify(exactly = 2) { mockJsBridge.jwtMutation(token) }
+    }
+
+    @Test
+    fun `token completing after interactive timeout reaches the same WebView`() {
+        val refreshObserver = captureRefreshObserver()
+        val lateToken = validatedToken("late.token.value")
+        coEvery { mockAuthTokenManager.currentToken(any()) } throws AuthTokenException.TimedOut
+        val observer = JwtObserver()
+
+        observer.startObserver()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coVerify(exactly = 1) {
+            mockAuthTokenManager.currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
+        }
+
+        verify(exactly = 0) { mockJsBridge.jwtMutation("") }
+
+        refreshObserver.captured.invoke(lateToken.rawToken)
+
+        verify(exactly = 1) { mockJsBridge.jwtMutation(lateToken.rawToken) }
+        coVerify(exactly = 1) { mockAuthTokenManager.currentToken(any()) }
     }
 }

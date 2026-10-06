@@ -161,12 +161,10 @@ internal class StateSideEffects(
             onApiKeyChange(oldApiKey = change.oldValue)
         }
 
-        is StateChange.ProfileIdentifier -> {
-            onUserStateChange()
-        }
-
-        is StateChange.ProfileReset -> {
-            Registry.getOrNull<AuthTokenManager>()?.resetTokenState()
+        is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> {
+            if (change.key != ProfileKey.ANONYMOUS_ID) {
+                Registry.getOrNull<AuthTokenManager>()?.resetTokenState()
+            }
             onUserStateChange()
         }
 

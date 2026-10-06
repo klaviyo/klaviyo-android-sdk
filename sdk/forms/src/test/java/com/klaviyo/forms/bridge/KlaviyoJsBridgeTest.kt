@@ -253,20 +253,4 @@ class KlaviyoJsBridgeTest : BaseTest() {
             )
         }
     }
-
-    @Test
-    fun `jwtMutation with empty token calls JS evaluator with empty string`() {
-        every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
-            secondArg<(Boolean) -> Unit>().invoke(true)
-        }
-
-        bridge.jwtMutation("")
-
-        verify {
-            jsEvaluator.evaluateJavascript(
-                eq("""window.jwtMutation("")"""),
-                any()
-            )
-        }
-    }
 }

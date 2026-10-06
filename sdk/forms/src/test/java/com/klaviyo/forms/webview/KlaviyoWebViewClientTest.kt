@@ -13,6 +13,8 @@ import android.webkit.WebSettings
 import androidx.core.view.ViewCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
@@ -23,6 +25,7 @@ import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
+import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
 import io.mockk.clearAllMocks
 import io.mockk.every
@@ -31,10 +34,13 @@ import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
 import io.mockk.runs
+import io.mockk.slot
 import io.mockk.verify
 import java.io.ByteArrayInputStream
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -50,7 +56,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-native-bridge-handshake='BRIDGE_HANDSHAKE'
                   data-forms-data-environment='FORMS_ENVIRONMENT'
                   data-klaviyo-local-tracking="1"
-                  data-klaviyo-profile="{}"
+                  data-klaviyo-profile='KLAVIYO_PROFILE'
                   data-klaviyo-jwt=''
             >
                 <meta charset="UTF-8">
@@ -100,9 +106,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
     private val mockSettings: WebSettings = mockk(relaxed = true)
     private val mockParentView: ViewGroup = mockk(relaxed = true)
     private val mockAssets = mockk<AssetManager> {
-        every { open("InAppFormsTemplate.html") } returns ByteArrayInputStream(
-            HTML_TEMPLATE.encodeToByteArray()
-        )
+        every { open("InAppFormsTemplate.html") } answers {
+            ByteArrayInputStream(HTML_TEMPLATE.encodeToByteArray())
+        }
     }
 
     private val mockJsBridge = mockk<JsBridge>(relaxed = true).apply {
@@ -110,6 +116,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     private val mockObserverCollection = mockk<JsBridgeObserverCollection>(relaxed = true)
+    private val mockState = mockk<State>(relaxed = true).apply {
+        every { getAsProfile() } returns Profile()
+    }
 
     @Before
     override fun setup() {
@@ -117,6 +126,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Registry.register<JsBridge>(mockJsBridge)
         Registry.register<JsBridgeObserverCollection>(mockObserverCollection)
         Registry.register<NativeBridge>(mockBridge)
+        Registry.register<State>(mockState)
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
         every { mockContext.assets } returns mockAssets
@@ -160,6 +170,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @After
     override fun cleanup() {
         Registry.unregister<NativeBridge>()
+        Registry.unregister<State>()
         Registry.unregister<JsBridgeObserverCollection>()
         clearAllMocks()
         super.cleanup()
@@ -200,7 +211,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-native-bridge-handshake='${expectedHandshake.compileJson()}'
                   data-forms-data-environment='in-app'
                   data-klaviyo-local-tracking="1"
-                  data-klaviyo-profile="{}"
+                  data-klaviyo-profile='${Profile().toBridgeJson()}'
                   data-klaviyo-jwt=''
             >
                 <meta charset="UTF-8">
@@ -226,16 +237,61 @@ class KlaviyoWebViewClientTest : BaseTest() {
             </html>
             """.trimIndent()
 
+        val html = captureTemplate()
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
         dispatcher.scheduler.advanceUntilIdle()
 
         verify { mockAssets.open("InAppFormsTemplate.html") }
-        verify { anyConstructed<KlaviyoWebView>().loadTemplate(expectedHtml, client, mockBridge) }
+        verify { anyConstructed<KlaviyoWebView>().loadTemplate(any(), client, mockBridge) }
+        assertEquals(expectedHtml, html.captured.decodeHtml())
         verify { mockConfig.sdkName }
         verify { mockConfig.sdkVersion }
         // tells us timer has started
         assertEquals(staticClock.scheduledTasks.size, 1)
+    }
+
+    private fun captureTemplate() = slot<String>().also { html ->
+        every {
+            anyConstructed<KlaviyoWebView>().loadTemplate(capture(html), any(), any())
+        } just runs
+    }
+
+    private fun String.decodeHtml() = replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&amp;", "&")
+
+    @Test
+    fun `initial document profile matches the profileMutation shape, escaped`() {
+        val special = "O'Brien & <Admin> \"quoted\" DEVICE_INFO\n\t\u0001雪😀"
+        listOf(
+            Profile(),
+            Profile().apply { anonymousId = "anon-id" },
+            Profile(externalId = "ext", email = "a/b@example.com", phoneNumber = "+15555555555")
+                .apply { anonymousId = "anon-id" },
+            Profile(externalId = special, email = "mail+$special@example.com")
+        ).forEach { profile ->
+            every { mockState.getAsProfile() } returns profile
+            val html = captureTemplate()
+            KlaviyoWebViewClient().initializeWebView()
+
+            val encoded = requireNotNull(
+                Regex("data-klaviyo-profile='([^']*)'").find(html.captured)?.groupValues?.get(1)
+            )
+            val rendered = JSONObject(encoded.decodeHtml())
+            assertTrue(encoded.none { it in "<>\"'" })
+            assertEquals(
+                mapOf(
+                    "external_id" to (profile.externalId ?: ""),
+                    "email" to (profile.email ?: ""),
+                    "phone_number" to (profile.phoneNumber ?: ""),
+                    "anonymous_id" to (profile.anonymousId ?: "")
+                ),
+                rendered.keys().asSequence().associateWith { rendered.getString(it) }
+            )
+        }
     }
 
     @Test

@@ -109,6 +109,17 @@ internal class KlaviyoJsBridge : JsBridge {
 }
 
 /**
+ * Serializes the profile identifiers to the same JSON object `window.profileMutation` writes to
+ * the `data-klaviyo-profile` attribute, with empty strings for missing values.
+ */
+internal fun ImmutableProfile.toBridgeJson(): String = JSONObject()
+    .put("external_id", externalId ?: "")
+    .put("email", email ?: "")
+    .put("phone_number", phoneNumber ?: "")
+    .put("anonymous_id", anonymousId ?: "")
+    .toString()
+
+/**
  * Converts a Kotlin object to a JSON-compatible string representation suitable for embedding in JavaScript code.
  * e.g.:
  *  null -> "null"
