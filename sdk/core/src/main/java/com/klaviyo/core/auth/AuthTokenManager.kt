@@ -38,8 +38,9 @@ interface AuthTokenManager {
 
     /**
      * Replace the registered [AuthTokenProvider] (if any), discard any cached token, and
-     * asynchronously pre-warm the cache with a fresh token via the new provider if the active
-     * profile is identified (see [setIdentified]).
+     * asynchronously pre-warm the cache with a fresh token via the new provider. If the active
+     * profile is not identified (see [setIdentified]), the pre-warm runs once the profile becomes
+     * identified.
      *
      * This method returns after queuing registration. The eager fetch runs asynchronously.
      */
@@ -129,9 +130,10 @@ interface AuthTokenManager {
      *
      * While false, the provider is never invoked: no pre-warm, fetch or proactive refresh runs,
      * [currentToken] throws [AuthTokenException.NotIdentified], pending [currentToken] callers fail
-     * the same way, and the cached token is discarded. Changing to true with a provider registered
-     * pre-warms a token. Processed in order with the other commands, so a change queued after
-     * [invalidate] applies to the new profile.
+     * the same way, and the cached token is discarded. Changing to true runs a pre-warm deferred by
+     * [registerProvider], and otherwise fetches nothing until a token is requested. Processed in
+     * order with the other commands, so a change queued after [invalidate] applies to the new
+     * profile.
      */
     fun setIdentified(identified: Boolean)
 
@@ -155,8 +157,9 @@ interface AuthTokenManager {
      * `StateSideEffects` observer after [invalidate] when the profile is replaced or the company
      * (API key) changes. Discards the cached token, cancels the scheduled proactive refresh and its
      * wall-clock target, and cancels any in-flight fetch. Then, if the active profile is identified
-     * (see [setIdentified]), fetches a token when [expectedGeneration] matched or a [currentToken]
-     * caller is pending.
+     * (see [setIdentified]), fetches a token when a [currentToken] caller is pending or the
+     * [registerProvider] pre-warm has not completed. Otherwise the next call to [currentToken]
+     * drives acquisition.
      *
      * Retains:
      * - The registered [AuthTokenProvider], which reads the current user on each invocation.

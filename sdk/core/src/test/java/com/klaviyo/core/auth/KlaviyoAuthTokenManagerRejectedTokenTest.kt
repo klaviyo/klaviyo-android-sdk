@@ -273,7 +273,7 @@ class KlaviyoAuthTokenManagerRejectedTokenTest : BaseTest() {
     }
 
     @Test
-    fun `refresh during a pending profile replacement is skipped and the fence prewarms once`() =
+    fun `refresh during a pending profile replacement is skipped and the clear does not fetch`() =
         runTest(dispatcher) {
             val manager = managerWithDeliveredToken()
 
@@ -284,7 +284,7 @@ class KlaviyoAuthTokenManagerRejectedTokenTest : BaseTest() {
             manager.clearTokenState(generation)
             dispatcher.scheduler.advanceUntilIdle()
 
-            assertEquals(2, provider.callCount)
+            assertEquals(1, provider.callCount)
             assertEquals(listOf(rejectedJwt), received)
             verify { spyLog.debug(match { it.contains("skipped") }) }
         }

@@ -182,7 +182,9 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
     }
 
     @Test
-    fun `profile replacement retires a scheduled refresh and prewarms once`() = runTest(dispatcher) {
+    fun `profile replacement retires a scheduled refresh without restarting the provider`() = runTest(
+        dispatcher
+    ) {
         val provider = InitialThenResolvableProvider(makeJwt())
         val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
@@ -198,7 +200,7 @@ class KlaviyoAuthTokenManagerRefreshTest : BaseTest() {
         manager.clearTokenState(generation)
         dispatcher.scheduler.runCurrent()
 
-        assertEquals(3, provider.callCount)
+        assertEquals(2, provider.callCount)
         val demand = async { manager.currentToken() }
         dispatcher.scheduler.runCurrent()
         assertEquals(3, provider.callCount)

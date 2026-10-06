@@ -198,6 +198,7 @@ internal class KlaviyoAuthTokenManager(
                 state.provider = command.provider
                 cacheToken(null)
                 state.resetPending = false
+                state.warmUpPending = true
                 Registry.log.info("AuthTokenProvider registered")
                 startFetch()
             }
@@ -212,6 +213,7 @@ internal class KlaviyoAuthTokenManager(
                 state.provider = null
                 cacheToken(null)
                 state.resetPending = false
+                state.warmUpPending = false
                 failWaiters(AuthTokenException.NoProviderRegistered)
                 if (hadProvider) Registry.log.info("AuthTokenProvider unregistered")
             }
@@ -235,7 +237,7 @@ internal class KlaviyoAuthTokenManager(
                     retireWork()
                     cacheToken(null)
                     state.resetPending = false
-                    if (command.expectedGeneration >= 0L || state.waiters.isNotEmpty()) startFetch()
+                    if (state.warmUpPending || state.waiters.isNotEmpty()) startFetch()
                     Registry.log.info("Token state cleared")
                 } else {
                     Registry.log.verbose("Dropping stale token clear")
@@ -336,7 +338,7 @@ internal class KlaviyoAuthTokenManager(
         state.identified = identified
         if (identified) {
             Registry.log.verbose("Profile identified")
-            startFetch()
+            if (state.warmUpPending) startFetch()
         } else {
             retireWork()
             cacheToken(null)
@@ -372,6 +374,7 @@ internal class KlaviyoAuthTokenManager(
             return
         }
         state.fetchJob = null
+        state.warmUpPending = false
         val refreshWaiting = state.waiters.any { it.refreshId != null }
         command.result.fold(
             onSuccess = { token ->
@@ -602,6 +605,12 @@ internal class KlaviyoAuthTokenManager(
         var generation = 0L
         var resetId = 0L
         var resetPending = false
+
+        /**
+         * Set on registration and cleared when a fetch result is accepted or the provider is
+         * unregistered. While set, an identity change to identified or a matched clear starts a fetch.
+         */
+        var warmUpPending = false
         val waiters = mutableListOf<Waiter>()
         var fetchId = 0L
         var deliveryId = 0L

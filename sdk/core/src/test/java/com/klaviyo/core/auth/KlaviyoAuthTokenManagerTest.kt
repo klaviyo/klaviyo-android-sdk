@@ -55,7 +55,9 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `provider is not invoked until the profile is identified`() = runTest(dispatcher) {
+    fun `warm-up deferred while not identified runs once when the profile is identified`() = runTest(
+        dispatcher
+    ) {
         val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
         val manager = KlaviyoAuthTokenManager()
 
@@ -67,8 +69,42 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
         manager.setIdentified(true)
         dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        manager.setIdentified(false)
+        manager.setIdentified(true)
+        dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, provider.callCount)
+    }
+
+    @Test
+    fun `identifying after a completed warm-up does not invoke the provider`() = runTest(dispatcher) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        manager.setIdentified(false)
+        manager.setIdentified(true)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+        manager.currentToken()
+        assertEquals(2, provider.callCount)
+    }
+
+    @Test
+    fun `unregistering drops a deferred warm-up`() = runTest(dispatcher) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        manager.unregisterProvider()
+        manager.setIdentified(true)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(0, provider.callCount)
     }
 
     @Test
@@ -131,7 +167,9 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `replacement fence prewarms the next identified profile once`() = runTest(dispatcher) {
+    fun `replacement clear without a pending caller does not invoke the provider`() = runTest(
+        dispatcher
+    ) {
         val provider = ResolvableProvider()
         val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
@@ -142,17 +180,52 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
 
         val generation = manager.invalidate()
         manager.setIdentified(true)
-        dispatcher.scheduler.runCurrent()
-        assertEquals(1, provider.callCount)
         manager.clearTokenState(generation)
-        dispatcher.scheduler.runCurrent()
+        dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(2, provider.callCount)
+        assertEquals(1, provider.callCount)
         assertFalse(manager.isCurrentToken(outgoing))
     }
 
     @Test
-    fun `anonymous to identified fence prewarms once`() = runTest(dispatcher) {
+    fun `replacement clear with a pending caller fetches for the next profile`() = runTest(
+        dispatcher
+    ) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val generation = manager.invalidate()
+        val demand = async { manager.currentToken() }
+        dispatcher.scheduler.runCurrent()
+        assertEquals(1, provider.callCount)
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, provider.callCount)
+        assertTrue(manager.isCurrentToken(demand.await().rawToken))
+    }
+
+    @Test
+    fun `replacement before the warm-up runs fetches for the next profile once`() = runTest(
+        dispatcher
+    ) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        val generation = manager.invalidate()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(0, provider.callCount)
+
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
+    fun `anonymous to identified fence runs the deferred warm-up once`() = runTest(dispatcher) {
         val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
         val manager = KlaviyoAuthTokenManager()
         manager.registerProvider(provider)
@@ -188,7 +261,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
     }
 
     @Test
-    fun `fence without an identity change prewarms once while identified`() = runTest(dispatcher) {
+    fun `fence without an identity change does not invoke the provider`() = runTest(dispatcher) {
         val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
         val manager = identifiedAuthTokenManager()
         manager.registerProvider(provider)
@@ -198,7 +271,7 @@ class KlaviyoAuthTokenManagerTest : BaseTest() {
         manager.clearTokenState(generation)
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(2, provider.callCount)
+        assertEquals(1, provider.callCount)
     }
 
     @Test
