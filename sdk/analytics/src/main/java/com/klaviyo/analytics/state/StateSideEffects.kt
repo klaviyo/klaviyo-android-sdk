@@ -176,17 +176,21 @@ internal class StateSideEffects(
     }
 
     /**
-     * Classify the change from [lastIdentifiers] to the identifiers in state now and tell the auth
-     * token manager whether the profile now in state is identified. On
-     * [ProfileTransition.REPLACEMENT], first invalidates the outgoing profile's auth token, and
-     * queues its token-state clear after the identity.
+     * Classify the change to the identifiers in state now and tell the auth token manager whether
+     * the profile now in state is identified. A [StateChange.ProfileReset] classifies from the
+     * profile it replaced, so a replacement still fences the auth token when other broadcasts
+     * interleave with the reset's silent identifier writes; any other change classifies from
+     * [lastIdentifiers]. On [ProfileTransition.REPLACEMENT], first invalidates the outgoing
+     * profile's auth token, and queues its token-state clear after the identity.
      *
      * Serialized under [identityLock] and reading state inside it, so the last call to run posts
      * the identity of the profile in state at that time.
      */
-    private fun onIdentityChange() = synchronized(identityLock) {
+    private fun onIdentityChange(change: StateChange) = synchronized(identityLock) {
         val current = state.getAsProfile().profileIdentifiers
-        val transition = classify(lastIdentifiers, current)
+        val previous = (change as? StateChange.ProfileReset)?.oldValue?.profileIdentifiers
+            ?: lastIdentifiers
+        val transition = classify(previous, current)
         lastIdentifiers = current
         val authTokenManager = Registry.getOrNull<AuthTokenManager>() ?: return@synchronized
         if (transition == ProfileTransition.REPLACEMENT) {
@@ -202,7 +206,7 @@ internal class StateSideEffects(
         }
 
         is StateChange.ProfileIdentifier, is StateChange.ProfileReset -> {
-            onIdentityChange()
+            onIdentityChange(change)
             onUserStateChange()
         }
 

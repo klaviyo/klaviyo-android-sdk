@@ -252,7 +252,7 @@ class StateSideEffectsTest : BaseTest() {
         Registry.unregister<AuthTokenManager>()
         StateSideEffects(stateMock, apiClientMock)
 
-        capturedStateChangeObserver.captured(StateChange.ProfileReset(mockk()))
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(Profile(email = EMAIL)))
         staticClock.execute(debounceTime.toLong())
 
         verify(exactly = 1) { apiClientMock.enqueueProfile(any()) }
@@ -649,7 +649,7 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
-    fun `Profile reset is classified from the last observed profile`() {
+    fun `Profile reset is classified from the profile it replaced`() {
         every { stateMock.getAsProfile(withAttributes = any()) } returns Profile(email = EMAIL)
         StateSideEffects(stateMock, apiClientMock)
 
@@ -661,6 +661,22 @@ class StateSideEffectsTest : BaseTest() {
         )
         capturedStateChangeObserver.captured(StateChange.ProfileReset(Profile(email = EMAIL)))
         verifyTokenStateReset(times = 1)
+    }
+
+    @Test
+    fun `Profile reset fences the token when an identifier broadcast lands mid-write`() {
+        var current = Profile(externalId = EXTERNAL_ID, email = EMAIL)
+        every { stateMock.getAsProfile(withAttributes = any()) } answers { current }
+        StateSideEffects(stateMock, apiClientMock)
+
+        current = Profile(externalId = EXTERNAL_ID)
+        capturedStateChangeObserver.captured(StateChange.ProfileIdentifier(ProfileKey.EMAIL, EMAIL))
+        verifyTokenStateReset(times = 0)
+
+        capturedStateChangeObserver.captured(StateChange.ProfileReset(Profile(email = EMAIL)))
+
+        verifyTokenStateReset(times = 1)
+        verify(exactly = 0) { authTokenManagerMock.setIdentified(false) }
     }
 
     @Test
