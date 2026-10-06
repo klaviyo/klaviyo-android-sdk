@@ -47,6 +47,9 @@ internal class StateSideEffects(
     private var lastIdentifiers: ProfileIdentifiers = state.getAsProfile().profileIdentifiers
 
     init {
+        synchronized(identityLock) {
+            Registry.getOrNull<AuthTokenManager>()?.setIdentified(lastIdentifiers.isIdentified)
+        }
         apiClient.onApiRequest(false, ::afterApiRequest)
         state.onStateChange(::onStateChange)
         lifecycleMonitor.onActivityEvent(::onLifecycleEvent)
@@ -170,15 +173,6 @@ internal class StateSideEffects(
         }
 
         else -> Unit
-    }
-
-    /**
-     * Tell the auth token manager whether the profile now in state is identified, without
-     * classifying or fencing. Serialized with [onIdentityChange] under [identityLock].
-     */
-    fun syncIdentityGate() = synchronized(identityLock) {
-        val current = state.getAsProfile().profileIdentifiers
-        Registry.getOrNull<AuthTokenManager>()?.setIdentified(current.isIdentified)
     }
 
     /**

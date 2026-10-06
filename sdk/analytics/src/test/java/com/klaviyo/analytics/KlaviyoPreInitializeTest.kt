@@ -87,7 +87,7 @@ internal class KlaviyoPreInitializeTest : BaseTest() {
     }
 
     @Test
-    fun `Profile changes before initialize are dropped and the token gate opens after replay`() {
+    fun `Profile changes before initialize are dropped and the token gate opens from persisted state`() {
         Klaviyo.registerAuthTokenProvider(mockk(relaxed = true))
         Klaviyo.setEmail(EMAIL)
 

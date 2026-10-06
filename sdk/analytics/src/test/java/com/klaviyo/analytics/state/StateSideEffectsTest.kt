@@ -507,32 +507,29 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
-    fun `Identity gate sync racing a reset ends with the gate closed`() {
+    fun `Identity gate opens on construction when the persisted profile is identified`() {
         val state = KlaviyoState()
-        val sideEffects = StateSideEffects(state, apiClientMock)
         state.email = EMAIL
+        clearMocks(authTokenManagerMock, answers = false)
 
-        val calls = raceAuthCalls(
-            IDENTIFIED,
-            first = { sideEffects.syncIdentityGate() },
-            second = { state.reset() }
-        )
+        StateSideEffects(state, apiClientMock)
 
-        assertEquals(listOf(IDENTIFIED, INVALIDATE, ANONYMOUS), calls)
+        verify(exactly = 1) { authTokenManagerMock.setIdentified(true) }
+        verify(exactly = 0) { authTokenManagerMock.setIdentified(false) }
+        verify(exactly = 0) { authTokenManagerMock.invalidate() }
+        state.reset()
     }
 
     @Test
-    fun `Identity gate sync racing an identification ends with the gate open`() {
+    fun `Identity gate stays closed on construction when the persisted profile is anonymous`() {
         val state = KlaviyoState()
-        val sideEffects = StateSideEffects(state, apiClientMock)
 
-        val calls = raceAuthCalls(
-            ANONYMOUS,
-            first = { sideEffects.syncIdentityGate() },
-            second = { state.email = EMAIL }
-        )
+        StateSideEffects(state, apiClientMock)
 
-        assertEquals(listOf(ANONYMOUS, INVALIDATE, IDENTIFIED), calls)
+        verify(exactly = 1) { authTokenManagerMock.setIdentified(false) }
+        verify(exactly = 0) { authTokenManagerMock.setIdentified(true) }
+        verify(exactly = 0) { authTokenManagerMock.invalidate() }
+        state.reset()
     }
 
     @Test
