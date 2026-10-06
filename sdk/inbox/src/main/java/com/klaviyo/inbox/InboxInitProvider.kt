@@ -5,10 +5,12 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import com.klaviyo.core.Registry
+import com.klaviyo.pushFcm.KlaviyoPushObservers
 
 internal class InboxInitProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         Registry.registerOnce<MobileInboxProvider> { KlaviyoMobileInboxProvider() }
+        KlaviyoPushObservers.onKlaviyoNotification(InboxCaptureObserver)
         return true
     }
 
