@@ -23,6 +23,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.TapDestination
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendActionButtonExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
@@ -31,7 +32,6 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_id
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_importance
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_name
-import com.klaviyo.pushFcm.KlaviyoRemoteMessage.deepLink
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.getColor
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.getSmallIcon
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.imageUrl
@@ -40,6 +40,7 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationCount
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationPriority
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationTag
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.sound
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.tapDestination
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
 import java.net.URL
@@ -122,7 +123,13 @@ class KlaviyoNotification(private val message: RemoteMessage) {
     @WorkerThread
     @Suppress("MissingPermission")
     fun displayNotification(context: Context): Boolean {
-        if (!message.isKlaviyoNotification || !hasNotificationPermission(context)) {
+        if (!message.isKlaviyoNotification) {
+            return false
+        }
+
+        KlaviyoPushObservers.dispatch(message)
+
+        if (!hasNotificationPermission(context)) {
             return false
         }
 
@@ -274,55 +281,57 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * warn so the misconfiguration is debuggable.
      */
     private fun makeOpenedIntent(context: Context, autoTracking: Boolean, notificationUid: String): Intent? {
-        val deepLink = message.deepLink
-        val webUrl = message.webUrl
-
-        if (deepLink != null && webUrl != null) {
-            Registry.log.warning(
-                "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
-            )
-        }
-
-        if (deepLink != null) {
-            // With automatic tracking on, route through the trampoline carrying the deep link as
-            // intent data so it calls handlePush; otherwise target the host directly as before.
-            // The trampoline resolves the link itself when the tap happens, rather than here at
-            // build time.
-            val intent = if (autoTracking) {
-                KlaviyoTrampolineActivity.forDestination(context, deepLink)
-            } else {
-                makeResolvedDeepLinkIntent(
-                    context,
-                    deepLink,
-                    "Push message contained unsupported deep link: $deepLink"
-                )
+        return when (val destination = message.tapDestination) {
+            is TapDestination.DeepLink -> {
+                if (message.webUrl != null) {
+                    Registry.log.warning(
+                        "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
+                    )
+                }
+                val deepLink = destination.uri
+                // With automatic tracking on, route through the trampoline carrying the deep link as
+                // intent data so it calls handlePush; otherwise target the host directly as before.
+                // The trampoline resolves the link itself when the tap happens, rather than here at
+                // build time.
+                val intent = if (autoTracking) {
+                    KlaviyoTrampolineActivity.forDestination(context, deepLink)
+                } else {
+                    makeResolvedDeepLinkIntent(
+                        context,
+                        deepLink,
+                        "Push message contained unsupported deep link: $deepLink"
+                    )
+                }
+                intent?.apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
+                    appendKlaviyoExtras(message)
+                }
             }
-            return intent?.apply {
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
-                appendKlaviyoExtras(message)
-            }
-        }
 
-        if (webUrl != null) {
             // Route through the trampoline so handlePush tracks $opened_push
             // and dismisses the notification — the browser would otherwise swallow the intent.
-            return KlaviyoTrampolineActivity.forBrowserUrl(context, webUrl).apply {
+            is TapDestination.OpenUrl -> KlaviyoTrampolineActivity.forBrowserUrl(
+                context,
+                destination.url
+            ).apply {
                 putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
                 appendKlaviyoExtras(message)
             }
-        }
 
-        // Plain open: route through the trampoline when auto-tracking, else launch the host directly.
-        val intent = if (autoTracking) {
-            KlaviyoTrampolineActivity.forDestination(context)
-        } else {
-            DeepLinking.makeLaunchIntent(context)
-        }
-        return intent?.apply {
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
-            appendKlaviyoExtras(message)
+            // Plain open: route through the trampoline when auto-tracking, else launch the host directly.
+            TapDestination.OpenApp -> {
+                val intent = if (autoTracking) {
+                    KlaviyoTrampolineActivity.forDestination(context)
+                } else {
+                    DeepLinking.makeLaunchIntent(context)
+                }
+                intent?.apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
+                    appendKlaviyoExtras(message)
+                }
+            }
         }
     }
 

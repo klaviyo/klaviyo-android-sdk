@@ -7,6 +7,7 @@ import android.content.res.Resources.NotFoundException
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.net.Uri
 import android.os.Build
+import androidx.annotation.RestrictTo
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -15,6 +16,7 @@ import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.core.Constants
 import com.klaviyo.core.Constants.BUTTON_LINK_PARAMETER
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
@@ -168,6 +170,26 @@ object KlaviyoRemoteMessage {
      */
     val RemoteMessage.deepLink: Uri?
         get() = this.data[KlaviyoNotification.URL_KEY]?.toUri()
+
+    /**
+     * What tapping the notification body does: the deep link (`url`) if present, else the
+     * external URL (`web_url`, scheme-checked), else open the app
+     */
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    val RemoteMessage.tapDestination: TapDestination
+        get() = deepLink?.let { TapDestination.DeepLink(it) }
+            ?: webUrl?.let { TapDestination.OpenUrl(it) }
+            ?: TapDestination.OpenApp
+
+    /**
+     * Destination of a tap on the notification body
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    sealed class TapDestination {
+        object OpenApp : TapDestination()
+        data class DeepLink(val uri: Uri) : TapDestination()
+        data class OpenUrl(val url: String) : TapDestination()
+    }
 
     /**
      * Parse image url if present
@@ -385,9 +407,9 @@ object KlaviyoRemoteMessage {
             /**
              * Serialized type names used in remote message payload
              */
-            const val TYPE_OPEN_APP = "open_app"
-            const val TYPE_DEEP_LINK = "deep_link"
-            const val TYPE_OPEN_URL = "open_url"
+            const val TYPE_OPEN_APP = Constants.ACTION_TYPE_OPEN_APP
+            const val TYPE_DEEP_LINK = Constants.ACTION_TYPE_DEEP_LINK
+            const val TYPE_OPEN_URL = Constants.ACTION_TYPE_OPEN_URL
 
             /**
              * Human-readable display names for analytics

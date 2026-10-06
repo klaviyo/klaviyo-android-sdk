@@ -18,6 +18,8 @@ import io.mockk.mockkStatic
 import io.mockk.spyk
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import io.mockk.verifyOrder
+import java.util.UUID
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Before
@@ -157,5 +159,84 @@ class KlaviyoPushServiceTest : BaseTest() {
         pushService.onMessageReceived(msg)
 
         verify(inverse = true) { anyConstructed<KlaviyoNotification>().displayNotification(any()) }
+    }
+
+    @Test
+    fun `A Klaviyo notification is dispatched to push observers before the overridable handler`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage
+        every { msg.messageId } returns UUID.randomUUID().toString()
+        val observer = mockk<KlaviyoNotificationObserver>(relaxed = true)
+        KlaviyoPushObservers.onKlaviyoNotification(observer)
+
+        try {
+            pushService.onMessageReceived(msg)
+
+            verifyOrder {
+                observer(msg)
+                pushService.onKlaviyoNotificationMessageReceived(msg)
+            }
+        } finally {
+            KlaviyoPushObservers.offKlaviyoNotification(observer)
+        }
+    }
+
+    @Test
+    fun `The default service path reaches push observers once per message`() {
+        // Run the real displayNotification up to its permission check, so both dispatch sites run
+        every { anyConstructed<KlaviyoNotification>().displayNotification(any()) } answers { callOriginal() }
+        every { anyConstructed<KlaviyoNotification>().hasNotificationPermission(any()) } returns false
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage
+        every { msg.messageId } returns UUID.randomUUID().toString()
+        val observer = mockk<KlaviyoNotificationObserver>(relaxed = true)
+        KlaviyoPushObservers.onKlaviyoNotification(observer)
+
+        try {
+            pushService.onMessageReceived(msg)
+
+            verify { anyConstructed<KlaviyoNotification>().hasNotificationPermission(any()) }
+            verify(exactly = 1) { observer(msg) }
+        } finally {
+            KlaviyoPushObservers.offKlaviyoNotification(observer)
+        }
+    }
+
+    @Test
+    fun `A subclass that replaces notification handling still dispatches to push observers`() {
+        val customService = spyk(object : KlaviyoPushService() {
+            override fun onKlaviyoNotificationMessageReceived(message: RemoteMessage) = Unit
+        })
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage
+        every { msg.messageId } returns UUID.randomUUID().toString()
+        val observer = mockk<KlaviyoNotificationObserver>(relaxed = true)
+        KlaviyoPushObservers.onKlaviyoNotification(observer)
+
+        try {
+            customService.onMessageReceived(msg)
+
+            verify { observer(msg) }
+        } finally {
+            KlaviyoPushObservers.offKlaviyoNotification(observer)
+        }
+    }
+
+    @Test
+    fun `A silent push is not dispatched to push observers`() {
+        val msg = mockk<RemoteMessage>()
+        stubMessage.remove("title")
+        stubMessage.remove("body")
+        every { msg.data } returns stubMessage
+        val observer = mockk<KlaviyoNotificationObserver>(relaxed = true)
+        KlaviyoPushObservers.onKlaviyoNotification(observer)
+
+        try {
+            pushService.onMessageReceived(msg)
+
+            verify(exactly = 0) { observer(any()) }
+        } finally {
+            KlaviyoPushObservers.offKlaviyoNotification(observer)
+        }
     }
 }

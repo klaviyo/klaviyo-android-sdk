@@ -25,6 +25,8 @@ import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import io.mockk.verifyOrder
+import java.util.UUID
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -1037,5 +1039,67 @@ class KlaviyoNotificationTest : BaseTest() {
             bodyUid.captured,
             buttonUid.captured
         )
+    }
+
+    private fun observeNotifications(observer: KlaviyoNotificationObserver): KlaviyoNotificationObserver {
+        every { mockRemoteMessage.messageId } returns UUID.randomUUID().toString()
+        KlaviyoPushObservers.onKlaviyoNotification(observer)
+        return observer
+    }
+
+    @Test
+    fun `displayNotification dispatches to push observers before displaying`() {
+        val observer = observeNotifications(mockk(relaxed = true))
+
+        try {
+            notification.displayNotification(mockContext)
+
+            verifyOrder {
+                observer(mockRemoteMessage)
+                mockNotificationManager.notify(any<String>(), any(), any())
+            }
+        } finally {
+            KlaviyoPushObservers.offKlaviyoNotification(observer)
+        }
+    }
+
+    @Test
+    fun `displayNotification still displays when a push observer throws`() {
+        val observer = observeNotifications { throw IllegalStateException("boom") }
+
+        try {
+            assertTrue(notification.displayNotification(mockContext))
+            verify { mockNotificationManager.notify(any<String>(), any(), any()) }
+        } finally {
+            KlaviyoPushObservers.offKlaviyoNotification(observer)
+        }
+    }
+
+    @Test
+    fun `displayNotification dispatches to push observers without notification permission`() {
+        every { notification.hasNotificationPermission(any()) } returns false
+        val observer = observeNotifications(mockk(relaxed = true))
+
+        try {
+            assertFalse(notification.displayNotification(mockContext))
+            verify { observer(mockRemoteMessage) }
+        } finally {
+            KlaviyoPushObservers.offKlaviyoNotification(observer)
+        }
+    }
+
+    @Test
+    fun `displayNotification does not dispatch a message that is not a Klaviyo notification`() {
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.isKlaviyoNotification } returns false
+        }
+        val observer = observeNotifications(mockk(relaxed = true))
+
+        try {
+            notification.displayNotification(mockContext)
+            verify(exactly = 0) { observer(any()) }
+        } finally {
+            KlaviyoPushObservers.offKlaviyoNotification(observer)
+        }
     }
 }
