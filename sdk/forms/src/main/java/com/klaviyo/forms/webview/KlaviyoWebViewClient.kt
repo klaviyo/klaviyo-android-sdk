@@ -19,6 +19,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.safeCall
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.startActivityIfResolved
@@ -56,9 +57,13 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     private var webView: KlaviyoWebView? by WeakReferenceDelegate()
 
     /**
-     * Pending load of the forms page, awaiting the initial auth token. Cancelled by
-     * [destroyWebView].
+     * Identity of the pending page load, awaiting the initial auth token. Cleared by
+     * [destroyWebView] before its UI work is posted, so a load callback already queued on the UI
+     * thread does not run after teardown.
      */
+    @Volatile private var pendingLoad: Any? = null
+
+    /** Awaits the initial auth token for [pendingLoad]. Cancelled by [destroyWebView]. */
     private var loadJob: Job? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
@@ -80,11 +85,20 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         }
 
         val webView = KlaviyoWebView().also { this.webView = it }
+        val load = Any().also { pendingLoad = it }
         loadJob?.cancel()
         loadJob = scope.safeLaunch {
             val token = awaitInitialToken()
             Registry.threadHelper.runOnUiThread {
-                if (this@KlaviyoWebViewClient.webView === webView) loadTemplate(webView, token)
+                if (pendingLoad !== load || this@KlaviyoWebViewClient.webView !== webView) {
+                    return@runOnUiThread
+                }
+                pendingLoad = null
+                // Exceptions thrown here run outside the coroutine and its handler
+                safeCall { loadTemplate(webView, token) } ?: run {
+                    Registry.log.warning("Unable to load In-App Forms template")
+                    destroyWebView()
+                }
             }
         }
     }
@@ -92,7 +106,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     /**
      * Wait up to [AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS] for the auth token. Returns null
      * without waiting when auth is not enabled or the profile is not identified, and null on
-     * timeout or failure. A timeout does not cancel the manager's underlying fetch.
+     * timeout or any failure the provider reports. A timeout does not cancel the manager's
+     * underlying fetch.
      */
     private suspend fun awaitInitialToken(): String? = try {
         Registry.get<AuthTokenManager>()
@@ -101,11 +116,14 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     } catch (e: CancellationException) {
         throw e
     } catch (_: AuthTokenException.NoProviderRegistered) {
+        Registry.log.debug("Auth not enabled, loading In-App Forms without a JWT")
         null
     } catch (_: AuthTokenException.NotIdentified) {
+        Registry.log.verbose("Profile not identified, loading In-App Forms without a JWT")
         null
-    } catch (e: Exception) {
-        Registry.log.verbose("Loading In-App Forms without a JWT: ${e.javaClass.simpleName}")
+    } catch (e: Throwable) {
+        // The provider can fail with any Throwable, and the page must still load without a JWT
+        Registry.log.warning("Auth token unavailable, loading In-App Forms without a JWT", e)
         null
     }
 
@@ -215,6 +233,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * Destroy the webview and release the reference
      */
     override fun destroyWebView() = apply {
+        pendingLoad = null
         loadJob?.cancel()
         loadJob = null
         handshakeTimer?.cancel()

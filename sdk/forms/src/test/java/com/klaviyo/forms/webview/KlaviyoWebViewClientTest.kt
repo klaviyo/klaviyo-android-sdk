@@ -21,6 +21,7 @@ import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.auth.AuthTokenProvider
 import com.klaviyo.core.auth.TokenRefreshObserver
 import com.klaviyo.core.auth.ValidatedToken
+import com.klaviyo.core.config.KlaviyoConfig
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
@@ -39,9 +40,11 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkConstructor
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.slot
+import io.mockk.unmockkObject
 import io.mockk.verify
 import java.io.ByteArrayInputStream
 import kotlinx.coroutines.CompletableDeferred
@@ -417,6 +420,52 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     @Test
+    fun `page loads without a JWT when the provider fails with a non-Exception throwable`() {
+        fakeAuth.providerRegistered = true
+        val html = captureTemplate()
+        KlaviyoWebViewClient().initializeWebView()
+
+        fakeAuth.failFetch(AssertionError("provider bug"))
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals("", renderedJwt(html))
+        verify { spyLog.warning(any(), any<AssertionError>()) }
+    }
+
+    @Test
+    fun `a template load failure on the UI thread is contained and tears down the webview`() {
+        // Release build: safeCall rethrows in debug builds to surface bugs during development
+        mockkObject(KlaviyoConfig)
+        every { KlaviyoConfig.isDebugBuild } returns false
+        every {
+            anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any())
+        } throws IllegalStateException("WebView unavailable")
+        KlaviyoWebViewClient().initializeWebView()
+        dispatcher.scheduler.runCurrent()
+
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+        verifyDestroy()
+        assertEquals(0, staticClock.scheduledTasks.size)
+        unmockkObject(KlaviyoConfig)
+    }
+
+    @Test
+    fun `destroying the webview after the load is queued on the UI thread skips the load`() {
+        val uiQueue = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { uiQueue += firstArg<() -> Unit>() }
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        dispatcher.scheduler.runCurrent()
+        assertEquals("load callback is queued", 1, uiQueue.size)
+
+        client.destroyWebView()
+        uiQueue.toList().forEach { it() }
+
+        verify(exactly = 0) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+        verify { anyConstructed<KlaviyoWebView>().destroy() }
+    }
+
+    @Test
     fun `only initializes webview once`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
@@ -686,6 +735,10 @@ private class FakeAuthTokenManager : AuthTokenManager {
     var current: String? = null
     private val fetch = CompletableDeferred<ValidatedToken>()
     private val observers = mutableListOf<TokenRefreshObserver>()
+
+    fun failFetch(error: Throwable) {
+        fetch.completeExceptionally(error)
+    }
 
     fun completeFetch(jwt: String) {
         current = jwt
