@@ -60,12 +60,15 @@ internal data class MobileInboxSettings(
  * Whether a delivered push should be captured into the inbox:
  * the host has registered for Mobile Inbox and notification permission is granted.
  *
- * Reads only persisted settings, so it never opens the inbox store,
- * and returns false rather than throwing when the SDK is not initialized.
+ * Reads only persisted settings, so it never opens the inbox store. It never throws:
+ * when the SDK is not initialized or a platform check fails, capture is skipped.
  */
 internal fun isInboxCaptureEnabled(): Boolean = try {
     MobileInboxSettings.load()?.enabled == true && DeviceProperties.notificationPermissionGranted
 } catch (e: KlaviyoException) {
     Registry.log.debug("Mobile Inbox capture skipped: ${e.message}")
+    false
+} catch (e: Exception) {
+    Registry.log.warning("Mobile Inbox capture skipped, unable to check capture settings", e)
     false
 }

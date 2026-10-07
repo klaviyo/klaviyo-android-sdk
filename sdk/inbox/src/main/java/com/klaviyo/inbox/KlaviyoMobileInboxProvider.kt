@@ -1,8 +1,6 @@
 package com.klaviyo.inbox
 
 import com.klaviyo.core.Registry
-import com.klaviyo.core.safeLaunch
-import kotlinx.coroutines.CoroutineScope
 
 internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
     override fun register(config: MobileInboxConfig) {
@@ -21,12 +19,7 @@ internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
                     ?: MobileInboxConfig.DEFAULT_LOCAL_RETENTION_LIMIT
             )
         )
-        CoroutineScope(Registry.dispatcher).safeLaunch {
-            // Skip the delete if the host registered again before this ran
-            if (MobileInboxSettings.load()?.enabled != true) {
-                InboxStore.delete()
-            }
-        }
+        InboxStore.deleteAsync()
         Registry.log.info("Unregistered from Mobile Inbox")
     }
 }

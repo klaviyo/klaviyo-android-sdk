@@ -10,6 +10,8 @@ import com.klaviyo.fixtures.unmockDeviceProperties
 import io.mockk.every
 import io.mockk.verify
 import io.mockk.verifyOrder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,6 +34,7 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        deleteStoreJobs()
         Registry.unregister<MobileInboxProvider>()
         unmockDeviceProperties()
         super.cleanup()
@@ -135,14 +138,33 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
     }
 
     @Test
-    fun `registering again before the delete runs keeps the store`() {
+    fun `registering again right after unregister still deletes the previous store`() {
         Klaviyo.registerForMobileInbox()
         Klaviyo.unregisterFromMobileInbox()
         Klaviyo.registerForMobileInbox()
         deleteStoreJobs()
 
-        verify(exactly = 0) { mockContext.deleteDatabase(any()) }
+        verify(exactly = 1) { mockContext.deleteDatabase(InboxStore.DATABASE_NAME) }
         assertTrue(isInboxCaptureEnabled())
+    }
+
+    @Test
+    fun `opening the store waits for a pending delete`() {
+        val events = mutableListOf<String>()
+        every { mockContext.deleteDatabase(any()) } answers {
+            events += "delete"
+            true
+        }
+
+        Klaviyo.unregisterFromMobileInbox()
+        Klaviyo.registerForMobileInbox()
+        CoroutineScope(dispatcher).launch {
+            InboxStore.awaitPendingDelete()
+            events += "open"
+        }
+        deleteStoreJobs()
+
+        assertEquals(listOf("delete", "open"), events)
     }
 
     @Test
@@ -159,6 +181,15 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
         Klaviyo.registerForMobileInbox()
 
         assertFalse(isInboxCaptureEnabled())
+    }
+
+    @Test
+    fun `capture gate returns false when the permission check throws`() {
+        every { DeviceProperties.notificationPermissionGranted } throws RuntimeException()
+        Klaviyo.registerForMobileInbox()
+
+        assertFalse(isInboxCaptureEnabled())
+        verify { spyLog.warning(any(), any()) }
     }
 
     @Test

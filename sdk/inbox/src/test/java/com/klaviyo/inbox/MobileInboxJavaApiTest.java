@@ -43,19 +43,19 @@ public class MobileInboxJavaApiTest {
     @Test
     public void testKlaviyoInboxRegisterWithDefaultConfig() {
         KlaviyoInbox.registerForMobileInbox();
-        MobileInboxMock.verifyKlaviyoInboxRegisterCalled();
+        MobileInboxMock.verifyRegisterCalled(new MobileInboxConfig());
     }
 
     @Test
     public void testKlaviyoInboxRegisterWithConfig() {
         KlaviyoInbox.registerForMobileInbox(new MobileInboxConfig(250));
-        MobileInboxMock.verifyKlaviyoInboxRegisterCalled();
+        MobileInboxMock.verifyRegisterCalled(new MobileInboxConfig(250));
     }
 
     @Test
     public void testKlaviyoInboxUnregister() {
         KlaviyoInbox.unregisterFromMobileInbox();
-        MobileInboxMock.verifyKlaviyoInboxUnregisterCalled();
+        MobileInboxMock.verifyUnregisterCalled();
     }
 
     @Test
