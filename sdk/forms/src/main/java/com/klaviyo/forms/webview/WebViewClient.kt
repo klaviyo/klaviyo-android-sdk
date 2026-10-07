@@ -11,6 +11,12 @@ internal interface WebViewClient {
     fun initializeWebView()
 
     /**
+     * The auth token written into the initial document of the current webview, or null if the
+     * document was loaded without one or has not loaded yet
+     */
+    val documentToken: String?
+
+    /**
      * Invoke when [com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook] event is received: Local script is ready
      */
     fun onLocalJsReady()

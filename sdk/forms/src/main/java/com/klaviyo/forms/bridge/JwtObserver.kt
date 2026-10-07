@@ -5,6 +5,7 @@ import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.auth.TokenRefreshObserver
 import com.klaviyo.core.safeLaunch
+import com.klaviyo.forms.webview.WebViewClient
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -16,7 +17,7 @@ import kotlinx.coroutines.SupervisorJob
  * re-injects tokens acquired or refreshed while a form is displayed, and fetches a token for a
  * replaced profile once that profile is published via [publishProfile]. A token is only injected
  * after the profile of the current [AuthTokenManager.profileGeneration] has been published to the
- * webview. Never injects an empty token.
+ * webview. Never injects an empty token, nor a token the webview's initial document already holds.
  */
 internal class JwtObserver : JsBridgeObserver {
 
@@ -73,11 +74,18 @@ internal class JwtObserver : JsBridgeObserver {
 
     /**
      * Set by [startObserver] and [refetchToken] so the next injection that passes the sequence
-     * check on the UI thread clears [lastInjectedToken].
+     * check on the UI thread resets [lastInjectedToken] to [dedupSeed].
      */
     @Volatile private var resetDedupOnNextInjection = false
 
+    /**
+     * Value [lastInjectedToken] takes when the pending dedupe reset is consumed: the token written
+     * into the initial document by [WebViewClient] after [startObserver], null after [refetchToken].
+     */
+    @Volatile private var dedupSeed: String? = null
+
     override fun startObserver() {
+        dedupSeed = Registry.getOrNull<WebViewClient>()?.documentToken
         resetDedupOnNextInjection = true
         val current = Session()
         session = current
@@ -110,6 +118,7 @@ internal class JwtObserver : JsBridgeObserver {
      */
     internal fun refetchToken() {
         val current = session ?: return
+        dedupSeed = null
         resetDedupOnNextInjection = true
         current.requestedGeneration = Registry.get<AuthTokenManager>().profileGeneration()
         fetchToken(
@@ -215,14 +224,14 @@ internal class JwtObserver : JsBridgeObserver {
      * Inject [token] only if [sequence] is newer than any already applied, skipping the bridge call
      * when the value is unchanged since the last injection. A pending dedupe reset from
      * [startObserver] or [refetchToken] is consumed by the first injection that passes the sequence
-     * check, which is then always written. Must be called on the UI thread.
+     * check, which is then written unless it matches [dedupSeed]. Must be called on the UI thread.
      */
     private fun injectIfLatest(sequence: Long, token: String) {
         if (sequence <= lastInjectedSequence) return
         lastInjectedSequence = sequence
         if (resetDedupOnNextInjection) {
             resetDedupOnNextInjection = false
-            lastInjectedToken = null
+            lastInjectedToken = dedupSeed
         }
         if (token != lastInjectedToken) {
             lastInjectedToken = token

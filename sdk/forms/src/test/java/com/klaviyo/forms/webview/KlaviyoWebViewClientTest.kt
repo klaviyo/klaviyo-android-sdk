@@ -16,18 +16,25 @@ import androidx.webkit.WebViewFeature
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenException
+import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.TokenRefreshObserver
+import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
+import com.klaviyo.forms.bridge.JwtObserver
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
 import io.mockk.clearAllMocks
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -37,13 +44,18 @@ import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import java.io.ByteArrayInputStream
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class KlaviyoWebViewClientTest : BaseTest() {
 
     companion object {
@@ -57,7 +69,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-forms-data-environment='FORMS_ENVIRONMENT'
                   data-klaviyo-local-tracking="1"
                   data-klaviyo-profile='KLAVIYO_PROFILE'
-                  data-klaviyo-jwt=''
+                  data-klaviyo-jwt='KLAVIYO_JWT'
             >
                 <meta charset="UTF-8">
                 <meta name="viewport"
@@ -120,6 +132,15 @@ class KlaviyoWebViewClientTest : BaseTest() {
         every { getAsProfile() } returns Profile()
     }
 
+    private val refreshObserver = slot<TokenRefreshObserver>()
+    private val mockAuthTokenManager = mockk<AuthTokenManager>().apply {
+        every { onTokenRefresh(capture(refreshObserver)) } just runs
+        every { offTokenRefresh(any()) } just runs
+        every { isCurrentToken(any()) } returns true
+        every { profileGeneration() } returns 0L
+        coEvery { currentToken(any()) } throws AuthTokenException.NoProviderRegistered
+    }
+
     @Before
     override fun setup() {
         super.setup()
@@ -127,6 +148,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Registry.register<JsBridgeObserverCollection>(mockObserverCollection)
         Registry.register<NativeBridge>(mockBridge)
         Registry.register<State>(mockState)
+        Registry.register<AuthTokenManager>(mockAuthTokenManager)
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
         every { mockContext.assets } returns mockAssets
@@ -171,6 +193,8 @@ class KlaviyoWebViewClientTest : BaseTest() {
     override fun cleanup() {
         Registry.unregister<NativeBridge>()
         Registry.unregister<State>()
+        Registry.unregister<AuthTokenManager>()
+        Registry.unregister<WebViewClient>()
         Registry.unregister<JsBridgeObserverCollection>()
         clearAllMocks()
         super.cleanup()
@@ -257,6 +281,148 @@ class KlaviyoWebViewClientTest : BaseTest() {
         } just runs
     }
 
+    private fun String.documentJwt() =
+        Regex("data-klaviyo-jwt='([^']*)'").find(this)?.groupValues?.get(1)
+
+    /**
+     * Resolve [AuthTokenManager.currentToken] with [token] once it completes, or time out after
+     * the caller's budget in virtual time, as [com.klaviyo.core.auth.KlaviyoAuthTokenManager] does.
+     */
+    private fun tokenCompletesWith(token: CompletableDeferred<ValidatedToken>) {
+        coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers {
+            withTimeoutOrNull(firstArg<Long>()) { token.await() }
+                ?: throw AuthTokenException.TimedOut
+        }
+    }
+
+    private fun validatedToken(raw: String) = ValidatedToken(raw, 0L, 0L)
+
+    @Test
+    fun `template waits for a token arriving within the budget and seeds it in the document`() {
+        val token = CompletableDeferred<ValidatedToken>()
+        tokenCompletesWith(token)
+        val html = captureTemplate()
+
+        KlaviyoWebViewClient().initializeWebView()
+        dispatcher.scheduler.advanceTimeBy(300)
+        dispatcher.scheduler.runCurrent()
+
+        verify(exactly = 0) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+        assertEquals(0, staticClock.scheduledTasks.size)
+
+        token.complete(validatedToken("header.payload.sig"))
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(300L, dispatcher.scheduler.currentTime)
+        verify(exactly = 1) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+        assertEquals("header.payload.sig", html.captured.documentJwt())
+        coVerify {
+            mockAuthTokenManager.currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
+        }
+        assertEquals(1, staticClock.scheduledTasks.size)
+    }
+
+    @Test
+    fun `template loads without a token once the budget elapses, and the late token is injected`() {
+        val token = CompletableDeferred<ValidatedToken>()
+        tokenCompletesWith(token)
+        val html = captureTemplate()
+        val client = KlaviyoWebViewClient()
+        Registry.register<WebViewClient>(client)
+
+        client.initializeWebView()
+        dispatcher.scheduler.advanceTimeBy(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS - 1)
+        dispatcher.scheduler.runCurrent()
+        verify(exactly = 0) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+
+        dispatcher.scheduler.advanceTimeBy(1)
+        dispatcher.scheduler.runCurrent()
+        verify(exactly = 1) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+        assertEquals("", html.captured.documentJwt())
+        assertNull(client.documentToken)
+
+        // The page's JsReady starts the JWT observer, whose fetch also times out
+        JwtObserver().apply {
+            startObserver()
+            publishProfile {}
+        }
+        dispatcher.scheduler.advanceUntilIdle()
+        verify(exactly = 0) { mockJsBridge.jwtMutation(any()) }
+
+        // The provider responds after the budget; the manager publishes it to refresh observers
+        token.complete(validatedToken("late.payload.sig"))
+        refreshObserver.captured.invoke("late.payload.sig")
+
+        verify(exactly = 1) { mockJsBridge.jwtMutation("late.payload.sig") }
+    }
+
+    @Test
+    fun `template loads without waiting when no token can be fetched`() {
+        val html = captureTemplate()
+
+        KlaviyoWebViewClient().initializeWebView()
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(0L, dispatcher.scheduler.currentTime)
+        assertEquals("", html.captured.documentJwt())
+    }
+
+    @Test
+    fun `token replaced during the wait is not seeded in the document`() {
+        coEvery { mockAuthTokenManager.currentToken(any()) } returns validatedToken("stale.jwt.sig")
+        every { mockAuthTokenManager.isCurrentToken("stale.jwt.sig") } returns false
+        val html = captureTemplate()
+        val client = KlaviyoWebViewClient()
+
+        client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("", html.captured.documentJwt())
+        assertNull(client.documentToken)
+    }
+
+    @Test
+    fun `token seeded in the document is not injected again when observers start`() {
+        coEvery {
+            mockAuthTokenManager.currentToken(any())
+        } returns validatedToken("seeded.jwt.sig")
+        captureTemplate()
+        val client = KlaviyoWebViewClient()
+        Registry.register<WebViewClient>(client)
+
+        client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("seeded.jwt.sig", client.documentToken)
+
+        val jwtObserver = JwtObserver().apply {
+            startObserver()
+            publishProfile {}
+        }
+        dispatcher.scheduler.advanceUntilIdle()
+        verify(exactly = 0) { mockJsBridge.jwtMutation(any()) }
+
+        // A refetch writes its token even if it matches the seeded one
+        jwtObserver.refetchToken()
+        dispatcher.scheduler.advanceUntilIdle()
+        verify(exactly = 1) { mockJsBridge.jwtMutation("seeded.jwt.sig") }
+    }
+
+    @Test
+    fun `webview destroyed while awaiting the token never loads`() {
+        val token = CompletableDeferred<ValidatedToken>()
+        tokenCompletesWith(token)
+        val client = KlaviyoWebViewClient()
+
+        client.initializeWebView()
+        dispatcher.scheduler.advanceTimeBy(100)
+        client.destroyWebView()
+        token.complete(validatedToken("header.payload.sig"))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 0) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+        assertEquals(0, staticClock.scheduledTasks.size)
+    }
+
     private fun String.decodeHtml() = replace("&lt;", "<")
         .replace("&gt;", ">")
         .replace("&quot;", "\"")
@@ -276,6 +442,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
             every { mockState.getAsProfile() } returns profile
             val html = captureTemplate()
             KlaviyoWebViewClient().initializeWebView()
+            dispatcher.scheduler.advanceUntilIdle()
 
             val encoded = requireNotNull(
                 Regex("data-klaviyo-profile='([^']*)'").find(html.captured)?.groupValues?.get(1)

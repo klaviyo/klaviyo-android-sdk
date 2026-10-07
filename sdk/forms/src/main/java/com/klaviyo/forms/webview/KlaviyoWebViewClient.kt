@@ -16,7 +16,9 @@ import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.bridge.DeviceInfoProvider
@@ -30,6 +32,10 @@ import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Manages the [KlaviyoWebView] instance that powers In-App Forms behavior, triggering, rendering and display,
@@ -49,11 +55,27 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     private var webView: KlaviyoWebView? by WeakReferenceDelegate()
 
     /**
+     * Identity of the pending template load for the current webview, cleared when the webview is
+     * destroyed so a token wait that outlives its webview cannot load or arm the handshake timer.
+     */
+    @Volatile private var pendingLoad: Any? = null
+
+    /** Awaits the initial auth token before the template loads. */
+    private var tokenWaitJob: Job? = null
+
+    private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
+
+    @Volatile override var documentToken: String? = null
+        private set
+
+    /**
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head.
      *
-     * All template substitutions run synchronously on the calling (UI) thread. The auth token is
-     * delivered after load via [JwtObserver] over the JS bridge.
+     * The template loads once the auth token is acquired or
+     * [AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS] elapses, so the first form can evaluate with
+     * the token already in the document. Without a token in time, the template loads without one
+     * and [JwtObserver] delivers it over the JS bridge when it arrives.
      */
     override fun initializeWebView() {
         if (webView != null) {
@@ -62,9 +84,48 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         }
 
         val webView = KlaviyoWebView().also { this.webView = it }
+        val load = Any().also { pendingLoad = it }
+        documentToken = null
+        tokenWaitJob?.cancel()
+        tokenWaitJob = scope.safeLaunch {
+            val token = fetchInitialToken()
+            Registry.threadHelper.runOnUiThread {
+                if (pendingLoad === load && this@KlaviyoWebViewClient.webView === webView) {
+                    pendingLoad = null
+                    loadTemplate(webView, token)
+                }
+            }
+        }
+    }
+
+    /**
+     * Fetch the auth token within [AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS], or null if none
+     * is available in time. A timed out fetch keeps running in the manager, which publishes the
+     * token to [JwtObserver] when it lands.
+     */
+    private suspend fun fetchInitialToken(): String? = try {
+        Registry.get<AuthTokenManager>()
+            .currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
+            .rawToken
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        Registry.log.verbose("Auth token unavailable at load, proceeding without token")
+        null
+    }
+
+    /**
+     * Load the template into [webView] with handshake data and [token] injected in the document
+     * head, and start the handshake timer. [token] is dropped if it is no longer the manager's
+     * current token, e.g. after the profile was replaced during the wait.
+     *
+     * All template substitutions run synchronously on the UI thread.
+     */
+    private fun loadTemplate(webView: KlaviyoWebView, token: String?) {
         val nativeBridge = Registry.get<NativeBridge>()
         val jsBridge = Registry.get<JsBridge>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
+        val documentToken = token?.takeIf { Registry.get<AuthTokenManager>().isCurrentToken(it) }
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
             .buildUpon()
@@ -74,9 +135,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .appendAssetSource()
             .build()
 
-        // Apply all substitutions that can run synchronously on the calling (UI) thread.
         // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
-        // decorView.rootWindowInsets) — snapshot it here while we are still on the main thread.
+        // decorView.rootWindowInsets) — snapshot it here while we are on the main thread.
         val template = Registry.config.applicationContext.assets
             .open("InAppFormsTemplate.html")
             .bufferedReader()
@@ -90,10 +150,12 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
                 "KLAVIYO_JS_URL" to klaviyoJsUrl.toString(),
                 "FORMS_ENVIRONMENT" to Registry.config.formEnvironment.templateName,
                 "KLAVIYO_PROFILE" to Registry.get<State>().getAsProfile().toBridgeJson(),
+                "KLAVIYO_JWT" to documentToken.orEmpty(),
                 "DEVICE_INFO" to DeviceInfoProvider.current().toJson()
             )
         )
 
+        this.documentToken = documentToken
         webView.loadTemplate(partialHtml, this, nativeBridge)
         handshakeTimer?.cancel()
         handshakeTimer = Registry.clock.schedule(
@@ -161,6 +223,9 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * Destroy the webview and release the reference
      */
     override fun destroyWebView() = apply {
+        pendingLoad = null
+        tokenWaitJob?.cancel()
+        documentToken = null
         handshakeTimer?.cancel()
         Registry.get<JsBridgeObserverCollection>().stopObservers()
         webView?.let { webView ->
