@@ -5,6 +5,7 @@ import com.klaviyo.core.auth.AuthTokenException
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.auth.TokenRefreshObserver
 import com.klaviyo.core.safeLaunch
+import com.klaviyo.forms.webview.WebViewClient
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -73,11 +74,19 @@ internal class JwtObserver : JsBridgeObserver {
 
     /**
      * Set by [startObserver] and [refetchToken] so the next injection that passes the sequence
-     * check on the UI thread clears [lastInjectedToken].
+     * check on the UI thread resets [lastInjectedToken] to [dedupResetToken].
      */
     @Volatile private var resetDedupOnNextInjection = false
 
+    /**
+     * Value [lastInjectedToken] is reset to by the pending dedupe reset: the token already rendered
+     * into the document by [WebViewClient.initialJwt] after [startObserver], or null after
+     * [refetchToken] so the next token is always written.
+     */
+    @Volatile private var dedupResetToken: String? = null
+
     override fun startObserver() {
+        dedupResetToken = Registry.getOrNull<WebViewClient>()?.initialJwt
         resetDedupOnNextInjection = true
         val current = Session()
         session = current
@@ -110,6 +119,7 @@ internal class JwtObserver : JsBridgeObserver {
      */
     internal fun refetchToken() {
         val current = session ?: return
+        dedupResetToken = null
         resetDedupOnNextInjection = true
         current.requestedGeneration = Registry.get<AuthTokenManager>().profileGeneration()
         fetchToken(
@@ -215,14 +225,15 @@ internal class JwtObserver : JsBridgeObserver {
      * Inject [token] only if [sequence] is newer than any already applied, skipping the bridge call
      * when the value is unchanged since the last injection. A pending dedupe reset from
      * [startObserver] or [refetchToken] is consumed by the first injection that passes the sequence
-     * check, which is then always written. Must be called on the UI thread.
+     * check, which is then written unless it matches [dedupResetToken]. Must be called on the UI
+     * thread.
      */
     private fun injectIfLatest(sequence: Long, token: String) {
         if (sequence <= lastInjectedSequence) return
         lastInjectedSequence = sequence
         if (resetDedupOnNextInjection) {
             resetDedupOnNextInjection = false
-            lastInjectedToken = null
+            lastInjectedToken = dedupResetToken
         }
         if (token != lastInjectedToken) {
             lastInjectedToken = token

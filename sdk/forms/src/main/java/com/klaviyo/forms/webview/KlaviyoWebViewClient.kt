@@ -16,7 +16,9 @@ import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.bridge.DeviceInfoProvider
@@ -30,6 +32,11 @@ import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Manages the [KlaviyoWebView] instance that powers In-App Forms behavior, triggering, rendering and display,
@@ -48,12 +55,23 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      */
     private var webView: KlaviyoWebView? by WeakReferenceDelegate()
 
+    private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
+
+    /** Awaits the initial auth token before the template is loaded, see [initializeWebView]. */
+    private var initialTokenJob: Job? = null
+
+    @Volatile override var initialJwt: String? = null
+        private set
+
     /**
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head.
      *
-     * All template substitutions run synchronously on the calling (UI) thread. The auth token is
-     * delivered after load via [JwtObserver] over the JS bridge.
+     * The template is not loaded until the initial auth token arrives or
+     * [AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS] elapses, so a form cannot evaluate
+     * personalized content before the token is available. A token that arrives in time is rendered
+     * into the document. After a timeout or failure, the template loads without a token and
+     * [JwtObserver] delivers it over the JS bridge once it is acquired.
      */
     override fun initializeWebView() {
         if (webView != null) {
@@ -62,6 +80,43 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         }
 
         val webView = KlaviyoWebView().also { this.webView = it }
+        initialJwt = null
+        initialTokenJob?.cancel()
+        initialTokenJob = scope.safeLaunch {
+            val token = awaitInitialToken()
+            Registry.threadHelper.runOnUiThread {
+                if (this@KlaviyoWebViewClient.webView === webView) loadTemplate(webView, token)
+            }
+        }
+    }
+
+    /**
+     * Wait up to [AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS] for the auth token, or null if
+     * auth is not enabled, the profile is not identified, the fetch failed or timed out.
+     */
+    private suspend fun awaitInitialToken(): String? {
+        val authTokenManager = Registry.getOrNull<AuthTokenManager>() ?: return null
+        return try {
+            withTimeoutOrNull(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS) {
+                authTokenManager.currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
+                    .rawToken
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }.also {
+            if (it == null) Registry.log.verbose("Loading IAF template without an auth token")
+        }
+    }
+
+    /**
+     * Apply all template substitutions and load the template. Must run on the UI thread:
+     * [DeviceInfoProvider.current] reads UI-thread-only APIs (Display.rotation,
+     * decorView.rootWindowInsets). [token] is only rendered if it is still the current token
+     * when the profile is read, so the document never pairs a profile with a previous profile's token.
+     */
+    private fun loadTemplate(webView: KlaviyoWebView, token: String?) {
         val nativeBridge = Registry.get<NativeBridge>()
         val jsBridge = Registry.get<JsBridge>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
@@ -74,9 +129,9 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .appendAssetSource()
             .build()
 
-        // Apply all substitutions that can run synchronously on the calling (UI) thread.
-        // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
-        // decorView.rootWindowInsets) — snapshot it here while we are still on the main thread.
+        val jwt = token?.takeIf { Registry.get<AuthTokenManager>().isCurrentToken(it) }
+        initialJwt = jwt
+
         val template = Registry.config.applicationContext.assets
             .open("InAppFormsTemplate.html")
             .bufferedReader()
@@ -90,6 +145,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
                 "KLAVIYO_JS_URL" to klaviyoJsUrl.toString(),
                 "FORMS_ENVIRONMENT" to Registry.config.formEnvironment.templateName,
                 "KLAVIYO_PROFILE" to Registry.get<State>().getAsProfile().toBridgeJson(),
+                "KLAVIYO_JWT" to jwt.orEmpty(),
                 "DEVICE_INFO" to DeviceInfoProvider.current().toJson()
             )
         )
@@ -162,6 +218,9 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      */
     override fun destroyWebView() = apply {
         handshakeTimer?.cancel()
+        initialTokenJob?.cancel()
+        initialTokenJob = null
+        initialJwt = null
         Registry.get<JsBridgeObserverCollection>().stopObservers()
         webView?.let { webView ->
             Registry.threadHelper.runOnUiThread {

@@ -5,6 +5,12 @@ import android.view.View
 
 internal interface WebViewClient {
     /**
+     * The auth token rendered into the current document's `data-klaviyo-jwt` attribute, or null if
+     * the document was loaded without one or is not loaded yet.
+     */
+    val initialJwt: String? get() = null
+
+    /**
      * Initialize a webview instance, with protection against duplication
      * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head
      */
