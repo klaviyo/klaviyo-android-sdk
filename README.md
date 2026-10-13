@@ -958,15 +958,9 @@ splash screen or loading animations have completed. Depending on your app's arch
 
 > **Note:** Personalized Forms authentication requires SDK version `4.6.0` or later and must be enabled for your Klaviyo account.
 
-Personalized In-App Forms show content from the signed-in user's Klaviyo profile. To load that data, Klaviyo needs
-proof of who the user is. Your app supplies this as a JSON Web Token (JWT).
+Personalized In-App Forms show content from the signed-in user's Klaviyo profile. Your app proves who the user is with a JSON Web Token (JWT).
 
-Before integrating, set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user.
-Keep the signing credentials on your server. The app should request the JWT from this endpoint. The SDK requires valid
-`iat` and `exp` claims and rejects a token that expires within 30 seconds of receipt. Klaviyo also requires the JWT to
-carry the signed-in user's matching `email` claim. The SDK does not check the `email` claim. Keep the profile
-identifiers in the SDK in sync with the signed-in user (see [Profile Identification](#profile-identification)). The
-provider receives no profile information, so it must return a token for the user who is signed in.
+Set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server. The JWT must carry valid `iat` and `exp` claims and the user's matching `email` claim. Keep the SDK's profile identifiers in sync with the signed-in user (see [Profile Identification](#profile-identification)).
 
 The `AuthTokenProvider` type is in the `core` artifact. If your app does not already depend on it, add
 `com.github.klaviyo.klaviyo-android-sdk:core` at the same version as your other Klaviyo dependencies.
@@ -986,9 +980,6 @@ After initializing the SDK, register a provider that fetches a token from your b
            onError = { error -> callback.onFailure(error) }
        )
    }
-
-   // ... Unregister later, if appropriate
-   Klaviyo.unregisterAuthTokenProvider()
    ```
 </details>
 
@@ -1005,16 +996,10 @@ After initializing the SDK, register a provider that fetches a token from your b
            error -> callback.onFailure(error)
        )
    );
-
-   // ... Unregister later, if appropriate
-   Klaviyo.unregisterAuthTokenProvider();
    ```
 </details>
 
-Register the provider once and keep it registered across profile changes. The SDK calls it whenever it needs a token.
-If a form is open and the profile is identified, registering also delivers a token to that form. Registering again
-replaces the previous provider and discards the cached token.
-If you call `registerAuthTokenProvider` and `unregisterAuthTokenProvider` in quick succession, the last call wins.
+Register the provider once and keep it registered across profile changes.
 
 On logout, clear the SDK profile:
 
@@ -1022,45 +1007,16 @@ On logout, clear the SDK profile:
 Klaviyo.resetProfile()
 ```
 
-This discards the current user's token and stops the SDK from fetching one until a new user is identified.
-`unregisterAuthTokenProvider()` stops all provider calls, but it does not change the profile and does not remove a token
-that an open form already holds. That token keeps working until it expires. Do not rely on it alone to log a user out.
-Use `unregisterAuthTokenProvider()` to turn personalization off, not to log out.
+`unregisterAuthTokenProvider()` turns personalization off. It is not a logout, because a form that is already open keeps its token until it expires.
 
 ##### Provider requirements
 
-The SDK does not time out your provider. Your code must do the following:
+The SDK does not time out your provider, so your code must:
 
-- **Call back exactly once.** Call either `onSuccess(jwt)` or `onFailure(error)` for each call to `fetchToken`.
-  The SDK calls `fetchToken` on a background thread. You may call back from any thread.
-- **Bound your own work.** Apply a timeout to every network call. If the provider never calls back, later token
-  fetches are blocked until you register, unregister or reset the profile. No new token is fetched in the meantime.
-- **Fail fast.** If you cannot produce a token, call `onFailure` instead of waiting or retrying inside the provider.
-  Fail while no user is signed in. When the device is offline, do not wait for connectivity. The SDK retries after
-  connectivity returns.
-- **Preserve the network error.** Pass the original exception to `onFailure`, or wrap it as the `cause`. The SDK retries
-  after reconnect only when it finds an `UnknownHostException` or a `SocketException` (for example `ConnectException`
-  or `NoRouteToHostException`) in the cause chain. A timeout such as `SocketTimeoutException` is not retried this way.
-  The SDK does not retry any other failure, for example a backend 500 error. It fetches again the next time it needs
-  a token.
-- **Return a fresh token.** Do not return a token cached from an earlier call. The token must carry valid `iat` and
-  `exp` claims, and must not expire within 30 seconds of receipt.
-
-The SDK does not report provider errors to your app. They appear only in the SDK logs.
-
-##### What the SDK does for you
-
-- The provider is never called while the profile is anonymous, that is, while it has no external ID, email or phone number.
-- The SDK fetches a token when a profile is first identified after you register the provider. When the user changes to
-  a different person, the SDK discards the old token and fetches a new one for an open form, or when the next form is
-  shown. A token for an open form is delivered to it.
-- Compatible identifier changes, such as adding a phone number to a profile that already has an email, keep the
-  current token.
-- The SDK refreshes the token before it expires, fetches again after connectivity returns, and fetches a replacement
-  when a form reports that its token was rejected.
-- When a form is about to load, the SDK waits up to 500 ms for a token. If your provider is slower, the form loads
-  without one and receives the token as soon as it arrives. A form that loads without a token still works, but it is
-  not personalized.
+- **Call back exactly once.** Call `onSuccess(jwt)` or `onFailure(error)` for each call to `fetchToken`.
+- **Bound your own work.** Apply a timeout to every network call. A provider that never calls back blocks later token fetches until you register, unregister or reset the profile.
+- **Fail fast.** If you cannot produce a token, for example when no user is signed in, call `onFailure` instead of waiting or retrying.
+- **Pass on the original network error.** The SDK retries after reconnect when it finds an `UnknownHostException` or a `SocketException` in the cause chain, so pass the original exception to `onFailure` or wrap it as the `cause`.
 
 #### In-App Forms Session Configuration
 
