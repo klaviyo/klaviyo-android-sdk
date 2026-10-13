@@ -956,8 +956,7 @@ splash screen or loading animations have completed. Depending on your app's arch
 
 #### Personalized Forms Authentication
 
-> **Note:** Personalized Forms authentication requires SDK version `X.Y.Z` or later and must be enabled for your Klaviyo account.
-<!-- TODO(MAGE-1335): replace X.Y.Z with the release version this ships in before merging -->
+> **Note:** Personalized Forms authentication requires SDK version `4.6.0` or later and must be enabled for your Klaviyo account.
 
 Personalized In-App Forms show content from the signed-in user's Klaviyo profile. To load that data, Klaviyo needs
 proof of who the user is. Your app supplies this as a JSON Web Token (JWT).
