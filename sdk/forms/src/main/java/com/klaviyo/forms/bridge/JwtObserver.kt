@@ -166,8 +166,10 @@ internal class JwtObserver : JsBridgeObserver {
                 } catch (_: AuthTokenException.NotIdentified) {
                     Registry.log.verbose("Profile not identified — no JWT to inject")
                     return@safeLaunch
-                } catch (_: Exception) {
-                    Registry.log.warning("Auth token fetch failed — no JWT injected")
+                } catch (e: Exception) {
+                    Registry.log.warning(
+                        "Auth token fetch failed (${e.javaClass.simpleName}) — no JWT injected"
+                    )
                     return@safeLaunch
                 }
 

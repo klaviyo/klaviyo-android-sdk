@@ -138,6 +138,7 @@ internal class KlaviyoState : State {
 
     private fun replaceProfile(profile: Profile) {
         val oldProfile = getAsProfile(true)
+        _attributes.reset()
 
         try {
             _externalId.replace(profile.externalId)

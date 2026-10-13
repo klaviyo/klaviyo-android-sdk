@@ -105,6 +105,26 @@ class JwtObserverTest : BaseTest() {
     }
 
     @Test
+    fun `provider failure logs its type without its sensitive message or throwable`() {
+        val failure = IllegalStateException("secret.header.payload")
+        coEvery { mockAuthTokenManager.currentToken(any()) } throws failure
+
+        JwtObserver().start()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 0) { mockJsBridge.jwtMutation(any()) }
+        verify {
+            spyLog.warning(
+                match {
+                    it.contains("IllegalStateException") && !it.contains("secret.header.payload")
+                },
+                null
+            )
+        }
+        verify(exactly = 1) { spyLog.warning(any(), any()) }
+    }
+
+    @Test
     fun `stopObserver cancels in-flight fetch before injection`() {
         val tokenCompletion = CompletableDeferred<ValidatedToken>()
         coEvery { mockAuthTokenManager.currentToken(any()) } coAnswers { tokenCompletion.await() }

@@ -514,6 +514,45 @@ internal class KlaviyoStateTest : BaseTest() {
     }
 
     @Test
+    fun `setProfile replacement does not reload previous attributes when storing new attributes fails`() {
+        state.setProfile(Profile(email = "old@example.com").setProperty("tier", "old-tier"))
+        val failure = IllegalStateException("storage failed")
+        every { spyDataStore.store(PROFILE_ATTRIBUTES.name, any()) } throws failure
+
+        val thrown = runCatching {
+            state.setProfile(Profile(email = "new@example.com").setProperty("tier", "new-tier"))
+        }.exceptionOrNull()
+
+        assertSame(failure, thrown)
+        val reloaded = KlaviyoState().getAsProfile(true)
+        assertEquals("new@example.com", reloaded.email)
+        assertNull(reloaded[ProfileKey.CUSTOM("tier")])
+    }
+
+    @Test
+    fun `setProfile replacement keeps previous identifiers when clearing attributes fails`() {
+        state.setProfile(Profile(email = "old@example.com").setProperty("tier", "old-tier"))
+        val failure = IllegalStateException("storage failed")
+        every { spyDataStore.clear(PROFILE_ATTRIBUTES.name) } throws failure
+        val changes = recordChanges()
+
+        try {
+            val thrown = runCatching {
+                state.setProfile(Profile(email = "new@example.com").setProperty("tier", "new-tier"))
+            }.exceptionOrNull()
+
+            assertSame(failure, thrown)
+            assertEquals("old@example.com", state.email)
+            val reloaded = KlaviyoState().getAsProfile(true)
+            assertEquals("old@example.com", reloaded.email)
+            assertEquals("old-tier", reloaded[ProfileKey.CUSTOM("tier")])
+            assertTrue(changes.isEmpty())
+        } finally {
+            every { spyDataStore.clear(PROFILE_ATTRIBUTES.name) } answers { callOriginal() }
+        }
+    }
+
+    @Test
     fun `setProfile replacement does not suppress broadcasts from other threads`() {
         mockDeviceProperties()
         try {
