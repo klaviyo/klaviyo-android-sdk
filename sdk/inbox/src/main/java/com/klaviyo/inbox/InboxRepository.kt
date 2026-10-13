@@ -10,4 +10,13 @@ internal interface InboxRepository {
     suspend fun capture(record: InboxCaptureRecord): InboxCaptureResult
 }
 
-internal enum class InboxCaptureResult { CAPTURED, DUPLICATE, SKIPPED, FAILED }
+internal enum class InboxCaptureResult {
+    CAPTURED,
+    DUPLICATE,
+    SKIPPED,
+
+    /**
+     * The store could not write the record. The repository logs the cause at error.
+     */
+    FAILED
+}
