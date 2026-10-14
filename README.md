@@ -1011,7 +1011,8 @@ A form that is already open keeps its token until it expires, whether you call `
 The SDK does not time out your provider, so your code must:
 
 - **Call back exactly once.** Call `onSuccess(jwt)` or `onFailure(error)` for each call to `fetchToken`.
-  The SDK calls `fetchToken` on a background thread, and you may call back from any thread.
+  The SDK calls `fetchToken` whenever it needs a fresh token, on a background thread, and you may
+  call back from any thread.
 - **Report errors through `onFailure`.** The SDK tries to catch exceptions, but the safest path is to
   handle your own errors and respond through `onFailure`.
 - **Bound your own work.** Apply a timeout to every network call. A provider that never calls back blocks later token fetches until you register, unregister or reset the profile.
