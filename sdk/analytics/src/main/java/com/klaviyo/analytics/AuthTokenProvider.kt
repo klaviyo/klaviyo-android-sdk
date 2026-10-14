@@ -3,13 +3,9 @@ package com.klaviyo.analytics
 import com.klaviyo.core.auth.AuthTokenProvider as CoreAuthTokenProvider
 
 /**
- * Host-app-supplied source of authentication tokens (JWTs) for personalized Klaviyo features.
- *
- * Implementations are invoked by the SDK when a fresh token is required. The host MUST invoke
- * exactly one of [Callback.onSuccess] or [Callback.onFailure] for each call to [fetchToken].
- * The SDK caches the returned token and calls [fetchToken] again only when it needs a new one:
- * before the current token expires, or after a server rejected it. Return a freshly issued token
- * on every call; do not return a token cached from a previous call.
+ * Supplies JWTs for personalized Klaviyo features. The SDK calls [fetchToken] when it needs a
+ * token. Invoke exactly one of [Callback.onSuccess] or [Callback.onFailure] per call, and return a
+ * freshly issued token each time.
  */
 fun interface AuthTokenProvider {
     fun fetchToken(callback: Callback)
@@ -21,10 +17,7 @@ fun interface AuthTokenProvider {
     }
 }
 
-/**
- * Adapts this host-facing provider to the core provider that the auth token manager invokes. Kept
- * here so host apps never need core on their compile classpath.
- */
+/** Adapts this provider to the core one, so hosts never need core on their classpath. */
 internal fun AuthTokenProvider.toCore(): CoreAuthTokenProvider =
     CoreAuthTokenProvider { coreCallback ->
         fetchToken(object : AuthTokenProvider.Callback {
