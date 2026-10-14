@@ -7,6 +7,7 @@ package com.klaviyo.analytics.model
 sealed class EventKey(name: String) : Keyword(name) {
     object EVENT_ID : EventKey("\$event_id")
     object VALUE : EventKey("\$value")
+    object VALUE_CURRENCY : EventKey("\$value_currency")
 
     /**
      * For [EventMetric.OPENED_PUSH] events, append the device token as an event property

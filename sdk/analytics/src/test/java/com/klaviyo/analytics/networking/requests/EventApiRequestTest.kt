@@ -15,6 +15,7 @@ import io.mockk.unmockkStatic
 import java.util.UUID
 import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -234,6 +235,73 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
         stubEvent.setProperty("custom_value", "100")
 
         compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
+    }
+
+    @Test
+    fun `Builds body request with value_currency`() {
+        val expectJson = """
+            {
+              "data": {
+                "type": "event",
+                "attributes": {
+                  "metric": {
+                    "data": {
+                      "type": "metric",
+                      "attributes": {
+                        "name": "${stubEvent.metric}"
+                      }
+                    }
+                  },
+                  "profile": {
+                    "data": {
+                      "type": "profile",
+                      "attributes": {
+                        "email": "$EMAIL",
+                        "phone_number": "$PHONE",
+                        "external_id": "$EXTERNAL_ID",
+                        "anonymous_id": "$ANON_ID"
+                      }
+                    }
+                  },
+                  "properties": {
+                    "Device ID": "Mock Device ID",
+                    "Device Manufacturer": "Mock Manufacturer",
+                    "Device Model": "Mock Model",
+                    "OS Name": "Android",
+                    "OS Version": "Mock OS Version",
+                    "SDK Name": "Mock SDK",
+                    "SDK Version": "Mock SDK Version",
+                    "App Version": "Mock App Version",
+                    "App Build": "Mock Version Code",
+                    "App ID": "Mock App ID",
+                    "App Name": "Mock Application Label",
+                    "Push Token": "$PUSH_TOKEN",
+                    "${EventKey.VALUE}": 12.34,
+                    "${EventKey.VALUE_CURRENCY}": "USD",
+                    "${EventKey.EVENT_ID}": "uuid"
+                  },
+                  "time": "$ISO_TIME",
+                  "value": 12.34,
+                  "value_currency": "USD",
+                  "unique_id": "uuid"
+                }
+              }
+            }
+        """
+
+        val request = EventApiRequest(stubEvent.copy().setValueCurrency("USD"), stubProfile)
+        compareJson(JSONObject(expectJson), JSONObject(request.requestBody!!))
+    }
+
+    @Test
+    fun `Omits value_currency when it is unset`() {
+        val attributes = JSONObject(EventApiRequest(stubEvent, stubProfile).requestBody!!)
+            .getJSONObject("data")
+            .getJSONObject("attributes")
+
+        assertNull(stubEvent.valueCurrency)
+        assertFalse(attributes.has("value_currency"))
+        assertFalse(attributes.getJSONObject("properties").has(EventKey.VALUE_CURRENCY.name))
     }
 
     @Test

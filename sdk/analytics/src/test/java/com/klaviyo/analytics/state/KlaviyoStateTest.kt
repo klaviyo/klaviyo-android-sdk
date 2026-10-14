@@ -53,6 +53,7 @@ internal class KlaviyoStateTest : BaseTest() {
     override fun cleanup() {
         unmockkStatic(DeviceProperties::buildEventMetaData)
         state.reset()
+        GenericEventBuffer.clearBuffer()
         super.cleanup()
     }
 
@@ -354,8 +355,8 @@ internal class KlaviyoStateTest : BaseTest() {
             bufferedEvents[0][EventKey.CUSTOM("Device ID")]
         )
 
-        // Verify the returned event is the same as the buffered event
-        assertEquals(enrichedEvent, bufferedEvents[0])
+        // Verify the returned event matches the buffered event (buffer hands out copies)
+        assertEquals(enrichedEvent.toMap(), bufferedEvents[0].toMap())
 
         // Verify the original event was NOT mutated
         assertNull(event.uniqueId)
@@ -366,6 +367,49 @@ internal class KlaviyoStateTest : BaseTest() {
         assert(enrichedEvent !== event) {
             "createEvent should return a new event object, not mutate the original"
         }
+    }
+
+    @Test
+    fun `createEvent gives each observer its own copy to consume destructively`() {
+        GenericEventBuffer.clearBuffer()
+
+        // Mirrors KlaviyoJsBridge.profileEvent, which pops these keys to hoist them
+        // into positional JS arguments
+        val drainingObserver: ProfileEventObserver = { event ->
+            event.pop(EventKey.EVENT_ID)
+            event.pop(EventKey.TIME)
+            event.pop(EventKey.VALUE)
+        }
+        state.onProfileEvent(drainingObserver)
+
+        state.createEvent(
+            Event(EventMetric.CUSTOM("test_event")).apply { value = 42.0 },
+            Profile()
+        )
+
+        val buffered = GenericEventBuffer.getEvents().single()
+        assertNotEquals(null, buffered.uniqueId)
+        assertNotEquals(null, buffered[EventKey.TIME])
+        assertEquals(42.0, buffered.value)
+    }
+
+    @Test
+    fun `createEvent returns a copy so the caller cannot mutate the buffered event`() {
+        GenericEventBuffer.clearBuffer()
+
+        val returnedEvent = state.createEvent(
+            Event(EventMetric.CUSTOM("test_event")).apply { value = 42.0 },
+            Profile()
+        )
+
+        returnedEvent.pop(EventKey.EVENT_ID)
+        returnedEvent.pop(EventKey.TIME)
+        returnedEvent.pop(EventKey.VALUE)
+
+        val buffered = GenericEventBuffer.getEvents().single()
+        assertNotEquals(null, buffered.uniqueId)
+        assertNotEquals(null, buffered[EventKey.TIME])
+        assertEquals(42.0, buffered.value)
     }
 
     @Test
@@ -737,6 +781,34 @@ internal class KlaviyoStateTest : BaseTest() {
 
             assertEquals(PUSH_TOKEN, state.pushToken)
             assertNotEquals(stalePushState, state.pushState)
+            assertEquals(
+                PushTokenApiRequest(PUSH_TOKEN, state.getAsProfile()).requestBody,
+                state.pushState
+            )
+        } finally {
+            unmockDeviceProperties()
+        }
+    }
+
+    @Test
+    fun `refreshPushState recomputes pushState when background availability or device metadata change`() {
+        mockDeviceProperties()
+        try {
+            state.pushToken = PUSH_TOKEN
+            val originalPushState = state.pushState
+
+            every { DeviceProperties.backgroundDataEnabled } returns false
+            state.refreshPushState()
+            val afterBackgroundChange = state.pushState
+            assertNotEquals(originalPushState, afterBackgroundChange)
+
+            every { DeviceProperties.appVersion } returns "9.9.9"
+            every { DeviceProperties.deviceId } returns "New Device ID"
+            state.refreshPushState()
+            val afterMetadataChange = state.pushState
+            assertNotEquals(afterBackgroundChange, afterMetadataChange)
+
+            assertEquals(PUSH_TOKEN, state.pushToken)
             assertEquals(
                 PushTokenApiRequest(PUSH_TOKEN, state.getAsProfile()).requestBody,
                 state.pushState
