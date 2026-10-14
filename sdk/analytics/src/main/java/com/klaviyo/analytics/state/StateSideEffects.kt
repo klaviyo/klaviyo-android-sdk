@@ -119,7 +119,9 @@ internal class StateSideEffects(
         timer?.cancel()
         Registry.log.verbose("Flushing profile update")
         enqueueTokenOrProfile(it.copy())
-        state.resetAttributes() // Once captured in a request, we don't keep profile attributes in state/on disk
+        if (state.getAsProfile().anonymousId == it.anonymousId) {
+            state.resetAttributes() // Once captured in a request, we don't keep profile attributes in state/on disk
+        }
         pendingProfile = null
     }
 
