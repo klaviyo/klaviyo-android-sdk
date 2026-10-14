@@ -18,6 +18,7 @@ fun interface AuthTokenProvider {
 }
 
 /** Adapts this provider to the core one, so hosts never need core on their classpath. */
+@JvmSynthetic
 internal fun AuthTokenProvider.toCore(): CoreAuthTokenProvider =
     CoreAuthTokenProvider { coreCallback ->
         fetchToken(object : AuthTokenProvider.Callback {
