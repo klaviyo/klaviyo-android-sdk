@@ -39,9 +39,9 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
 - [In-App Forms](#in-app-forms)
   - [Prerequisites](#prerequisites-1)
   - [Setup](#setup-1)
-  - [Personalized Forms Authentication](#personalized-forms-authentication)
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Personalized Forms Authentication](#personalized-forms-authentication)
   - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Setup](#setup-2)
@@ -954,7 +954,51 @@ splash screen or loading animations have completed. Depending on your app's arch
    ```
 </details>
 
-#### Personalized Forms Authentication
+#### In-App Forms Session Configuration
+
+A "session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground 
+interactions that occur within a continuous or near-continuous time window. This is an important concept for In-App Forms,
+as we want to ensure that a user will not see the same forms multiple times within a single session.
+
+A session will time out after a specified period of inactivity. When a user launches the app, if the time between
+the previous interaction with the app and the current one exceeds the specified timeout, we will consider this a new session.
+
+This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, pass an `InAppFormsConfig`
+object to the `registerForInAppForms()` method. For example, to set a session timeout of 30 minutes:
+
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   import com.klaviyo.forms.InAppFormsConfig
+   import kotlin.time.Duration.Companion.minutes
+
+   // e.g. to configure a session timeout of 30 minutes
+   val config = InAppFormsConfig(
+       sessionTimeoutDuration = 30.minutes,
+   )
+
+   Klaviyo.registerForInAppForms(config)
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.klaviyo.forms.KlaviyoForms;
+   import com.klaviyo.forms.InAppFormsConfig;
+
+   // e.g. to configure a session timeout of 30 minutes (1800 seconds)
+   InAppFormsConfig config = new InAppFormsConfig(1800);
+
+   KlaviyoForms.registerForInAppForms(config);
+   ```
+</details>
+
+**Note:** After unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+### Personalized Forms Authentication
 
 > **Note:** Personalized Forms authentication requires SDK version `4.6.0` or later and must be enabled for your Klaviyo account.
 
@@ -1006,7 +1050,7 @@ Klaviyo.resetProfile()
 
 A form that is already open keeps its token until it expires, whether you call `resetProfile()` or `unregisterAuthTokenProvider()`. `unregisterAuthTokenProvider()` turns personalization off. It is not a logout.
 
-##### Provider requirements
+#### Provider requirements
 
 The SDK does not time out your provider, so your code must:
 
@@ -1018,50 +1062,6 @@ The SDK does not time out your provider, so your code must:
 - **Bound your own work.** Apply a timeout to every network call. A provider that never calls back blocks later token fetches until you register, unregister or reset the profile.
 - **Fail fast.** If you cannot produce a token, for example when no user is signed in, call `onFailure` instead of waiting or retrying.
 - **Pass on the original network error.** The SDK retries after reconnect when it finds an `UnknownHostException` or a `SocketException` in the cause chain, so pass the original exception to `onFailure` or wrap it as the `cause`.
-
-#### In-App Forms Session Configuration
-
-A "session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground 
-interactions that occur within a continuous or near-continuous time window. This is an important concept for In-App Forms,
-as we want to ensure that a user will not see the same forms multiple times within a single session.
-
-A session will time out after a specified period of inactivity. When a user launches the app, if the time between
-the previous interaction with the app and the current one exceeds the specified timeout, we will consider this a new session.
-
-This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, pass an `InAppFormsConfig`
-object to the `registerForInAppForms()` method. For example, to set a session timeout of 30 minutes:
-
-<details open>
-   <summary>Kotlin</summary>
-
-   ```kotlin
-   import com.klaviyo.forms.InAppFormsConfig
-   import kotlin.time.Duration.Companion.minutes
-
-   // e.g. to configure a session timeout of 30 minutes
-   val config = InAppFormsConfig(
-       sessionTimeoutDuration = 30.minutes,
-   )
-
-   Klaviyo.registerForInAppForms(config)
-   ```
-</details>
-
-<details>
-   <summary>Java</summary>
-
-   ```java
-   import com.klaviyo.forms.KlaviyoForms;
-   import com.klaviyo.forms.InAppFormsConfig;
-
-   // e.g. to configure a session timeout of 30 minutes (1800 seconds)
-   InAppFormsConfig config = new InAppFormsConfig(1800);
-
-   KlaviyoForms.registerForInAppForms(config);
-   ```
-</details>
-
-**Note:** After unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
 ### Monitoring Form Lifecycle Events
 
