@@ -428,6 +428,7 @@ private fun SampleViewContent(
                 imeAction = ImeAction.Done,
                 keyboardActions = KeyboardActions(onDone = { applyPastedJwt() }),
                 visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
                 trailingIcon = { EntryTrailingButton(onClick = applyPastedJwt) }
             )
         }
@@ -529,6 +530,7 @@ private fun ProfileTextField(
     keyboardActions: KeyboardActions,
     testTag: String = "",
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    singleLine: Boolean = false,
     trailingIcon: @Composable (() -> Unit)? = null
 ) {
     ViewRow {
@@ -539,6 +541,7 @@ private fun ProfileTextField(
             keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
             keyboardActions = keyboardActions,
             visualTransformation = visualTransformation,
+            singleLine = singleLine,
             trailingIcon = trailingIcon,
             modifier = Modifier
                 .weight(1f, fill = true)
