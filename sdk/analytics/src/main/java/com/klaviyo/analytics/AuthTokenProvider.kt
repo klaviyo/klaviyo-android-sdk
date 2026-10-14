@@ -4,8 +4,7 @@ import com.klaviyo.core.auth.AuthTokenProvider as CoreAuthTokenProvider
 
 /**
  * Supplies JWTs for personalized Klaviyo features. The SDK calls [fetchToken] when it needs a
- * token. Invoke exactly one of [Callback.onSuccess] or [Callback.onFailure] per call, and return a
- * freshly issued token each time.
+ * token, and the outcome is reported through [Callback].
  */
 fun interface AuthTokenProvider {
     fun fetchToken(callback: Callback)
@@ -17,7 +16,7 @@ fun interface AuthTokenProvider {
     }
 }
 
-/** Adapts this provider to the core one, so hosts never need core on their classpath. */
+/** Adapts this provider to the core provider used by the auth token manager. */
 @JvmSynthetic
 internal fun AuthTokenProvider.toCore(): CoreAuthTokenProvider =
     CoreAuthTokenProvider { coreCallback ->

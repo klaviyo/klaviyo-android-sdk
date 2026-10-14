@@ -1,8 +1,8 @@
 package com.klaviyo.core.auth
 
 /**
- * The provider contract that [AuthTokenManager] invokes. Host apps should not use this type. They
- * register a `com.klaviyo.analytics.AuthTokenProvider`, which is adapted to this one.
+ * The provider contract invoked by [AuthTokenManager]. `com.klaviyo.analytics.AuthTokenProvider`
+ * is the public equivalent, adapted to this type.
  */
 fun interface AuthTokenProvider {
     fun fetchToken(callback: Callback)

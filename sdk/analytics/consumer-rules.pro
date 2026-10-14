@@ -2,6 +2,6 @@
 -keepnames class com.klaviyo.analytics.**
 # Keep all model classes, it is not uncommon to reference these dynamically (especially keywords)
 -keep class com.klaviyo.analytics.model.** { *; }
-# Host apps implement the auth token provider, so keep its members stable
+# Keep the members of the auth token provider interfaces
 -keep interface com.klaviyo.analytics.AuthTokenProvider { *; }
 -keep interface com.klaviyo.analytics.AuthTokenProvider$Callback { *; }

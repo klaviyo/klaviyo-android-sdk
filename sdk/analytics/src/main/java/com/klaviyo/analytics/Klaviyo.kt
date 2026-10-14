@@ -148,9 +148,7 @@ object Klaviyo {
      * features (such as in-app forms that target a known profile).
      *
      * Re-registering replaces the previously registered provider and discards any cached token.
-     * The SDK will invoke [AuthTokenProvider.fetchToken] whenever a fresh token is needed; the
-     * host MUST invoke exactly one of [AuthTokenProvider.Callback.onSuccess] or
-     * [AuthTokenProvider.Callback.onFailure] per call.
+     * The SDK invokes [AuthTokenProvider.fetchToken] whenever a fresh token is needed.
      */
     @JvmStatic
     fun registerAuthTokenProvider(provider: AuthTokenProvider) = safeApply {
