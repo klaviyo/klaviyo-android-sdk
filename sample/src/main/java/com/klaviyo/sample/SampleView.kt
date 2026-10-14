@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -178,7 +179,7 @@ fun SampleView(
                 onPastedJwtChange = viewModel::updatePastedJwt,
                 applyPastedJwt = executeWithToast(
                     viewModel::applyPastedJwt,
-                    "JWT applied for the next token fetch"
+                    "JWT set for the next token fetch"
                 ),
                 onAuthTokenProviderRegisteredChange = viewModel::updateAuthTokenProviderRegistration,
                 hasLocationPermission = viewModel.hasLocationPermission,
@@ -410,33 +411,24 @@ private fun SampleViewContent(
         ViewRow { HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color) }
 
         SectionHeader(UiConstants.FORMS_SECTION)
-        ViewRow {
-            OutlinedTextField(
-                value = pastedJwt,
-                onValueChange = onPastedJwtChange,
-                label = { Text("Personalization JWT") },
-                supportingText = {
-                    Text("Paste a JWT for this profile. Apply a fresh JWT before the next refresh.")
-                },
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = { applyPastedJwt() }),
-                singleLine = true,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        ViewRow {
-            ActionButton(text = "Apply JWT", onClick = applyPastedJwt)
-        }
         ViewRow(horizontalArrangement = Arrangement.SpaceBetween) {
             Text("JWT provider registered")
             Switch(
                 checked = isAuthTokenProviderRegistered,
                 onCheckedChange = onAuthTokenProviderRegisteredChange,
                 modifier = Modifier.semantics { contentDescription = "JWT provider registered" }
+            )
+        }
+        if (isAuthTokenProviderRegistered) {
+            ProfileTextField(
+                label = "Personalization JWT",
+                value = pastedJwt,
+                onValueChange = onPastedJwtChange,
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+                keyboardActions = KeyboardActions(onDone = { applyPastedJwt() }),
+                visualTransformation = PasswordVisualTransformation(),
+                trailingIcon = { EntryTrailingButton(onClick = applyPastedJwt) }
             )
         }
         ViewRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -536,6 +528,7 @@ private fun ProfileTextField(
     imeAction: ImeAction,
     keyboardActions: KeyboardActions,
     testTag: String = "",
+    visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingIcon: @Composable (() -> Unit)? = null
 ) {
     ViewRow {
@@ -545,6 +538,7 @@ private fun ProfileTextField(
             onValueChange = onValueChange,
             keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
             keyboardActions = keyboardActions,
+            visualTransformation = visualTransformation,
             trailingIcon = trailingIcon,
             modifier = Modifier
                 .weight(1f, fill = true)

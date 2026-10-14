@@ -84,19 +84,18 @@ If using the Sample app to reproduce an issue, please include relevant log entri
 
 ## Personalized In-App Forms
 
-Use the profile controls to identify the profile matching your JWT. Paste a valid JWT from your
-own authentication server into **Personalization JWT**, then enable **JWT provider registered**.
-Enabling the provider applies the field's current value. After editing it, tap **Apply JWT** to
-make the new value available to the next token fetch. Blank applied values fail the provider callback.
-Disable the toggle to unregister the provider. Profile changes and resets use the existing SDK
-identity handling; they do not unregister the provider. Before changing the profile, paste and apply
-the JWT matching the new profile, or disable the provider and re-enable it after updating both.
+Enable **JWT provider registered** to show the **Personalization JWT** field. Paste a valid JWT
+from your own authentication server and tap the inline **Set** button to make it available to the
+next token fetch. Use the profile controls to identify the matching profile. Blank set values fail
+the provider callback. Disable the toggle to unregister the provider. Profile changes and resets use
+the existing SDK identity handling; they do not unregister the provider. Before changing the profile,
+set the JWT matching the new profile.
 
 The [provider example in SampleViewModel](./src/main/java/com/klaviyo/sample/SampleViewModel.kt)
 returns the applied JWT from memory and does not persist or log it. Static pasting lets you try
 initial personalization; automatic refresh requires a freshly issued JWT from your server on every
 provider call. Replace the callback's pasted-token lookup with that request in your integration.
-For this sample, paste and apply a fresh token before the SDK next fetches one. Applying a value
+For this sample, paste and set a fresh token before the SDK next fetches one. Setting a value
 does not invalidate a cached token or trigger a fetch.
 
 ## Geofence Testing
