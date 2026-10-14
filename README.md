@@ -1011,6 +1011,9 @@ Klaviyo.resetProfile()
 The SDK does not time out your provider, so your code must:
 
 - **Call back exactly once.** Call `onSuccess(jwt)` or `onFailure(error)` for each call to `fetchToken`.
+  The SDK calls `fetchToken` on a background thread, and you may call back from any thread.
+- **Report errors through `onFailure`.** The SDK tries to catch exceptions, but the safest path is to
+  handle your own errors and respond through `onFailure`.
 - **Bound your own work.** Apply a timeout to every network call. A provider that never calls back blocks later token fetches until you register, unregister or reset the profile.
 - **Fail fast.** If you cannot produce a token, for example when no user is signed in, call `onFailure` instead of waiting or retrying.
 - **Pass on the original network error.** The SDK retries after reconnect when it finds an `UnknownHostException` or a `SocketException` in the cause chain, so pass the original exception to `onFailure` or wrap it as the `cause`.
