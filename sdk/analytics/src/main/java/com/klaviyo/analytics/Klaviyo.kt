@@ -25,7 +25,6 @@ import com.klaviyo.core.Operation
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenManager
-import com.klaviyo.core.auth.AuthTokenProvider
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
@@ -149,13 +148,11 @@ object Klaviyo {
      * features (such as in-app forms that target a known profile).
      *
      * Re-registering replaces the previously registered provider and discards any cached token.
-     * The SDK will invoke [AuthTokenProvider.fetchToken] whenever a fresh token is needed; the
-     * host MUST invoke exactly one of [AuthTokenProvider.Callback.onSuccess] or
-     * [AuthTokenProvider.Callback.onFailure] per call.
+     * The SDK invokes [AuthTokenProvider.fetchToken] whenever a fresh token is needed.
      */
     @JvmStatic
     fun registerAuthTokenProvider(provider: AuthTokenProvider) = safeApply {
-        Registry.get<AuthTokenManager>().registerProvider(provider)
+        Registry.get<AuthTokenManager>().registerProvider(provider.toCore())
     }
 
     /**

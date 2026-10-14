@@ -25,6 +25,7 @@ import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.AuthTokenProvider as CoreAuthTokenProvider
 import com.klaviyo.core.config.AutomaticPushTokenForwarding
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
@@ -121,6 +122,7 @@ internal class KlaviyoTest : BaseTest() {
         every { invalidate() } returns 1L
         every { setIdentified(any()) } just Runs
         coEvery { clearTokenState(any()) } returns Unit
+        every { registerProvider(any()) } just Runs
         every { unregisterProvider() } just Runs
     }
 
@@ -762,6 +764,18 @@ internal class KlaviyoTest : BaseTest() {
     private fun clearInitialAuthCalls() {
         dispatcher.scheduler.advanceUntilIdle()
         clearMocks(mockAuthTokenManager, answers = false)
+    }
+
+    @Test
+    fun `registerAuthTokenProvider registers an adapter with AuthTokenManager`() {
+        val registered = slot<CoreAuthTokenProvider>()
+        every { mockAuthTokenManager.registerProvider(capture(registered)) } just Runs
+        val coreCallback = mockk<CoreAuthTokenProvider.Callback>(relaxed = true)
+
+        Klaviyo.registerAuthTokenProvider { it.onSuccess("jwt") }
+        registered.captured.fetchToken(coreCallback)
+
+        verify(exactly = 1) { coreCallback.onSuccess("jwt") }
     }
 
     @Test
