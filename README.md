@@ -962,9 +962,6 @@ Personalized In-App Forms show content from the signed-in user's Klaviyo profile
 
 Set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server. The JWT must carry valid `iat` and `exp` claims and the user's matching `email` claim. Keep the SDK's profile identifiers in sync with the signed-in user (see [Profile Identification](#profile-identification)).
 
-The `AuthTokenProvider` type is in the `core` artifact. If your app does not already depend on it, add
-`com.github.klaviyo.klaviyo-android-sdk:core` at the same version as your other Klaviyo dependencies.
-
 After initializing the SDK, register a provider that fetches a token from your backend:
 
 <details open>
