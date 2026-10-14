@@ -11,7 +11,6 @@ import com.klaviyo.analytics.model.EventMetric;
 import com.klaviyo.analytics.model.Profile;
 import com.klaviyo.analytics.model.ProfileKey;
 import com.klaviyo.analytics.model.Subscription;
-import com.klaviyo.core.auth.AuthTokenProvider;
 import com.klaviyo.fixtures.KlaviyoMock;
 
 import java.io.Serializable;

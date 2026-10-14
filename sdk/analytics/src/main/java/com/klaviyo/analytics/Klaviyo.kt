@@ -25,7 +25,6 @@ import com.klaviyo.core.Operation
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenManager
-import com.klaviyo.core.auth.AuthTokenProvider
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
@@ -155,7 +154,7 @@ object Klaviyo {
      */
     @JvmStatic
     fun registerAuthTokenProvider(provider: AuthTokenProvider) = safeApply {
-        Registry.get<AuthTokenManager>().registerProvider(provider)
+        Registry.get<AuthTokenManager>().registerProvider(provider.toCore())
     }
 
     /**
