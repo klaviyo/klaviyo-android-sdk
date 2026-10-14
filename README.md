@@ -1004,7 +1004,7 @@ On logout, clear the SDK profile:
 Klaviyo.resetProfile()
 ```
 
-`unregisterAuthTokenProvider()` turns personalization off. It is not a logout, because a form that is already open keeps its token until it expires.
+A form that is already open keeps its token until it expires, whether you call `resetProfile()` or `unregisterAuthTokenProvider()`. `unregisterAuthTokenProvider()` turns personalization off. It is not a logout.
 
 ##### Provider requirements
 
