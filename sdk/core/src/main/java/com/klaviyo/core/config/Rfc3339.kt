@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.TimeZone
 
 /**
  * RFC 3339 parsing that works on every supported API level
@@ -26,6 +27,8 @@ internal object Rfc3339 {
     @SuppressLint("SimpleDateFormat")
     private fun parser() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.ENGLISH).apply {
         isLenient = false
+        // The parsed offset sets the instant; a UTC calendar keeps device DST rules out of validation
+        timeZone = TimeZone.getTimeZone("UTC")
     }
 
     fun parseMillis(timestamp: String?): Long? {

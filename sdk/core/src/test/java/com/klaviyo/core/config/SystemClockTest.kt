@@ -118,6 +118,20 @@ class SystemClockTest {
     }
 
     @Test
+    fun `parseRfc3339 does not depend on the default time zone`() {
+        val defaultZone = TimeZone.getDefault()
+        try {
+            // 02:30 on this date falls in New York's spring-forward gap
+            TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"))
+
+            assertEquals(1_772_937_000_000L, SystemClock.parseRfc3339("2026-03-08T02:30:00Z"))
+            assertEquals(1_772_955_000_000L, SystemClock.parseRfc3339("2026-03-08T02:30:00-05:00"))
+        } finally {
+            TimeZone.setDefault(defaultZone)
+        }
+    }
+
+    @Test
     fun `parseRfc3339 does not depend on the default locale`() {
         // setUp sets an Arabic default locale, which formats digits differently
         assertEquals(epochMillis, SystemClock.parseRfc3339("2026-10-06T19:00:00Z"))
