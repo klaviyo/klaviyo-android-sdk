@@ -18,11 +18,6 @@ internal class FetchGeofencesRequestTest : BaseApiRequestTest<FetchGeofencesRequ
     override val expectedUrl: URL
         get() = URL("${mockConfig.baseUrl}/$expectedPath?company_id=$API_KEY&page[size]=30")
 
-    override val expectedHeaders: Map<String, String>
-        get() = super.expectedHeaders.toMutableMap() + mapOf(
-            "Revision" to "2026-01-15.pre"
-        )
-
     override fun makeTestRequest(): FetchGeofencesRequest = FetchGeofencesRequest()
 
     @Test

@@ -55,4 +55,9 @@ internal interface JsBridge {
      *
      */
     fun profileEvent(event: Event)
+
+    /**
+     * Inject the auth token into the webview as a data attribute.
+     */
+    fun jwtMutation(token: String)
 }
