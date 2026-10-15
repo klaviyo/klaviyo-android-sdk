@@ -91,6 +91,11 @@ the provider callback. Disable the toggle to unregister the provider. Profile ch
 the existing SDK identity handling; they do not unregister the provider. Before changing the profile,
 set the JWT matching the new profile.
 
+For a repeatable manual check, configure a live personalized in-app form to trigger on the
+**Viewed Product** metric. Enable the provider, paste and **Set** a fresh JWT, identify the matching
+profile with **Set Profile**, then tap **Viewed Product** to trigger the form when the JWT is
+available. The iOS example uses **Added to Cart** for the equivalent check.
+
 The [provider example in SampleViewModel](./src/main/java/com/klaviyo/sample/SampleViewModel.kt)
 returns the applied JWT from memory and does not persist or log it. Static pasting lets you try
 initial personalization; automatic refresh requires a freshly issued JWT from your server on every
