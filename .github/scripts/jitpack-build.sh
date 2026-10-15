@@ -7,6 +7,7 @@
 #
 # Usage: jitpack-build.sh <version>
 # Env:   JITPACK_TOKEN (optional) - JitPack API token with push access
+#        FORCE_REBUILD (optional) - "true" deletes any existing build before polling
 
 set -u
 
@@ -121,6 +122,16 @@ case "${status,,}" in
       delete_build || true
     else
       echo "::warning::JitPack has a cached failed build, but retries are disabled without JITPACK_TOKEN. Polling will re-read the stale failure."
+    fi
+    ;;
+  ok)
+    if [ "${FORCE_REBUILD:-false}" = true ]; then
+      if [ "$RETRY_ENABLED" = true ]; then
+        echo "Force rebuild requested; deleting the existing JitPack build."
+        delete_build || true
+      else
+        echo "::warning::Force rebuild requested, but JITPACK_TOKEN is not set; reusing the existing build."
+      fi
     fi
     ;;
 esac
