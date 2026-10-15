@@ -255,4 +255,21 @@ class KlaviyoPushServiceTest : BaseTest() {
 
         verify { pushService.onKlaviyoNotificationMessageReceived(msg) }
     }
+
+    @Test
+    fun `Messages are not dispatched through a dispatcher registered outside push-fcm`() {
+        val observer = mockk<KlaviyoNotificationObserver>(relaxed = true)
+        Registry.register<PushNotificationDispatcher>(
+            object : PushNotificationDispatcher by pushDispatcher {}
+        )
+        pushDispatcher.onKlaviyoNotification(observer)
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage
+        every { msg.messageId } returns UUID.randomUUID().toString()
+
+        pushService.onMessageReceived(msg)
+
+        verify { pushService.onKlaviyoNotificationMessageReceived(msg) }
+        verify(exactly = 0) { observer(any()) }
+    }
 }

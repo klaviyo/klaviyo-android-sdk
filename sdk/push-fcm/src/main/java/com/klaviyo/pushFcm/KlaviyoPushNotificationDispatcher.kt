@@ -19,7 +19,7 @@ internal class KlaviyoPushNotificationDispatcher : PushNotificationDispatcher {
         observers.remove(observer)
     }
 
-    override fun dispatch(message: RemoteMessage) {
+    fun dispatch(message: RemoteMessage) {
         if (observers.isEmpty()) return
 
         try {
@@ -40,7 +40,9 @@ internal class KlaviyoPushNotificationDispatcher : PushNotificationDispatcher {
 }
 
 /**
- * Dispatch to the registered [PushNotificationDispatcher], if any
+ * Dispatch to the registered [PushNotificationDispatcher], if it is push-fcm's own.
+ * Dispatch stays off the public interface so only push-fcm can deliver messages to observers.
  */
 internal fun dispatchToPushObservers(message: RemoteMessage) =
-    Registry.getOrNull<PushNotificationDispatcher>()?.dispatch(message)
+    (Registry.getOrNull<PushNotificationDispatcher>() as? KlaviyoPushNotificationDispatcher)
+        ?.dispatch(message)
