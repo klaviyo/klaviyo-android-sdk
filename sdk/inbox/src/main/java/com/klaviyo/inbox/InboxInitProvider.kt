@@ -5,12 +5,16 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import com.klaviyo.core.Registry
-import com.klaviyo.pushFcm.KlaviyoPushObservers
+import com.klaviyo.pushFcm.PushNotificationDispatcher
 
 internal class InboxInitProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         Registry.registerOnce<MobileInboxProvider> { KlaviyoMobileInboxProvider() }
-        KlaviyoPushObservers.onKlaviyoNotification(InboxCaptureObserver)
+        Registry.getOrNull<PushNotificationDispatcher>()
+            ?.onKlaviyoNotification(InboxCaptureObserver)
+            ?: Registry.log.warning(
+                "Push notification dispatcher unavailable; Mobile Inbox capture is off"
+            )
         return true
     }
 

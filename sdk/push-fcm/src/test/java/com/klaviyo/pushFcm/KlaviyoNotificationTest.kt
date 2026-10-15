@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
@@ -73,9 +74,12 @@ class KlaviyoNotificationTest : BaseTest() {
         every { NotificationManagerCompat.from(any()) } returns this
     }
 
+    private val pushDispatcher = KlaviyoPushNotificationDispatcher()
+
     @Before
     override fun setup() {
         super.setup()
+        Registry.register<PushNotificationDispatcher>(pushDispatcher)
 
         // Mock NotificationCompat.Builder constructor to return our mock builder
         mockkConstructor(NotificationCompat.Builder::class)
@@ -131,6 +135,7 @@ class KlaviyoNotificationTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        Registry.unregister<PushNotificationDispatcher>()
         MockIntent.unmockPendingIntent()
         unmockkStatic(Uri::class)
         unmockkStatic("com.klaviyo.core.config.KlaviyoConfigKt")
@@ -1043,7 +1048,7 @@ class KlaviyoNotificationTest : BaseTest() {
 
     private fun observeNotifications(observer: KlaviyoNotificationObserver): KlaviyoNotificationObserver {
         every { mockRemoteMessage.messageId } returns UUID.randomUUID().toString()
-        KlaviyoPushObservers.onKlaviyoNotification(observer)
+        pushDispatcher.onKlaviyoNotification(observer)
         return observer
     }
 
@@ -1059,7 +1064,7 @@ class KlaviyoNotificationTest : BaseTest() {
                 mockNotificationManager.notify(any<String>(), any(), any())
             }
         } finally {
-            KlaviyoPushObservers.offKlaviyoNotification(observer)
+            pushDispatcher.offKlaviyoNotification(observer)
         }
     }
 
@@ -1071,7 +1076,7 @@ class KlaviyoNotificationTest : BaseTest() {
             assertTrue(notification.displayNotification(mockContext))
             verify { mockNotificationManager.notify(any<String>(), any(), any()) }
         } finally {
-            KlaviyoPushObservers.offKlaviyoNotification(observer)
+            pushDispatcher.offKlaviyoNotification(observer)
         }
     }
 
@@ -1084,7 +1089,7 @@ class KlaviyoNotificationTest : BaseTest() {
             assertFalse(notification.displayNotification(mockContext))
             verify { observer(mockRemoteMessage) }
         } finally {
-            KlaviyoPushObservers.offKlaviyoNotification(observer)
+            pushDispatcher.offKlaviyoNotification(observer)
         }
     }
 
@@ -1099,7 +1104,7 @@ class KlaviyoNotificationTest : BaseTest() {
             notification.displayNotification(mockContext)
             verify(exactly = 0) { observer(any()) }
         } finally {
-            KlaviyoPushObservers.offKlaviyoNotification(observer)
+            pushDispatcher.offKlaviyoNotification(observer)
         }
     }
 }

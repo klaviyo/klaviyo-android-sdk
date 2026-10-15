@@ -7,7 +7,6 @@ import android.content.res.Resources.NotFoundException
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.net.Uri
 import android.os.Build
-import androidx.annotation.RestrictTo
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -175,7 +174,6 @@ object KlaviyoRemoteMessage {
      * What tapping the notification body does: the deep link (`url`) if present, else the
      * external URL (`web_url`, scheme-checked), else open the app
      */
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     val RemoteMessage.tapDestination: TapDestination
         get() = deepLink?.let { TapDestination.DeepLink(it) }
             ?: webUrl?.let { TapDestination.OpenUrl(it) }
@@ -184,7 +182,6 @@ object KlaviyoRemoteMessage {
     /**
      * Destination of a tap on the notification body
      */
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     sealed class TapDestination {
         object OpenApp : TapDestination()
         data class DeepLink(val uri: Uri) : TapDestination()

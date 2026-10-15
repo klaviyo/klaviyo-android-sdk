@@ -127,7 +127,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             return false
         }
 
-        KlaviyoPushObservers.dispatch(message)
+        dispatchToPushObservers(message)
 
         if (!hasNotificationPermission(context)) {
             return false
@@ -280,8 +280,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * creation, so this is only reachable via direct API calls or test tooling — we
      * warn so the misconfiguration is debuggable.
      */
-    private fun makeOpenedIntent(context: Context, autoTracking: Boolean, notificationUid: String): Intent? {
-        return when (val destination = message.tapDestination) {
+    private fun makeOpenedIntent(context: Context, autoTracking: Boolean, notificationUid: String): Intent? =
+        when (val destination = message.tapDestination) {
             is TapDestination.DeepLink -> {
                 if (message.webUrl != null) {
                     Registry.log.warning(
@@ -333,7 +333,6 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 }
             }
         }
-    }
 
     /**
      * Parse action buttons from message data and add them to the notification

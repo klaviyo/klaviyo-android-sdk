@@ -8,13 +8,18 @@ import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 
 /**
- * Manifest-merged init [ContentProvider] that registers [KlaviyoPushTokenFetcher] at process start,
- * mirroring the forms module's `FormsInitProvider`. Lets analytics resolve a push-token fetcher
- * lazily via [Registry] without analytics depending on `push-fcm` or Firebase.
+ * Manifest-merged init [ContentProvider] that registers push-fcm services at process start,
+ * mirroring the forms module's `FormsInitProvider`:
+ * - [KlaviyoPushTokenFetcher], so analytics can resolve a push-token fetcher without depending
+ *   on `push-fcm` or Firebase
+ * - [KlaviyoPushNotificationDispatcher], so other modules can observe notifications before display
+ *
+ * Its manifest `initOrder` runs it before providers of modules that read these services.
  */
 internal class KlaviyoPushTokenInitProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         Registry.registerOnce<PushTokenFetcher> { KlaviyoPushTokenFetcher() }
+        Registry.registerOnce<PushNotificationDispatcher> { KlaviyoPushNotificationDispatcher() }
         return true
     }
 

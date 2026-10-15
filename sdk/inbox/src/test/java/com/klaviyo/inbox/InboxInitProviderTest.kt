@@ -2,9 +2,8 @@ package com.klaviyo.inbox
 
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
-import com.klaviyo.pushFcm.KlaviyoPushObservers
-import io.mockk.mockkObject
-import io.mockk.unmockkObject
+import com.klaviyo.pushFcm.PushNotificationDispatcher
+import io.mockk.mockk
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertTrue
@@ -13,16 +12,17 @@ import org.junit.Test
 
 internal class InboxInitProviderTest : BaseTest() {
 
+    private val pushDispatcher = mockk<PushNotificationDispatcher>(relaxed = true)
+
     @Before
     override fun setup() {
         super.setup()
-        mockkObject(KlaviyoPushObservers)
+        Registry.register<PushNotificationDispatcher>(pushDispatcher)
     }
 
     @After
     override fun cleanup() {
-        KlaviyoPushObservers.offKlaviyoNotification(InboxCaptureObserver)
-        unmockkObject(KlaviyoPushObservers)
+        Registry.unregister<PushNotificationDispatcher>()
         Registry.unregister<MobileInboxProvider>()
         super.cleanup()
     }
@@ -47,6 +47,15 @@ internal class InboxInitProviderTest : BaseTest() {
     fun `onCreate registers the capture observer with push`() {
         InboxInitProvider().onCreate()
 
-        verify { KlaviyoPushObservers.onKlaviyoNotification(InboxCaptureObserver) }
+        verify { pushDispatcher.onKlaviyoNotification(InboxCaptureObserver) }
+    }
+
+    @Test
+    fun `onCreate still registers the inbox when push is unavailable`() {
+        Registry.unregister<PushNotificationDispatcher>()
+
+        assertTrue(InboxInitProvider().onCreate())
+        assertTrue(Registry.getOrNull<MobileInboxProvider>() is KlaviyoMobileInboxProvider)
+        verify { spyLog.warning(any(), null) }
     }
 }

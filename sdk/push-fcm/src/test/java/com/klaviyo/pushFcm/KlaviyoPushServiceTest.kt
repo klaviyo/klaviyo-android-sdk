@@ -3,6 +3,7 @@ package com.klaviyo.pushFcm
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Constants
+import com.klaviyo.core.Registry
 import com.klaviyo.core.config.AutomaticPushTokenForwarding
 import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.core.config.hasManifestKey
@@ -40,9 +41,12 @@ class KlaviyoPushServiceTest : BaseTest() {
         KEY_VALUE_PAIRS_KEY to JSONObject(stubKeyValuePairs).toString()
     )
 
+    private val pushDispatcher = KlaviyoPushNotificationDispatcher()
+
     @Before
     override fun setup() {
         super.setup()
+        Registry.register<PushNotificationDispatcher>(pushDispatcher)
         // mockkStatic is required for @JvmStatic methods
         mockkStatic(Klaviyo::class)
         mockkObject(Klaviyo)
@@ -72,6 +76,7 @@ class KlaviyoPushServiceTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        Registry.unregister<PushNotificationDispatcher>()
         super.cleanup()
         unmockkStatic(Klaviyo::class)
         unmockkStatic("com.klaviyo.core.config.KlaviyoConfigKt")
@@ -167,7 +172,7 @@ class KlaviyoPushServiceTest : BaseTest() {
         every { msg.data } returns stubMessage
         every { msg.messageId } returns UUID.randomUUID().toString()
         val observer = mockk<KlaviyoNotificationObserver>(relaxed = true)
-        KlaviyoPushObservers.onKlaviyoNotification(observer)
+        pushDispatcher.onKlaviyoNotification(observer)
 
         try {
             pushService.onMessageReceived(msg)
@@ -177,7 +182,7 @@ class KlaviyoPushServiceTest : BaseTest() {
                 pushService.onKlaviyoNotificationMessageReceived(msg)
             }
         } finally {
-            KlaviyoPushObservers.offKlaviyoNotification(observer)
+            pushDispatcher.offKlaviyoNotification(observer)
         }
     }
 
@@ -190,7 +195,7 @@ class KlaviyoPushServiceTest : BaseTest() {
         every { msg.data } returns stubMessage
         every { msg.messageId } returns UUID.randomUUID().toString()
         val observer = mockk<KlaviyoNotificationObserver>(relaxed = true)
-        KlaviyoPushObservers.onKlaviyoNotification(observer)
+        pushDispatcher.onKlaviyoNotification(observer)
 
         try {
             pushService.onMessageReceived(msg)
@@ -198,7 +203,7 @@ class KlaviyoPushServiceTest : BaseTest() {
             verify { anyConstructed<KlaviyoNotification>().hasNotificationPermission(any()) }
             verify(exactly = 1) { observer(msg) }
         } finally {
-            KlaviyoPushObservers.offKlaviyoNotification(observer)
+            pushDispatcher.offKlaviyoNotification(observer)
         }
     }
 
@@ -211,14 +216,14 @@ class KlaviyoPushServiceTest : BaseTest() {
         every { msg.data } returns stubMessage
         every { msg.messageId } returns UUID.randomUUID().toString()
         val observer = mockk<KlaviyoNotificationObserver>(relaxed = true)
-        KlaviyoPushObservers.onKlaviyoNotification(observer)
+        pushDispatcher.onKlaviyoNotification(observer)
 
         try {
             customService.onMessageReceived(msg)
 
             verify { observer(msg) }
         } finally {
-            KlaviyoPushObservers.offKlaviyoNotification(observer)
+            pushDispatcher.offKlaviyoNotification(observer)
         }
     }
 
@@ -229,14 +234,25 @@ class KlaviyoPushServiceTest : BaseTest() {
         stubMessage.remove("body")
         every { msg.data } returns stubMessage
         val observer = mockk<KlaviyoNotificationObserver>(relaxed = true)
-        KlaviyoPushObservers.onKlaviyoNotification(observer)
+        pushDispatcher.onKlaviyoNotification(observer)
 
         try {
             pushService.onMessageReceived(msg)
 
             verify(exactly = 0) { observer(any()) }
         } finally {
-            KlaviyoPushObservers.offKlaviyoNotification(observer)
+            pushDispatcher.offKlaviyoNotification(observer)
         }
+    }
+
+    @Test
+    fun `A Klaviyo notification is handled when no dispatcher is registered`() {
+        Registry.unregister<PushNotificationDispatcher>()
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage
+
+        pushService.onMessageReceived(msg)
+
+        verify { pushService.onKlaviyoNotificationMessageReceived(msg) }
     }
 }
