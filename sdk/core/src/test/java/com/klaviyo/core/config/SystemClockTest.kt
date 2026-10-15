@@ -76,4 +76,56 @@ class SystemClockTest {
 
         assertEquals(expectedOutput, actualOutput)
     }
+
+    private val epochMillis = 1_791_313_200_000L
+
+    @Test
+    fun `parseRfc3339 parses second precision in UTC`() {
+        assertEquals(epochMillis, SystemClock.parseRfc3339("2026-10-06T19:00:00Z"))
+    }
+
+    @Test
+    fun `parseRfc3339 truncates fractional seconds to milliseconds`() {
+        assertEquals(epochMillis + 123, SystemClock.parseRfc3339("2026-10-06T19:00:00.123Z"))
+        assertEquals(
+            epochMillis + 123,
+            SystemClock.parseRfc3339("2026-10-06T19:00:00.123456+00:00")
+        )
+        assertEquals(epochMillis + 500, SystemClock.parseRfc3339("2026-10-06T19:00:00.5Z"))
+    }
+
+    @Test
+    fun `parseRfc3339 applies numeric offsets`() {
+        assertEquals(epochMillis, SystemClock.parseRfc3339("2026-10-06T15:00:00-04:00"))
+        assertEquals(epochMillis, SystemClock.parseRfc3339("2026-10-07T00:30:00+05:30"))
+    }
+
+    @Test
+    fun `parseRfc3339 accepts lowercase separators and a negative zero offset`() {
+        assertEquals(epochMillis, SystemClock.parseRfc3339("2026-10-06t19:00:00z"))
+        assertEquals(epochMillis, SystemClock.parseRfc3339("2026-10-06T19:00:00-00:00"))
+    }
+
+    @Test
+    fun `parseRfc3339 does not depend on the default locale`() {
+        // setUp sets an Arabic default locale, which formats digits differently
+        assertEquals(epochMillis, SystemClock.parseRfc3339("2026-10-06T19:00:00Z"))
+    }
+
+    @Test
+    fun `parseRfc3339 returns null for missing or invalid timestamps`() {
+        listOf(
+            null,
+            "",
+            "yesterday",
+            "2026-10-06 19:00:00",
+            "2026-10-06T19:00:00",
+            "2026-13-06T19:00:00Z",
+            "1791313200",
+            "2026-02-30T19:00:00Z",
+            "2026-10-06T24:00:00Z",
+            "2026-10-06T19:00:00+24:00",
+            "2026-10-06T19:00:00+05:60"
+        ).forEach { Assert.assertNull(it, SystemClock.parseRfc3339(it)) }
+    }
 }

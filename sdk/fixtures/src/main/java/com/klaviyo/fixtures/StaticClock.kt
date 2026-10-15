@@ -12,6 +12,12 @@ class StaticClock(var time: Long, private val formatted: String) : Clock {
     override fun currentTimeMillis(): Long = time
     override fun isoTime(milliseconds: Long): String = formatted
 
+    /**
+     * Fixed parse result for every timestamp, or null to mimic an unparseable one
+     */
+    var parsedRfc3339: Long? = null
+    override fun parseRfc3339(timestamp: String?): Long? = timestamp?.let { parsedRfc3339 }
+
     override fun schedule(delay: Long, task: () -> Unit): Clock.Cancellable {
         val scheduledTask = ScheduledTask(currentTimeMillis() + delay, task)
         scheduledTasks.add(scheduledTask)
