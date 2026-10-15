@@ -212,9 +212,9 @@ internal class InboxCaptureObserverTest : BaseTest() {
         val release = registerStalledRepository()
 
         try {
-            val elapsed = measureTimeMillis { capture() }
+            capture()
 
-            assertTrue(elapsed < InboxCaptureObserver.CAPTURE_TIMEOUT_MS)
+            verify { spyLog.verbose(match { it.contains("main thread") }, null) }
             verify(exactly = 0) { spyLog.warning(any(), any()) }
         } finally {
             release()

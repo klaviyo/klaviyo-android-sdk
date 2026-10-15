@@ -11,6 +11,9 @@ interface Clock {
      * `2026-10-06T19:00:00.123456+05:30`, to epoch milliseconds.
      * Fractional seconds beyond milliseconds are truncated.
      *
+     * Kotlin implementations inherit this default. Java implementations must override it,
+     * since the module doesn't compile interface defaults to JVM default methods.
+     *
      * @return Epoch milliseconds, or null when [timestamp] is null or not valid RFC 3339
      */
     fun parseRfc3339(timestamp: String?): Long? = Rfc3339.parseMillis(timestamp)
