@@ -127,6 +127,36 @@ class StateSideEffectsTest : BaseTest() {
     }
 
     @Test
+    fun `Flushing the previous profile preserves replacement attributes until their request is queued`() {
+        every { mockConfig.debounceInterval } returns 100
+        val enqueuedProfiles = mutableListOf<Profile>()
+        every {
+            apiClientMock.enqueueProfile(capture(enqueuedProfiles))
+        } returns mockk(relaxed = true)
+        val state = KlaviyoState()
+        StateSideEffects(state, apiClientMock)
+
+        state.setProfile(Profile(email = EMAIL).setProperty("tier", "silver"))
+        state.setProfile(Profile(email = OTHER_EMAIL).setProperty("tier", "gold"))
+
+        assertEquals(1, enqueuedProfiles.size)
+        assertEquals(EMAIL, enqueuedProfiles.single().email)
+        assertEquals("silver", enqueuedProfiles.single()[ProfileKey.CUSTOM("tier")])
+        assertEquals("gold", state.getAsProfile(withAttributes = true)[ProfileKey.CUSTOM("tier")])
+        val restoredProfile = KlaviyoState().getAsProfile(withAttributes = true)
+        assertEquals(OTHER_EMAIL, restoredProfile.email)
+        assertEquals("gold", restoredProfile[ProfileKey.CUSTOM("tier")])
+
+        staticClock.execute(100)
+
+        assertEquals(2, enqueuedProfiles.size)
+        assertEquals(OTHER_EMAIL, enqueuedProfiles.last().email)
+        assertEquals("gold", enqueuedProfiles.last()[ProfileKey.CUSTOM("tier")])
+        assertNull(state.getAsProfile(withAttributes = true)[ProfileKey.CUSTOM("tier")])
+        assertNull(KlaviyoState().getAsProfile(withAttributes = true)[ProfileKey.CUSTOM("tier")])
+    }
+
+    @Test
     fun `Pending profile merge does not restore a removed identifier`() {
         var current = Profile(externalId = EXTERNAL_ID, email = EMAIL).apply {
             setProperty(ProfileKey.FIRST_NAME, "Kermit")
