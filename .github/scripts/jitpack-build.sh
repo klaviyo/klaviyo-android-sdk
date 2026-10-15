@@ -89,6 +89,15 @@ poll_build() {
   return 2
 }
 
+# Print the Gradle failure report ("What went wrong:" onward), or the last 100 lines if there is none.
+failure_section() {
+  if grep -q "What went wrong:" "$LOG_FILE"; then
+    sed -n '/What went wrong:/,$p' "$LOG_FILE"
+  else
+    tail -n 100 "$LOG_FILE"
+  fi
+}
+
 # Check the successful build output for every expected artifact.
 verify_artifacts() {
   local missing=()
@@ -113,8 +122,17 @@ status=$(jitpack_status || true)
 echo "Current JitPack build status: ${status:-unknown}"
 case "${status,,}" in
   tagnotfound|giterror)
-    echo "JitPack cannot resolve version '$VERSION' (status: $status)."
-    exit 2
+    echo "JitPack cannot resolve version '$VERSION' yet (status: $status); requesting it and re-checking in ${INTERVAL}s."
+    trigger_build
+    sleep "$INTERVAL"
+    status=$(jitpack_status || true)
+    echo "JitPack build status after re-check: ${status:-unknown}"
+    case "${status,,}" in
+      tagnotfound|giterror)
+        echo "JitPack cannot resolve version '$VERSION' (status: $status)."
+        exit 2
+        ;;
+    esac
     ;;
   error)
     if [ "$RETRY_ENABLED" = true ]; then
@@ -153,24 +171,14 @@ while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
   fi
 
   if [ "$result" -eq 2 ]; then
-    # A timeout means the build never reached a verdict; treat it like a transient failure.
-    if [ "$RETRY_ENABLED" = false ] || [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
-      echo "Build timed out after ${MAX_RUNTIME}s. Last status:"
-      cat "$LOG_FILE"
-      echo "::endgroup::"
-      exit 2
-    fi
-    backoff=${BACKOFFS[$((attempt - 1))]}
-    echo "Build timed out (attempt $attempt). Deleting build and retrying in ${backoff}s."
+    echo "Build timed out after ${MAX_RUNTIME}s. Last status:"
+    cat "$LOG_FILE"
     echo "::endgroup::"
-    delete_build || true
-    sleep "$backoff"
-    attempt=$((attempt + 1))
-    continue
+    exit 2
   fi
 
   # result == 1: BUILD FAILED
-  if grep -qE "$TRANSIENT_PATTERN" "$LOG_FILE"; then
+  if failure_section | grep -qE "$TRANSIENT_PATTERN"; then
     transient=true
   else
     transient=false
@@ -199,8 +207,13 @@ while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
 
   backoff=${BACKOFFS[$((attempt - 1))]}
   echo "Transient failure detected (attempt $attempt). Deleting build and retrying in ${backoff}s."
+  if ! delete_build; then
+    echo "Could not delete the failed build, so a retry would re-read the same failure; giving up."
+    cat "$LOG_FILE"
+    echo "::endgroup::"
+    exit 1
+  fi
   echo "::endgroup::"
-  delete_build || true
   sleep "$backoff"
   attempt=$((attempt + 1))
 done
