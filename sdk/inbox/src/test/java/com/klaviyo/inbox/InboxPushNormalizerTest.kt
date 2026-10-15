@@ -15,7 +15,6 @@ import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -186,32 +185,15 @@ internal class InboxPushNormalizerTest : BaseTest() {
     }
 
     @Test
-    fun `a push without a transmission ID deduplicates on the FCM message ID`() {
-        val record = normalize(canonicalWith("_k" to tracking("tm" to null)))
-
-        assertEquals("fcm:$FCM_MESSAGE_ID", record?.dedupeKey)
-        assertNull(record?.attribution?.transmissionId)
-        assertEquals(
-            "campaign-1",
-            JSONObject(record?.attribution?.rawTrackingJson.orEmpty()).getString("\$campaign")
-        )
+    fun `a push without a transmission ID is not captured`() {
+        assertNull(normalize(canonicalWith("_k" to tracking("tm" to null))))
+        assertNull(normalize(canonicalWith("_k" to tracking("tm" to ""))))
     }
 
     @Test
-    fun `a push with neither a transmission ID nor an FCM message ID is not captured`() {
-        assertNull(normalize(canonicalWith("_k" to tracking("tm" to null)), messageId = null))
-    }
-
-    @Test
-    fun `malformed tracking data is captured without attribution or send time`() {
-        val record = normalize(canonicalWith("_k" to "{not json"))
-
-        assertNotNull(record)
-        assertEquals("fcm:$FCM_MESSAGE_ID", record?.dedupeKey)
-        assertEquals(InboxAttribution(), record?.attribution)
+    fun `a push without tracking data is not captured`() {
+        assertNull(normalize(canonicalWith("_k" to "{not json")))
         verify { spyLog.warning(any(), null) }
-        assertNull(record?.sentAt)
-        assertEquals("Sale today", record?.title)
     }
 
     @Test

@@ -135,13 +135,8 @@ internal class InboxCaptureObserverTest : BaseTest() {
     }
 
     @Test
-    fun `a push with nothing to deduplicate on is skipped`() {
-        capture(
-            remoteMessage(
-                canonicalPayload().apply { put("_k", tracking("tm" to null)) },
-                messageId = null
-            )
-        )
+    fun `a push without a transmission ID is skipped`() {
+        capture(remoteMessage(canonicalPayload().apply { put("_k", tracking("tm" to null)) }))
 
         assertTrue(repository.results.isEmpty())
     }

@@ -3,7 +3,7 @@ package com.klaviyo.inbox
 /**
  * A delivered push normalized for the inbox store. The store assigns the message ID on insert.
  *
- * @property dedupeKey The push's `tm`, or `fcm:<FCM message ID>` when the payload has no `tm`
+ * @property dedupeKey The push's `tm`
  * @property receivedAt When this device captured the push, in epoch milliseconds
  * @property sentAt Server send time from `_k.timestamp`, in epoch milliseconds
  */

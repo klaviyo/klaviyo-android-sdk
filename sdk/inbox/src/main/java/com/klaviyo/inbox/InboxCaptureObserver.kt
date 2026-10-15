@@ -33,7 +33,7 @@ internal object InboxCaptureObserver : (RemoteMessage) -> Unit {
             if (!isInboxCaptureEnabled()) return
 
             val record = message.toInboxCaptureRecord(Registry.clock.currentTimeMillis()) ?: run {
-                Registry.log.debug("Mobile Inbox skipped a push with nothing to deduplicate on")
+                Registry.log.debug("Mobile Inbox skipped a push without a transmission ID")
                 return
             }
 

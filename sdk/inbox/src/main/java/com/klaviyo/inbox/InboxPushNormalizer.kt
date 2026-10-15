@@ -22,15 +22,14 @@ import org.json.JSONObject
  */
 internal object InboxPushNormalizer {
     private const val IMAGE_TYPE_KEY = "image_type"
-    private const val FCM_DEDUPE_PREFIX = "fcm:"
 
     private const val TRANSMISSION_ID_KEY = "tm"
     private const val PUSH_TOKEN_KEY = "pt"
     private const val TIMESTAMP_KEY = "timestamp"
 
     /**
-     * @return The record, or null when the message isn't a Klaviyo notification or has neither a
-     *  `tm` nor an FCM message ID to deduplicate on
+     * @return The record, or null when the message isn't a Klaviyo notification or its tracking
+     *  data has no `tm` to deduplicate on
      */
     fun RemoteMessage.toInboxCaptureRecord(receivedAt: Long): InboxCaptureRecord? {
         if (!isKlaviyoNotification) return null
@@ -40,15 +39,7 @@ internal object InboxPushNormalizer {
             transmissionId = tracking?.optNonBlankString(TRANSMISSION_ID_KEY),
             rawTrackingJson = tracking?.toString()
         )
-        val dedupeKey = attribution.transmissionId
-            ?: messageId?.takeIf { it.isNotBlank() }?.let { FCM_DEDUPE_PREFIX + it }
-            ?: return null
-
-        if (attribution.transmissionId == null) {
-            Registry.log.debug(
-                "Klaviyo push has no transmission ID; deduplicating on the FCM message ID"
-            )
-        }
+        val dedupeKey = attribution.transmissionId ?: return null
 
         return InboxCaptureRecord(
             dedupeKey = dedupeKey,
