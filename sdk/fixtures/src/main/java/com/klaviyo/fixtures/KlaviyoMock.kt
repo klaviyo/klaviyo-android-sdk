@@ -70,6 +70,8 @@ object KlaviyoMock {
         every { Klaviyo.handlePush(any()) } returns Klaviyo
         every { Klaviyo.registerDeepLinkHandler(any()) } returns Klaviyo
         every { Klaviyo.unregisterDeepLinkHandler() } returns Klaviyo
+        every { Klaviyo.registerAuthTokenProvider(any()) } returns Klaviyo
+        every { Klaviyo.unregisterAuthTokenProvider() } returns Klaviyo
 
         // Mock getters to return test values
         every { Klaviyo.getEmail() } returns "test@example.com"
@@ -211,6 +213,18 @@ object KlaviyoMock {
     @JvmOverloads
     fun verifyUnregisterDeepLinkHandlerCalled(count: Int = 1) {
         verify(exactly = count) { Klaviyo.unregisterDeepLinkHandler() }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyRegisterAuthTokenProviderCalled(count: Int = 1) {
+        verify(exactly = count) { Klaviyo.registerAuthTokenProvider(any()) }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyUnregisterAuthTokenProviderCalled(count: Int = 1) {
+        verify(exactly = count) { Klaviyo.unregisterAuthTokenProvider() }
     }
 
     @JvmStatic

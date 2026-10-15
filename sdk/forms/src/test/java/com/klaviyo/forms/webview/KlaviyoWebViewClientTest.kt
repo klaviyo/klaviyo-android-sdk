@@ -13,17 +13,27 @@ import android.webkit.WebSettings
 import androidx.core.view.ViewCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenException
+import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.AuthTokenProvider
+import com.klaviyo.core.auth.TokenRefreshObserver
+import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
+import com.klaviyo.forms.bridge.JwtObserver
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
+import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
+import io.mockk.CapturingSlot
 import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.just
@@ -31,16 +41,28 @@ import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
 import io.mockk.runs
+import io.mockk.slot
 import io.mockk.verify
 import java.io.ByteArrayInputStream
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class KlaviyoWebViewClientTest : BaseTest() {
 
     companion object {
+        private const val JWT = "header.payload.signature"
+        private const val TOKEN_LATENCY_MS = 100L
+        private const val LATE_TOKEN_MS = 300L
+
         val HTML_TEMPLATE = """
             <!DOCTYPE html>
             <html lang="en">
@@ -50,24 +72,25 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-native-bridge-handshake='BRIDGE_HANDSHAKE'
                   data-forms-data-environment='FORMS_ENVIRONMENT'
                   data-klaviyo-local-tracking="1"
-                  data-klaviyo-profile="{}"
+                  data-klaviyo-profile='KLAVIYO_PROFILE'
+                  data-klaviyo-jwt='KLAVIYO_JWT'
             >
                 <meta charset="UTF-8">
                 <meta name="viewport"
                       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover"/>
-            
+
                 <!--  This meta tag protects @imported fonts from being blocked by CORS  -->
                 <meta name="referrer" content="same-origin"/>
-            
+
                 <title>Klaviyo In-App Form Template</title>
-            
+
                 <!-- Load in JS helper functions from assets directory -->
                 <script type="text/javascript" src="file:///android_asset/onsite-bridge.js"></script>
-            
+
                 <!-- Static stylesheet for "websafe" fonts that may be unavailable or inconsistent from the system -->
                 <link rel="stylesheet" type="text/css"
                       href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css" crossorigin/>
-            
+
                 <!-- Placeholder script to load klaviyo.js -->
                 <script type="text/javascript" src="KLAVIYO_JS_URL"></script>
             </head>
@@ -99,9 +122,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
     private val mockSettings: WebSettings = mockk(relaxed = true)
     private val mockParentView: ViewGroup = mockk(relaxed = true)
     private val mockAssets = mockk<AssetManager> {
-        every { open("InAppFormsTemplate.html") } returns ByteArrayInputStream(
-            HTML_TEMPLATE.encodeToByteArray()
-        )
+        every { open("InAppFormsTemplate.html") } answers {
+            ByteArrayInputStream(HTML_TEMPLATE.encodeToByteArray())
+        }
     }
 
     private val mockJsBridge = mockk<JsBridge>(relaxed = true).apply {
@@ -109,6 +132,10 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     private val mockObserverCollection = mockk<JsBridgeObserverCollection>(relaxed = true)
+    private val fakeAuth = FakeAuthTokenManager()
+    private val mockState = mockk<State>(relaxed = true).apply {
+        every { getAsProfile() } returns Profile()
+    }
 
     @Before
     override fun setup() {
@@ -116,6 +143,8 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Registry.register<JsBridge>(mockJsBridge)
         Registry.register<JsBridgeObserverCollection>(mockObserverCollection)
         Registry.register<NativeBridge>(mockBridge)
+        Registry.register<State>(mockState)
+        Registry.register<AuthTokenManager>(fakeAuth)
         mockDeviceProperties()
         every { mockConfig.isDebugBuild } returns false
         every { mockContext.assets } returns mockAssets
@@ -159,7 +188,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
     @After
     override fun cleanup() {
         Registry.unregister<NativeBridge>()
+        Registry.unregister<State>()
         Registry.unregister<JsBridgeObserverCollection>()
+        Registry.unregister<AuthTokenManager>()
         clearAllMocks()
         super.cleanup()
     }
@@ -199,7 +230,8 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-native-bridge-handshake='${expectedHandshake.compileJson()}'
                   data-forms-data-environment='in-app'
                   data-klaviyo-local-tracking="1"
-                  data-klaviyo-profile="{}"
+                  data-klaviyo-profile='${Profile().toBridgeJson()}'
+                  data-klaviyo-jwt=''
             >
                 <meta charset="UTF-8">
                 <meta name="viewport"
@@ -224,15 +256,164 @@ class KlaviyoWebViewClientTest : BaseTest() {
             </html>
             """.trimIndent()
 
+        val html = captureTemplate()
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         verify { mockAssets.open("InAppFormsTemplate.html") }
-        verify { anyConstructed<KlaviyoWebView>().loadTemplate(expectedHtml, client, mockBridge) }
+        verify { anyConstructed<KlaviyoWebView>().loadTemplate(any(), client, mockBridge) }
+        assertEquals(expectedHtml, html.captured.decodeHtml())
         verify { mockConfig.sdkName }
         verify { mockConfig.sdkVersion }
         // tells us timer has started
         assertEquals(staticClock.scheduledTasks.size, 1)
+    }
+
+    private fun captureTemplate() = slot<String>().also { html ->
+        every {
+            anyConstructed<KlaviyoWebView>().loadTemplate(capture(html), any(), any())
+        } just runs
+    }
+
+    private fun String.decodeHtml() = replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&amp;", "&")
+
+    @Test
+    fun `initial document profile matches the profileMutation shape, escaped`() {
+        val special = "O'Brien & <Admin> \"quoted\" DEVICE_INFO\n\t\u0001雪😀"
+        listOf(
+            Profile(),
+            Profile().apply { anonymousId = "anon-id" },
+            Profile(externalId = "ext", email = "a/b@example.com", phoneNumber = "+15555555555")
+                .apply { anonymousId = "anon-id" },
+            Profile(externalId = special, email = "mail+$special@example.com")
+        ).forEach { profile ->
+            every { mockState.getAsProfile() } returns profile
+            val html = captureTemplate()
+            KlaviyoWebViewClient().initializeWebView()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val encoded = requireNotNull(
+                Regex("data-klaviyo-profile='([^']*)'").find(html.captured)?.groupValues?.get(1)
+            )
+            val rendered = JSONObject(encoded.decodeHtml())
+            assertTrue(encoded.none { it in "<>\"'" })
+            assertEquals(
+                mapOf(
+                    "external_id" to (profile.externalId ?: ""),
+                    "email" to (profile.email ?: ""),
+                    "phone_number" to (profile.phoneNumber ?: ""),
+                    "anonymous_id" to (profile.anonymousId ?: "")
+                ),
+                rendered.keys().asSequence().associateWith { rendered.getString(it) }
+            )
+        }
+    }
+
+    /** Value of the data-klaviyo-jwt attribute in [html], or null if the page was not loaded. */
+    private fun renderedJwt(html: CapturingSlot<String>): String? = if (html.isCaptured) {
+        Regex("data-klaviyo-jwt='([^']*)'").find(html.captured)?.groupValues?.get(1)
+    } else {
+        null
+    }
+
+    @Test
+    fun `page load waits for the initial JWT and seeds it as soon as it arrives`() {
+        fakeAuth.providerRegistered = true
+        val html = captureTemplate()
+        KlaviyoWebViewClient().initializeWebView()
+
+        dispatcher.scheduler.advanceTimeBy(TOKEN_LATENCY_MS)
+        dispatcher.scheduler.runCurrent()
+        assertNull("klaviyo.js must not load before the JWT", renderedJwt(html))
+        assertEquals(0, staticClock.scheduledTasks.size)
+
+        fakeAuth.completeFetch(JWT)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(JWT, renderedJwt(html))
+        assertEquals(TOKEN_LATENCY_MS, dispatcher.scheduler.currentTime)
+        assertEquals(1, staticClock.scheduledTasks.size)
+    }
+
+    @Test
+    fun `page loads without a JWT once the interactive budget expires`() {
+        fakeAuth.providerRegistered = true
+        val html = captureTemplate()
+        KlaviyoWebViewClient().initializeWebView()
+
+        dispatcher.scheduler.advanceTimeBy(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS - 1)
+        dispatcher.scheduler.runCurrent()
+        assertNull(renderedJwt(html))
+
+        dispatcher.scheduler.advanceTimeBy(1)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals("", renderedJwt(html))
+        verify(exactly = 1) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+    }
+
+    @Test
+    fun `a JWT arriving after the budget is still delivered over the bridge`() {
+        fakeAuth.providerRegistered = true
+        val html = captureTemplate()
+        val jwtObserver = JwtObserver()
+        KlaviyoWebViewClient().initializeWebView()
+
+        dispatcher.scheduler.advanceTimeBy(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
+        dispatcher.scheduler.runCurrent()
+        assertEquals("", renderedJwt(html))
+
+        // Local JS ready: observers start against the fetch still in flight
+        jwtObserver.startObserver()
+        jwtObserver.publishProfile {}
+        dispatcher.scheduler.advanceTimeBy(LATE_TOKEN_MS)
+        fakeAuth.completeFetch(JWT)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { mockJsBridge.jwtMutation(JWT) }
+        verify(exactly = 1) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+        jwtObserver.stopObserver()
+    }
+
+    @Test
+    fun `page loads immediately without a JWT when auth is not enabled`() {
+        val html = captureTemplate()
+        KlaviyoWebViewClient().initializeWebView()
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals("", renderedJwt(html))
+        assertEquals(0L, dispatcher.scheduler.currentTime)
+    }
+
+    @Test
+    fun `a JWT invalidated while awaited is not seeded`() {
+        fakeAuth.providerRegistered = true
+        val html = captureTemplate()
+        KlaviyoWebViewClient().initializeWebView()
+
+        fakeAuth.completeFetch(JWT)
+        fakeAuth.current = null
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals("", renderedJwt(html))
+    }
+
+    @Test
+    fun `destroying the webview cancels a load awaiting the JWT`() {
+        fakeAuth.providerRegistered = true
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        client.destroyWebView()
+
+        fakeAuth.completeFetch(JWT)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 0) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
     }
 
     @Test
@@ -240,6 +421,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
         // Verify that loadTemplate was only called once (which means WebView was only constructed once)
         verify(exactly = 1) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
     }
@@ -250,6 +432,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         verify {
             spyLog.debug(
@@ -282,6 +465,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         verify { mockSettings.javaScriptEnabled = true }
         verify { mockSettings.userAgentString = "Mock User Agent" }
@@ -299,6 +483,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     fun `timeout cancels on handshake`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
 
         client.onJsHandshakeCompleted()
         staticClock.execute(10_000)
@@ -314,6 +499,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
     fun `closes webview on timeout`() {
         val client = KlaviyoWebViewClient()
         client.initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
         // notably no handshake
         staticClock.execute(10_000)
 
@@ -488,4 +674,42 @@ class KlaviyoWebViewClientTest : BaseTest() {
         KlaviyoWebViewClient().onPageFinished(mockWebview, "https://example.com")
         verify { spyLog.debug(any()) }
     }
+}
+
+/**
+ * Models the manager's single shared fetch: every [currentToken] caller awaits the same in-flight
+ * provider call within its own timeout, and a caller timing out does not cancel it. Throws
+ * [AuthTokenException.NoProviderRegistered] immediately unless [providerRegistered].
+ */
+private class FakeAuthTokenManager : AuthTokenManager {
+    var providerRegistered = false
+    var current: String? = null
+    private val fetch = CompletableDeferred<ValidatedToken>()
+    private val observers = mutableListOf<TokenRefreshObserver>()
+
+    fun completeFetch(jwt: String) {
+        current = jwt
+        fetch.complete(ValidatedToken(jwt, 0L, 0L))
+        observers.toList().forEach { it(jwt) }
+    }
+
+    override suspend fun currentToken(timeoutMs: Long): ValidatedToken {
+        if (!providerRegistered) throw AuthTokenException.NoProviderRegistered
+        return withTimeoutOrNull(timeoutMs) { fetch.await() } ?: throw AuthTokenException.TimedOut
+    }
+
+    override fun isCurrentToken(rawToken: String) = current == rawToken
+    override fun onTokenRefresh(observer: TokenRefreshObserver) {
+        observers += observer
+    }
+    override fun offTokenRefresh(observer: TokenRefreshObserver) {
+        observers -= observer
+    }
+    override fun profileGeneration() = 0L
+    override fun registerProvider(provider: AuthTokenProvider) = Unit
+    override fun unregisterProvider() = Unit
+    override fun refreshRejectedToken() = Unit
+    override fun setIdentified(identified: Boolean) = Unit
+    override fun invalidate() = 0L
+    override suspend fun clearTokenState(expectedGeneration: Long) = Unit
 }

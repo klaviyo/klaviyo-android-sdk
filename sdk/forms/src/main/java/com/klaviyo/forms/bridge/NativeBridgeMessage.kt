@@ -3,6 +3,7 @@ package com.klaviyo.forms.bridge
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
+import com.klaviyo.core.utils.JSONUtil.getStringNullable
 import java.io.Serializable
 import org.json.JSONObject
 
@@ -97,6 +98,12 @@ internal sealed class NativeBridgeMessage {
         val reason: String
     ) : NativeBridgeMessage()
 
+    /**
+     * Sent from the onsite-in-app-forms when the Profiles API rejects the injected JWT, asking the
+     * SDK to discard it and inject a replacement via [JsBridge.jwtMutation]. Carries no data.
+     */
+    data object RefreshJwt : NativeBridgeMessage()
+
     companion object {
         private const val MESSAGE_TYPE_KEY = HandshakeSpec.SPEC_TYPE_KEY
         private const val MESSAGE_DATA_KEY = "data"
@@ -115,12 +122,13 @@ internal sealed class NativeBridgeMessage {
                 HandshakeSpec(keyName<HandShook>(), 1),
                 HandshakeSpec(keyName<FormWillAppear>(), 2),
                 HandshakeSpec(keyName<TrackAggregateEvent>(), 1),
-                HandshakeSpec(keyName<TrackProfileEvent>(), 1),
+                HandshakeSpec(keyName<TrackProfileEvent>(), 2),
                 // v2 issues deep link after closing the form (v1 was before close, causing a timing issue).
                 // v3 carries both deep links and external URLs in one message, keyed by `openExternally`.
                 HandshakeSpec(keyName<OpenDeepLink>(), 3),
                 HandshakeSpec(keyName<FormDisappeared>(), 1),
-                HandshakeSpec(keyName<Abort>(), 1)
+                HandshakeSpec(keyName<Abort>(), 1),
+                HandshakeSpec(keyName<RefreshJwt>(), 1)
             )
         }
 
@@ -152,7 +160,11 @@ internal sealed class NativeBridgeMessage {
                     event = Event(
                         jsonData.getString("metric"),
                         properties = jsonData.getEventProperties()
-                    )
+                    ).apply {
+                        jsonData.getEventValue()?.let(::setValue)
+                        jsonData.getValueCurrency()?.let(::setValueCurrency)
+                        jsonData.getUniqueId()?.let(::setUniqueId)
+                    }
                 )
 
                 keyName<OpenDeepLink>() -> OpenDeepLink(
@@ -172,6 +184,8 @@ internal sealed class NativeBridgeMessage {
                     reason = jsonData.optString("reason").ifEmpty { "Unknown" }
                 )
 
+                keyName<RefreshJwt>() -> RefreshJwt
+
                 else -> throw IllegalStateException("Unrecognized message type $type")
             }
         }
@@ -189,6 +203,27 @@ internal sealed class NativeBridgeMessage {
             }
             return map
         }
+
+        /**
+         * Parse the top-level event value for a [TrackProfileEvent] message,
+         * returning null if absent or not coercible to a finite number
+         */
+        private fun JSONObject.getEventValue(): Double? =
+            optDouble("value").takeIf { it.isFinite() }
+
+        /**
+         * Parse the top-level event value currency for a [TrackProfileEvent] message,
+         * returning null if absent, null or blank
+         */
+        private fun JSONObject.getValueCurrency(): String? =
+            getStringNullable("value_currency")?.takeIf { it.isNotBlank() }
+
+        /**
+         * Parse the top-level event deduplication ID for a [TrackProfileEvent] message,
+         * returning null if absent, null or blank
+         */
+        private fun JSONObject.getUniqueId(): String? =
+            getStringNullable("unique_id")?.takeIf { it.isNotBlank() }
 
         /**
          * Parse out the android platform deep link, returning null if not present or empty
