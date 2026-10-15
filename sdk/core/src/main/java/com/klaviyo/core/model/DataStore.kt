@@ -35,6 +35,15 @@ interface DataStore {
     fun clear(key: String)
 
     /**
+     * Remove multiple keys from the persistent store in a single write
+     *
+     * Observers are notified once per removed key, as with [clear].
+     *
+     * @param keys
+     */
+    fun clear(keys: Collection<String>)
+
+    /**
      * Register an observer to be notified when any changes are made to persistent store
      *
      * @param observer
