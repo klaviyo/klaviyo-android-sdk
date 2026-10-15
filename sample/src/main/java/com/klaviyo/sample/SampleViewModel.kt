@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
+import com.klaviyo.analytics.AuthTokenProvider
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
@@ -20,6 +21,7 @@ import com.klaviyo.location.KlaviyoGeofence
 import com.klaviyo.location.LocationManager
 import com.klaviyo.location.registerGeofencing
 import com.klaviyo.location.unregisterGeofencing
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * ViewModel for the Sample App demonstrating Klaviyo SDK integration.
@@ -49,6 +51,14 @@ class SampleViewModel : ViewModel() {
     // Forms registration state
     var isFormsRegistered by mutableStateOf(true)
         private set
+
+    var pastedJwt by mutableStateOf("")
+        private set
+
+    var isAuthTokenProviderRegistered by mutableStateOf(false)
+        private set
+
+    private val appliedJwt = AtomicReference("")
 
     // Location permission state
     var hasLocationPermission by mutableStateOf(false)
@@ -195,6 +205,40 @@ class SampleViewModel : ViewModel() {
         isFormsRegistered = false
     }
 
+    @UiThread
+    fun updatePastedJwt(value: String) {
+        pastedJwt = value
+    }
+
+    @UiThread
+    fun applyPastedJwt() {
+        appliedJwt.set(pastedJwt.trim())
+    }
+
+    @UiThread
+    fun updateAuthTokenProviderRegistration(registered: Boolean) {
+        if (registered == isAuthTokenProviderRegistered) return
+        if (registered) {
+            applyPastedJwt()
+            Klaviyo.registerAuthTokenProvider(
+                AuthTokenProvider { callback ->
+                    // Fetch a fresh JWT from your authentication server here.
+                    val jwt = appliedJwt.get()
+                    if (jwt.isBlank()) {
+                        callback.onFailure(
+                            IllegalStateException("Paste a JWT before fetching a token")
+                        )
+                    } else {
+                        callback.onSuccess(jwt)
+                    }
+                }
+            )
+        } else {
+            Klaviyo.unregisterAuthTokenProvider()
+        }
+        isAuthTokenProviderRegistered = registered
+    }
+
     // Push notification actions
     @UiThread
     fun updateNotificationPermission(hasPermission: Boolean) {
@@ -276,6 +320,8 @@ class SampleViewModel : ViewModel() {
     }
 
     override fun onCleared() {
+        if (isAuthTokenProviderRegistered) Klaviyo.unregisterAuthTokenProvider()
+        appliedJwt.set("")
         super.onCleared()
         // Clean up geofence sync subscription to prevent memory leak
         // Note: this is an advanced API used for demonstration, not necessary for a typical integration

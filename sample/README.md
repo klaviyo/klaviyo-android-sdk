@@ -82,6 +82,27 @@ Follow these instructions to run the sample app on your own device or emulator.
 Verbose logging is enabled by default in the Sample's manifest. You can view the logs in Logcat in Android Studio.
 If using the Sample app to reproduce an issue, please include relevant log entries in your GitHub issue.
 
+## Personalized In-App Forms
+
+Enable **JWT provider registered** to show the **Personalization JWT** field. Paste a valid JWT
+from your own authentication server and tap the inline **Set** button to make it available to the
+next token fetch. Use the profile controls to identify the matching profile. Blank set values fail
+the provider callback. Disable the toggle to unregister the provider. Profile changes and resets use
+the existing SDK identity handling; they do not unregister the provider. Before changing the profile,
+set the JWT matching the new profile.
+
+For a repeatable manual check, configure a live personalized in-app form to trigger on the
+**Viewed Product** metric. Enable the provider, paste and **Set** a fresh JWT, identify the matching
+profile with **Set Profile**, then tap **Viewed Product** to trigger the form when the JWT is
+available. The iOS example uses **Added to Cart** for the equivalent check.
+
+The [provider example in SampleViewModel](./src/main/java/com/klaviyo/sample/SampleViewModel.kt)
+returns the applied JWT from memory and does not persist or log it. Static pasting lets you try
+initial personalization; automatic refresh requires a freshly issued JWT from your server on every
+provider call. Replace the callback's pasted-token lookup with that request in your integration.
+For this sample, paste and set a fresh token before the SDK next fetches one. Setting a value
+does not invalidate a cached token or trigger a fetch.
+
 ## Geofence Testing
 The sample app includes a map view for visualizing geofences that are currently being monitored.
 This is useful for testing and debugging your geofence configuration. Please note this uses an
