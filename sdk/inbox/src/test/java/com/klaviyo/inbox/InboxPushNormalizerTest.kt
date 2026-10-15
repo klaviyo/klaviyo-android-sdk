@@ -28,7 +28,6 @@ internal class InboxPushNormalizerTest : BaseTest() {
     override fun setup() {
         super.setup()
         InboxPushFixtures.mockUriParsing()
-        staticClock.parsedRfc3339 = SENT_AT_MILLIS
     }
 
     @After
@@ -217,9 +216,7 @@ internal class InboxPushNormalizerTest : BaseTest() {
 
     @Test
     fun `an unparseable timestamp leaves the send time empty`() {
-        staticClock.parsedRfc3339 = null
-
-        assertNull(normalize()?.sentAt)
+        assertNull(normalize(canonicalWith("_k" to tracking("timestamp" to "yesterday")))?.sentAt)
     }
 
     @Test

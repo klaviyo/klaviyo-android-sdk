@@ -107,6 +107,17 @@ class SystemClockTest {
     }
 
     @Test
+    fun `parseRfc3339 is available to Clock implementations that do not override it`() {
+        val clock = object : Clock {
+            override fun currentTimeMillis() = 0L
+            override fun isoTime(milliseconds: Long) = ""
+            override fun schedule(delay: Long, task: () -> Unit) = SystemClock.schedule(delay, task)
+        }
+
+        assertEquals(epochMillis, clock.parseRfc3339("2026-10-06T19:00:00Z"))
+    }
+
+    @Test
     fun `parseRfc3339 does not depend on the default locale`() {
         // setUp sets an Arabic default locale, which formats digits differently
         assertEquals(epochMillis, SystemClock.parseRfc3339("2026-10-06T19:00:00Z"))

@@ -13,7 +13,7 @@ interface Clock {
      *
      * @return Epoch milliseconds, or null when [timestamp] is null or not valid RFC 3339
      */
-    fun parseRfc3339(timestamp: String?): Long?
+    fun parseRfc3339(timestamp: String?): Long? = Rfc3339.parseMillis(timestamp)
 
     fun schedule(delay: Long, task: () -> Unit): Cancellable
 
