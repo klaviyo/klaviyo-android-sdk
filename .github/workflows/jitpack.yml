@@ -26,6 +26,9 @@ jobs:
   build:
     name: Build Artifacts
     runs-on: ubuntu-22.04
+    concurrency:
+      group: jitpack-${{ github.event.release.tag_name || github.event.pull_request.head.sha || github.sha }}
+      cancel-in-progress: false
     # Run on releases, pushes, workflow_dispatch, or PRs with the jitpack:build label
     if: |
       github.event_name != 'pull_request' ||
@@ -36,15 +39,20 @@ jobs:
 
       - name: Determine Version Info
         id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
-          if [ "${{ github.event_name }}" == "release" ]; then
-            echo "version=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" == "release" ]; then
+            echo "version=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
             echo "version_type=release" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "version=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_NAME" == "pull_request" ]; then
+            echo "version=$PR_HEAD_SHA" >> "$GITHUB_OUTPUT"
             echo "version_type=pull_request" >> "$GITHUB_OUTPUT"
           else
-            echo "version=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "version=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
             echo "version_type=commit" >> "$GITHUB_OUTPUT"
           fi
 
@@ -52,7 +60,8 @@ jobs:
         env:
           JITPACK_TOKEN: ${{ secrets.JITPACK_TOKEN }}
           FORCE_REBUILD: ${{ inputs.force_rebuild || false }}
-        run: bash .github/scripts/jitpack-build.sh "${{ steps.version.outputs.version }}"
+          VERSION: ${{ steps.version.outputs.version }}
+        run: bash .github/scripts/jitpack-build.sh "$VERSION"
 
       - name: Send Slack notification on success
         if: success()

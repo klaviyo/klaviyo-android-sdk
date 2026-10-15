@@ -30,7 +30,7 @@ BACKOFFS=(60 180)
 
 EXPECTED_ARTIFACTS=("analytics" "core" "forms" "forms-core" "location" "location-core" "push-fcm")
 
-TRANSIENT_PATTERN='429|Too Many Requests|Could not GET|Could not HEAD|Read timed out|Connection reset|502|503|504'
+TRANSIENT_PATTERN='Too Many Requests|status code 50[234]|50[234] (Bad Gateway|Service Unavailable|Gateway Time-?out)|Read timed out|Connect timed out|Connection reset'
 
 LOG_FILE=$(mktemp)
 trap 'rm -f "$LOG_FILE"' EXIT
