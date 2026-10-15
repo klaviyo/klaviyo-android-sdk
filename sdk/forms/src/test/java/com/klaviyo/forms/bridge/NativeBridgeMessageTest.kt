@@ -606,6 +606,21 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
+    fun `test decodeWebviewMessage decodes refreshJwt wire payload`() {
+        assertEquals(
+            NativeBridgeMessage.RefreshJwt,
+            NativeBridgeMessage.decodeWebviewMessage("""{"type":"refreshJwt","data":{}}""")
+        )
+    }
+
+    @Test
+    fun `test decodeWebviewMessage no longer recognizes BadJWT`() {
+        assertThrows(IllegalStateException::class.java) {
+            NativeBridgeMessage.decodeWebviewMessage("""{"type":"BadJWT","data":{}}""")
+        }
+    }
+
+    @Test
     fun `handshake field sends proper type`() {
         val deeplinkMessage = """
             {
@@ -651,6 +666,10 @@ class NativeBridgeMessageTest : BaseTest() {
                   },
                   {
                     "type": "abort",
+                    "version": 1
+                  },
+                  {
+                    "type": "refreshJwt",
                     "version": 1
                   }
                 ]

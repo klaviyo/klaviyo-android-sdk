@@ -117,6 +117,19 @@ window.setSafeArea = function(left, top, right, bottom) {
     return true;
  }
 
+/**
+ * Updates the data-klaviyo-jwt attribute on the document head.
+ *
+ * Delivered via the JS bridge when acquired or refreshed.
+ *
+ * @param token - JWT string
+ * @returns {boolean}
+ */
+window.jwtMutation = function (token) {
+    document.head.setAttribute("data-klaviyo-jwt", token)
+    return true
+}
+
 // Notify the SDK over the native bridge that these local JS scripts are initialized
 var bridgeName = document.head.getAttribute("data-native-bridge-name") || ""
 

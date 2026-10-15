@@ -18,19 +18,27 @@ import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.ProfileEventObserver
 import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.StateChange
 import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Constants
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
+import com.klaviyo.core.auth.AuthTokenProvider as CoreAuthTokenProvider
 import com.klaviyo.core.config.AutomaticPushTokenForwarding
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import io.mockk.Runs
+import io.mockk.clearMocks
 import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkObject
@@ -59,6 +67,8 @@ import org.junit.Test
 internal class KlaviyoTest : BaseTest() {
 
     companion object {
+        private const val JWT_A = "header.payload-a.signature"
+        private const val OTHER_EMAIL = "other@domain.com"
         private const val TRACKING_URL = "https://trk.klaviyo.com/u/slug"
 
         private const val DESTINATION_URL = "https://www.klaviyo.com/some/path?query=param"
@@ -108,6 +118,14 @@ internal class KlaviyoTest : BaseTest() {
         }
     }
 
+    private val mockAuthTokenManager = mockk<AuthTokenManager>().apply {
+        every { invalidate() } returns 1L
+        every { setIdentified(any()) } just Runs
+        coEvery { clearTokenState(any()) } returns Unit
+        every { registerProvider(any()) } just Runs
+        every { unregisterProvider() } just Runs
+    }
+
     private val capturedProfile = slot<Profile>()
     private val mockApiClient: ApiClient = mockk<ApiClient>().apply {
         every { startService() } returns Unit
@@ -142,6 +160,7 @@ internal class KlaviyoTest : BaseTest() {
 
         every { Registry.configBuilder } returns mockBuilder
         Registry.register<ApiClient>(mockApiClient)
+        Registry.register<AuthTokenManager>(mockAuthTokenManager)
         mockDeviceProperties()
         mockkConstructor(StateSideEffects::class)
         mockkStatic(Uri::class)
@@ -165,9 +184,36 @@ internal class KlaviyoTest : BaseTest() {
         Registry.unregister<StateSideEffects>()
         Registry.unregister<ApiClient>()
         Registry.unregister<PushTokenFetcher>()
+        Registry.unregister<AuthTokenManager>()
         super.cleanup()
         Registry.unregister<Config>()
         unmockDeviceProperties()
+    }
+
+    /**
+     * Run queued work, then simulate [raw] as the cached token for the active profile, discarded by
+     * [AuthTokenManager.invalidate]
+     */
+    private fun cacheToken(raw: String) {
+        var cached: String? = raw
+        dispatcher.scheduler.advanceUntilIdle()
+        clearMocks(mockAuthTokenManager, answers = false)
+        every { mockAuthTokenManager.invalidate() } answers {
+            cached = null
+            1L
+        }
+        every { mockAuthTokenManager.isCurrentToken(any()) } answers { firstArg<String>() == cached }
+    }
+
+    /**
+     * Reset the profile, set [start], cache a token, run [act] and return whether the token is still current
+     */
+    private fun tokenRetained(start: Profile, act: () -> Unit): Boolean {
+        Klaviyo.resetProfile()
+        Klaviyo.setProfile(start)
+        cacheToken(JWT_A)
+        act()
+        return mockAuthTokenManager.isCurrentToken(JWT_A)
     }
 
     @Test
@@ -501,6 +547,241 @@ internal class KlaviyoTest : BaseTest() {
         Klaviyo.resetProfile()
 
         assertNull(null, Registry.get<State>().email)
+    }
+
+    @Test
+    fun `resetProfile clears auth token state through state side effects`() = runTest(dispatcher) {
+        clearInitialAuthCalls()
+        Klaviyo.setEmail(EMAIL)
+        cacheToken(JWT_A)
+
+        Klaviyo.resetProfile()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coVerifyOrder {
+            mockAuthTokenManager.invalidate()
+            mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
+        }
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(any()) }
+        assertFalse(mockAuthTokenManager.isCurrentToken(JWT_A))
+        verify(exactly = 0) { mockAuthTokenManager.unregisterProvider() }
+    }
+
+    @Test
+    fun `setProfile with different identifiers clears auth token state`() = runTest(dispatcher) {
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        clearInitialAuthCalls()
+
+        Klaviyo.setProfile(Profile(externalId = EXTERNAL_ID))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 1) { mockAuthTokenManager.clearTokenState(expectedGeneration = 1L) }
+    }
+
+    @Test
+    fun `setProfile with the same identifiers does not clear auth token state`() = runTest(
+        dispatcher
+    ) {
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        clearInitialAuthCalls()
+
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+    }
+
+    @Test
+    fun `initialize with an anonymous profile keeps the token gate closed`() {
+        verify(exactly = 1) { mockAuthTokenManager.setIdentified(false) }
+        verify(exactly = 0) { mockAuthTokenManager.setIdentified(true) }
+    }
+
+    @Test
+    fun `initialize with a persisted identified profile opens the token gate without a fence`() {
+        Registry.unregister<State>()
+        Registry.unregister<StateSideEffects>()
+        spyDataStore.store(ProfileKey.EMAIL.name, EMAIL)
+        clearMocks(mockAuthTokenManager, answers = false)
+
+        Klaviyo.initialize(
+            apiKey = API_KEY,
+            applicationContext = mockContext
+        )
+
+        assertEquals(EMAIL, Klaviyo.getEmail())
+        verify(exactly = 1) { mockAuthTokenManager.setIdentified(true) }
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+    }
+
+    @Test
+    fun `adding an external ID to an email profile retains the JWT`() {
+        Klaviyo.setEmail(EMAIL)
+        cacheToken(JWT_A)
+
+        Klaviyo.setExternalId(EXTERNAL_ID)
+
+        assertTrue(mockAuthTokenManager.isCurrentToken(JWT_A))
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+    }
+
+    @Test
+    fun `setProfile adding an identifier resets the profile but retains the JWT`() {
+        Klaviyo.setProfile(Profile(email = EMAIL))
+        val anonId = Registry.get<State>().anonymousId
+        cacheToken(JWT_A)
+
+        Klaviyo.setProfile(Profile(externalId = EXTERNAL_ID, email = EMAIL))
+
+        assertEquals(EXTERNAL_ID, Klaviyo.getExternalId())
+        assertNotEquals(anonId, Registry.get<State>().anonymousId)
+        assertTrue(mockAuthTokenManager.isCurrentToken(JWT_A))
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+    }
+
+    @Test
+    fun `setProfile dropping the external ID resets the profile but retains the JWT`() {
+        Klaviyo.setProfile(Profile(externalId = EXTERNAL_ID, email = EMAIL))
+        val anonId = Registry.get<State>().anonymousId
+        cacheToken(JWT_A)
+
+        Klaviyo.setProfile(Profile(email = EMAIL))
+
+        assertNull(Klaviyo.getExternalId())
+        assertNotEquals(anonId, Registry.get<State>().anonymousId)
+        assertTrue(mockAuthTokenManager.isCurrentToken(JWT_A))
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+    }
+
+    @Test
+    fun `changing the email cannot use or restore the previous JWT`() {
+        listOf<(String) -> Unit>(
+            { Klaviyo.setEmail(it) },
+            { Klaviyo.setProfile(Profile(email = it)) }
+        ).forEach { setEmail ->
+            Klaviyo.resetProfile()
+            setEmail(EMAIL)
+            cacheToken(JWT_A)
+
+            setEmail(OTHER_EMAIL)
+            assertFalse(mockAuthTokenManager.isCurrentToken(JWT_A))
+
+            setEmail(EMAIL)
+            assertFalse(mockAuthTokenManager.isCurrentToken(JWT_A))
+        }
+    }
+
+    @Test
+    fun `identifying an anonymous profile clears token state so a new token is acquired`() =
+        runTest(dispatcher) {
+            cacheToken(JWT_A)
+
+            Klaviyo.setEmail(EMAIL)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertFalse(mockAuthTokenManager.isCurrentToken(JWT_A))
+            coVerifyOrder {
+                mockAuthTokenManager.invalidate()
+                mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
+            }
+            verify(exactly = 0) { mockAuthTokenManager.unregisterProvider() }
+        }
+
+    @Test
+    fun `bulk and individual setters classify identifier changes the same way`() {
+        val scenarios = listOf(
+            Triple(Profile(email = EMAIL), Profile(externalId = EXTERNAL_ID, email = EMAIL), true),
+            Triple(
+                Profile(externalId = EXTERNAL_ID),
+                Profile(externalId = EXTERNAL_ID, phoneNumber = PHONE),
+                true
+            ),
+            Triple(Profile(email = EMAIL), Profile(email = OTHER_EMAIL), false),
+            Triple(
+                Profile(externalId = EXTERNAL_ID, email = EMAIL),
+                Profile(externalId = "other", email = EMAIL),
+                false
+            ),
+            Triple(Profile(), Profile(email = EMAIL, phoneNumber = PHONE), false)
+        )
+
+        scenarios.forEach { (start, target, expectRetained) ->
+            val bulk = tokenRetained(start) { Klaviyo.setProfile(target) }
+            val individual = tokenRetained(start) {
+                target.externalId?.let { Klaviyo.setExternalId(it) }
+                target.email?.let { Klaviyo.setEmail(it) }
+                target.phoneNumber?.let { Klaviyo.setPhoneNumber(it) }
+            }
+
+            assertEquals("bulk $start -> $target", expectRetained, bulk)
+            assertEquals("individual $start -> $target", expectRetained, individual)
+        }
+    }
+
+    @Test
+    fun `state observers registered after initialize see a replaced profile's JWT already invalidated`() {
+        Klaviyo.setEmail(EMAIL)
+        cacheToken(JWT_A)
+        val observedIsCurrent = mutableListOf<Boolean>()
+        Registry.get<State>().onStateChange { change ->
+            if (change is StateChange.ProfileIdentifier || change is StateChange.ProfileReset) {
+                observedIsCurrent += mockAuthTokenManager.isCurrentToken(JWT_A)
+            }
+        }
+
+        Klaviyo.setExternalId(EXTERNAL_ID)
+        Klaviyo.setProfile(Profile(externalId = EXTERNAL_ID, email = OTHER_EMAIL))
+
+        assertEquals(listOf(true, false), observedIsCurrent)
+    }
+
+    @Test
+    fun `initialize with a different API key clears auth token state`() = runTest(dispatcher) {
+        clearInitialAuthCalls()
+        Klaviyo.initialize(apiKey = "different-$API_KEY", applicationContext = mockContext)
+        dispatcher.scheduler.advanceUntilIdle()
+        verify(exactly = 1) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 1) {
+            mockAuthTokenManager.clearTokenState(expectedGeneration = 1L)
+        }
+    }
+
+    @Test
+    fun `initialize with the same API key does not clear auth token state`() = runTest(dispatcher) {
+        clearInitialAuthCalls()
+        Klaviyo.initialize(apiKey = API_KEY, applicationContext = mockContext)
+        dispatcher.scheduler.advanceUntilIdle()
+        verify(exactly = 0) { mockAuthTokenManager.invalidate() }
+        coVerify(exactly = 0) { mockAuthTokenManager.clearTokenState(any()) }
+    }
+
+    /**
+     * Setup's initialize sets the API key for the first time, which resets auth token state.
+     * Runs that queued clear and forgets those recorded calls.
+     */
+    private fun clearInitialAuthCalls() {
+        dispatcher.scheduler.advanceUntilIdle()
+        clearMocks(mockAuthTokenManager, answers = false)
+    }
+
+    @Test
+    fun `registerAuthTokenProvider registers an adapter with AuthTokenManager`() {
+        val registered = slot<CoreAuthTokenProvider>()
+        every { mockAuthTokenManager.registerProvider(capture(registered)) } just Runs
+        val coreCallback = mockk<CoreAuthTokenProvider.Callback>(relaxed = true)
+
+        Klaviyo.registerAuthTokenProvider { it.onSuccess("jwt") }
+        registered.captured.fetchToken(coreCallback)
+
+        verify(exactly = 1) { coreCallback.onSuccess("jwt") }
+    }
+
+    @Test
+    fun `unregisterAuthTokenProvider delegates to AuthTokenManager`() {
+        Klaviyo.unregisterAuthTokenProvider()
+        verify(exactly = 1) { mockAuthTokenManager.unregisterProvider() }
     }
 
     @Test

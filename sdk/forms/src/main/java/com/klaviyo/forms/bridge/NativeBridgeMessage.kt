@@ -98,6 +98,12 @@ internal sealed class NativeBridgeMessage {
         val reason: String
     ) : NativeBridgeMessage()
 
+    /**
+     * Sent from the onsite-in-app-forms when the Profiles API rejects the injected JWT, asking the
+     * SDK to discard it and inject a replacement via [JsBridge.jwtMutation]. Carries no data.
+     */
+    data object RefreshJwt : NativeBridgeMessage()
+
     companion object {
         private const val MESSAGE_TYPE_KEY = HandshakeSpec.SPEC_TYPE_KEY
         private const val MESSAGE_DATA_KEY = "data"
@@ -121,7 +127,8 @@ internal sealed class NativeBridgeMessage {
                 // v3 carries both deep links and external URLs in one message, keyed by `openExternally`.
                 HandshakeSpec(keyName<OpenDeepLink>(), 3),
                 HandshakeSpec(keyName<FormDisappeared>(), 1),
-                HandshakeSpec(keyName<Abort>(), 1)
+                HandshakeSpec(keyName<Abort>(), 1),
+                HandshakeSpec(keyName<RefreshJwt>(), 1)
             )
         }
 
@@ -176,6 +183,8 @@ internal sealed class NativeBridgeMessage {
                 keyName<Abort>() -> Abort(
                     reason = jsonData.optString("reason").ifEmpty { "Unknown" }
                 )
+
+                keyName<RefreshJwt>() -> RefreshJwt
 
                 else -> throw IllegalStateException("Unrecognized message type $type")
             }

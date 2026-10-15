@@ -1,0 +1,1256 @@
+package com.klaviyo.core.auth
+
+import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.KlaviyoAuthTokenManager.Command
+import com.klaviyo.core.config.Clock
+import com.klaviyo.fixtures.BaseTest
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import java.util.Base64
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
+import org.json.JSONObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class KlaviyoAuthTokenManagerTest : BaseTest() {
+
+    companion object {
+        // staticClock returns TIME = 1234567890000ms → 1234567890s
+        private const val NOW_SECONDS = 1234567890L
+        private const val IAT_SECONDS = NOW_SECONDS - 60
+        private const val EXP_SECONDS = NOW_SECONDS + 3600
+    }
+
+    @Test
+    fun `currentToken throws NoProviderRegistered when no provider registered`() = runTest(
+        dispatcher
+    ) {
+        val manager = identifiedAuthTokenManager()
+
+        try {
+            manager.currentToken()
+            fail("Expected AuthTokenException.NoProviderRegistered")
+        } catch (e: AuthTokenException.NoProviderRegistered) {
+            assertEquals("No auth token provider registered", e.message)
+        }
+    }
+
+    @Test
+    fun `warm-up deferred while not identified runs once when the profile is identified`() = runTest(
+        dispatcher
+    ) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = KlaviyoAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(0, provider.callCount)
+
+        manager.setIdentified(true)
+        dispatcher.scheduler.advanceUntilIdle()
+        manager.setIdentified(true)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        manager.setIdentified(false)
+        manager.setIdentified(true)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
+    fun `identifying after a completed warm-up does not invoke the provider`() = runTest(dispatcher) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        manager.setIdentified(false)
+        manager.setIdentified(true)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+        manager.currentToken()
+        assertEquals(2, provider.callCount)
+    }
+
+    @Test
+    fun `identifying after a failed warm-up does not invoke the provider`() = runTest(dispatcher) {
+        val provider = CountingFailureProvider(RuntimeException("fetch failed"))
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, provider.callCount)
+
+        manager.setIdentified(false)
+        manager.setIdentified(true)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
+    fun `unregistering drops a deferred warm-up`() = runTest(dispatcher) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        manager.unregisterProvider()
+        manager.setIdentified(true)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(0, provider.callCount)
+    }
+
+    @Test
+    fun `currentToken while not identified resolves without a token or a warning`() = runTest(
+        dispatcher
+    ) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+
+        val result = runCatching {
+            manager.currentToken(
+                AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS
+            )
+        }
+
+        assertSame(AuthTokenException.NotIdentified, result.exceptionOrNull())
+        assertEquals(0, provider.callCount)
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+        verify(exactly = 0) { spyLog.warning(any(), any()) }
+        verify(exactly = 0) { spyLog.error(any(), any()) }
+    }
+
+    @Test
+    fun `de-identifying fails pending callers and drops the in-flight fetch`() = runTest(dispatcher) {
+        val provider = ResolvableProvider()
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        val demand = async { runCatching { manager.currentToken() } }
+        dispatcher.scheduler.runCurrent()
+
+        manager.setIdentified(false)
+        dispatcher.scheduler.runCurrent()
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        provider.resolve(token)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertSame(AuthTokenException.NotIdentified, demand.await().exceptionOrNull())
+        assertFalse(manager.isCurrentToken(token))
+        assertEquals(1, provider.callCount)
+        verify(exactly = 0) { spyLog.warning(any(), any()) }
+    }
+
+    @Test
+    fun `de-identifying cancels the scheduled refresh`() = runTest(dispatcher) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        val refreshAt = staticClock.scheduledTasks.single().time
+
+        manager.setIdentified(false)
+        dispatcher.scheduler.advanceUntilIdle()
+        staticClock.execute(refreshAt - staticClock.time + 1_000L)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+    }
+
+    @Test
+    fun `replacement clear without a pending caller does not invoke the provider`() = runTest(
+        dispatcher
+    ) {
+        val provider = ResolvableProvider()
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent()
+        val outgoing = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        provider.resolve(outgoing)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val generation = manager.invalidate()
+        manager.setIdentified(true)
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+        assertFalse(manager.isCurrentToken(outgoing))
+    }
+
+    @Test
+    fun `replacement clear with a pending caller fetches for the next profile`() = runTest(
+        dispatcher
+    ) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val generation = manager.invalidate()
+        val demand = async { manager.currentToken() }
+        dispatcher.scheduler.runCurrent()
+        assertEquals(1, provider.callCount)
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, provider.callCount)
+        assertTrue(manager.isCurrentToken(demand.await().rawToken))
+    }
+
+    @Test
+    fun `replacement before the warm-up runs fetches for the next profile once`() = runTest(
+        dispatcher
+    ) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        val generation = manager.invalidate()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(0, provider.callCount)
+
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
+    fun `anonymous to identified fence runs the deferred warm-up once`() = runTest(dispatcher) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val generation = manager.invalidate()
+        manager.setIdentified(true)
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
+    fun `identified to anonymous fence clears the token without invoking the provider`() = runTest(
+        dispatcher
+    ) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val provider = SuccessProvider(token)
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(manager.isCurrentToken(token))
+
+        val generation = manager.invalidate()
+        manager.setIdentified(false)
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+        assertFalse(manager.isCurrentToken(token))
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+    }
+
+    @Test
+    fun `fence without an identity change does not invoke the provider`() = runTest(dispatcher) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val generation = manager.invalidate()
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
+    fun `fence while not identified does not invoke the provider`() = runTest(dispatcher) {
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        val manager = KlaviyoAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val generation = manager.invalidate()
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(0, provider.callCount)
+    }
+
+    @Test
+    fun `back-to-back fences drop a token fetched before either`() = runTest(dispatcher) {
+        val provider = ResolvableProvider()
+        val received = mutableListOf<String>()
+        val manager = identifiedAuthTokenManager()
+        manager.onTokenRefresh { received.add(it) }
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent()
+
+        val first = manager.invalidate()
+        val second = manager.invalidate()
+        manager.clearTokenState(first)
+        manager.clearTokenState(second)
+        dispatcher.scheduler.runCurrent()
+        val stale = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val fresh = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        provider.resolve(stale)
+        provider.resolve(fresh)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, provider.callCount)
+        assertEquals(listOf(fresh), received)
+        assertFalse(manager.isCurrentToken(stale))
+        assertTrue(manager.isCurrentToken(fresh))
+    }
+
+    @Test
+    fun `profileGeneration advances only on invalidate`() = runTest(dispatcher) {
+        val manager = identifiedAuthTokenManager()
+        val initial = manager.profileGeneration()
+
+        manager.registerProvider(SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS)))
+        manager.unregisterProvider()
+        manager.setIdentified(false)
+        assertEquals(initial, manager.profileGeneration())
+
+        manager.invalidate()
+        assertEquals(initial + 1, manager.profileGeneration())
+    }
+
+    @Test
+    fun `currentToken returns provider token on first fetch`() = runTest(dispatcher) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(SuccessProvider(token))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val result = manager.currentToken()
+
+        assertEquals(token, result.rawToken)
+        assertEquals(EXP_SECONDS, result.expiresAtEpochSeconds)
+        assertEquals(IAT_SECONDS, result.issuedAtEpochSeconds)
+    }
+
+    @Test
+    fun `currentToken returns cached token without re-invoking provider`() = runTest(dispatcher) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val provider = SuccessProvider(token)
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        // Eager fetch in registerProvider already invoked the provider once
+        val callsAfterRegister = provider.callCount
+
+        val result = manager.currentToken()
+
+        assertEquals(token, result.rawToken)
+        assertEquals(callsAfterRegister, provider.callCount)
+    }
+
+    @Test
+    fun `caller after invalidation cannot join outgoing profile fetch`() = runTest(dispatcher) {
+        val outgoingToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val nextToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val provider = ResolvableProvider()
+        val manager = identifiedAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(1, provider.callCount)
+
+        val generation = manager.invalidate()
+        var received: ValidatedToken? = null
+        val postInvalidationCaller = launch { received = manager.currentToken() }
+        dispatcher.scheduler.runCurrent()
+        assertEquals(1, provider.callCount)
+
+        provider.resolve(outgoingToken)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(null, received)
+        assertEquals(false, postInvalidationCaller.isCompleted)
+
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(2, provider.callCount)
+
+        provider.resolve(nextToken)
+        dispatcher.scheduler.advanceUntilIdle()
+        postInvalidationCaller.join()
+        assertEquals(nextToken, received?.rawToken)
+    }
+
+    @Test
+    fun `stale profile clear does not release callers parked by a later reset`() = runTest(
+        dispatcher
+    ) {
+        val provider = ResolvableProvider()
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent()
+
+        val firstReset = manager.invalidate()
+        val secondReset = manager.invalidate()
+        val waitingCaller = async { manager.currentToken() }
+        dispatcher.scheduler.runCurrent()
+
+        manager.clearTokenState(firstReset)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(1, provider.callCount)
+        assertTrue(!waitingCaller.isCompleted)
+
+        manager.clearTokenState(secondReset)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(2, provider.callCount)
+        provider.resolve(makeJwt(EXP_SECONDS - 100, IAT_SECONDS - 100))
+        provider.resolve(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(waitingCaller.isCompleted)
+    }
+
+    @Test
+    fun `isCurrentToken rejects cached token immediately on invalidation`() = runTest(dispatcher) {
+        val jwt = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(SuccessProvider(jwt))
+        dispatcher.scheduler.advanceUntilIdle()
+        manager.currentToken()
+        assertTrue(manager.isCurrentToken(jwt))
+        assertTrue(!manager.isCurrentToken(makeJwt(EXP_SECONDS + 100, IAT_SECONDS)))
+
+        manager.invalidate()
+        assertTrue(!manager.isCurrentToken(jwt))
+    }
+
+    @Test
+    fun `token is current again only once refetched after reset`() = runTest(dispatcher) {
+        val jwt = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(SuccessProvider(jwt))
+        dispatcher.scheduler.advanceUntilIdle()
+        manager.currentToken()
+
+        val generation = manager.invalidate()
+        manager.clearTokenState(generation)
+        assertTrue(!manager.isCurrentToken(jwt))
+
+        manager.currentToken()
+        assertTrue(manager.isCurrentToken(jwt))
+    }
+
+    @Test
+    fun `rejected token is no longer current while its replacement is fetched`() = runTest(
+        dispatcher
+    ) {
+        val rejected = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val replacement = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val provider = ResolvableProvider()
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent()
+        provider.resolve(rejected)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(manager.isCurrentToken(rejected))
+
+        manager.refreshRejectedToken()
+        dispatcher.scheduler.runCurrent()
+        assertTrue(!manager.isCurrentToken(rejected))
+
+        provider.resolve(replacement)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(manager.isCurrentToken(replacement))
+    }
+
+    @Test
+    fun `caller waiting before invalidation receives the next profile token`() = runTest(dispatcher) {
+        val outgoingToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val nextToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val provider = ResolvableProvider()
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        val waitingCaller = async { manager.currentToken() }
+        dispatcher.scheduler.runCurrent()
+
+        val generation = manager.invalidate()
+        provider.resolve(outgoingToken)
+        dispatcher.scheduler.runCurrent()
+        assertTrue(!waitingCaller.isCompleted)
+
+        manager.clearTokenState(generation)
+        dispatcher.scheduler.runCurrent()
+        provider.resolve(nextToken)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(nextToken, waitingCaller.await().rawToken)
+    }
+
+    @Test
+    fun `canceling one waiting caller keeps the shared fetch for another`() = runTest(dispatcher) {
+        val provider = ResolvableProvider()
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        val canceledCaller = async { manager.currentToken() }
+        val waitingCaller = async { manager.currentToken() }
+        dispatcher.scheduler.runCurrent()
+
+        canceledCaller.cancel()
+        dispatcher.scheduler.runCurrent()
+        val jwt = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        provider.resolve(jwt)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(jwt, waitingCaller.await().rawToken)
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
+    fun `stopping the manager fails a waiting caller with ManagerStopped`() = runTest(dispatcher) {
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(DeferredProvider())
+        val waitingCaller = async { runCatching { manager.currentToken() } }
+        dispatcher.scheduler.runCurrent()
+
+        manager.scope.cancel()
+        dispatcher.scheduler.runCurrent()
+
+        assertTrue(waitingCaller.await().exceptionOrNull() is AuthTokenException.ManagerStopped)
+        manager.registerProvider(SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS)))
+        assertTrue(
+            runCatching { manager.currentToken() }.exceptionOrNull() is
+            AuthTokenException.ManagerStopped
+        )
+    }
+
+    @Test
+    fun `observer deliveries never overlap across successful fetches`() {
+        every { Registry.dispatcher } returns Dispatchers.Default
+        val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val secondToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val firstEntered = CountDownLatch(1)
+        val releaseFirst = CountDownLatch(1)
+        val secondEntered = CountDownLatch(1)
+        val calls = AtomicInteger()
+        val manager = identifiedAuthTokenManager()
+        manager.onTokenRefresh {
+            when (calls.incrementAndGet()) {
+                1 -> {
+                    firstEntered.countDown()
+                    releaseFirst.await(5, TimeUnit.SECONDS)
+                }
+                2 -> secondEntered.countDown()
+            }
+        }
+
+        try {
+            manager.registerProvider(SuccessProvider(firstToken))
+            assertTrue(firstEntered.await(5, TimeUnit.SECONDS))
+
+            manager.registerProvider(SuccessProvider(secondToken))
+            runBlocking {
+                withTimeout(5_000L) { assertEquals(secondToken, manager.currentToken().rawToken) }
+            }
+            assertFalse(secondEntered.await(200, TimeUnit.MILLISECONDS))
+        } finally {
+            releaseFirst.countDown()
+            assertTrue(secondEntered.await(5, TimeUnit.SECONDS))
+            manager.scope.cancel()
+        }
+    }
+
+    @Test
+    fun `observer cancellation stops the current delivery but not later ones`() = runTest(
+        dispatcher
+    ) {
+        val manager = identifiedAuthTokenManager()
+        val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val secondToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val firstObserverTokens = mutableListOf<String>()
+        val secondObserverTokens = mutableListOf<String>()
+        manager.onTokenRefresh { token ->
+            firstObserverTokens += token
+            if (firstObserverTokens.size == 1) throw CancellationException("observer cancelled")
+        }
+        manager.onTokenRefresh { token -> secondObserverTokens += token }
+
+        manager.registerProvider(SuccessProvider(firstToken))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(listOf(firstToken), firstObserverTokens)
+        assertEquals(emptyList<String>(), secondObserverTokens)
+
+        manager.registerProvider(SuccessProvider(secondToken))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(listOf(firstToken, secondToken), firstObserverTokens)
+        assertEquals(listOf(secondToken), secondObserverTokens)
+    }
+
+    @Test
+    fun `clock failure while scheduling does not kill the actor`() = runTest(dispatcher) {
+        val clock = mockk<Clock>()
+        var schedules = 0
+        every { clock.currentTimeMillis() } returns staticClock.time
+        every { clock.isoTime(any()) } returns "time"
+        every { clock.schedule(any(), any()) } answers {
+            schedules++
+            if (schedules == 1) throw IllegalStateException("clock failed")
+            staticClock.schedule(firstArg(), secondArg())
+        }
+        every { Registry.clock } returns clock
+        val manager = identifiedAuthTokenManager()
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+        val token = manager.currentToken()
+
+        assertEquals(EXP_SECONDS, token.expiresAtEpochSeconds)
+        assertEquals(2, provider.callCount)
+    }
+
+    @Test
+    fun `unregister before a delayed registration rejects the stale provider`() = runTest(
+        dispatcher
+    ) {
+        val manager = identifiedAuthTokenManager()
+        val provider = SuccessProvider(makeJwt(EXP_SECONDS, IAT_SECONDS))
+        manager.generation.set(2L)
+        manager.commands.trySend(Command.Unregister(2L))
+        manager.commands.trySend(Command.Register(1L, provider))
+        dispatcher.scheduler.runCurrent()
+
+        val failure = runCatching { manager.currentToken(timeoutMs = 100L) }.exceptionOrNull()
+        assertTrue(failure is AuthTokenException.NoProviderRegistered)
+        assertEquals(0, provider.callCount)
+    }
+
+    @Test
+    fun `registerProvider replaces previous provider and discards cached token`() = runTest(
+        dispatcher
+    ) {
+        val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val secondToken = makeJwt(EXP_SECONDS + 1, IAT_SECONDS + 1)
+        val firstProvider = SuccessProvider(firstToken)
+        val secondProvider = SuccessProvider(secondToken)
+
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(firstProvider)
+        dispatcher.scheduler.advanceUntilIdle()
+        manager.currentToken()
+
+        manager.registerProvider(secondProvider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val result = manager.currentToken()
+        assertEquals(secondToken, result.rawToken)
+    }
+
+    @Test
+    fun `registerProvider triggers eager fetch`() = runTest(dispatcher) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val provider = SuccessProvider(token)
+        val manager = identifiedAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(
+            "registerProvider should have eagerly invoked the provider",
+            provider.callCount >= 1
+        )
+    }
+
+    @Test
+    fun `registerProvider cancellation during eager fetch does not log warning`() = runTest(
+        dispatcher
+    ) {
+        val provider = DeferredProvider()
+        val manager = identifiedAuthTokenManager()
+
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent()
+        manager.scope.cancel(CancellationException("teardown"))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+        verify(exactly = 0) {
+            spyLog.warning(any(), any<Throwable>())
+        }
+    }
+
+    @Test
+    fun `currentToken throws when provider invokes onFailure`() = runTest(dispatcher) {
+        val failure = RuntimeException("network down")
+        val manager = identifiedAuthTokenManager()
+        // Use a provider that fails on the explicit currentToken() call. The eager fetch
+        // in registerProvider will also fail, but its error is logged and not surfaced.
+        manager.registerProvider(FailureProvider(failure))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        try {
+            manager.currentToken()
+            fail("Expected RuntimeException")
+        } catch (e: RuntimeException) {
+            assertEquals("network down", e.message)
+        }
+    }
+
+    @Test
+    fun `currentToken throws ProviderCancelled when provider reports a cancellation`() = runTest(
+        dispatcher
+    ) {
+        val cancellation = CancellationException("host scope cancelled")
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(FailureProvider(cancellation))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        var caught: AuthTokenException.ProviderCancelled? = null
+        val caller = launch {
+            try {
+                manager.currentToken()
+            } catch (e: AuthTokenException.ProviderCancelled) {
+                caught = e
+            }
+        }
+        dispatcher.scheduler.advanceUntilIdle()
+        caller.join()
+
+        assertFalse("caller coroutine must not be cancelled", caller.isCancelled)
+        assertSame(cancellation, caught?.cause)
+        verify { spyLog.warning(any(), cancellation) }
+    }
+
+    @Test
+    fun `currentToken throws ValidationFailed and logs error when returned jwt is malformed`() = runTest(
+        dispatcher
+    ) {
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(SuccessProvider("not-a-jwt"))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        try {
+            manager.currentToken()
+            fail("Expected AuthTokenException.ValidationFailed")
+        } catch (e: AuthTokenException.ValidationFailed) {
+            // ValidationFailed.reason is non-null by construction; use it rather than
+            // Throwable.message (which is platform-typed String?).
+            assertTrue(
+                "Expected non-empty validation reason, got: '${e.reason}'",
+                e.reason.isNotEmpty()
+            )
+        }
+
+        verify {
+            spyLog.error(
+                match { it.startsWith("Auth token validation failed:") },
+                match { it is AuthTokenException.ValidationFailed }
+            )
+        }
+    }
+
+    @Test
+    fun `currentToken throws ValidationFailed when returned jwt is expired on receipt`() = runTest(
+        dispatcher
+    ) {
+        // exp within leeway of NOW → ExpiredOnReceipt
+        val expired = makeJwt(NOW_SECONDS, IAT_SECONDS)
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(SuccessProvider(expired))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        try {
+            manager.currentToken()
+            fail("Expected AuthTokenException.ValidationFailed")
+        } catch (e: AuthTokenException.ValidationFailed) {
+            assertEquals("ExpiredOnReceipt", e.reason)
+        }
+    }
+
+    @Test
+    fun `currentToken does not invoke onFailure-and-then-onSuccess twice`() = runTest(dispatcher) {
+        // Late callback resolution should be harmlessly ignored (isActive guard).
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val provider = AuthTokenProvider { callback ->
+            callback.onSuccess(token)
+            // Simulate buggy host calling back twice — should not throw.
+            callback.onSuccess(token)
+            callback.onFailure(RuntimeException("late failure"))
+        }
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val result = manager.currentToken()
+        assertEquals(token, result.rawToken)
+    }
+
+    // MARK: - Deduplication and Timeouts
+
+    @Test
+    fun `concurrent callers share a single provider invocation`() = runTest(dispatcher) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val provider = ResolvableProvider()
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        // Hold off on advancing — keep the eager fetch pending so all callers race the same deferred.
+
+        val results = mutableListOf<ValidatedToken>()
+        val jobs = (1..5).map {
+            launch { results.add(manager.currentToken()) }
+        }
+
+        // Let all coroutines start and reach their await() on the shared deferred.
+        dispatcher.scheduler.runCurrent()
+
+        // One provider resolution satisfies the deferred and all awaiting callers.
+        provider.resolve(token)
+        dispatcher.scheduler.advanceUntilIdle()
+        jobs.forEach { it.join() }
+
+        assertEquals(1, provider.callCount)
+        assertEquals(5, results.size)
+        assertTrue(results.all { it.rawToken == token })
+    }
+
+    @Test
+    fun `currentToken throws TimedOut when provider does not respond within timeout`() = runTest(
+        dispatcher
+    ) {
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(DeferredProvider())
+        dispatcher.scheduler.runCurrent() // start eager fetch (also waiting on provider)
+
+        var caught: AuthTokenException.TimedOut? = null
+        val job = launch {
+            try {
+                manager.currentToken(timeoutMs = 100)
+            } catch (e: AuthTokenException.TimedOut) {
+                caught = e
+            }
+        }
+        dispatcher.scheduler.runCurrent()
+        dispatcher.scheduler.advanceTimeBy(101)
+        dispatcher.scheduler.runCurrent()
+        job.join()
+
+        assertNotNull("Expected TimedOut to be thrown", caught)
+        verify {
+            spyLog.warning(
+                match { it.contains("timed out", ignoreCase = true) },
+                any<AuthTokenException.TimedOut>()
+            )
+        }
+    }
+
+    @Test
+    fun `timeout does not cancel underlying fetch so later callers still benefit`() = runTest(
+        dispatcher
+    ) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val provider = ResolvableProvider()
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent() // eager fetch starts and suspends on provider
+
+        // First caller times out after 100ms.
+        var timedOut = false
+        val firstJob = launch {
+            try {
+                manager.currentToken(timeoutMs = 100)
+            } catch (_: AuthTokenException.TimedOut) {
+                timedOut = true
+            }
+        }
+        dispatcher.scheduler.runCurrent()
+        dispatcher.scheduler.advanceTimeBy(101)
+        dispatcher.scheduler.runCurrent()
+        firstJob.join()
+        assertTrue("First caller should have timed out", timedOut)
+
+        // Underlying fetch is still alive — resolve the provider now.
+        provider.resolve(token)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Second caller gets the token from cache populated by the completed underlying fetch.
+        val result = manager.currentToken()
+        assertEquals(token, result.rawToken)
+        assertEquals(1, provider.callCount)
+    }
+
+    @Test
+    fun `failure clears in-flight slot so next call re-invokes provider`() = runTest(dispatcher) {
+        val failure = RuntimeException("fetch failed")
+        val provider = CountingFailureProvider(failure)
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle() // eager fetch fails (callCount = 1)
+
+        try { manager.currentToken() } catch (_: Exception) {}
+        val countAfterFirst = provider.callCount // eager + 1 explicit
+
+        try { manager.currentToken() } catch (_: Exception) {}
+
+        // Each call after a failure must re-invoke the provider (slot was cleared by invokeOnCompletion).
+        assertEquals(countAfterFirst + 1, provider.callCount)
+    }
+
+    @Test
+    fun `provider swap cancels in-flight fetch so stale token cannot poison cache`() = runTest(
+        dispatcher
+    ) {
+        val staleToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val freshToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val providerA = ResolvableProvider()
+        val providerB = SuccessProvider(freshToken)
+        val manager = identifiedAuthTokenManager()
+
+        manager.registerProvider(providerA)
+        dispatcher.scheduler.runCurrent() // eager fetch for A starts, awaits provider
+
+        // Swap provider while A's fetch is in-flight; B's eager fetch resolves immediately.
+        manager.registerProvider(providerB)
+        dispatcher.scheduler.advanceUntilIdle() // B's eager fetch completes → cache = freshToken
+
+        // A calls back late — its continuation is inactive (deferred was cancelled on swap).
+        providerA.resolve(staleToken)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Cache should hold freshToken, not staleToken.
+        val result = manager.currentToken()
+        assertEquals(freshToken, result.rawToken)
+    }
+
+    @Test
+    fun `caller waiting on in-flight fetch receives new provider token after provider swap`() = runTest(
+        dispatcher
+    ) {
+        // Regression: when registerProvider() cancels the in-flight deferred, deferred.await()
+        // throws CancellationException. Without the ensureActive() + retry fix in currentToken(),
+        // this propagates to the caller as if their coroutine was cancelled, breaking callers like
+        // KlaviyoWebViewClient that rethrow CancellationException for structured concurrency.
+        val freshToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val providerA = ResolvableProvider()
+        val providerB = SuccessProvider(freshToken)
+        val manager = identifiedAuthTokenManager()
+
+        manager.registerProvider(providerA)
+        dispatcher.scheduler.runCurrent() // A's eager fetch starts, suspends on provider
+
+        // Caller joins the in-flight deferred from provider A.
+        var result: ValidatedToken? = null
+        var caught: Throwable? = null
+        val callerJob = launch {
+            try {
+                result = manager.currentToken(timeoutMs = 5_000)
+            } catch (e: Throwable) {
+                caught = e
+            }
+        }
+        dispatcher.scheduler.runCurrent() // caller reaches deferred.await()
+
+        // Swap to B while caller is suspended — A's deferred is cancelled, which would throw
+        // CancellationException to the caller without the fix. With the fix the caller retries
+        // and transparently picks up B's token.
+        manager.registerProvider(providerB)
+        dispatcher.scheduler.advanceUntilIdle() // B completes; caller's retry finds the cache
+
+        callerJob.join()
+        assertNull("Caller should not have thrown but got: $caught", caught)
+        assertEquals(freshToken, result?.rawToken)
+    }
+
+    @Test
+    fun `outer timeout budget is respected when provider swap triggers retry`() = runTest(
+        dispatcher
+    ) {
+        // When the in-flight deferred is cancelled by a provider swap, currentToken() retries
+        // inside the SAME withTimeoutOrNull block. The retry creates a fresh inner
+        // withTimeoutOrNull(timeoutMs) starting from the current time, but the outer one was
+        // set at original call-time and fires first if the budget is nearly exhausted — so the
+        // caller's original deadline governs the total wait end-to-end.
+        val providerA = DeferredProvider() // never resolves
+        val providerB = DeferredProvider() // never resolves
+        val manager = identifiedAuthTokenManager()
+
+        manager.registerProvider(providerA)
+        dispatcher.scheduler.runCurrent() // A's eager fetch starts and suspends
+
+        // Caller has a 100ms total budget.
+        var caught: AuthTokenException.TimedOut? = null
+        val callerJob = launch {
+            try {
+                manager.currentToken(timeoutMs = 100)
+            } catch (e: AuthTokenException.TimedOut) {
+                caught = e
+            }
+        }
+        dispatcher.scheduler.runCurrent() // caller awaits A's deferred
+
+        // Swap at t=80ms — only 20ms of the original 100ms budget remains.
+        dispatcher.scheduler.advanceTimeBy(80)
+        manager.registerProvider(providerB)
+        // Retry starts and awaits B. Inner withTimeoutOrNull(100) would fire at t=180;
+        // outer withTimeoutOrNull(100) fires first at t=100.
+        dispatcher.scheduler.runCurrent()
+
+        dispatcher.scheduler.advanceTimeBy(21) // t=101ms — past the outer 100ms deadline
+        dispatcher.scheduler.runCurrent()
+        callerJob.join()
+
+        assertNotNull(
+            "Outer 100ms deadline should fire; inner retry budget must not extend it",
+            caught
+        )
+    }
+
+    @Test
+    fun `provider swap does not write stale token when callback fires before cancellation`() = runTest(
+        dispatcher
+    ) {
+        // Regression test for the uncontended-mutex cancellation gap:
+        // If invokeProvider() already returned a value before the deferred is cancelled,
+        // ensureActive() in doFetch() must throw CancellationException before the cache write —
+        // even though mutex.withLock would acquire an uncontended lock without suspending.
+        val staleToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val freshToken = makeJwt(EXP_SECONDS + 100, IAT_SECONDS + 100)
+        val providerA = ResolvableProvider()
+        val providerB = SuccessProvider(freshToken)
+        val manager = identifiedAuthTokenManager()
+
+        manager.registerProvider(providerA)
+        dispatcher.scheduler.runCurrent() // A's eager fetch starts and suspends on provider
+
+        // Resolve A's callback now — this schedules A's coroutine to resume with staleToken.
+        // A's doFetch() has not yet run past invokeProvider().
+        providerA.resolve(staleToken)
+
+        // Swap to B *before* the scheduler runs A's resumed coroutine. Without ensureActive(),
+        // A's doFetch() would proceed through validateOrThrow and write staleToken to the cache
+        // on an uncontended mutex.withLock (no suspension → no cancellation check there).
+        manager.registerProvider(providerB)
+        dispatcher.scheduler.advanceUntilIdle() // A hits ensureActive() and aborts; B completes
+
+        val result = manager.currentToken()
+        assertEquals(freshToken, result.rawToken)
+    }
+
+    // MARK: - unregisterProvider
+
+    @Test
+    fun `unregisterProvider while idle clears provider and subsequent currentToken throws`() = runTest(
+        dispatcher
+    ) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(SuccessProvider(token))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        manager.unregisterProvider()
+
+        try {
+            manager.currentToken()
+            fail("Expected AuthTokenException.NoProviderRegistered after unregister")
+        } catch (_: AuthTokenException.NoProviderRegistered) { /* expected */ }
+    }
+
+    @Test
+    fun `unregisterProvider cancels pending refresh job`() = runTest(dispatcher) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(SuccessProvider(token))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(
+            "A refresh job should be scheduled after a successful token fetch",
+            staticClock.scheduledTasks.isNotEmpty()
+        )
+
+        manager.unregisterProvider()
+        dispatcher.scheduler.runCurrent()
+
+        assertTrue(
+            "Refresh job should be cancelled after unregisterProvider",
+            staticClock.scheduledTasks.isEmpty()
+        )
+    }
+
+    @Test
+    fun `unregisterProvider cancels in-flight fetch — concurrent currentToken callers receive error`() = runTest(
+        dispatcher
+    ) {
+        val provider = DeferredProvider()
+        val manager = identifiedAuthTokenManager()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.runCurrent() // eager fetch starts, suspends on provider
+
+        var caught: Throwable? = null
+        val callerJob = launch {
+            try {
+                manager.currentToken(timeoutMs = 5_000)
+            } catch (e: Throwable) {
+                caught = e
+            }
+        }
+        dispatcher.scheduler.runCurrent() // caller awaits the in-flight deferred
+
+        manager.unregisterProvider()
+        dispatcher.scheduler.advanceUntilIdle()
+        callerJob.join()
+
+        // The caller's retry after cancellation hits provider == null → NoProviderRegistered
+        assertTrue(
+            "Caller should receive NoProviderRegistered after unregister, got: $caught",
+            caught is AuthTokenException.NoProviderRegistered
+        )
+    }
+
+    @Test
+    fun `re-registering after unregister triggers fresh eager fetch and refresh schedule`() = runTest(
+        dispatcher
+    ) {
+        val firstToken = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val secondToken = makeJwt(EXP_SECONDS + 600, IAT_SECONDS + 600)
+        val firstProvider = SuccessProvider(firstToken)
+        val secondProvider = SuccessProvider(secondToken)
+        val manager = identifiedAuthTokenManager()
+
+        manager.registerProvider(firstProvider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        manager.unregisterProvider()
+        // unregisterProvider cancels the refresh job (removes it from scheduledTasks). An explicit
+        // clear is defensive in case the cancel path leaves an entry; see the dedicated
+        // "unregisterProvider cancels pending refresh job" test for the canonical assertion.
+        staticClock.scheduledTasks.clear()
+
+        manager.registerProvider(secondProvider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val result = manager.currentToken()
+        assertEquals(
+            "Re-register should use the new provider's token",
+            secondToken,
+            result.rawToken
+        )
+        assertTrue(
+            "Re-register should schedule a fresh proactive refresh",
+            staticClock.scheduledTasks.isNotEmpty()
+        )
+    }
+
+    @Test
+    fun `unregister without a provider clears a pending reset before registration`() = runTest(
+        dispatcher
+    ) {
+        val token = makeJwt(EXP_SECONDS, IAT_SECONDS)
+        val provider = SuccessProvider(token)
+        val manager = identifiedAuthTokenManager()
+
+        manager.invalidate()
+        manager.unregisterProvider()
+        manager.registerProvider(provider)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, provider.callCount)
+        assertEquals(token, manager.currentToken().rawToken)
+    }
+
+    // MARK: - Helpers
+
+    private class SuccessProvider(private val jwt: String) : AuthTokenProvider {
+        var callCount: Int = 0
+            private set
+
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callCount++
+            callback.onSuccess(jwt)
+        }
+    }
+
+    private class FailureProvider(private val error: Throwable) : AuthTokenProvider {
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callback.onFailure(error)
+        }
+    }
+
+    private class DeferredProvider : AuthTokenProvider {
+        var callCount: Int = 0
+            private set
+
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callCount++
+        }
+    }
+
+    private fun makeJwt(expSeconds: Long, iatSeconds: Long): String {
+        val header = JSONObject(mapOf("alg" to "HS256", "typ" to "JWT"))
+        val payload = JSONObject(
+            mapOf(
+                "exp" to expSeconds.toDouble(),
+                "iat" to iatSeconds.toDouble()
+            )
+        )
+        val headerSegment = base64UrlEncode(header.toString().toByteArray())
+        val payloadSegment = base64UrlEncode(payload.toString().toByteArray())
+        return "$headerSegment.$payloadSegment.signature"
+    }
+
+    private fun base64UrlEncode(bytes: ByteArray): String =
+        Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+
+    /**
+     * Provider that captures callbacks so tests can resolve them manually, enabling
+     * deterministic control over when the provider "responds". Callbacks are queued so
+     * concurrent invocations (e.g. eager fetch + explicit caller) can each be resolved
+     * independently without the second call clobbering the first.
+     */
+    private class ResolvableProvider : AuthTokenProvider {
+        var callCount: Int = 0
+            private set
+        private val pendingCallbacks = ArrayDeque<AuthTokenProvider.Callback>()
+
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callCount++
+            pendingCallbacks.addLast(callback)
+        }
+
+        fun resolve(jwt: String) = pendingCallbacks.removeFirstOrNull()?.onSuccess(jwt)
+        fun reject(error: Throwable) = pendingCallbacks.removeFirstOrNull()?.onFailure(error)
+    }
+
+    /**
+     * Failure provider that exposes an invocation counter for asserting that the in-flight slot
+     * is cleared on failure (so each new call re-invokes the provider).
+     */
+    private class CountingFailureProvider(private val error: Throwable) : AuthTokenProvider {
+        var callCount: Int = 0
+            private set
+
+        override fun fetchToken(callback: AuthTokenProvider.Callback) {
+            callCount++
+            callback.onFailure(error)
+        }
+    }
+}
