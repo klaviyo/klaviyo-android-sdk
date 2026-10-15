@@ -16,6 +16,7 @@ import com.klaviyo.core.config.FormEnvironment
 import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.networking.NetworkMonitor
 import com.klaviyo.core.utils.ThreadHelper
+import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -174,6 +175,7 @@ abstract class BaseTest {
     open fun cleanup() {
         Registry.unregister<PushTokenFetcher>()
         unmockkObject(Registry)
+        clearAllMocks(answers = false, childMocks = false)
     }
 
     /**

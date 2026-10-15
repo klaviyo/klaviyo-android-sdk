@@ -34,4 +34,11 @@
             <data android:scheme="smsto" />
         </intent>
     </queries>
+
+    <application>
+        <provider
+            android:name="com.klaviyo.core.CoreInitProvider"
+            android:authorities="${applicationId}.klaviyo.core.init"
+            android:exported="false" />
+    </application>
 </manifest>

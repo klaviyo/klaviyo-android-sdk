@@ -1,0 +1,57 @@
+package com.klaviyo.core.auth
+
+/**
+ * Errors thrown by [AuthTokenManager] when an auth-token request cannot be satisfied.
+ *
+ * SDK modules that consume [AuthTokenManager] (e.g. the forms WebView injection layer) can branch
+ * on these cases to distinguish "no provider has been registered yet" from "the provider returned
+ * an invalid token" when shaping their fallback behavior.
+ *
+ * Mirrors iOS `AuthTokenError`.
+ */
+sealed class AuthTokenException(
+    message: String,
+    cause: Throwable? = null
+) : RuntimeException(message, cause) {
+
+    /**
+     * [AuthTokenManager.currentToken] was called before any [AuthTokenProvider] was registered.
+     * Callers should treat this as "auth is not enabled" rather than "auth failed."
+     */
+    data object NoProviderRegistered : AuthTokenException("No auth token provider registered")
+
+    /**
+     * [AuthTokenManager.currentToken] was called while the active profile has no external ID,
+     * email or phone number. The provider is not invoked for such a profile. Callers should treat
+     * this as "no token" rather than "auth failed."
+     */
+    data object NotIdentified : AuthTokenException("Active profile has no identifier")
+
+    /**
+     * The provider returned a token that did not pass [JWTParser] validation.
+     * The [reason] is the name of the failing [JWTValidationResult] variant.
+     */
+    data class ValidationFailed(val reason: String) : AuthTokenException(
+        "Auth token validation failed: $reason"
+    )
+
+    /**
+     * The provider did not return a token within the caller's timeout budget.
+     * The underlying provider invocation may still be in-flight; a later caller with a longer
+     * budget can still receive the result without triggering a second provider call.
+     *
+     */
+    data object TimedOut : AuthTokenException("Auth token request timed out")
+
+    /**
+     * The registered provider reported a cancellation instead of a token.
+     * The [cause] is the exception the provider passed to [AuthTokenProvider.Callback.onFailure].
+     */
+    data class ProviderCancelled(override val cause: Throwable) : AuthTokenException(
+        "Auth token provider reported a cancellation",
+        cause
+    )
+
+    /** The manager stopped before a queued token request could complete. */
+    data object ManagerStopped : AuthTokenException("Auth token manager stopped")
+}
