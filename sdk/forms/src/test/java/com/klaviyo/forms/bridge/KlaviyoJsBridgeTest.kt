@@ -36,7 +36,7 @@ class KlaviyoJsBridgeTest : BaseTest() {
     fun `compileJson returns correct JSON for supported functions`() {
         val expectedJson = KlaviyoJsBridge().handshake.compileJson()
         val actualJson = """
-           [{"type":"profileMutation","version":1},{"type":"lifecycleEvent","version":1},{"type":"closeForm","version":1},{"type":"profileEvent","version":1},{"type":"jwtMutation","version":1},{"type":"formsPreviewToken","version":1}]
+           [{"type":"profileMutation","version":1},{"type":"lifecycleEvent","version":1},{"type":"closeForm","version":1},{"type":"profileEvent","version":1},{"type":"jwtMutation","version":1},{"type":"formsPreviewTokenMutation","version":1}]
         """.trimIndent()
         assertEquals(actualJson, expectedJson)
     }

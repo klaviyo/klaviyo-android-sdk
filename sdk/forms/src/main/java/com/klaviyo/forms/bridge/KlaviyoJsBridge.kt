@@ -24,14 +24,6 @@ internal class KlaviyoJsBridge : JsBridge {
         formsPreviewTokenMutation
     }
 
-    private companion object {
-        /**
-         * Handshake type that tells onsite-in-app-forms the SDK supports draft forms preview,
-         * i.e. the data-klaviyo-forms-preview-token head attribute and [formsPreviewTokenMutation]
-         */
-        const val FORMS_PREVIEW_TOKEN_SPEC = "formsPreviewToken"
-    }
-
     override val handshake: List<HandshakeSpec> = listOf(
         HandshakeSpec(
             type = HelperFunction.profileMutation.name,
@@ -54,7 +46,7 @@ internal class KlaviyoJsBridge : JsBridge {
             version = 1
         ),
         HandshakeSpec(
-            type = FORMS_PREVIEW_TOKEN_SPEC,
+            type = HelperFunction.formsPreviewTokenMutation.name,
             version = 1
         )
     )

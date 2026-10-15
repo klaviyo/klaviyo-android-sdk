@@ -655,7 +655,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     fun `handshake advertises forms preview support at version 1`() {
         val handshake = bridgeMessageHandler.handshake + KlaviyoJsBridge().handshake
 
-        assertTrue(handshake.contains(HandshakeSpec("formsPreviewToken", 1)))
+        assertTrue(handshake.contains(HandshakeSpec("formsPreviewTokenMutation", 1)))
         assertTrue(handshake.contains(HandshakeSpec("formsPreviewEnded", 1)))
     }
 
