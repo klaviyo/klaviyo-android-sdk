@@ -39,17 +39,10 @@ internal data class InboxRecordAction(
 /**
  * Tracking metadata from the push's `_k` payload
  *
+ * @property transmissionId The push's `tm`, used to match local and server copies of a message
  * @property rawTrackingJson The full `_k` object with the device push token removed
  */
 internal data class InboxAttribution(
     val transmissionId: String? = null,
-    val message: String? = null,
-    val timestamp: String? = null,
-    val messageType: String? = null,
-    val flow: String? = null,
-    val variation: String? = null,
-    val campaign: String? = null,
-    val messageVariation: String? = null,
-    val campaignAudience: String? = null,
     val rawTrackingJson: String? = null
 )

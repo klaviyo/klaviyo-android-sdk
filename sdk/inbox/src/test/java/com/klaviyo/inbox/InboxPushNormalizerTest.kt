@@ -10,6 +10,7 @@ import com.klaviyo.inbox.InboxPushFixtures.canonicalPayload
 import com.klaviyo.inbox.InboxPushFixtures.remoteMessage
 import com.klaviyo.inbox.InboxPushFixtures.tracking
 import com.klaviyo.inbox.InboxPushNormalizer.toInboxCaptureRecord
+import io.mockk.verify
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -27,6 +28,7 @@ internal class InboxPushNormalizerTest : BaseTest() {
     override fun setup() {
         super.setup()
         InboxPushFixtures.mockUriParsing()
+        staticClock.parsedRfc3339 = SENT_AT_MILLIS
     }
 
     @After
@@ -77,16 +79,7 @@ internal class InboxPushNormalizerTest : BaseTest() {
             sentAt = SENT_AT_MILLIS,
             collapseId = "sale-tag",
             receivedAt = receivedAt,
-            attribution = InboxAttribution(
-                transmissionId = TRANSMISSION_ID,
-                message = "message-1",
-                timestamp = "2026-10-06T19:00:00.123456+00:00",
-                messageType = "campaign",
-                campaign = "campaign-1",
-                variation = "variation-1",
-                messageVariation = "message-variation-1",
-                campaignAudience = "audience-1"
-            )
+            attribution = InboxAttribution(transmissionId = TRANSMISSION_ID)
         )
 
         val actual = normalize()?.let {
@@ -199,7 +192,10 @@ internal class InboxPushNormalizerTest : BaseTest() {
 
         assertEquals("fcm:$FCM_MESSAGE_ID", record?.dedupeKey)
         assertNull(record?.attribution?.transmissionId)
-        assertEquals("campaign-1", record?.attribution?.campaign)
+        assertEquals(
+            "campaign-1",
+            JSONObject(record?.attribution?.rawTrackingJson.orEmpty()).getString("\$campaign")
+        )
     }
 
     @Test
@@ -214,21 +210,20 @@ internal class InboxPushNormalizerTest : BaseTest() {
         assertNotNull(record)
         assertEquals("fcm:$FCM_MESSAGE_ID", record?.dedupeKey)
         assertEquals(InboxAttribution(), record?.attribution)
+        verify { spyLog.warning(any(), null) }
         assertNull(record?.sentAt)
         assertEquals("Sale today", record?.title)
     }
 
     @Test
     fun `an unparseable timestamp leaves the send time empty`() {
-        assertNull(normalize(canonicalWith("_k" to tracking("timestamp" to "yesterday")))?.sentAt)
+        staticClock.parsedRfc3339 = null
+
+        assertNull(normalize()?.sentAt)
     }
 
     @Test
-    fun `the short message type key is used when Message Type is absent`() {
-        val record = normalize(
-            canonicalWith("_k" to tracking("Message Type" to null, "x" to "flow"))
-        )
-
-        assertEquals("flow", record?.attribution?.messageType)
+    fun `a missing timestamp leaves the send time empty`() {
+        assertNull(normalize(canonicalWith("_k" to tracking("timestamp" to null)))?.sentAt)
     }
 }

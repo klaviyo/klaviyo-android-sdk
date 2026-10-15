@@ -26,15 +26,7 @@ internal object InboxPushNormalizer {
 
     private const val TRANSMISSION_ID_KEY = "tm"
     private const val PUSH_TOKEN_KEY = "pt"
-    private const val MESSAGE_KEY = "\$message"
     private const val TIMESTAMP_KEY = "timestamp"
-    private const val MESSAGE_TYPE_KEY = "Message Type"
-    private const val MESSAGE_TYPE_SHORT_KEY = "x"
-    private const val FLOW_KEY = "\$flow"
-    private const val VARIATION_KEY = "\$variation"
-    private const val CAMPAIGN_KEY = "\$campaign"
-    private const val MESSAGE_VARIATION_KEY = "\$message_variation"
-    private const val CAMPAIGN_AUDIENCE_KEY = "\$campaign_audience"
 
     /**
      * @return The record, or null when the message isn't a Klaviyo notification or has neither a
@@ -43,7 +35,11 @@ internal object InboxPushNormalizer {
     fun RemoteMessage.toInboxCaptureRecord(receivedAt: Long): InboxCaptureRecord? {
         if (!isKlaviyoNotification) return null
 
-        val attribution = parseAttribution(data[Constants.TRACKING_PARAMETER])
+        val tracking = parseTracking(data[Constants.TRACKING_PARAMETER])
+        val attribution = InboxAttribution(
+            transmissionId = tracking?.optNonBlankString(TRANSMISSION_ID_KEY),
+            rawTrackingJson = tracking?.toString()
+        )
         val dedupeKey = attribution.transmissionId
             ?: messageId?.takeIf { it.isNotBlank() }?.let { FCM_DEDUPE_PREFIX + it }
             ?: return null
@@ -63,36 +59,21 @@ internal object InboxPushNormalizer {
             mediaType = data[IMAGE_TYPE_KEY]?.takeIf { it.isNotBlank() },
             customData = keyValuePairs.orEmpty(),
             actions = actionButtons.orEmpty().map { it.toRecordAction() },
-            sentAt = Rfc3339.parseMillis(attribution.timestamp),
+            sentAt = Registry.clock.parseRfc3339(tracking?.optNonBlankString(TIMESTAMP_KEY)),
             collapseId = notificationTag,
             receivedAt = receivedAt,
             attribution = attribution
         )
     }
 
-    private fun parseAttribution(trackingJson: String?): InboxAttribution {
-        val tracking = try {
-            trackingJson?.let { JSONObject(it) }
-        } catch (e: JSONException) {
-            Registry.log.warning("Unable to parse Klaviyo push tracking data: ${e.message}")
-            null
-        } ?: return InboxAttribution()
-
-        tracking.remove(PUSH_TOKEN_KEY)
-
-        return InboxAttribution(
-            transmissionId = tracking.optNonBlankString(TRANSMISSION_ID_KEY),
-            message = tracking.optNonBlankString(MESSAGE_KEY),
-            timestamp = tracking.optNonBlankString(TIMESTAMP_KEY),
-            messageType = tracking.optNonBlankString(MESSAGE_TYPE_KEY)
-                ?: tracking.optNonBlankString(MESSAGE_TYPE_SHORT_KEY),
-            flow = tracking.optNonBlankString(FLOW_KEY),
-            variation = tracking.optNonBlankString(VARIATION_KEY),
-            campaign = tracking.optNonBlankString(CAMPAIGN_KEY),
-            messageVariation = tracking.optNonBlankString(MESSAGE_VARIATION_KEY),
-            campaignAudience = tracking.optNonBlankString(CAMPAIGN_AUDIENCE_KEY),
-            rawTrackingJson = tracking.toString()
-        )
+    /**
+     * @return The `_k` object with the device push token removed, or null when absent or malformed
+     */
+    private fun parseTracking(trackingJson: String?): JSONObject? = try {
+        trackingJson?.let { JSONObject(it) }?.apply { remove(PUSH_TOKEN_KEY) }
+    } catch (e: JSONException) {
+        Registry.log.warning("Unable to parse Klaviyo push tracking data: ${e.message}")
+        null
     }
 
     private fun JSONObject.optNonBlankString(key: String): String? =
