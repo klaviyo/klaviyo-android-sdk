@@ -76,6 +76,7 @@ internal class InboxPushNormalizerTest : BaseTest() {
             ),
             sentAt = SENT_AT_MILLIS,
             collapseId = "sale-tag",
+            badge = 3,
             receivedAt = receivedAt,
             attribution = InboxAttribution(transmissionId = TRANSMISSION_ID)
         )
@@ -204,5 +205,11 @@ internal class InboxPushNormalizerTest : BaseTest() {
     @Test
     fun `a missing timestamp leaves the send time empty`() {
         assertNull(normalize(canonicalWith("_k" to tracking("timestamp" to null)))?.sentAt)
+    }
+
+    @Test
+    fun `badge is empty when absent or not a number`() {
+        assertNull(normalize(canonicalWith("notification_count" to null))?.badge)
+        assertNull(normalize(canonicalWith("notification_count" to "lots"))?.badge)
     }
 }

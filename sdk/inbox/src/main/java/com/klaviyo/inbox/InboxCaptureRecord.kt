@@ -6,6 +6,7 @@ package com.klaviyo.inbox
  * @property dedupeKey The push's `tm`
  * @property receivedAt When this device captured the push, in epoch milliseconds
  * @property sentAt Server send time from `_k.timestamp`, in epoch milliseconds
+ * @property badge The push's app-icon badge count, when the payload sets one
  */
 internal data class InboxCaptureRecord(
     val dedupeKey: String,
@@ -18,6 +19,7 @@ internal data class InboxCaptureRecord(
     val actions: List<InboxRecordAction>,
     val sentAt: Long?,
     val collapseId: String?,
+    val badge: Int?,
     val receivedAt: Long,
     val attribution: InboxAttribution
 )

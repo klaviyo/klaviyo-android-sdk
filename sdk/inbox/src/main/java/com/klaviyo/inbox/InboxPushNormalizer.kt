@@ -22,6 +22,7 @@ import org.json.JSONObject
  */
 internal object InboxPushNormalizer {
     private const val IMAGE_TYPE_KEY = "image_type"
+    private const val BADGE_KEY = "notification_count"
 
     private const val TRANSMISSION_ID_KEY = "tm"
     private const val PUSH_TOKEN_KEY = "pt"
@@ -52,6 +53,7 @@ internal object InboxPushNormalizer {
             actions = actionButtons.orEmpty().map { it.toRecordAction() },
             sentAt = Registry.clock.parseRfc3339(tracking?.optNonBlankString(TIMESTAMP_KEY)),
             collapseId = notificationTag,
+            badge = data[BADGE_KEY]?.trim()?.toIntOrNull(),
             receivedAt = receivedAt,
             attribution = attribution
         )
