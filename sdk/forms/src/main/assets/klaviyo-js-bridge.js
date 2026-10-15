@@ -130,6 +130,20 @@ window.jwtMutation = function (token) {
     return true
 }
 
+/**
+ * Updates the data-klaviyo-forms-preview-token attribute on the document head.
+ *
+ * Delivered via the JS bridge when the preview token is set or cleared while the webview is alive.
+ * An empty token ends draft preview and returns to published forms.
+ *
+ * @param token - Preview token string, or empty string to clear
+ * @returns {boolean}
+ */
+window.formsPreviewTokenMutation = function (token) {
+    document.head.setAttribute("data-klaviyo-forms-preview-token", token)
+    return true
+}
+
 // Notify the SDK over the native bridge that these local JS scripts are initialized
 var bridgeName = document.head.getAttribute("data-native-bridge-name") || ""
 

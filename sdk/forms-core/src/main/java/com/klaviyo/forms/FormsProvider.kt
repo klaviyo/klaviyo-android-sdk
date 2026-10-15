@@ -19,4 +19,10 @@ interface FormsProvider {
      * and tearing down the WebView client.
      */
     fun unregister()
+
+    /**
+     * Set or clear (null or blank) the in-memory forms preview token.
+     * Must work whether or not [register] has been called.
+     */
+    fun setPreviewToken(token: String?)
 }

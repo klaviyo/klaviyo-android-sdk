@@ -60,4 +60,10 @@ internal interface JsBridge {
      * Inject the auth token into the webview as a data attribute.
      */
     fun jwtMutation(token: String)
+
+    /**
+     * Inject the forms preview token into the webview as a data attribute.
+     * An empty [token] ends preview and returns to published forms.
+     */
+    fun formsPreviewTokenMutation(token: String)
 }

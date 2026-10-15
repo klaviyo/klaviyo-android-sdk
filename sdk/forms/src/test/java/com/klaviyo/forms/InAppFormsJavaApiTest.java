@@ -9,6 +9,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 /**
  * Tests to verify the In-App Forms API is accessible from Java.
@@ -54,6 +55,12 @@ public class InAppFormsJavaApiTest extends BaseTest {
         // Int constructor for custom timeout in seconds
         InAppFormsConfig customConfig = new InAppFormsConfig(1800);
         assertNotNull(customConfig);
+
+        // Preview token constructors
+        String token = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6";
+        assertEquals(token, new InAppFormsConfig(token).getPreviewToken());
+        assertEquals(token, new InAppFormsConfig(1800, token).getPreviewToken());
+        assertNull(new InAppFormsConfig(1800, null).getPreviewToken());
     }
 
     @Test
@@ -72,6 +79,19 @@ public class InAppFormsJavaApiTest extends BaseTest {
         InAppFormsConfig config = new InAppFormsConfig(1800);
         KlaviyoForms.registerForInAppForms(config);
         InAppFormsMock.verifyKlaviyoFormsRegisterCalled();
+    }
+
+    @Test
+    public void testSetFormsPreviewToken() {
+        Klaviyo result = InAppFormsKt.setFormsPreviewToken(Klaviyo.INSTANCE, "token");
+        assertEquals(Klaviyo.INSTANCE, result);
+        InAppFormsMock.verifySetFormsPreviewTokenCalled();
+    }
+
+    @Test
+    public void testKlaviyoFormsSetPreviewToken() {
+        KlaviyoForms.setFormsPreviewToken(null);
+        InAppFormsMock.verifyKlaviyoFormsSetPreviewTokenCalled();
     }
 
     @Test
