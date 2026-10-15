@@ -11,6 +11,7 @@ buildscript {
 
     repositories {
         google()
+        maven("https://maven-central.storage-download.googleapis.com/maven2/")
         mavenCentral()
         maven {
             url = uri("https://plugins.gradle.org/m2/")
