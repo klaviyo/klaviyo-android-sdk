@@ -135,6 +135,7 @@ abstract class BaseTest {
         every { runOnUiThread(any()) } answers {
             firstArg<() -> Unit>().invoke()
         }
+        every { isMainThread() } returns false
         every { getHandler(any()) } returns mockHandler
         every { getHandlerThread(any()) } returns mockk<HandlerThread>().apply {
             every { start() } returns Unit

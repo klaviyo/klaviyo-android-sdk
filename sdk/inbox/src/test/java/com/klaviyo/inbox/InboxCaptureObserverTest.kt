@@ -14,6 +14,9 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlin.system.measureTimeMillis
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -46,6 +49,8 @@ internal class InboxCaptureObserverTest : BaseTest() {
         InboxPushFixtures.mockUriParsing()
         MobileInboxSettings.save(MobileInboxSettings(enabled = true))
         Registry.register<InboxRepository>(repository)
+        // Run the store write inline so the observer's wait returns as soon as it finishes
+        every { Registry.dispatcher } returns Dispatchers.Unconfined
     }
 
     @After
@@ -56,9 +61,21 @@ internal class InboxCaptureObserverTest : BaseTest() {
         super.cleanup()
     }
 
-    private fun capture(message: RemoteMessage = remoteMessage()) {
-        InboxCaptureObserver(message)
-        dispatcher.scheduler.advanceUntilIdle()
+    private fun capture(message: RemoteMessage = remoteMessage()) = InboxCaptureObserver(message)
+
+    /**
+     * A store whose write never finishes until [release] runs
+     */
+    private fun registerStalledRepository(): () -> Unit {
+        val gate = CompletableDeferred<Unit>()
+        val stalled = mockk<InboxRepository>()
+        coEvery { stalled.capture(any()) } coAnswers {
+            gate.await()
+            InboxCaptureResult.CAPTURED
+        }
+        Registry.register<InboxRepository>(stalled)
+        every { Registry.dispatcher } returns Dispatchers.IO
+        return { gate.complete(Unit) }
     }
 
     @Test
@@ -170,5 +187,42 @@ internal class InboxCaptureObserverTest : BaseTest() {
 
         verify { spyLog.error(any(), any<IllegalStateException>()) }
         assertTrue(repository.results.isEmpty())
+    }
+
+    @Test
+    fun `the write finishes before the observer returns`() {
+        capture()
+
+        assertEquals(listOf(InboxCaptureResult.CAPTURED), repository.results)
+    }
+
+    @Test
+    fun `a slow write is waited on for at most the timeout`() {
+        val release = registerStalledRepository()
+
+        try {
+            val elapsed = measureTimeMillis { capture() }
+
+            assertTrue(elapsed >= InboxCaptureObserver.CAPTURE_TIMEOUT_MS)
+            assertTrue(elapsed < InboxCaptureObserver.CAPTURE_TIMEOUT_MS * 3)
+            verify { spyLog.warning(any(), null) }
+        } finally {
+            release()
+        }
+    }
+
+    @Test
+    fun `the main thread does not wait for the write`() {
+        every { mockThreadHelper.isMainThread() } returns true
+        val release = registerStalledRepository()
+
+        try {
+            val elapsed = measureTimeMillis { capture() }
+
+            assertTrue(elapsed < InboxCaptureObserver.CAPTURE_TIMEOUT_MS)
+            verify(exactly = 0) { spyLog.warning(any(), any()) }
+        } finally {
+            release()
+        }
     }
 }
