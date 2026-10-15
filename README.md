@@ -41,6 +41,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [Setup](#setup-1)
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Personalized Forms Authentication](#personalized-forms-authentication)
   - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Setup](#setup-2)
@@ -108,10 +109,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.5.2")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.5.2")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.5.2")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.5.2")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.6.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.6.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.6.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.6.0")
       }
       ```
    </details>
@@ -122,10 +123,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.5.2"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.5.2"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.5.2"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.5.2"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.6.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.6.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.6.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.6.0"
        }
       ```
    </details>
@@ -996,6 +997,71 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 </details>
 
 **Note:** After unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+### Personalized Forms Authentication
+
+> **Note:** Personalized Forms authentication requires SDK version `4.6.0` or later and must be enabled for your Klaviyo account.
+
+Personalized In-App Forms show content from the signed-in user's Klaviyo profile. Your app proves who the user is with a JSON Web Token (JWT).
+
+Set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server. The JWT must carry valid `iat` and `exp` claims and the user's matching `email` claim. Keep the SDK's profile identifiers in sync with the signed-in user (see [Profile Identification](#profile-identification)).
+
+After initializing the SDK, register a provider that fetches a token from your backend:
+
+<details open>
+   <summary>Kotlin</summary>
+
+   ```kotlin
+   import com.klaviyo.analytics.Klaviyo
+
+   Klaviyo.registerAuthTokenProvider { callback ->
+       // Replace with your own call. Apply a timeout to the request.
+       authService.fetchKlaviyoJwt(
+           onSuccess = { jwt -> callback.onSuccess(jwt) },
+           onError = { error -> callback.onFailure(error) }
+       )
+   }
+   ```
+</details>
+
+<details>
+   <summary>Java</summary>
+
+   ```java
+   import com.klaviyo.analytics.Klaviyo;
+
+   Klaviyo.registerAuthTokenProvider(callback ->
+       // Replace with your own call. Apply a timeout to the request.
+       authService.fetchKlaviyoJwt(
+           jwt -> callback.onSuccess(jwt),
+           error -> callback.onFailure(error)
+       )
+   );
+   ```
+</details>
+
+Register the provider once and keep it registered across profile changes.
+
+On logout, clear the SDK profile:
+
+```kotlin
+Klaviyo.resetProfile()
+```
+
+A form that is already open keeps its token until it expires, whether you call `resetProfile()` or `unregisterAuthTokenProvider()`. `unregisterAuthTokenProvider()` turns personalization off. It is not a logout.
+
+#### Provider requirements
+
+The SDK does not time out your provider, so your code must:
+
+- **Call back exactly once.** Call `onSuccess(jwt)` or `onFailure(error)` for each call to `fetchToken`.
+  The SDK calls `fetchToken` whenever it needs a fresh token, on a background thread, and you may
+  call back from any thread.
+- **Report errors through `onFailure`.** The SDK tries to catch exceptions, but the safest path is to
+  handle your own errors and respond through `onFailure`.
+- **Bound your own work.** Apply a timeout to every network call. A provider that never calls back blocks later token fetches until you register, unregister or reset the profile.
+- **Fail fast.** If you cannot produce a token, for example when no user is signed in, call `onFailure` instead of waiting or retrying.
+- **Pass on the original network error.** The SDK retries after reconnect when it finds an `UnknownHostException` or a `SocketException` in the cause chain, so pass the original exception to `onFailure` or wrap it as the `cause`.
 
 ### Monitoring Form Lifecycle Events
 

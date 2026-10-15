@@ -44,6 +44,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -172,6 +174,14 @@ fun SampleView(
                 pushToken = viewModel.pushToken,
                 hasNotificationPermission = viewModel.hasNotificationPermission,
                 isFormsRegistered = viewModel.isFormsRegistered,
+                pastedJwt = viewModel.pastedJwt,
+                isAuthTokenProviderRegistered = viewModel.isAuthTokenProviderRegistered,
+                onPastedJwtChange = viewModel::updatePastedJwt,
+                applyPastedJwt = executeWithToast(
+                    viewModel::applyPastedJwt,
+                    "JWT set for the next token fetch"
+                ),
+                onAuthTokenProviderRegisteredChange = viewModel::updateAuthTokenProviderRegistration,
                 hasLocationPermission = viewModel.hasLocationPermission,
                 hasBackgroundLocationPermission = viewModel.hasBackgroundLocationPermission,
                 isGeofencingRegistered = viewModel.isGeofencingRegistered,
@@ -264,6 +274,11 @@ private fun SampleViewContent(
     createViewedProductEvent: () -> Unit = {},
     registerForInAppForms: () -> Unit = {},
     unregisterFromInAppForms: () -> Unit = {},
+    pastedJwt: String = "",
+    isAuthTokenProviderRegistered: Boolean = false,
+    onPastedJwtChange: (String) -> Unit = {},
+    applyPastedJwt: () -> Unit = {},
+    onAuthTokenProviderRegisteredChange: (Boolean) -> Unit = {},
     requestPermission: () -> Unit = {},
     requestLocationPermission: () -> Unit = {},
     requestBackgroundLocationPermission: () -> Unit = {},
@@ -396,6 +411,27 @@ private fun SampleViewContent(
         ViewRow { HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color) }
 
         SectionHeader(UiConstants.FORMS_SECTION)
+        ViewRow(horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("JWT provider registered")
+            Switch(
+                checked = isAuthTokenProviderRegistered,
+                onCheckedChange = onAuthTokenProviderRegisteredChange,
+                modifier = Modifier.semantics { contentDescription = "JWT provider registered" }
+            )
+        }
+        if (isAuthTokenProviderRegistered) {
+            ProfileTextField(
+                label = "Personalization JWT",
+                value = pastedJwt,
+                onValueChange = onPastedJwtChange,
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+                keyboardActions = KeyboardActions(onDone = { applyPastedJwt() }),
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                trailingIcon = { EntryTrailingButton(onClick = applyPastedJwt) }
+            )
+        }
         ViewRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionButton(
                 text = UiConstants.REGISTER,
@@ -493,6 +529,8 @@ private fun ProfileTextField(
     imeAction: ImeAction,
     keyboardActions: KeyboardActions,
     testTag: String = "",
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    singleLine: Boolean = false,
     trailingIcon: @Composable (() -> Unit)? = null
 ) {
     ViewRow {
@@ -502,6 +540,8 @@ private fun ProfileTextField(
             onValueChange = onValueChange,
             keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
             keyboardActions = keyboardActions,
+            visualTransformation = visualTransformation,
+            singleLine = singleLine,
             trailingIcon = trailingIcon,
             modifier = Modifier
                 .weight(1f, fill = true)

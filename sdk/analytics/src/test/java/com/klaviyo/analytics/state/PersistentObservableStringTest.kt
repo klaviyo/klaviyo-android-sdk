@@ -155,4 +155,49 @@ internal class PersistentObservableStringTest : BaseTest() {
         assertNull(delegatedProperty)
         assertNull(spyDataStore.fetch(KEY))
     }
+
+    @Test
+    fun `Replaces trimmed value without invoking callback`() {
+        spyDataStore.store(KEY, "value")
+        var invoked = false
+        val property = PersistentObservableString(
+            ProfileKey.CUSTOM(KEY),
+            onChanged = { _, _ -> invoked = true }
+        )
+        val delegatedProperty by property
+
+        property.replace("  new_value  ")
+
+        assertFalse(invoked)
+        assertEquals("new_value", delegatedProperty)
+        assertEquals("new_value", spyDataStore.fetch(KEY))
+        verify(exactly = 0) { spyLog.warning(any(), any()) }
+    }
+
+    @Test
+    fun `Replacing with null clears without a warning`() {
+        spyDataStore.store(KEY, "value")
+        val property = PersistentObservableString(ProfileKey.CUSTOM(KEY))
+        val delegatedProperty by property
+
+        property.replace(null)
+
+        assertNull(delegatedProperty)
+        assertNull(spyDataStore.fetch(KEY))
+        verify(exactly = 0) { spyLog.warning(any(), any()) }
+    }
+
+    @Test
+    fun `Replacing with a blank value clears with a warning`() {
+        spyDataStore.store(KEY, "value")
+        val property = PersistentObservableString(ProfileKey.CUSTOM(KEY))
+        val delegatedProperty by property
+
+        property.replace("   ")
+
+        assertNull(delegatedProperty)
+        assertNull(spyDataStore.fetch(KEY))
+        verify(exactly = 1) { spyLog.warning(match { it.contains("cleared") }, any()) }
+        verify(exactly = 1) { spyLog.warning(any(), any()) }
+    }
 }

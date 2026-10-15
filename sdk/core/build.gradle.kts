@@ -24,6 +24,8 @@ dependencies {
     implementation(KotlinX.coroutines.android)
 
     testImplementation(project(":sdk:fixtures"))
+
+    androidTestImplementation(AndroidX.test.ext.junit)
 }
 
 afterEvaluate {
