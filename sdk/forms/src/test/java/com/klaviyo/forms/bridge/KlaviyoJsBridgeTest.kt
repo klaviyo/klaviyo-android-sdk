@@ -5,6 +5,7 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.forms.preview.VALID_PREVIEW_TOKEN
 import com.klaviyo.forms.webview.JavaScriptEvaluator
 import io.mockk.every
 import io.mockk.mockk
@@ -35,7 +36,7 @@ class KlaviyoJsBridgeTest : BaseTest() {
     fun `compileJson returns correct JSON for supported functions`() {
         val expectedJson = KlaviyoJsBridge().handshake.compileJson()
         val actualJson = """
-           [{"type":"profileMutation","version":1},{"type":"lifecycleEvent","version":1},{"type":"closeForm","version":1},{"type":"profileEvent","version":1},{"type":"jwtMutation","version":1}]
+           [{"type":"profileMutation","version":1},{"type":"lifecycleEvent","version":1},{"type":"closeForm","version":1},{"type":"profileEvent","version":1},{"type":"jwtMutation","version":1},{"type":"formsPreviewTokenMutation","version":1}]
         """.trimIndent()
         assertEquals(actualJson, expectedJson)
     }
@@ -251,6 +252,27 @@ class KlaviyoJsBridgeTest : BaseTest() {
                 eq("""window.jwtMutation("jwt.token.value")"""),
                 any()
             )
+        }
+    }
+
+    @Test
+    fun `formsPreviewTokenMutation calls JS evaluator with correct JS`() {
+        bridge.formsPreviewTokenMutation(VALID_PREVIEW_TOKEN)
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                eq("""window.formsPreviewTokenMutation("$VALID_PREVIEW_TOKEN")"""),
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun `formsPreviewTokenMutation with empty token clears the attribute`() {
+        bridge.formsPreviewTokenMutation("")
+
+        verify {
+            jsEvaluator.evaluateJavascript(eq("""window.formsPreviewTokenMutation("")"""), any())
         }
     }
 }

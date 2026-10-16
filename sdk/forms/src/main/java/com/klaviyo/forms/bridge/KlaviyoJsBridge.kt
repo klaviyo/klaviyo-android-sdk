@@ -20,7 +20,8 @@ internal class KlaviyoJsBridge : JsBridge {
         closeForm,
         profileEvent,
         setSafeArea,
-        jwtMutation
+        jwtMutation,
+        formsPreviewTokenMutation
     }
 
     override val handshake: List<HandshakeSpec> = listOf(
@@ -42,6 +43,10 @@ internal class KlaviyoJsBridge : JsBridge {
         ),
         HandshakeSpec(
             type = HelperFunction.jwtMutation.name,
+            version = 1
+        ),
+        HandshakeSpec(
+            type = HelperFunction.formsPreviewTokenMutation.name,
             version = 1
         )
     )
@@ -88,6 +93,11 @@ internal class KlaviyoJsBridge : JsBridge {
 
     override fun jwtMutation(token: String) = evaluateJavascript(
         HelperFunction.jwtMutation,
+        token
+    )
+
+    override fun formsPreviewTokenMutation(token: String) = evaluateJavascript(
+        HelperFunction.formsPreviewTokenMutation,
         token
     )
 
