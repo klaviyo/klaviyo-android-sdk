@@ -22,14 +22,18 @@ internal class FormsPreviewTokenStore {
         private val TOKEN_PATTERN = Regex("^[A-Za-z0-9_-]{43}$")
 
         /**
-         * Returns [token] if it is a well-formed preview token, null if it is null or blank, and
-         * null with a warning otherwise. The token value itself is never logged.
+         * Returns [token] without surrounding whitespace if it is a well-formed preview token,
+         * null if it is null or blank, and null with a warning otherwise. The token value itself
+         * is never logged.
          */
-        fun validate(token: String?): String? = when {
-            token.isNullOrBlank() -> null
-            TOKEN_PATTERN.matches(token) -> token
-            else -> null.also {
-                Registry.log.warning("Ignoring malformed forms preview token")
+        fun validate(token: String?): String? {
+            val trimmed = token?.trim()
+            return when {
+                trimmed.isNullOrEmpty() -> null
+                TOKEN_PATTERN.matches(trimmed) -> trimmed
+                else -> null.also {
+                    Registry.log.warning("Ignoring malformed forms preview token")
+                }
             }
         }
     }

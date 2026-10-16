@@ -31,6 +31,15 @@ class FormsPreviewTokenStoreTest : BaseTest() {
     }
 
     @Test
+    fun `surrounding whitespace is trimmed`() {
+        listOf("$VALID_PREVIEW_TOKEN\n", "  $VALID_PREVIEW_TOKEN ", "\t$VALID_PREVIEW_TOKEN").forEach {
+            store.clear()
+            store.setToken(it)
+            assertEquals(VALID_PREVIEW_TOKEN, store.token)
+        }
+    }
+
+    @Test
     fun `null and blank clear the token`() {
         listOf(null, "", "   ").forEach { clearValue ->
             store.setToken(VALID_PREVIEW_TOKEN)
@@ -56,7 +65,7 @@ class FormsPreviewTokenStoreTest : BaseTest() {
             VALID_PREVIEW_TOKEN + "a", // too long
             VALID_PREVIEW_TOKEN.dropLast(1) + "=", // invalid character
             VALID_PREVIEW_TOKEN.dropLast(2) + "'>", // markup injection attempt
-            " " + VALID_PREVIEW_TOKEN.drop(1) // whitespace
+            VALID_PREVIEW_TOKEN.take(20) + " " + VALID_PREVIEW_TOKEN.drop(21) // inner whitespace
         )
 
         malformed.forEach { token ->
