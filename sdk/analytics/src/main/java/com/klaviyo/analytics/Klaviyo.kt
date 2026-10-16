@@ -24,6 +24,7 @@ import com.klaviyo.core.Constants.URL_PARAMETER
 import com.klaviyo.core.Operation
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
 import com.klaviyo.core.safeApply
@@ -140,6 +141,36 @@ object Klaviyo {
     @JvmStatic
     fun unregisterDeepLinkHandler() = safeApply {
         Registry.unregister<DeepLinkHandler>()
+    }
+
+    /**
+     * Register an [AuthTokenProvider] that supplies JWTs to authenticate personalized Klaviyo
+     * features (such as in-app forms that target a known profile).
+     *
+     * Re-registering replaces the previously registered provider and discards any cached token.
+     * The SDK invokes [AuthTokenProvider.fetchToken] whenever a fresh token is needed.
+     */
+    @JvmStatic
+    fun registerAuthTokenProvider(provider: AuthTokenProvider) = safeApply {
+        Registry.get<AuthTokenManager>().registerProvider(provider.toCore())
+    }
+
+    /**
+     * Detach the registered auth token provider and tear down all associated token state.
+     *
+     * Call this when the user logs out and the app can no longer supply a valid JWT. Cancels any
+     * in-flight token fetch, scheduled proactive refresh, and connectivity-retry job, then clears
+     * the cached token and the provider reference. Subsequent personalized form displays will
+     * render without authentication until a new provider is registered via
+     * [registerAuthTokenProvider].
+     *
+     * Has no effect if no provider is currently registered.
+     *
+     * @return Returns [Klaviyo] for call chaining
+     */
+    @JvmStatic
+    fun unregisterAuthTokenProvider() = safeApply {
+        Registry.get<AuthTokenManager>().unregisterProvider()
     }
 
     /**
@@ -287,7 +318,9 @@ object Klaviyo {
      * (e.g. after a logout)
      */
     @JvmStatic
-    fun resetProfile() = safeApply { Registry.get<State>().reset() }
+    fun resetProfile() = safeApply {
+        Registry.get<State>().reset()
+    }
 
     /**
      * Creates an [Event] associated with the currently tracked profile

@@ -14,19 +14,29 @@ import androidx.core.net.toUri
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenException
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.bridge.DeviceInfoProvider
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
+import com.klaviyo.forms.bridge.JwtObserver
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
+import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
 import java.io.BufferedReader
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Manages the [KlaviyoWebView] instance that powers In-App Forms behavior, triggering, rendering and display,
@@ -46,17 +56,69 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     private var webView: KlaviyoWebView? by WeakReferenceDelegate()
 
     /**
-     * Initialize a webview instance, with protection against duplication
-     * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head
+     * Pending load of the forms page, awaiting the initial auth token. Cancelled by
+     * [destroyWebView].
      */
-    override fun initializeWebView(): Unit = webView?.let {
-        Registry.log.debug("Klaviyo webview is already initialized")
-    } ?: KlaviyoWebView().let { webView ->
+    private var loadJob: Job? = null
+
+    private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
+
+    /**
+     * Initialize a webview instance, with protection against duplication
+     * and initialize klaviyo.js for In-App Forms with handshake data injected in the document head.
+     *
+     * The page is not loaded until the initial auth token arrives or
+     * [AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS] expires, so no form can evaluate or render
+     * before then. A token that arrives in time is seeded into the document head. After a timeout
+     * the page loads without one and [JwtObserver] delivers the token over the JS bridge when the
+     * still-running fetch completes.
+     */
+    override fun initializeWebView() {
+        if (webView != null) {
+            Registry.log.debug("Klaviyo webview is already initialized")
+            return
+        }
+
+        val webView = KlaviyoWebView().also { this.webView = it }
+        loadJob?.cancel()
+        loadJob = scope.safeLaunch {
+            val token = awaitInitialToken()
+            Registry.threadHelper.runOnUiThread {
+                if (this@KlaviyoWebViewClient.webView === webView) loadTemplate(webView, token)
+            }
+        }
+    }
+
+    /**
+     * Wait up to [AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS] for the auth token. Returns null
+     * without waiting when auth is not enabled or the profile is not identified, and null on
+     * timeout or failure. A timeout does not cancel the manager's underlying fetch.
+     */
+    private suspend fun awaitInitialToken(): String? = try {
+        Registry.get<AuthTokenManager>()
+            .currentToken(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
+            .rawToken
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: AuthTokenException.NoProviderRegistered) {
+        null
+    } catch (_: AuthTokenException.NotIdentified) {
+        null
+    } catch (e: Exception) {
+        Registry.log.verbose("Loading In-App Forms without a JWT: ${e.javaClass.simpleName}")
+        null
+    }
+
+    /**
+     * Render the template and load it into [webView]. [token] is seeded only if it is still the
+     * manager's current token, so a profile replaced while the token was awaited cannot receive
+     * the previous profile's JWT. Must be called on the UI thread.
+     */
+    private fun loadTemplate(webView: KlaviyoWebView, token: String?) {
         val nativeBridge = Registry.get<NativeBridge>()
         val jsBridge = Registry.get<JsBridge>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
-
-        this.webView = webView
+        val jwt = token?.takeIf { Registry.get<AuthTokenManager>().isCurrentToken(it) }.orEmpty()
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
             .buildUpon()
@@ -66,27 +128,32 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             .appendAssetSource()
             .build()
 
-        Registry.config.applicationContext.assets
+        // DeviceInfoProvider.current() reads UI-thread-only APIs (Display.rotation,
+        // decorView.rootWindowInsets), so the template is rendered on the main thread.
+        val template = Registry.config.applicationContext.assets
             .open("InAppFormsTemplate.html")
             .bufferedReader()
             .use(BufferedReader::readText)
-            .replace("SDK_NAME", Registry.config.sdkName)
-            .replace("SDK_VERSION", Registry.config.sdkVersion)
-            .replace("BRIDGE_NAME", nativeBridge.name)
-            .replace("BRIDGE_HANDSHAKE", handshake.compileJson())
-            .replace("KLAVIYO_JS_URL", klaviyoJsUrl.toString())
-            .replace("FORMS_ENVIRONMENT", Registry.config.formEnvironment.templateName)
-            // Raw JSON is safe inside the single-quoted HTML attribute because JSONObject emits
-            // double-quoted strings.
-            .replace("DEVICE_INFO", DeviceInfoProvider.current().toJson())
-            .let { html ->
-                webView.loadTemplate(html, this, nativeBridge)
-                handshakeTimer?.cancel()
-                handshakeTimer = Registry.clock.schedule(
-                    Registry.config.networkTimeout.toLong(),
-                    ::onJsHandshakeTimeout
-                )
-            }
+        val partialHtml = template.replaceTemplateValues(
+            mapOf(
+                "SDK_NAME" to Registry.config.sdkName,
+                "SDK_VERSION" to Registry.config.sdkVersion,
+                "BRIDGE_NAME" to nativeBridge.name,
+                "BRIDGE_HANDSHAKE" to handshake.compileJson(),
+                "KLAVIYO_JS_URL" to klaviyoJsUrl.toString(),
+                "FORMS_ENVIRONMENT" to Registry.config.formEnvironment.templateName,
+                "KLAVIYO_PROFILE" to Registry.get<State>().getAsProfile().toBridgeJson(),
+                "KLAVIYO_JWT" to jwt,
+                "DEVICE_INFO" to DeviceInfoProvider.current().toJson()
+            )
+        )
+
+        webView.loadTemplate(partialHtml, this, nativeBridge)
+        handshakeTimer?.cancel()
+        handshakeTimer = Registry.clock.schedule(
+            Registry.config.networkTimeout.toLong(),
+            ::onJsHandshakeTimeout
+        )
     }
 
     override fun onLocalJsReady() {
@@ -148,6 +215,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * Destroy the webview and release the reference
      */
     override fun destroyWebView() = apply {
+        loadJob?.cancel()
+        loadJob = null
         handshakeTimer?.cancel()
         Registry.get<JsBridgeObserverCollection>().stopObservers()
         webView?.let { webView ->
@@ -264,3 +333,19 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         appendQueryParameter("assetSource", assetSource)
     } ?: this
 }
+
+private fun String.escapeHtmlAttribute(): String =
+    replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&#39;")
+
+/**
+ * Replace each key of [values] with its HTML-attribute-escaped value in a single pass, so
+ * substituted values are never themselves scanned for placeholders. Every placeholder must sit
+ * inside an HTML attribute value.
+ */
+private fun String.replaceTemplateValues(values: Map<String, String>): String =
+    Regex(values.keys.joinToString("|", transform = Regex::escape))
+        .replace(this) { match -> values.getValue(match.value).escapeHtmlAttribute() }

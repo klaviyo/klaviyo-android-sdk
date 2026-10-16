@@ -64,6 +64,11 @@ internal abstract class PersistentObservableProperty<T>(
     fun reset() { value = null }
 
     /**
+     * Set the value in memory and on disk, bypassing validation and callbacks
+     */
+    open fun replace(newValue: T?) { value = newValue }
+
+    /**
      * Triggered by [setValue] to validate a change.
      * If this returns false, the property is not updated in memory or on disk.
      */

@@ -11,6 +11,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
+import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.utils.hasAllowedOpenUrlScheme
 import com.klaviyo.core.utils.startActivityIfResolved
@@ -23,6 +24,7 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillOpenQuery
 import com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook
 import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
 import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
+import com.klaviyo.forms.bridge.NativeBridgeMessage.RefreshJwt
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
 import com.klaviyo.forms.presentation.PresentationManager
@@ -81,6 +83,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 is FormDisappeared -> close(bridgeMessage)
                 is FormWillOpenQuery -> queryFormDisplay(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
+                RefreshJwt -> refreshJwt()
             }
         } catch (e: Exception) {
             Registry.log.error("Failed to relay webview message: $message", e)
@@ -300,6 +303,13 @@ internal class KlaviyoNativeBridge : NativeBridge {
     private fun abort(reason: String) = Klaviyo.unregisterFromInAppForms().also {
         Registry.log.error("IAF aborted, reason: $reason")
     }
+
+    /**
+     * Handle a [RefreshJwt] message by discarding the rejected token and fetching one replacement.
+     * [JwtObserver] injects the replacement when it arrives. No reply is sent to the webview, even
+     * when no provider is registered or the fetch fails.
+     */
+    private fun refreshJwt() = Registry.get<AuthTokenManager>().refreshRejectedToken()
 
     /**
      * Invoke the registered form lifecycle callback on the main thread, if one is registered.

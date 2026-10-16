@@ -64,4 +64,9 @@ internal interface JsBridge {
      * @param allowed Whether the form is allowed to display
      */
     fun formWillOpenContinuation(formId: FormId, allowed: Boolean)
+
+    /**
+     * Inject the auth token into the webview as a data attribute.
+     */
+    fun jwtMutation(token: String)
 }
