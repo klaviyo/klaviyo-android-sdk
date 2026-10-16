@@ -64,4 +64,42 @@ sealed interface FormLifecycleEvent {
         val buttonLabel: String,
         val deepLinkUrl: Uri
     ) : FormLifecycleEvent
+
+    /**
+     * Triggered when a form is about to be displayed, allowing the host app to
+     * accept or reject the display.
+     *
+     * Call [accept] to allow the form to display, or [reject] to block it.
+     * If neither is called within the SDK's timeout window, the form will be
+     * allowed to display (fail-open behavior).
+     *
+     * Only one of [accept]/[reject] will take effect; subsequent calls are ignored.
+     *
+     * @property formType The type of form (e.g. "POPUP", "FLYOUT", "FULLSCREEN")
+     * @property accept Call to allow the form to display
+     * @property reject Call to block the form from displaying
+     */
+    class FormWillDisplay(
+        override val formId: String,
+        override val formName: String,
+        val formType: String,
+        val accept: () -> Unit,
+        val reject: () -> Unit
+    ) : FormLifecycleEvent {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is FormWillDisplay) return false
+            return formId == other.formId && formName == other.formName && formType == other.formType
+        }
+
+        override fun hashCode(): Int {
+            var result = formId.hashCode()
+            result = 31 * result + formName.hashCode()
+            result = 31 * result + formType.hashCode()
+            return result
+        }
+
+        override fun toString(): String =
+            "FormWillDisplay(formId=$formId, formName=$formName, formType=$formType)"
+    }
 }
