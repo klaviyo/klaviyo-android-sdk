@@ -998,6 +998,37 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 
 **Note:** After unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
+#### Form Loading and Event Replay
+
+`InAppFormsConfig` also accepts a loading timeout and a recent-event replay window:
+
+```kotlin
+import kotlin.time.Duration.Companion.seconds
+
+Klaviyo.registerForInAppForms(
+    InAppFormsConfig(loadTimeout = 30.seconds, eventReplayWindow = 20.seconds)
+)
+```
+
+Java callers can specify session, loading, and replay timeouts in seconds:
+
+```java
+KlaviyoForms.registerForInAppForms(new InAppFormsConfig(3600, 30, 20));
+```
+
+The loading timeout starts after the initial JWT wait and covers loading through the JavaScript
+handshake. It is captured when initialization starts. Omit `loadTimeout` to use the SDK's network
+timeout; zero, negative, infinite, or unrepresentable values also use that fallback and log a warning.
+This setting does not change the JWT wait or the inactivity timeout.
+
+Replay defaults to 10 seconds and is capped at 30 seconds. Negative values become zero; values above
+30 seconds, including positive infinity, become 30 seconds. Zero disables historical replay while
+live events continue. The SDK retains at most 10 events for 30 seconds from their original arrival,
+even before Forms registration. Events exactly at the requested age limit are excluded. Replay
+preserves event IDs and timestamps. Changing API keys, resetting the profile, or replacing an
+identified user clears outgoing history; identifying an anonymous user or enriching the same profile
+preserves recent events such as the original app launch.
+
 ### Personalized Forms Authentication
 
 >  ℹ️ Personalization is currently in limited availability for select Klaviyo customers. Please contact your CSM to be enrolled.

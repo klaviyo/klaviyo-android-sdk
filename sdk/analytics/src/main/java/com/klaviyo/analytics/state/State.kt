@@ -95,6 +95,12 @@ interface State {
      */
     fun getBufferedEvents(): List<Event>
 
+    /** Get events younger than [maxAgeMillis], up to the retained thirty seconds. */
+    fun getBufferedEvents(maxAgeMillis: Long): List<Event> = getBufferedEvents()
+
+    /** Changes when buffered history is cleared or the active replay context is replaced. */
+    val bufferedEventGeneration: Long get() = 0L
+
     /**
      * Clear all currently buffered events.
      */

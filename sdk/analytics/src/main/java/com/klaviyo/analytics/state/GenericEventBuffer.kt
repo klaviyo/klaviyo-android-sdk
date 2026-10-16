@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
  * Key characteristics:
  * - Uses ConcurrentLinkedDeque for efficient FIFO operations
  * - Capacity limited to 10 events (oldest removed when full)
- * - Events auto-expire after 10 seconds
+ * - Events auto-expire after 30 seconds; default reads return the last 10 seconds
  * - Read operations do NOT clear the buffer (multi-consumer safe)
  * - Thread-safe using synchronized access
  * - Stores enriched events with uuid and _time from API requests
@@ -25,13 +25,15 @@ import kotlinx.coroutines.launch
 internal object GenericEventBuffer {
 
     private const val MAX_CAPACITY = 10
-    private const val EVENT_TTL_MS = 10_000L
+    private const val EVENT_TTL_MS = 30_000L
+    private const val DEFAULT_READ_AGE_MS = 10_000L
 
     /**
      * Stores event with its expiration job for automatic cleanup
      */
     private data class BufferedEvent(
         val event: Event,
+        val insertedAt: Long,
         val expirationJob: Job
     )
 
@@ -40,9 +42,13 @@ internal object GenericEventBuffer {
      */
     private val buffer = ConcurrentLinkedDeque<BufferedEvent>()
 
+    @Volatile
+    var generation: Long = 0L
+        private set
+
     /**
      * Add an event to the buffer. If capacity is exceeded, removes oldest event.
-     * Event will auto-remove after 10 seconds.
+     * Event will auto-remove after 30 seconds.
      *
      * IMPORTANT: This should receive the "shadowedEvent" from KlaviyoState.createEvent()
      * which has been enriched with uniqueId and _time from the API request.
@@ -50,13 +56,15 @@ internal object GenericEventBuffer {
      * Thread-safe: Multiple threads can add simultaneously
      */
     fun addEvent(event: Event) {
+        val storedEvent = event.copy()
+        val insertedAt = Registry.clock.monotonicTimeMillis()
         // Create expiration job using Registry's dispatcher
         val expirationJob = CoroutineScope(Registry.dispatcher).launch {
             delay(EVENT_TTL_MS)
-            removeEvent(event)
+            removeEvent(storedEvent)
         }
 
-        val bufferedEvent = BufferedEvent(event, expirationJob)
+        val bufferedEvent = BufferedEvent(storedEvent, insertedAt, expirationJob)
 
         synchronized(buffer) {
             // Add to end (most recent)
@@ -79,8 +87,12 @@ internal object GenericEventBuffer {
      *
      * Returns: List of Events with uniqueId and _time properties populated
      */
-    fun getEvents(): List<Event> = synchronized(buffer) {
-        buffer.map { it.event.copy() }
+    fun getEvents(): List<Event> = getEvents(DEFAULT_READ_AGE_MS)
+
+    fun getEvents(maxAgeMillis: Long): List<Event> = synchronized(buffer) {
+        val now = Registry.clock.monotonicTimeMillis()
+        val maxAge = maxAgeMillis.coerceIn(0, EVENT_TTL_MS)
+        buffer.filter { now - it.insertedAt < maxAge }.map { it.event.copy() }
     }
 
     /**
@@ -89,6 +101,7 @@ internal object GenericEventBuffer {
      */
     fun clearBuffer() {
         synchronized(buffer) {
+            generation++
             buffer.forEach { it.expirationJob.cancel() }
             buffer.clear()
         }
@@ -99,7 +112,7 @@ internal object GenericEventBuffer {
      */
     private fun removeEvent(event: Event) {
         synchronized(buffer) {
-            buffer.find { it.event == event }?.let {
+            buffer.find { it.event === event }?.let {
                 buffer.remove(it)
             }
         }

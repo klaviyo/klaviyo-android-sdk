@@ -255,6 +255,11 @@ internal class KlaviyoState : State {
     override fun getBufferedEvents(): List<Event> =
         GenericEventBuffer.getEvents()
 
+    override fun getBufferedEvents(maxAgeMillis: Long): List<Event> =
+        GenericEventBuffer.getEvents(maxAgeMillis)
+
+    override val bufferedEventGeneration: Long get() = GenericEventBuffer.generation
+
     @AdvancedAPI
     override fun clearBufferedEvents() {
         GenericEventBuffer.clearBuffer()

@@ -3,7 +3,10 @@ package com.klaviyo.analytics.state
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
+import io.mockk.every
+import io.mockk.spyk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -24,6 +27,9 @@ internal class GenericEventBufferTest : BaseTest() {
         super.setup()
         Dispatchers.setMain(dispatcher)
         GenericEventBuffer.clearBuffer()
+        val clock = spyk(staticClock)
+        every { Registry.clock } returns clock
+        every { clock.monotonicTimeMillis() } answers { dispatcher.scheduler.currentTime }
     }
 
     @After
@@ -31,6 +37,34 @@ internal class GenericEventBufferTest : BaseTest() {
         GenericEventBuffer.clearBuffer()
         Dispatchers.resetMain()
         super.cleanup()
+    }
+
+    @Test
+    fun `extended history retains original event age and metadata`() = runTest {
+        val first = Event("launch").apply {
+            uniqueId = "launch-id"
+            setProperty(EventKey.TIME, 1234L)
+        }
+        GenericEventBuffer.addEvent(first)
+        advanceTimeBy(20_000)
+        GenericEventBuffer.addEvent(Event("recent").apply { uniqueId = "recent-id" })
+
+        assertEquals(listOf("recent-id"), GenericEventBuffer.getEvents().map { it.uniqueId })
+        val history = GenericEventBuffer.getEvents(30_000)
+        assertEquals(listOf("launch-id", "recent-id"), history.map { it.uniqueId })
+        assertEquals(1234L, history.first()[EventKey.TIME])
+        history.first().pop(EventKey.EVENT_ID)
+        assertEquals("launch-id", GenericEventBuffer.getEvents(30_000).first().uniqueId)
+        assertTrue(GenericEventBuffer.getEvents(0).isEmpty())
+        advanceTimeBy(10_000)
+        assertEquals(listOf("recent-id"), GenericEventBuffer.getEvents(30_000).map { it.uniqueId })
+    }
+
+    @Test
+    fun `reads exclude expired history even when cleanup is delayed`() {
+        GenericEventBuffer.addEvent(Event("delayed"))
+        every { Registry.clock.monotonicTimeMillis() } returns 30_000L
+        assertTrue(GenericEventBuffer.getEvents(30_000).isEmpty())
     }
 
     @Test

@@ -24,6 +24,7 @@ import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
+import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
@@ -44,6 +45,7 @@ import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import java.io.ByteArrayInputStream
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.withTimeoutOrNull
@@ -319,6 +321,35 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Regex("data-klaviyo-jwt='([^']*)'").find(html.captured)?.groupValues?.get(1)
     } else {
         null
+    }
+
+    @Test
+    fun `load budget is captured before JWT wait and starts when template loads`() {
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(loadTimeout = 30.seconds))
+        fakeAuth.providerRegistered = true
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        dispatcher.scheduler.runCurrent()
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(loadTimeout = 5.seconds))
+        dispatcher.scheduler.advanceTimeBy(AuthTokenManager.INTERACTIVE_FETCH_TIMEOUT_MS)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(1, staticClock.scheduledTasks.size)
+        assertEquals(TIME + 30_000, staticClock.scheduledTasks.single().time)
+        staticClock.execute(29_999)
+        assertTrue(client.getWebView() != null)
+        staticClock.execute(1)
+        assertNull(client.getWebView())
+        Registry.unregister<InAppFormsConfig>()
+    }
+
+    @Test
+    fun `omitted load budget uses the network timeout`() {
+        Registry.register<InAppFormsConfig>(InAppFormsConfig())
+        KlaviyoWebViewClient().initializeWebView()
+        dispatcher.scheduler.runCurrent()
+        assertEquals(TIME + 1_000, staticClock.scheduledTasks.single().time)
+        Registry.unregister<InAppFormsConfig>()
     }
 
     @Test
