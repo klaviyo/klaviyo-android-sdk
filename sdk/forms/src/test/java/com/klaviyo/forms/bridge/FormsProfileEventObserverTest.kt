@@ -1,6 +1,7 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.state.ContextualProfileEventObserver
 import com.klaviyo.analytics.state.ProfileEventObserver as AnalyticsEventObserver
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
@@ -104,6 +105,30 @@ class FormsProfileEventObserverTest : BaseTest() {
         }
         observer.startObserver()
         assertEquals(listOf("launch", "during"), delivered)
+    }
+
+    @Test
+    fun `callback for replayed snapshot arriving after handoff is delivered only once`() {
+        observer.startObserver()
+        repeat(20) { subscriptions.single()(event("live-$it")) }
+        subscriptions.single()(event("launch"))
+        assertEquals(listOf("launch") + (0 until 20).map { "live-$it" }, delivered)
+    }
+
+    @Test
+    fun `callback created before reset cannot deliver after context changes`() {
+        observer.startObserver()
+        val originalGeneration = generation
+        generation++
+        val callback = subscriptions.single()
+        if (callback is ContextualProfileEventObserver) {
+            callback.invoke(event("old-context"), originalGeneration)
+            callback.invoke(event("new-context"), generation)
+        } else {
+            callback(event("old-context"))
+            callback(event("new-context"))
+        }
+        assertEquals(listOf("launch", "new-context"), delivered)
     }
 
     @Test

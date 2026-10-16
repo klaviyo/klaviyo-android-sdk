@@ -10,6 +10,11 @@ typealias StateChangeObserver = (change: StateChange) -> Unit
 
 typealias ProfileEventObserver = (event: Event) -> Unit
 
+/** Receives the replay context captured when an event was created. */
+interface ContextualProfileEventObserver : ProfileEventObserver {
+    fun invoke(event: Event, generation: Long)
+}
+
 interface State {
     var apiKey: String?
     var externalId: String?

@@ -1,7 +1,7 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.state.ProfileEventObserver as AnalyticsEventObserver
+import com.klaviyo.analytics.state.ContextualProfileEventObserver
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.InAppFormsConfig
@@ -11,19 +11,33 @@ import com.klaviyo.forms.InAppFormsConfig
  */
 internal class ProfileEventObserver : JsBridgeObserver {
 
+    private companion object {
+        const val MAX_REPLAY_EVENTS = 10
+    }
+
     private val lock = Any()
     private var activeSession: Session? = null
 
     private data class PendingEvent(val event: Event, val generation: Long)
 
-    private inner class Session(val state: State) : AnalyticsEventObserver {
+    private inner class Session(val state: State) : ContextualProfileEventObserver {
         var replaying = true
         val pending = ArrayDeque<PendingEvent>()
+        var snapshotGeneration = 0L
+        val snapshotIds = mutableSetOf<String>()
 
-        override fun invoke(event: Event) = synchronized(lock) {
+        override fun invoke(event: Event) = invoke(event, state.bufferedEventGeneration)
+
+        override fun invoke(event: Event, generation: Long) = synchronized(lock) {
             if (activeSession !== this) return
-            val pendingEvent = PendingEvent(event, state.bufferedEventGeneration)
-            if (replaying) pending.addLast(pendingEvent) else deliver(this, pendingEvent)
+            val pendingEvent = PendingEvent(event, generation)
+            if (replaying) pending.addLast(pendingEvent) else deliverLive(pendingEvent)
+        }
+
+        fun deliverLive(pending: PendingEvent) {
+            if (pending.generation != snapshotGeneration || pending.event.uniqueId !in snapshotIds) {
+                deliver(this, pending)
+            }
         }
     }
 
@@ -43,18 +57,14 @@ internal class ProfileEventObserver : JsBridgeObserver {
         val history = session.state.getBufferedEvents(window.inWholeMilliseconds)
         synchronized(lock) {
             if (activeSession !== session) return
-            val replayedIds = mutableSetOf<Pair<Long, String>>()
-            fun replay(pending: PendingEvent) {
-                val id = pending.event.uniqueId
-                if (id == null || replayedIds.add(pending.generation to id)) {
-                    deliver(
-                        session,
-                        pending
-                    )
+            session.snapshotGeneration = generation
+            history.takeLast(MAX_REPLAY_EVENTS).forEach { event ->
+                val id = event.uniqueId
+                if (id == null || session.snapshotIds.add(id)) {
+                    deliver(session, PendingEvent(event, generation))
                 }
             }
-            history.forEach { replay(PendingEvent(it, generation)) }
-            while (session.pending.isNotEmpty()) replay(session.pending.removeFirst())
+            while (session.pending.isNotEmpty()) session.deliverLive(session.pending.removeFirst())
             session.replaying = false
         }
     }

@@ -55,7 +55,10 @@ internal object GenericEventBuffer {
      *
      * Thread-safe: Multiple threads can add simultaneously
      */
-    fun addEvent(event: Event) {
+    fun addEvent(event: Event) = addEvent(event, generation)
+
+    fun addEvent(event: Event, expectedGeneration: Long) = synchronized(buffer) {
+        if (generation != expectedGeneration) return
         val storedEvent = event.copy()
         val insertedAt = Registry.clock.monotonicTimeMillis()
         // Create expiration job using Registry's dispatcher
@@ -66,14 +69,12 @@ internal object GenericEventBuffer {
 
         val bufferedEvent = BufferedEvent(storedEvent, insertedAt, expirationJob)
 
-        synchronized(buffer) {
-            // Add to end (most recent)
-            buffer.addLast(bufferedEvent)
+        // Add to end (most recent)
+        buffer.addLast(bufferedEvent)
 
-            // Remove oldest if over capacity
-            if (buffer.size > MAX_CAPACITY) {
-                buffer.pollFirst()?.expirationJob?.cancel()
-            }
+        // Remove oldest if over capacity
+        if (buffer.size > MAX_CAPACITY) {
+            buffer.pollFirst()?.expirationJob?.cancel()
         }
     }
 
