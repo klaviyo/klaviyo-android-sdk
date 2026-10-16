@@ -1029,6 +1029,50 @@ preserves event IDs and timestamps. Changing API keys, resetting the profile, or
 identified user clears outgoing history; identifying an anonymous user or enriching the same profile
 preserves recent events such as the original app launch.
 
+#### Initialization Failure and Host Retry
+
+Set `onFailure` to receive a no-argument callback once per terminal failure before the JavaScript
+handshake: a loading timeout, missing required HTML, fatal main-frame load error, renderer failure,
+or a JavaScript initialization Abort.
+The callback runs on the main thread after the old WebView is destroyed, its reference is cleared,
+and its timers, pending load and bridge observers are stopped. You can register again directly from
+the handler. The SDK does not retry automatically.
+
+```kotlin
+var retriesRemaining = 1
+
+fun registerForms() {
+    Klaviyo.registerForInAppForms(
+        InAppFormsConfig(
+            onFailure = {
+                // Optional host policy: retry at most once per launch.
+                if (retriesRemaining > 0) {
+                    retriesRemaining--
+                    registerForms()
+                }
+            }
+        )
+    )
+}
+
+registerForms()
+```
+
+Java callers can pass an `InAppFormsFailureHandler` lambda, with or without custom timeouts:
+
+```java
+KlaviyoForms.registerForInAppForms(new InAppFormsConfig(
+    3600, 30, 20, () -> Log.w("Forms", "Initialization failed")
+));
+```
+
+This callback reports initialization failure; it does not report service health or whether a form
+is eligible to display. Success, ordinary subresource errors, missing optional JWTs, explicit
+unregister, replacement and failures after the handshake do not invoke it. Each load attempt captures
+its handler when it starts. Registering again during an active attempt updates configuration for
+future attempts without restarting that load or replacing its handler. Automatic rebuilds retain the
+active registration's handler; explicit unregister releases the SDK's reference to it.
+
 ### Personalized Forms Authentication
 
 >  ℹ️ Personalization is currently in limited availability for select Klaviyo customers. Please contact your CSM to be enrolled.

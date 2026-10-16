@@ -21,6 +21,11 @@ internal interface WebViewClient {
     fun onJsHandshakeCompleted()
 
     /**
+     * Settle a JavaScript abort as initialization failure before the handshake, or unregister afterwards.
+     */
+    fun onJsAbort(reason: String)
+
+    /**
      * Get the underlying WebView instance, or null if not initialized
      */
     fun getWebView(): View?
