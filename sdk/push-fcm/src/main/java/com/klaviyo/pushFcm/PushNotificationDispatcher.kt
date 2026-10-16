@@ -5,7 +5,9 @@ import com.google.firebase.messaging.RemoteMessage
 /**
  * Receives each delivered Klaviyo notification before it is displayed
  */
-typealias KlaviyoNotificationObserver = (RemoteMessage) -> Unit
+fun interface KlaviyoNotificationObserver {
+    fun onNotification(message: RemoteMessage)
+}
 
 /**
  * Lets other Klaviyo modules observe delivered Klaviyo notifications before display, without

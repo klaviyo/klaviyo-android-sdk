@@ -1060,7 +1060,7 @@ class KlaviyoNotificationTest : BaseTest() {
             notification.displayNotification(mockContext)
 
             verifyOrder {
-                observer(mockRemoteMessage)
+                observer.onNotification(mockRemoteMessage)
                 mockNotificationManager.notify(any<String>(), any(), any())
             }
         } finally {
@@ -1087,7 +1087,7 @@ class KlaviyoNotificationTest : BaseTest() {
 
         try {
             assertFalse(notification.displayNotification(mockContext))
-            verify { observer(mockRemoteMessage) }
+            verify { observer.onNotification(mockRemoteMessage) }
         } finally {
             pushDispatcher.offKlaviyoNotification(observer)
         }
@@ -1102,7 +1102,7 @@ class KlaviyoNotificationTest : BaseTest() {
 
         try {
             notification.displayNotification(mockContext)
-            verify(exactly = 0) { observer(any()) }
+            verify(exactly = 0) { observer.onNotification(any()) }
         } finally {
             pushDispatcher.offKlaviyoNotification(observer)
         }

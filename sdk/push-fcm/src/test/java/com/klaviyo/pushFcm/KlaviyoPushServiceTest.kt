@@ -178,7 +178,7 @@ class KlaviyoPushServiceTest : BaseTest() {
             pushService.onMessageReceived(msg)
 
             verifyOrder {
-                observer(msg)
+                observer.onNotification(msg)
                 pushService.onKlaviyoNotificationMessageReceived(msg)
             }
         } finally {
@@ -201,7 +201,7 @@ class KlaviyoPushServiceTest : BaseTest() {
             pushService.onMessageReceived(msg)
 
             verify { anyConstructed<KlaviyoNotification>().hasNotificationPermission(any()) }
-            verify(exactly = 1) { observer(msg) }
+            verify(exactly = 1) { observer.onNotification(msg) }
         } finally {
             pushDispatcher.offKlaviyoNotification(observer)
         }
@@ -221,7 +221,7 @@ class KlaviyoPushServiceTest : BaseTest() {
         try {
             customService.onMessageReceived(msg)
 
-            verify { observer(msg) }
+            verify { observer.onNotification(msg) }
         } finally {
             pushDispatcher.offKlaviyoNotification(observer)
         }
@@ -239,7 +239,7 @@ class KlaviyoPushServiceTest : BaseTest() {
         try {
             pushService.onMessageReceived(msg)
 
-            verify(exactly = 0) { observer(any()) }
+            verify(exactly = 0) { observer.onNotification(any()) }
         } finally {
             pushDispatcher.offKlaviyoNotification(observer)
         }
@@ -270,6 +270,6 @@ class KlaviyoPushServiceTest : BaseTest() {
         pushService.onMessageReceived(msg)
 
         verify { pushService.onKlaviyoNotificationMessageReceived(msg) }
-        verify(exactly = 0) { observer(any()) }
+        verify(exactly = 0) { observer.onNotification(any()) }
     }
 }

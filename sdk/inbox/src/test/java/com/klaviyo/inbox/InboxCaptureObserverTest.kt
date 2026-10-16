@@ -61,7 +61,8 @@ internal class InboxCaptureObserverTest : BaseTest() {
         super.cleanup()
     }
 
-    private fun capture(message: RemoteMessage = remoteMessage()) = InboxCaptureObserver(message)
+    private fun capture(message: RemoteMessage = remoteMessage()) =
+        InboxCaptureObserver.onNotification(message)
 
     /**
      * A store whose write never finishes until [release] runs

@@ -4,6 +4,7 @@ import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.Registry
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.inbox.InboxPushNormalizer.toInboxCaptureRecord
+import com.klaviyo.pushFcm.KlaviyoNotificationObserver
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
@@ -21,14 +22,14 @@ import kotlinx.coroutines.CoroutineScope
  * Push dispatches regardless of notification permission; [isInboxCaptureEnabled] skips capture
  * when permission isn't granted.
  */
-internal object InboxCaptureObserver : (RemoteMessage) -> Unit {
+internal object InboxCaptureObserver : KlaviyoNotificationObserver {
 
     /**
      * Longest that display waits for the store write
      */
     internal const val CAPTURE_TIMEOUT_MS = 1_000L
 
-    override fun invoke(message: RemoteMessage) {
+    override fun onNotification(message: RemoteMessage) {
         try {
             if (!isInboxCaptureEnabled()) return
 

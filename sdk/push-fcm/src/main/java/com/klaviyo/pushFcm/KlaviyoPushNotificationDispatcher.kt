@@ -31,7 +31,7 @@ internal class KlaviyoPushNotificationDispatcher : PushNotificationDispatcher {
 
         observers.forEach { observer ->
             try {
-                observer(message)
+                observer.onNotification(message)
             } catch (e: Throwable) {
                 Registry.log.error("Push notification observer failed", e)
             }
