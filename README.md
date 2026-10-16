@@ -1032,7 +1032,8 @@ preserves recent events such as the original app launch.
 #### Initialization Failure and Host Retry
 
 Set `onFailure` to receive a no-argument callback once per terminal failure before the JavaScript
-handshake: a loading timeout, missing required HTML, fatal main-frame load error, or renderer failure.
+handshake: a loading timeout, missing required HTML, fatal main-frame load error, renderer failure,
+or a JavaScript initialization Abort.
 The callback runs on the main thread after the old WebView is destroyed, its reference is cleared,
 and its timers, pending load and bridge observers are stopped. You can register again directly from
 the handler. The SDK does not retry automatically.

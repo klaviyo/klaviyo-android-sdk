@@ -37,6 +37,7 @@ import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.JwtObserver
+import com.klaviyo.forms.bridge.KlaviyoNativeBridge
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.ProfileEventObserver
@@ -529,6 +530,98 @@ class KlaviyoWebViewClientTest : BaseTest() {
         jobs.last().invoke()
         assertSame(replacement, client.getWebView())
     }
+
+    private fun captureAttemptBridges(): MutableList<NativeBridge> {
+        Registry.register<NativeBridge>(KlaviyoNativeBridge())
+        Registry.register<FormsProvider>(KlaviyoFormsProvider())
+        return mutableListOf<NativeBridge>().also { bridges ->
+            every { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) } answers {
+                bridges += thirdArg<NativeBridge>()
+            }
+        }
+    }
+
+    private fun sendAbort(bridge: NativeBridge, view: WebView, modern: Boolean) {
+        val message = """{"type":"abort","data":{"reason":"Native bridge is malformed"}}"""
+        if (modern) {
+            bridge.onPostMessage(view, WebMessageCompat(message, null), mockk(), true, mockk())
+        } else {
+            bridge.postMessage(message)
+        }
+    }
+
+    private fun assertPreHandshakeAbortAllowsRetry(modern: Boolean) {
+        val bridges = captureAttemptBridges()
+        val client = KlaviyoWebViewClient()
+        Registry.register<WebViewClient>(client)
+        Registry.register<PresentationManager>(mockk<PresentationManager>(relaxed = true))
+        var failures = 0
+        KlaviyoFormsProvider().register(
+            InAppFormsConfig(onFailure = {
+                failures++
+                assertNull(client.getWebView())
+                assertTrue(staticClock.scheduledTasks.isEmpty())
+                verify(exactly = 1) { mockObserverCollection.stopObservers() }
+                verify(exactly = 1) { anyConstructed<KlaviyoWebView>().destroy() }
+                KlaviyoFormsProvider().register(InAppFormsConfig(onFailure = { failures++ }))
+            })
+        )
+        dispatcher.scheduler.runCurrent()
+        val oldView = client.getWebView() as WebView
+        val oldBridge = bridges.single()
+        val oldTimer = staticClock.scheduledTasks.single().task
+        sendAbort(oldBridge, oldView, modern)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(1, failures)
+        val replacement = client.getWebView()
+        assertTrue(replacement != null)
+        assertNotSame(oldView, replacement)
+        oldTimer()
+        sendAbort(oldBridge, oldView, modern = false)
+        sendAbort(oldBridge, oldView, modern = true)
+        oldBridge.postMessage("""{"type":"handShook"}""")
+        assertSame(replacement, client.getWebView())
+        assertEquals(1, staticClock.scheduledTasks.size)
+        assertEquals(1, failures)
+
+        bridges.last().postMessage("""{"type":"handShook"}""")
+        staticClock.execute(1_000)
+        assertSame(replacement, client.getWebView())
+        assertEquals(1, failures)
+    }
+
+    @Test
+    fun `legacy pre-handshake Abort notifies after teardown and stale messages cannot break retry`() =
+        assertPreHandshakeAbortAllowsRetry(modern = false)
+
+    @Test
+    fun `modern pre-handshake Abort notifies after teardown and stale messages cannot break retry`() =
+        assertPreHandshakeAbortAllowsRetry(modern = true)
+
+    private fun assertPostHandshakeAbortIsSilent(modern: Boolean) {
+        val bridges = captureAttemptBridges()
+        var failures = 0
+        val client = registerClient { failures++ }
+        dispatcher.scheduler.runCurrent()
+        val view = client.getWebView() as WebView
+        val bridge = bridges.single()
+        bridge.postMessage("""{"type":"handShook"}""")
+        sendAbort(bridge, view, modern)
+        assertEquals(0, failures)
+        assertNull(client.getWebView())
+        assertNull(Registry.getOrNull<InAppFormsConfig>())
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+        verifyDestroy()
+    }
+
+    @Test
+    fun `legacy post-handshake Abort unregisters without failure callback`() =
+        assertPostHandshakeAbortIsSilent(modern = false)
+
+    @Test
+    fun `modern post-handshake Abort unregisters without failure callback`() =
+        assertPostHandshakeAbortIsSilent(modern = true)
 
     private fun verifyDestroy(doesNotDestroy: Boolean = false) {
         verify(inverse = doesNotDestroy) { spyLog.verbose("Clear IAF WebView reference") }

@@ -18,6 +18,7 @@ import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenException
@@ -38,6 +39,7 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.unregisterFromInAppForms
 import java.io.BufferedReader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -218,6 +220,18 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
                 NativeBridgeMessage.HandShook,
                 eventReplayWindow
             )
+        }
+    }
+
+    override fun onJsAbort(reason: String) {
+        val expectedView = webView ?: return
+        Registry.threadHelper.runOnUiThread {
+            if (webView !== expectedView) return@runOnUiThread
+            if (handshakeCompleted) {
+                Klaviyo.unregisterFromInAppForms()
+            } else {
+                failLoad(expectedView, "IAF WebView Aborted: $reason")
+            }
         }
     }
 
