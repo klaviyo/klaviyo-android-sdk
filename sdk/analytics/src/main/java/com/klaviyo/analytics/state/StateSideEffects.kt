@@ -194,6 +194,11 @@ internal class StateSideEffects(
             ?: lastIdentifiers
         val transition = classify(previous, current)
         lastIdentifiers = current
+        if ((change is StateChange.ProfileReset && transition != ProfileTransition.COMPATIBLE) ||
+            (previous.isIdentified && transition == ProfileTransition.REPLACEMENT)
+        ) {
+            GenericEventBuffer.clearBuffer()
+        }
         val authTokenManager = Registry.getOrNull<AuthTokenManager>() ?: return@synchronized
         if (transition == ProfileTransition.REPLACEMENT) {
             authTokenManager.resetTokenState { authTokenManager.setIdentified(current.isIdentified) }

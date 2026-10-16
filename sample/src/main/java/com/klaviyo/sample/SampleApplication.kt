@@ -8,9 +8,11 @@ import com.klaviyo.core.Registry
 import com.klaviyo.forms.FormLifecycleEvent.FormCtaClicked
 import com.klaviyo.forms.FormLifecycleEvent.FormDismissed
 import com.klaviyo.forms.FormLifecycleEvent.FormShown
+import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.registerFormLifecycleHandler
 import com.klaviyo.location.registerGeofencing
+import kotlin.time.Duration.Companion.seconds
 
 class SampleApplication : Application() {
 
@@ -27,7 +29,12 @@ class SampleApplication : Application() {
         val klaviyoPublicKey = validatePublicKey(BuildConfig.KLAVIYO_PUBLIC_KEY)
 
         Klaviyo.initialize(klaviyoPublicKey, applicationContext)
-            .registerForInAppForms() // Register for In-App Forms immediately on app launch (this app has no splash screen)
+            .registerForInAppForms(
+                InAppFormsConfig(
+                    loadTimeout = 30.seconds,
+                    eventReplayWindow = 20.seconds
+                )
+            )
             .registerGeofencing() // Start geofencing monitoring
             .registerDeepLinkHandler { uri ->
                 // OPTIONAL SETUP NOTE: Register a callback to handle deep links from in-app forms,

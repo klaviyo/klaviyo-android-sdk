@@ -10,6 +10,11 @@ typealias StateChangeObserver = (change: StateChange) -> Unit
 
 typealias ProfileEventObserver = (event: Event) -> Unit
 
+/** Receives the replay context captured when an event was created. */
+interface ContextualProfileEventObserver : ProfileEventObserver {
+    fun invoke(event: Event, generation: Long)
+}
+
 interface State {
     var apiKey: String?
     var externalId: String?
@@ -94,6 +99,12 @@ interface State {
      * Buffer holds most recent 10 events within last 10 seconds.
      */
     fun getBufferedEvents(): List<Event>
+
+    /** Get events younger than [maxAgeMillis], up to the retained thirty seconds. */
+    fun getBufferedEvents(maxAgeMillis: Long): List<Event> = getBufferedEvents()
+
+    /** Changes when buffered history is cleared or the active replay context is replaced. */
+    val bufferedEventGeneration: Long get() = 0L
 
     /**
      * Clear all currently buffered events.

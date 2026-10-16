@@ -12,6 +12,7 @@ import com.klaviyo.analytics.networking.requests.PushTokenApiRequest
 import com.klaviyo.analytics.networking.requests.buildEventMetaData
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -55,6 +56,43 @@ internal class KlaviyoStateTest : BaseTest() {
         state.reset()
         GenericEventBuffer.clearBuffer()
         super.cleanup()
+    }
+
+    @Test
+    @OptIn(AdvancedAPI::class)
+    fun `profile event context survives a clear before the next observer receives it`() {
+        val originalGeneration = state.bufferedEventGeneration
+        val receivedGenerations = mutableListOf<Long>()
+        state.onProfileEvent { state.clearBufferedEvents() }
+        state.onProfileEvent(object : ContextualProfileEventObserver {
+            override fun invoke(event: Event) {
+                receivedGenerations.add(state.bufferedEventGeneration)
+            }
+
+            override fun invoke(event: Event, generation: Long) {
+                receivedGenerations.add(generation)
+            }
+        })
+
+        state.createEvent(Event("outgoing"), state.getAsProfile())
+
+        assertEquals(listOf(originalGeneration), receivedGenerations)
+        assertTrue(state.getBufferedEvents().isEmpty())
+    }
+
+    @Test
+    @OptIn(AdvancedAPI::class)
+    fun `event whose context clears during creation cannot enter replacement history`() {
+        val apiClient = mockk<ApiClient>(relaxed = true)
+        Registry.register<ApiClient>(apiClient)
+        every { apiClient.enqueueEvent(any(), any()) } answers {
+            state.clearBufferedEvents()
+            mockk(relaxed = true)
+        }
+
+        state.createEvent(Event("outgoing"), state.getAsProfile())
+
+        assertTrue(state.getBufferedEvents(30_000).isEmpty())
     }
 
     @Test
