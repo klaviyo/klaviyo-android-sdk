@@ -458,10 +458,9 @@ private fun SampleViewContent(
                 label = "Forms preview token",
                 value = formsPreviewToken,
                 onValueChange = onFormsPreviewTokenChange,
-                keyboardType = KeyboardType.Password,
+                keyboardType = KeyboardType.Ascii,
                 imeAction = ImeAction.Done,
                 keyboardActions = KeyboardActions(onDone = { applyFormsPreviewToken() }),
-                visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
                 trailingIcon = { EntryTrailingButton(onClick = applyFormsPreviewToken) }
             )
