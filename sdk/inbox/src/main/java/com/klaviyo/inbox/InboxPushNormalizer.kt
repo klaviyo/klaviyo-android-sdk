@@ -3,6 +3,7 @@ package com.klaviyo.inbox
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.JSONUtil.optNonBlankString
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.TapDestination
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
@@ -68,9 +69,6 @@ internal object InboxPushNormalizer {
         Registry.log.warning("Unable to parse Klaviyo push tracking data: ${e.message}")
         null
     }
-
-    private fun JSONObject.optNonBlankString(key: String): String? =
-        if (isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
 
     private fun TapDestination.toRecordDestination() = when (this) {
         is TapDestination.DeepLink -> InboxRecordDestination(

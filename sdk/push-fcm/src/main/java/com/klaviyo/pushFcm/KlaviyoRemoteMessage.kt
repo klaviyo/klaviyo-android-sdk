@@ -22,6 +22,7 @@ import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
+import com.klaviyo.core.utils.JSONUtil.optNonBlankString
 import com.klaviyo.core.utils.hasAllowedOpenUrlScheme
 import java.net.URL
 import org.json.JSONArray
@@ -196,14 +197,6 @@ object KlaviyoRemoteMessage {
     private fun String.toURL(): URL? = runCatching { URL(this) }.onFailure {
         Registry.log.warning("Error converting string to URL", it)
     }.getOrNull()
-
-    private fun JSONObject.optNonBlankString(key: String): String? {
-        // JSONObject.optString returns the literal "null" for JSON null values.
-        if (isNull(key)) {
-            return null
-        }
-        return optString(key).takeIf { it.isNotBlank() }
-    }
 
     /**
      * Parse [Uri] to sound resource
