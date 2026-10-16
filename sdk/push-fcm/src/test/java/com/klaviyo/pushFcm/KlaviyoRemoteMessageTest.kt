@@ -15,6 +15,7 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.hasKlaviyoKeyValuePairs
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.keyValuePairs
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.tapDestination
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
 import io.mockk.every
 import io.mockk.mockk
@@ -24,6 +25,7 @@ import io.mockk.verify
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -795,5 +797,64 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         verify { intent.putExtra("com.klaviyo.Button Label", "Open Website") }
         verify { intent.putExtra("com.klaviyo.Button Action", "Open URL") }
         verify { intent.putExtra("com.klaviyo.Button Link", "https://example.com") }
+    }
+
+    private fun tapDestinationOf(url: String?, webUrl: String?, webUrlScheme: String = "https"): KlaviyoRemoteMessage.TapDestination {
+        val deepLinkUri = mockk<Uri>(relaxed = true)
+        url?.let { every { Uri.parse(it) } returns deepLinkUri }
+        webUrl?.let {
+            val webUri = mockk<Uri>(relaxed = true)
+            every { webUri.scheme } returns webUrlScheme
+            every { Uri.parse(it) } returns webUri
+        }
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage.toMutableMap().apply {
+            url?.let { put(KlaviyoNotification.URL_KEY, it) }
+            webUrl?.let { put(KlaviyoNotification.WEB_URL_KEY, it) }
+        }
+        return msg.tapDestination
+    }
+
+    @Test
+    fun `tapDestination prefers the deep link over web_url`() {
+        val destination = tapDestinationOf(url = "myapp://home", webUrl = "https://example.com")
+
+        assert(destination is KlaviyoRemoteMessage.TapDestination.DeepLink)
+    }
+
+    @Test
+    fun `tapDestination opens web_url when there is no deep link`() {
+        val destination = tapDestinationOf(url = null, webUrl = "https://example.com")
+
+        assertEquals(
+            KlaviyoRemoteMessage.TapDestination.OpenUrl("https://example.com"),
+            destination
+        )
+    }
+
+    @Test
+    fun `tapDestination opens the app when web_url has a disallowed scheme`() {
+        val destination = tapDestinationOf(
+            url = null,
+            webUrl = "javascript:alert(1)",
+            webUrlScheme = "javascript"
+        )
+
+        assertEquals(KlaviyoRemoteMessage.TapDestination.OpenApp, destination)
+    }
+
+    @Test
+    fun `tapDestination opens the app when there is no url or web_url`() {
+        assertEquals(
+            KlaviyoRemoteMessage.TapDestination.OpenApp,
+            tapDestinationOf(url = null, webUrl = null)
+        )
+    }
+
+    @Test
+    fun `action type aliases keep their payload values`() {
+        assertEquals("open_app", ActionButton.TYPE_OPEN_APP)
+        assertEquals("deep_link", ActionButton.TYPE_DEEP_LINK)
+        assertEquals("open_url", ActionButton.TYPE_OPEN_URL)
     }
 }

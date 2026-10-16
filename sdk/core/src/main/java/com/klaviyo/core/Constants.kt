@@ -42,6 +42,13 @@ object Constants {
     const val BUTTON_LINK_PARAMETER = "Button Link"
 
     /**
+     * Payload values for what a tap does, shared by push action buttons and Mobile Inbox destinations
+     */
+    const val ACTION_TYPE_OPEN_APP = "open_app"
+    const val ACTION_TYPE_DEEP_LINK = "deep_link"
+    const val ACTION_TYPE_OPEN_URL = "open_url"
+
+    /**
      * Intent extra key for the notification tag, used to dismiss the notification
      * when an action button is tapped and [handlePush] processes the intent.
      *
