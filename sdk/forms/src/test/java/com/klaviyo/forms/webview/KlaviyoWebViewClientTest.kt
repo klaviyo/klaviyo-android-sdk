@@ -13,6 +13,7 @@ import android.webkit.WebSettings
 import androidx.core.view.ViewCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
@@ -31,6 +32,7 @@ import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.JwtObserver
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
+import com.klaviyo.forms.bridge.ProfileEventObserver
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
@@ -324,6 +326,44 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     @Test
+    fun `pending attempt keeps replay configuration while the next attempt accepts replacement`() {
+        val replayed = mutableListOf<String?>()
+        val launch = Event("launch").apply { uniqueId = "original-launch" }
+        every { mockState.getBufferedEvents(any()) } answers {
+            if (firstArg<Long>() == 20_000L) listOf(launch.copy()) else emptyList()
+        }
+        every { mockJsBridge.profileEvent(any()) } answers {
+            replayed.add(firstArg<Event>().uniqueId)
+            Unit
+        }
+        val observers = object : JsBridgeObserverCollection {
+            override val observers = listOf(ProfileEventObserver())
+        }
+        Registry.register<JsBridgeObserverCollection>(observers)
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(eventReplayWindow = 20.seconds))
+        fakeAuth.providerRegistered = true
+        val client = KlaviyoWebViewClient()
+        client.initializeWebView()
+        dispatcher.scheduler.runCurrent()
+
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(eventReplayWindow = 0.seconds))
+        client.initializeWebView()
+        fakeAuth.completeFetch(JWT)
+        dispatcher.scheduler.runCurrent()
+        client.onJsHandshakeCompleted()
+        assertEquals(listOf("original-launch"), replayed)
+
+        client.destroyWebView()
+        replayed.clear()
+        client.initializeWebView()
+        dispatcher.scheduler.runCurrent()
+        client.onJsHandshakeCompleted()
+        assertTrue(replayed.isEmpty())
+        client.destroyWebView()
+        Registry.unregister<InAppFormsConfig>()
+    }
+
+    @Test
     fun `load budget is captured before JWT wait and starts when template loads`() {
         Registry.register<InAppFormsConfig>(InAppFormsConfig(loadTimeout = 30.seconds))
         fakeAuth.providerRegistered = true
@@ -523,7 +563,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         verifyClose(doesNotClose = true)
         verifyDestroy(doesNotDestroy = true)
 
-        verify { mockObserverCollection.startObservers(NativeBridgeMessage.HandShook) }
+        verify { mockObserverCollection.startObservers(NativeBridgeMessage.HandShook, 10.seconds) }
     }
 
     @Test

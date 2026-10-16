@@ -5,6 +5,7 @@ import com.klaviyo.analytics.state.ContextualProfileEventObserver
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.forms.InAppFormsConfig
+import kotlin.time.Duration
 
 /**
  * Observe events sent in the analytics package to trigger forms in the webview
@@ -44,7 +45,11 @@ internal class ProfileEventObserver : JsBridgeObserver {
     override val startOn: NativeBridgeMessage
         get() = NativeBridgeMessage.HandShook
 
-    override fun startObserver() {
+    override fun startObserver() = startObserver(
+        (Registry.getOrNull<InAppFormsConfig>() ?: InAppFormsConfig()).getEventReplayWindow()
+    )
+
+    fun startObserver(eventReplayWindow: Duration) {
         val session = synchronized(lock) {
             if (activeSession != null) return
             Session(Registry.get<State>()).also {
@@ -53,8 +58,7 @@ internal class ProfileEventObserver : JsBridgeObserver {
             }
         }
         val generation = session.state.bufferedEventGeneration
-        val window = (Registry.getOrNull<InAppFormsConfig>() ?: InAppFormsConfig()).getEventReplayWindow()
-        val history = session.state.getBufferedEvents(window.inWholeMilliseconds)
+        val history = session.state.getBufferedEvents(eventReplayWindow.inWholeMilliseconds)
         synchronized(lock) {
             if (activeSession !== session) return
             session.snapshotGeneration = generation

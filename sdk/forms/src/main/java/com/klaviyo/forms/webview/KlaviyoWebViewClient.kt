@@ -62,6 +62,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      */
     private var loadJob: Job? = null
 
+    private var eventReplayWindow = InAppFormsConfig.DEFAULT_EVENT_REPLAY_WINDOW
+
     private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
 
     /**
@@ -81,7 +83,9 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         }
 
         val webView = KlaviyoWebView().also { this.webView = it }
-        val loadTimeout = Registry.getOrNull<InAppFormsConfig>()?.getLoadTimeout()?.inWholeMilliseconds
+        val config = Registry.getOrNull<InAppFormsConfig>() ?: InAppFormsConfig()
+        eventReplayWindow = config.getEventReplayWindow()
+        val loadTimeout = config.getLoadTimeout()?.inWholeMilliseconds
             ?: Registry.config.networkTimeout.toLong()
         loadJob?.cancel()
         loadJob = scope.safeLaunch {
@@ -173,7 +177,10 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * When the webview has loaded klaviyo.js, we can cancel the timeout
      */
     override fun onJsHandshakeCompleted() {
-        Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.HandShook)
+        Registry.get<JsBridgeObserverCollection>().startObservers(
+            NativeBridgeMessage.HandShook,
+            eventReplayWindow
+        )
         handshakeTimer?.cancel()
         handshakeTimer = null
     }
