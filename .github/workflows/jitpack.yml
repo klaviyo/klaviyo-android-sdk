@@ -35,6 +35,7 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'jitpack:build')
     steps:
       - name: Checkout repository
+        id: checkout
         uses: actions/checkout@v4
 
       - name: Determine Version Info
@@ -104,7 +105,7 @@ jobs:
                   text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
 
       - name: Send Slack notification on failure
-        if: failure() && github.event_name != 'release'
+        if: failure() && (github.event_name != 'release' || steps.checkout.outcome != 'success')
         uses: slackapi/slack-github-action@v2.1.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
