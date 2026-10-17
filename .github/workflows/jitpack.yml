@@ -63,8 +63,30 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: bash .github/scripts/jitpack-build.sh "$VERSION"
 
+      - name: Notify Slack of release publish success
+        if: success() && github.event_name == 'release'
+        uses: ./.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          result: success
+          package: Android SDK
+          platform: JitPack
+          version_label: ${{ github.event.release.tag_name }}
+          release_url: ${{ github.event.release.html_url }}
+
+      - name: Notify Slack of release publish failure
+        if: failure() && github.event_name == 'release'
+        uses: ./.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          result: failure
+          package: Android SDK
+          platform: JitPack
+          version_label: ${{ github.event.release.tag_name }}
+          release_url: ${{ github.event.release.html_url }}
+
       - name: Send Slack notification on success
-        if: success()
+        if: success() && github.event_name != 'release'
         uses: slackapi/slack-github-action@v2.1.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -82,7 +104,7 @@ jobs:
                   text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
 
       - name: Send Slack notification on failure
-        if: failure()
+        if: failure() && github.event_name != 'release'
         uses: slackapi/slack-github-action@v2.1.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
