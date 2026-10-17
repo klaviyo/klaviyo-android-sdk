@@ -42,12 +42,13 @@ jobs:
         id: version
         env:
           EVENT_NAME: ${{ github.event_name }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          TAG_NAME: ${{ github.ref_name }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
-          if [ "$EVENT_NAME" == "release" ]; then
-            echo "version=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          if [ "$REF_TYPE" == "tag" ]; then
+            echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
             echo "version_type=release" >> "$GITHUB_OUTPUT"
           elif [ "$EVENT_NAME" == "pull_request" ]; then
             echo "version=$PR_HEAD_SHA" >> "$GITHUB_OUTPUT"
@@ -65,29 +66,29 @@ jobs:
         run: bash .github/scripts/jitpack-build.sh "$VERSION"
 
       - name: Notify Slack of release publish success
-        if: success() && github.event_name == 'release'
+        if: success() && github.ref_type == 'tag'
         uses: ./.github/actions/notify-slack-publish
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           result: success
           package: Android SDK
           platform: JitPack
-          version_label: ${{ github.event.release.tag_name }}
-          release_url: ${{ github.event.release.html_url }}
+          version_label: ${{ github.ref_name }}
+          release_url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
 
       - name: Notify Slack of release publish failure
-        if: failure() && github.event_name == 'release'
+        if: failure() && github.ref_type == 'tag'
         uses: ./.github/actions/notify-slack-publish
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           result: failure
           package: Android SDK
           platform: JitPack
-          version_label: ${{ github.event.release.tag_name }}
-          release_url: ${{ github.event.release.html_url }}
+          version_label: ${{ github.ref_name }}
+          release_url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
 
       - name: Send Slack notification on success
-        if: success() && github.event_name != 'release'
+        if: success() && github.ref_type != 'tag'
         uses: slackapi/slack-github-action@v2.1.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -105,7 +106,7 @@ jobs:
                   text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
 
       - name: Send Slack notification on failure
-        if: failure() && (github.event_name != 'release' || steps.checkout.outcome != 'success')
+        if: failure() && (github.ref_type != 'tag' || steps.checkout.outcome != 'success')
         uses: slackapi/slack-github-action@v2.1.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
