@@ -1,6 +1,7 @@
 package com.klaviyo.forms.preview
 
 import com.klaviyo.core.Registry
+import com.klaviyo.core.forms.FormsPreview
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -17,11 +18,6 @@ internal class FormsPreviewTokenStore {
 
     companion object {
         /**
-         * Format the onsite-in-app-forms package accepts for a preview token
-         */
-        private val TOKEN_PATTERN = Regex("^[A-Za-z0-9_-]{43}$")
-
-        /**
          * Returns [token] without surrounding whitespace if it is a well-formed preview token,
          * null if it is null or blank, and null with a warning otherwise. The token value itself
          * is never logged.
@@ -30,7 +26,7 @@ internal class FormsPreviewTokenStore {
             val trimmed = token?.trim()
             return when {
                 trimmed.isNullOrEmpty() -> null
-                TOKEN_PATTERN.matches(trimmed) -> trimmed
+                FormsPreview.isValidToken(trimmed) -> trimmed
                 else -> null.also {
                     Registry.log.warning("Ignoring malformed forms preview token")
                 }

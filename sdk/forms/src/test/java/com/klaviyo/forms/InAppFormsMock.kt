@@ -98,4 +98,9 @@ object InAppFormsMock {
     fun verifyKlaviyoFormsSetPreviewTokenCalled(count: Int = 1) {
         verify(exactly = count) { KlaviyoForms.setFormsPreviewToken(any()) }
     }
+
+    @JvmStatic
+    fun mockHandleFormsPreviewLink(result: Boolean) {
+        every { KlaviyoForms.handleFormsPreviewLink(any()) } returns result
+    }
 }

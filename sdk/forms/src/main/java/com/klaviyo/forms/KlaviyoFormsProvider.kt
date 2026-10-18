@@ -3,6 +3,7 @@ package com.klaviyo.forms
 import androidx.annotation.UiThread
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
+import com.klaviyo.core.forms.FormsPreview
 import com.klaviyo.core.safeApply
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
@@ -57,6 +58,16 @@ internal class KlaviyoFormsProvider : FormsProvider {
     override fun setPreviewToken(token: String?) {
         Registry.registerOnce<FormsPreviewTokenStore> { FormsPreviewTokenStore() }
         Registry.get<FormsPreviewTokenStore>().setToken(token)
+    }
+
+    override fun handlePreviewLink(uri: String?): Boolean {
+        val parameter = FormsPreview.previewTokenParameter(uri) ?: return false
+        if (!FormsPreview.isValidToken(parameter)) {
+            Registry.log.warning("Ignoring forms preview link with a malformed token")
+            return false
+        }
+        setPreviewToken(parameter)
+        return true
     }
 
     override fun unregister() {

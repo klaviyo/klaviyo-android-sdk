@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.forms.handleFormsPreviewLink
 
 /**
  * SETUP NOTE: This is the `automatic` flavor's Activity, demonstrating automatic push integration (Option A).
@@ -68,6 +69,13 @@ class SampleActivity : ComponentActivity() {
         // then either invoke your registered deep link handler or send another Intent to your app.
         // (This is unrelated to push open tracking and is required in both integration styles.)
         if (Klaviyo.handleUniversalTrackingLink(intent)) {
+            return
+        }
+
+        // SETUP NOTE: Start a draft in-app forms preview from the form editor's QR code or
+        // copied preview link. Returns false, changing nothing, for every other link.
+        if (Klaviyo.handleFormsPreviewLink(intent?.data)) {
+            showToast("Forms preview started")
             return
         }
 

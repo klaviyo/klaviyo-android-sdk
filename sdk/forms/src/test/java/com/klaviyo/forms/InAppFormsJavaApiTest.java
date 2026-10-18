@@ -92,6 +92,13 @@ public class InAppFormsJavaApiTest extends BaseTest {
     }
 
     @Test
+    public void testKlaviyoFormsHandlePreviewLinkIsCallableFromJava() {
+        InAppFormsMock.mockHandleFormsPreviewLink(true);
+        boolean handled = KlaviyoForms.handleFormsPreviewLink(null);
+        assertEquals(true, handled);
+    }
+
+    @Test
     public void testKlaviyoFormsUnregister() {
         KlaviyoForms.unregisterFromInAppForms();
         InAppFormsMock.verifyKlaviyoFormsUnregisterCalled();

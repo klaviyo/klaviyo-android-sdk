@@ -27,4 +27,11 @@ internal class InAppFormsNoOpTest : BaseTest() {
             Klaviyo.setFormsPreviewToken(null)
         }
     }
+
+    @Test
+    fun `handleFormsPreviewLink throws when provider not registered`() {
+        assertThrows(MissingKlaviyoModule::class.java) {
+            Klaviyo.handleFormsPreviewLink(null)
+        }
+    }
 }
