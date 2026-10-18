@@ -27,8 +27,9 @@ internal fun Klaviyo.reInitializeInAppForms(): Klaviyo {
         )
         return this
     }
+    val config = Registry.get<InAppFormsConfig>()
     safeApply { Registry.get<FormsProvider>().unregister() }
-    return safeApply { Registry.get<FormsProvider>().register(Registry.get<InAppFormsConfig>()) }
+    return safeApply { Registry.get<FormsProvider>().register(config) }
 }
 
 internal class KlaviyoFormsProvider : FormsProvider {
@@ -50,6 +51,7 @@ internal class KlaviyoFormsProvider : FormsProvider {
         if (inAppIsRegistered()) {
             Registry.get<PresentationManager>().dismiss()
             Registry.get<WebViewClient>().destroyWebView()
+            Registry.unregister<InAppFormsConfig>()
         } else {
             Registry.log.warning("Cannot unregister In-App Forms, must be registered first.")
         }
