@@ -636,12 +636,24 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
+    fun `forms data readiness message decodes without a payload`() {
+        assertEquals(
+            NativeBridgeMessage.FormsDataLoaded,
+            NativeBridgeMessage.decodeWebviewMessage("""{"type":"formsDataLoaded"}""")
+        )
+    }
+
+    @Test
     fun `Verify IAF handshake`() {
         assertEquals(
             """
                 [
                   {
                     "type": "handShook",
+                    "version": 1
+                  },
+                  {
+                    "type": "formsDataLoaded",
                     "version": 1
                   },
                   {
