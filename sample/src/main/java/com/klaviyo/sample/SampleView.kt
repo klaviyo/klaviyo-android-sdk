@@ -225,6 +225,9 @@ fun SampleView(
                     viewModel::registerForInAppForms,
                     UiConstants.FORMS_REGISTERED
                 ),
+                manualFormId = viewModel.manualFormId,
+                onManualFormIdChange = viewModel::updateManualFormId,
+                openForm = executeWithToast(viewModel::openForm, "Form requested"),
                 unregisterFromInAppForms = executeWithToast(
                     viewModel::unregisterFromInAppForms,
                     UiConstants.FORMS_UNREGISTERED
@@ -273,6 +276,9 @@ private fun SampleViewContent(
     createTestEvent: () -> Unit = {},
     createViewedProductEvent: () -> Unit = {},
     registerForInAppForms: () -> Unit = {},
+    manualFormId: String = "",
+    onManualFormIdChange: (String) -> Unit = {},
+    openForm: () -> Unit = {},
     unregisterFromInAppForms: () -> Unit = {},
     pastedJwt: String = "",
     isAuthTokenProviderRegistered: Boolean = false,
@@ -444,6 +450,22 @@ private fun SampleViewContent(
                 onClick = unregisterFromInAppForms,
                 enabled = isFormsRegistered,
                 modifier = Modifier.weight(1f).semantics { testTag = SampleTestTags.BTN_UNREGISTER_FORMS }
+            )
+        }
+        ProfileTextField(
+            label = "Form ID",
+            value = manualFormId,
+            onValueChange = onManualFormIdChange,
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Done,
+            keyboardActions = KeyboardActions(onDone = { openForm() }),
+            trailingIcon = { EntryTrailingButton(onClick = openForm) }
+        )
+        ViewRow {
+            ActionButton(
+                text = "Open form",
+                onClick = openForm,
+                enabled = isFormsRegistered && manualFormId.isNotBlank()
             )
         }
 

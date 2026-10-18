@@ -15,6 +15,13 @@ internal class InAppFormsNoOpTest : BaseTest() {
     }
 
     @Test
+    fun `openForm throws when provider not registered`() {
+        assertThrows(MissingKlaviyoModule::class.java) {
+            Klaviyo.openForm("form")
+        }
+    }
+
+    @Test
     fun `unregisterFromInAppForms throws when provider not registered`() {
         assertThrows(MissingKlaviyoModule::class.java) {
             Klaviyo.unregisterFromInAppForms()

@@ -73,7 +73,61 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     private var onFailure: InAppFormsFailureHandler? = null
     private var handshakeCompleted = false
 
+    private var formsDataLoaded = false
+    private var pendingForm: PendingForm? = null
+    private var companyId: String? = null
+
+    private data class PendingForm(val formId: String, val arrivedAt: Long, val generation: Long)
+
     private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
+
+    override fun openForm(formId: String) {
+        if (formId.isBlank()) {
+            Registry.log.warning("Cannot open a form with a blank ID.")
+            return
+        }
+        val expectedView = webView ?: run {
+            Registry.log.warning("Cannot open a form without an active Forms runtime.")
+            return
+        }
+        val request = PendingForm(
+            formId,
+            Registry.clock.monotonicTimeMillis(),
+            Registry.get<State>().bufferedEventGeneration
+        )
+        Registry.threadHelper.runOnUiThread {
+            if (webView !== expectedView || companyId != Registry.config.apiKey ||
+                request.generation != Registry.get<State>().bufferedEventGeneration
+            ) {
+                Registry.log.debug("Discarding manual form request from a retired context.")
+            } else if (formsDataLoaded) {
+                Registry.get<JsBridge>().openForm(request.formId)
+            } else if (eventReplayWindow.isPositive()) {
+                pendingForm = request
+            } else {
+                Registry.log.debug("Skipping manual form request while Forms data loads.")
+            }
+        }
+    }
+
+    override fun onFormsDataLoaded() {
+        val expectedView = webView ?: return
+        Registry.threadHelper.runOnUiThread {
+            if (webView !== expectedView || companyId != Registry.config.apiKey) return@runOnUiThread
+            formsDataLoaded = true
+            val pending = pendingForm
+            pendingForm = null
+            pending?.let {
+                if (it.generation == Registry.get<State>().bufferedEventGeneration &&
+                    Registry.clock.monotonicTimeMillis() - it.arrivedAt < eventReplayWindow.inWholeMilliseconds
+                ) {
+                    Registry.get<JsBridge>().openForm(it.formId)
+                } else {
+                    Registry.log.debug("Discarding expired manual form request or retired context.")
+                }
+            }
+        }
+    }
 
     /**
      * Initialize a webview instance, with protection against duplication
@@ -95,6 +149,9 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         onFailure = config.getOnFailure()
         eventReplayWindow = config.getEventReplayWindow()
         handshakeCompleted = false
+        formsDataLoaded = false
+        pendingForm = null
+        companyId = Registry.config.apiKey
         val webView = KlaviyoWebView().also { this.webView = it }
         val loadTimeout = config.getLoadTimeout()?.inWholeMilliseconds
             ?: Registry.config.networkTimeout.toLong()
@@ -299,6 +356,9 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         this.webView = null
         onFailure = null
         handshakeCompleted = false
+        formsDataLoaded = false
+        pendingForm = null
+        companyId = null
         loadJob?.cancel()
         loadJob = null
         handshakeTimer?.cancel()

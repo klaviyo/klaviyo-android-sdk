@@ -14,7 +14,8 @@ import kotlin.time.Duration.Companion.seconds
  * @param loadTimeout Optional positive, finite budget for loading forms through the JS handshake,
  *  after the initial JWT wait. Null or invalid values use the SDK network timeout.
  * @param eventReplayWindow Recent analytics history to replay after loading. Defaults to 10 seconds,
- *  clamps to 0 through 30 seconds, and does not affect live events.
+ *  clamps to 0 through 30 seconds, and also bounds how long the latest manual form request waits
+ *  for forms data. Zero skips waiting; live events and ready manual requests are unaffected.
  * @param onFailure Optional handler for terminal initialization failure before the JS handshake.
  *  Runs on the main thread after teardown. Register again to retry; the SDK does not retry automatically.
  */
@@ -107,7 +108,7 @@ class InAppFormsConfig(
         }
     }
 
-    /** Historical replay window, bounded to zero through thirty seconds. Live delivery is always enabled. */
+    /** Replay and manual-request waiting window, bounded to zero through thirty seconds. */
     fun getEventReplayWindow(): Duration = eventReplayWindow.coerceIn(
         Duration.ZERO,
         MAX_EVENT_REPLAY_WINDOW

@@ -232,6 +232,209 @@ class KlaviyoWebViewClientTest : BaseTest() {
         }
 
     @Test
+    fun `manual requests wait past handshake and only latest request drains once`() {
+        val client = registerClient(InAppFormsConfig())
+        client.openForm("first")
+        client.onJsHandshakeCompleted()
+        client.openForm("latest")
+        verify(exactly = 0) { mockJsBridge.openForm(any()) }
+
+        client.onFormsDataLoaded()
+        client.onFormsDataLoaded()
+
+        verify(exactly = 1) { mockJsBridge.openForm("latest") }
+        verify(exactly = 0) { mockJsBridge.openForm("first") }
+    }
+
+    @Test
+    fun `ready manual requests all forward while another form is visible`() {
+        val client = registerClient(InAppFormsConfig())
+        client.onFormsDataLoaded()
+        val presenter = Registry.get<PresentationManager>()
+        presenter.present("visible", null)
+
+        client.openForm("same")
+        client.openForm("same")
+        client.openForm("other")
+
+        verify(exactly = 2) { mockJsBridge.openForm("same") }
+        verify(exactly = 1) { mockJsBridge.openForm("other") }
+        verify(exactly = 1) { presenter.present(any(), any()) }
+    }
+
+    @Test
+    fun `manual pending lifetime uses original arrival and strict captured window`() {
+        val client = registerClient(InAppFormsConfig())
+        client.openForm("expired")
+        staticClock.time += 10_000
+        KlaviyoFormsProvider().register(InAppFormsConfig(eventReplayWindow = 30.seconds))
+        client.onFormsDataLoaded()
+        verify(exactly = 0) { mockJsBridge.openForm(any()) }
+
+        client.destroyWebView()
+        KlaviyoFormsProvider().register(InAppFormsConfig())
+        client.openForm("fresh")
+        staticClock.time += 9_999
+        client.onFormsDataLoaded()
+        verify(exactly = 1) { mockJsBridge.openForm("fresh") }
+    }
+
+    @Test
+    fun `manual pending window is capped at thirty seconds`() {
+        val client = registerClient(InAppFormsConfig(eventReplayWindow = 60.seconds))
+        client.openForm("expired")
+        staticClock.time += 30_000
+        client.onFormsDataLoaded()
+
+        verify(exactly = 0) { mockJsBridge.openForm(any()) }
+    }
+
+    @Test
+    fun `zero replay window skips waiting but ready requests still forward`() {
+        val client = registerClient(InAppFormsConfig(eventReplayWindow = 0.seconds))
+        client.openForm("loading")
+        client.onFormsDataLoaded()
+        client.openForm("ready")
+
+        verify(exactly = 0) { mockJsBridge.openForm("loading") }
+        verify(exactly = 1) { mockJsBridge.openForm("ready") }
+    }
+
+    @Test
+    fun `blank manual IDs do not replace a pending request and nonblank IDs are preserved`() {
+        val client = registerClient(InAppFormsConfig())
+        val id = " form\"\n'\\id "
+        client.openForm(id)
+        client.openForm(" \n\t")
+        client.onFormsDataLoaded()
+        client.openForm("")
+
+        verify(exactly = 1) { mockJsBridge.openForm(id) }
+        verify(exactly = 1) { mockJsBridge.openForm(any()) }
+    }
+
+    @Test
+    fun `manual requests before registration and after failure never initialize a view`() {
+        val client = KlaviyoWebViewClient()
+        client.openForm("before")
+        assertNull(client.getWebView())
+        Registry.register<WebViewClient>(client)
+        Registry.register<PresentationManager>(mockk<PresentationManager>(relaxed = true))
+        KlaviyoFormsProvider().register(InAppFormsConfig())
+        client.openForm("pending")
+        client.onJsAbort("failed")
+        client.openForm("after")
+        client.onFormsDataLoaded()
+
+        assertNull(client.getWebView())
+        verify(exactly = 0) { mockJsBridge.openForm(any()) }
+    }
+
+    @Test
+    fun `unregister discards pending manual request and readiness for retry`() {
+        val client = registerClient(InAppFormsConfig())
+        client.openForm("retired")
+        KlaviyoFormsProvider().unregister()
+        KlaviyoFormsProvider().register(InAppFormsConfig())
+        client.openForm("replacement")
+        verify(exactly = 0) { mockJsBridge.openForm(any()) }
+        client.onFormsDataLoaded()
+
+        verify(exactly = 1) { mockJsBridge.openForm("replacement") }
+        verify(exactly = 0) { mockJsBridge.openForm("retired") }
+    }
+
+    @Test
+    fun `context replacement discards old manual request but accepts new context`() {
+        var generation = 0L
+        every { mockState.bufferedEventGeneration } answers { generation }
+        val client = registerClient(InAppFormsConfig())
+        client.openForm("old-profile")
+        generation++
+        client.onFormsDataLoaded()
+        client.openForm("new-profile")
+
+        verify(exactly = 0) { mockJsBridge.openForm("old-profile") }
+        verify(exactly = 1) { mockJsBridge.openForm("new-profile") }
+    }
+
+    @Test
+    fun `compatible profile enrichment preserves pending manual request`() {
+        every { mockState.bufferedEventGeneration } returns 7L
+        val client = registerClient(InAppFormsConfig())
+        client.openForm("anonymous-request")
+        every { mockState.getAsProfile() } returns Profile(email = EMAIL)
+        client.onFormsDataLoaded()
+
+        verify(exactly = 1) { mockJsBridge.openForm("anonymous-request") }
+    }
+
+    @Test
+    fun `retired legacy and modern readiness cannot drain replacement manual request`() {
+        val bridges = captureAttemptBridges()
+        val client = registerClient(InAppFormsConfig())
+        dispatcher.scheduler.runCurrent()
+        val oldView = client.getWebView() as WebView
+        val oldBridge = bridges.single()
+        client.openForm("retired")
+        client.destroyWebView()
+        KlaviyoFormsProvider().register(InAppFormsConfig())
+        dispatcher.scheduler.runCurrent()
+        client.openForm("replacement")
+        oldBridge.postMessage("""{"type":"formsDataLoaded"}""")
+        oldBridge.onPostMessage(
+            oldView,
+            WebMessageCompat("""{"type":"formsDataLoaded"}""", null),
+            mockk(),
+            true,
+            mockk()
+        )
+        verify(exactly = 0) { mockJsBridge.openForm(any()) }
+
+        bridges.last().postMessage("""{"type":"formsDataLoaded"}""")
+        bridges.last().onPostMessage(
+            client.getWebView() as WebView,
+            WebMessageCompat("""{"type":"formsDataLoaded"}""", null),
+            mockk(),
+            true,
+            mockk()
+        )
+        verify(exactly = 1) { mockJsBridge.openForm("replacement") }
+    }
+
+    @Test
+    fun `queued ready request cannot cross replacement view or profile`() {
+        var generation = 0L
+        every { mockState.bufferedEventGeneration } answers { generation }
+        val client = registerClient(InAppFormsConfig())
+        client.onFormsDataLoaded()
+        val jobs = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { jobs += firstArg<() -> Unit>() }
+        client.openForm("old-profile")
+        generation++
+        jobs.removeAt(0).invoke()
+        client.openForm("old-view")
+        every { mockThreadHelper.runOnUiThread(any()) } answers { firstArg<() -> Unit>().invoke() }
+        client.destroyWebView()
+        KlaviyoFormsProvider().register(InAppFormsConfig())
+        client.onFormsDataLoaded()
+        jobs.single().invoke()
+
+        verify(exactly = 0) { mockJsBridge.openForm(any()) }
+    }
+
+    @Test
+    fun `company change cannot dispatch into old runtime before rebuild`() {
+        val client = registerClient(InAppFormsConfig())
+        client.openForm("old-company")
+        every { mockConfig.apiKey } returns "replacement-company"
+        client.onFormsDataLoaded()
+        client.openForm("new-company")
+
+        verify(exactly = 0) { mockJsBridge.openForm(any()) }
+    }
+
+    @Test
     fun `failure tears down on main before handler can synchronously register again`() {
         var failures = 0
         var onMain = false
