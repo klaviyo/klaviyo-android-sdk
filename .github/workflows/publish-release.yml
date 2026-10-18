@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version to release (X.Y.Z)
+        description: Version to release (X.Y.Z or X.Y.Z-suffix for a prerelease)
         required: true
         type: string
       ref:
@@ -33,16 +33,23 @@ jobs:
       actions: read
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
+      prerelease: ${{ steps.validate.outputs.prerelease }}
       release_url: ${{ steps.draft.outputs.release_url }}
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ inputs.version }}
     steps:
       - name: Validate version format
+        id: validate
         run: |
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Version '$VERSION' is not X.Y.Z"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version '$VERSION' is not X.Y.Z or X.Y.Z-suffix"
             exit 1
+          fi
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout repository
@@ -94,6 +101,7 @@ jobs:
         id: draft
         env:
           SHA: ${{ steps.resolve.outputs.sha }}
+          PRERELEASE: ${{ steps.validate.outputs.prerelease }}
         run: |
           if IS_DRAFT=$(gh release view "$VERSION" --json isDraft --jq '.isDraft' 2>/dev/null); then
             if [ "$IS_DRAFT" != "true" ]; then
@@ -102,7 +110,7 @@ jobs:
             fi
             echo "Reusing existing draft release $VERSION; notes left as written"
           else
-            gh release create "$VERSION" --draft --generate-notes --title "$VERSION" --target "$SHA"
+            gh release create "$VERSION" --draft --generate-notes --title "$VERSION" --target "$SHA" --prerelease="$PRERELEASE"
           fi
           URL=$(gh release view "$VERSION" --json url --jq '.url')
           echo "release_url=$URL" >> "$GITHUB_OUTPUT"
@@ -144,9 +152,15 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ inputs.version }}
       SHA: ${{ needs.prepare.outputs.sha }}
+      PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
     steps:
       - name: Publish draft release
-        run: gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --target "$SHA"
+        run: |
+          if [ "$PRERELEASE" == "true" ]; then
+            gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --target "$SHA" --prerelease --latest=false
+          else
+            gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --target "$SHA" --prerelease=false
+          fi
 
       - name: Dispatch downstream workflows at the tag
         run: |
