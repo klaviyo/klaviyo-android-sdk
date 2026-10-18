@@ -50,7 +50,7 @@ internal class KlaviyoFormsProvider : FormsProvider {
         }
         // Before initializing, so a new webview renders the token into its template. If the
         // webview already exists, FormsPreviewTokenObserver delivers it over the JS bridge.
-        config.previewToken?.takeIf { it.isNotBlank() }?.let(::setPreviewToken)
+        Registry.get<FormsPreviewTokenStore>().applyConfigToken(config.previewToken)
         Registry.get<WebViewClient>().initializeWebView()
     }
 

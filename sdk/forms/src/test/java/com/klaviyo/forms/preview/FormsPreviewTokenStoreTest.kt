@@ -114,4 +114,31 @@ class FormsPreviewTokenStoreTest : BaseTest() {
         assertNull(store.tokenForTemplate())
         assertNull(store.renderedToken)
     }
+
+    @Test
+    fun `end clears the token and blocks it from config but not from the setter`() {
+        store.setToken(VALID_PREVIEW_TOKEN)
+        store.end()
+        assertNull(store.token)
+
+        store.applyConfigToken(VALID_PREVIEW_TOKEN)
+        assertNull(store.token)
+
+        store.applyConfigToken(OTHER_PREVIEW_TOKEN)
+        assertEquals(OTHER_PREVIEW_TOKEN, store.token)
+
+        store.setToken(VALID_PREVIEW_TOKEN)
+        assertEquals(VALID_PREVIEW_TOKEN, store.token)
+    }
+
+    @Test
+    fun `applyConfigToken leaves the token for null or blank and clears it for malformed`() {
+        store.setToken(VALID_PREVIEW_TOKEN)
+        store.applyConfigToken(null)
+        store.applyConfigToken("  ")
+        assertEquals(VALID_PREVIEW_TOKEN, store.token)
+
+        store.applyConfigToken("<script>")
+        assertNull(store.token)
+    }
 }

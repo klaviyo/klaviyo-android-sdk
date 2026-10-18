@@ -232,7 +232,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
      */
     private fun formsPreviewEnded(reason: String) {
         Registry.log.info("Forms preview ended, reason: $reason")
-        Registry.getOrNull<FormsPreviewTokenStore>()?.clear()
+        Registry.getOrNull<FormsPreviewTokenStore>()?.end()
     }
 
     /**

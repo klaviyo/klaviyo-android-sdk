@@ -85,6 +85,43 @@ internal class FormsPreviewTokenStore {
      */
     fun clear() = setToken(null)
 
+    /**
+     * Tokens whose preview onsite reported as ended or expired, kept so a config that still holds
+     * one cannot revive it. Tokens are short-lived, so this stays small for a process lifetime.
+     */
+    private val endedTokens = mutableSetOf<String>()
+
+    /**
+     * Clear the stored token because its preview ended, and remember it as ended
+     */
+    fun end() {
+        synchronized(this) { token?.let(endedTokens::add) }
+        clear()
+    }
+
+    /**
+     * Store a token from an [com.klaviyo.forms.InAppFormsConfig]. Null or blank leaves the current
+     * token unchanged, and a token whose preview already ended is ignored.
+     */
+    fun applyConfigToken(token: String?) {
+        val validated = validate(token) ?: return setTokenIfMalformed(token)
+        if (synchronized(this) { validated in endedTokens }) {
+            Registry.log.debug(
+                "Ignoring forms preview token from config; its preview already ended"
+            )
+            return
+        }
+        setToken(validated)
+    }
+
+    /**
+     * A malformed config token clears the current token, the same as the setter. Null or blank
+     * config tokens leave it unchanged.
+     */
+    private fun setTokenIfMalformed(token: String?) {
+        if (!token.isNullOrBlank()) setToken(token)
+    }
+
     fun onTokenChange(observer: FormsPreviewTokenObserver) {
         observers += observer
     }

@@ -15,6 +15,7 @@ import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.reInitializeInAppForms
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.setFormsPreviewToken
+import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.JavaScriptEvaluator
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
@@ -72,7 +73,7 @@ class FormsPreviewTokenTest : BaseTest() {
             assertEquals(VALID_PREVIEW_TOKEN, storedToken)
         }
 
-        Klaviyo.registerForInAppForms(InAppFormsConfig(VALID_PREVIEW_TOKEN))
+        Klaviyo.registerForInAppForms(InAppFormsConfig(previewToken = VALID_PREVIEW_TOKEN))
 
         verify(exactly = 1) { mockClient.initializeWebView() }
         assertEquals(VALID_PREVIEW_TOKEN, storedToken)
@@ -114,12 +115,12 @@ class FormsPreviewTokenTest : BaseTest() {
     @Test
     fun `re-registering with a new config token updates the stored token`() {
         val changes = mutableListOf<String?>()
-        Klaviyo.registerForInAppForms(InAppFormsConfig(VALID_PREVIEW_TOKEN))
+        Klaviyo.registerForInAppForms(InAppFormsConfig(previewToken = VALID_PREVIEW_TOKEN))
         Registry.get<FormsPreviewTokenStore>().onTokenChange {
             changes += storedToken
         }
 
-        Klaviyo.registerForInAppForms(InAppFormsConfig(OTHER_PREVIEW_TOKEN))
+        Klaviyo.registerForInAppForms(InAppFormsConfig(previewToken = OTHER_PREVIEW_TOKEN))
 
         assertEquals(listOf<String?>(OTHER_PREVIEW_TOKEN), changes)
         verifyOrder {
@@ -139,7 +140,7 @@ class FormsPreviewTokenTest : BaseTest() {
 
     @Test
     fun `invalid token from config is dropped`() {
-        Klaviyo.registerForInAppForms(InAppFormsConfig("<script>"))
+        Klaviyo.registerForInAppForms(InAppFormsConfig(previewToken = "<script>"))
 
         assertNull(storedToken)
         verify(exactly = 1) { mockClient.initializeWebView() }
@@ -147,12 +148,44 @@ class FormsPreviewTokenTest : BaseTest() {
 
     @Test
     fun `reinitialize does not revive a preview that ended`() {
-        Klaviyo.registerForInAppForms(InAppFormsConfig(VALID_PREVIEW_TOKEN))
+        Klaviyo.registerForInAppForms(InAppFormsConfig(previewToken = VALID_PREVIEW_TOKEN))
         Registry.get<FormsPreviewTokenStore>().clear()
 
         Klaviyo.reInitializeInAppForms()
 
         assertNull(storedToken)
+    }
+
+    @Test
+    fun `re-registering with a config whose preview ended does not revive it`() {
+        val config = InAppFormsConfig(previewToken = VALID_PREVIEW_TOKEN)
+        Klaviyo.registerForInAppForms(config)
+        Registry.get<FormsPreviewTokenStore>().end()
+
+        Klaviyo.unregisterFromInAppForms()
+        Klaviyo.registerForInAppForms(config)
+
+        assertNull(storedToken)
+    }
+
+    @Test
+    fun `a new config token still starts a preview after an earlier one ended`() {
+        Klaviyo.registerForInAppForms(InAppFormsConfig(previewToken = VALID_PREVIEW_TOKEN))
+        Registry.get<FormsPreviewTokenStore>().end()
+
+        Klaviyo.registerForInAppForms(InAppFormsConfig(previewToken = OTHER_PREVIEW_TOKEN))
+
+        assertEquals(OTHER_PREVIEW_TOKEN, storedToken)
+    }
+
+    @Test
+    fun `the setter can restart a preview that ended`() {
+        Klaviyo.registerForInAppForms(InAppFormsConfig(previewToken = VALID_PREVIEW_TOKEN))
+        Registry.get<FormsPreviewTokenStore>().end()
+
+        Klaviyo.setFormsPreviewToken(VALID_PREVIEW_TOKEN)
+
+        assertEquals(VALID_PREVIEW_TOKEN, storedToken)
     }
 
     @Test

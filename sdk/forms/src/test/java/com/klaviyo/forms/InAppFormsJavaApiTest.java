@@ -56,11 +56,8 @@ public class InAppFormsJavaApiTest extends BaseTest {
         InAppFormsConfig customConfig = new InAppFormsConfig(1800);
         assertNotNull(customConfig);
 
-        // Preview token constructors
-        String token = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6";
-        assertEquals(token, new InAppFormsConfig(token).getPreviewToken());
-        assertEquals(token, new InAppFormsConfig(1800, token).getPreviewToken());
-        assertNull(new InAppFormsConfig(1800, null).getPreviewToken());
+        // Java callers set a preview token with KlaviyoForms.setFormsPreviewToken
+        assertNull(customConfig.getPreviewToken());
     }
 
     @Test

@@ -50,13 +50,9 @@ class InAppFormsConfigTest : BaseTest() {
     fun `test InAppFormsConfig carries a preview token`() {
         val token = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
 
-        InAppFormsConfig(token).run {
+        InAppFormsConfig(previewToken = token).run {
             assertEquals(token, previewToken)
             assertEquals(3600L, getSessionTimeoutDuration().inWholeSeconds)
-        }
-        InAppFormsConfig(10, token).run {
-            assertEquals(token, previewToken)
-            assertEquals(10L, getSessionTimeoutDuration().inWholeSeconds)
         }
         InAppFormsConfig(10.seconds, token).run {
             assertEquals(token, previewToken)
@@ -65,8 +61,23 @@ class InAppFormsConfigTest : BaseTest() {
     }
 
     @Test
+    fun `test InAppFormsConfig copy carries the preview token`() {
+        val token = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
+        val config = InAppFormsConfig(10.seconds, token)
+
+        assertEquals(token, config.copy(sessionTimeoutDuration = 20.seconds).previewToken)
+        assertEquals(
+            20L,
+            config.copy(sessionTimeoutDuration = 20.seconds).getSessionTimeoutDuration().inWholeSeconds
+        )
+        assertNull(config.copy(previewToken = null).previewToken)
+        assertEquals(config, config.copy())
+        assertEquals(config.hashCode(), config.copy().hashCode())
+    }
+
+    @Test
     fun `test InAppFormsConfig toString redacts the preview token`() {
         val token = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
-        assertFalse(InAppFormsConfig(token).toString().contains(token))
+        assertFalse(InAppFormsConfig(previewToken = token).toString().contains(token))
     }
 }
