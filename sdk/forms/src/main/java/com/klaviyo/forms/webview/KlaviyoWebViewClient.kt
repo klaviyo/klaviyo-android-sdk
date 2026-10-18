@@ -196,6 +196,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * the previous profile's JWT. Must be called on the UI thread.
      */
     private fun loadTemplate(webView: KlaviyoWebView, token: String?, loadTimeout: Long) {
+        val loadedCompanyId = Registry.config.apiKey
         val nativeBridge = Registry.get<NativeBridge>()
         val jsBridge = Registry.get<JsBridge>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
@@ -204,7 +205,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
             .buildUpon()
             .path("onsite/js/klaviyo.js")
-            .appendQueryParameter("company_id", Registry.config.apiKey)
+            .appendQueryParameter("company_id", loadedCompanyId)
             .appendQueryParameter("env", "in-app")
             .appendAssetSource()
             .build()
@@ -233,6 +234,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         handshakeTimer = Registry.clock.schedule(
             loadTimeout
         ) { failLoad(webView, "IAF WebView Aborted: Timeout waiting for Klaviyo.js") }
+        companyId = loadedCompanyId
         webView.loadTemplate(partialHtml, this, nativeBridge.forWebView(webView))
     }
 

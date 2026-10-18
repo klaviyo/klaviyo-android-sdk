@@ -435,6 +435,31 @@ class KlaviyoWebViewClientTest : BaseTest() {
     }
 
     @Test
+    fun `company replaced during JWT wait uses loaded account for manual requests`() {
+        var generation = 0L
+        every { mockState.bufferedEventGeneration } answers { generation }
+        fakeAuth.providerRegistered = true
+        val client = registerClient(InAppFormsConfig())
+        client.openForm("original-company")
+        dispatcher.scheduler.runCurrent()
+        verify(exactly = 0) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+
+        every { mockConfig.apiKey } returns "replacement-company"
+        generation++
+        client.openForm("before-template")
+        fakeAuth.completeFetch(JWT)
+        dispatcher.scheduler.runCurrent()
+        verify { mockUriBuilder.appendQueryParameter("company_id", "replacement-company") }
+        client.onFormsDataLoaded()
+        verify(exactly = 0) { mockJsBridge.openForm(any()) }
+
+        client.openForm("loaded-company")
+
+        verify(exactly = 1) { mockJsBridge.openForm("loaded-company") }
+        verify(exactly = 1) { mockJsBridge.openForm(any()) }
+    }
+
+    @Test
     fun `failure tears down on main before handler can synchronously register again`() {
         var failures = 0
         var onMain = false
