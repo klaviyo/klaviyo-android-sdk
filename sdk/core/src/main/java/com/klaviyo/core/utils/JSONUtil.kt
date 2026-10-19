@@ -13,6 +13,13 @@ object JSONUtil {
         if (has(key) && !isNull(key)) getString(key) else null
 
     /**
+     * The value at [key] as a string, or null when it is missing, JSON null, or blank.
+     * The [isNull] check matters because [JSONObject.optString] returns the literal "null" for JSON null.
+     */
+    fun JSONObject.optNonBlankString(key: String): String? =
+        if (isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
+
+    /**
      * Produce an independent copy of a [JSONObject], nested values included
      */
     fun JSONObject.deepCopy(): JSONObject = JSONObject(toString())

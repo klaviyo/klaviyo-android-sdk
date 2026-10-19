@@ -22,8 +22,8 @@ android {
 dependencies {
     implementation(project(":sdk:core"))
     implementation(project(":sdk:analytics"))
-    implementation(platform(Firebase.bom))
-    implementation(Firebase.cloudMessaging)
+    api(platform(Firebase.bom))
+    api(Firebase.cloudMessaging)
     testImplementation(project(":sdk:fixtures"))
 }
 

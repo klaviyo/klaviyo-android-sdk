@@ -19,6 +19,7 @@ android {
 dependencies {
     api(project(":sdk:inbox-core"))
     implementation(project(":sdk:core"))
+    implementation(project(":sdk:push-fcm"))
     implementation(KotlinX.coroutines.core)
     testImplementation(project(":sdk:fixtures"))
 }

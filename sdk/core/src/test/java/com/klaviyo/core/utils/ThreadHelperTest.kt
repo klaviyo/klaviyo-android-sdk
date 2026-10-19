@@ -71,4 +71,19 @@ class ThreadHelperTest {
         val result = KlaviyoThreadHelper.getHandlerThread(name)
         assertEquals(name, result.name)
     }
+
+    @Test
+    fun `isMainThread compares the current looper to the main looper`() {
+        val mainLooper = mockk<Looper>()
+        every { Looper.getMainLooper() } returns mainLooper
+
+        every { Looper.myLooper() } returns mainLooper
+        assert(KlaviyoThreadHelper.isMainThread())
+
+        every { Looper.myLooper() } returns mockk()
+        assert(!KlaviyoThreadHelper.isMainThread())
+
+        every { Looper.myLooper() } returns null
+        assert(!KlaviyoThreadHelper.isMainThread())
+    }
 }
