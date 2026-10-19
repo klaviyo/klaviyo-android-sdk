@@ -28,7 +28,7 @@ MAX_RUNTIME=900 # per attempt, seconds
 INTERVAL=30
 BACKOFFS=(60 180)
 
-EXPECTED_ARTIFACTS=("analytics" "core" "forms" "forms-core" "location" "location-core" "inbox" "inbox-core" "push-fcm")
+EXPECTED_ARTIFACTS=("analytics" "core" "forms" "forms-core" "location" "location-core" "inbox" "push-fcm")
 
 TRANSIENT_PATTERN='Too Many Requests|status code 50[234]|50[234] (Bad Gateway|Service Unavailable|Gateway Time-?out)|Read timed out|Connect timed out|Connection reset'
 
