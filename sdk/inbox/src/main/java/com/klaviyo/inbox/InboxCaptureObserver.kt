@@ -2,6 +2,7 @@ package com.klaviyo.inbox
 
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.DeviceProperties
+import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.inbox.InboxPushNormalizer.toInboxCaptureRecord
@@ -32,7 +33,7 @@ internal object InboxCaptureObserver : KlaviyoNotificationObserver {
 
     override fun onNotification(message: RemoteMessage) {
         try {
-            if (!DeviceProperties.notificationPermissionGranted) return
+            if (!canCapture()) return
 
             val record = message.toInboxCaptureRecord(Registry.clock.currentTimeMillis()) ?: run {
                 Registry.log.debug("Mobile Inbox skipped a push without a transmission ID")
@@ -66,6 +67,17 @@ internal object InboxCaptureObserver : KlaviyoNotificationObserver {
         } catch (e: Exception) {
             Registry.log.error("Mobile Inbox failed to capture a push", e)
         }
+    }
+
+    /**
+     * Capture needs notification permission. A push can arrive before the host initializes the
+     * SDK, in which case the check can't run and the push is skipped.
+     */
+    private fun canCapture(): Boolean = try {
+        DeviceProperties.notificationPermissionGranted
+    } catch (e: KlaviyoException) {
+        Registry.log.debug("Mobile Inbox capture skipped: ${e.message}")
+        false
     }
 
     private fun awaitWrite(written: CountDownLatch) {

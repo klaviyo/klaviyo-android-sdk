@@ -2,6 +2,7 @@ package com.klaviyo.inbox
 
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.DeviceProperties
+import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
@@ -114,6 +115,16 @@ internal class InboxCaptureObserverTest : BaseTest() {
         capture()
 
         assertTrue(repository.results.isEmpty())
+    }
+
+    @Test
+    fun `capture before the SDK is initialized is skipped without an error`() {
+        every { DeviceProperties.notificationPermissionGranted } throws MissingConfig()
+
+        capture()
+
+        assertTrue(repository.results.isEmpty())
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
     }
 
     @Test
