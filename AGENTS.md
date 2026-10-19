@@ -102,12 +102,12 @@ The Klaviyo Android SDK is organized into multiple modules, each with specific r
     - Enables location feature without the full location module
 
 8. **Inbox Module** (`sdk/inbox`):
-    - Mobile Inbox implementation: persisted enablement and the on-device inbox store
+    - Mobile Inbox implementation: captures delivered Klaviyo pushes into the on-device inbox store
     - Auto-registers inbox services via ContentProvider
     - Depends on inbox-core for its public API
 
 9. **Inbox-Core Module** (`sdk/inbox-core`):
-    - Public Mobile Inbox API and configuration
+    - Public Mobile Inbox API
     - Lets hybrid SDKs compile against the inbox API without the full inbox module
 
 ### Key Components

@@ -47,7 +47,6 @@ internal class InboxCaptureObserverTest : BaseTest() {
         super.setup()
         mockDeviceProperties()
         InboxPushFixtures.mockUriParsing()
-        MobileInboxSettings.save(MobileInboxSettings(enabled = true))
         Registry.register<InboxRepository>(repository)
         // Run the store write inline so the observer's wait returns as soon as it finishes
         every { Registry.dispatcher } returns Dispatchers.Unconfined
@@ -80,7 +79,7 @@ internal class InboxCaptureObserverTest : BaseTest() {
     }
 
     @Test
-    fun `an enabled inbox captures the push with the device receive time`() {
+    fun `a push is captured with the device receive time`() {
         capture()
 
         val record = repository.records[TRANSMISSION_ID]
@@ -106,24 +105,6 @@ internal class InboxCaptureObserverTest : BaseTest() {
         capture(remoteMessage(canonicalPayload().apply { put("_k", tracking("tm" to "tm-b")) }))
 
         assertEquals(setOf("tm-a", "tm-b"), repository.records.keys)
-    }
-
-    @Test
-    fun `a never-registered inbox does not touch the store`() {
-        Registry.dataStore.clear(MobileInboxSettings.STORAGE_KEY)
-
-        capture()
-
-        assertTrue(repository.results.isEmpty())
-    }
-
-    @Test
-    fun `a disabled inbox does not touch the store`() {
-        MobileInboxSettings.save(MobileInboxSettings(enabled = false))
-
-        capture()
-
-        assertTrue(repository.results.isEmpty())
     }
 
     @Test

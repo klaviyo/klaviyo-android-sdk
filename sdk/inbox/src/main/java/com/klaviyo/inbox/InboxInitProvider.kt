@@ -9,7 +9,6 @@ import com.klaviyo.pushFcm.PushNotificationDispatcher
 
 internal class InboxInitProvider : ContentProvider() {
     override fun onCreate(): Boolean {
-        Registry.registerOnce<MobileInboxProvider> { KlaviyoMobileInboxProvider() }
         Registry.getOrNull<PushNotificationDispatcher>()
             ?.onKlaviyoNotification(InboxCaptureObserver)
             ?: Registry.log.warning(

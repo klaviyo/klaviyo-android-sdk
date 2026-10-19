@@ -23,24 +23,7 @@ internal class InboxInitProviderTest : BaseTest() {
     @After
     override fun cleanup() {
         Registry.unregister<PushNotificationDispatcher>()
-        Registry.unregister<MobileInboxProvider>()
         super.cleanup()
-    }
-
-    @Test
-    fun `onCreate registers MobileInboxProvider`() {
-        assertTrue(InboxInitProvider().onCreate())
-        assertTrue(Registry.getOrNull<MobileInboxProvider>() is KlaviyoMobileInboxProvider)
-    }
-
-    @Test
-    fun `onCreate does no storage work`() {
-        InboxInitProvider().onCreate()
-        Registry.get<MobileInboxProvider>()
-
-        verify(exactly = 0) { spyDataStore.fetch(any()) }
-        verify(exactly = 0) { spyDataStore.store(any(), any()) }
-        verify(exactly = 0) { mockContext.deleteDatabase(any()) }
     }
 
     @Test
@@ -51,11 +34,10 @@ internal class InboxInitProviderTest : BaseTest() {
     }
 
     @Test
-    fun `onCreate still registers the inbox when push is unavailable`() {
+    fun `onCreate warns when push is unavailable`() {
         Registry.unregister<PushNotificationDispatcher>()
 
         assertTrue(InboxInitProvider().onCreate())
-        assertTrue(Registry.getOrNull<MobileInboxProvider>() is KlaviyoMobileInboxProvider)
         verify { spyLog.warning(any(), null) }
     }
 }

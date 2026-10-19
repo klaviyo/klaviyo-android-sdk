@@ -1,6 +1,7 @@
 package com.klaviyo.inbox
 
 import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.inbox.InboxPushNormalizer.toInboxCaptureRecord
@@ -11,7 +12,7 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 
 /**
- * Copies delivered Klaviyo pushes into the inbox when capture is enabled.
+ * Copies delivered Klaviyo pushes into the inbox.
  *
  * Runs before display. The gate and normalization run inline, then the store write runs in the
  * background while this waits up to [CAPTURE_TIMEOUT_MS] for it, so the write finishes while the
@@ -19,8 +20,8 @@ import kotlinx.coroutines.CoroutineScope
  * on in the background. It never waits on the main thread. Every failure is logged and leaves
  * display unaffected.
  *
- * Push dispatches regardless of notification permission; [isInboxCaptureEnabled] skips capture
- * when permission isn't granted.
+ * Push dispatches regardless of notification permission; capture is skipped when permission
+ * isn't granted.
  */
 internal object InboxCaptureObserver : KlaviyoNotificationObserver {
 
@@ -31,7 +32,7 @@ internal object InboxCaptureObserver : KlaviyoNotificationObserver {
 
     override fun onNotification(message: RemoteMessage) {
         try {
-            if (!isInboxCaptureEnabled()) return
+            if (!DeviceProperties.notificationPermissionGranted) return
 
             val record = message.toInboxCaptureRecord(Registry.clock.currentTimeMillis()) ?: run {
                 Registry.log.debug("Mobile Inbox skipped a push without a transmission ID")
