@@ -103,7 +103,7 @@ The Klaviyo Android SDK is organized into multiple modules, each with specific r
 
 8. **Inbox Module** (`sdk/inbox`):
     - Mobile Inbox implementation: captures delivered Klaviyo pushes into the on-device inbox store
-    - Auto-registers inbox services via ContentProvider
+    - Attaches its push capture observer via ContentProvider
 
 ### Key Components
 

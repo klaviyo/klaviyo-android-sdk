@@ -15,7 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 /**
  * Copies delivered Klaviyo pushes into the inbox.
  *
- * Runs before display. The gate and normalization run inline, then the store write runs in the
+ * Runs before display. The permission check and normalization run inline, then the store write runs in the
  * background while this waits up to [CAPTURE_TIMEOUT_MS] for it, so the write finishes while the
  * push service still keeps the process alive. On timeout, display continues and the write carries
  * on in the background. It never waits on the main thread. Every failure is logged and leaves
