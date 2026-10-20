@@ -15,6 +15,9 @@ import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.identity.IdentityChange
+import com.klaviyo.core.identity.IdentityTransition
+import com.klaviyo.core.identity.ProfileIdentity
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.safeApply
@@ -23,7 +26,8 @@ import com.klaviyo.core.utils.takeIf
 internal class StateSideEffects(
     private val state: State = Registry.get<State>(),
     private val apiClient: ApiClient = Registry.get<ApiClient>(),
-    private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
+    private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor,
+    internal val identityMonitor: KlaviyoIdentityMonitor = KlaviyoIdentityMonitor(state)
 ) {
     /**
      * Debounce timer for enqueuing profile API calls
@@ -71,7 +75,10 @@ internal class StateSideEffects(
     }
 
     private fun onApiKeyChange(oldApiKey: String?) {
-        synchronized(identityLock) { Registry.getOrNull<AuthTokenManager>()?.resetTokenState() }
+        synchronized(identityLock) {
+            Registry.getOrNull<AuthTokenManager>()?.resetTokenState()
+            publishCompanyChange(oldApiKey)
+        }
 
         // Clear event buffer to prevent cross-account data leakage
         GenericEventBuffer.clearBuffer()
@@ -194,12 +201,57 @@ internal class StateSideEffects(
             ?: lastIdentifiers
         val transition = classify(previous, current)
         lastIdentifiers = current
+        publishAnonymousIdChange(previous, current, transition)
         val authTokenManager = Registry.getOrNull<AuthTokenManager>() ?: return@synchronized
         if (transition == ProfileTransition.REPLACEMENT) {
             authTokenManager.resetTokenState { authTokenManager.setIdentified(current.isIdentified) }
         } else {
             authTokenManager.setIdentified(current.isIdentified)
         }
+    }
+
+    /**
+     * Report a new anonymous ID to [identityMonitor]. Called under [identityLock], so reports
+     * reach observers in the order the changes were applied. Identifier changes that keep the
+     * anonymous ID are not reported.
+     */
+    private fun publishAnonymousIdChange(
+        previous: ProfileIdentifiers,
+        current: ProfileIdentifiers,
+        transition: ProfileTransition
+    ) {
+        if (previous.anonymousId == current.anonymousId) return
+
+        val companyId = state.apiKey
+        identityMonitor.publish(
+            IdentityChange(
+                transition = when (transition) {
+                    ProfileTransition.COMPATIBLE -> IdentityTransition.COMPATIBLE
+                    else -> IdentityTransition.REPLACEMENT
+                },
+                previous = ProfileIdentity(companyId, previous.anonymousId),
+                current = ProfileIdentity(companyId, current.anonymousId)
+            )
+        )
+    }
+
+    /**
+     * Report a company change to [identityMonitor]. Called under [identityLock]. Identifiers and
+     * the anonymous ID stay in place when the API key changes. Setting the first API key is not
+     * a company change.
+     */
+    private fun publishCompanyChange(oldApiKey: String?) {
+        val companyId = state.apiKey
+        if (oldApiKey.isNullOrBlank() || oldApiKey == companyId) return
+
+        val anonymousId = state.getAsProfile().anonymousId
+        identityMonitor.publish(
+            IdentityChange(
+                transition = IdentityTransition.COMPANY_CHANGE,
+                previous = ProfileIdentity(oldApiKey, anonymousId),
+                current = ProfileIdentity(companyId, anonymousId)
+            )
+        )
     }
 
     private fun onStateChange(change: StateChange) = when (change) {
