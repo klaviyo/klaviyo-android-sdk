@@ -81,9 +81,12 @@ jobs:
         env:
           SHA: ${{ steps.resolve.outputs.sha }}
         run: |
-          OWN_SUITE=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq '.check_suite_id')
+          OWN_SUITES=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/workflows/publish-release.yml/runs?head_sha=$SHA&per_page=100" \
+            --jq '.workflow_runs[].check_suite_id' | jq -s '.')
+          OWN_SUITES=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq '.check_suite_id' | jq -s --argjson s "$OWN_SUITES" '$s + . | unique')
           RUNS=$(gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?per_page=100" \
-            --jq ".check_runs[] | select(.check_suite.id != $OWN_SUITE) | {name, status, conclusion}" | jq -s '.')
+            --jq '.check_runs[] | {id, name, status, conclusion, suite: .check_suite.id}' \
+            | jq -s --argjson own "$OWN_SUITES" '[.[] | select(.suite as $x | $own | index($x) | not)] | group_by(.name) | map(max_by(.id))')
           TOTAL=$(jq 'length' <<<"$RUNS")
           BAD=$(jq -r '.[] | select(.status != "completed" or (.conclusion | IN("success", "skipped", "neutral") | not)) | "\(.name): \(.status)/\(.conclusion)"' <<<"$RUNS")
           if [ "$TOTAL" -eq 0 ]; then
@@ -164,12 +167,16 @@ jobs:
 
       - name: Dispatch downstream workflows at the tag
         run: |
-          for WORKFLOW in jitpack.yml version-guard.yml doc-bot.yml; do
+          WORKFLOWS="jitpack.yml version-guard.yml"
+          if [ "$PRERELEASE" != "true" ]; then
+            WORKFLOWS="$WORKFLOWS doc-bot.yml"
+          fi
+          for WORKFLOW in $WORKFLOWS; do
             gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"
             echo "Dispatched $WORKFLOW at $VERSION"
           done
           {
             echo "### Release $VERSION published"
             echo
-            echo "Dispatched jitpack.yml, version-guard.yml and doc-bot.yml at \`$VERSION\`."
+            echo "Dispatched $WORKFLOWS at \`$VERSION\`."
           } >> "$GITHUB_STEP_SUMMARY"
