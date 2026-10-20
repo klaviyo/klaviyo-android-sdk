@@ -67,6 +67,7 @@ jobs:
 
       - name: Notify Slack of release publish success
         if: success() && github.ref_type == 'tag'
+        continue-on-error: true
         uses: ./.github/actions/notify-slack-publish
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -78,6 +79,7 @@ jobs:
 
       - name: Notify Slack of release publish failure
         if: failure() && github.ref_type == 'tag'
+        continue-on-error: true
         uses: ./.github/actions/notify-slack-publish
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
