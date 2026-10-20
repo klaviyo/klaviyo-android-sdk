@@ -2,6 +2,7 @@ package com.klaviyo.inbox
 
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.core.DeviceProperties
+import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
@@ -47,7 +48,6 @@ internal class InboxCaptureObserverTest : BaseTest() {
         super.setup()
         mockDeviceProperties()
         InboxPushFixtures.mockUriParsing()
-        MobileInboxSettings.save(MobileInboxSettings(enabled = true))
         Registry.register<InboxRepository>(repository)
         // Run the store write inline so the observer's wait returns as soon as it finishes
         every { Registry.dispatcher } returns Dispatchers.Unconfined
@@ -80,7 +80,7 @@ internal class InboxCaptureObserverTest : BaseTest() {
     }
 
     @Test
-    fun `an enabled inbox captures the push with the device receive time`() {
+    fun `a push is captured with the device receive time`() {
         capture()
 
         val record = repository.records[TRANSMISSION_ID]
@@ -109,30 +109,22 @@ internal class InboxCaptureObserverTest : BaseTest() {
     }
 
     @Test
-    fun `a never-registered inbox does not touch the store`() {
-        Registry.dataStore.clear(MobileInboxSettings.STORAGE_KEY)
-
-        capture()
-
-        assertTrue(repository.results.isEmpty())
-    }
-
-    @Test
-    fun `a disabled inbox does not touch the store`() {
-        MobileInboxSettings.save(MobileInboxSettings(enabled = false))
-
-        capture()
-
-        assertTrue(repository.results.isEmpty())
-    }
-
-    @Test
     fun `missing notification permission skips capture`() {
         every { DeviceProperties.notificationPermissionGranted } returns false
 
         capture()
 
         assertTrue(repository.results.isEmpty())
+    }
+
+    @Test
+    fun `capture before the SDK is initialized is skipped without an error`() {
+        every { DeviceProperties.notificationPermissionGranted } throws MissingConfig()
+
+        capture()
+
+        assertTrue(repository.results.isEmpty())
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
     }
 
     @Test
