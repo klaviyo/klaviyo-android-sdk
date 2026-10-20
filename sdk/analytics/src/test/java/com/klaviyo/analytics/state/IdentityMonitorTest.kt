@@ -1,18 +1,17 @@
 package com.klaviyo.analytics.state
 
 import com.klaviyo.analytics.model.Profile
+import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.networking.ApiClient
 import com.klaviyo.core.Registry
 import com.klaviyo.core.identity.IdentityChange
 import com.klaviyo.core.identity.IdentityTransition
-import com.klaviyo.core.identity.ProfileIdentity
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -54,67 +53,90 @@ internal class IdentityMonitorTest : BaseTest() {
         changes.clear()
     }
 
-    private fun assertSingleChange(
-        transition: IdentityTransition,
-        previous: ProfileIdentity,
-        current: ProfileIdentity
-    ) {
+    private fun assertProfileChange() {
         assertEquals(1, changes.size)
-        assertEquals(transition, changes.single().transition)
-        assertEquals(previous, changes.single().previous)
-        assertEquals(current, changes.single().current)
+        assertEquals(IdentityTransition.PROFILE_CHANGE, changes.single().transition)
+        assertEquals(API_KEY, changes.single().companyId)
     }
 
     @Test
-    fun `current identity reads company and anonymous ID from state`() {
-        assertEquals(
-            ProfileIdentity(API_KEY, state.anonymousId),
-            sideEffects.identityMonitor.current
-        )
+    fun `company ID reads from state`() {
+        assertEquals(API_KEY, sideEffects.identityMonitor.companyId)
     }
 
     @Test
-    fun `resetting an identified profile is a replacement with a new anonymous ID`() {
+    fun `resetting an identified profile is a profile change`() {
         identify()
-        val before = sideEffects.identityMonitor.current
 
         state.reset()
 
-        val after = sideEffects.identityMonitor.current
-        assertNotEquals(before.anonymousId, after.anonymousId)
-        assertSingleChange(IdentityTransition.REPLACEMENT, before, after)
+        assertProfileChange()
     }
 
     @Test
-    fun `resetting an anonymous profile is a replacement`() {
-        val before = sideEffects.identityMonitor.current
-
+    fun `resetting an anonymous profile is a profile change`() {
         state.reset()
 
-        assertSingleChange(
-            IdentityTransition.REPLACEMENT,
-            before,
-            sideEffects.identityMonitor.current
-        )
+        assertProfileChange()
     }
 
     @Test
-    fun `setProfile with no matching identifier is a replacement`() {
-        identify(Profile(email = EMAIL))
-        val before = sideEffects.identityMonitor.current
+    fun `setProfile with a different email is a profile change`() {
+        identify()
 
         state.setProfile(Profile(email = "other@domain.com"))
 
-        assertSingleChange(
-            IdentityTransition.REPLACEMENT,
-            before,
-            sideEffects.identityMonitor.current
-        )
+        assertProfileChange()
     }
 
     @Test
-    fun `setProfile with the same identifiers does not change identity`() {
-        identify(Profile(email = EMAIL))
+    fun `setProfile that shares no identifier is a profile change`() {
+        identify()
+
+        state.setProfile(Profile(phoneNumber = PHONE))
+
+        assertProfileChange()
+    }
+
+    @Test
+    fun `setProfile that conflicts on one identifier is a profile change`() {
+        identify(Profile(email = EMAIL, phoneNumber = PHONE))
+
+        state.setProfile(Profile(email = EMAIL, phoneNumber = "+15550000000"))
+
+        assertProfileChange()
+    }
+
+    @Test
+    fun `setProfile adding an identifier is not reported`() {
+        identify()
+
+        state.setProfile(Profile(email = EMAIL, phoneNumber = PHONE))
+
+        assertTrue(changes.isEmpty())
+    }
+
+    @Test
+    fun `setProfile dropping an identifier is not reported`() {
+        identify(Profile(email = EMAIL, phoneNumber = PHONE))
+
+        state.setProfile(Profile(email = EMAIL))
+
+        assertTrue(changes.isEmpty())
+    }
+
+    @Test
+    fun `setProfile with an email that differs only by case is not reported`() {
+        identify()
+
+        state.setProfile(Profile(email = EMAIL.uppercase()))
+
+        assertTrue(changes.isEmpty())
+    }
+
+    @Test
+    fun `setProfile with the same identifiers and new attributes is not reported`() {
+        identify()
 
         state.setProfile(Profile(email = EMAIL).setProperty("tier", "gold"))
 
@@ -122,45 +144,108 @@ internal class IdentityMonitorTest : BaseTest() {
     }
 
     @Test
-    fun `adding an identifier through setProfile rotates the anonymous ID and is compatible`() {
-        identify(Profile(email = EMAIL))
-        val before = sideEffects.identityMonitor.current
+    fun `setProfile with attributes and no identifiers on an identified profile is a profile change`() {
+        identify()
 
-        state.setProfile(Profile(email = EMAIL, phoneNumber = PHONE))
+        state.setProfile(Profile().setProperty("tier", "gold"))
 
-        val after = sideEffects.identityMonitor.current
-        assertNotEquals(before.anonymousId, after.anonymousId)
-        assertSingleChange(IdentityTransition.COMPATIBLE, before, after)
+        assertProfileChange()
+        assertEquals(null, state.email)
     }
 
     @Test
-    fun `setters on an anonymous profile keep the anonymous ID and report nothing`() {
-        val before = sideEffects.identityMonitor.current
+    fun `setProfile on an anonymous profile is not reported`() {
+        state.setProfile(Profile(email = EMAIL, phoneNumber = PHONE, externalId = EXTERNAL_ID))
 
+        assertTrue(changes.isEmpty())
+    }
+
+    @Test
+    fun `overwriting the email with a different one is a profile change`() {
+        identify()
+
+        state.email = "other@domain.com"
+
+        assertProfileChange()
+    }
+
+    @Test
+    fun `overwriting the phone number with a different one is a profile change`() {
+        identify(Profile(phoneNumber = PHONE))
+
+        state.phoneNumber = "+15550000000"
+
+        assertProfileChange()
+    }
+
+    @Test
+    fun `overwriting the external ID with a different one is a profile change`() {
+        identify(Profile(externalId = EXTERNAL_ID))
+
+        state.externalId = "other-external-id"
+
+        assertProfileChange()
+    }
+
+    @Test
+    fun `overwriting the email with one that differs only by case is not reported`() {
+        identify()
+
+        state.email = EMAIL.uppercase()
+
+        assertTrue(changes.isEmpty())
+    }
+
+    @Test
+    fun `overwriting the external ID with one that differs only by case is a profile change`() {
+        identify(Profile(externalId = EXTERNAL_ID))
+
+        state.externalId = EXTERNAL_ID.uppercase()
+
+        assertProfileChange()
+    }
+
+    @Test
+    fun `setting an identifier with no value is not reported`() {
         state.email = EMAIL
         state.phoneNumber = PHONE
         state.externalId = EXTERNAL_ID
 
         assertTrue(changes.isEmpty())
-        assertEquals(before, sideEffects.identityMonitor.current)
     }
 
     @Test
-    fun `changing the company keeps the anonymous ID and is a company change`() {
+    fun `setting an identifier on an identified profile that had none for it is not reported`() {
         identify()
-        val anonymousId = state.anonymousId
+
+        state.phoneNumber = PHONE
+        state.externalId = EXTERNAL_ID
+
+        assertTrue(changes.isEmpty())
+    }
+
+    @Test
+    fun `setting a profile attribute is not reported`() {
+        identify()
+
+        state.setAttribute(ProfileKey.CUSTOM("tier"), "gold")
+
+        assertTrue(changes.isEmpty())
+    }
+
+    @Test
+    fun `changing the company is a company change`() {
+        identify()
 
         state.apiKey = "newApiKey"
 
-        assertSingleChange(
-            IdentityTransition.COMPANY_CHANGE,
-            ProfileIdentity(API_KEY, anonymousId),
-            ProfileIdentity("newApiKey", anonymousId)
-        )
+        assertEquals(1, changes.size)
+        assertEquals(IdentityTransition.COMPANY_CHANGE, changes.single().transition)
+        assertEquals("newApiKey", changes.single().companyId)
     }
 
     @Test
-    fun `setting the first company is not a company change`() {
+    fun `setting the first company is not reported`() {
         val freshState = KlaviyoState()
         freshState.reset()
         Registry.dataStore.clear("api_key")

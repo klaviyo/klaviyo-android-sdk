@@ -17,7 +17,6 @@ import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.identity.IdentityChange
 import com.klaviyo.core.identity.IdentityTransition
-import com.klaviyo.core.identity.ProfileIdentity
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.safeApply
@@ -201,7 +200,7 @@ internal class StateSideEffects(
             ?: lastIdentifiers
         val transition = classify(previous, current)
         lastIdentifiers = current
-        publishAnonymousIdChange(previous, current, transition)
+        publishProfileChange(change, previous, current)
         val authTokenManager = Registry.getOrNull<AuthTokenManager>() ?: return@synchronized
         if (transition == ProfileTransition.REPLACEMENT) {
             authTokenManager.resetTokenState { authTokenManager.setIdentified(current.isIdentified) }
@@ -211,47 +210,42 @@ internal class StateSideEffects(
     }
 
     /**
-     * Report a new anonymous ID to [identityMonitor]. Called under [identityLock], so reports
-     * reach observers in the order the changes were applied. Identifier changes that keep the
-     * anonymous ID are not reported.
+     * Report to [identityMonitor] when the profile change in [change] means a different person is
+     * the active profile. Called under [identityLock], so reports reach observers in the order
+     * the changes were applied.
+     *
+     * A [StateChange.ProfileReset] comes from a reset and from a [State.setProfile] that replaces
+     * the profile, including one that only adds or drops an identifier, so it is reported only
+     * when [previous] and [current] share no identifier or one conflicts. Any other change is a
+     * single identifier set, reported when it overwrites a value with a different one.
      */
-    private fun publishAnonymousIdChange(
+    private fun publishProfileChange(
+        change: StateChange,
         previous: ProfileIdentifiers,
-        current: ProfileIdentifiers,
-        transition: ProfileTransition
+        current: ProfileIdentifiers
     ) {
-        if (previous.anonymousId == current.anonymousId) return
+        val differentProfile = when (change) {
+            is StateChange.ProfileReset ->
+                !previous.sharesIdentifierWith(current) || previous.conflictsWith(current)
+            else -> previous.conflictsWith(current)
+        }
 
-        val companyId = state.apiKey
-        identityMonitor.publish(
-            IdentityChange(
-                transition = when (transition) {
-                    ProfileTransition.COMPATIBLE -> IdentityTransition.COMPATIBLE
-                    else -> IdentityTransition.REPLACEMENT
-                },
-                previous = ProfileIdentity(companyId, previous.anonymousId),
-                current = ProfileIdentity(companyId, current.anonymousId)
+        if (differentProfile) {
+            identityMonitor.publish(
+                IdentityChange(IdentityTransition.PROFILE_CHANGE, state.apiKey)
             )
-        )
+        }
     }
 
     /**
-     * Report a company change to [identityMonitor]. Called under [identityLock]. Identifiers and
-     * the anonymous ID stay in place when the API key changes. Setting the first API key is not
-     * a company change.
+     * Report a company change to [identityMonitor]. Called under [identityLock]. Setting the
+     * first API key is not a company change.
      */
     private fun publishCompanyChange(oldApiKey: String?) {
         val companyId = state.apiKey
         if (oldApiKey.isNullOrBlank() || oldApiKey == companyId) return
 
-        val anonymousId = state.getAsProfile().anonymousId
-        identityMonitor.publish(
-            IdentityChange(
-                transition = IdentityTransition.COMPANY_CHANGE,
-                previous = ProfileIdentity(oldApiKey, anonymousId),
-                current = ProfileIdentity(companyId, anonymousId)
-            )
-        )
+        identityMonitor.publish(IdentityChange(IdentityTransition.COMPANY_CHANGE, companyId))
     }
 
     private fun onStateChange(change: StateChange) = when (change) {
