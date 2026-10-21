@@ -66,6 +66,7 @@ jobs:
         run: bash .github/scripts/jitpack-build.sh "$VERSION"
 
       - name: Dispatch SDK bump to test app
+        id: test_app_dispatch
         if: success() && github.ref_type == 'tag'
         continue-on-error: true
         env:
@@ -91,6 +92,7 @@ jobs:
           platform: JitPack
           version_label: ${{ github.ref_name }}
           release_url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+          details: ${{ steps.test_app_dispatch.outcome == 'failure' && '⚠️ Test app SDK bump dispatch failed. Bump klaviyo-android-test-app by hand or re-run this job.' || '' }}
 
       - name: Notify Slack of release publish failure
         if: failure() && github.ref_type == 'tag'
