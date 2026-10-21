@@ -184,6 +184,7 @@ jobs:
 
       - name: Checkout Slack action
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: actions/checkout@v4
         with:
           sparse-checkout: .github/actions
@@ -272,6 +273,7 @@ jobs:
 
       - name: Checkout Slack action
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: actions/checkout@v4
         with:
           sparse-checkout: .github/actions
@@ -340,6 +342,7 @@ jobs:
 
       - name: Checkout Slack action
         if: steps.reason.outputs.reason != ''
+        continue-on-error: true
         uses: actions/checkout@v4
         with:
           sparse-checkout: .github/actions

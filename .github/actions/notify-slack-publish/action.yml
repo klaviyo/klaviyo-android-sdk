@@ -52,6 +52,14 @@ runs:
         TITLE: ${{ inputs.title }}
         PACKAGE: ${{ inputs.package }}
         PLATFORM: ${{ inputs.platform }}
+        VERSION_LABEL: ${{ inputs.version_label }}
+        COMMIT: ${{ inputs.commit || github.sha }}
+        RELEASE_URL: ${{ inputs.release_url }}
+        INSTALL_URL: ${{ inputs.install_url }}
+        DETAILS: ${{ inputs.details }}
+        REPO: ${{ github.repository }}
+        WORKFLOW: ${{ github.workflow }}
+        ACTOR: ${{ github.actor }}
       run: |
         case "$RESULT" in
           success) icon="✅"; verb="publish succeeded" ;;
@@ -59,24 +67,37 @@ runs:
           stopped) icon="⚠️"; verb="stopped" ;;
           *) icon="🚨"; verb="publish failed" ;;
         esac
-        echo "text=$icon ${TITLE:-$PACKAGE: $PLATFORM $verb}" >> "$GITHUB_OUTPUT"
+        text="$icon ${TITLE:-$PACKAGE: $PLATFORM $verb}"
+        text=${text//$'\r'/ }
+        text=${text//$'\n'/ }
+        body="*Repository:* $REPO"$'\n'"*Workflow:* $WORKFLOW"$'\n'"*Version:* \`$VERSION_LABEL\`"$'\n'"*Commit:* \`$COMMIT\`"$'\n'"*Author:* $ACTOR"
+        [ -n "$RELEASE_URL" ] && body+=$'\n'"*Release:* <$RELEASE_URL|$VERSION_LABEL>"
+        [ -n "$INSTALL_URL" ] && body+=$'\n'"*Install:* <$INSTALL_URL|Tap to install build>"
+        [ -n "$DETAILS" ] && body+=$'\n'"$DETAILS"
+        delim="EOF_$(openssl rand -hex 8)"
+        {
+          echo "text=$text"
+          echo "body<<$delim"
+          echo "$body"
+          echo "$delim"
+        } >> "$GITHUB_OUTPUT"
 
     - uses: slackapi/slack-github-action@v2.1.1
       with:
         webhook: ${{ inputs.webhook }}
         webhook-type: incoming-webhook
         payload: |
-          text: "${{ steps.head.outputs.text }}"
+          text: ${{ toJSON(steps.head.outputs.text) }}
           blocks:
             - type: "header"
               text:
                 type: "plain_text"
-                text: "${{ steps.head.outputs.text }}"
+                text: ${{ toJSON(steps.head.outputs.text) }}
             - type: "section"
               text:
                 type: "mrkdwn"
-                text: "*Repository:* ${{ github.repository }}\n*Workflow:* ${{ github.workflow }}\n*Version:* `${{ inputs.version_label }}`\n*Commit:* `${{ inputs.commit || github.sha }}`\n*Author:* ${{ github.actor }}${{ inputs.release_url != '' && format('\n*Release:* <{0}|{1}>', inputs.release_url, inputs.version_label) || '' }}${{ inputs.install_url != '' && format('\n*Install:* <{0}|Tap to install build>', inputs.install_url) || '' }}${{ inputs.details != '' && format('\n{0}', inputs.details) || '' }}"
+                text: ${{ toJSON(steps.head.outputs.body) }}
             - type: "section"
               text:
                 type: "mrkdwn"
-                text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ inputs.run_label }}>"
+                text: ${{ toJSON(format('*Workflow Run:* <{0}/{1}/actions/runs/{2}|{3}>', github.server_url, github.repository, github.run_id, inputs.run_label)) }}
