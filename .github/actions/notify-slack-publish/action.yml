@@ -1,11 +1,11 @@
 name: Notify Slack of publish result
-description: Posts a Slack message summarizing a publish job (success or failure).
+description: Posts a Slack message summarizing a publish or release step.
 inputs:
   webhook:
     description: Slack incoming webhook URL
     required: true
   result:
-    description: "'success' or 'failure' — drives icon and headline"
+    description: "'success', 'failure', 'pending' or 'stopped'. Drives the icon and default headline."
     required: true
   package:
     description: "Human-readable package label (e.g. 'Android SDK')"
@@ -17,6 +17,18 @@ inputs:
     description: Version string to show in the message (e.g. release tag)
     required: false
     default: manual
+  title:
+    description: "Headline text after the icon. Defaults to <package>: <platform> publish succeeded/failed."
+    required: false
+    default: ''
+  details:
+    description: Extra mrkdwn lines appended to the details section
+    required: false
+    default: ''
+  commit:
+    description: Commit to show. Defaults to github.sha.
+    required: false
+    default: ''
   release_url:
     description: Optional link to the GitHub release
     required: false
@@ -25,26 +37,46 @@ inputs:
     description: Optional install link to surface in the message (e.g. internal-sharing download URL). Only useful to users already authorized for the build.
     required: false
     default: ''
+  run_label:
+    description: Link text for the workflow run
+    required: false
+    default: View Details
 
 runs:
   using: composite
   steps:
+    - id: head
+      shell: bash
+      env:
+        RESULT: ${{ inputs.result }}
+        TITLE: ${{ inputs.title }}
+        PACKAGE: ${{ inputs.package }}
+        PLATFORM: ${{ inputs.platform }}
+      run: |
+        case "$RESULT" in
+          success) icon="✅"; verb="publish succeeded" ;;
+          pending) icon="⏳"; verb="awaiting approval" ;;
+          stopped) icon="⚠️"; verb="stopped" ;;
+          *) icon="🚨"; verb="publish failed" ;;
+        esac
+        echo "text=$icon ${TITLE:-$PACKAGE: $PLATFORM $verb}" >> "$GITHUB_OUTPUT"
+
     - uses: slackapi/slack-github-action@v2.1.1
       with:
         webhook: ${{ inputs.webhook }}
         webhook-type: incoming-webhook
         payload: |
-          text: "${{ inputs.result == 'success' && '✅' || '🚨' }} ${{ inputs.package }}: ${{ inputs.platform }} ${{ inputs.result == 'success' && 'publish succeeded' || 'publish failed' }}"
+          text: "${{ steps.head.outputs.text }}"
           blocks:
             - type: "header"
               text:
                 type: "plain_text"
-                text: "${{ inputs.result == 'success' && '✅' || '🚨' }} ${{ inputs.package }}: ${{ inputs.platform }} ${{ inputs.result == 'success' && 'publish succeeded' || 'publish failed' }}"
+                text: "${{ steps.head.outputs.text }}"
             - type: "section"
               text:
                 type: "mrkdwn"
-                text: "*Repository:* ${{ github.repository }}\n*Workflow:* ${{ github.workflow }}\n*Version:* `${{ inputs.version_label }}`\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}${{ inputs.release_url != '' && format('\n*Release:* <{0}|{1}>', inputs.release_url, inputs.version_label) || '' }}${{ inputs.install_url != '' && format('\n*Install:* <{0}|Tap to install build>', inputs.install_url) || '' }}"
+                text: "*Repository:* ${{ github.repository }}\n*Workflow:* ${{ github.workflow }}\n*Version:* `${{ inputs.version_label }}`\n*Commit:* `${{ inputs.commit || github.sha }}`\n*Author:* ${{ github.actor }}${{ inputs.release_url != '' && format('\n*Release:* <{0}|{1}>', inputs.release_url, inputs.version_label) || '' }}${{ inputs.install_url != '' && format('\n*Install:* <{0}|Tap to install build>', inputs.install_url) || '' }}${{ inputs.details != '' && format('\n{0}', inputs.details) || '' }}"
             - type: "section"
               text:
                 type: "mrkdwn"
-                text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ inputs.run_label }}>"
