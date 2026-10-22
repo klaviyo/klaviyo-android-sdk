@@ -94,7 +94,6 @@ jobs:
         with:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
           command: sync
-          base_ref: HEAD
           version: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
 
