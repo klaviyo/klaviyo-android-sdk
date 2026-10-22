@@ -81,6 +81,32 @@ jobs:
             -f event_type=sdk-released \
             -f "client_payload[version]=$TAG_NAME"
 
+      - name: Checkout full history for Linear sync
+        if: success() && github.ref_type == 'tag' && !contains(github.ref_name, '-')
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync release to Linear
+        if: success() && github.ref_type == 'tag' && !contains(github.ref_name, '-')
+        continue-on-error: true
+        uses: linear/linear-release-action@30f9ae77461ec29f07fffe0c52edd1909bfbb6f5 # v0.18.1
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          command: sync
+          base_ref: HEAD
+          version: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+
+      - name: Complete release in Linear
+        if: success() && github.ref_type == 'tag' && !contains(github.ref_name, '-')
+        continue-on-error: true
+        uses: linear/linear-release-action@30f9ae77461ec29f07fffe0c52edd1909bfbb6f5 # v0.18.1
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          command: complete
+          version: ${{ github.ref_name }}
+
       - name: Notify Slack of release publish success
         if: success() && github.ref_type == 'tag'
         continue-on-error: true
