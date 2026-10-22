@@ -157,15 +157,16 @@ jobs:
           gh pr edit ${{ github.event.pull_request.number }} --remove-label "jitpack:build"
 
       - name: Checkout full history for Linear sync
-        if: success() && github.ref_type == 'tag' && !contains(github.ref_name, '-')
+        if: success() && github.ref_type == 'tag' && !contains(github.ref_name, '-') && github.event.release.prerelease != true
         continue-on-error: true
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Sync release to Linear
         id: linear-sync
-        if: success() && github.ref_type == 'tag' && !contains(github.ref_name, '-')
+        if: success() && github.ref_type == 'tag' && !contains(github.ref_name, '-') && github.event.release.prerelease != true
         continue-on-error: true
         uses: linear/linear-release-action@30f9ae77461ec29f07fffe0c52edd1909bfbb6f5 # v0.18.1
         with:
@@ -175,7 +176,7 @@ jobs:
           name: ${{ github.ref_name }}
 
       - name: Complete release in Linear
-        if: success() && github.ref_type == 'tag' && !contains(github.ref_name, '-') && steps.linear-sync.outcome == 'success'
+        if: success() && github.ref_type == 'tag' && !contains(github.ref_name, '-') && github.event.release.prerelease != true && steps.linear-sync.outcome == 'success'
         continue-on-error: true
         uses: linear/linear-release-action@30f9ae77461ec29f07fffe0c52edd1909bfbb6f5 # v0.18.1
         with:
