@@ -2,6 +2,7 @@ package com.klaviyo.analytics
 
 import android.content.Intent
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.net.toUri
 import com.klaviyo.analytics.linking.DeepLinkHandler
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
@@ -14,6 +15,8 @@ import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
+import com.klaviyo.core.forms.FormsPreview
+import com.klaviyo.core.forms.FormsPreviewTokenSink
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.utils.BoundedIdSet
 import com.klaviyo.core.utils.JSONUtil.toHashMap
@@ -54,6 +57,8 @@ internal object KlaviyoPushOpenHandler {
             Registry.log.verbose("Non-Klaviyo intent ignored")
             return
         }
+
+        startFormsPreview(intent)
 
         // Track each push delivery at most once per process. The trampoline calls handlePush and
         // forwards the same intent to the host, so a manual handlePush call (or singleTask
@@ -111,6 +116,38 @@ internal object KlaviyoPushOpenHandler {
     }
 
     /**
+     * If the opened push carries an in-app forms preview token, hand it to the forms module and
+     * remove it from [intent], so it reaches neither `$opened_push` nor the host's deep link
+     * handling. Reads the key/value pairs first, then the deep link's query parameter. Runs before
+     * de-duplication, so a manual `handlePush` after the trampoline's call (which already removed
+     * the token) finds nothing, and does nothing when forms is not installed.
+     */
+    private fun startFormsPreview(intent: Intent) = safeApply {
+        val keyValuePairsExtra = PACKAGE_PREFIX + KEY_VALUE_PAIRS
+        val keyValuePairs = intent.getStringExtra(keyValuePairsExtra)
+        val token = FormsPreview.previewTokenFromKeyValuePairs(keyValuePairs)
+            ?: FormsPreview.previewTokenParameter(intent.data?.toString())
+            ?: return@safeApply
+
+        keyValuePairs?.let {
+            intent.putExtra(keyValuePairsExtra, FormsPreview.keyValuePairsWithoutPreviewToken(it))
+        }
+        intent.data?.let { link ->
+            val stripped = FormsPreview.withoutPreviewTokenParameter(link.toString())
+            if (stripped != link.toString()) intent.data = stripped.toUri()
+        }
+
+        if (!FormsPreview.isValidToken(token)) {
+            Registry.log.warning("Ignoring opened push with a malformed forms preview token")
+            return@safeApply
+        }
+        Registry.getOrNull<FormsPreviewTokenSink>()?.setPreviewToken(token)
+            ?: Registry.log.debug(
+                "Opened push carries a forms preview token, but forms is not installed"
+            )
+    }
+
+    /**
      * Dedup key for this intent's push delivery, or `null` if none is available. Prefers the `tm`
      * field of the `_k` payload (a per-delivery ULID on campaign sends), else the SDK-generated
      * [Constants.NOTIFICATION_UID_EXTRA] stamped on trampoline intents. Both are copied forward to
@@ -144,7 +181,7 @@ internal object KlaviyoPushOpenHandler {
                 val parsedValue = when (eventKey.name) {
                     KEY_VALUE_PAIRS -> {
                         try {
-                            JSONObject(rawValue).toHashMap()
+                            JSONObject(FormsPreview.keyValuePairsWithoutPreviewToken(rawValue)).toHashMap()
                         } catch (e: Exception) {
                             Registry.log.warning(
                                 "Failed to parse $KEY_VALUE_PAIRS JSON: $rawValue",

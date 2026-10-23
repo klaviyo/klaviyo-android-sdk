@@ -17,6 +17,7 @@ import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
+import com.klaviyo.core.forms.FormsPreviewTokenSink
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
@@ -630,5 +631,99 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
 
         assertEquals(null, Klaviyo.getKlaviyoDeepLink(null))
         assertEquals(null, Klaviyo.getKlaviyoDeepLink(mockIntent(mapOf("other" to "x"), testUri)))
+    }
+
+    private val previewToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
+
+    private fun previewPushExtras(keyValuePairs: String) = mapOf(
+        "com.klaviyo._k" to "{}",
+        "com.klaviyo.key_value_pairs" to keyValuePairs
+    )
+
+    private fun registerPreviewSink(): FormsPreviewTokenSink =
+        mockk<FormsPreviewTokenSink>(relaxed = true).also {
+            Registry.register<FormsPreviewTokenSink>(
+                it
+            )
+        }
+
+    @Test
+    fun `opened push with a preview token in key_value_pairs starts the preview and strips it from tracking`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val intent = mockIntent(
+            previewPushExtras("""{"klaviyo-forms-preview":"$previewToken","other":"1"}""")
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.setPreviewToken(previewToken) }
+        verify {
+            intent.putExtra(
+                "com.klaviyo.key_value_pairs",
+                match<String> { !it.contains(previewToken) }
+            )
+        }
+        val keyValuePairs = eventSlot.captured[EventKey.CUSTOM("key_value_pairs")] as Map<*, *>
+        assertEquals(mapOf("other" to "1"), keyValuePairs)
+        assertTrue(eventSlot.captured.toMap().values.none { it.toString().contains(previewToken) })
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push falls back to the deep link preview parameter and strips it from the link`() {
+        val sink = registerPreviewSink()
+        val link = "klaviyotest://home?klaviyo-forms-preview=$previewToken&x=1"
+        val linkUri = mockk<Uri>().also { every { it.toString() } returns link }
+        val stripped = mockk<Uri>()
+        every { Uri.parse("klaviyotest://home?x=1") } returns stripped
+        val intent = mockIntent(mapOf("com.klaviyo._k" to "{}"), linkUri)
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.setPreviewToken(previewToken) }
+        verify { intent.data = stripped }
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push with a malformed preview token strips it without starting a preview`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+
+        Klaviyo.handlePush(
+            mockIntent(previewPushExtras("""{"klaviyo-forms-preview":"short-token"}"""))
+        )
+
+        verify(exactly = 0) { sink.setPreviewToken(any()) }
+        verify { spyLog.warning(not(match { it.contains("short-token") }), null) }
+        assertEquals(
+            emptyMap<String, Any>(),
+            eventSlot.captured[EventKey.CUSTOM("key_value_pairs")]
+        )
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push with a preview token is still tracked when forms is not installed`() {
+        Registry.unregister<FormsPreviewTokenSink>()
+        val eventSlot = captureOpenedPushEvent()
+
+        Klaviyo.handlePush(
+            mockIntent(previewPushExtras("""{"klaviyo-forms-preview":"$previewToken"}"""))
+        )
+
+        verifyOpenedPushEventEnqueued()
+        assertTrue(eventSlot.captured.toMap().values.none { it.toString().contains(previewToken) })
+    }
+
+    @Test
+    fun `opened push without a preview token does not touch forms`() {
+        val sink = registerPreviewSink()
+
+        Klaviyo.handlePush(mockIntent(previewPushExtras("""{"other":"1"}""")))
+
+        verify(exactly = 0) { sink.setPreviewToken(any()) }
+        Registry.unregister<FormsPreviewTokenSink>()
     }
 }

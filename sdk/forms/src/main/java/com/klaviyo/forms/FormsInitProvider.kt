@@ -5,10 +5,14 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import com.klaviyo.core.Registry
+import com.klaviyo.core.forms.FormsPreviewTokenSink
 
 internal class FormsInitProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         Registry.registerOnce<FormsProvider> { KlaviyoFormsProvider() }
+        Registry.registerOnce<FormsPreviewTokenSink> {
+            FormsPreviewTokenSink { token -> Registry.get<FormsProvider>().setPreviewToken(token) }
+        }
         return true
     }
 
