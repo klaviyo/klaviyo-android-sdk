@@ -39,6 +39,28 @@ fun Klaviyo.unregisterFromInAppForms(): Klaviyo =
     } ?: throw MissingKlaviyoModule("forms")
 
 /**
+ * Set a forms preview token to load draft forms instead of your published forms, or pass null
+ * (or a blank string) to clear it and return to published forms without restarting the app.
+ *
+ * A preview token is a short-lived credential generated from the Klaviyo form editor for
+ * on-device testing of draft forms. It is not for production use: never ship a preview token in a
+ * release build. The token is held in memory only, is never persisted or logged, and is cleared
+ * automatically when the preview ends or expires. A malformed token is ignored with a warning and
+ * clears any previous token.
+ *
+ * May be called before or after [registerForInAppForms]. If forms are already loaded,
+ * the new token takes effect immediately.
+ *
+ * @param token The preview token, or null to clear it.
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
+ * @see InAppFormsConfig.previewToken
+ */
+fun Klaviyo.setFormsPreviewToken(token: String?): Klaviyo =
+    Registry.getOrNull<FormsProvider>()?.let { provider ->
+        safeApply { provider.setPreviewToken(token) }
+    } ?: throw MissingKlaviyoModule("forms")
+
+/**
  * Register a handler to receive [FormLifecycleEvent] events.
  *
  * The handler is invoked whenever a form is shown, dismissed,
@@ -88,6 +110,18 @@ object KlaviyoForms {
     @UiThread
     fun unregisterFromInAppForms() {
         Klaviyo.unregisterFromInAppForms()
+    }
+
+    /**
+     * Set or clear the forms preview token.
+     * Java-friendly static method.
+     *
+     * @param token The preview token, or null to clear it.
+     * @see Klaviyo.setFormsPreviewToken
+     */
+    @JvmStatic
+    fun setFormsPreviewToken(token: String?) {
+        Klaviyo.setFormsPreviewToken(token)
     }
 
     /**

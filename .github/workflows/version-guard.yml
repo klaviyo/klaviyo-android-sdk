@@ -9,6 +9,7 @@ on:
       - 'rel/*'
     tags:
       - '*'
+  workflow_dispatch:
 
 jobs:
   version-check:

@@ -28,9 +28,11 @@ object InAppFormsMock {
         // Mock the extension functions by referencing them directly
         mockkStatic(Klaviyo::registerForInAppForms)
         mockkStatic(Klaviyo::unregisterFromInAppForms)
+        mockkStatic(Klaviyo::setFormsPreviewToken)
 
         every { any<Klaviyo>().registerForInAppForms(any()) } returns Klaviyo
         every { any<Klaviyo>().unregisterFromInAppForms() } returns Klaviyo
+        every { any<Klaviyo>().setFormsPreviewToken(any()) } returns Klaviyo
 
         // Mock KlaviyoForms static API (returns Unit)
         mockkStatic(KlaviyoForms::class)
@@ -39,6 +41,7 @@ object InAppFormsMock {
         every { KlaviyoForms.registerForInAppForms(any()) } just Runs
         every { KlaviyoForms.registerForInAppForms() } just Runs
         every { KlaviyoForms.unregisterFromInAppForms() } just Runs
+        every { KlaviyoForms.setFormsPreviewToken(any()) } just Runs
     }
 
     /**
@@ -49,6 +52,7 @@ object InAppFormsMock {
     fun teardown() {
         unmockkStatic(Klaviyo::registerForInAppForms)
         unmockkStatic(Klaviyo::unregisterFromInAppForms)
+        unmockkStatic(Klaviyo::setFormsPreviewToken)
         unmockkObject(KlaviyoForms)
         unmockkStatic(KlaviyoForms::class)
     }
@@ -81,5 +85,17 @@ object InAppFormsMock {
     @JvmOverloads
     fun verifyKlaviyoFormsUnregisterCalled(count: Int = 1) {
         verify(exactly = count) { KlaviyoForms.unregisterFromInAppForms() }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifySetFormsPreviewTokenCalled(count: Int = 1) {
+        verify(exactly = count) { any<Klaviyo>().setFormsPreviewToken(any()) }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyKlaviyoFormsSetPreviewTokenCalled(count: Int = 1) {
+        verify(exactly = count) { KlaviyoForms.setFormsPreviewToken(any()) }
     }
 }

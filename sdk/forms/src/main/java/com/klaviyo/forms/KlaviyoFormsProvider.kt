@@ -12,6 +12,7 @@ import com.klaviyo.forms.bridge.KlaviyoObserverCollection
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.presentation.KlaviyoPresentationManager
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.preview.FormsPreviewTokenStore
 import com.klaviyo.forms.webview.JavaScriptEvaluator
 import com.klaviyo.forms.webview.KlaviyoWebViewClient
 import com.klaviyo.forms.webview.WebViewClient
@@ -28,13 +29,17 @@ internal fun Klaviyo.reInitializeInAppForms(): Klaviyo {
         return this
     }
     safeApply { Registry.get<FormsProvider>().unregister() }
-    return safeApply { Registry.get<FormsProvider>().register(Registry.get<InAppFormsConfig>()) }
+    // The stored token is authoritative here: reapplying the config's original preview token
+    // would revive a preview that has since ended or been cleared
+    val config = Registry.get<InAppFormsConfig>().copy(previewToken = null)
+    return safeApply { Registry.get<FormsProvider>().register(config) }
 }
 
 internal class KlaviyoFormsProvider : FormsProvider {
     override fun register(config: InAppFormsConfig) {
         Registry.apply {
             register<InAppFormsConfig>(config)
+            registerOnce<FormsPreviewTokenStore> { FormsPreviewTokenStore() }
             registerOnce<PresentationManager> { KlaviyoPresentationManager() }
             registerOnce<NativeBridge> { KlaviyoNativeBridge() }
             registerOnce<WebViewClient> {
@@ -43,7 +48,15 @@ internal class KlaviyoFormsProvider : FormsProvider {
             registerOnce<JsBridge> { KlaviyoJsBridge() }
             registerOnce<JsBridgeObserverCollection> { KlaviyoObserverCollection() }
         }
+        // Before initializing, so a new webview renders the token into its template. If the
+        // webview already exists, FormsPreviewTokenObserver delivers it over the JS bridge.
+        Registry.get<FormsPreviewTokenStore>().applyConfigToken(config.previewToken)
         Registry.get<WebViewClient>().initializeWebView()
+    }
+
+    override fun setPreviewToken(token: String?) {
+        Registry.registerOnce<FormsPreviewTokenStore> { FormsPreviewTokenStore() }
+        Registry.get<FormsPreviewTokenStore>().setToken(token)
     }
 
     override fun unregister() {

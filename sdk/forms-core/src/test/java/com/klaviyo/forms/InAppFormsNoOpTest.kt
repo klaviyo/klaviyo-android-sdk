@@ -20,4 +20,11 @@ internal class InAppFormsNoOpTest : BaseTest() {
             Klaviyo.unregisterFromInAppForms()
         }
     }
+
+    @Test
+    fun `setFormsPreviewToken throws when provider not registered`() {
+        assertThrows(MissingKlaviyoModule::class.java) {
+            Klaviyo.setFormsPreviewToken(null)
+        }
+    }
 }
