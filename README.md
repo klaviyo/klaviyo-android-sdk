@@ -357,6 +357,38 @@ phone number. When an identifier is provided, Klaviyo will merge the anonymous u
 > `Klaviyo.setPushToken(...)` yourself — see
 > [Option B — Manual integration](#option-b--manual-integration) below.
 
+#### Avoiding anonymous profiles
+
+If your app should never create a profile in Klaviyo until the user is known (email, phone number, or external ID), initialize the SDK as usual and hold back the calls below until after you call `setEmail`, `setPhoneNumber`, or `setExternalId`. This guidance was verified against SDK version 4.5.0.
+
+1. **Turn off automatic push token forwarding explicitly.** Leaving the key unset is not enough: depending on SDK version, the SDK still registers tokens automatically when it is absent. Set it to `false`:
+
+   ```xml
+   <meta-data
+       android:name="com.klaviyo.push.automatic_push_token_forwarding"
+       android:value="false" />
+   ```
+
+2. **Before identifying the user, do not call:**
+   - `Klaviyo.setPushToken(...)`
+   - `Klaviyo.createEvent(...)`
+   - `Klaviyo.setProfileAttribute(...)` or `Klaviyo.setProfile(...)` with no email, phone number, or external ID
+   - `Klaviyo.registerForInAppForms()`
+   - `Klaviyo.registerGeofencing()`
+   - `Klaviyo.handleUniversalTrackingLink(...)`
+3. **After identifying the user,** call `Klaviyo.setPushToken(...)` and register for forms and geofencing as normal. With forwarding off, your app is responsible for calling `setPushToken` again whenever FCM issues a new token.
+
+`Klaviyo.handlePush(...)` and `automatic_push_open_tracking` are safe to use at any time: Klaviyo attributes push opens to the profile the notification was sent to, without creating a new one.
+
+Things to keep in mind:
+
+- **Requests are tagged with identity when they are queued.** Calling `setEmail` later does not change requests that were already queued, and queued requests persist across app launches.
+- **Logout and switching users.** `resetProfile()` keeps the push token, and the next profile update after a reset registers it to a new anonymous profile, so don't call it on logout. Instead:
+  - On logout, stop making the calls listed above, and call `Klaviyo.unregisterFromInAppForms()` and `Klaviyo.unregisterGeofencing()`.
+  - On the next login, call `Klaviyo.setProfile(...)` with all of the new user's identifiers. When the identifiers differ, the SDK starts a fresh profile and sends the stored push token with the new identifiers in a single request. Calling `setEmail` on its own keeps the previous user's other identifiers.
+  - Until someone logs in again, the previous user's profile keeps this device's push token and can still receive pushes on it.
+- **Existing installs.** If an earlier version of your app already created anonymous profiles, those profiles stay in Klaviyo. A user who later logs in on the same device is merged into their identified profile; users who never log in remain anonymous and must be cleaned up in Klaviyo. Requests queued by the earlier version still send after the update, and users who do not update keep the old behavior.
+
 ## Event Tracking
 The SDK provides tools for tracking analytics events via the
 [Create Client Event API](https://developers.klaviyo.com/en/reference/create_client_event).
@@ -1000,7 +1032,9 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 
 ### Personalized Forms Authentication
 
-> **Note:** Personalized Forms authentication requires SDK version `4.6.0` or later and must be enabled for your Klaviyo account.
+>  ℹ️ Personalization is currently in limited availability for select Klaviyo customers. Please contact your CSM to be enrolled.
+>
+>  ℹ️ Personalization is available in SDK version `4.6.0` and higher.
 
 Personalized In-App Forms show content from the signed-in user's Klaviyo profile. Your app proves who the user is with a JSON Web Token (JWT).
 
