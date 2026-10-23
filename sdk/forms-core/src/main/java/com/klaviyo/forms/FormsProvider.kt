@@ -25,4 +25,11 @@ interface FormsProvider {
      * Must work whether or not [register] has been called.
      */
     fun setPreviewToken(token: String?)
+
+    /**
+     * Start a forms preview from a deep link's `klaviyo-forms-preview` query parameter.
+     * Returns true if [uri] carried a well-formed preview token, which is now set, and false
+     * otherwise, changing nothing.
+     */
+    fun handlePreviewLink(uri: String?): Boolean
 }

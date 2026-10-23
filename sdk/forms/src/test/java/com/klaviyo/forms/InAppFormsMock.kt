@@ -1,9 +1,12 @@
 package com.klaviyo.forms
 
+import android.net.Uri
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.Registry
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
+import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkObject
@@ -98,4 +101,46 @@ object InAppFormsMock {
     fun verifyKlaviyoFormsSetPreviewTokenCalled(count: Int = 1) {
         verify(exactly = count) { KlaviyoForms.setFormsPreviewToken(any()) }
     }
+
+    private var previewLinkProvider: FormsProvider? = null
+
+    /**
+     * Restore the real [KlaviyoForms] facade, so a test exercises its forwarding to [Klaviyo].
+     */
+    @JvmStatic
+    fun unmockKlaviyoForms() {
+        unmockkObject(KlaviyoForms)
+        unmockkStatic(KlaviyoForms::class)
+    }
+
+    /**
+     * Register a [FormsProvider] whose `handlePreviewLink` returns [result] for [link] and false
+     * for any other link.
+     */
+    @JvmStatic
+    fun registerPreviewLinkProvider(link: String, result: Boolean) {
+        val provider = mockk<FormsProvider>(relaxed = true).apply {
+            every { handlePreviewLink(any()) } answers { firstArg<String?>() == link && result }
+        }
+        previewLinkProvider = provider
+        Registry.register<FormsProvider>(provider)
+    }
+
+    @JvmStatic
+    fun unregisterPreviewLinkProvider() {
+        Registry.unregister<FormsProvider>()
+        previewLinkProvider = null
+    }
+
+    @JvmStatic
+    fun verifyPreviewLinkForwarded(link: String) {
+        val provider = requireNotNull(previewLinkProvider)
+        verify(exactly = 1) { provider.handlePreviewLink(link) }
+    }
+
+    /**
+     * A [Uri] whose string form is [value], since `Uri.parse` is a stub in JVM unit tests.
+     */
+    @JvmStatic
+    fun uri(value: String): Uri = mockk<Uri>().also { every { it.toString() } returns value }
 }
