@@ -4,8 +4,8 @@ import java.net.URI
 import java.net.URLDecoder
 
 /**
- * Shared rules for the in-app forms draft-preview token, used by the forms module, deep links and
- * push opens so the key name and token format live in one place.
+ * Shared rules for the in-app forms draft-preview token: the key name, token format and URL
+ * parsing.
  */
 object FormsPreview {
     /**
