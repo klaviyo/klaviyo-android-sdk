@@ -1,0 +1,363 @@
+name: Publish Release
+
+# Drafts a release after preflight checks, then publishes it once approved
+# in the `release` environment. Publishing creates the tag, which is what
+# JitPack builds from.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release (X.Y.Z or X.Y.Z-suffix for a prerelease)
+        required: true
+        type: string
+      ref:
+        description: Branch or commit to release from
+        required: false
+        type: string
+        default: master
+      dry_run:
+        description: Run every check and wait for approval, but create and publish nothing
+        required: false
+        type: boolean
+        default: false
+      skip_ci_check:
+        description: Skip the CI-green check (version, branch and tag checks still run)
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  SLACK_ACTION_DIR: _slack
+
+concurrency:
+  group: publish-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Preflight and Draft
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: read
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      prerelease: ${{ steps.validate.outputs.prerelease }}
+      release_url: ${{ steps.draft.outputs.release_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+      REQUIRED_WORKFLOWS: Android SDK CI
+    steps:
+      - name: Validate version format
+        id: validate
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version '$VERSION' is not X.Y.Z or X.Y.Z-suffix"
+            exit 1
+          fi
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout repository
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Resolve commit
+        id: resolve
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Check commit is on master or a release branch
+        id: branch
+        run: |
+          git fetch --no-tags --quiet origin '+refs/heads/master:refs/remotes/origin/master' '+refs/heads/rel/*:refs/remotes/origin/rel/*'
+          if [ -z "$(git branch -r --contains HEAD --list 'origin/master' 'origin/rel/*')" ]; then
+            echo "::error::$(git rev-parse HEAD) is not on master or a rel/* branch"
+            exit 1
+          fi
+
+      - name: Check tag does not exist
+        id: tag
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" --silent 2>/dev/null; then
+            echo "::error::Tag $VERSION already exists"
+            exit 1
+          fi
+
+      - name: Check strings.xml version matches
+        id: strings
+        run: |
+          STRINGS_VERSION=$(grep -o '<string name="klaviyo_sdk_version_override">[^<]*</string>' sdk/core/src/main/res/values/strings.xml | sed 's/.*>\([^<]*\)<.*/\1/')
+          if [ "$VERSION" != "$STRINGS_VERSION" ]; then
+            echo "::error::Version mismatch: requested $VERSION, strings.xml has $STRINGS_VERSION. Run ./bump-version.sh on the release branch."
+            exit 1
+          fi
+          echo "✅ strings.xml version matches $VERSION"
+
+      - name: Skip CI check
+        if: ${{ inputs.skip_ci_check }}
+        run: echo "::warning::CI check skipped by request; not verifying pull_request CI for this commit"
+
+      - name: Check CI is green on the merged PR
+        id: ci
+        if: ${{ !inputs.skip_ci_check }}
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          CI_SHA=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
+            --jq "[.[] | select(.merge_commit_sha == \"$SHA\")][0].head.sha // empty")
+          CI_SHA=${CI_SHA:-$SHA}
+          RUNS=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$CI_SHA&event=pull_request" \
+            --jq '.workflow_runs[] | {name, run_number, status, conclusion}' \
+            | jq -s 'group_by(.name) | map(max_by(.run_number))')
+          BAD=""
+          IFS=',' read -ra NAMES <<<"$REQUIRED_WORKFLOWS"
+          for NAME in "${NAMES[@]}"; do
+            RUN=$(jq -c --arg n "$NAME" '.[] | select(.name == $n)' <<<"$RUNS")
+            if [ -z "$RUN" ]; then
+              BAD+="$NAME: no run found"$'\n'
+            elif ! jq -e '.status == "completed" and (.conclusion | IN("success", "skipped", "neutral"))' <<<"$RUN" >/dev/null; then
+              BAD+="$NAME: $(jq -r '"\(.status)/\(.conclusion // "pending")"' <<<"$RUN")"$'\n'
+            fi
+          done
+          if [ -n "$BAD" ]; then
+            echo "::error::Some CI runs are not green on $CI_SHA:"
+            printf '%s' "$BAD"
+            exit 1
+          fi
+          echo "✅ $REQUIRED_WORKFLOWS green on $CI_SHA"
+
+      - name: Find or create draft release
+        id: draft
+        if: ${{ !inputs.dry_run }}
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+          PRERELEASE: ${{ steps.validate.outputs.prerelease }}
+        run: |
+          if IS_DRAFT=$(gh release view "$VERSION" --json isDraft --jq '.isDraft' 2>/dev/null); then
+            if [ "$IS_DRAFT" != "true" ]; then
+              echo "::error::Release $VERSION is already published"
+              exit 1
+            fi
+            echo "Reusing existing draft release $VERSION; notes left as written"
+          else
+            gh release create "$VERSION" --draft --generate-notes --title "$VERSION" --target "$SHA" --prerelease="$PRERELEASE"
+          fi
+          URL=$(gh release view "$VERSION" --json url --jq '.url')
+          echo "release_url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Write run summary
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+          URL: ${{ steps.draft.outputs.release_url }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          SKIP_CI: ${{ inputs.skip_ci_check }}
+        run: |
+          {
+            if [ "$DRY_RUN" == "true" ]; then
+              echo "### Dry run for $VERSION: checks passed"
+              echo
+              echo "- Commit: \`$SHA\`"
+              echo "- No draft release created. Approving the \`release\` environment publishes nothing."
+            else
+              echo "### Release $VERSION awaiting approval"
+              echo
+              echo "- Commit: \`$SHA\`"
+              echo "- Draft release: $URL"
+              echo
+              echo "Review and edit the draft notes, then approve the \`release\` environment on this run."
+            fi
+            if [ "$SKIP_CI" == "true" ]; then
+              echo "- ⚠️ **CI check skipped:** pull_request CI for this commit was not verified"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout Slack action
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+          path: ${{ env.SLACK_ACTION_DIR }}
+
+      - name: Notify Slack release awaiting approval
+        if: ${{ !inputs.dry_run }}
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          package: Android SDK
+          platform: GitHub release
+          version_label: ${{ inputs.version }}
+          result: pending
+          title: "Android SDK ${{ inputs.version }} awaiting release approval${{ inputs.skip_ci_check && ' (CI check skipped)' || '' }}"
+          commit: ${{ steps.resolve.outputs.sha }}
+          release_url: ${{ steps.draft.outputs.release_url }}
+          run_label: Approve here
+
+      - name: Find failed step
+        id: failed
+        if: failure()
+        env:
+          STEPS_JSON: ${{ toJSON(steps) }}
+        run: echo "step=$(jq -r '[to_entries[] | select(.value.conclusion == "failure")][0].key // "unknown step"' <<<"$STEPS_JSON")" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack release failure
+        if: failure()
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          package: Android SDK
+          platform: GitHub release
+          version_label: ${{ inputs.version }}
+          result: failure
+          title: "Android SDK ${{ inputs.version }} release failed at ${{ steps.failed.outputs.step }}"
+          commit: ${{ steps.resolve.outputs.sha }}
+
+  publish:
+    name: Publish Release
+    needs: prepare
+    runs-on: ubuntu-22.04
+    environment: release
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+      SHA: ${{ needs.prepare.outputs.sha }}
+      PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+    steps:
+      - name: Dry run
+        if: ${{ inputs.dry_run }}
+        run: echo "### Dry run for $VERSION approved; nothing published" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish draft release
+        id: publish
+        if: ${{ !inputs.dry_run }}
+        run: |
+          if [ "$PRERELEASE" == "true" ]; then
+            gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --target "$SHA" --prerelease --latest=false
+          else
+            gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --target "$SHA" --prerelease=false
+          fi
+
+      - name: Dispatch downstream workflows at the tag
+        id: dispatch
+        if: ${{ !inputs.dry_run }}
+        run: |
+          WORKFLOWS="jitpack.yml version-guard.yml"
+          if [ "$PRERELEASE" != "true" ]; then
+            WORKFLOWS="$WORKFLOWS doc-bot.yml"
+          fi
+          for WORKFLOW in $WORKFLOWS; do
+            gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"
+            echo "Dispatched $WORKFLOW at $VERSION"
+          done
+          {
+            echo "### Release $VERSION published"
+            echo
+            echo "Dispatched $WORKFLOWS at \`$VERSION\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout Slack action
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+          path: ${{ env.SLACK_ACTION_DIR }}
+
+      - name: Notify Slack release published
+        if: ${{ success() && !inputs.dry_run }}
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          package: Android SDK
+          platform: GitHub release
+          version_label: ${{ inputs.version }}
+          result: success
+          title: "Android SDK ${{ inputs.version }} released${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}"
+          commit: ${{ env.SHA }}
+          release_url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.version }}
+          details: JitPack build, version guard${{ env.PRERELEASE != 'true' && ' and docs' || '' }} dispatched at the tag. JitPack posts its own build result.
+
+      - name: Find failed step
+        id: failed
+        if: failure()
+        env:
+          STEPS_JSON: ${{ toJSON(steps) }}
+        run: echo "step=$(jq -r '[to_entries[] | select(.value.conclusion == "failure")][0].key // "unknown step"' <<<"$STEPS_JSON")" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack release failure
+        if: failure()
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          package: Android SDK
+          platform: GitHub release
+          version_label: ${{ inputs.version }}
+          result: failure
+          title: "Android SDK ${{ inputs.version }} release failed at ${{ steps.failed.outputs.step }}"
+          commit: ${{ env.SHA }}
+
+  stopped:
+    name: Report Stopped Release
+    needs: [prepare, publish]
+    if: always() && (contains(needs.*.result, 'cancelled') || needs.publish.result == 'failure')
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Classify stop
+        id: reason
+        env:
+          CANCELLED: ${{ contains(needs.*.result, 'cancelled') }}
+        run: |
+          if [ "$CANCELLED" == "true" ]; then
+            echo "reason=cancelled" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          STATE=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
+            --jq '[.[] | select(any(.environments[]; .name == "release"))][-1].state // ""')
+          if [ "$STATE" == "rejected" ]; then
+            echo "reason=release deploy rejected" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout Slack action
+        if: steps.reason.outputs.reason != ''
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+          path: ${{ env.SLACK_ACTION_DIR }}
+
+      - name: Notify Slack release stopped
+        if: steps.reason.outputs.reason != ''
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          package: Android SDK
+          platform: GitHub release
+          version_label: ${{ inputs.version }}
+          result: stopped
+          title: "Android SDK ${{ inputs.version }} release stopped: ${{ steps.reason.outputs.reason }}"
+          commit: ${{ needs.prepare.outputs.sha }}
+          details: Nothing more will publish from this run.
