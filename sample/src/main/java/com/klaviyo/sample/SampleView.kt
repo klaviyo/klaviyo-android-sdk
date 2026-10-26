@@ -182,6 +182,14 @@ fun SampleView(
                     "JWT set for the next token fetch"
                 ),
                 onAuthTokenProviderRegisteredChange = viewModel::updateAuthTokenProviderRegistration,
+                formsPreviewToken = viewModel.formsPreviewToken,
+                isFormsPreviewEnabled = viewModel.isFormsPreviewEnabled,
+                onFormsPreviewTokenChange = viewModel::updateFormsPreviewToken,
+                applyFormsPreviewToken = executeWithToast(
+                    viewModel::applyFormsPreviewToken,
+                    "Forms preview started"
+                ),
+                onFormsPreviewEnabledChange = viewModel::updateFormsPreviewEnabled,
                 hasLocationPermission = viewModel.hasLocationPermission,
                 hasBackgroundLocationPermission = viewModel.hasBackgroundLocationPermission,
                 isGeofencingRegistered = viewModel.isGeofencingRegistered,
@@ -279,6 +287,11 @@ private fun SampleViewContent(
     onPastedJwtChange: (String) -> Unit = {},
     applyPastedJwt: () -> Unit = {},
     onAuthTokenProviderRegisteredChange: (Boolean) -> Unit = {},
+    formsPreviewToken: String = "",
+    isFormsPreviewEnabled: Boolean = false,
+    onFormsPreviewTokenChange: (String) -> Unit = {},
+    applyFormsPreviewToken: () -> Unit = {},
+    onFormsPreviewEnabledChange: (Boolean) -> Unit = {},
     requestPermission: () -> Unit = {},
     requestLocationPermission: () -> Unit = {},
     requestBackgroundLocationPermission: () -> Unit = {},
@@ -430,6 +443,26 @@ private fun SampleViewContent(
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
                 trailingIcon = { EntryTrailingButton(onClick = applyPastedJwt) }
+            )
+        }
+        ViewRow(horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Forms preview")
+            Switch(
+                checked = isFormsPreviewEnabled,
+                onCheckedChange = onFormsPreviewEnabledChange,
+                modifier = Modifier.semantics { contentDescription = "Forms preview" }
+            )
+        }
+        if (isFormsPreviewEnabled) {
+            ProfileTextField(
+                label = "Forms preview token",
+                value = formsPreviewToken,
+                onValueChange = onFormsPreviewTokenChange,
+                keyboardType = KeyboardType.Ascii,
+                imeAction = ImeAction.Done,
+                keyboardActions = KeyboardActions(onDone = { applyFormsPreviewToken() }),
+                singleLine = true,
+                trailingIcon = { EntryTrailingButton(onClick = applyFormsPreviewToken) }
             )
         }
         ViewRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
