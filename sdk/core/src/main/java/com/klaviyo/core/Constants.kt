@@ -22,6 +22,12 @@ object Constants {
     const val KEY_VALUE_PAIRS = "key_value_pairs"
 
     /**
+     * Key carrying an in-app forms draft-preview token: a push key/value pair and a deep link query
+     * parameter. Never tracked or logged; see [com.klaviyo.core.forms.FormsPreview].
+     */
+    const val FORMS_PREVIEW_KEY = "klaviyo-forms-preview"
+
+    /**
      * Klaviyo push messages contain metadata to associate an event with its original transmission
      */
     const val TRACKING_PARAMETER = "_k"

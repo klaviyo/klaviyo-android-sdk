@@ -66,4 +66,37 @@ class FormsPreviewTest {
         assertFalse(FormsPreview.isValidToken(token.dropLast(1) + "="))
         assertFalse(FormsPreview.isValidToken(null))
     }
+
+    @Test
+    fun `strips the preview parameter and keeps the rest of the link`() {
+        assertEquals(
+            "https://example.com/p?utm_source=qr&x=1#frag",
+            FormsPreview.withoutPreviewTokenParameter(
+                "https://example.com/p?utm_source=qr&klaviyo-forms-preview=$token&x=1#frag"
+            )
+        )
+        assertEquals(
+            "myapp://home",
+            FormsPreview.withoutPreviewTokenParameter("myapp://home?klaviyo-forms-preview=$token")
+        )
+        assertEquals(
+            "myapp://home?a=1",
+            FormsPreview.withoutPreviewTokenParameter("myapp://home?a=1")
+        )
+        assertEquals("not a uri", FormsPreview.withoutPreviewTokenParameter("not a uri"))
+    }
+
+    @Test
+    fun `reads and strips the preview key in push key value pairs`() {
+        val json = """{"klaviyo-forms-preview":"$token","other":"1"}"""
+        assertEquals(token, FormsPreview.previewTokenFromKeyValuePairs(json))
+        assertNull(FormsPreview.previewTokenFromKeyValuePairs("""{"other":"1"}"""))
+        assertNull(FormsPreview.previewTokenFromKeyValuePairs("not json"))
+        assertNull(FormsPreview.previewTokenFromKeyValuePairs(null))
+
+        val stripped = FormsPreview.keyValuePairsWithoutPreviewToken(json)
+        assertFalse(stripped.contains(token))
+        assertTrue(stripped.contains("other"))
+        assertEquals("not json", FormsPreview.keyValuePairsWithoutPreviewToken("not json"))
+    }
 }
