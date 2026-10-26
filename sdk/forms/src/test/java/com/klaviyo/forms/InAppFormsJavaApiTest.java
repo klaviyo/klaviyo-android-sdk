@@ -97,6 +97,20 @@ public class InAppFormsJavaApiTest extends BaseTest {
     }
 
     @Test
+    public void testKlaviyoFormsHandlePreviewLinkForwardsToProvider() {
+        String link = "myapp://home?klaviyo-forms-preview=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6";
+        InAppFormsMock.unmockKlaviyoForms();
+        InAppFormsMock.registerPreviewLinkProvider(link, true);
+        try {
+            assertEquals(true, KlaviyoForms.handleFormsPreviewLink(InAppFormsMock.uri(link)));
+            assertEquals(false, KlaviyoForms.handleFormsPreviewLink(InAppFormsMock.uri("myapp://home")));
+            InAppFormsMock.verifyPreviewLinkForwarded(link);
+        } finally {
+            InAppFormsMock.unregisterPreviewLinkProvider();
+        }
+    }
+
+    @Test
     public void testKlaviyoFormsUnregister() {
         KlaviyoForms.unregisterFromInAppForms();
         InAppFormsMock.verifyKlaviyoFormsUnregisterCalled();

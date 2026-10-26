@@ -1,5 +1,6 @@
 package com.klaviyo.forms.preview
 
+import android.net.Uri
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
@@ -12,6 +13,7 @@ import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.endFormsPreview
+import com.klaviyo.forms.handleFormsPreviewLink
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.reInitializeInAppForms
 import com.klaviyo.forms.registerForInAppForms
@@ -24,8 +26,10 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -185,4 +189,60 @@ class FormsPreviewTokenTest : BaseTest() {
             Klaviyo.endFormsPreview()
         }
     }
+
+    @Test
+    fun `preview link with a valid token starts a preview and returns true`() {
+        Klaviyo.registerForInAppForms()
+
+        assertTrue(
+            Klaviyo.handleFormsPreviewLink(
+                uri("myapp://home?klaviyo-forms-preview=$VALID_PREVIEW_TOKEN")
+            )
+        )
+        assertEquals(VALID_PREVIEW_TOKEN, storedToken)
+
+        assertTrue(
+            Klaviyo.handleFormsPreviewLink(
+                uri("https://shop.example.com/a?utm=qr&klaviyo-forms-preview=$OTHER_PREVIEW_TOKEN")
+            )
+        )
+        assertEquals(OTHER_PREVIEW_TOKEN, storedToken)
+        verify(exactly = 2) { mockClient.destroyWebView() }
+    }
+
+    @Test
+    fun `preview link without the parameter or with a malformed token changes nothing`() {
+        Klaviyo.startFormsPreview(VALID_PREVIEW_TOKEN)
+
+        assertFalse(Klaviyo.handleFormsPreviewLink(uri("myapp://home?other=1")))
+        assertFalse(Klaviyo.handleFormsPreviewLink(uri("myapp://home?klaviyo-forms-preview=short")))
+        assertFalse(Klaviyo.handleFormsPreviewLink(null))
+
+        assertEquals(VALID_PREVIEW_TOKEN, storedToken)
+        verify { spyLog.warning(not(match { it.contains("short") }), null) }
+    }
+
+    @Test
+    fun `preview link before register waits for register`() {
+        assertTrue(
+            KlaviyoForms.handleFormsPreviewLink(
+                uri("myapp://x?klaviyo-forms-preview=$VALID_PREVIEW_TOKEN")
+            )
+        )
+        assertEquals(VALID_PREVIEW_TOKEN, storedToken)
+        verify(exactly = 0) { mockClient.initializeWebView() }
+    }
+
+    @Test
+    fun `preview link throws when the forms module is missing`() {
+        Registry.unregister<FormsProvider>()
+
+        assertThrows(MissingKlaviyoModule::class.java) {
+            Klaviyo.handleFormsPreviewLink(
+                uri("myapp://x?klaviyo-forms-preview=$VALID_PREVIEW_TOKEN")
+            )
+        }
+    }
+
+    private fun uri(value: String): Uri = mockk<Uri>().also { every { it.toString() } returns value }
 }
