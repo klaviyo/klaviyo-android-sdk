@@ -3,6 +3,7 @@ package com.klaviyo.forms
 import androidx.annotation.UiThread
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
+import com.klaviyo.core.forms.FormsPreview
 import com.klaviyo.core.safeApply
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
@@ -89,6 +90,16 @@ internal class KlaviyoFormsProvider : FormsProvider {
         } else {
             Registry.log.info("Forms preview will start when registerForInAppForms is called")
         }
+    }
+
+    override fun handlePreviewLink(uri: String?): Boolean {
+        val parameter = FormsPreview.previewTokenParameter(uri) ?: return false
+        if (!FormsPreview.isValidToken(parameter)) {
+            Registry.log.warning("Ignoring forms preview link with a malformed token")
+            return false
+        }
+        startPreview(parameter)
+        return true
     }
 
     /**

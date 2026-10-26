@@ -42,6 +42,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
   - [Personalized Forms Authentication](#personalized-forms-authentication)
+  - [Previewing Draft Forms on a Device](#previewing-draft-forms-on-a-device)
   - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Setup](#setup-2)
@@ -1096,6 +1097,34 @@ The SDK does not time out your provider, so your code must:
 - **Bound your own work.** Apply a timeout to every network call. A provider that never calls back blocks later token fetches until you register, unregister or reset the profile.
 - **Fail fast.** If you cannot produce a token, for example when no user is signed in, call `onFailure` instead of waiting or retrying.
 - **Pass on the original network error.** The SDK retries after reconnect when it finds an `UnknownHostException` or a `SocketException` in the cause chain, so pass the original exception to `onFailure` or wrap it as the `cause`.
+
+### Previewing Draft Forms on a Device
+
+The Klaviyo form editor's **Preview on device** button shows a QR code and a preview link for the
+draft form. The link is a deep link into your app with a `klaviyo-forms-preview` query parameter
+holding a short-lived preview token. Pass deep links to `handleFormsPreviewLink` before your own
+routing: it starts a preview session and returns `true` for a preview link, and returns `false`,
+changing nothing, for every other link. It works with custom schemes and App Links. If forms are
+registered, they restart in preview mode; if not, the preview starts when you call
+`registerForInAppForms`.
+
+```kotlin
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    if (savedInstanceState == null) onNewIntent(intent)
+}
+
+override fun onNewIntent(intent: Intent?) {
+    super.onNewIntent(intent)
+    if (Klaviyo.handleFormsPreviewLink(intent?.data)) return
+    // Your own deep link handling
+}
+```
+
+From Java, call `KlaviyoForms.handleFormsPreviewLink(uri)`. You can also start a preview with a
+token directly using `Klaviyo.startFormsPreview(token)`, and end it with `Klaviyo.endFormsPreview()`.
+Preview tokens only read a saved draft and expire after 30 minutes. The SDK keeps them in memory
+only and never logs them.
 
 ### Monitoring Form Lifecycle Events
 

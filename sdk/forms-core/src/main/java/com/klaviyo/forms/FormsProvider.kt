@@ -32,4 +32,11 @@ interface FormsProvider {
      * new one that loads published forms.
      */
     fun endPreview()
+
+    /**
+     * Start a forms preview from a deep link's `klaviyo-forms-preview` query parameter.
+     * Returns true if [uri] carried a well-formed preview token, which now starts a preview as
+     * [startPreview] does, and false otherwise, changing nothing.
+     */
+    fun handlePreviewLink(uri: String?): Boolean
 }
