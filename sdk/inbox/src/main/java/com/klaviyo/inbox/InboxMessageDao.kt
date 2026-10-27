@@ -43,6 +43,21 @@ internal abstract class InboxMessageDao {
         return inserted
     }
 
+    @Query("SELECT * FROM ${InboxMessageEntity.TABLE_NAME} WHERE id = :id")
+    abstract suspend fun get(id: String): InboxMessageEntity?
+
+    /**
+     * The company's message IDs, newest first by sort time
+     */
+    @Query(
+        """
+        SELECT id FROM ${InboxMessageEntity.TABLE_NAME}
+        WHERE companyId = :companyId
+        ORDER BY sortTime DESC, id DESC
+        """
+    )
+    abstract suspend fun idsByCompanyId(companyId: String): List<String>
+
     @Query("DELETE FROM ${InboxMessageEntity.TABLE_NAME} WHERE companyId = :companyId")
     abstract suspend fun deleteByCompanyId(companyId: String): Int
 
