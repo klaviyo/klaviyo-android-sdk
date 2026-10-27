@@ -1,14 +1,17 @@
 package com.klaviyo.inbox
 
+import com.klaviyo.core.config.MissingAPIKey
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 internal class KlaviyoInboxRepositoryTest : BaseTest() {
@@ -111,6 +114,45 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
 
         coVerify { dataSource.clearByCompanyId(API_KEY) }
         coVerify { dataSource.clearAll() }
+    }
+
+    @Test
+    fun `unread count is read for the current company`() = runBlocking {
+        coEvery { dataSource.countUnread(any()) } returns 3
+
+        assertEquals(3, repository.fetchUnreadCount())
+        coVerify { dataSource.countUnread(API_KEY) }
+    }
+
+    @Test
+    fun `unread count is zero before the SDK is initialized`() = runBlocking {
+        every { mockConfig.apiKey } throws MissingAPIKey()
+
+        assertEquals(0, repository.fetchUnreadCount())
+        coVerify(exactly = 0) { dataSource.countUnread(any()) }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `a store failure on read surfaces as a storage failure`() {
+        coEvery { dataSource.countUnread(any()) } throws IllegalStateException("corrupt")
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.fetchUnreadCount() }
+        }
+
+        assertEquals(InboxException.Reason.STORAGE_FAILURE, error.reason)
+        assertTrue(error.cause is IllegalStateException)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation is not reported as a storage failure`() {
+        coEvery { dataSource.countUnread(any()) } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repository.fetchUnreadCount() }
+        }
     }
 
     private companion object {

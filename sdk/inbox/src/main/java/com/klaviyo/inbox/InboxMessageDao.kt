@@ -58,6 +58,17 @@ internal abstract class InboxMessageDao {
     )
     abstract suspend fun transmissionIdsByCompanyId(companyId: String): List<String>
 
+    /**
+     * The company's messages that are neither read nor archived
+     */
+    @Query(
+        """
+        SELECT COUNT(*) FROM ${InboxMessageEntity.TABLE_NAME}
+        WHERE companyId = :companyId AND isRead = 0 AND isArchived = 0
+        """
+    )
+    abstract suspend fun countUnread(companyId: String): Int
+
     @Query("DELETE FROM ${InboxMessageEntity.TABLE_NAME} WHERE companyId = :companyId")
     abstract suspend fun deleteByCompanyId(companyId: String): Int
 

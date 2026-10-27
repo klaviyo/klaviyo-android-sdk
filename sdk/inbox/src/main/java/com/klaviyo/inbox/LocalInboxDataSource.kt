@@ -11,6 +11,12 @@ internal interface LocalInboxDataSource {
      */
     suspend fun insert(message: InboxMessageEntity, retentionLimit: Int): InboxInsertResult
 
+    /**
+     * The number of [companyId]'s messages that are unread and not archived. Zero when nothing
+     * has ever been stored.
+     */
+    suspend fun countUnread(companyId: String): Int
+
     suspend fun clearByCompanyId(companyId: String)
 
     suspend fun clearAll()
