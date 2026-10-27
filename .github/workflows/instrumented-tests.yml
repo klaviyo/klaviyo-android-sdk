@@ -62,7 +62,7 @@ jobs:
           fi
 
           files=$(gh api "repos/$REPO/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename')
-          if echo "$files" | grep -qE '^(sdk/inbox/|versions\.properties$|build\.gradle\.kts$|sdk/build\.gradle\.kts$|\.github/workflows/instrumented-tests\.yml$)'; then
+          if echo "$files" | grep -qE '^(sdk/inbox(-core)?/|versions\.properties$|build\.gradle\.kts$|sdk/build\.gradle\.kts$|\.github/workflows/instrumented-tests\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
             echo 'matrix=[{"api-level":23,"arch":"x86"}]' >> "$GITHUB_OUTPUT"
             echo "tasks=:sdk:inbox:connectedAndroidTest" >> "$GITHUB_OUTPUT"

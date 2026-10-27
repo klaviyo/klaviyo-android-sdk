@@ -12,6 +12,7 @@ internal class InboxInitProvider : ContentProvider() {
         Registry.registerOnce<InboxRepository> {
             KlaviyoInboxRepository(RoomInboxDataSource(Registry.config.applicationContext))
         }
+        Registry.registerOnce<MobileInboxProvider> { KlaviyoMobileInboxProvider() }
         Registry.getOrNull<PushNotificationDispatcher>()
             ?.onKlaviyoNotification(InboxCaptureObserver)
             ?: Registry.log.warning(
