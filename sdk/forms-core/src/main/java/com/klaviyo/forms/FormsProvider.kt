@@ -19,4 +19,17 @@ interface FormsProvider {
      * and tearing down the WebView client.
      */
     fun unregister()
+
+    /**
+     * Start a forms preview session with [token]. If registered, tears down the current session
+     * and starts a new one that loads the preview. Otherwise the token is held for the next
+     * [register]. A malformed token changes nothing.
+     */
+    fun startPreview(token: String)
+
+    /**
+     * End the forms preview session. If registered, tears down the current session and starts a
+     * new one that loads published forms.
+     */
+    fun endPreview()
 }

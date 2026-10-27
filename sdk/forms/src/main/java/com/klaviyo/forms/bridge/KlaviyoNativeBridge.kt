@@ -19,6 +19,7 @@ import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear
+import com.klaviyo.forms.bridge.NativeBridgeMessage.FormsPreviewEnded
 import com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook
 import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
 import com.klaviyo.forms.bridge.NativeBridgeMessage.OpenDeepLink
@@ -26,6 +27,7 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.RefreshJwt
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.preview.FormsPreviewTokenStore
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 
@@ -80,6 +82,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 is FormDisappeared -> close(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
                 RefreshJwt -> refreshJwt()
+                is FormsPreviewEnded -> formsPreviewEnded(bridgeMessage.reason)
             }
         } catch (e: Exception) {
             Registry.log.error("Failed to relay webview message: $message", e)
@@ -222,6 +225,18 @@ internal class KlaviyoNativeBridge : NativeBridge {
      * when no provider is registered or the fetch fails.
      */
     private fun refreshJwt() = Registry.get<AuthTokenManager>().refreshRejectedToken()
+
+    /**
+     * Handle a [FormsPreviewEnded] message by clearing the stored preview token. The current
+     * webview is left in place, inert, and the next rebuild (app relaunch, session timeout or
+     * company change) loads published forms.
+     */
+    private fun formsPreviewEnded(reason: String) {
+        Registry.log.warning(
+            "Forms preview ended, reason: $reason. Published forms resume on the next app launch or session timeout."
+        )
+        Registry.getOrNull<FormsPreviewTokenStore>()?.clear()
+    }
 
     /**
      * Invoke the registered form lifecycle callback on the main thread, if one is registered.
