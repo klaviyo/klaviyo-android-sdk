@@ -2,15 +2,15 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "26b068fd79662f1e4ed85e7370316cf8",
+    "identityHash": "f541644ec96222064d9f3d5b8bb34fe1",
     "entities": [
       {
         "tableName": "inbox_message",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `companyId` TEXT NOT NULL, `title` TEXT, `body` TEXT, `mediaUrl` TEXT, `mediaType` TEXT, `customData` TEXT NOT NULL, `actions` TEXT NOT NULL, `sentAt` INTEGER, `collapseId` TEXT, `badge` INTEGER, `receivedAt` INTEGER NOT NULL, `attributionJson` TEXT, `source` TEXT NOT NULL, `isRead` INTEGER NOT NULL, `isArchived` INTEGER NOT NULL, `sortTime` INTEGER NOT NULL, `defaultDestination_type` TEXT NOT NULL, `defaultDestination_url` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transmissionId` TEXT NOT NULL, `companyId` TEXT NOT NULL, `title` TEXT, `body` TEXT, `mediaUrl` TEXT, `mediaType` TEXT, `customData` TEXT NOT NULL, `actions` TEXT NOT NULL, `sentAt` INTEGER, `collapseId` TEXT, `badge` INTEGER, `receivedAt` INTEGER NOT NULL, `attributionJson` TEXT, `isRead` INTEGER NOT NULL, `isArchived` INTEGER NOT NULL, `sortTime` INTEGER NOT NULL, `defaultDestination_type` TEXT NOT NULL, `defaultDestination_url` TEXT, PRIMARY KEY(`transmissionId`))",
         "fields": [
           {
-            "fieldPath": "id",
-            "columnName": "id",
+            "fieldPath": "transmissionId",
+            "columnName": "transmissionId",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -87,12 +87,6 @@
             "notNull": false
           },
           {
-            "fieldPath": "source",
-            "columnName": "source",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
             "fieldPath": "isRead",
             "columnName": "isRead",
             "affinity": "INTEGER",
@@ -126,20 +120,20 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "id"
+            "transmissionId"
           ]
         },
         "indices": [
           {
-            "name": "index_inbox_message_companyId_sortTime_id",
+            "name": "index_inbox_message_companyId_sortTime_transmissionId",
             "unique": false,
             "columnNames": [
               "companyId",
               "sortTime",
-              "id"
+              "transmissionId"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_inbox_message_companyId_sortTime_id` ON `${TABLE_NAME}` (`companyId`, `sortTime`, `id`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_inbox_message_companyId_sortTime_transmissionId` ON `${TABLE_NAME}` (`companyId`, `sortTime`, `transmissionId`)"
           }
         ],
         "foreignKeys": []
@@ -148,7 +142,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '26b068fd79662f1e4ed85e7370316cf8')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f541644ec96222064d9f3d5b8bb34fe1')"
     ]
   }
 }

@@ -11,7 +11,7 @@ import androidx.room.PrimaryKey
  * The push's `tm` is the primary key, so a repeat delivery of the same push is a conflict
  * rather than a second row, and a server copy of the message maps onto the same row.
  *
- * @property id The push's `tm`
+ * @property transmissionId The push's `tm`
  * @property companyId The public API key the push was captured under
  * @property receivedAt When this device captured the push, in epoch milliseconds
  * @property sentAt Server send time from `_k.timestamp`, in epoch milliseconds
@@ -21,10 +21,10 @@ import androidx.room.PrimaryKey
  */
 @Entity(
     tableName = InboxMessageEntity.TABLE_NAME,
-    indices = [Index(value = ["companyId", "sortTime", "id"])]
+    indices = [Index(value = ["companyId", "sortTime", "transmissionId"])]
 )
 internal data class InboxMessageEntity(
-    @PrimaryKey val id: String,
+    @PrimaryKey val transmissionId: String,
     val companyId: String,
     val title: String?,
     val body: String?,
@@ -38,7 +38,6 @@ internal data class InboxMessageEntity(
     val badge: Int?,
     val receivedAt: Long,
     val attributionJson: String?,
-    val source: InboxRecordSource = InboxRecordSource.CAPTURED,
     val isRead: Boolean = false,
     val isArchived: Boolean = false,
     val sortTime: Long = sentAt ?: receivedAt
@@ -61,10 +60,3 @@ internal data class InboxRecordAction(
     val label: String,
     val destination: InboxRecordDestination
 )
-
-/**
- * Where a stored message came from
- */
-internal enum class InboxRecordSource {
-    CAPTURED
-}

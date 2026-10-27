@@ -27,14 +27,14 @@ import org.junit.Test
 internal class InboxCaptureObserverTest : BaseTest() {
 
     /**
-     * Deduplicates on [InboxMessageEntity.id], as the store does
+     * Deduplicates on [InboxMessageEntity.transmissionId], as the store does
      */
     private class FakeInboxRepository : InboxRepository {
         val records = mutableMapOf<String, InboxMessageEntity>()
         val results = mutableListOf<InboxCaptureResult>()
 
         override suspend fun capture(message: InboxMessageEntity): InboxCaptureResult =
-            if (records.putIfAbsent(message.id, message) == null) {
+            if (records.putIfAbsent(message.transmissionId, message) == null) {
                 InboxCaptureResult.CAPTURED
             } else {
                 InboxCaptureResult.DUPLICATE

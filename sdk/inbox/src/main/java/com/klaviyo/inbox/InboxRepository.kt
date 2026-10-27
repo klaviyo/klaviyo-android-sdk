@@ -5,7 +5,7 @@ package com.klaviyo.inbox
  */
 internal interface InboxRepository {
     /**
-     * Store a captured push, deduplicating on [InboxMessageEntity.id]
+     * Store a captured push, deduplicating on [InboxMessageEntity.transmissionId]
      */
     suspend fun capture(message: InboxMessageEntity): InboxCaptureResult
 
