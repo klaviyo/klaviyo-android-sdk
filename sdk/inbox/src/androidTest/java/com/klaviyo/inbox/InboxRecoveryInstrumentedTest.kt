@@ -1,6 +1,7 @@
 package com.klaviyo.inbox
 
 import android.content.Context
+import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import androidx.test.platform.app.InstrumentationRegistry
@@ -74,16 +75,31 @@ class InboxRecoveryInstrumentedTest {
     }
 
     /**
-     * Whether SQLite itself rejects the file, so a test cannot pass by damaging nothing
+     * Asserts that SQLite itself rejects the damaged file and that the file is still there, so a
+     * test cannot pass by damaging nothing or by deleting the file before the store opens it.
+     *
+     * SQLite's default error handler deletes a file it finds corrupt, so the check opens it with a
+     * handler that leaves the file alone.
      */
-    private fun fileIsUnreadable(): Boolean = try {
-        SQLiteDatabase.openDatabase(databaseFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-            db.rawQuery("PRAGMA integrity_check", null).use { cursor ->
-                !(cursor.moveToFirst() && cursor.getString(0) == "ok")
+    private fun assertDamagedFileIsRejectedAndKept() {
+        val keepFile = DatabaseErrorHandler { }
+        val rejected = try {
+            SQLiteDatabase.openDatabase(
+                databaseFile.path,
+                null,
+                SQLiteDatabase.OPEN_READONLY,
+                keepFile
+            ).use { db ->
+                db.rawQuery("PRAGMA integrity_check", null).use { cursor ->
+                    !(cursor.moveToFirst() && cursor.getString(0) == "ok")
+                }
             }
+        } catch (e: SQLiteException) {
+            true
         }
-    } catch (e: SQLiteException) {
-        true
+
+        assertTrue("SQLite accepted a file that should be damaged", rejected)
+        assertTrue("checking the file must not delete it", databaseFile.exists())
     }
 
     private fun insertsAfterDamage(): InboxInsertResult = runBlocking {
@@ -96,7 +112,7 @@ class InboxRecoveryInstrumentedTest {
 
         damage { bytes -> bytes.fill(GARBAGE) }
 
-        assertTrue(fileIsUnreadable())
+        assertDamagedFileIsRejectedAndKept()
         assertEquals(InboxInsertResult.INSERTED, insertsAfterDamage())
     }
 
@@ -106,7 +122,7 @@ class InboxRecoveryInstrumentedTest {
 
         damage { bytes -> repeat(HEADER_BYTES) { bytes[it] = GARBAGE } }
 
-        assertTrue(fileIsUnreadable())
+        assertDamagedFileIsRejectedAndKept()
         assertEquals(InboxInsertResult.INSERTED, insertsAfterDamage())
     }
 
@@ -117,7 +133,7 @@ class InboxRecoveryInstrumentedTest {
         File(databaseFile.path + "-wal").delete()
         File(databaseFile.path + "-shm").delete()
 
-        assertTrue(fileIsUnreadable())
+        assertDamagedFileIsRejectedAndKept()
         assertEquals(InboxInsertResult.INSERTED, insertsAfterDamage())
     }
 
@@ -139,7 +155,7 @@ class InboxRecoveryInstrumentedTest {
             for (i in maxOf(PAGE_BYTES, bytes.size - PAGE_BYTES) until bytes.size) bytes[i] = GARBAGE
         }
 
-        assertTrue(fileIsUnreadable())
+        assertDamagedFileIsRejectedAndKept()
         val source = dataSource()
         runBlocking {
             assertEquals(InboxInsertResult.INSERTED, source.insert(message("after-damage"), LIMIT))
