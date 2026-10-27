@@ -18,7 +18,7 @@ import org.json.JSONException
 import org.json.JSONObject
 
 /**
- * Maps a delivered Klaviyo push to an [InboxCaptureRecord], reading fields through the same
+ * Maps a delivered Klaviyo push to an [InboxMessageEntity], reading fields through the same
  * accessors the system notification uses, so the inbox shows the same buttons and destinations.
  */
 internal object InboxPushNormalizer {
@@ -30,21 +30,19 @@ internal object InboxPushNormalizer {
     private const val TIMESTAMP_KEY = "timestamp"
 
     /**
-     * @return The record, or null when the message isn't a Klaviyo notification or its tracking
-     *  data has no `tm` to deduplicate on
+     * @param companyId The public API key to store the message under
+     * @return The entity, or null when the message isn't a Klaviyo notification or its tracking
+     *  data has no `tm` to use as the message ID
      */
-    fun RemoteMessage.toInboxCaptureRecord(receivedAt: Long): InboxCaptureRecord? {
+    fun RemoteMessage.toInboxMessageEntity(companyId: String, receivedAt: Long): InboxMessageEntity? {
         if (!isKlaviyoNotification) return null
 
         val tracking = parseTracking(data[Constants.TRACKING_PARAMETER])
-        val attribution = InboxAttribution(
-            transmissionId = tracking?.optNonBlankString(TRANSMISSION_ID_KEY),
-            rawTrackingJson = tracking?.toString()
-        )
-        val dedupeKey = attribution.transmissionId ?: return null
+        val transmissionId = tracking?.optNonBlankString(TRANSMISSION_ID_KEY) ?: return null
 
-        return InboxCaptureRecord(
-            dedupeKey = dedupeKey,
+        return InboxMessageEntity(
+            id = transmissionId,
+            companyId = companyId,
             title = title,
             body = body,
             defaultDestination = tapDestination.toRecordDestination(),
@@ -52,11 +50,11 @@ internal object InboxPushNormalizer {
             mediaType = data[IMAGE_TYPE_KEY]?.takeIf { it.isNotBlank() },
             customData = keyValuePairs.orEmpty(),
             actions = actionButtons.orEmpty().map { it.toRecordAction() },
-            sentAt = Registry.clock.parseRfc3339(tracking?.optNonBlankString(TIMESTAMP_KEY)),
+            sentAt = Registry.clock.parseRfc3339(tracking.optNonBlankString(TIMESTAMP_KEY)),
             collapseId = notificationTag,
             badge = data[BADGE_KEY]?.trim()?.toIntOrNull(),
             receivedAt = receivedAt,
-            attribution = attribution
+            attributionJson = tracking.toString()
         )
     }
 

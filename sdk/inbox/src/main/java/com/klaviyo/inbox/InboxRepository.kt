@@ -5,9 +5,19 @@ package com.klaviyo.inbox
  */
 internal interface InboxRepository {
     /**
-     * Store a captured push, deduplicating on [InboxCaptureRecord.dedupeKey]
+     * Store a captured push, deduplicating on [InboxMessageEntity.id]
      */
-    suspend fun capture(record: InboxCaptureRecord): InboxCaptureResult
+    suspend fun capture(message: InboxMessageEntity): InboxCaptureResult
+
+    /**
+     * Remove every stored message captured under [companyId]
+     */
+    suspend fun clearByCompanyId(companyId: String)
+
+    /**
+     * Remove every stored message
+     */
+    suspend fun clearAll()
 }
 
 internal enum class InboxCaptureResult {
@@ -15,7 +25,7 @@ internal enum class InboxCaptureResult {
     DUPLICATE,
 
     /**
-     * The store could not write the record. The repository logs the cause at error.
+     * The store could not write the message. The repository logs the cause at error.
      */
     FAILED
 }
