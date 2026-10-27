@@ -131,6 +131,29 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
+    fun `test decodeWebviewMessage profile event drops page and overrides device type`() {
+        val eventMessage = """
+           {
+              "type": "trackProfileEvent",
+              "data": {
+                "metric": "Form viewed by profile",
+                "properties": {
+                  "form_id": "1",
+                  "page": "file:///android_asset/InAppFormsTemplate.html",
+                  "device_type": "desktop"
+                }
+              }
+           }
+        """.trimIndent()
+
+        val decoded = NativeBridgeMessage.decodeWebviewMessage(eventMessage) as NativeBridgeMessage.TrackProfileEvent
+
+        assertNull(decoded.event[EventKey.CUSTOM("page")])
+        assertEquals("mobile", decoded.event[EventKey.CUSTOM("device_type")])
+        assertEquals("1", decoded.event[EventKey.CUSTOM("form_id")])
+    }
+
+    @Test
     fun `test decodeWebviewMessage success profile event`() {
         // Setup
         val eventMessage = """

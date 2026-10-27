@@ -201,6 +201,10 @@ internal sealed class NativeBridgeMessage {
                     map[EventKey.CUSTOM(it)] = value
                 }
             }
+            // Onsite derives these from the bundled file URL and a desktop-looking UA, which is wrong
+            // for a native form: drop `page` (no meaningful value) and report the device as mobile.
+            map.remove(EventKey.CUSTOM("page"))
+            EventKey.CUSTOM("device_type").let { key -> if (key in map) map[key] = "mobile" }
             return map
         }
 
