@@ -21,10 +21,10 @@ internal abstract class InboxMessageDao {
     @Query(
         """
         DELETE FROM ${InboxMessageEntity.TABLE_NAME}
-        WHERE companyId = :companyId AND id NOT IN (
-            SELECT id FROM ${InboxMessageEntity.TABLE_NAME}
+        WHERE companyId = :companyId AND transmissionId NOT IN (
+            SELECT transmissionId FROM ${InboxMessageEntity.TABLE_NAME}
             WHERE companyId = :companyId
-            ORDER BY sortTime DESC, id DESC
+            ORDER BY sortTime DESC, transmissionId DESC
             LIMIT :limit
         )
         """
@@ -43,20 +43,20 @@ internal abstract class InboxMessageDao {
         return inserted
     }
 
-    @Query("SELECT * FROM ${InboxMessageEntity.TABLE_NAME} WHERE id = :id")
-    abstract suspend fun get(id: String): InboxMessageEntity?
+    @Query("SELECT * FROM ${InboxMessageEntity.TABLE_NAME} WHERE transmissionId = :transmissionId")
+    abstract suspend fun get(transmissionId: String): InboxMessageEntity?
 
     /**
-     * The company's message IDs, newest first by sort time
+     * The company's transmission IDs, newest first by sort time
      */
     @Query(
         """
-        SELECT id FROM ${InboxMessageEntity.TABLE_NAME}
+        SELECT transmissionId FROM ${InboxMessageEntity.TABLE_NAME}
         WHERE companyId = :companyId
-        ORDER BY sortTime DESC, id DESC
+        ORDER BY sortTime DESC, transmissionId DESC
         """
     )
-    abstract suspend fun idsByCompanyId(companyId: String): List<String>
+    abstract suspend fun transmissionIdsByCompanyId(companyId: String): List<String>
 
     @Query("DELETE FROM ${InboxMessageEntity.TABLE_NAME} WHERE companyId = :companyId")
     abstract suspend fun deleteByCompanyId(companyId: String): Int

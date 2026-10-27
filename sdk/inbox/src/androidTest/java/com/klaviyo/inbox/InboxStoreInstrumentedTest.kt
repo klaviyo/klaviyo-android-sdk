@@ -50,17 +50,17 @@ class InboxStoreInstrumentedTest {
     private val dao get() = openDatabase().messageDao()
 
     private fun message(
-        id: String,
+        transmissionId: String,
         companyId: String = COMPANY,
         sentAt: Long? = null,
         receivedAt: Long = 1_000L
     ) = InboxMessageEntity(
-        id = id,
+        transmissionId = transmissionId,
         companyId = companyId,
-        title = "Title $id",
-        body = "Body $id",
+        title = "Title $transmissionId",
+        body = "Body $transmissionId",
         defaultDestination = InboxRecordDestination("deep_link", "myapp://sale"),
-        mediaUrl = "https://cdn.example.com/$id.png",
+        mediaUrl = "https://cdn.example.com/$transmissionId.png",
         mediaType = "png",
         customData = mapOf("promo" to "SALE20", "tier" to "gold"),
         actions = listOf(
@@ -71,7 +71,7 @@ class InboxStoreInstrumentedTest {
         collapseId = "tag",
         badge = 2,
         receivedAt = receivedAt,
-        attributionJson = """{"tm":"$id"}"""
+        attributionJson = """{"tm":"$transmissionId"}"""
     )
 
     @Test
@@ -104,7 +104,7 @@ class InboxStoreInstrumentedTest {
         }.awaitAll()
 
         assertEquals(1, results.count { it })
-        assertEquals(listOf("tm-1"), dao.idsByCompanyId(COMPANY))
+        assertEquals(listOf("tm-1"), dao.transmissionIdsByCompanyId(COMPANY))
     }
 
     @Test
@@ -117,7 +117,7 @@ class InboxStoreInstrumentedTest {
         dao.insertAndTrim(message("unsent", sentAt = null, receivedAt = 400L), 3)
         dao.insertAndTrim(message("newest", sentAt = 600L), 3)
 
-        assertEquals(listOf("newest", "new", "unsent"), dao.idsByCompanyId(COMPANY))
+        assertEquals(listOf("newest", "new", "unsent"), dao.transmissionIdsByCompanyId(COMPANY))
     }
 
     @Test
@@ -127,7 +127,7 @@ class InboxStoreInstrumentedTest {
         dao.insertAndTrim(message("b", sentAt = 100L), 2)
         dao.insertAndTrim(message("c", sentAt = 100L), 2)
 
-        assertEquals(listOf("c", "b"), dao.idsByCompanyId(COMPANY))
+        assertEquals(listOf("c", "b"), dao.transmissionIdsByCompanyId(COMPANY))
     }
 
     @Test
@@ -137,8 +137,8 @@ class InboxStoreInstrumentedTest {
         dao.insertAndTrim(message("b1", companyId = "B", sentAt = 100L), 1)
         dao.insertAndTrim(message("a2", companyId = "A", sentAt = 200L), 1)
 
-        assertEquals(listOf("a2"), dao.idsByCompanyId("A"))
-        assertEquals(listOf("b1"), dao.idsByCompanyId("B"))
+        assertEquals(listOf("a2"), dao.transmissionIdsByCompanyId("A"))
+        assertEquals(listOf("b1"), dao.transmissionIdsByCompanyId("B"))
     }
 
     @Test
@@ -149,7 +149,7 @@ class InboxStoreInstrumentedTest {
 
         dao.insertAndTrim(message("b", sentAt = 200L), 1)
 
-        assertEquals(listOf("b", "a"), dao.idsByCompanyId(COMPANY))
+        assertEquals(listOf("b", "a"), dao.transmissionIdsByCompanyId(COMPANY))
     }
 
     @Test
@@ -160,8 +160,8 @@ class InboxStoreInstrumentedTest {
 
         dao.deleteByCompanyId("A")
 
-        assertTrue(dao.idsByCompanyId("A").isEmpty())
-        assertEquals(listOf("b1"), dao.idsByCompanyId("B"))
+        assertTrue(dao.transmissionIdsByCompanyId("A").isEmpty())
+        assertEquals(listOf("b1"), dao.transmissionIdsByCompanyId("B"))
     }
 
     @Test
@@ -200,8 +200,8 @@ class InboxStoreInstrumentedTest {
         dataSource.close()
 
         val dao = dao
-        assertTrue(dao.idsByCompanyId("A").isEmpty())
-        assertEquals(listOf("b1"), dao.idsByCompanyId("B"))
+        assertTrue(dao.transmissionIdsByCompanyId("A").isEmpty())
+        assertEquals(listOf("b1"), dao.transmissionIdsByCompanyId("B"))
     }
 
     @Test

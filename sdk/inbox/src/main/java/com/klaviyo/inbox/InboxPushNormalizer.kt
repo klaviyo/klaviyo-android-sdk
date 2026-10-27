@@ -41,7 +41,7 @@ internal object InboxPushNormalizer {
         val transmissionId = tracking?.optNonBlankString(TRANSMISSION_ID_KEY) ?: return null
 
         return InboxMessageEntity(
-            id = transmissionId,
+            transmissionId = transmissionId,
             companyId = companyId,
             title = title,
             body = body,

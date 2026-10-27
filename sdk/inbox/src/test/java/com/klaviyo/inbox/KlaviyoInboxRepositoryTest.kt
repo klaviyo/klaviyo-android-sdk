@@ -16,7 +16,7 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
     private val dataSource = mockk<LocalInboxDataSource>(relaxed = true)
     private val repository = KlaviyoInboxRepository(dataSource, retentionLimit = RETENTION_LIMIT)
     private val message = InboxMessageEntity(
-        id = "tm-1",
+        transmissionId = "tm-1",
         companyId = API_KEY,
         title = "Sale today",
         body = null,

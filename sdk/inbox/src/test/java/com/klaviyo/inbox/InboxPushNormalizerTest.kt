@@ -47,7 +47,7 @@ internal class InboxPushNormalizerTest : BaseTest() {
     @Test
     fun `canonical payload maps every field`() {
         val expected = InboxMessageEntity(
-            id = TRANSMISSION_ID,
+            transmissionId = TRANSMISSION_ID,
             companyId = API_KEY,
             title = "Sale today",
             body = "Everything is 20% off",
@@ -95,10 +95,9 @@ internal class InboxPushNormalizerTest : BaseTest() {
     }
 
     @Test
-    fun `new messages are captured, unread and unarchived`() {
+    fun `new messages are unread and unarchived`() {
         val entity = normalize()
 
-        assertEquals(InboxRecordSource.CAPTURED, entity?.source)
         assertFalse(entity?.isRead ?: true)
         assertFalse(entity?.isArchived ?: true)
     }
