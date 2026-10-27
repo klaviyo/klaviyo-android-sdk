@@ -1,0 +1,80 @@
+package com.klaviyo.inbox
+
+import com.klaviyo.fixtures.BaseTest
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
+import io.mockk.verify
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
+import org.junit.Test
+
+internal class KlaviyoInboxRepositoryTest : BaseTest() {
+
+    private val dataSource = mockk<LocalInboxDataSource>(relaxed = true)
+    private val repository = KlaviyoInboxRepository(dataSource, retentionLimit = RETENTION_LIMIT)
+    private val message = InboxMessageEntity(
+        id = "tm-1",
+        companyId = API_KEY,
+        title = "Sale today",
+        body = null,
+        defaultDestination = InboxRecordDestination("open_app", null),
+        mediaUrl = null,
+        mediaType = null,
+        customData = emptyMap(),
+        actions = emptyList(),
+        sentAt = null,
+        collapseId = null,
+        badge = null,
+        receivedAt = TIME,
+        attributionJson = null
+    )
+
+    @Test
+    fun `a stored message is captured with the retention limit`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } returns InboxInsertResult.INSERTED
+
+        assertEquals(InboxCaptureResult.CAPTURED, repository.capture(message))
+        coVerify { dataSource.insert(message, RETENTION_LIMIT) }
+    }
+
+    @Test
+    fun `a repeat message is reported as a duplicate`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } returns InboxInsertResult.DUPLICATE
+
+        assertEquals(InboxCaptureResult.DUPLICATE, repository.capture(message))
+    }
+
+    @Test
+    fun `a storage failure is logged and reported as failed`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } throws IllegalStateException("disk full")
+
+        assertEquals(InboxCaptureResult.FAILED, repository.capture(message))
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation is not reported as a failed capture`() {
+        coEvery { dataSource.insert(any(), any()) } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repository.capture(message) }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `clears are passed to the data source`() = runBlocking {
+        repository.clearByCompanyId(API_KEY)
+        repository.clearAll()
+
+        coVerify { dataSource.clearByCompanyId(API_KEY) }
+        coVerify { dataSource.clearAll() }
+    }
+
+    private companion object {
+        const val RETENTION_LIMIT = 25
+    }
+}
