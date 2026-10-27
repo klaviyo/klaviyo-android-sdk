@@ -1,3 +1,7 @@
+plugins {
+    id("com.google.devtools.ksp")
+}
+
 description = "Mobile Inbox functionality for the Klaviyo SDK suite"
 evaluationDependsOn(":sdk")
 
@@ -14,13 +18,26 @@ android {
             withJavadocJar()
         }
     }
+
+    // Exported Room schemas double as the migration test fixtures
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
     implementation(project(":sdk:core"))
     implementation(project(":sdk:push-fcm"))
     implementation(KotlinX.coroutines.core)
+    implementation(AndroidX.room.runtime)
+    implementation(AndroidX.room.ktx)
+    ksp(AndroidX.room.compiler)
     testImplementation(project(":sdk:fixtures"))
+    androidTestImplementation(AndroidX.room.testing)
+    androidTestImplementation(AndroidX.test.ext.junit)
+    androidTestImplementation(KotlinX.coroutines.test)
 }
 
 afterEvaluate {
