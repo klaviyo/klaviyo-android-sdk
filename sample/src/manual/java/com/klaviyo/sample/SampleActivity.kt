@@ -16,7 +16,6 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
 import com.klaviyo.analytics.model.EventMetric
-import com.klaviyo.forms.handleFormsPreviewLink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -73,8 +72,9 @@ class SampleActivity : ComponentActivity() {
         }
 
         // SETUP NOTE: Start a draft in-app forms preview from the form editor's QR code or
-        // copied preview link. Returns false, changing nothing, for every other link.
-        if (Klaviyo.handleFormsPreviewLink(intent?.data)) {
+        // copied preview link with Klaviyo.handleFormsPreviewLink. It returns false, changing
+        // nothing, for every other link. The view model also shows the preview in its controls.
+        if (viewModel.handleFormsPreviewLink(intent?.data)) {
             showToast("Forms preview started")
             return
         }

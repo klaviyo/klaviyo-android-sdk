@@ -13,7 +13,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.EventMetric
-import com.klaviyo.forms.handleFormsPreviewLink
 
 /**
  * SETUP NOTE: This is the `automatic` flavor's Activity, demonstrating automatic push integration (Option A).
@@ -73,8 +72,9 @@ class SampleActivity : ComponentActivity() {
         }
 
         // SETUP NOTE: Start a draft in-app forms preview from the form editor's QR code or
-        // copied preview link. Returns false, changing nothing, for every other link.
-        if (Klaviyo.handleFormsPreviewLink(intent?.data)) {
+        // copied preview link with Klaviyo.handleFormsPreviewLink. It returns false, changing
+        // nothing, for every other link. The view model also shows the preview in its controls.
+        if (viewModel.handleFormsPreviewLink(intent?.data)) {
             showToast("Forms preview started")
             return
         }
