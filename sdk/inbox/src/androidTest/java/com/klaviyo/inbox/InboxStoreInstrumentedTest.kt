@@ -190,7 +190,7 @@ class InboxStoreInstrumentedTest {
     }
 
     @Test
-    fun dataSourceClearsThroughTheRepository() = runBlocking {
+    fun clearByCompanyIdReachesTheStoreThroughTheRepository() = runBlocking {
         val dataSource = RoomInboxDataSource(context, databaseName)
         val repository = KlaviyoInboxRepository(dataSource)
         repository.capture(message("a1", companyId = "A"))
@@ -202,6 +202,21 @@ class InboxStoreInstrumentedTest {
         val dao = dao
         assertTrue(dao.transmissionIdsByCompanyId("A").isEmpty())
         assertEquals(listOf("b1"), dao.transmissionIdsByCompanyId("B"))
+    }
+
+    @Test
+    fun clearAllReachesTheStoreThroughTheRepository() = runBlocking {
+        val dataSource = RoomInboxDataSource(context, databaseName)
+        val repository = KlaviyoInboxRepository(dataSource)
+        repository.capture(message("a1", companyId = "A"))
+        repository.capture(message("b1", companyId = "B"))
+
+        repository.clearAll()
+        dataSource.close()
+
+        val dao = dao
+        assertTrue(dao.transmissionIdsByCompanyId("A").isEmpty())
+        assertTrue(dao.transmissionIdsByCompanyId("B").isEmpty())
     }
 
     @Test
