@@ -33,6 +33,9 @@ jobs:
   changes:
     name: Select Tests
     runs-on: ubuntu-22.04
+    # Labeling a PR with anything but test:all starts no run, so a later label cannot report a second
+    # result for a commit that already has one
+    if: github.event.action != 'labeled' || github.event.label.name == 'test:all'
     outputs:
       run: ${{ steps.select.outputs.run }}
       matrix: ${{ steps.select.outputs.matrix }}
@@ -203,7 +206,7 @@ jobs:
   instrumented-tests-result:
     name: Instrumented Tests Result
     needs: [ changes, instrumented-tests ]
-    if: always()
+    if: always() && (github.event.action != 'labeled' || github.event.label.name == 'test:all')
     runs-on: ubuntu-22.04
     steps:
       - name: Check the instrumented test outcome
