@@ -56,6 +56,15 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
     }
 
     @Test
+    fun `a capture after a failed one still stores the message`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } throws IllegalStateException("disk full") andThen
+            InboxInsertResult.INSERTED
+
+        assertEquals(InboxCaptureResult.FAILED, repository.capture(message))
+        assertEquals(InboxCaptureResult.CAPTURED, repository.capture(message))
+    }
+
+    @Test
     fun `cancellation is not reported as a failed capture`() {
         coEvery { dataSource.insert(any(), any()) } throws CancellationException("cancelled")
 
