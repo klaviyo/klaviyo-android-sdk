@@ -115,8 +115,7 @@ editor when that happens.
 Disable the toggle to end the preview; forms restart with published forms. The
 [preview example in SampleViewModel](./src/main/java/com/klaviyo/sample/SampleViewModel.kt) keeps the
 token in memory only and passes it to `Klaviyo.startFormsPreview`, then calls
-`Klaviyo.endFormsPreview` to stop; the token is never persisted or logged. Preview tokens are for
-testing only and must not ship in a production build.
+`Klaviyo.endFormsPreview` to stop; the token is never persisted or logged.
 
 ## Geofence Testing
 The sample app includes a map view for visualizing geofences that are currently being monitored.
