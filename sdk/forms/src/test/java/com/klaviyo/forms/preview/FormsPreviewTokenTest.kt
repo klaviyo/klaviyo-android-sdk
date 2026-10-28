@@ -156,6 +156,19 @@ class FormsPreviewTokenTest : BaseTest() {
     }
 
     @Test
+    fun `a restart queued before unregister does not register again`() {
+        Klaviyo.registerForInAppForms()
+        val queued = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { queued += firstArg<() -> Unit>() }
+
+        Klaviyo.startFormsPreview(VALID_PREVIEW_TOKEN)
+        Klaviyo.unregisterFromInAppForms()
+        queued.forEach { it() }
+
+        verify(exactly = 1) { mockClient.initializeWebView() }
+    }
+
+    @Test
     fun `registering again and reinitializing keep the preview`() {
         Klaviyo.startFormsPreview(VALID_PREVIEW_TOKEN)
         Klaviyo.registerForInAppForms()

@@ -83,7 +83,9 @@ internal class KlaviyoFormsProvider : FormsProvider {
      */
     private fun restartSession() {
         if (isRegistered) {
-            Registry.threadHelper.runOnUiThread { Klaviyo.reInitializeInAppForms() }
+            Registry.threadHelper.runOnUiThread {
+                if (isRegistered) Klaviyo.reInitializeInAppForms()
+            }
         } else {
             Registry.log.info("Forms preview will start when registerForInAppForms is called")
         }
