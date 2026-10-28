@@ -51,12 +51,8 @@ internal object InboxCaptureObserver : KlaviyoNotificationObserver {
             val written = CountDownLatch(1)
             CoroutineScope(Registry.dispatcher).safeLaunch {
                 try {
-                    when (val result = repository.capture(entity)) {
-                        InboxCaptureResult.FAILED -> Registry.log.warning(
-                            "Mobile Inbox failed to store a push"
-                        )
-                        else -> Registry.log.verbose("Mobile Inbox capture result: $result")
-                    }
+                    val result = repository.capture(entity)
+                    Registry.log.verbose("Mobile Inbox capture result: $result")
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Throwable) {

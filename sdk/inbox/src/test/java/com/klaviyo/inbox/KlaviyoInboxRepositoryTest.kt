@@ -66,6 +66,36 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
     }
 
     @Test
+    fun `a failed clear by company is logged and does not throw`() = runBlocking {
+        coEvery { dataSource.clearByCompanyId(any()) } throws IllegalStateException("disk full")
+
+        repository.clearByCompanyId(API_KEY)
+
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `a failed clear all is logged and does not throw`() = runBlocking {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+
+        repository.clearAll()
+
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation is not swallowed by a clear`() {
+        coEvery { dataSource.clearAll() } throws CancellationException("cancelled")
+        coEvery { dataSource.clearByCompanyId(any()) } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) { runBlocking { repository.clearAll() } }
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repository.clearByCompanyId(API_KEY) }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
     fun `clears are passed to the data source`() = runBlocking {
         repository.clearByCompanyId(API_KEY)
         repository.clearAll()

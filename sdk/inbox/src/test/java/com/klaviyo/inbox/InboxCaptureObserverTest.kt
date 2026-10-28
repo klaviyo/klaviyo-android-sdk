@@ -156,14 +156,15 @@ internal class InboxCaptureObserverTest : BaseTest() {
     }
 
     @Test
-    fun `a failed store result is logged as a warning`() {
+    fun `a failed store result is not logged again because the repository logs the cause`() {
         val failing = mockk<InboxRepository>()
         coEvery { failing.capture(any()) } returns InboxCaptureResult.FAILED
         Registry.register<InboxRepository>(failing)
 
         capture()
 
-        verify { spyLog.warning(any(), any()) }
+        verify(exactly = 0) { spyLog.warning(any(), any()) }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
     }
 
     @Test

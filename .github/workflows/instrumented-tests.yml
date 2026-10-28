@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   # Decides whether the instrumented tests run, and which tasks and API levels they cover:
-  #   - pushes to master and rel/*, and PRs labeled test:all: every suite on every API level
+  #   - pushes to master and rel/*, and PRs labeled test:all: every suite (sample, core, inbox) on every API level
   #   - other PRs that touch the inbox module or its build setup: the inbox suite on API 23
   #   - everything else: nothing
   changes:
@@ -50,7 +50,7 @@ jobs:
           if [ "$EVENT" = "push" ] || [ "$HAS_ALL_LABEL" = "true" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
             echo 'matrix=[{"api-level":23,"arch":"x86"},{"api-level":36,"arch":"x86_64"}]' >> "$GITHUB_OUTPUT"
-            echo "tasks=:sample:connectedAndroidTest :sdk:inbox:connectedAndroidTest" >> "$GITHUB_OUTPUT"
+            echo "tasks=:sample:connectedAndroidTest :sdk:core:connectedAndroidTest :sdk:inbox:connectedAndroidTest" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -147,6 +147,8 @@ jobs:
           path: |
             sample/build/reports/androidTests/connected/
             sample/build/outputs/androidTest-results/
+            sdk/core/build/reports/androidTests/connected/
+            sdk/core/build/outputs/androidTest-results/
             sdk/inbox/build/reports/androidTests/connected/
             sdk/inbox/build/outputs/androidTest-results/
           retention-days: 7
@@ -194,3 +196,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr edit ${{ github.event.pull_request.number }} --remove-label "test:all"
+
+  # Reports a single, fixed check name whether the tests ran or were skipped, so it can be a
+  # required status check. The matrix job above is named by API level and reports a different name
+  # when skipped, so requiring it directly would leave PRs that skip it waiting forever.
+  instrumented-tests-result:
+    name: Instrumented Tests Result
+    needs: [ changes, instrumented-tests ]
+    if: always()
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check the instrumented test outcome
+        env:
+          SELECT_RESULT: ${{ needs.changes.result }}
+          TESTS_RESULT: ${{ needs.instrumented-tests.result }}
+        run: |
+          [ "$SELECT_RESULT" = "success" ] || exit 1
+          case "$TESTS_RESULT" in
+            success|skipped) exit 0 ;;
+            *) exit 1 ;;
+          esac
