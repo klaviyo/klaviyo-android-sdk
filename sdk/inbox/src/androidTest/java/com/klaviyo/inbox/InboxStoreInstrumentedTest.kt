@@ -189,12 +189,28 @@ class InboxStoreInstrumentedTest {
         assertEquals(message("tm-1"), dao.get("tm-1"))
     }
 
+    /**
+     * A repository over a fresh data source holding one message for company A and one for company B.
+     * Each capture is checked, so a failed write cannot let a clear test pass on an empty store.
+     */
+    private fun repositoryWithTwoCompanies(dataSource: RoomInboxDataSource): KlaviyoInboxRepository =
+        KlaviyoInboxRepository(dataSource).also { repository ->
+            runBlocking {
+                assertEquals(
+                    InboxCaptureResult.CAPTURED,
+                    repository.capture(message("a1", companyId = "A"))
+                )
+                assertEquals(
+                    InboxCaptureResult.CAPTURED,
+                    repository.capture(message("b1", companyId = "B"))
+                )
+            }
+        }
+
     @Test
     fun clearByCompanyIdReachesTheStoreThroughTheRepository() = runBlocking {
         val dataSource = RoomInboxDataSource(context, databaseName)
-        val repository = KlaviyoInboxRepository(dataSource)
-        repository.capture(message("a1", companyId = "A"))
-        repository.capture(message("b1", companyId = "B"))
+        val repository = repositoryWithTwoCompanies(dataSource)
 
         repository.clearByCompanyId("A")
         dataSource.close()
@@ -207,9 +223,7 @@ class InboxStoreInstrumentedTest {
     @Test
     fun clearAllReachesTheStoreThroughTheRepository() = runBlocking {
         val dataSource = RoomInboxDataSource(context, databaseName)
-        val repository = KlaviyoInboxRepository(dataSource)
-        repository.capture(message("a1", companyId = "A"))
-        repository.capture(message("b1", companyId = "B"))
+        val repository = repositoryWithTwoCompanies(dataSource)
 
         repository.clearAll()
         dataSource.close()
