@@ -27,18 +27,22 @@ import org.junit.Test
 internal class InboxCaptureObserverTest : BaseTest() {
 
     /**
-     * Deduplicates on [InboxCaptureRecord.dedupeKey], as the store does
+     * Deduplicates on [InboxMessageEntity.transmissionId], as the store does
      */
     private class FakeInboxRepository : InboxRepository {
-        val records = mutableMapOf<String, InboxCaptureRecord>()
+        val records = mutableMapOf<String, InboxMessageEntity>()
         val results = mutableListOf<InboxCaptureResult>()
 
-        override suspend fun capture(record: InboxCaptureRecord): InboxCaptureResult =
-            if (records.putIfAbsent(record.dedupeKey, record) == null) {
+        override suspend fun capture(message: InboxMessageEntity): InboxCaptureResult =
+            if (records.putIfAbsent(message.transmissionId, message) == null) {
                 InboxCaptureResult.CAPTURED
             } else {
                 InboxCaptureResult.DUPLICATE
             }.also { results += it }
+
+        override suspend fun clearByCompanyId(companyId: String) = Unit
+
+        override suspend fun clearAll() = Unit
     }
 
     private val repository = FakeInboxRepository()
@@ -86,6 +90,13 @@ internal class InboxCaptureObserverTest : BaseTest() {
         val record = repository.records[TRANSMISSION_ID]
         assertEquals("Sale today", record?.title)
         assertEquals(TIME, record?.receivedAt)
+    }
+
+    @Test
+    fun `a push is captured under the configured company`() {
+        capture()
+
+        assertEquals(API_KEY, repository.records[TRANSMISSION_ID]?.companyId)
     }
 
     @Test
@@ -145,14 +156,15 @@ internal class InboxCaptureObserverTest : BaseTest() {
     }
 
     @Test
-    fun `a failed store result is logged as a warning`() {
+    fun `a failed store result is not logged again because the repository logs the cause`() {
         val failing = mockk<InboxRepository>()
         coEvery { failing.capture(any()) } returns InboxCaptureResult.FAILED
         Registry.register<InboxRepository>(failing)
 
         capture()
 
-        verify { spyLog.warning(any(), any()) }
+        verify(exactly = 0) { spyLog.warning(any(), any()) }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
     }
 
     @Test

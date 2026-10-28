@@ -6,6 +6,7 @@ import com.klaviyo.pushFcm.PushNotificationDispatcher
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.After
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -23,7 +24,26 @@ internal class InboxInitProviderTest : BaseTest() {
     @After
     override fun cleanup() {
         Registry.unregister<PushNotificationDispatcher>()
+        Registry.unregister<InboxRepository>()
         super.cleanup()
+    }
+
+    @Test
+    fun `onCreate registers the repository without opening the store`() {
+        InboxInitProvider().onCreate()
+
+        assertTrue(Registry.isRegistered<InboxRepository>())
+        verify(exactly = 0) { mockConfig.applicationContext }
+    }
+
+    @Test
+    fun `onCreate keeps a repository that is already registered`() {
+        val existing = mockk<InboxRepository>()
+        Registry.register<InboxRepository>(existing)
+
+        InboxInitProvider().onCreate()
+
+        assertSame(existing, Registry.getOrNull<InboxRepository>())
     }
 
     @Test

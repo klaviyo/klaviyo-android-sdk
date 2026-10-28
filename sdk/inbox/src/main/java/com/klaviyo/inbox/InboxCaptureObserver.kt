@@ -5,7 +5,7 @@ import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.safeLaunch
-import com.klaviyo.inbox.InboxPushNormalizer.toInboxCaptureRecord
+import com.klaviyo.inbox.InboxPushNormalizer.toInboxMessageEntity
 import com.klaviyo.pushFcm.KlaviyoNotificationObserver
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -35,7 +35,10 @@ internal object InboxCaptureObserver : KlaviyoNotificationObserver {
         try {
             if (!canCapture()) return
 
-            val record = message.toInboxCaptureRecord(Registry.clock.currentTimeMillis()) ?: run {
+            val entity = message.toInboxMessageEntity(
+                companyId = Registry.config.apiKey,
+                receivedAt = Registry.clock.currentTimeMillis()
+            ) ?: run {
                 Registry.log.debug("Mobile Inbox skipped a push without a transmission ID")
                 return
             }
@@ -48,12 +51,8 @@ internal object InboxCaptureObserver : KlaviyoNotificationObserver {
             val written = CountDownLatch(1)
             CoroutineScope(Registry.dispatcher).safeLaunch {
                 try {
-                    when (val result = repository.capture(record)) {
-                        InboxCaptureResult.FAILED -> Registry.log.warning(
-                            "Mobile Inbox failed to store a push"
-                        )
-                        else -> Registry.log.verbose("Mobile Inbox capture result: $result")
-                    }
+                    val result = repository.capture(entity)
+                    Registry.log.verbose("Mobile Inbox capture result: $result")
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Throwable) {

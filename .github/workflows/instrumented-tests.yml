@@ -1,5 +1,5 @@
 # Workflow for running Android instrumented tests across multiple API levels
-# Runs on master, release branches, and PRs with specific labels
+# Runs on master, release branches, PRs with specific labels, and PRs that touch the inbox module
 
 name: Instrumented Tests
 
@@ -15,30 +15,73 @@ on:
     branches:
       - 'master'
       - 'rel/*'
-  
-  # Run on PRs when specific labels are added or when labeled PRs are updated
+
+  # Run on PR updates so path-triggered runs see new commits, and when labels are added
   pull_request:
-    types: [ labeled ]
+    types: [ opened, synchronize, reopened, labeled ]
+
+# A newer commit on a PR replaces the run for the older one. Pushes to branches always finish.
+# A label other than test:all starts no tests, so it gets a group of its own and cannot cancel a
+# run that is still going.
+concurrency:
+  group: >-
+    instrumented-tests-${{ github.event.pull_request.number || github.ref }}${{
+    github.event.action == 'labeled' && github.event.label.name != 'test:all' && '-unrelated-label' || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Decides whether the instrumented tests run, and which tasks and API levels they cover:
+  #   - pushes to master and rel/*, and PRs labeled test:all: every suite (sample, core, inbox) on every API level
+  #   - other PRs that touch the inbox module or its build setup: the inbox suite on API 23
+  #   - everything else: nothing
+  changes:
+    name: Select Tests
+    runs-on: ubuntu-22.04
+    # Labeling a PR with anything but test:all starts no run, so a later label cannot report a second
+    # result for a commit that already has one
+    if: github.event.action != 'labeled' || github.event.label.name == 'test:all'
+    outputs:
+      run: ${{ steps.select.outputs.run }}
+      matrix: ${{ steps.select.outputs.matrix }}
+      tasks: ${{ steps.select.outputs.tasks }}
+    steps:
+      - name: Select tests
+        id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          HAS_ALL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'test:all') }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$EVENT" = "push" ] || [ "$HAS_ALL_LABEL" = "true" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo 'matrix=[{"api-level":23,"arch":"x86"},{"api-level":36,"arch":"x86_64"}]' >> "$GITHUB_OUTPUT"
+            echo "tasks=:sample:connectedAndroidTest :sdk:core:connectedAndroidTest :sdk:inbox:connectedAndroidTest" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files=$(gh api "repos/$REPO/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename')
+          if echo "$files" | grep -qE '^(sdk/inbox/|versions\.properties$|build\.gradle\.kts$|sdk/build\.gradle\.kts$|\.github/workflows/instrumented-tests\.yml$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo 'matrix=[{"api-level":23,"arch":"x86"}]' >> "$GITHUB_OUTPUT"
+            echo "tasks=:sdk:inbox:connectedAndroidTest" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # Main instrumented tests job
   instrumented-tests:
     name: Run
     runs-on: ubuntu-22.04
+    needs: changes
 
-    # Run if: push to branches OR PR with test:all label
-    if: |
-      github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test:all'))
+    if: needs.changes.outputs.run == 'true'
 
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - api-level: 23
-            arch: x86
-          - api-level: 36
-            arch: x86_64
+        include: ${{ fromJSON(needs.changes.outputs.matrix) }}
 
     timeout-minutes: 15
 
@@ -100,7 +143,7 @@ jobs:
           disable-animations: true
           script: |
             echo "Running instrumented tests on API ${{ steps.api-setup.outputs.api_level }}"
-            ./gradlew :sample:connectedAndroidTest --stacktrace --no-daemon
+            ./gradlew ${{ needs.changes.outputs.tasks }} --stacktrace --no-daemon
             echo "Instrumented tests completed"
 
       - name: Upload test reports
@@ -111,6 +154,10 @@ jobs:
           path: |
             sample/build/reports/androidTests/connected/
             sample/build/outputs/androidTest-results/
+            sdk/core/build/reports/androidTests/connected/
+            sdk/core/build/outputs/androidTest-results/
+            sdk/inbox/build/reports/androidTests/connected/
+            sdk/inbox/build/outputs/androidTest-results/
           retention-days: 7
 
       - name: Upload test results
@@ -144,15 +191,35 @@ jobs:
                   text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
 
       - name: Update PR labels on success
-        if: success() && github.event_name == 'pull_request'
+        if: success() && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test:all')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr edit ${{ github.event.pull_request.number }} --remove-label "test:all"
 
       - name: Update PR labels on failure
-        if: failure() && github.event_name == 'pull_request'
+        if: failure() && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test:all')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr edit ${{ github.event.pull_request.number }} --remove-label "test:all"
+
+  # Reports a single, fixed check name whether the tests ran or were skipped, so it can be a
+  # required status check. The matrix job above is named by API level and reports a different name
+  # when skipped, so requiring it directly would leave PRs that skip it waiting forever.
+  instrumented-tests-result:
+    name: Instrumented Tests Result
+    needs: [ changes, instrumented-tests ]
+    if: always() && (github.event.action != 'labeled' || github.event.label.name == 'test:all')
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check the instrumented test outcome
+        env:
+          SELECT_RESULT: ${{ needs.changes.result }}
+          TESTS_RESULT: ${{ needs.instrumented-tests.result }}
+        run: |
+          [ "$SELECT_RESULT" = "success" ] || exit 1
+          case "$TESTS_RESULT" in
+            success|skipped) exit 0 ;;
+            *) exit 1 ;;
+          esac

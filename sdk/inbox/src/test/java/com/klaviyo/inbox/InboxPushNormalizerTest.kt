@@ -9,7 +9,7 @@ import com.klaviyo.inbox.InboxPushFixtures.actionButtons
 import com.klaviyo.inbox.InboxPushFixtures.canonicalPayload
 import com.klaviyo.inbox.InboxPushFixtures.remoteMessage
 import com.klaviyo.inbox.InboxPushFixtures.tracking
-import com.klaviyo.inbox.InboxPushNormalizer.toInboxCaptureRecord
+import com.klaviyo.inbox.InboxPushNormalizer.toInboxMessageEntity
 import io.mockk.verify
 import org.json.JSONObject
 import org.junit.After
@@ -38,7 +38,7 @@ internal class InboxPushNormalizerTest : BaseTest() {
     private fun normalize(
         data: Map<String, String> = canonicalPayload(),
         messageId: String? = FCM_MESSAGE_ID
-    ) = remoteMessage(data, messageId).toInboxCaptureRecord(receivedAt)
+    ) = remoteMessage(data, messageId).toInboxMessageEntity(API_KEY, receivedAt)
 
     private fun canonicalWith(vararg changes: Pair<String, String?>) = canonicalPayload().apply {
         changes.forEach { (key, value) -> if (value == null) remove(key) else put(key, value) }
@@ -46,8 +46,9 @@ internal class InboxPushNormalizerTest : BaseTest() {
 
     @Test
     fun `canonical payload maps every field`() {
-        val expected = InboxCaptureRecord(
-            dedupeKey = TRANSMISSION_ID,
+        val expected = InboxMessageEntity(
+            transmissionId = TRANSMISSION_ID,
+            companyId = API_KEY,
             title = "Sale today",
             body = "Everything is 20% off",
             defaultDestination = InboxRecordDestination(
@@ -78,21 +79,32 @@ internal class InboxPushNormalizerTest : BaseTest() {
             collapseId = "sale-tag",
             badge = 3,
             receivedAt = receivedAt,
-            attribution = InboxAttribution(transmissionId = TRANSMISSION_ID)
+            attributionJson = null,
+            sortTime = SENT_AT_MILLIS
         )
 
-        val actual = normalize()?.let {
-            it.copy(
-                attribution = it.attribution.copy(rawTrackingJson = null)
-            )
-        }
+        assertEquals(expected, normalize()?.copy(attributionJson = null))
+    }
 
-        assertEquals(expected, actual)
+    @Test
+    fun `a push without a send time sorts by its receive time`() {
+        val entity = normalize(canonicalWith("_k" to tracking("timestamp" to null)))
+
+        assertNull(entity?.sentAt)
+        assertEquals(receivedAt, entity?.sortTime)
+    }
+
+    @Test
+    fun `new messages are unread and unarchived`() {
+        val entity = normalize()
+
+        assertFalse(entity?.isRead ?: true)
+        assertFalse(entity?.isArchived ?: true)
     }
 
     @Test
     fun `raw tracking data keeps every key except the push token`() {
-        val raw = JSONObject(normalize()?.attribution?.rawTrackingJson.orEmpty())
+        val raw = JSONObject(normalize()?.attributionJson.orEmpty())
 
         assertFalse(raw.has("pt"))
         assertEquals(TRANSMISSION_ID, raw.getString("tm"))
