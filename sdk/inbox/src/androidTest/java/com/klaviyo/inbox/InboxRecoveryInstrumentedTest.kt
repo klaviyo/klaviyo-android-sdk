@@ -190,7 +190,7 @@ class InboxRecoveryInstrumentedTest {
     }
 
     @Test
-    fun aStoreThatCannotBeWrittenReportsFailedKeepsItsMessagesAndRecoversWhenAccessReturns() {
+    fun aStoreThatCannotBeOpenedForWritingReportsFailedKeepsItsMessagesAndRecoversWhenAccessReturns() {
         seed(SEEDED)
         val repository = KlaviyoInboxRepository(dataSource())
         val directory = databaseFile.parentFile ?: error("database directory missing")
@@ -218,6 +218,41 @@ class InboxRecoveryInstrumentedTest {
             "a transient failure must not delete stored messages",
             InboxCaptureResult.DUPLICATE,
             runBlocking { repository.capture(message("seed-0")) }
+        )
+    }
+
+    @Test
+    fun aWriteThatFailsOnAnOpenStoreReportsFailedAndTheMessagesSurviveARestart() {
+        seed(SEEDED)
+        val source = dataSource()
+        val repository = KlaviyoInboxRepository(source)
+        assertEquals(
+            InboxCaptureResult.CAPTURED,
+            runBlocking { repository.capture(message("opened")) }
+        )
+
+        // Closing the open database under the repository makes the next insert throw
+        source.close()
+
+        assertEquals(
+            InboxCaptureResult.FAILED,
+            runBlocking { repository.capture(message("while-failing")) }
+        )
+        assertEquals(
+            "a later capture on a store that stays closed still reports FAILED without throwing",
+            InboxCaptureResult.FAILED,
+            runBlocking { repository.capture(message("still-failing")) }
+        )
+
+        val restarted = KlaviyoInboxRepository(dataSource())
+        assertEquals(
+            InboxCaptureResult.CAPTURED,
+            runBlocking { restarted.capture(message("after-restart")) }
+        )
+        assertEquals(
+            "messages stored before the failure are still there",
+            InboxCaptureResult.DUPLICATE,
+            runBlocking { restarted.capture(message("opened")) }
         )
     }
 
