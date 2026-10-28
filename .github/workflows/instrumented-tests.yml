@@ -21,8 +21,12 @@ on:
     types: [ opened, synchronize, reopened, labeled ]
 
 # A newer commit on a PR replaces the run for the older one. Pushes to branches always finish.
+# A label other than test:all starts no tests, so it gets a group of its own and cannot cancel a
+# run that is still going.
 concurrency:
-  group: instrumented-tests-${{ github.event.pull_request.number || github.ref }}
+  group: >-
+    instrumented-tests-${{ github.event.pull_request.number || github.ref }}${{
+    github.event.action == 'labeled' && github.event.label.name != 'test:all' && '-unrelated-label' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
