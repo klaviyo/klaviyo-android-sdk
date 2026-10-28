@@ -2,6 +2,7 @@ package com.klaviyo.forms.bridge
 
 import android.content.Intent
 import android.net.Uri
+import android.view.View
 import androidx.webkit.WebMessageCompat
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
@@ -652,6 +653,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
     private fun setupJsBridge() {
         Registry.register<JsBridge>(mockJsBridge)
+        every { mockWebViewClient.getWebView() } returns mockk<View>()
     }
 
     private fun cleanupJsBridge() {
@@ -875,5 +877,61 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         Registry.unregister<FormLifecycleHandler>()
         cleanupJsBridge()
+    }
+
+    @Test
+    fun `retained gate accept does not reach replacement webview`() {
+        verifyRetiredGateDecisionIsIgnored { it.accept() }
+    }
+
+    @Test
+    fun `retained gate reject does not reach replacement webview`() {
+        verifyRetiredGateDecisionIsIgnored { it.reject() }
+    }
+
+    private fun verifyRetiredGateDecisionIsIgnored(
+        decide: (FormLifecycleEvent.FormWillDisplay) -> Unit
+    ) {
+        setupJsBridge()
+        val events = mutableListOf<FormLifecycleEvent.FormWillDisplay>()
+        val handler = FormLifecycleHandler { event ->
+            if (event is FormLifecycleEvent.FormWillDisplay) events.add(event)
+        }
+        Registry.register<FormLifecycleHandler>(handler)
+        val message = """{"type":"formWillOpenQuery","data":{"formId":"abc","formType":"POPUP"}}"""
+        postMessage(message)
+
+        every { mockWebViewClient.getWebView() } returns mockk<View>()
+        postMessage(message)
+        decide(events.first())
+
+        verify(exactly = 0) { mockJsBridge.formWillOpenContinuation(any(), any()) }
+        events.last().reject()
+        verify(exactly = 1) { mockJsBridge.formWillOpenContinuation("abc", false) }
+        Registry.unregister<FormLifecycleHandler>()
+    }
+
+    @Test
+    fun `retired gate timeout does not reach replacement webview`() {
+        setupJsBridge()
+        val events = mutableListOf<FormLifecycleEvent.FormWillDisplay>()
+        val handler = FormLifecycleHandler { event ->
+            if (event is FormLifecycleEvent.FormWillDisplay) events.add(event)
+        }
+        Registry.register<FormLifecycleHandler>(handler)
+        val message = """{"type":"formWillOpenQuery","data":{"formId":"abc","formType":"POPUP"}}"""
+        postMessage(message)
+
+        staticClock.execute(1L)
+        every { mockWebViewClient.getWebView() } returns mockk<View>()
+        postMessage(message)
+        staticClock.execute(KlaviyoNativeBridge.FORM_GATING_TIMEOUT_MS - 1L)
+
+        verify(exactly = 0) { mockJsBridge.formWillOpenContinuation(any(), any()) }
+        staticClock.execute(1L)
+        events.last().reject()
+        verify(exactly = 1) { mockJsBridge.formWillOpenContinuation("abc", true) }
+        verify(exactly = 0) { mockJsBridge.formWillOpenContinuation("abc", false) }
+        Registry.unregister<FormLifecycleHandler>()
     }
 }

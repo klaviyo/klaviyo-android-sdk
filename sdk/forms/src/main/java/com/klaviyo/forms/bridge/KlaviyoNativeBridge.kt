@@ -228,6 +228,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
      */
     private fun queryFormDisplay(message: FormWillOpenQuery) {
         val formId = message.formId
+        val originatingWebView = Registry.getOrNull<WebViewClient>()?.getWebView() ?: return
 
         if (formId.isEmpty()) {
             Registry.log.warning("formWillOpenQuery received with empty formId")
@@ -246,7 +247,9 @@ internal class KlaviyoNativeBridge : NativeBridge {
         fun sendContinuation(allowed: Boolean) {
             timeoutCancellable.cancel()
             Registry.threadHelper.runOnUiThread {
-                Registry.get<JsBridge>().formWillOpenContinuation(formId, allowed)
+                if (Registry.getOrNull<WebViewClient>()?.getWebView() === originatingWebView) {
+                    Registry.get<JsBridge>().formWillOpenContinuation(formId, allowed)
+                }
             }
         }
 
