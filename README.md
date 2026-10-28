@@ -1067,7 +1067,7 @@ The SDK does not time out your provider, so your code must:
 
 ### Monitoring Form Lifecycle Events
 
-> Form lifecycle events are available in SDK version 4.4.0 and higher. External URL CTA
+> The `FormShown`, `FormDismissed`, and `FormCtaClicked` notification events are available in SDK version 4.4.0 and higher. External URL CTA
 > routing and `event.deepLinkUrl` support for external URLs require SDK version 4.5.1 and higher.
 
 You can register a handler to accept or reject a form before display with `FormWillDisplay`, and receive notifications
