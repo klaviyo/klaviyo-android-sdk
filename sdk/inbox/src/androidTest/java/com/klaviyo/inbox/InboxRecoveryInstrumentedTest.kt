@@ -10,6 +10,7 @@ import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -84,24 +85,26 @@ class InboxRecoveryInstrumentedTest {
      * handler that leaves the file alone.
      */
     private fun assertDamagedFileIsRejectedAndKept() {
-        val keepFile = DatabaseErrorHandler { }
-        val rejected = try {
-            SQLiteDatabase.openDatabase(
-                databaseFile.path,
-                null,
-                SQLiteDatabase.OPEN_READONLY,
-                keepFile
-            ).use { db ->
-                db.rawQuery("PRAGMA integrity_check", null).use { cursor ->
-                    !(cursor.moveToFirst() && cursor.getString(0) == "ok")
-                }
-            }
-        } catch (e: SQLiteException) {
-            true
-        }
-
-        assertTrue("SQLite accepted a file that should be damaged", rejected)
+        assertFalse("SQLite accepted a file that should be damaged", databasePassesIntegrityCheck())
         assertTrue("checking the file must not delete it", databaseFile.exists())
+    }
+
+    /**
+     * Whether SQLite accepts the file as a database, opened with a handler that never deletes it
+     */
+    private fun databasePassesIntegrityCheck(): Boolean = try {
+        SQLiteDatabase.openDatabase(
+            databaseFile.path,
+            null,
+            SQLiteDatabase.OPEN_READONLY,
+            DatabaseErrorHandler { }
+        ).use { db ->
+            db.rawQuery("PRAGMA integrity_check", null).use { cursor ->
+                cursor.moveToFirst() && cursor.getString(0) == "ok"
+            }
+        }
+    } catch (e: SQLiteException) {
+        false
     }
 
     private fun insertsAfterDamage(): InboxInsertResult = runBlocking {
@@ -144,6 +147,8 @@ class InboxRecoveryInstrumentedTest {
 
         damage { ByteArray(0) }
 
+        assertEquals("the file must really be empty", 0L, databaseFile.length())
+        assertTrue("SQLite must accept an empty file as a database", databasePassesIntegrityCheck())
         assertEquals(InboxInsertResult.INSERTED, insertsAfterDamage())
     }
 
