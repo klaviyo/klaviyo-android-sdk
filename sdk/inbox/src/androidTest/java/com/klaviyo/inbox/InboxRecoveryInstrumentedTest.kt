@@ -66,10 +66,12 @@ class InboxRecoveryInstrumentedTest {
         openSources.remove(source)
     }
 
-    private fun damage(change: (ByteArray) -> Unit) {
-        val bytes = databaseFile.readBytes()
-        change(bytes)
-        databaseFile.writeBytes(bytes)
+    /**
+     * Rewrites the closed database file with the bytes [change] returns, and drops the journal
+     * files so SQLite reads only the rewritten file
+     */
+    private fun damage(change: (ByteArray) -> ByteArray) {
+        databaseFile.writeBytes(change(databaseFile.readBytes()))
         File(databaseFile.path + "-wal").delete()
         File(databaseFile.path + "-shm").delete()
     }
@@ -110,7 +112,7 @@ class InboxRecoveryInstrumentedTest {
     fun aFileOverwrittenWithGarbageIsReplacedAndAcceptsMessages() {
         seed(SEEDED)
 
-        damage { bytes -> bytes.fill(GARBAGE) }
+        damage { bytes -> bytes.also { it.fill(GARBAGE) } }
 
         assertDamagedFileIsRejectedAndKept()
         assertEquals(InboxInsertResult.INSERTED, insertsAfterDamage())
@@ -120,7 +122,7 @@ class InboxRecoveryInstrumentedTest {
     fun aDamagedHeaderIsReplacedAndAcceptsMessages() {
         seed(SEEDED)
 
-        damage { bytes -> repeat(HEADER_BYTES) { bytes[it] = GARBAGE } }
+        damage { bytes -> bytes.also { repeat(HEADER_BYTES) { i -> it[i] = GARBAGE } } }
 
         assertDamagedFileIsRejectedAndKept()
         assertEquals(InboxInsertResult.INSERTED, insertsAfterDamage())
@@ -129,9 +131,8 @@ class InboxRecoveryInstrumentedTest {
     @Test
     fun aTruncatedFileIsReplacedAndAcceptsMessages() {
         seed(SEEDED)
-        databaseFile.writeBytes(databaseFile.readBytes().copyOf(HEADER_BYTES))
-        File(databaseFile.path + "-wal").delete()
-        File(databaseFile.path + "-shm").delete()
+
+        damage { bytes -> bytes.copyOf(HEADER_BYTES) }
 
         assertDamagedFileIsRejectedAndKept()
         assertEquals(InboxInsertResult.INSERTED, insertsAfterDamage())
@@ -140,9 +141,8 @@ class InboxRecoveryInstrumentedTest {
     @Test
     fun anEmptyFileIsAValidEmptyDatabaseThatAcceptsMessages() {
         seed(SEEDED)
-        databaseFile.writeBytes(ByteArray(0))
-        File(databaseFile.path + "-wal").delete()
-        File(databaseFile.path + "-shm").delete()
+
+        damage { ByteArray(0) }
 
         assertEquals(InboxInsertResult.INSERTED, insertsAfterDamage())
     }
@@ -152,7 +152,9 @@ class InboxRecoveryInstrumentedTest {
         seed(SEEDED)
 
         damage { bytes ->
-            for (i in maxOf(PAGE_BYTES, bytes.size - PAGE_BYTES) until bytes.size) bytes[i] = GARBAGE
+            bytes.also {
+                for (i in maxOf(PAGE_BYTES, it.size - PAGE_BYTES) until it.size) it[i] = GARBAGE
+            }
         }
 
         assertDamagedFileIsRejectedAndKept()
