@@ -27,6 +27,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.LifecycleException
+import com.klaviyo.core.identity.IdentityMonitor
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.takeIf
@@ -98,7 +99,10 @@ object Klaviyo {
 
         Registry.registerOnce<State> {
             KlaviyoState().also { state ->
-                Registry.register<StateSideEffects>(StateSideEffects(state))
+                StateSideEffects(state).also { sideEffects ->
+                    Registry.register<StateSideEffects>(sideEffects)
+                    Registry.register<IdentityMonitor>(sideEffects.identityMonitor)
+                }
             }
         }
 
