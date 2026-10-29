@@ -15,7 +15,9 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.core.Registry
+import com.klaviyo.forms.endFormsPreview
 import com.klaviyo.forms.registerForInAppForms
+import com.klaviyo.forms.startFormsPreview
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.location.KlaviyoGeofence
 import com.klaviyo.location.LocationManager
@@ -59,6 +61,13 @@ class SampleViewModel : ViewModel() {
         private set
 
     private val appliedJwt = AtomicReference("")
+
+    // Forms preview state: the pasted token is held in memory only
+    var formsPreviewToken by mutableStateOf("")
+        private set
+
+    var isFormsPreviewEnabled by mutableStateOf(false)
+        private set
 
     // Location permission state
     var hasLocationPermission by mutableStateOf(false)
@@ -239,6 +248,35 @@ class SampleViewModel : ViewModel() {
         isAuthTokenProviderRegistered = registered
     }
 
+    @UiThread
+    fun updateFormsPreviewToken(value: String) {
+        formsPreviewToken = value
+    }
+
+    /**
+     * Start a preview session with the pasted token, or end it when the field is blank.
+     */
+    @UiThread
+    fun applyFormsPreviewToken() {
+        val token = formsPreviewToken.trim()
+        if (token.isEmpty()) Klaviyo.endFormsPreview() else Klaviyo.startFormsPreview(token)
+    }
+
+    @UiThread
+    fun isFormsPreviewTokenValid(): Boolean =
+        formsPreviewToken.trim().matches(Regex("^[A-Za-z0-9_-]{43}$"))
+
+    @UiThread
+    fun updateFormsPreviewEnabled(enabled: Boolean) {
+        if (enabled == isFormsPreviewEnabled) return
+        if (!enabled) {
+            // Return to published forms and drop the token from memory
+            Klaviyo.endFormsPreview()
+            formsPreviewToken = ""
+        }
+        isFormsPreviewEnabled = enabled
+    }
+
     // Push notification actions
     @UiThread
     fun updateNotificationPermission(hasPermission: Boolean) {
@@ -322,6 +360,8 @@ class SampleViewModel : ViewModel() {
     override fun onCleared() {
         if (isAuthTokenProviderRegistered) Klaviyo.unregisterAuthTokenProvider()
         appliedJwt.set("")
+        if (isFormsPreviewEnabled) Klaviyo.endFormsPreview()
+        formsPreviewToken = ""
         super.onCleared()
         // Clean up geofence sync subscription to prevent memory leak
         // Note: this is an advanced API used for demonstration, not necessary for a typical integration

@@ -103,6 +103,20 @@ provider call. Replace the callback's pasted-token lookup with that request in y
 For this sample, paste and set a fresh token before the SDK next fetches one. Setting a value
 does not invalidate a cached token or trigger a fetch.
 
+## Previewing Draft In-App Forms
+
+To see an unpublished in-app form on a device, open the form in the Klaviyo in-app form editor,
+click **Preview on device** and copy the preview token. In the sample app, enable **Forms preview**
+to show the **Forms preview token** field, paste the token and tap the inline **Set** button. Forms
+restart in preview mode, and the draft form refreshes about every 4 seconds, so edits saved in the
+editor show up without restarting the app. Tokens expire after 30 minutes; mint a new one in the
+editor when that happens.
+
+Disable the toggle to end the preview; forms restart with published forms. The
+[preview example in SampleViewModel](./src/main/java/com/klaviyo/sample/SampleViewModel.kt) keeps the
+token in memory only and passes it to `Klaviyo.startFormsPreview`, then calls
+`Klaviyo.endFormsPreview` to stop; the token is never persisted or logged.
+
 ## Geofence Testing
 The sample app includes a map view for visualizing geofences that are currently being monitored.
 This is useful for testing and debugging your geofence configuration. Please note this uses an
