@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -93,6 +94,76 @@ class InboxProviderInstrumentedTest {
     @Test
     fun unreadCountIsZeroBeforeAnythingIsCaptured() = runBlocking {
         assertEquals(0, Klaviyo.mobileInbox.fetchUnreadCount())
+    }
+
+    private fun seedNumbered(count: Int) = runBlocking {
+        (1..count).forEach {
+            dataSource.insert(
+                message("m$it", COMPANY).copy(sentAt = it * 100L, sortTime = it * 100L),
+                LIMIT
+            )
+        }
+        dataSource.insert(message("other", OTHER_COMPANY), LIMIT)
+    }
+
+    @Test
+    fun pagesThroughTheEntryPointFollowTheCursorAndStayInTheConfiguredCompany() = runBlocking {
+        seedNumbered(5)
+
+        val first = Klaviyo.mobileInbox.fetchPage(InboxQuery(pageSize = 2))
+        val second = Klaviyo.mobileInbox.fetchPage(
+            InboxQuery(pageSize = 2, cursor = first.nextCursor)
+        )
+        val third = Klaviyo.mobileInbox.fetchPage(
+            InboxQuery(pageSize = 2, cursor = second.nextCursor)
+        )
+
+        assertEquals(listOf("m5", "m4"), first.messages.map { it.id })
+        assertEquals(listOf("m3", "m2"), second.messages.map { it.id })
+        assertEquals(listOf("m1"), third.messages.map { it.id })
+        assertNull(third.nextCursor)
+    }
+
+    @Test
+    fun aPageIsEmptyBeforeAnythingIsCaptured() = runBlocking {
+        val page = Klaviyo.mobileInbox.fetchPage()
+
+        assertTrue(page.messages.isEmpty())
+        assertNull(page.nextCursor)
+    }
+
+    @Test
+    fun aGarbageCursorIsRejectedThroughTheEntryPoint() = runBlocking {
+        val error = try {
+            Klaviyo.mobileInbox.fetchPage(InboxQuery(cursor = InboxCursor("garbage")))
+            null
+        } catch (e: InboxException) {
+            e
+        }
+
+        assertEquals(InboxException.Reason.INVALID_CURSOR, error?.reason)
+    }
+
+    @Test
+    fun javaCallbackReceivesAPageOnTheMainThread() {
+        seedNumbered(3)
+        val delivered = CountDownLatch(1)
+        var result: InboxResult<InboxPage>? = null
+        var onMainThread = false
+
+        KlaviyoInbox.fetchPage(InboxQuery(pageSize = 2)) {
+            onMainThread = Looper.myLooper() == Looper.getMainLooper()
+            result = it
+            delivered.countDown()
+        }
+
+        assertTrue(
+            "callback was not called",
+            delivered.await(CALLBACK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        )
+        assertTrue("callback was not on the main thread", onMainThread)
+        val page = (result as? InboxResult.Success<InboxPage>)?.value
+        assertEquals(listOf("m3", "m2"), page?.messages?.map { it.id })
     }
 
     @Test

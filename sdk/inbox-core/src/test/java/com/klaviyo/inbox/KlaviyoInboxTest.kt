@@ -58,6 +58,42 @@ class KlaviyoInboxTest : BaseTest() {
     }
 
     @Test
+    fun `fetchPage delivers the page for the query`() {
+        val query = InboxQuery(pageSize = 5, cursor = InboxCursor("token"))
+        var result: InboxResult<InboxPage>? = null
+
+        KlaviyoInbox.fetchPage(query) { result = it }
+
+        assertSame(inbox.page, assertIs<InboxResult.Success<InboxPage>>(result).value)
+        assertEquals(listOf(query), inbox.queries)
+    }
+
+    @Test
+    fun `fetchPage without a query asks for the first page`() {
+        KlaviyoInbox.fetchPage { }
+
+        assertEquals(listOf(InboxQuery()), inbox.queries)
+    }
+
+    @Test
+    fun `an invalid cursor reaches the callback as a failure`() {
+        val failure = InboxException(InboxException.Reason.INVALID_CURSOR, "bad cursor")
+        inbox.failure = failure
+        var result: InboxResult<InboxPage>? = null
+
+        KlaviyoInbox.fetchPage { result = it }
+
+        assertSame(failure, assertIs<InboxResult.Failure>(result).exception)
+    }
+
+    @Test
+    fun `the Java entry point for pages throws when the inbox module is absent`() {
+        inbox.unregister()
+
+        assertThrows(MissingKlaviyoModule::class.java) { KlaviyoInbox.fetchPage { } }
+    }
+
+    @Test
     fun `fetchUnreadCount delivers the count`() {
         inbox.unreadCount = 4
         var result: InboxResult<Int>? = null

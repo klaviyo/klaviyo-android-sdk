@@ -10,11 +10,24 @@ import org.junit.Test;
 public class MobileInboxJavaApiTest {
 
     @Test
+    public void queryIsBuiltWithOverloadedConstructors() {
+        assertEquals(20, new InboxQuery().getPageSize());
+        assertEquals(5, new InboxQuery(5).getPageSize());
+        InboxCursor cursor = new InboxCursor("token");
+        assertEquals(cursor, new InboxQuery(10, cursor).getCursor());
+    }
+
+    @Test
     public void callbacksAreLambdaCompatible() {
+        InboxPageCallback page = result -> { };
         InboxCountCallback count = result -> { };
 
-        // Compiles only if the Java entry point accepts the callback type
-        Runnable unused = () -> KlaviyoInbox.fetchUnreadCount(count);
+        // Compiles only if the Java entry points accept these types
+        Runnable unused = () -> {
+            KlaviyoInbox.fetchPage(page);
+            KlaviyoInbox.fetchPage(new InboxQuery(), page);
+            KlaviyoInbox.fetchUnreadCount(count);
+        };
     }
 
     @Test

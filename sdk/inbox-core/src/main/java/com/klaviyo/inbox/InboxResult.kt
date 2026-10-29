@@ -11,7 +11,10 @@ class InboxException(
 
     enum class Reason {
         /** The on-device store could not complete the call */
-        STORAGE_FAILURE
+        STORAGE_FAILURE,
+
+        /** The cursor is malformed, or did not come from a page of this inbox */
+        INVALID_CURSOR
     }
 }
 
@@ -26,6 +29,11 @@ sealed class InboxResult<out T> {
     class Failure(val exception: InboxException) : InboxResult<Nothing>() {
         override fun toString(): String = "Failure(${exception.reason})"
     }
+}
+
+/** Receives the result of [KlaviyoInbox.fetchPage] on the main thread */
+fun interface InboxPageCallback {
+    fun onResult(result: InboxResult<InboxPage>)
 }
 
 /** Receives the result of [KlaviyoInbox.fetchUnreadCount] on the main thread */

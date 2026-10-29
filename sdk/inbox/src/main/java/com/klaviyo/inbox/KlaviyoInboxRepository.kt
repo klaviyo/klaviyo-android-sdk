@@ -48,20 +48,38 @@ internal class KlaviyoInboxRepository(
         onFailure
     }
 
+    override suspend fun fetchPage(query: InboxQuery): InboxPage {
+        val after = InboxCursorCodec.decode(query)
+        val companyId = currentCompanyId() ?: return InboxPage(emptyList(), nextCursor = null)
+
+        val page = storeCall("fetch a page") {
+            dataSource.fetchPage(companyId, InboxRecordQuery(query.pageSize, after))
+        }
+
+        return InboxPage(
+            messages = page.messages.map { it.toInboxMessage() },
+            nextCursor = page.messages.lastOrNull()
+                ?.takeIf { page.hasMore }
+                ?.let(InboxCursorCodec::encode)
+        )
+    }
+
     override suspend fun fetchUnreadCount(): Int {
         val companyId = currentCompanyId() ?: return 0
-        return try {
-            dataSource.countUnread(companyId)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Registry.log.error("Mobile Inbox failed to count unread messages", e)
-            throw InboxException(
-                InboxException.Reason.STORAGE_FAILURE,
-                "Failed to count unread messages",
-                e
-            )
-        }
+        return storeCall("count unread messages") { dataSource.countUnread(companyId) }
+    }
+
+    /**
+     * Runs a store read, logging a failure with its cause and reporting it as [InboxException].
+     * Cancellation passes through.
+     */
+    private suspend fun <T> storeCall(action: String, call: suspend () -> T): T = try {
+        call()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Registry.log.error("Mobile Inbox failed to $action", e)
+        throw InboxException(InboxException.Reason.STORAGE_FAILURE, "Failed to $action", e)
     }
 
     /**

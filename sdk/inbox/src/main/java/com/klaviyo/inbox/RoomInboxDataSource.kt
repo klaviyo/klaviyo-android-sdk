@@ -45,6 +45,19 @@ internal class RoomInboxDataSource(
             InboxInsertResult.DUPLICATE
         }
 
+    override suspend fun fetchPage(companyId: String, query: InboxRecordQuery): InboxRecordPage {
+        if (!storeExists) return InboxRecordPage(emptyList(), hasMore = false)
+
+        // One extra row tells whether another page follows
+        val rows = dao.pageNewestFirst(
+            companyId,
+            query.after?.sortTime,
+            query.after?.transmissionId,
+            limit = query.pageSize + 1
+        )
+        return InboxRecordPage(rows.take(query.pageSize), hasMore = rows.size > query.pageSize)
+    }
+
     override suspend fun countUnread(companyId: String): Int =
         if (storeExists) dao.countUnread(companyId) else 0
 

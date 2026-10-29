@@ -10,6 +10,14 @@ internal interface InboxRepository {
     suspend fun capture(message: InboxMessageEntity): InboxCaptureResult
 
     /**
+     * One page of the current company's messages, newest first. Empty before the SDK is
+     * initialized.
+     *
+     * @throws InboxException when the cursor is invalid or the store fails
+     */
+    suspend fun fetchPage(query: InboxQuery): InboxPage
+
+    /**
      * The current company's unread, unarchived message count. Zero before the SDK is initialized.
      *
      * @throws InboxException when the store fails
