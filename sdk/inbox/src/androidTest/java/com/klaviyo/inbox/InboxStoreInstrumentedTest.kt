@@ -286,9 +286,176 @@ class InboxStoreInstrumentedTest {
         val source = RoomInboxDataSource(context, databaseName)
 
         assertEquals(0, source.countUnread(COMPANY))
+        assertTrue(source.fetchPage(COMPANY, InboxRecordQuery(10, null)).messages.isEmpty())
 
         assertFalse(context.getDatabasePath(databaseName).exists())
     }
+
+    private suspend fun RoomInboxDataSource.seed(vararg messages: InboxMessageEntity) =
+        messages.forEach { insert(it, LIMIT) }
+
+    private suspend fun RoomInboxDataSource.ids(
+        pageSize: Int,
+        after: InboxRecordPosition? = null,
+        companyId: String = COMPANY
+    ) = fetchPage(companyId, InboxRecordQuery(pageSize, after)).messages.map { it.transmissionId }
+
+    @Test
+    fun pagesRunNewestFirstBySortTime() = runBlocking {
+        val source = openSource()
+        source.seed(
+            message("old", sentAt = 100L),
+            message("unsent", sentAt = null, receivedAt = 400L),
+            message("new", sentAt = 500L),
+            message("mid", sentAt = 300L)
+        )
+
+        assertEquals(listOf("new", "unsent", "mid", "old"), source.ids(10))
+    }
+
+    @Test
+    fun pagingWalksEveryMessageOnceAndFlagsTheLastPage() = runBlocking {
+        val source = openSource()
+        source.seed(*(1..5).map { message("m$it", sentAt = it * 100L) }.toTypedArray())
+
+        val first = source.fetchPage(COMPANY, InboxRecordQuery(2, null))
+        val second = source.fetchPage(
+            COMPANY,
+            InboxRecordQuery(2, first.messages.last().position())
+        )
+        val third = source.fetchPage(
+            COMPANY,
+            InboxRecordQuery(2, second.messages.last().position())
+        )
+
+        assertEquals(listOf("m5", "m4"), first.messages.map { it.transmissionId })
+        assertTrue(first.hasMore)
+        assertEquals(listOf("m3", "m2"), second.messages.map { it.transmissionId })
+        assertTrue(second.hasMore)
+        assertEquals(listOf("m1"), third.messages.map { it.transmissionId })
+        assertFalse(third.hasMore)
+    }
+
+    @Test
+    fun aPageThatEndsExactlyAtTheLastMessageHasNoMore() = runBlocking {
+        val source = openSource()
+        source.seed(message("a", sentAt = 100L), message("b", sentAt = 200L))
+
+        val page = source.fetchPage(COMPANY, InboxRecordQuery(2, null))
+
+        assertEquals(2, page.messages.size)
+        assertFalse(page.hasMore)
+    }
+
+    @Test
+    fun messagesSharingASortTimeAreOrderedAndPagedByID() = runBlocking {
+        val source = openSource()
+        source.seed(
+            message("a", sentAt = 100L),
+            message("b", sentAt = 100L),
+            message("c", sentAt = 100L)
+        )
+
+        val first = source.fetchPage(COMPANY, InboxRecordQuery(1, null))
+        val second = source.fetchPage(
+            COMPANY,
+            InboxRecordQuery(1, first.messages.last().position())
+        )
+
+        assertEquals(listOf("c"), first.messages.map { it.transmissionId })
+        assertEquals(listOf("b"), second.messages.map { it.transmissionId })
+        assertEquals(listOf("a"), source.ids(5, second.messages.last().position()))
+    }
+
+    @Test
+    fun aMessageCapturedBetweenPagesDoesNotShiftTheNextPage() = runBlocking {
+        val source = openSource()
+        source.seed(
+            message("a", sentAt = 100L),
+            message("b", sentAt = 200L),
+            message("c", sentAt = 300L)
+        )
+
+        val first = source.fetchPage(COMPANY, InboxRecordQuery(1, null))
+        source.seed(message("newer", sentAt = 900L))
+
+        assertEquals(listOf("c"), first.messages.map { it.transmissionId })
+        assertEquals(listOf("b", "a"), source.ids(5, first.messages.last().position()))
+    }
+
+    @Test
+    fun aMessageRemovedBetweenPagesDoesNotSkipTheNextOne() = runBlocking {
+        val source = openSource()
+        source.seed(
+            message("a", sentAt = 100L),
+            message("b", sentAt = 200L),
+            message("c", sentAt = 300L)
+        )
+
+        val first = source.fetchPage(COMPANY, InboxRecordQuery(1, null))
+        source.clearByCompanyId(COMPANY)
+        source.seed(message("a", sentAt = 100L), message("b", sentAt = 200L))
+
+        assertEquals(listOf("b", "a"), source.ids(5, first.messages.last().position()))
+    }
+
+    @Test
+    fun pagesAreScopedToTheCompany() = runBlocking {
+        val source = openSource()
+        source.seed(
+            message("mine", companyId = "A", sentAt = 100L),
+            message("theirs", companyId = "B", sentAt = 200L)
+        )
+
+        assertEquals(listOf("mine"), source.ids(10, companyId = "A"))
+        assertEquals(listOf("theirs"), source.ids(10, companyId = "B"))
+        assertTrue(source.ids(10, companyId = "C").isEmpty())
+    }
+
+    @Test
+    fun pagesIncludeReadAndArchivedMessages() = runBlocking {
+        val source = openSource()
+        source.seed(
+            message("unread", sentAt = 300L),
+            message("read", sentAt = 200L).copy(isRead = true),
+            message("archived", sentAt = 100L).copy(isArchived = true)
+        )
+
+        assertEquals(listOf("unread", "read", "archived"), source.ids(10))
+    }
+
+    @Test
+    fun pagesSurviveRestart() = runBlocking {
+        val first = RoomInboxDataSource(context, databaseName)
+        first.seed(message("a", sentAt = 100L), message("b", sentAt = 200L))
+        first.close()
+
+        assertEquals(listOf("b", "a"), openSource().ids(10))
+    }
+
+    @Test
+    fun pagesReflectRetention() = runBlocking {
+        val source = openSource()
+        source.insert(message("old", sentAt = 100L), 2)
+        source.insert(message("mid", sentAt = 200L), 2)
+        source.insert(message("new", sentAt = 300L), 2)
+
+        assertEquals(listOf("new", "mid"), source.ids(10))
+    }
+
+    @Test
+    fun aMessageReadsBackThroughAPageWithEveryField() = runBlocking {
+        val source = openSource()
+        val stored = message("tm-1", sentAt = 5_000L)
+        source.seed(stored)
+
+        assertEquals(
+            listOf(stored),
+            source.fetchPage(COMPANY, InboxRecordQuery(10, null)).messages
+        )
+    }
+
+    private fun InboxMessageEntity.position() = InboxRecordPosition(sortTime, transmissionId)
 
     @Test
     fun exportedVersionOneSchemaMatchesTheEntity() {

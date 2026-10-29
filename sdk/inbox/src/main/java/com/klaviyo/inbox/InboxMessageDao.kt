@@ -59,6 +59,32 @@ internal abstract class InboxMessageDao {
     abstract suspend fun transmissionIdsByCompanyId(companyId: String): List<String>
 
     /**
+     * One page of the company's messages, newest first by sort time. A null [afterSortTime]
+     * starts at the newest message.
+     *
+     * Pages by keyset on (sortTime, transmissionId), the order the index and retention use, so a
+     * message captured or removed between pages never shifts the page boundary.
+     */
+    @Query(
+        """
+        SELECT * FROM ${InboxMessageEntity.TABLE_NAME}
+        WHERE companyId = :companyId
+            AND (
+                :afterSortTime IS NULL OR sortTime < :afterSortTime
+                OR (sortTime = :afterSortTime AND transmissionId < :afterId)
+            )
+        ORDER BY sortTime DESC, transmissionId DESC
+        LIMIT :limit
+        """
+    )
+    abstract suspend fun pageNewestFirst(
+        companyId: String,
+        afterSortTime: Long?,
+        afterId: String?,
+        limit: Int
+    ): List<InboxMessageEntity>
+
+    /**
      * The company's messages that are neither read nor archived
      */
     @Query(
