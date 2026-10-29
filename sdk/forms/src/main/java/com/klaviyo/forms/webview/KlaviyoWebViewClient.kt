@@ -32,6 +32,7 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.preview.FormsPreviewTokenStore
 import java.io.BufferedReader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -119,6 +120,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         val jsBridge = Registry.get<JsBridge>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
         val jwt = token?.takeIf { Registry.get<AuthTokenManager>().isCurrentToken(it) }.orEmpty()
+        // Already validated by the store; escaped with the other values below
+        val previewToken = Registry.getOrNull<FormsPreviewTokenStore>()?.token.orEmpty()
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
             .buildUpon()
@@ -144,6 +147,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
                 "FORMS_ENVIRONMENT" to Registry.config.formEnvironment.templateName,
                 "KLAVIYO_PROFILE" to Registry.get<State>().getAsProfile().toBridgeJson(),
                 "KLAVIYO_JWT" to jwt,
+                "KLAVIYO_FORMS_PREVIEW_TOKEN" to previewToken,
                 "DEVICE_INFO" to DeviceInfoProvider.current().toJson()
             )
         )

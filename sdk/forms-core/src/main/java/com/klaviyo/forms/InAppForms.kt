@@ -39,6 +39,39 @@ fun Klaviyo.unregisterFromInAppForms(): Klaviyo =
     } ?: throw MissingKlaviyoModule("forms")
 
 /**
+ * Start a draft in-app forms preview session with a preview token from the Klaviyo form editor.
+ *
+ * Starting a preview is like unregistering and registering again: if forms are registered, the
+ * current session is torn down, dismissing any form on screen, and a new session starts that loads
+ * draft forms for [token]. If [registerForInAppForms] hasn't been called yet, the token is held and
+ * the preview starts when forms register; no forms are shown before then.
+ *
+ * A preview token is a short-lived credential for on-device testing of draft forms. The token is
+ * held in memory only and is never persisted or logged. A malformed token is ignored with a warning
+ * and changes nothing. When the preview expires, the token is cleared and published forms return in
+ * the next session, such as after the next app launch. [unregisterFromInAppForms] also clears it.
+ *
+ * @param token The preview token.
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
+ */
+fun Klaviyo.startFormsPreview(token: String): Klaviyo =
+    Registry.getOrNull<FormsProvider>()?.let { provider ->
+        safeApply { provider.startPreview(token) }
+    } ?: throw MissingKlaviyoModule("forms")
+
+/**
+ * End the draft in-app forms preview session started by [startFormsPreview]. If forms are
+ * registered, the current session is torn down, dismissing any form on screen, and a new session
+ * starts that loads published forms.
+ *
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
+ */
+fun Klaviyo.endFormsPreview(): Klaviyo =
+    Registry.getOrNull<FormsProvider>()?.let { provider ->
+        safeApply { provider.endPreview() }
+    } ?: throw MissingKlaviyoModule("forms")
+
+/**
  * Register a handler to receive [FormLifecycleEvent] events.
  *
  * The handler is invoked whenever a form is shown, dismissed,
@@ -88,6 +121,29 @@ object KlaviyoForms {
     @UiThread
     fun unregisterFromInAppForms() {
         Klaviyo.unregisterFromInAppForms()
+    }
+
+    /**
+     * Start a draft in-app forms preview session.
+     * Java-friendly static method.
+     *
+     * @param token The preview token.
+     * @see Klaviyo.startFormsPreview
+     */
+    @JvmStatic
+    fun startFormsPreview(token: String) {
+        Klaviyo.startFormsPreview(token)
+    }
+
+    /**
+     * End the draft in-app forms preview session.
+     * Java-friendly static method.
+     *
+     * @see Klaviyo.endFormsPreview
+     */
+    @JvmStatic
+    fun endFormsPreview() {
+        Klaviyo.endFormsPreview()
     }
 
     /**

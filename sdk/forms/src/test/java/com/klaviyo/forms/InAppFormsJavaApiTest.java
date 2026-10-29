@@ -75,6 +75,28 @@ public class InAppFormsJavaApiTest extends BaseTest {
     }
 
     @Test
+    public void testStartFormsPreview() {
+        Klaviyo result = InAppFormsKt.startFormsPreview(Klaviyo.INSTANCE, "token");
+        assertEquals(Klaviyo.INSTANCE, result);
+        InAppFormsMock.verifyStartFormsPreviewCalled();
+    }
+
+    @Test
+    public void testEndFormsPreview() {
+        Klaviyo result = InAppFormsKt.endFormsPreview(Klaviyo.INSTANCE);
+        assertEquals(Klaviyo.INSTANCE, result);
+        InAppFormsMock.verifyEndFormsPreviewCalled();
+    }
+
+    @Test
+    public void testKlaviyoFormsStartAndEndPreview() {
+        KlaviyoForms.startFormsPreview("token");
+        KlaviyoForms.endFormsPreview();
+        InAppFormsMock.verifyKlaviyoFormsStartPreviewCalled();
+        InAppFormsMock.verifyKlaviyoFormsEndPreviewCalled();
+    }
+
+    @Test
     public void testKlaviyoFormsUnregister() {
         KlaviyoForms.unregisterFromInAppForms();
         InAppFormsMock.verifyKlaviyoFormsUnregisterCalled();

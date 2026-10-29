@@ -20,6 +20,8 @@ import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.presentation.PresentationState
+import com.klaviyo.forms.preview.FormsPreviewTokenStore
+import com.klaviyo.forms.preview.VALID_PREVIEW_TOKEN
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
@@ -36,6 +38,7 @@ import org.json.JSONException
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -85,6 +88,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.unregister<PresentationManager>()
         Registry.unregister<AuthTokenManager>()
         Registry.unregister<JsBridge>()
+        Registry.unregister<FormsPreviewTokenStore>()
         super.cleanup()
     }
 
@@ -627,6 +631,62 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         assertTrue(handshake.contains(HandshakeSpec("refreshJwt", 1)))
         assertTrue(handshake.contains(HandshakeSpec("jwtMutation", 1)))
+    }
+
+    private fun registerPreviewTokenStore(): FormsPreviewTokenStore =
+        FormsPreviewTokenStore().apply { setToken(VALID_PREVIEW_TOKEN) }
+            .also { Registry.register<FormsPreviewTokenStore>(it) }
+
+    @Test
+    fun `formsPreviewEnded clears the stored preview token`() {
+        val store = registerPreviewTokenStore()
+
+        postMessage("""{"type":"formsPreviewEnded","data":{"reason":"expired"}}""")
+
+        assertNull(store.token)
+        verify { spyLog.warning(match { it.contains("expired") }, null) }
+        verify(exactly = 0) { mockWebViewClient.destroyWebView() }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `formsPreviewEnded with a matching token clears the stored preview token`() {
+        val store = registerPreviewTokenStore()
+
+        postMessage(
+            """{"type":"formsPreviewEnded","data":{"reason":"expired","token":"$VALID_PREVIEW_TOKEN"}}"""
+        )
+
+        assertNull(store.token)
+        verify { spyLog.warning(match { it.contains("expired") }, null) }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `formsPreviewEnded with a mismatched token keeps the stored preview token`() {
+        val store = registerPreviewTokenStore()
+        val olderToken = VALID_PREVIEW_TOKEN.dropLast(1) + "a"
+
+        postMessage(
+            """{"type":"formsPreviewEnded","data":{"reason":"expired","token":"$olderToken"}}"""
+        )
+
+        assertEquals(VALID_PREVIEW_TOKEN, store.token)
+        verify { spyLog.debug(any(), null) }
+        verify(exactly = 0) { spyLog.warning(any(), null) }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `formsPreviewEnded without a token store is a no-op`() {
+        postMessage("""{"type":"formsPreviewEnded","data":{"reason":"ended"}}""")
+
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `handshake advertises forms preview support at version 1`() {
+        assertTrue(bridgeMessageHandler.handshake.contains(HandshakeSpec("formsPreviewEnded", 1)))
     }
 
     @Test
