@@ -16,7 +16,7 @@ import kotlin.time.Duration.Companion.seconds
  * @param eventReplayWindow Recent analytics history to replay after loading. Defaults to 10 seconds,
  *  clamps to 0 through 30 seconds, and does not affect live events.
  */
-class InAppFormsConfig(
+data class InAppFormsConfig(
     private val sessionTimeoutDuration: Duration = DEFAULT_SESSION_TIMEOUT,
     private val loadTimeout: Duration? = null,
     private val eventReplayWindow: Duration = DEFAULT_EVENT_REPLAY_WINDOW
@@ -34,12 +34,6 @@ class InAppFormsConfig(
      * Default config using 1 hour timeout
      */
     constructor() : this(DEFAULT_SESSION_TIMEOUT)
-
-    constructor(sessionTimeoutDuration: Duration) : this(
-        sessionTimeoutDuration,
-        null,
-        DEFAULT_EVENT_REPLAY_WINDOW
-    )
 
     /**
      * Secondary constructor allowing seconds as [Int] for Java compatibility
@@ -73,19 +67,6 @@ class InAppFormsConfig(
         Duration.ZERO,
         MAX_EVENT_REPLAY_WINDOW
     )
-
-    fun copy(sessionTimeoutDuration: Duration = this.sessionTimeoutDuration) =
-        InAppFormsConfig(sessionTimeoutDuration, loadTimeout, eventReplayWindow)
-
-    override fun equals(other: Any?): Boolean = other is InAppFormsConfig &&
-        sessionTimeoutDuration == other.sessionTimeoutDuration &&
-        loadTimeout == other.loadTimeout && eventReplayWindow == other.eventReplayWindow
-
-    override fun hashCode(): Int =
-        31 * (31 * sessionTimeoutDuration.hashCode() + (loadTimeout?.hashCode() ?: 0)) + eventReplayWindow.hashCode()
-
-    override fun toString(): String =
-        "InAppFormsConfig(sessionTimeoutDuration=$sessionTimeoutDuration, loadTimeout=$loadTimeout, eventReplayWindow=$eventReplayWindow)"
 
     /**
      * Returns the session timeout duration in seconds.

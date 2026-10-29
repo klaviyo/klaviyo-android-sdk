@@ -32,7 +32,7 @@ class InAppFormsConfigTest : BaseTest() {
     }
 
     @Test
-    fun `legacy copy keeps configured loading and replay values`() {
+    fun `copy keeps configured loading and replay values`() {
         val original = InAppFormsConfig(
             20.seconds,
             loadTimeout = 30.seconds,
