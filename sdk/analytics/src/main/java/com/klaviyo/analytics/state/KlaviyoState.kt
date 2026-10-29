@@ -224,25 +224,32 @@ internal class KlaviyoState : State {
         attributes = null
     }
 
-    override fun createEvent(event: Event, profile: Profile): Event = Registry.get<ApiClient>()
-        .enqueueEvent(event, profile)
-        .let { apiRequest ->
-            // Copy and enrich event with metadata and time (equivalent formating to the API request)
-            event.copy().apply {
-                uniqueId = uniqueId ?: apiRequest.uuid
-                setProperty(EventKey.TIME, apiRequest.queuedTime)
-                DeviceProperties.buildEventMetaData().forEach { entry ->
-                    setProperty(entry.key, entry.value)
+    override fun createEvent(event: Event, profile: Profile): Event {
+        val generation = bufferedEventGeneration
+        return Registry.get<ApiClient>()
+            .enqueueEvent(event, profile)
+            .let { apiRequest ->
+                // Copy and enrich event with metadata and time (equivalent formating to the API request)
+                event.copy().apply {
+                    uniqueId = uniqueId ?: apiRequest.uuid
+                    setProperty(EventKey.TIME, apiRequest.queuedTime)
+                    DeviceProperties.buildEventMetaData().forEach { entry ->
+                        setProperty(entry.key, entry.value)
+                    }
                 }
+            }.let { enrichedEvent ->
+                // Add enriched event to buffer for multi-consumer access
+                GenericEventBuffer.addEvent(enrichedEvent, generation)
+                eventObserver.forEach {
+                    if (it is ContextualProfileEventObserver) {
+                        it.invoke(enrichedEvent.copy(), generation)
+                    } else {
+                        it.invoke(enrichedEvent.copy())
+                    }
+                }
+                enrichedEvent.copy()
             }
-        }.let { enrichedEvent ->
-            // Add enriched event to buffer for multi-consumer access
-            GenericEventBuffer.addEvent(enrichedEvent)
-            eventObserver.forEach {
-                it?.invoke(enrichedEvent.copy())
-            }
-            enrichedEvent.copy()
-        }
+    }
 
     override fun onProfileEvent(observer: ProfileEventObserver) {
         eventObserver += observer
@@ -254,6 +261,11 @@ internal class KlaviyoState : State {
 
     override fun getBufferedEvents(): List<Event> =
         GenericEventBuffer.getEvents()
+
+    override fun getBufferedEvents(maxAgeMillis: Long): List<Event> =
+        GenericEventBuffer.getEvents(maxAgeMillis)
+
+    override val bufferedEventGeneration: Long get() = GenericEventBuffer.generation
 
     @AdvancedAPI
     override fun clearBufferedEvents() {
