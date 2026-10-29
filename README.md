@@ -1078,7 +1078,8 @@ Install the handler before calling `registerForInAppForms()` so it can handle ea
 The handler is invoked on the **main thread**: respond promptly and avoid long-running or blocking work inside it.
 For `FormWillDisplay`, call `accept()` to allow display or `reject()` to block it. The first decision wins;
 later calls are ignored. If no handler is registered, the handler throws before deciding, or no decision arrives
-before the SDK timeout, display is allowed (fail open).
+before the SDK's three-second deadline, display is allowed (fail open). Onsite's four-second fallback
+allows time for bridge delivery; it does not extend the host's decision window.
 
 <details open>
    <summary>Kotlin</summary>

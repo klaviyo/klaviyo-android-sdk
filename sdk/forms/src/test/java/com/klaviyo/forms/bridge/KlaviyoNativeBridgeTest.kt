@@ -796,7 +796,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `formWillOpenQuery timeout fires fail-open when handler does not respond`() {
+    fun `formWillOpenQuery fails open after three seconds without a response`() {
         setupJsBridge()
 
         // Handler that deliberately does NOT call accept or reject
@@ -810,8 +810,10 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         // Handler was called but didn't respond — no continuation yet
         verify(exactly = 0) { mockJsBridge.formWillOpenContinuation(any(), any()) }
 
-        // Advance clock past the timeout
-        staticClock.execute(KlaviyoNativeBridge.FORM_GATING_TIMEOUT_MS)
+        staticClock.execute(2_999L)
+        verify(exactly = 0) { mockJsBridge.formWillOpenContinuation(any(), any()) }
+
+        staticClock.execute(1L)
 
         // Timeout should have fired fail-open
         verify { mockJsBridge.formWillOpenContinuation("timeout123", true) }
