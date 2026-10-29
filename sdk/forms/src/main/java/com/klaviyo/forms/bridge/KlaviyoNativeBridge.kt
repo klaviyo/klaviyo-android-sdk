@@ -82,7 +82,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 is FormDisappeared -> close(bridgeMessage)
                 is Abort -> abort(bridgeMessage.reason)
                 RefreshJwt -> refreshJwt()
-                is FormsPreviewEnded -> formsPreviewEnded(bridgeMessage.reason)
+                is FormsPreviewEnded -> formsPreviewEnded(bridgeMessage)
             }
         } catch (e: Exception) {
             Registry.log.error("Failed to relay webview message: $message", e)
@@ -230,12 +230,25 @@ internal class KlaviyoNativeBridge : NativeBridge {
      * Handle a [FormsPreviewEnded] message by clearing the stored preview token. The current
      * webview is left in place, inert, and the next rebuild (app relaunch, session timeout or
      * company change) loads published forms.
+     *
+     * When the message carries the token its webview loaded, the stored token is only cleared if
+     * it matches, so a message from an older webview cannot clear a newer preview session. A
+     * message without a token (older onsite) clears the stored token unconditionally. Token values
+     * are never logged.
      */
-    private fun formsPreviewEnded(reason: String) {
+    private fun formsPreviewEnded(message: FormsPreviewEnded) {
+        val store = Registry.getOrNull<FormsPreviewTokenStore>()
+        val messageToken = message.token
+
+        if (messageToken != null && store != null && messageToken != store.token) {
+            Registry.log.debug("Ignoring forms preview end from an older session")
+            return
+        }
+
         Registry.log.warning(
-            "Forms preview ended, reason: $reason. Published forms resume on the next app launch or session timeout."
+            "Forms preview ended, reason: ${message.reason}. Published forms resume on the next app launch or session timeout."
         )
-        Registry.getOrNull<FormsPreviewTokenStore>()?.clear()
+        store?.clear()
     }
 
     /**
