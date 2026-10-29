@@ -10,12 +10,12 @@ import org.junit.Test
 
 class InAppFormsConfigTest : BaseTest() {
     @Test
-    fun `legacy copy preserves failure handler without mutating original`() {
+    fun `copy preserves failure handler without mutating original`() {
         val handler = InAppFormsFailureHandler {}
         val original = InAppFormsConfig(onFailure = handler)
-        assertSame(handler, original.copy(20.seconds).getOnFailure())
-        assertSame(handler, original.getOnFailure())
-        assertNull(InAppFormsConfig().getOnFailure())
+        assertSame(handler, original.copy(20.seconds).onFailure)
+        assertSame(handler, original.onFailure)
+        assertNull(InAppFormsConfig().onFailure)
     }
 
     @Test
@@ -42,7 +42,7 @@ class InAppFormsConfigTest : BaseTest() {
     }
 
     @Test
-    fun `legacy copy keeps configured loading and replay values`() {
+    fun `copy keeps configured loading and replay values`() {
         val original = InAppFormsConfig(
             20.seconds,
             loadTimeout = 30.seconds,

@@ -19,11 +19,11 @@ import kotlin.time.Duration.Companion.seconds
  * @param onFailure Optional handler for terminal initialization failure before the JS handshake.
  *  Runs on the main thread after teardown. Register again to retry; the SDK does not retry automatically.
  */
-class InAppFormsConfig(
+data class InAppFormsConfig(
     private val sessionTimeoutDuration: Duration = DEFAULT_SESSION_TIMEOUT,
     private val loadTimeout: Duration? = null,
     private val eventReplayWindow: Duration = DEFAULT_EVENT_REPLAY_WINDOW,
-    private val onFailure: InAppFormsFailureHandler?
+    val onFailure: InAppFormsFailureHandler? = null
 ) {
     companion object {
         /***
@@ -38,18 +38,6 @@ class InAppFormsConfig(
      * Default config using 1 hour timeout
      */
     constructor() : this(DEFAULT_SESSION_TIMEOUT)
-
-    constructor(
-        sessionTimeoutDuration: Duration = DEFAULT_SESSION_TIMEOUT,
-        loadTimeout: Duration? = null,
-        eventReplayWindow: Duration = DEFAULT_EVENT_REPLAY_WINDOW
-    ) : this(sessionTimeoutDuration, loadTimeout, eventReplayWindow, null)
-
-    constructor(sessionTimeoutDuration: Duration) : this(
-        sessionTimeoutDuration,
-        null,
-        DEFAULT_EVENT_REPLAY_WINDOW
-    )
 
     /**
      * Secondary constructor allowing seconds as [Int] for Java compatibility
@@ -67,10 +55,7 @@ class InAppFormsConfig(
         eventReplayWindowSeconds.seconds
     )
 
-    constructor(onFailure: InAppFormsFailureHandler) : this(
-        onFailure = onFailure,
-        loadTimeout = null
-    )
+    constructor(handler: InAppFormsFailureHandler) : this(onFailure = handler)
 
     constructor(timeoutSeconds: Int, onFailure: InAppFormsFailureHandler) : this(
         sessionTimeoutDuration = timeoutSeconds.seconds,
@@ -95,8 +80,6 @@ class InAppFormsConfig(
         onFailure
     )
 
-    fun getOnFailure(): InAppFormsFailureHandler? = onFailure
-
     /** Positive, finite loading budget, or null to use the SDK network timeout. */
     fun getLoadTimeout(): Duration? = loadTimeout?.takeIf {
         (it.isFinite() && it.inWholeMilliseconds in 1 until Long.MAX_VALUE).also { valid ->
@@ -113,20 +96,6 @@ class InAppFormsConfig(
         Duration.ZERO,
         MAX_EVENT_REPLAY_WINDOW
     )
-
-    fun copy(sessionTimeoutDuration: Duration = this.sessionTimeoutDuration) =
-        InAppFormsConfig(sessionTimeoutDuration, loadTimeout, eventReplayWindow, onFailure)
-
-    override fun equals(other: Any?): Boolean = other is InAppFormsConfig &&
-        sessionTimeoutDuration == other.sessionTimeoutDuration &&
-        loadTimeout == other.loadTimeout && eventReplayWindow == other.eventReplayWindow && onFailure == other.onFailure
-
-    override fun hashCode(): Int =
-        31 * (31 * (31 * sessionTimeoutDuration.hashCode() + (loadTimeout?.hashCode() ?: 0)) + eventReplayWindow.hashCode()) +
-            (onFailure?.hashCode() ?: 0)
-
-    override fun toString(): String =
-        "InAppFormsConfig(sessionTimeoutDuration=$sessionTimeoutDuration, loadTimeout=$loadTimeout, eventReplayWindow=$eventReplayWindow, onFailure=$onFailure)"
 
     /**
      * Returns the session timeout duration in seconds.

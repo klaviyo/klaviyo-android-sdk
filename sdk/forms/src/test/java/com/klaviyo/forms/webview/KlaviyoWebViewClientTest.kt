@@ -631,7 +631,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
         assertNull(client.getWebView())
         assertNull(Registry.getOrNull<InAppFormsConfig>())
-        assertTrue(config.getOnFailure() != null)
+        assertTrue(config.onFailure != null)
         assertEquals(0, failures)
         verify(exactly = 0) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
     }

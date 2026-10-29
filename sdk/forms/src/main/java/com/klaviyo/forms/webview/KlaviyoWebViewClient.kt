@@ -146,7 +146,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         }
 
         val config = Registry.getOrNull<InAppFormsConfig>() ?: InAppFormsConfig()
-        onFailure = config.getOnFailure()
+        onFailure = config.onFailure
         eventReplayWindow = config.getEventReplayWindow()
         handshakeCompleted = false
         formsDataLoaded = false
