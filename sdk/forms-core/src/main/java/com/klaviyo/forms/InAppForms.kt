@@ -41,11 +41,13 @@ fun Klaviyo.unregisterFromInAppForms(): Klaviyo =
 /**
  * Register a handler to receive [FormLifecycleEvent] events.
  *
- * The handler is invoked whenever a form is shown, dismissed,
- * or a CTA button is clicked. Only one handler can be registered at a time;
- * calling this again replaces the previous registration.
+ * The handler receives [FormLifecycleEvent.FormWillDisplay] before display to accept or reject
+ * the form, plus notifications when a form is shown, dismissed, or a CTA button is clicked.
+ * Install it before [registerForInAppForms] to handle early display requests. Only one handler
+ * can be registered at a time; calling this again replaces the previous registration.
  *
- * **Threading:** The handler is always invoked on the main thread.
+ * **Threading:** The handler is always invoked on the main thread; respond promptly without blocking.
+ * See [FormLifecycleHandler] for decision and fail-open behavior.
  *
  * @param handler The [FormLifecycleHandler] to invoke on lifecycle events.
  */
