@@ -15,11 +15,14 @@ import kotlin.time.Duration.Companion.seconds
  *  after the initial JWT wait. Null or invalid values use the SDK network timeout.
  * @param eventReplayWindow Recent analytics history to replay after loading. Defaults to 10 seconds,
  *  clamps to 0 through 30 seconds, and does not affect live events.
+ * @param onFailure Optional handler for terminal initialization failure before the JS handshake.
+ *  Runs on the main thread after teardown. Register again to retry; the SDK does not retry automatically.
  */
 data class InAppFormsConfig(
     private val sessionTimeoutDuration: Duration = DEFAULT_SESSION_TIMEOUT,
     private val loadTimeout: Duration? = null,
-    private val eventReplayWindow: Duration = DEFAULT_EVENT_REPLAY_WINDOW
+    private val eventReplayWindow: Duration = DEFAULT_EVENT_REPLAY_WINDOW,
+    val onFailure: InAppFormsFailureHandler? = null
 ) {
     companion object {
         /***
@@ -49,6 +52,31 @@ data class InAppFormsConfig(
         timeoutSeconds.seconds,
         loadTimeoutSeconds.seconds,
         eventReplayWindowSeconds.seconds
+    )
+
+    constructor(handler: InAppFormsFailureHandler) : this(onFailure = handler)
+
+    constructor(timeoutSeconds: Int, onFailure: InAppFormsFailureHandler) : this(
+        sessionTimeoutDuration = timeoutSeconds.seconds,
+        onFailure = onFailure
+    )
+
+    constructor(timeoutSeconds: Int, loadTimeoutSeconds: Int, onFailure: InAppFormsFailureHandler) : this(
+        sessionTimeoutDuration = timeoutSeconds.seconds,
+        loadTimeout = loadTimeoutSeconds.seconds,
+        onFailure = onFailure
+    )
+
+    constructor(
+        timeoutSeconds: Int,
+        loadTimeoutSeconds: Int,
+        eventReplayWindowSeconds: Int,
+        onFailure: InAppFormsFailureHandler
+    ) : this(
+        timeoutSeconds.seconds,
+        loadTimeoutSeconds.seconds,
+        eventReplayWindowSeconds.seconds,
+        onFailure
     )
 
     /** Positive, finite loading budget, or null to use the SDK network timeout. */

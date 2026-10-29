@@ -3,7 +3,6 @@ package com.klaviyo.forms.bridge
 import android.content.Intent
 import android.net.Uri
 import androidx.webkit.WebMessageCompat
-import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
@@ -20,7 +19,6 @@ import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.presentation.PresentationState
-import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
 import io.mockk.just
@@ -597,14 +595,14 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `abort triggers closes`() {
+    fun `abort forwards decoded reason to WebView client`() {
         /**
          * @see com.klaviyo.forms.bridge.KlaviyoNativeBridge.abort
          */
         postMessage("""{"type":"abort"}""")
-        verify(exactly = 1) { Klaviyo.unregisterFromInAppForms() }
-        postMessage("""{"type":"abort", "reason":"Because the test requires it"}""")
-        verify(exactly = 2) { Klaviyo.unregisterFromInAppForms() }
+        verify(exactly = 1) { mockWebViewClient.onJsAbort("Unknown") }
+        postMessage("""{"type":"abort", "data":{"reason":"Native bridge is malformed"}}""")
+        verify(exactly = 1) { mockWebViewClient.onJsAbort("Native bridge is malformed") }
     }
 
     @Test

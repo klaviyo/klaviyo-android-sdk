@@ -5,15 +5,20 @@ import android.content.Intent
 import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.JavascriptInterface
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient as AndroidWebViewClient
 import androidx.core.net.toUri
+import androidx.webkit.JavaScriptReplyProxy
+import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER
 import androidx.webkit.WebViewFeature.isFeatureSupported
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenException
@@ -23,6 +28,7 @@ import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.startActivityIfResolved
 import com.klaviyo.forms.InAppFormsConfig
+import com.klaviyo.forms.InAppFormsFailureHandler
 import com.klaviyo.forms.bridge.DeviceInfoProvider
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
@@ -33,6 +39,7 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.unregisterFromInAppForms
 import java.io.BufferedReader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -63,6 +70,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     private var loadJob: Job? = null
 
     private var eventReplayWindow = InAppFormsConfig.DEFAULT_EVENT_REPLAY_WINDOW
+    private var onFailure: InAppFormsFailureHandler? = null
+    private var handshakeCompleted = false
 
     private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
 
@@ -76,15 +85,17 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * the page loads without one and [JwtObserver] delivers the token over the JS bridge when the
      * still-running fetch completes.
      */
-    override fun initializeWebView() {
+    override fun initializeWebView() = Registry.threadHelper.runOnUiThread {
         if (webView != null) {
             Registry.log.debug("Klaviyo webview is already initialized")
-            return
+            return@runOnUiThread
         }
 
-        val webView = KlaviyoWebView().also { this.webView = it }
         val config = Registry.getOrNull<InAppFormsConfig>() ?: InAppFormsConfig()
+        onFailure = config.onFailure
         eventReplayWindow = config.getEventReplayWindow()
+        handshakeCompleted = false
+        val webView = KlaviyoWebView().also { this.webView = it }
         val loadTimeout = config.getLoadTimeout()?.inWholeMilliseconds
             ?: Registry.config.networkTimeout.toLong()
         loadJob?.cancel()
@@ -92,11 +103,11 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             val token = awaitInitialToken()
             Registry.threadHelper.runOnUiThread {
                 if (this@KlaviyoWebViewClient.webView === webView) {
-                    loadTemplate(
-                        webView,
-                        token,
-                        loadTimeout
-                    )
+                    try {
+                        loadTemplate(webView, token, loadTimeout)
+                    } catch (e: Exception) {
+                        failLoad(webView, "Unable to load In-App Forms template", e)
+                    }
                 }
             }
         }
@@ -161,28 +172,67 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
             )
         )
 
-        webView.loadTemplate(partialHtml, this, nativeBridge)
         handshakeTimer?.cancel()
         handshakeTimer = Registry.clock.schedule(
-            loadTimeout,
-            ::onJsHandshakeTimeout
-        )
+            loadTimeout
+        ) { failLoad(webView, "IAF WebView Aborted: Timeout waiting for Klaviyo.js") }
+        webView.loadTemplate(partialHtml, this, nativeBridge.forWebView(webView))
     }
 
-    override fun onLocalJsReady() {
-        Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.JsReady)
+    private fun NativeBridge.forWebView(expectedView: KlaviyoWebView): NativeBridge {
+        val delegate = this
+        return object : NativeBridge by delegate {
+            @JavascriptInterface
+            override fun postMessage(message: String) = Registry.threadHelper.runOnUiThread {
+                if (webView === expectedView) delegate.postMessage(message)
+            }
+
+            override fun onPostMessage(
+                view: WebView,
+                message: WebMessageCompat,
+                sourceOrigin: Uri,
+                isMainFrame: Boolean,
+                replyProxy: JavaScriptReplyProxy
+            ) = Registry.threadHelper.runOnUiThread {
+                if (webView === expectedView && view === expectedView) {
+                    delegate.onPostMessage(view, message, sourceOrigin, isMainFrame, replyProxy)
+                }
+            }
+        }
+    }
+
+    override fun onLocalJsReady() = Registry.threadHelper.runOnUiThread {
+        if (webView != null) {
+            Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.JsReady)
+        }
     }
 
     /**
      * When the webview has loaded klaviyo.js, we can cancel the timeout
      */
-    override fun onJsHandshakeCompleted() {
-        Registry.get<JsBridgeObserverCollection>().startObservers(
-            NativeBridgeMessage.HandShook,
-            eventReplayWindow
-        )
-        handshakeTimer?.cancel()
-        handshakeTimer = null
+    override fun onJsHandshakeCompleted() = Registry.threadHelper.runOnUiThread {
+        if (webView != null && !handshakeCompleted) {
+            handshakeCompleted = true
+            onFailure = null
+            handshakeTimer?.cancel()
+            handshakeTimer = null
+            Registry.get<JsBridgeObserverCollection>().startObservers(
+                NativeBridgeMessage.HandShook,
+                eventReplayWindow
+            )
+        }
+    }
+
+    override fun onJsAbort(reason: String) {
+        val expectedView = webView ?: return
+        Registry.threadHelper.runOnUiThread {
+            if (webView !== expectedView) return@runOnUiThread
+            if (handshakeCompleted) {
+                Klaviyo.unregisterFromInAppForms()
+            } else {
+                failLoad(expectedView, "IAF WebView Aborted: $reason")
+            }
+        }
     }
 
     /**
@@ -191,13 +241,20 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
     override fun getWebView(): View? = webView
 
     /**
-     * If the webview is not loaded in time, we cancel the handshake timer and destroy the webview
+     * Retire the failed attempt before notifying its handler on the main thread.
      */
-    private fun onJsHandshakeTimeout() {
-        handshakeTimer?.cancel()
-        Registry.log.warning("IAF WebView Aborted: Timeout waiting for Klaviyo.js")
-        destroyWebView()
-    }
+    private fun failLoad(expectedView: WebView?, message: String, error: Exception? = null) =
+        Registry.threadHelper.runOnUiThread {
+            if (expectedView == null || webView !== expectedView || handshakeCompleted) return@runOnUiThread
+            val handler = onFailure
+            if (error == null) Registry.log.warning(message) else Registry.log.error(message, error)
+            destroyWebViewOnMain()
+            try {
+                handler?.onFailure()
+            } catch (e: Exception) {
+                Registry.log.error("In-App Forms failure callback threw an exception", e)
+            }
+        }
 
     /**
      * Attach the webview to the overlay activity
@@ -231,28 +288,35 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * Destroy the webview and release the reference
      */
     override fun destroyWebView() = apply {
+        val expectedView = webView
+        Registry.threadHelper.runOnUiThread {
+            if (webView === expectedView) destroyWebViewOnMain()
+        }
+    }
+
+    private fun destroyWebViewOnMain() {
+        val webView = webView
+        this.webView = null
+        onFailure = null
+        handshakeCompleted = false
         loadJob?.cancel()
         loadJob = null
         handshakeTimer?.cancel()
+        handshakeTimer = null
         Registry.get<JsBridgeObserverCollection>().stopObservers()
-        webView?.let { webView ->
-            Registry.threadHelper.runOnUiThread {
-                Registry.log.verbose("Clear IAF WebView reference")
-                val nativeBridge = Registry.get<NativeBridge>()
+        webView?.let {
+            Registry.log.verbose("Clear IAF WebView reference")
+            val nativeBridge = Registry.get<NativeBridge>()
 
-                if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
-                    // Explicitly remove the listener: On some vendors' implementation of webview,
-                    // failure to remove the listener results in a memory leak.
-                    WebViewCompat.removeWebMessageListener(webView, nativeBridge.name)
-                } else {
-                    // For completeness, remove the JS interface if WEB_MESSAGE_LISTENER
-                    // is not supported, although [destroy] should clean this up internally
-                    webView.removeJavascriptInterface(nativeBridge.name)
-                }
-
-                webView.destroy()
-                this.webView = null
+            if (isFeatureSupported(WEB_MESSAGE_LISTENER)) {
+                // Some vendors' WebViews retain the message listener after destruction.
+                WebViewCompat.removeWebMessageListener(webView, nativeBridge.name)
+            } else {
+                webView.removeJavascriptInterface(nativeBridge.name)
             }
+
+            webView.parent?.let { it as ViewGroup }?.removeView(webView)
+            webView.destroy()
         } ?: run {
             Registry.log.warning("Unable to destroy IAF - null WebView reference")
         }
@@ -265,7 +329,32 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         view: WebView?,
         request: WebResourceRequest?,
         errorResponse: WebResourceResponse?
-    ) = Registry.log.warning("HTTP Error: ${errorResponse?.statusCode} - ${request?.url}")
+    ) {
+        Registry.log.warning("HTTP Error: ${errorResponse?.statusCode} - ${request?.url}")
+        if (request?.isForMainFrame == true && (errorResponse?.statusCode ?: 0) >= 400) {
+            failLoad(view, "IAF WebView Aborted: Main frame HTTP failure")
+        }
+    }
+
+    override fun onReceivedError(
+        view: WebView?,
+        request: WebResourceRequest?,
+        error: WebResourceError?
+    ) {
+        if (request?.isForMainFrame == true) {
+            failLoad(view, "IAF WebView Aborted: Main frame resource failure")
+        }
+    }
+
+    @Deprecated("Used by WebView versions before API 23")
+    override fun onReceivedError(
+        view: WebView?,
+        errorCode: Int,
+        description: String?,
+        failingUrl: String?
+    ) {
+        failLoad(view, "IAF WebView Aborted: Main frame resource failure ($errorCode)")
+    }
 
     /**
      * When an assetSource is specified, log whether we actually got it
@@ -280,11 +369,19 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
      * If the webview renderer crashes or gets cleaned up to reclaim memory,
      * we have to clean up and return true here else the host app will crash
      */
-    override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean =
-        Registry.get<PresentationManager>().dismiss().let {
+    override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+        Registry.threadHelper.runOnUiThread {
+            if (view == null || webView !== view) return@runOnUiThread
+            Registry.get<PresentationManager>().dismiss()
             Registry.log.error("WebView crashed or deallocated")
-            return true
+            if (handshakeCompleted) {
+                destroyWebViewOnMain()
+            } else {
+                failLoad(view, "IAF WebView Aborted: Renderer failure")
+            }
         }
+        return true
+    }
 
     /**
      * Intercept page navigation and redirect to an external browser application

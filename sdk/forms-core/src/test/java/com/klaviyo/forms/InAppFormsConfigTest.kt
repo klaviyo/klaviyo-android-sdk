@@ -5,9 +5,19 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 class InAppFormsConfigTest : BaseTest() {
+    @Test
+    fun `copy preserves failure handler without mutating original`() {
+        val handler = InAppFormsFailureHandler {}
+        val original = InAppFormsConfig(onFailure = handler)
+        assertSame(handler, original.copy(20.seconds).onFailure)
+        assertSame(handler, original.onFailure)
+        assertNull(InAppFormsConfig().onFailure)
+    }
+
     @Test
     fun `load timeout accepts finite positive milliseconds and otherwise falls back`() {
         assertNull(InAppFormsConfig().getLoadTimeout())

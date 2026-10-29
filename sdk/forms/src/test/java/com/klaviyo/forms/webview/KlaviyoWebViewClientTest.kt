@@ -7,12 +7,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.ValueCallback
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
+import android.webkit.WebView
 import androidx.core.view.ViewCompat
+import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.state.State
@@ -25,17 +29,22 @@ import com.klaviyo.core.auth.ValidatedToken
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
+import com.klaviyo.forms.FormsProvider
 import com.klaviyo.forms.InAppFormsConfig
+import com.klaviyo.forms.InAppFormsFailureHandler
+import com.klaviyo.forms.KlaviyoFormsProvider
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.JwtObserver
+import com.klaviyo.forms.bridge.KlaviyoNativeBridge
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.ProfileEventObserver
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.reInitializeInAppForms
 import io.mockk.CapturingSlot
 import io.mockk.clearAllMocks
 import io.mockk.every
@@ -47,6 +56,7 @@ import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import java.io.ByteArrayInputStream
+import java.io.FileNotFoundException
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,7 +64,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -195,6 +207,10 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Registry.unregister<State>()
         Registry.unregister<JsBridgeObserverCollection>()
         Registry.unregister<AuthTokenManager>()
+        Registry.unregister<InAppFormsConfig>()
+        Registry.unregister<WebViewClient>()
+        Registry.unregister<PresentationManager>()
+        Registry.unregister<FormsProvider>()
         clearAllMocks()
         super.cleanup()
     }
@@ -204,6 +220,408 @@ class KlaviyoWebViewClientTest : BaseTest() {
         verify(exactly = times) { anyConstructed<KlaviyoWebView>().visibility = View.GONE }
         verify(exactly = times) { mockParentView.removeView(any()) }
     }
+
+    private fun registerClient(handler: InAppFormsFailureHandler): KlaviyoWebViewClient =
+        registerClient(InAppFormsConfig(onFailure = handler))
+
+    private fun registerClient(config: InAppFormsConfig): KlaviyoWebViewClient =
+        KlaviyoWebViewClient().also { client ->
+            Registry.register<WebViewClient>(client)
+            Registry.register<PresentationManager>(mockk<PresentationManager>(relaxed = true))
+            KlaviyoFormsProvider().register(config)
+        }
+
+    @Test
+    fun `failure tears down on main before handler can synchronously register again`() {
+        var failures = 0
+        var onMain = false
+        every { mockThreadHelper.runOnUiThread(any()) } answers {
+            val previous = onMain
+            onMain = true
+            try {
+                firstArg<() -> Unit>().invoke()
+            } finally {
+                onMain = previous
+            }
+        }
+        val client = KlaviyoWebViewClient()
+        Registry.register<WebViewClient>(client)
+        Registry.register<PresentationManager>(mockk<PresentationManager>(relaxed = true))
+        KlaviyoFormsProvider().register(
+            InAppFormsConfig(onFailure = {
+                failures++
+                assertTrue(onMain)
+                assertNull(client.getWebView())
+                assertTrue(staticClock.scheduledTasks.isEmpty())
+                verify(exactly = 1) { mockObserverCollection.stopObservers() }
+                verify(exactly = 1) { anyConstructed<KlaviyoWebView>().destroy() }
+                KlaviyoFormsProvider().register(InAppFormsConfig())
+            })
+        )
+        val oldView = client.getWebView()
+        dispatcher.scheduler.runCurrent()
+        staticClock.execute(1_000)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(1, failures)
+        assertTrue(client.getWebView() != null)
+        assertNotSame(oldView, client.getWebView())
+        assertEquals(1, staticClock.scheduledTasks.size)
+        verify(exactly = 1) { anyConstructed<KlaviyoWebView>().destroy() }
+    }
+
+    @Test
+    fun `main frame failures notify once and stale errors timers and bridge messages cannot settle retry`() {
+        val bridges = mutableListOf<NativeBridge>()
+        every { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) } answers {
+            bridges += thirdArg<NativeBridge>()
+        }
+        var failures = 0
+        val client = registerClient {
+            failures++
+            KlaviyoFormsProvider().register(InAppFormsConfig(onFailure = { failures++ }))
+        }
+        every { mockBridge.postMessage("handshake") } answers { client.onJsHandshakeCompleted() }
+        dispatcher.scheduler.runCurrent()
+        val oldView = client.getWebView() as WebView
+        val oldTimer = staticClock.scheduledTasks.single().task
+        val mainRequest = mockk<WebResourceRequest>(relaxed = true) {
+            every { isForMainFrame } returns true
+        }
+        client.onReceivedError(oldView, mainRequest, mockk<WebResourceError>(relaxed = true))
+        dispatcher.scheduler.runCurrent()
+        val replacement = client.getWebView()
+        assertEquals(1, failures)
+        assertNotSame(oldView, replacement)
+
+        oldTimer()
+        client.onReceivedHttpError(oldView, mainRequest, mockk(relaxed = true))
+        client.onRenderProcessGone(oldView, mockk(relaxed = true))
+        bridges.first().postMessage("handshake")
+        assertEquals(1, failures)
+        assertSame(replacement, client.getWebView())
+        assertEquals(1, staticClock.scheduledTasks.size)
+        bridges.last().postMessage("handshake")
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+        staticClock.execute(10_000)
+        assertSame(replacement, client.getWebView())
+        assertEquals(1, failures)
+    }
+
+    @Test
+    fun `fatal HTTP main frame failure notifies immediately`() {
+        var failures = 0
+        val client = registerClient { failures++ }
+        dispatcher.scheduler.runCurrent()
+        client.onReceivedHttpError(
+            client.getWebView() as WebView,
+            mockk(relaxed = true) { every { isForMainFrame } returns true },
+            mockk(relaxed = true) { every { statusCode } returns 503 }
+        )
+        assertEquals(1, failures)
+        assertNull(client.getWebView())
+    }
+
+    @Suppress("DEPRECATION")
+    @Test
+    fun `legacy main frame failure notifies immediately`() {
+        var failures = 0
+        val client = registerClient { failures++ }
+        dispatcher.scheduler.runCurrent()
+        client.onReceivedError(
+            client.getWebView() as WebView,
+            -2,
+            "host lookup",
+            "https://example.com"
+        )
+        assertEquals(1, failures)
+        assertNull(client.getWebView())
+    }
+
+    @Test
+    fun `missing required template notifies after teardown`() {
+        every { mockAssets.open("InAppFormsTemplate.html") } throws FileNotFoundException(
+            "template"
+        )
+        var failures = 0
+        val client = registerClient { failures++ }
+        dispatcher.scheduler.runCurrent()
+        assertEquals(1, failures)
+        assertNull(client.getWebView())
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+        verifyDestroy()
+    }
+
+    @Test
+    fun `renderer failure before handshake notifies once`() {
+        var failures = 0
+        val client = registerClient { failures++ }
+        dispatcher.scheduler.runCurrent()
+        val view = client.getWebView() as WebView
+        assertTrue(client.onRenderProcessGone(view, mockk(relaxed = true)))
+        assertTrue(client.onRenderProcessGone(view, mockk(relaxed = true)))
+        assertEquals(1, failures)
+        assertNull(client.getWebView())
+        verifyDestroy()
+    }
+
+    @Test
+    fun `missing optional JWT subresource errors and successful handshake never notify failure`() {
+        var failures = 0
+        val client = registerClient { failures++ }
+        dispatcher.scheduler.runCurrent()
+        val view = client.getWebView() as WebView
+        val subresource = mockk<WebResourceRequest>(relaxed = true) {
+            every { isForMainFrame } returns false
+        }
+        client.onReceivedError(view, subresource, mockk<WebResourceError>(relaxed = true))
+        client.onReceivedHttpError(view, subresource, mockk(relaxed = true))
+        assertSame(view, client.getWebView())
+        client.onJsHandshakeCompleted()
+        staticClock.execute(10_000)
+        client.onReceivedError(
+            view,
+            mockk(relaxed = true) { every { isForMainFrame } returns true },
+            null
+        )
+        assertEquals(0, failures)
+        assertSame(view, client.getWebView())
+        client.onRenderProcessGone(view, mockk(relaxed = true))
+        assertEquals(0, failures)
+        assertNull(client.getWebView())
+    }
+
+    @Test
+    fun `explicit unregister while awaiting JWT is silent and releases registered handler`() {
+        fakeAuth.providerRegistered = true
+        var failures = 0
+        val config = InAppFormsConfig(onFailure = { failures++ })
+        val client = registerClient(config)
+        dispatcher.scheduler.runCurrent()
+        KlaviyoFormsProvider().unregister()
+        fakeAuth.completeFetch(JWT)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertNull(client.getWebView())
+        assertNull(Registry.getOrNull<InAppFormsConfig>())
+        assertTrue(config.onFailure != null)
+        assertEquals(0, failures)
+        verify(exactly = 0) { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) }
+    }
+
+    @Test
+    fun `running attempt keeps its handler when registration changes future config`() {
+        fakeAuth.providerRegistered = true
+        var firstFailures = 0
+        var futureFailures = 0
+        val client = registerClient { firstFailures++ }
+        dispatcher.scheduler.runCurrent()
+        val view = client.getWebView()
+        KlaviyoFormsProvider().register(InAppFormsConfig(onFailure = { futureFailures++ }))
+        assertSame(view, client.getWebView())
+        fakeAuth.completeFetch(JWT)
+        dispatcher.scheduler.runCurrent()
+        staticClock.execute(1_000)
+        assertEquals(1, firstFailures)
+        assertEquals(0, futureFailures)
+        client.initializeWebView()
+        dispatcher.scheduler.runCurrent()
+        staticClock.execute(1_000)
+        assertEquals(1, firstFailures)
+        assertEquals(1, futureFailures)
+    }
+
+    @Test
+    fun `throwing failure handler is contained and registration can be retried`() {
+        val error = IllegalStateException("host callback")
+        var failures = 0
+        val client = registerClient {
+            failures++
+            throw error
+        }
+        dispatcher.scheduler.runCurrent()
+        staticClock.execute(1_000)
+        assertEquals(1, failures)
+        assertNull(client.getWebView())
+        verify { spyLog.error(any(), error) }
+        client.initializeWebView()
+        dispatcher.scheduler.runCurrent()
+        staticClock.execute(1_000)
+        assertEquals(2, failures)
+    }
+
+    @Test
+    fun `automatic rebuild retains accepted handler and replacement is silent`() {
+        var failures = 0
+        Registry.register<FormsProvider>(KlaviyoFormsProvider())
+        val client = registerClient { failures++ }
+        dispatcher.scheduler.runCurrent()
+        val original = client.getWebView()
+        Klaviyo.reInitializeInAppForms()
+        dispatcher.scheduler.runCurrent()
+        assertNotSame(original, client.getWebView())
+        assertEquals(0, failures)
+        staticClock.execute(1_000)
+        assertEquals(1, failures)
+    }
+
+    @Test
+    fun `modern bridge rejects old view and completes handshake for current view`() {
+        val bridges = mutableListOf<NativeBridge>()
+        every { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) } answers {
+            bridges += thirdArg<NativeBridge>()
+        }
+        var failures = 0
+        val client = registerClient { failures++ }
+        every { mockBridge.onPostMessage(any(), any(), any(), any(), any()) } answers {
+            client.onJsHandshakeCompleted()
+        }
+        dispatcher.scheduler.runCurrent()
+        val oldView = client.getWebView() as WebView
+        client.destroyWebView()
+        client.initializeWebView()
+        dispatcher.scheduler.runCurrent()
+        bridges.first().onPostMessage(oldView, mockk<WebMessageCompat>(), mockk(), true, mockk())
+        assertEquals(1, staticClock.scheduledTasks.size)
+        bridges.last().onPostMessage(
+            client.getWebView() as WebView,
+            mockk<WebMessageCompat>(),
+            mockk(),
+            true,
+            mockk()
+        )
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+        staticClock.execute(1_000)
+        assertEquals(0, failures)
+    }
+
+    @Test
+    fun `failure handler may unregister synchronously`() {
+        var failures = 0
+        val client = registerClient {
+            failures++
+            KlaviyoFormsProvider().unregister()
+        }
+        dispatcher.scheduler.runCurrent()
+        staticClock.execute(1_000)
+        assertEquals(1, failures)
+        assertNull(client.getWebView())
+        assertNull(Registry.getOrNull<InAppFormsConfig>())
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+    }
+
+    @Test
+    fun `queued cancellation of old view cannot destroy a handler retry`() {
+        val client = registerClient {
+            KlaviyoFormsProvider().register(InAppFormsConfig())
+        }
+        dispatcher.scheduler.runCurrent()
+        val jobs = mutableListOf<() -> Unit>()
+        var queueUiWork = true
+        every { mockThreadHelper.runOnUiThread(any()) } answers {
+            if (queueUiWork) jobs += firstArg<() -> Unit>() else firstArg<() -> Unit>().invoke()
+        }
+        staticClock.scheduledTasks.single().task()
+        client.destroyWebView()
+        assertEquals(2, jobs.size)
+        queueUiWork = false
+        jobs.first().invoke()
+        val replacement = client.getWebView()
+        assertTrue(replacement != null)
+        jobs.last().invoke()
+        assertSame(replacement, client.getWebView())
+    }
+
+    private fun captureAttemptBridges(): MutableList<NativeBridge> {
+        Registry.register<NativeBridge>(KlaviyoNativeBridge())
+        Registry.register<FormsProvider>(KlaviyoFormsProvider())
+        return mutableListOf<NativeBridge>().also { bridges ->
+            every { anyConstructed<KlaviyoWebView>().loadTemplate(any(), any(), any()) } answers {
+                bridges += thirdArg<NativeBridge>()
+            }
+        }
+    }
+
+    private fun sendAbort(bridge: NativeBridge, view: WebView, modern: Boolean) {
+        val message = """{"type":"abort","data":{"reason":"Native bridge is malformed"}}"""
+        if (modern) {
+            bridge.onPostMessage(view, WebMessageCompat(message, null), mockk(), true, mockk())
+        } else {
+            bridge.postMessage(message)
+        }
+    }
+
+    private fun assertPreHandshakeAbortAllowsRetry(modern: Boolean) {
+        val bridges = captureAttemptBridges()
+        val client = KlaviyoWebViewClient()
+        Registry.register<WebViewClient>(client)
+        Registry.register<PresentationManager>(mockk<PresentationManager>(relaxed = true))
+        var failures = 0
+        KlaviyoFormsProvider().register(
+            InAppFormsConfig(onFailure = {
+                failures++
+                assertNull(client.getWebView())
+                assertTrue(staticClock.scheduledTasks.isEmpty())
+                verify(exactly = 1) { mockObserverCollection.stopObservers() }
+                verify(exactly = 1) { anyConstructed<KlaviyoWebView>().destroy() }
+                KlaviyoFormsProvider().register(InAppFormsConfig(onFailure = { failures++ }))
+            })
+        )
+        dispatcher.scheduler.runCurrent()
+        val oldView = client.getWebView() as WebView
+        val oldBridge = bridges.single()
+        val oldTimer = staticClock.scheduledTasks.single().task
+        sendAbort(oldBridge, oldView, modern)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(1, failures)
+        val replacement = client.getWebView()
+        assertTrue(replacement != null)
+        assertNotSame(oldView, replacement)
+        oldTimer()
+        sendAbort(oldBridge, oldView, modern = false)
+        sendAbort(oldBridge, oldView, modern = true)
+        oldBridge.postMessage("""{"type":"handShook"}""")
+        assertSame(replacement, client.getWebView())
+        assertEquals(1, staticClock.scheduledTasks.size)
+        assertEquals(1, failures)
+
+        bridges.last().postMessage("""{"type":"handShook"}""")
+        staticClock.execute(1_000)
+        assertSame(replacement, client.getWebView())
+        assertEquals(1, failures)
+    }
+
+    @Test
+    fun `legacy pre-handshake Abort notifies after teardown and stale messages cannot break retry`() =
+        assertPreHandshakeAbortAllowsRetry(modern = false)
+
+    @Test
+    fun `modern pre-handshake Abort notifies after teardown and stale messages cannot break retry`() =
+        assertPreHandshakeAbortAllowsRetry(modern = true)
+
+    private fun assertPostHandshakeAbortIsSilent(modern: Boolean) {
+        val bridges = captureAttemptBridges()
+        var failures = 0
+        val client = registerClient { failures++ }
+        dispatcher.scheduler.runCurrent()
+        val view = client.getWebView() as WebView
+        val bridge = bridges.single()
+        bridge.postMessage("""{"type":"handShook"}""")
+        sendAbort(bridge, view, modern)
+        assertEquals(0, failures)
+        assertNull(client.getWebView())
+        assertNull(Registry.getOrNull<InAppFormsConfig>())
+        assertTrue(staticClock.scheduledTasks.isEmpty())
+        verifyDestroy()
+    }
+
+    @Test
+    fun `legacy post-handshake Abort unregisters without failure callback`() =
+        assertPostHandshakeAbortIsSilent(modern = false)
+
+    @Test
+    fun `modern post-handshake Abort unregisters without failure callback`() =
+        assertPostHandshakeAbortIsSilent(modern = true)
 
     private fun verifyDestroy(doesNotDestroy: Boolean = false) {
         verify(inverse = doesNotDestroy) { spyLog.verbose("Clear IAF WebView reference") }
@@ -266,7 +684,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify { mockAssets.open("InAppFormsTemplate.html") }
-        verify { anyConstructed<KlaviyoWebView>().loadTemplate(any(), client, mockBridge) }
+        verify { anyConstructed<KlaviyoWebView>().loadTemplate(any(), client, any()) }
         assertEquals(expectedHtml, html.captured.decodeHtml())
         verify { mockConfig.sdkName }
         verify { mockConfig.sdkVersion }
@@ -546,7 +964,10 @@ class KlaviyoWebViewClientTest : BaseTest() {
 
     @Test
     fun `attachesObservers when local JS initializes`() {
-        KlaviyoWebViewClient().onLocalJsReady()
+        KlaviyoWebViewClient().apply {
+            initializeWebView()
+            onLocalJsReady()
+        }
         verify { mockObserverCollection.startObservers(NativeBridgeMessage.JsReady) }
     }
 
@@ -701,7 +1122,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         var resultFalse: Boolean? = null
         client.evaluateJavascript("test") { resultFalse = it }
         assertEquals(false, resultFalse)
-        verify(exactly = 2) { mockThreadHelper.runOnUiThread(any()) }
+        verify(exactly = 3) { mockThreadHelper.runOnUiThread(any()) }
     }
 
     @Test
@@ -711,8 +1132,9 @@ class KlaviyoWebViewClientTest : BaseTest() {
         }
         Registry.register<PresentationManager>(mockPresentationManager)
         val client = KlaviyoWebViewClient()
+        client.initializeWebView()
         val mockDetail: RenderProcessGoneDetail = mockk(relaxed = true)
-        val result = client.onRenderProcessGone(null, mockDetail)
+        val result = client.onRenderProcessGone(client.getWebView() as WebView, mockDetail)
 
         assertEquals(true, result)
         verify { mockPresentationManager.dismiss() }
