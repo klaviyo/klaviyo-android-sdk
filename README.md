@@ -998,6 +998,34 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 
 **Note:** After unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
+#### Open a form by ID
+
+After registering for In-App Forms, request a form from the main thread:
+
+```kotlin
+import com.klaviyo.forms.openForm
+
+Klaviyo.openForm("FORM_ID")
+```
+
+```java
+KlaviyoForms.openForm("FORM_ID");
+```
+
+Manual opening overrides automatic targeting and timing rules. The form must be available to
+the current account and runtime. A request does not guarantee display; use the existing form
+lifecycle handler to observe when a form is actually shown. Each request is forwarded when
+forms data is ready, including when another form is visible; Forms controls presentation.
+
+While forms data loads, the SDK retains only the latest request, for less than `eventReplayWindow`
+(10 seconds by default, capped at 30 seconds). Setting it to zero skips waiting and still allows
+ready requests. The window is captured when the session starts. A JS handshake alone does not
+indicate that forms data is ready. Blank IDs are ignored; other IDs are passed through unchanged.
+Requests expire or are discarded on unregister, load failure, account change, reset, or an
+incompatible profile change. Compatible profile enrichment preserves a pending request.
+Calling `openForm` before registration or after a failed load logs and drops the request;
+it does not register or retry the session.
+
 #### Form Loading and Event Replay
 
 `InAppFormsConfig` also accepts a loading timeout and a recent-event replay window:

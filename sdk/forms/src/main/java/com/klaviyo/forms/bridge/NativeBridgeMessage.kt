@@ -25,6 +25,9 @@ internal sealed class NativeBridgeMessage {
      */
     data object HandShook : NativeBridgeMessage()
 
+    /** Forms data has loaded and manual requests can be forwarded. */
+    data object FormsDataLoaded : NativeBridgeMessage()
+
     /**
      * Sent from the onsite-in-app-forms when a form is about to appear as a signal to present the webview
      *
@@ -120,6 +123,7 @@ internal sealed class NativeBridgeMessage {
         internal val handShakeData by lazy {
             listOf(
                 HandshakeSpec(keyName<HandShook>(), 1),
+                HandshakeSpec(keyName<FormsDataLoaded>(), 1),
                 HandshakeSpec(keyName<FormWillAppear>(), 2),
                 HandshakeSpec(keyName<TrackAggregateEvent>(), 1),
                 HandshakeSpec(keyName<TrackProfileEvent>(), 2),
@@ -145,6 +149,8 @@ internal sealed class NativeBridgeMessage {
                 keyName<JsReady>() -> JsReady
 
                 keyName<HandShook>() -> HandShook
+
+                keyName<FormsDataLoaded>() -> FormsDataLoaded
 
                 keyName<FormWillAppear>() -> FormWillAppear(
                     formId = jsonData.optString("formId"),

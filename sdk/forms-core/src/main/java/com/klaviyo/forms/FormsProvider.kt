@@ -19,4 +19,7 @@ interface FormsProvider {
      * and tearing down the WebView client.
      */
     fun unregister()
+
+    /** Request a form in the currently registered session. */
+    fun openForm(formId: String)
 }

@@ -15,6 +15,7 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.core.Registry
+import com.klaviyo.forms.openForm
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.location.KlaviyoGeofence
@@ -50,6 +51,9 @@ class SampleViewModel : ViewModel() {
 
     // Forms registration state
     var isFormsRegistered by mutableStateOf(true)
+        private set
+
+    var manualFormId by mutableStateOf("")
         private set
 
     var pastedJwt by mutableStateOf("")
@@ -193,6 +197,16 @@ class SampleViewModel : ViewModel() {
     }
 
     // In-App Forms actions
+    @UiThread
+    fun updateManualFormId(value: String) {
+        manualFormId = value
+    }
+
+    @UiThread
+    fun openForm() {
+        Klaviyo.openForm(manualFormId)
+    }
+
     @UiThread
     fun registerForInAppForms() {
         Klaviyo.registerForInAppForms()

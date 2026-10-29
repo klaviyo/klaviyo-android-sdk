@@ -33,6 +33,14 @@ internal fun Klaviyo.reInitializeInAppForms(): Klaviyo {
 }
 
 internal class KlaviyoFormsProvider : FormsProvider {
+    override fun openForm(formId: String) {
+        if (inAppIsRegistered()) {
+            Registry.get<WebViewClient>().openForm(formId)
+        } else {
+            Registry.log.warning("Cannot open a form, registerForInAppForms must be called first.")
+        }
+    }
+
     override fun register(config: InAppFormsConfig) {
         Registry.apply {
             register<InAppFormsConfig>(config)

@@ -207,6 +207,18 @@ class KlaviyoJsBridgeTest : BaseTest() {
     }
 
     @Test
+    fun `openForm preserves unusual IDs through JSON encoding`() {
+        bridge.openForm(" form\"\n'\\id ")
+
+        verify {
+            jsEvaluator.evaluateJavascript(
+                """window.openForm(" form\"\n'\\id ")""",
+                any()
+            )
+        }
+    }
+
+    @Test
     fun `closeForm calls JS evaluator with correct JS`() {
         every { jsEvaluator.evaluateJavascript(any(), any()) } answers {
             secondArg<(Boolean) -> Unit>().invoke(true)

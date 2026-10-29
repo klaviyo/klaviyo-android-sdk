@@ -55,6 +55,29 @@ internal class InAppFormsTest : BaseTest() {
     }
 
     @Test
+    fun `manual request before registration does not create forms services`() {
+        assertEquals(Klaviyo, Klaviyo.openForm("form"))
+        assert(!Registry.isRegistered<WebViewClient>())
+        assert(!Registry.isRegistered<InAppFormsConfig>())
+    }
+
+    @Test
+    fun `manual APIs forward through registered provider and contain errors`() {
+        Klaviyo.registerForInAppForms()
+        every { anyConstructed<KlaviyoWebViewClient>().openForm(any()) } returns Unit
+
+        assertEquals(Klaviyo, Klaviyo.openForm("kotlin"))
+        KlaviyoForms.openForm("java")
+
+        verify { anyConstructed<KlaviyoWebViewClient>().openForm("kotlin") }
+        verify { anyConstructed<KlaviyoWebViewClient>().openForm("java") }
+        val exception = MissingConfig()
+        every { anyConstructed<KlaviyoWebViewClient>().openForm(any()) } throws exception
+        assertEquals(Klaviyo, Klaviyo.openForm("safe"))
+        verify { spyLog.error(any(), exception) }
+    }
+
+    @Test
     fun `registers required services`() {
         assert(!Registry.isRegistered<PresentationManager>())
         assert(!Registry.isRegistered<NativeBridge>())
