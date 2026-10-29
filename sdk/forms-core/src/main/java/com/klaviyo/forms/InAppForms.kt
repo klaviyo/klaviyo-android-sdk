@@ -1,10 +1,12 @@
 package com.klaviyo.forms
 
+import android.net.Uri
 import androidx.annotation.UiThread
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
 import com.klaviyo.core.safeApply
+import com.klaviyo.core.safeCall
 
 /**
  * Start an In-App Forms session.
@@ -69,6 +71,28 @@ fun Klaviyo.startFormsPreview(token: String): Klaviyo =
 fun Klaviyo.endFormsPreview(): Klaviyo =
     Registry.getOrNull<FormsProvider>()?.let { provider ->
         safeApply { provider.endPreview() }
+    } ?: throw MissingKlaviyoModule("forms")
+
+/**
+ * Start a forms preview from a deep link, such as the link or QR code from the Klaviyo form
+ * editor's **Preview on device** button.
+ *
+ * If [uri] has a `klaviyo-forms-preview` query parameter holding a well-formed preview token,
+ * a preview starts as if the token were passed to [startFormsPreview] and this returns true.
+ * Otherwise this returns false and changes nothing, so call it first from your deep link handling
+ * and fall through when it returns false. Any scheme, host and path are accepted. A malformed token logs a
+ * warning without the token and returns false.
+ *
+ * May be called before or after [registerForInAppForms]; before, the preview starts when forms
+ * register.
+ *
+ * @param uri The deep link that opened the app.
+ * @return True if the link started a forms preview.
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
+ */
+fun Klaviyo.handleFormsPreviewLink(uri: Uri?): Boolean =
+    Registry.getOrNull<FormsProvider>()?.let { provider ->
+        safeCall { provider.handlePreviewLink(uri?.toString()) } ?: false
     } ?: throw MissingKlaviyoModule("forms")
 
 /**
@@ -145,6 +169,17 @@ object KlaviyoForms {
     fun endFormsPreview() {
         Klaviyo.endFormsPreview()
     }
+
+    /**
+     * Start a forms preview from a deep link.
+     * Java-friendly static method.
+     *
+     * @param uri The deep link that opened the app.
+     * @return True if the link started a forms preview.
+     * @see Klaviyo.handleFormsPreviewLink
+     */
+    @JvmStatic
+    fun handleFormsPreviewLink(uri: Uri?): Boolean = Klaviyo.handleFormsPreviewLink(uri)
 
     /**
      * Register a handler to receive form lifecycle events.

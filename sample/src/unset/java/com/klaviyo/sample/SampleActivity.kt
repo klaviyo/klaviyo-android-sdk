@@ -71,6 +71,14 @@ class SampleActivity : ComponentActivity() {
             return
         }
 
+        // SETUP NOTE: Start a draft in-app forms preview from the form editor's QR code or
+        // copied preview link with Klaviyo.handleFormsPreviewLink. It returns false, changing
+        // nothing, for every other link. The view model also shows the preview in its controls.
+        if (viewModel.handleFormsPreviewLink(intent?.data)) {
+            showToast("Forms preview started")
+            return
+        }
+
         // SETUP NOTE (unset): Track an event when the user opens a notification. Automatic open
         // tracking is opt-in, so with the flag absent this call is required.
         if (intent.isKlaviyoNotificationIntent) {
