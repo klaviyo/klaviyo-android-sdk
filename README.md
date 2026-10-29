@@ -1170,13 +1170,19 @@ The SDK does not time out your provider, so your code must:
 
 ### Monitoring Form Lifecycle Events
 
-> Form lifecycle events are available in SDK version 4.4.0 and higher. External URL CTA
+> The `FormShown`, `FormDismissed`, and `FormCtaClicked` notification events are available in SDK version 4.4.0 and higher. External URL CTA
 > routing and `event.deepLinkUrl` support for external URLs require SDK version 4.5.1 and higher.
 
-You can register a handler to receive callbacks whenever a form is shown, dismissed, or a CTA button is tapped.
-This is useful for forwarding engagement data to a third-party analytics platform such as Amplitude, Segment, or Mixpanel.
+You can register a handler to accept or reject a form before display with `FormWillDisplay`, and receive notifications
+when a form is shown, dismissed, or a CTA button is tapped. The notifications are useful for forwarding engagement
+data to a third-party analytics platform such as Amplitude, Segment, or Mixpanel.
 
-The handler is invoked on the **main thread**, so avoid performing long-running or blocking work inside it.
+Install the handler before calling `registerForInAppForms()` so it can handle early display requests.
+The handler is invoked on the **main thread**: respond promptly and avoid long-running or blocking work inside it.
+For `FormWillDisplay`, call `accept()` to allow display or `reject()` to block it. The first decision wins;
+later calls are ignored. If no handler is registered, the handler throws before deciding, or no decision arrives
+before the SDK's three-second deadline, display is allowed (fail open). Onsite's four-second fallback
+allows time for bridge delivery; it does not extend the host's decision window.
 
 <details open>
    <summary>Kotlin</summary>
@@ -1186,11 +1192,18 @@ The handler is invoked on the **main thread**, so avoid performing long-running 
    import com.klaviyo.forms.FormLifecycleEvent.FormCtaClicked
    import com.klaviyo.forms.FormLifecycleEvent.FormDismissed
    import com.klaviyo.forms.FormLifecycleEvent.FormShown
+   import com.klaviyo.forms.FormLifecycleEvent.FormWillDisplay
    import com.klaviyo.forms.registerFormLifecycleHandler
    import com.klaviyo.forms.unregisterFormLifecycleHandler
 
    Klaviyo.registerFormLifecycleHandler { event ->
        when (event) {
+           is FormWillDisplay -> {
+               // event.formId, event.formName, and event.formType identify the requested form.
+               // To block a particular form instead, replace event.accept() with:
+               // if (event.formId == "FORM_ID_TO_BLOCK") event.reject() else event.accept()
+               event.accept()
+           }
            is FormShown -> {
                // e.g. myAnalytics.track("Form Shown", mapOf("formId" to event.formId, "formName" to event.formName))
            }
@@ -1223,7 +1236,17 @@ The handler is invoked on the **main thread**, so avoid performing long-running 
    import com.klaviyo.forms.KlaviyoForms;
 
    KlaviyoForms.registerFormLifecycleHandler(event -> {
-       if (event instanceof FormLifecycleEvent.FormShown shown) {
+       if (event instanceof FormLifecycleEvent.FormWillDisplay) {
+           FormLifecycleEvent.FormWillDisplay gate = (FormLifecycleEvent.FormWillDisplay) event;
+           // gate.getFormId(), gate.getFormName(), and gate.getFormType() identify the requested form.
+           // To block a particular form instead, replace gate.getAccept().invoke() with:
+           // if ("FORM_ID_TO_BLOCK".equals(gate.getFormId())) {
+           //     gate.getReject().invoke();
+           // } else {
+           //     gate.getAccept().invoke();
+           // }
+           gate.getAccept().invoke();
+       } else if (event instanceof FormLifecycleEvent.FormShown shown) {
            // e.g. myAnalytics.track("Form Shown", ...)
        } else if (event instanceof FormLifecycleEvent.FormDismissed dismissed) {
            // e.g. myAnalytics.track("Form Dismissed", ...)
@@ -1239,9 +1262,10 @@ The handler is invoked on the **main thread**, so avoid performing long-running 
    ```
 </details>
 
-Registering a lifecycle handler is optional and does not affect normal form behavior — forms are displayed and dismissed
-regardless of whether a handler is registered. Only one handler can be registered at a time; calling
-`registerFormLifecycleHandler` again replaces the previous registration.
+Registering a lifecycle handler is optional. `FormWillDisplay` can prevent display; the other lifecycle events are
+notifications after the SDK initiates presentation, dismissal, or navigation and do not control those actions.
+Only one handler can be registered at a time; calling `registerFormLifecycleHandler` again replaces the previous
+registration. Combine display decisions and engagement tracking in the same handler.
 
 ## Geofencing
 

@@ -70,7 +70,7 @@ sealed interface FormLifecycleEvent {
      * accept or reject the display.
      *
      * Call [accept] to allow the form to display, or [reject] to block it.
-     * If neither is called within the SDK's timeout window, the form will be
+     * If neither is called within the SDK's three-second decision window, the form will be
      * allowed to display (fail-open behavior).
      *
      * Only one of [accept]/[reject] will take effect; subsequent calls are ignored.

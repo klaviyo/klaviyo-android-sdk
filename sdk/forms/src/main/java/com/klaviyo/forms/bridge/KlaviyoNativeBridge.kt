@@ -221,7 +221,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
      * event with accept/reject callbacks. The handler must call one of them to signal its
      * decision. Only the first call takes effect (guarded by [AtomicBoolean]).
      *
-     * A native-side timeout is also scheduled as a safety net. If neither accept nor reject
+     * A three-second decision deadline is scheduled. If neither accept nor reject
      * is called within [FORM_GATING_TIMEOUT_MS], the form is allowed (fail-open).
      *
      * If no handler is registered, the form is allowed (fail-open).
@@ -296,9 +296,9 @@ internal class KlaviyoNativeBridge : NativeBridge {
         /**
          * Timeout in milliseconds for the host app to respond to a formWillDisplay event.
          * After this duration, the form is allowed to display (fail-open).
-         * The JS-side timeout is the real guard; this is a native safety net.
+         * Onsite's four-second fallback includes time for bridge delivery.
          */
-        internal const val FORM_GATING_TIMEOUT_MS = 5_000L
+        internal const val FORM_GATING_TIMEOUT_MS = 3_000L
     }
 
     /**
