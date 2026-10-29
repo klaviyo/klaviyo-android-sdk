@@ -263,6 +263,10 @@ class SampleViewModel : ViewModel() {
     }
 
     @UiThread
+    fun isFormsPreviewTokenValid(): Boolean =
+        formsPreviewToken.trim().matches(Regex("^[A-Za-z0-9_-]{43}$"))
+
+    @UiThread
     fun updateFormsPreviewEnabled(enabled: Boolean) {
         if (enabled == isFormsPreviewEnabled) return
         if (!enabled) {
