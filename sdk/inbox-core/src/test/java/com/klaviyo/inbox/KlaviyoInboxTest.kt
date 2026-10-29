@@ -5,6 +5,7 @@ import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -79,12 +80,15 @@ class KlaviyoInboxTest : BaseTest() {
 
     @Test
     fun `an unexpected failure is logged and reported as a storage failure`() {
-        inbox.failure = IllegalStateException("boom")
+        val failure = IllegalStateException("boom")
+        inbox.failure = failure
         var result: InboxResult<Int>? = null
 
         KlaviyoInbox.fetchUnreadCount { result = it }
 
         val error = assertIs<InboxResult.Failure>(result).exception
         assertEquals(InboxException.Reason.STORAGE_FAILURE, error.reason)
+        assertSame(failure, error.cause)
+        verify { spyLog.error("Mobile Inbox call failed", failure) }
     }
 }

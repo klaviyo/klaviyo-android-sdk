@@ -8,15 +8,21 @@ import androidx.room.Room
  *
  * Reads never create the database: until a push has been captured they behave as an empty store.
  *
- * @param context Used to locate the database file. The application context is retained.
+ * @param contextProvider Supplies the context used to locate the database file. Called on first
+ *  use, so a context that doesn't exist yet doesn't fail construction.
  * @param databaseName The database file name inside the app's private database directory
  */
 internal class RoomInboxDataSource(
-    context: Context,
+    contextProvider: () -> Context,
     private val databaseName: String = InboxDatabase.FILE_NAME
 ) : LocalInboxDataSource {
 
-    private val appContext = context.applicationContext
+    constructor(
+        context: Context,
+        databaseName: String = InboxDatabase.FILE_NAME
+    ) : this({ context }, databaseName)
+
+    private val appContext by lazy { contextProvider().applicationContext }
 
     private val databaseDelegate = lazy {
         Room.databaseBuilder(appContext, InboxDatabase::class.java, databaseName)
