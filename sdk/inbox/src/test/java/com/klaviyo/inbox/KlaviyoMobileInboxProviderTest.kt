@@ -25,4 +25,14 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
 
         assertEquals(0, KlaviyoMobileInboxProvider().mobileInbox.fetchUnreadCount())
     }
+
+    @Test
+    fun `a page is empty before the SDK is initialized`() = runBlocking {
+        every { Registry.config } throws MissingConfig()
+        InboxInitProvider().onCreate()
+
+        val page = KlaviyoMobileInboxProvider().mobileInbox.fetchPage()
+
+        assertEquals(emptyList<InboxMessage>(), page.messages)
+    }
 }

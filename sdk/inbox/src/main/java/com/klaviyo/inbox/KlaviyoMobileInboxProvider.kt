@@ -9,6 +9,8 @@ import com.klaviyo.core.Registry
 internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
 
     override val mobileInbox: MobileInbox = object : MobileInbox {
+        override suspend fun fetchPage(query: InboxQuery): InboxPage = repository.fetchPage(query)
+
         override suspend fun fetchUnreadCount(): Int = repository.fetchUnreadCount()
     }
 

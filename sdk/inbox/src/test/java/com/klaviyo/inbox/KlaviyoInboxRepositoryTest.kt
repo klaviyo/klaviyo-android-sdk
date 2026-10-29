@@ -10,6 +10,7 @@ import io.mockk.verify
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -114,6 +115,90 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
 
         coVerify { dataSource.clearByCompanyId(API_KEY) }
         coVerify { dataSource.clearAll() }
+    }
+
+    @Test
+    fun `a page maps rows to public messages and a cursor when more follow`() = runBlocking {
+        val second = message.copy(transmissionId = "tm-2", sortTime = TIME - 1)
+        coEvery { dataSource.fetchPage(any(), any()) } returns
+            InboxRecordPage(listOf(message, second), hasMore = true)
+
+        val page = repository.fetchPage(InboxQuery(pageSize = 2))
+
+        assertEquals(listOf("tm-1", "tm-2"), page.messages.map { it.id })
+        assertEquals(InboxMessageSource.CAPTURED, page.messages.first().source)
+        assertEquals(
+            InboxRecordPosition(second.sortTime, "tm-2"),
+            InboxCursorCodec.decode(InboxQuery(cursor = page.nextCursor))
+        )
+    }
+
+    @Test
+    fun `the last page has no cursor`() = runBlocking {
+        coEvery { dataSource.fetchPage(any(), any()) } returns
+            InboxRecordPage(listOf(message), hasMore = false)
+
+        assertNull(repository.fetchPage(InboxQuery()).nextCursor)
+    }
+
+    @Test
+    fun `a page is read for the current company from the query's position`() = runBlocking {
+        coEvery { dataSource.fetchPage(any(), any()) } returns InboxRecordPage(emptyList(), false)
+        val cursor = InboxCursorCodec.encode(message)
+
+        repository.fetchPage(InboxQuery(pageSize = 5, cursor = cursor))
+
+        coVerify {
+            dataSource.fetchPage(
+                API_KEY,
+                InboxRecordQuery(5, InboxRecordPosition(message.sortTime, "tm-1"))
+            )
+        }
+    }
+
+    @Test
+    fun `an invalid cursor is rejected without reading the store`() {
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.fetchPage(InboxQuery(cursor = InboxCursor("garbage"))) }
+        }
+
+        assertEquals(InboxException.Reason.INVALID_CURSOR, error.reason)
+        coVerify(exactly = 0) { dataSource.fetchPage(any(), any()) }
+    }
+
+    @Test
+    fun `a page is empty before the SDK is initialized`() = runBlocking {
+        every { mockConfig.apiKey } throws MissingAPIKey()
+
+        val page = repository.fetchPage(InboxQuery())
+
+        assertTrue(page.messages.isEmpty())
+        assertNull(page.nextCursor)
+        coVerify(exactly = 0) { dataSource.fetchPage(any(), any()) }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `a store failure on a page surfaces as a storage failure`() {
+        coEvery { dataSource.fetchPage(any(), any()) } throws IllegalStateException("corrupt")
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.fetchPage(InboxQuery()) }
+        }
+
+        assertEquals(InboxException.Reason.STORAGE_FAILURE, error.reason)
+        assertTrue(error.cause is IllegalStateException)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation is not reported as a page failure`() {
+        coEvery { dataSource.fetchPage(any(), any()) } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repository.fetchPage(InboxQuery()) }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
     }
 
     @Test
