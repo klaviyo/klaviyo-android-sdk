@@ -37,6 +37,7 @@ class InboxStoreInstrumentedTest {
 
     @After
     fun cleanup() {
+        openSources.forEach { it.close() }
         openDatabases.forEach { it.close() }
         context.deleteDatabase(databaseName)
     }
@@ -48,6 +49,10 @@ class InboxStoreInstrumentedTest {
     ).build().also { openDatabases += it }
 
     private val dao get() = openDatabase().messageDao()
+
+    private val openSources = mutableListOf<RoomInboxDataSource>()
+
+    private fun openSource() = RoomInboxDataSource(context, databaseName).also { openSources += it }
 
     private fun message(
         transmissionId: String,
@@ -231,6 +236,58 @@ class InboxStoreInstrumentedTest {
         val dao = dao
         assertTrue(dao.transmissionIdsByCompanyId("A").isEmpty())
         assertTrue(dao.transmissionIdsByCompanyId("B").isEmpty())
+    }
+
+    @Test
+    fun unreadCountExcludesReadAndArchivedMessages() = runBlocking {
+        val source = openSource()
+        source.insert(message("unread-1"), LIMIT)
+        source.insert(message("unread-2"), LIMIT)
+        source.insert(message("read").copy(isRead = true), LIMIT)
+        source.insert(message("archived").copy(isArchived = true), LIMIT)
+        source.insert(message("both").copy(isRead = true, isArchived = true), LIMIT)
+
+        assertEquals(2, source.countUnread(COMPANY))
+    }
+
+    @Test
+    fun unreadCountIsScopedToTheCompany() = runBlocking {
+        val source = openSource()
+        source.insert(message("mine", companyId = "A"), LIMIT)
+        source.insert(message("theirs-1", companyId = "B"), LIMIT)
+        source.insert(message("theirs-2", companyId = "B"), LIMIT)
+
+        assertEquals(1, source.countUnread("A"))
+        assertEquals(2, source.countUnread("B"))
+        assertEquals(0, source.countUnread("C"))
+    }
+
+    @Test
+    fun unreadCountSurvivesRestart() = runBlocking {
+        val first = RoomInboxDataSource(context, databaseName)
+        first.insert(message("a"), LIMIT)
+        first.insert(message("b").copy(isRead = true), LIMIT)
+        first.close()
+
+        assertEquals(1, openSource().countUnread(COMPANY))
+    }
+
+    @Test
+    fun unreadCountReflectsRetention() = runBlocking {
+        val source = openSource()
+        source.insert(message("old", sentAt = 100L), 1)
+        source.insert(message("new", sentAt = 200L).copy(isRead = true), 1)
+
+        assertEquals(0, source.countUnread(COMPANY))
+    }
+
+    @Test
+    fun readsDoNotCreateTheDatabase() = runBlocking {
+        val source = RoomInboxDataSource(context, databaseName)
+
+        assertEquals(0, source.countUnread(COMPANY))
+
+        assertFalse(context.getDatabasePath(databaseName).exists())
     }
 
     @Test
