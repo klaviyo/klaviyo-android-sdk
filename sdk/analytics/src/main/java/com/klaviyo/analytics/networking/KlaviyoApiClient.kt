@@ -7,6 +7,7 @@ import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.analytics.networking.requests.AggregateEventApiRequest
 import com.klaviyo.analytics.networking.requests.AggregateEventPayload
+import com.klaviyo.analytics.networking.requests.ApiLane
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
@@ -26,9 +27,14 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.takeIf
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
@@ -57,12 +63,84 @@ internal object KlaviyoApiClient : ApiClient {
      */
     internal const val MAX_RESTORE_CANDIDATES: Int = MAX_QUEUE_SIZE * 2
 
+    /**
+     * Hard upper bound on requests in flight across all lanes at once.
+     *
+     * A lane can hold at most one request in flight, so the bound is reached only when
+     * every lane is sending concurrently. It exists to cap total concurrent connections
+     * no matter how many lanes are defined.
+     */
+    internal const val MAX_IN_FLIGHT: Int = 3
+
     private var handlerThread = Registry.threadHelper.getHandlerThread(
         KlaviyoApiClient::class.simpleName
     )
     private var handler: Handler? = null
     private var apiQueue = ConcurrentLinkedDeque<KlaviyoApiRequest>()
     private var queueInitialized = false
+
+    /**
+     * Mutable per-lane scheduling state. All fields are guarded by the enclosing
+     * [KlaviyoApiClient] monitor via [withLaneLock]; nothing here is persisted.
+     */
+    private class LaneRuntime {
+        /** The request from this lane currently being sent, if any. */
+        var inFlightRequest: KlaviyoApiRequest? = null
+
+        /** Whether a request from this lane is currently being sent. */
+        val inFlight: Boolean get() = inFlightRequest != null
+
+        /**
+         * Earliest wall-clock time (per [com.klaviyo.core.Registry.clock]) at which this lane
+         * may dispatch its next request. Advanced by per-request retry backoff.
+         */
+        var nextEligibleTime: Long = 0L
+    }
+
+    /** Runtime scheduling state per lane, created on demand. */
+    private val laneRuntime = ConcurrentHashMap<ApiLane, LaneRuntime>()
+
+    /**
+     * Number of requests currently being sent across all lanes. Observable so
+     * [awaitFlushQueueOutcome] can suspend until dispatched sends finish.
+     */
+    private val inFlightCount = MutableStateFlow(0)
+
+    /** Round-robin cursor for fair selection among eligible lanes. */
+    private var roundRobinCursor = 0
+
+    /**
+     * Executor that runs the blocking send for one lane's head request.
+     *
+     * Production uses a pool bounded to [MAX_IN_FLIGHT] workers so lanes genuinely send
+     * concurrently. Tests substitute a synchronous runner to keep drains deterministic.
+     */
+    internal var laneSendExecutor: (Runnable) -> Unit = { runnable ->
+        laneThreadPool.execute(runnable)
+    }
+
+    private val laneThreadPool by lazy {
+        Executors.newFixedThreadPool(MAX_IN_FLIGHT)
+    }
+
+    /**
+     * Run [block] holding the client-wide lane lock. Guards [laneRuntime] contents,
+     * [roundRobinCursor], and the check-then-mark of lane in-flight state so two threads
+     * never dispatch the same lane concurrently.
+     */
+    private inline fun <T> withLaneLock(block: () -> T): T = synchronized(laneRuntime, block)
+
+    /**
+     * Clear all runtime lane scheduling state. Lane state is never persisted, so this matches
+     * a process restart. Intended for tests; production relies on process death to reset it.
+     */
+    internal fun resetLaneState() {
+        withLaneLock {
+            laneRuntime.clear()
+            roundRobinCursor = 0
+            inFlightCount.value = 0
+        }
+    }
 
     private val scheduler get() = Registry.getOrNull<QueueScheduler>()
         ?: WorkManagerQueueScheduler(Registry.config.applicationContext).also {
@@ -456,7 +534,8 @@ internal object KlaviyoApiClient : ApiClient {
      * Selecting victims and removing them is not atomic on the [ConcurrentLinkedDeque], so a
      * concurrent enqueue could target the same victim. Side effects are gated on `remove()`'s
      * boolean: a request another thread already removed is not reported or cleared, making this a
-     * best-effort soft bound rather than a hard guarantee.
+     * best-effort soft bound rather than a hard guarantee. Requests currently in flight are never
+     * evicted.
      *
      * @return whether any requests were dropped
      */
@@ -464,9 +543,18 @@ internal object KlaviyoApiClient : ApiClient {
         val overflow = apiQueue.size - MAX_QUEUE_SIZE
         if (overflow <= 0) return false
 
-        val evictedUuids = apiQueue.sortedBy { it.queuedTime }
-            .take(overflow)
-            .filter { apiQueue.remove(it) }
+        // Requests mid-send stay queued until their lane completes, so never evict them;
+        // the cap may be briefly exceeded by at most MAX_IN_FLIGHT entries. Selection and
+        // removal share the lane lock with dispatch, so no victim can start sending mid-trim.
+        val evicted = withLaneLock {
+            val inFlight = laneRuntime.values.mapNotNullTo(HashSet()) { it.inFlightRequest }
+            apiQueue.sortedBy { it.queuedTime }
+                .filterNot(inFlight::contains)
+                .take(overflow)
+                .filter { apiQueue.remove(it) }
+        }
+
+        val evictedUuids = evicted
             .map { request ->
                 Registry.log.warning(
                     "API queue at capacity ($MAX_QUEUE_SIZE), evicting oldest request: ${request.type}"
@@ -498,12 +586,21 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Flushes the queue in a background context
+     * Flushes the queue in a background context, suspending until every dispatched lane send
+     * has finished so callers (e.g. a WorkManager job) don't release their hold mid-send.
      *
-     * @returns Boolean to indicate whether requests remain in the queue
+     * Each time in-flight sends settle, lanes are drained again to dispatch work that became
+     * eligible; the loop ends once a drain leaves nothing in flight.
+     *
+     * @returns [FlushOutcome] indicating whether requests remain in the queue
      */
     override suspend fun awaitFlushQueueOutcome() = withContext(Registry.dispatcher) {
-        sendQueueSerially()
+        var outcome = drainEligibleLanes()
+        while (inFlightCount.value > 0) {
+            inFlightCount.first { it == 0 }
+            outcome = drainEligibleLanes()
+        }
+        outcome
     }
 
     /**
@@ -552,45 +649,64 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Send API requests in the queue serially
-     * Note: this is a blocking method! It must be run from a background thread/context
+     * The lane a request belongs to, derived from its endpoint at scheduling time.
+     * Recomputed on every use so nothing lane-related is persisted.
+     */
+    private fun laneOf(request: KlaviyoApiRequest): ApiLane = ApiLane.fromRequest(request)
+
+    /**
+     * Snapshot the queue into FIFO-ordered requests per lane, preserving head-of-line
+     * priority within the events lane (priority requests sit at the front of the deque,
+     * so deque order already reflects within-lane FIFO with head-of-line first).
+     */
+    private fun queueByLane(): Map<ApiLane, List<KlaviyoApiRequest>> {
+        val byLane = linkedMapOf<ApiLane, MutableList<KlaviyoApiRequest>>()
+        apiQueue.forEach { request ->
+            byLane.getOrPut(laneOf(request)) { mutableListOf() }.add(request)
+        }
+        return byLane
+    }
+
+    /**
+     * Drain every currently-eligible lane once, dispatching each lane's head request for
+     * sending subject to the per-lane one-in-flight rule and the [MAX_IN_FLIGHT] global bound.
+     *
+     * A lane is eligible when it has queued work, is not already in flight, and the current
+     * time has reached its [LaneRuntime.nextEligibleTime]. Eligible lanes are visited in
+     * round-robin order from [roundRobinCursor] so no lane starves another.
+     *
+     * With a synchronous [laneSendExecutor] (tests) each send completes inline and the loop
+     * keeps draining; with the async pool (production) completion re-enters [pumpLanes] via
+     * [onLaneSendComplete] to dispatch work that became eligible.
+     *
+     * Note: this must be run from a background thread/context.
+     *
+     * @return [FlushOutcome.Complete] when the queue emptied, else [FlushOutcome.Incomplete]
+     *         carrying the soonest wake-up delay across lanes that still have work.
      */
     @WorkerThread
-    private fun sendQueueSerially(): FlushOutcome {
+    private fun drainEligibleLanes(): FlushOutcome {
         Registry.log.verbose("Starting network batch")
 
-        var retryAfter: Long? = null
+        val now = Registry.clock.currentTimeMillis()
 
-        while (apiQueue.isNotEmpty()) {
-            val request = apiQueue.poll() ?: continue
-
-            when (request.sendAndBroadcast()) {
-                Status.Unsent -> {
-                    // Incomplete state: put it back on the queue and break out of serial queue
-                    apiQueue.offerFirst(request)
-                    break
+        // Loop because a synchronous executor drains further lanes as earlier ones complete.
+        // Each pass either dispatches at least one send or finds nothing eligible and exits.
+        while (true) {
+            val dispatched = withLaneLock {
+                if (inFlightCount.value >= MAX_IN_FLIGHT) {
+                    false
+                } else {
+                    nextDispatchCandidate(now)?.let { (lane, request) ->
+                        laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlightRequest = request
+                        inFlightCount.update { it + 1 }
+                        dispatchLaneSend(lane, request)
+                        true
+                    } ?: false
                 }
-
-                Status.Complete, Status.Failed -> {
-                    // On success or final failure, remove from queue and persistent store
-                    // reset backoff timer in case we encounter a failure after this
-                    Registry.dataStore.clear(request.uuid)
-                    retryAfter = defaultFlushInterval
-                }
-
-                Status.PendingRetry -> {
-                    // Encountered a retryable error
-                    // Put this back on top of the queue, and we'll try again with backoff
-                    apiQueue.offerFirst(request)
-                    retryAfter = request.computeRetryInterval()
-                    break
-                }
-
-                // This should not be possible
-                Status.Inflight -> Registry.log.wtf(
-                    "Request state was not updated from Inflight"
-                )
             }
+
+            if (!dispatched) break
         }
 
         persistQueue()
@@ -599,9 +715,163 @@ internal object KlaviyoApiClient : ApiClient {
             Registry.log.verbose("Emptied network queue")
             FlushOutcome.Complete
         } else {
+            val retryAfter = computeNextWakeDelay(now)
             Registry.log.verbose("Incomplete send: ${apiQueue.size} requests remain")
             FlushOutcome.Incomplete(retryAfter)
         }
+    }
+
+    /**
+     * Pick the next (lane, head request) to dispatch, scanning lanes in round-robin order
+     * from [roundRobinCursor] and advancing the cursor past the chosen lane.
+     *
+     * Caller must hold the lane lock.
+     *
+     * @return the chosen lane and its head request, or null if no lane is dispatchable now
+     */
+    private fun nextDispatchCandidate(now: Long): Pair<ApiLane, KlaviyoApiRequest>? {
+        val byLane = queueByLane()
+        if (byLane.isEmpty()) return null
+
+        val lanes = byLane.keys.toList()
+        // Visit lanes starting just after the cursor so selection rotates fairly.
+        repeat(lanes.size) { offset ->
+            val index = (roundRobinCursor + offset) % lanes.size
+            val lane = lanes[index]
+            val runtime = laneRuntime[lane]
+
+            val inFlight = runtime?.inFlight == true
+            val eligible = now >= (runtime?.nextEligibleTime ?: 0L)
+
+            if (!inFlight && eligible) {
+                val head = byLane[lane]?.firstOrNull()
+                if (head != null) {
+                    roundRobinCursor = (index + 1) % lanes.size
+                    return lane to head
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * Hand a lane's head request to the [laneSendExecutor]. The request stays in the queue
+     * until its send completes, so a process death mid-flight restores it on next launch.
+     *
+     * An unexpected throw from the send is treated as [Status.Unsent] so the lane's in-flight
+     * slot is always released and the request is retried after the default flush interval.
+     */
+    private fun dispatchLaneSend(lane: ApiLane, request: KlaviyoApiRequest) {
+        laneSendExecutor {
+            val status = try {
+                request.sendAndBroadcast()
+            } catch (exception: Exception) {
+                Registry.log.error("Unexpected error sending ${request.type}", exception)
+                Status.Unsent
+            }
+            onLaneSendComplete(lane, request, status)
+        }
+    }
+
+    /**
+     * Reconcile a finished lane send: clear the lane's in-flight slot, apply per-lane
+     * backoff on retry, remove completed/failed requests from the queue and store, then
+     * dispatch any work that became eligible and schedule the next wake-up.
+     */
+    private fun onLaneSendComplete(
+        lane: ApiLane,
+        request: KlaviyoApiRequest,
+        status: Status
+    ) {
+        when (status) {
+            Status.Unsent -> {
+                // Network dropped mid-send: leave the request queued and retry on the
+                // default flush interval rather than hot-looping.
+                withLaneLock {
+                    laneRuntime.getOrPut(lane) { LaneRuntime() }.apply {
+                        inFlightRequest = null
+                        nextEligibleTime = Registry.clock.currentTimeMillis() + defaultFlushInterval
+                    }
+                    inFlightCount.update { it - 1 }
+                }
+            }
+
+            Status.Complete, Status.Failed -> {
+                // Terminal: remove from queue and persistent store exactly once.
+                apiQueue.remove(request)
+                Registry.dataStore.clear(request.uuid)
+                withLaneLock {
+                    laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlightRequest = null
+                    inFlightCount.update { it - 1 }
+                }
+            }
+
+            Status.PendingRetry -> {
+                // Retryable failure: keep the request at the head of its lane and hold the
+                // lane until its backoff elapses. Other lanes are unaffected.
+                val retryAfter = request.computeRetryInterval()
+                withLaneLock {
+                    laneRuntime.getOrPut(lane) { LaneRuntime() }.apply {
+                        inFlightRequest = null
+                        nextEligibleTime = Registry.clock.currentTimeMillis() + retryAfter
+                    }
+                    inFlightCount.update { it - 1 }
+                }
+            }
+
+            // This should not be possible; release the lane slot so a stuck state can
+            // never permanently wedge the lane or the global in-flight bound.
+            Status.Inflight -> {
+                Registry.log.wtf("Request state was not updated from Inflight")
+                withLaneLock {
+                    laneRuntime.getOrPut(lane) { LaneRuntime() }.inFlightRequest = null
+                    inFlightCount.update { it - 1 }
+                }
+            }
+        }
+
+        persistQueue()
+        pumpLanes()
+    }
+
+    /**
+     * Dispatch any newly-eligible lane work and ensure a wake-up is scheduled for the
+     * soonest lane that still has work but is backing off. Safe to call from any thread.
+     */
+    private fun pumpLanes() {
+        if (apiQueue.isEmpty()) return
+
+        // Wake immediately to dispatch lanes that became eligible. Forcing here bypasses
+        // only the batching flush-interval gate; per-lane backoff (nextEligibleTime) is
+        // still enforced inside drainEligibleLanes, so a backing-off lane is not disturbed.
+        startBatch(force = true)
+    }
+
+    /**
+     * Compute the delay until the next lane with queued work becomes eligible.
+     *
+     * @return the minimum per-lane wait, or null if a lane is eligible immediately
+     */
+    private fun computeNextWakeDelay(now: Long): Long? = withLaneLock {
+        var soonest: Long? = null
+        val byLane = queueByLane()
+
+        byLane.forEach { (lane, requests) ->
+            if (requests.isNotEmpty()) {
+                val runtime = laneRuntime[lane]
+                val eligibleAt = runtime?.nextEligibleTime ?: 0L
+                val wait = eligibleAt - now
+                if (wait <= 0L) {
+                    // A lane is eligible right now; no need to defer.
+                    return@withLaneLock null
+                }
+                val current = soonest
+                if (current == null || wait < current) {
+                    soonest = wait
+                }
+            }
+        }
+        soonest
     }
 
     private val currentNetworkType get() = Registry.networkMonitor.getNetworkType().position
@@ -625,7 +895,7 @@ internal object KlaviyoApiClient : ApiClient {
         private var flushInterval: Long = defaultFlushInterval
 
         /**
-         * Send queued requests serially
+         * Send queued requests, one per eligible lane
          * The queue will flush whenever the triggers specified in config are met
          * Posts another delayed batch job if requests remains
          */
@@ -636,7 +906,7 @@ internal object KlaviyoApiClient : ApiClient {
                 return requeue()
             }
 
-            val outcome = sendQueueSerially()
+            val outcome = drainEligibleLanes()
 
             outcome.takeIf<FlushOutcome.Incomplete>()?.retryAfter?.let { retryAfter ->
                 flushInterval = retryAfter
