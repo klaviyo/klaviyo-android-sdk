@@ -11,7 +11,6 @@ reviews:
     - "!**/.gradle/**"
     - "!**/*.iml"
   auto_review:
-    drafts: false
     base_branches:
       - ".*"
   path_instructions:
