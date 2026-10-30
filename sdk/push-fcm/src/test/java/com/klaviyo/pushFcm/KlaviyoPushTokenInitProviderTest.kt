@@ -14,6 +14,7 @@ class KlaviyoPushTokenInitProviderTest : BaseTest() {
     override fun cleanup() {
         super.cleanup()
         Registry.unregister<PushTokenFetcher>()
+        Registry.unregister<PushNotificationDispatcher>()
     }
 
     @Test
@@ -25,5 +26,16 @@ class KlaviyoPushTokenInitProviderTest : BaseTest() {
 
         assertTrue(created)
         assertTrue(Registry.getOrNull<PushTokenFetcher>() is KlaviyoPushTokenFetcher)
+    }
+
+    @Test
+    fun `onCreate registers the push notification dispatcher`() {
+        Registry.unregister<PushNotificationDispatcher>()
+
+        KlaviyoPushTokenInitProvider().onCreate()
+
+        assertTrue(
+            Registry.getOrNull<PushNotificationDispatcher>() is KlaviyoPushNotificationDispatcher
+        )
     }
 }

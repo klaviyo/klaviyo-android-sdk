@@ -1,0 +1,227 @@
+package com.klaviyo.inbox
+
+import com.klaviyo.core.Constants
+import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.inbox.InboxPushFixtures.FCM_MESSAGE_ID
+import com.klaviyo.inbox.InboxPushFixtures.SENT_AT_MILLIS
+import com.klaviyo.inbox.InboxPushFixtures.TRANSMISSION_ID
+import com.klaviyo.inbox.InboxPushFixtures.actionButtons
+import com.klaviyo.inbox.InboxPushFixtures.canonicalPayload
+import com.klaviyo.inbox.InboxPushFixtures.remoteMessage
+import com.klaviyo.inbox.InboxPushFixtures.tracking
+import com.klaviyo.inbox.InboxPushNormalizer.toInboxMessageEntity
+import io.mockk.verify
+import org.json.JSONObject
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Before
+import org.junit.Test
+
+internal class InboxPushNormalizerTest : BaseTest() {
+
+    private val receivedAt = 1_791_313_260_000L
+
+    @Before
+    override fun setup() {
+        super.setup()
+        InboxPushFixtures.mockUriParsing()
+    }
+
+    @After
+    override fun cleanup() {
+        InboxPushFixtures.unmockUriParsing()
+        super.cleanup()
+    }
+
+    private fun normalize(
+        data: Map<String, String> = canonicalPayload(),
+        messageId: String? = FCM_MESSAGE_ID
+    ) = remoteMessage(data, messageId).toInboxMessageEntity(API_KEY, receivedAt)
+
+    private fun canonicalWith(vararg changes: Pair<String, String?>) = canonicalPayload().apply {
+        changes.forEach { (key, value) -> if (value == null) remove(key) else put(key, value) }
+    }
+
+    @Test
+    fun `canonical payload maps every field`() {
+        val expected = InboxMessageEntity(
+            transmissionId = TRANSMISSION_ID,
+            companyId = API_KEY,
+            title = "Sale today",
+            body = "Everything is 20% off",
+            defaultDestination = InboxRecordDestination(
+                Constants.ACTION_TYPE_DEEP_LINK,
+                "myapp://sale"
+            ),
+            mediaUrl = "https://cdn.example.com/sale.png",
+            mediaType = "png",
+            customData = mapOf("promo" to "SALE20"),
+            actions = listOf(
+                InboxRecordAction(
+                    "shop",
+                    "Shop",
+                    InboxRecordDestination(Constants.ACTION_TYPE_DEEP_LINK, "myapp://shop")
+                ),
+                InboxRecordAction(
+                    "site",
+                    "Website",
+                    InboxRecordDestination(Constants.ACTION_TYPE_OPEN_URL, "https://example.com")
+                ),
+                InboxRecordAction(
+                    "open",
+                    "Open",
+                    InboxRecordDestination(Constants.ACTION_TYPE_OPEN_APP, null)
+                )
+            ),
+            sentAt = SENT_AT_MILLIS,
+            collapseId = "sale-tag",
+            badge = 3,
+            receivedAt = receivedAt,
+            attributionJson = null,
+            sortTime = SENT_AT_MILLIS
+        )
+
+        assertEquals(expected, normalize()?.copy(attributionJson = null))
+    }
+
+    @Test
+    fun `a push without a send time sorts by its receive time`() {
+        val entity = normalize(canonicalWith("_k" to tracking("timestamp" to null)))
+
+        assertNull(entity?.sentAt)
+        assertEquals(receivedAt, entity?.sortTime)
+    }
+
+    @Test
+    fun `new messages are unread and unarchived`() {
+        val entity = normalize()
+
+        assertFalse(entity?.isRead ?: true)
+        assertFalse(entity?.isArchived ?: true)
+    }
+
+    @Test
+    fun `raw tracking data keeps every key except the push token`() {
+        val raw = JSONObject(normalize()?.attributionJson.orEmpty())
+
+        assertFalse(raw.has("pt"))
+        assertEquals(TRANSMISSION_ID, raw.getString("tm"))
+        assertEquals("campaign-1", raw.getString("\$campaign"))
+    }
+
+    @Test
+    fun `title-only and body-only payloads are captured`() {
+        assertEquals("Sale today", normalize(canonicalWith("body" to null))?.title)
+        assertEquals("Everything is 20% off", normalize(canonicalWith("title" to null))?.body)
+    }
+
+    @Test
+    fun `a push without title or body is not captured`() {
+        assertNull(normalize(canonicalWith("title" to null, "body" to null)))
+    }
+
+    @Test
+    fun `web_url is the default destination when there is no deep link`() {
+        val record = normalize(
+            canonicalWith("url" to null, "web_url" to "https://example.com/sale")
+        )
+
+        assertEquals(
+            InboxRecordDestination(Constants.ACTION_TYPE_OPEN_URL, "https://example.com/sale"),
+            record?.defaultDestination
+        )
+    }
+
+    @Test
+    fun `a disallowed web_url scheme falls back to opening the app`() {
+        val record = normalize(canonicalWith("url" to null, "web_url" to "javascript:alert(1)"))
+
+        assertEquals(
+            InboxRecordDestination(Constants.ACTION_TYPE_OPEN_APP, null),
+            record?.defaultDestination
+        )
+    }
+
+    @Test
+    fun `unknown and invalid actions are dropped and at most three are kept`() {
+        val buttons = actionButtons(
+            mapOf("id" to "a", "label" to "A", "action" to "share"),
+            mapOf(
+                "id" to "b",
+                "label" to "B",
+                "action" to "open_url",
+                "url" to "javascript:alert(1)"
+            ),
+            mapOf("id" to "c", "label" to "C", "action" to "open_app"),
+            mapOf("id" to "d", "label" to "D", "action" to "open_app"),
+            mapOf("id" to "e", "label" to "E", "action" to "open_app"),
+            mapOf("id" to "f", "label" to "F", "action" to "open_app")
+        )
+
+        val record = normalize(canonicalWith("action_buttons" to buttons))
+
+        assertEquals(listOf("c", "d", "e"), record?.actions?.map { it.id })
+    }
+
+    @Test
+    fun `missing optional fields map to empty values`() {
+        val record = normalize(
+            canonicalWith(
+                "url" to null,
+                "image_url" to null,
+                "image_type" to null,
+                "key_value_pairs" to null,
+                "action_buttons" to null,
+                "notification_tag" to null
+            )
+        )
+
+        assertEquals(
+            InboxRecordDestination(Constants.ACTION_TYPE_OPEN_APP, null),
+            record?.defaultDestination
+        )
+        assertNull(record?.mediaUrl)
+        assertNull(record?.mediaType)
+        assertEquals(emptyMap<String, String>(), record?.customData)
+        assertEquals(emptyList<InboxRecordAction>(), record?.actions)
+        assertNull(record?.collapseId)
+    }
+
+    @Test
+    fun `malformed key_value_pairs map to empty custom data`() {
+        assertEquals(
+            emptyMap<String, String>(),
+            normalize(canonicalWith("key_value_pairs" to "{not json"))?.customData
+        )
+    }
+
+    @Test
+    fun `a push without a transmission ID is not captured`() {
+        assertNull(normalize(canonicalWith("_k" to tracking("tm" to null))))
+        assertNull(normalize(canonicalWith("_k" to tracking("tm" to ""))))
+    }
+
+    @Test
+    fun `a push without tracking data is not captured`() {
+        assertNull(normalize(canonicalWith("_k" to "{not json")))
+        verify { spyLog.warning(any(), null) }
+    }
+
+    @Test
+    fun `an unparseable timestamp leaves the send time empty`() {
+        assertNull(normalize(canonicalWith("_k" to tracking("timestamp" to "yesterday")))?.sentAt)
+    }
+
+    @Test
+    fun `a missing timestamp leaves the send time empty`() {
+        assertNull(normalize(canonicalWith("_k" to tracking("timestamp" to null)))?.sentAt)
+    }
+
+    @Test
+    fun `badge is empty when absent or not a number`() {
+        assertNull(normalize(canonicalWith("notification_count" to null))?.badge)
+        assertNull(normalize(canonicalWith("notification_count" to "lots"))?.badge)
+    }
+}
