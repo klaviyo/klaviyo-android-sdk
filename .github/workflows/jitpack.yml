@@ -58,6 +58,45 @@ jobs:
             echo "version_type=commit" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Check release tag matches strings.xml version
+        id: version_check
+        if: github.event_name == 'release'
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          STRINGS_VERSION=$(grep -o '<string name="klaviyo_sdk_version_override">[^<]*</string>' sdk/core/src/main/res/values/strings.xml | sed 's/.*>\([^<]*\)<.*/\1/')
+          echo "Tag: $TAG_NAME, strings.xml version: $STRINGS_VERSION"
+          echo "strings_version=$STRINGS_VERSION" >> "$GITHUB_OUTPUT"
+          if [ "$TAG_NAME" != "$STRINGS_VERSION" ]; then
+            echo "::error::Release tag $TAG_NAME does not match strings.xml version $STRINGS_VERSION"
+            echo "version_match=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo "version_match=true" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack of release version mismatch
+        if: failure() && github.event_name == 'release' && steps.version_check.outcome == 'failure'
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🚨 Release Version Mismatch Detected"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "🚨 Release Version Mismatch Detected\n"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Repository:* ${{ github.repository }}\n*Release Tag:* `${{ github.event.release.tag_name }}`\n*strings.xml Version:* `${{ steps.version_check.outputs.strings_version }}`\n*Action:* A GitHub release was published with a mismatched version, so JitPack was not seeded. Fix the release and tag so the tag name matches the version in `strings.xml`."
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+
       - name: Build Artifacts on JitPack
         env:
           JITPACK_TOKEN: ${{ secrets.JITPACK_TOKEN }}
@@ -95,7 +134,7 @@ jobs:
           details: ${{ steps.test_app_dispatch.outcome == 'failure' && '⚠️ Test app SDK bump dispatch failed. Bump klaviyo-android-test-app by hand or re-run this job.' || '' }}
 
       - name: Notify Slack of release publish failure
-        if: failure() && github.ref_type == 'tag'
+        if: failure() && github.ref_type == 'tag' && steps.version_check.outcome != 'failure'
         continue-on-error: true
         uses: ./.github/actions/notify-slack-publish
         with:

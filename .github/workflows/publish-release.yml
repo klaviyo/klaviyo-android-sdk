@@ -257,7 +257,7 @@ jobs:
         id: dispatch
         if: ${{ !inputs.dry_run }}
         run: |
-          WORKFLOWS="jitpack.yml version-guard.yml"
+          WORKFLOWS="jitpack.yml"
           if [ "$PRERELEASE" != "true" ]; then
             WORKFLOWS="$WORKFLOWS doc-bot.yml"
           fi
@@ -292,7 +292,7 @@ jobs:
           title: "Android SDK ${{ inputs.version }} released${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}"
           commit: ${{ env.SHA }}
           release_url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.version }}
-          details: JitPack build, version guard${{ env.PRERELEASE != 'true' && ' and docs' || '' }} dispatched at the tag. JitPack posts its own build result.
+          details: JitPack build${{ env.PRERELEASE != 'true' && ' and docs' || '' }} dispatched at the tag. JitPack posts its own build result.
 
       - name: Find failed step
         id: failed
