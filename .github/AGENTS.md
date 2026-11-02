@@ -4,28 +4,16 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 
 ## Slack
 
-- Post to Slack only through `.github/actions/notify-slack`. Never use slackapi/slack-github-action or raw curl.
-- Pass the bot token from the `SLACK_BOT_TOKEN` repository secret: `token: ${{ secrets.SLACK_BOT_TOKEN }}`. A composite action cannot read secrets. An empty token skips the post, so do not add secret-presence checks.
-- One message per release or deploy. Post once, expose the `ts` output as a job output or workflow_dispatch input, and let later stages update that message with `ts`. Put failure details in a reply with `thread_ts`.
-- Each workflow sets `SLACK_USERNAME` and `SLACK_ICON_EMOJI` in its top-level `env:` so the bot posts as "Android SDK" with the Android orb. The action's own defaults stay neutral.
-- Add `continue-on-error: true` to every Slack notify step and every Slack action checkout step.
-- Report a cancelled job only when it timed out: record the start time, then compare elapsed time to `timeout-minutes` in a `Classify cancellation` step (see `instrumented-tests.yml`). A superseded or manually cancelled run stays quiet.
-- Cross-workflow replies: `publish-release.yml` passes `slack_thread_ts` to `jitpack.yml`. Leave it empty to post fresh.
-- A job that uses a local action needs a checkout first. Jobs that check out another ref use a sparse checkout of `.github/actions` into `_slack/`.
-- `notify-slack` must stay byte-identical in all 7 MAGE repos: klaviyo-android-sdk, klaviyo-android-test-app, klaviyo-swift-sdk, klaviyo-ios-test-app, klaviyo-react-native-sdk, klaviyo-expo-plugin, klaviyo-flutter-sdk. Change it in all of them together.
+- Use only `.github/actions/notify-slack` for Slack. It wraps slackapi/slack-github-action, so don't call slackapi or curl directly.
+- `token: ${{ secrets.SLACK_BOT_TOKEN }}`. An empty token skips, so no presence checks.
+- One message per release or deploy, updated through `ts` (job output or dispatch input). Failure details go in a `thread_ts` reply.
+- Each workflow sets `SLACK_USERNAME` and `SLACK_ICON_EMOJI` in its top-level `env:` ("Android SDK", `:merlin-orb-android:`).
+- `continue-on-error: true` on Slack notify steps and Slack-action checkout steps.
+- Report a cancelled job only on timeout: the `Classify cancellation` step in `instrumented-tests.yml`.
+- `publish-release.yml` passes `slack_thread_ts` to `jitpack.yml`. Jobs on another ref sparse-checkout `.github/actions` into `_slack/`.
+- `notify-slack` stays byte-identical in all 7 repos: klaviyo-android-sdk, klaviyo-android-test-app, klaviyo-swift-sdk, klaviyo-ios-test-app, klaviyo-react-native-sdk, klaviyo-expo-plugin, klaviyo-flutter-sdk.
 
 ## Workflow conventions
 
-- Pin third-party actions by tag (`actions/checkout@v4`). Pin actions that handle credentials or release data by full commit SHA with a `# vX.Y.Z` comment, as `linear/linear-release-action` is.
-- Prefer least-privilege `permissions:`: `contents: read` at the top of the workflow, raised per job only for what that job needs (`contents: write`, `pull-requests: write`).
-- Add a `concurrency` group to workflows that must not overlap (`publish-release.yml`, `jitpack.yml`). Use `cancel-in-progress: false` for releases.
-- Give anything useful to run by hand a `workflow_dispatch` trigger.
-- Never echo secrets. Pass them through `env:`, not inline in `run:`. Pass untrusted values (branch names, titles, tags) through `env:` too.
-- Use `failure()` for failure handling, `success()` for success-only steps, and `!cancelled()` for steps that must run unless the run was cancelled. Add `continue-on-error: true` to notification steps.
-- Slack steps must never fail the job.
-
-## Testing workflow changes
-
-- Run `actionlint .github/workflows/*.yml` before pushing.
-- Run `shellcheck` on any script you touch.
-- Trigger the workflow with `workflow_dispatch` from your branch, or use a `dry_run` input where one exists (`publish-release.yml`).
+- Pin actions by tag. Use a full SHA with a `# vX.Y.Z` comment for actions that handle credentials or release data (`linear/linear-release-action`, `slackapi/slack-github-action`).
+- `publish-release.yml` and `jitpack.yml` use `concurrency` groups with `cancel-in-progress: false`.
