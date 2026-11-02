@@ -18,8 +18,8 @@ Keep this directory byte-identical across the MAGE repos. See `.github/AGENTS.md
 | `ts` | `''` | Update this message (`chat.update`) instead of posting. |
 | `thread_ts` | `''` | Post as a reply in this message's thread. Ignored when `ts` is set. |
 | `mention` | `''` | Raw Slack mention text, e.g. `<@U123>`, placed at the start of the text. |
-| `username` | `MAGE CI` | Needs `chat:write.customize`. Applies to new posts only. |
-| `icon_emoji` | `:crystal_ball:` | Applies to new posts only. |
+| `username` | `$SLACK_USERNAME`, else `MAGE CI` | Needs `chat:write.customize`. Applies to new posts only. |
+| `icon_emoji` | `$SLACK_ICON_EMOJI`, else `:crystal_ball:` | Applies to new posts only. |
 
 ## Outputs
 
@@ -27,6 +27,8 @@ Keep this directory byte-identical across the MAGE repos. See `.github/AGENTS.md
 | --- | --- |
 | `ts` | ts of the posted or updated message. Falls back to the `ts` input when skipped or failed. |
 | `channel` | Channel ID from Slack's response. |
+
+Set `SLACK_USERNAME` and `SLACK_ICON_EMOJI` in a workflow `env:` block to give every call in that repo its own bot name and avatar without repeating the inputs.
 
 Retries on HTTP 429 and 5xx up to 3 attempts, honouring `Retry-After`.
 

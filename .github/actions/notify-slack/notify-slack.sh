@@ -3,6 +3,8 @@
 #
 # Env: SLACK_TOKEN CHANNEL STATUS TITLE BODY FIELDS LINKS TS THREAD_TS MENTION USERNAME
 #      ICON_EMOJI RUN_URL. SLACK_API_URL overrides https://slack.com/api.
+# USERNAME and ICON_EMOJI fall back to SLACK_USERNAME and SLACK_ICON_EMOJI (set them in a workflow
+# `env:` block), then to MAGE CI and :crystal_ball:.
 # Writes ts and channel to $GITHUB_OUTPUT.
 # Always exits 0: a Slack problem is reported as a ::warning:: and never fails the caller.
 
@@ -11,8 +13,8 @@ set -uo pipefail
 API_URL=${SLACK_API_URL:-https://slack.com/api}
 CHANNEL=${CHANNEL:-C08HFEC8W9W}
 STATUS=${STATUS:-info}
-USERNAME=${USERNAME:-MAGE CI}
-ICON_EMOJI=${ICON_EMOJI:-:crystal_ball:}
+USERNAME=${USERNAME:-${SLACK_USERNAME:-MAGE CI}}
+ICON_EMOJI=${ICON_EMOJI:-${SLACK_ICON_EMOJI:-:crystal_ball:}}
 MAX_ATTEMPTS=3
 MAX_WAIT=30
 
@@ -67,20 +69,19 @@ if ! jq -n \
   --arg icon_emoji "$ICON_EMOJI" \
   '
   def esc: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
-  def trim: gsub("^\\s+|\\s+$"; "");
+  def trim: sub("^\\s+"; "") | sub("\\s+$"; "");
   def lines: split("\n") | map(gsub("\r"; "")) | map(select(test("\\S")));
 
   ($mention | trim) as $m
   | (if $m == "" then "" else $m + " " end) as $prefix
   | ($title | esc) as $t
   | ($fields | lines | map(
-      index(":") as $i
-      | if $i == null
-        then {type: "mrkdwn", text: (esc | .[:2000])}
-        else {type: "mrkdwn", text: ("*" + (.[:$i] | trim | esc) + ":*\n" + (.[$i + 1:] | trim | esc) | .[:2000])}
-        end
+      if test(":")
+      then capture("^(?<k>[^:]*):(?<v>.*)$") | {type: "mrkdwn", text: ("*" + (.k | trim | esc) + ":*\n" + (.v | trim | esc) | .[:2000])}
+      else {type: "mrkdwn", text: (esc | .[:2000])}
+      end
     ) | .[:10]) as $f
-  | (($links | lines | map(select(contains("|")) | index("|") as $i | {l: .[:$i] | trim, u: .[$i + 1:] | trim})
+  | (($links | lines | map(select(contains("|")) | capture("^(?<l>[^|]*)\\|(?<u>.*)$") | {l: (.l | trim), u: (.u | trim)})
       | map(select(.u != "") | "<" + (.u | esc | gsub("\\|"; "%7C")) + "|" + (.l | esc) + ">"))
      + (if $run_url == "" then [] else ["<" + ($run_url | esc) + "|Run>"] end)) as $l
   | {

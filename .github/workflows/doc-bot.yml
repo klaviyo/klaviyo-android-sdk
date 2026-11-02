@@ -6,6 +6,10 @@ on:
     types: [released]
   workflow_dispatch:
 
+env:
+  SLACK_USERNAME: Android SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-android:'
+
 jobs:
   dokka:
     name: Generate and Publish Documentation
@@ -61,6 +65,7 @@ jobs:
 
       - name: Checkout Slack action
         if: failure()
+        continue-on-error: true
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -69,6 +74,7 @@ jobs:
 
       - name: Send Slack notification on failure
         if: failure()
+        continue-on-error: true
         uses: ./_slack/.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}

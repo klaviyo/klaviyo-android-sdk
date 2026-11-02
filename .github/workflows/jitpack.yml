@@ -27,6 +27,10 @@ on:
         required: false
         default: ''
 
+env:
+  SLACK_USERNAME: Android SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-android:'
+
 jobs:
   build:
     name: Build Artifacts
@@ -39,6 +43,9 @@ jobs:
       github.event_name != 'pull_request' ||
       contains(github.event.pull_request.labels.*.name, 'jitpack:build')
     steps:
+      - name: Record job start
+        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Checkout repository
         id: checkout
         uses: actions/checkout@v4
@@ -132,15 +139,26 @@ jobs:
             Author: ${{ github.actor }}
           links: Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
 
+      - name: Classify cancellation
+        id: stop
+        if: cancelled()
+        env:
+          TIMEOUT_MINUTES: 360
+        run: |
+          elapsed=$(( $(date +%s) - ${JOB_START:-$(date +%s)} ))
+          if [ "$elapsed" -ge $(( TIMEOUT_MINUTES * 60 - 60 )) ]; then
+            echo "timed_out=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Notify Slack of release publish failure
-        if: (failure() || cancelled()) && github.ref_type == 'tag' && steps.version_check.outcome != 'failure'
+        if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && github.ref_type == 'tag' && steps.checkout.outcome == 'success' && steps.version_check.outcome != 'failure'
         continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
-          title: Android SDK ${{ github.ref_name }} JitPack build ${{ job.status == 'cancelled' && 'cancelled or timed out' || 'failed' }}
+          title: Android SDK ${{ github.ref_name }} JitPack build ${{ job.status == 'cancelled' && 'timed out' || 'failed' }}
           fields: |
             Version: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
@@ -149,6 +167,7 @@ jobs:
 
       - name: Send Slack notification on success
         if: success() && github.ref_type != 'tag'
+        continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -159,13 +178,14 @@ jobs:
             Version: ${{ steps.version.outputs.version }}
 
       - name: Send Slack notification on failure
-        if: (failure() || cancelled()) && (github.ref_type != 'tag' || steps.checkout.outcome != 'success')
+        if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && (github.ref_type != 'tag' || steps.checkout.outcome != 'success')
+        continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
-          title: JitPack build ${{ job.status == 'cancelled' && 'cancelled or timed out' || 'failed' }} for ${{ github.event.pull_request.head.ref || github.ref_name }}
+          title: JitPack build ${{ job.status == 'cancelled' && 'timed out' || 'failed' }} for ${{ github.event.pull_request.head.ref || github.ref_name }}
           fields: |
             Version: ${{ steps.version.outputs.version }}
 

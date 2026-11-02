@@ -31,6 +31,8 @@ permissions:
 
 env:
   SLACK_ACTION_DIR: _slack
+  SLACK_USERNAME: Android SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-android:'
 
 concurrency:
   group: publish-release-${{ inputs.version }}
@@ -106,6 +108,7 @@ jobs:
           echo "✅ strings.xml version matches $VERSION"
 
       - name: Skip CI check
+        id: skipci
         if: ${{ inputs.skip_ci_check }}
         run: echo "::warning::CI check skipped by request; not verifying pull_request CI for this commit"
 
@@ -158,6 +161,7 @@ jobs:
           echo "release_url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Write run summary
+        id: summary
         env:
           SHA: ${{ steps.resolve.outputs.sha }}
           URL: ${{ steps.draft.outputs.release_url }}
@@ -213,7 +217,27 @@ jobs:
         if: failure()
         env:
           STEPS_JSON: ${{ toJSON(steps) }}
-        run: echo "step=$(jq -r '[to_entries[] | select(.value.conclusion == "failure")][0].key // "unknown step"' <<<"$STEPS_JSON")" >> "$GITHUB_OUTPUT"
+        run: |
+          step=$(jq -r '
+            {
+              validate: "Validate version format",
+              checkout: "Checkout repository",
+              resolve: "Resolve commit",
+              branch: "Check commit is on master or a release branch",
+              tag: "Check tag does not exist",
+              strings: "Check strings.xml version matches",
+              skipci: "Skip CI check",
+              ci: "Check CI is green on the merged PR",
+              draft: "Find or create draft release",
+              summary: "Write run summary",
+              dryrun: "Dry run",
+              publish: "Publish draft release",
+              dispatch: "Dispatch downstream workflows at the tag"
+            } as $names
+            | ([to_entries[] | select(.value.conclusion == "failure")][0].key) as $key
+            | if $key == null then "unknown step" else ($names[$key] // $key) end
+          ' <<<"$STEPS_JSON")
+          echo "step=$step" >> "$GITHUB_OUTPUT"
 
       - name: Notify Slack release failure
         id: slack_failure
@@ -256,6 +280,7 @@ jobs:
       SLACK_TS: ${{ needs.prepare.outputs.slack_ts }}
     steps:
       - name: Dry run
+        id: dryrun
         if: ${{ inputs.dry_run }}
         run: echo "### Dry run for $VERSION approved; nothing published" >> "$GITHUB_STEP_SUMMARY"
 
@@ -320,7 +345,27 @@ jobs:
         if: failure()
         env:
           STEPS_JSON: ${{ toJSON(steps) }}
-        run: echo "step=$(jq -r '[to_entries[] | select(.value.conclusion == "failure")][0].key // "unknown step"' <<<"$STEPS_JSON")" >> "$GITHUB_OUTPUT"
+        run: |
+          step=$(jq -r '
+            {
+              validate: "Validate version format",
+              checkout: "Checkout repository",
+              resolve: "Resolve commit",
+              branch: "Check commit is on master or a release branch",
+              tag: "Check tag does not exist",
+              strings: "Check strings.xml version matches",
+              skipci: "Skip CI check",
+              ci: "Check CI is green on the merged PR",
+              draft: "Find or create draft release",
+              summary: "Write run summary",
+              dryrun: "Dry run",
+              publish: "Publish draft release",
+              dispatch: "Dispatch downstream workflows at the tag"
+            } as $names
+            | ([to_entries[] | select(.value.conclusion == "failure")][0].key) as $key
+            | if $key == null then "unknown step" else ($names[$key] // $key) end
+          ' <<<"$STEPS_JSON")
+          echo "step=$step" >> "$GITHUB_OUTPUT"
 
       - name: Notify Slack release failure
         id: slack_failure
@@ -350,7 +395,7 @@ jobs:
   stopped:
     name: Report Stopped Release
     needs: [prepare, publish]
-    if: always() && (contains(needs.*.result, 'cancelled') || needs.publish.result == 'failure')
+    if: always() && !inputs.dry_run && (contains(needs.*.result, 'cancelled') || needs.publish.result == 'failure')
     runs-on: ubuntu-22.04
     permissions:
       actions: read

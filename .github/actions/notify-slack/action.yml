@@ -42,13 +42,13 @@ inputs:
     required: false
     default: ''
   username:
-    description: Display name of the bot for new posts.
+    description: Display name of the bot for new posts. When empty, falls back to the SLACK_USERNAME environment variable, then MAGE CI.
     required: false
-    default: MAGE CI
+    default: ''
   icon_emoji:
-    description: Emoji used as the bot avatar for new posts.
+    description: Emoji used as the bot avatar for new posts. When empty, falls back to the SLACK_ICON_EMOJI environment variable, then :crystal_ball:.
     required: false
-    default: ':crystal_ball:'
+    default: ''
 
 outputs:
   ts:

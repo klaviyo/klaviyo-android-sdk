@@ -20,6 +20,10 @@ on:
   pull_request:
     types: [ labeled ]
 
+env:
+  SLACK_USERNAME: Android SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-android:'
+
 jobs:
   # Main instrumented tests job
   instrumented-tests:
@@ -43,6 +47,9 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Record job start
+        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
 
       - name: Setup Android Build Environment
@@ -121,20 +128,33 @@ jobs:
           path: sample/build/test-results/
           retention-days: 7
 
+      - name: Classify cancellation
+        id: stop
+        if: cancelled() && github.event_name == 'push'
+        env:
+          TIMEOUT_MINUTES: 15
+        run: |
+          elapsed=$(( $(date +%s) - ${JOB_START:-$(date +%s)} ))
+          if [ "$elapsed" -ge $(( TIMEOUT_MINUTES * 60 - 60 )) ]; then
+            echo "timed_out=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout Slack action
-        if: failure() && github.event_name == 'push'
+        if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && github.event_name == 'push'
+        continue-on-error: true
         uses: actions/checkout@v4
         with:
           sparse-checkout: .github/actions
           path: _slack
 
       - name: Send Slack notification on push failure
-        if: failure() && github.event_name == 'push'
+        if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && github.event_name == 'push'
+        continue-on-error: true
         uses: ./_slack/.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
-          status: failure
-          title: Instrumented tests failed on ${{ github.ref_name }}
+          status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
+          title: Instrumented tests ${{ job.status == 'cancelled' && 'timed out' || 'failed' }} on ${{ github.ref_name }}
           fields: |
             Repository: ${{ github.repository }}
             Branch: ${{ github.ref_name }}
