@@ -139,8 +139,8 @@ jobs:
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
-          status: ${{ cancelled() && 'stopped' || 'failure' }}
-          title: Android SDK ${{ github.ref_name }} JitPack build ${{ cancelled() && 'cancelled or timed out' || 'failed' }}
+          status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
+          title: Android SDK ${{ github.ref_name }} JitPack build ${{ job.status == 'cancelled' && 'cancelled or timed out' || 'failed' }}
           fields: |
             Version: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
@@ -164,8 +164,8 @@ jobs:
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
-          status: ${{ cancelled() && 'stopped' || 'failure' }}
-          title: JitPack build ${{ cancelled() && 'cancelled or timed out' || 'failed' }} for ${{ github.event.pull_request.head.ref || github.ref_name }}
+          status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
+          title: JitPack build ${{ job.status == 'cancelled' && 'cancelled or timed out' || 'failed' }} for ${{ github.event.pull_request.head.ref || github.ref_name }}
           fields: |
             Version: ${{ steps.version.outputs.version }}
 
