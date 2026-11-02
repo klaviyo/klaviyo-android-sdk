@@ -1,6 +1,6 @@
 # notify-slack
 
-Posts, updates or replies to a Slack message through the Slack Web API, as the Merlin bot (shown as `MAGE CI`). Uses `bash`, `curl` and `jq`. The action never fails the calling job: Slack errors become `::warning::` lines.
+Posts, updates or replies to a Slack message as the Merlin bot (shown as `MAGE CI`). It wraps [`slackapi/slack-github-action`](https://github.com/slackapi/slack-github-action) v2: a small bash and `jq` step builds the payload, then slackapi sends it. The inputs and outputs are the same as before the wrap. The action never fails the calling job: Slack errors become `::warning::` lines.
 
 Keep this directory byte-identical across the MAGE repos. See `.github/AGENTS.md`.
 
@@ -26,11 +26,11 @@ Keep this directory byte-identical across the MAGE repos. See `.github/AGENTS.md
 | Output | Notes |
 | --- | --- |
 | `ts` | ts of the posted or updated message. Falls back to the `ts` input when skipped or failed. |
-| `channel` | Channel ID from Slack's response. |
+| `channel` | Channel ID from Slack's response. Falls back to the `channel` input when skipped or failed. |
 
 Set `SLACK_USERNAME` and `SLACK_ICON_EMOJI` in a workflow `env:` block to give every call in that repo its own bot name and avatar without repeating the inputs.
 
-Retries on HTTP 429 and 5xx up to 3 attempts, honouring `Retry-After`.
+Retries are handled by slackapi (up to 5 attempts, honouring `Retry-After`).
 
 ## Examples
 

@@ -1,5 +1,5 @@
 name: Notify Slack
-description: Posts, updates or replies to a Slack message through the Web API as the MAGE CI bot. Never fails the calling job.
+description: Posts, updates or replies to a Slack message as the MAGE CI bot, using slackapi/slack-github-action. Never fails the calling job.
 
 inputs:
   token:
@@ -53,15 +53,15 @@ inputs:
 outputs:
   ts:
     description: The ts of the posted or updated message. Falls back to the ts input when the call is skipped or fails.
-    value: ${{ steps.notify.outputs.ts }}
+    value: ${{ steps.finish.outputs.ts }}
   channel:
     description: The channel ID from the Slack response. Falls back to the channel input when the call is skipped or fails.
-    value: ${{ steps.notify.outputs.channel }}
+    value: ${{ steps.finish.outputs.channel }}
 
 runs:
   using: composite
   steps:
-    - id: notify
+    - id: build
       shell: bash
       env:
         SLACK_TOKEN: ${{ inputs.token }}
@@ -78,3 +78,43 @@ runs:
         ICON_EMOJI: ${{ inputs.icon_emoji }}
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       run: bash "$GITHUB_ACTION_PATH/notify-slack.sh"
+
+    - id: slack
+      if: steps.build.outputs.skip != 'true'
+      continue-on-error: true
+      uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+      with:
+        method: ${{ steps.build.outputs.method }}
+        token: ${{ inputs.token }}
+        payload-file-path: ${{ steps.build.outputs.payload_path }}
+        errors: false
+
+    - id: finish
+      if: always()
+      shell: bash
+      env:
+        SKIPPED: ${{ steps.build.outputs.skip }}
+        SLACK_OK: ${{ steps.slack.outputs.ok }}
+        SLACK_RESPONSE: ${{ steps.slack.outputs.response }}
+        SLACK_TS: ${{ steps.slack.outputs.ts }}
+        SLACK_CHANNEL_ID: ${{ steps.slack.outputs.channel_id }}
+        TS: ${{ inputs.ts }}
+        CHANNEL: ${{ inputs.channel }}
+        BUILD_TS: ${{ steps.build.outputs.ts }}
+        BUILD_CHANNEL: ${{ steps.build.outputs.channel }}
+      run: |
+        if [ "$SKIPPED" = "true" ]; then
+          ts=$BUILD_TS
+          channel=$BUILD_CHANNEL
+        else
+          ts=${SLACK_TS:-$TS}
+          channel=${SLACK_CHANNEL_ID:-$CHANNEL}
+          if [ "$SLACK_OK" != "true" ]; then
+            error=$(printf '%s' "$SLACK_RESPONSE" | jq -r '.error // empty' 2> /dev/null || true)
+            echo "::warning::Slack notification failed: ${error:-no response from Slack}"
+          fi
+        fi
+        {
+          echo "ts=$ts"
+          echo "channel=${channel:-$CHANNEL}"
+        } >> "$GITHUB_OUTPUT"
