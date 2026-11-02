@@ -133,14 +133,14 @@ jobs:
           links: Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
 
       - name: Notify Slack of release publish failure
-        if: failure() && github.ref_type == 'tag' && steps.version_check.outcome != 'failure'
+        if: (failure() || cancelled()) && github.ref_type == 'tag' && steps.version_check.outcome != 'failure'
         continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
-          status: failure
-          title: Android SDK ${{ github.ref_name }} JitPack build failed
+          status: ${{ cancelled() && 'stopped' || 'failure' }}
+          title: Android SDK ${{ github.ref_name }} JitPack build ${{ cancelled() && 'cancelled or timed out' || 'failed' }}
           fields: |
             Version: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
@@ -159,13 +159,13 @@ jobs:
             Version: ${{ steps.version.outputs.version }}
 
       - name: Send Slack notification on failure
-        if: failure() && (github.ref_type != 'tag' || steps.checkout.outcome != 'success')
+        if: (failure() || cancelled()) && (github.ref_type != 'tag' || steps.checkout.outcome != 'success')
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
-          status: failure
-          title: JitPack build failed for ${{ github.event.pull_request.head.ref || github.ref_name }}
+          status: ${{ cancelled() && 'stopped' || 'failure' }}
+          title: JitPack build ${{ cancelled() && 'cancelled or timed out' || 'failed' }} for ${{ github.event.pull_request.head.ref || github.ref_name }}
           fields: |
             Version: ${{ steps.version.outputs.version }}
 

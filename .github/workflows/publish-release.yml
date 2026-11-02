@@ -364,7 +364,7 @@ jobs:
           CANCELLED: ${{ contains(needs.*.result, 'cancelled') }}
         run: |
           if [ "$CANCELLED" == "true" ]; then
-            echo "reason=cancelled" >> "$GITHUB_OUTPUT"
+            echo "reason=cancelled or timed out" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           STATE=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
