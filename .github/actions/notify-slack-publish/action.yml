@@ -41,6 +41,18 @@ inputs:
     description: Link text for the workflow run
     required: false
     default: View Details
+  bot_instructions:
+    description: "Optional instructions for Bond. When set (along with slack_bot_token and slack_channel_id), a follow-up message is posted in the alert thread @-mentioning Bond to triage the failure."
+    required: false
+    default: ''
+  slack_bot_token:
+    description: "Optional Slack bot token (needs chat:write; the app must be in the channel). Only used when bot_instructions is set, since incoming webhooks cannot thread replies."
+    required: false
+    default: ''
+  slack_channel_id:
+    description: Slack channel ID to post to when using slack_bot_token. Only used when bot_instructions is set.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -82,7 +94,35 @@ runs:
           echo "$delim"
         } >> "$GITHUB_OUTPUT"
 
-    - uses: slackapi/slack-github-action@v2.1.1
+    # Bond triage path: incoming webhooks cannot reply in a thread or return a message ts,
+    # so post the alert with chat.postMessage when bot_instructions, a bot token and a channel are all set.
+    - id: alert-bot
+      if: inputs.bot_instructions != '' && inputs.slack_bot_token != '' && inputs.slack_channel_id != ''
+      continue-on-error: true
+      uses: slackapi/slack-github-action@v2.1.1
+      with:
+        method: chat.postMessage
+        token: ${{ inputs.slack_bot_token }}
+        payload: |
+          channel: ${{ toJSON(inputs.slack_channel_id) }}
+          text: ${{ toJSON(steps.head.outputs.text) }}
+          blocks:
+            - type: "header"
+              text:
+                type: "plain_text"
+                text: ${{ toJSON(steps.head.outputs.text) }}
+            - type: "section"
+              text:
+                type: "mrkdwn"
+                text: ${{ toJSON(steps.head.outputs.body) }}
+            - type: "section"
+              text:
+                type: "mrkdwn"
+                text: ${{ toJSON(format('*Workflow Run:* <{0}/{1}/actions/runs/{2}|{3}>', github.server_url, github.repository, github.run_id, inputs.run_label)) }}
+
+    # Default path. Also a fallback if the bot post above failed, so the alert is never lost.
+    - if: steps.alert-bot.outcome != 'success' || steps.alert-bot.outputs.ok != 'true'
+      uses: slackapi/slack-github-action@v2.1.1
       with:
         webhook: ${{ inputs.webhook }}
         webhook-type: incoming-webhook
@@ -101,3 +141,29 @@ runs:
               text:
                 type: "mrkdwn"
                 text: ${{ toJSON(format('*Workflow Run:* <{0}/{1}/actions/runs/{2}|{3}>', github.server_url, github.repository, github.run_id, inputs.run_label)) }}
+
+    - id: bond
+      if: steps.alert-bot.outputs.ok == 'true' && steps.alert-bot.outputs.ts != ''
+      shell: bash
+      env:
+        INSTRUCTIONS: ${{ inputs.bot_instructions }}
+        RUN_URL: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+      run: |
+        text="<@U097MV5ADME> please triage this CI failure."$'\n'"$INSTRUCTIONS"$'\n'"*Workflow Run:* <$RUN_URL|View Details>"
+        delim="EOF_$(openssl rand -hex 8)"
+        {
+          echo "text<<$delim"
+          echo "$text"
+          echo "$delim"
+        } >> "$GITHUB_OUTPUT"
+
+    - if: steps.bond.outcome == 'success'
+      continue-on-error: true
+      uses: slackapi/slack-github-action@v2.1.1
+      with:
+        method: chat.postMessage
+        token: ${{ inputs.slack_bot_token }}
+        payload: |
+          channel: ${{ toJSON(steps.alert-bot.outputs.channel_id || inputs.slack_channel_id) }}
+          thread_ts: ${{ toJSON(steps.alert-bot.outputs.ts) }}
+          text: ${{ toJSON(steps.bond.outputs.text) }}
