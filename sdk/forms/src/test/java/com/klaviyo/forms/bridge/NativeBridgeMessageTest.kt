@@ -632,6 +632,28 @@ class NativeBridgeMessageTest : BaseTest() {
     }
 
     @Test
+    fun `test decodeWebviewMessage decodes formsPreviewEnded with token`() {
+        val token = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
+
+        assertEquals(
+            NativeBridgeMessage.FormsPreviewEnded("expired", token),
+            NativeBridgeMessage.decodeWebviewMessage(
+                """{"type":"formsPreviewEnded","data":{"reason":"expired","token":"$token"}}"""
+            )
+        )
+    }
+
+    @Test
+    fun `test decodeWebviewMessage decodes formsPreviewEnded without token`() {
+        assertEquals(
+            NativeBridgeMessage.FormsPreviewEnded("expired", null),
+            NativeBridgeMessage.decodeWebviewMessage(
+                """{"type":"formsPreviewEnded","data":{"reason":"expired"}}"""
+            )
+        )
+    }
+
+    @Test
     fun `test decodeWebviewMessage no longer recognizes BadJWT`() {
         assertThrows(IllegalStateException::class.java) {
             NativeBridgeMessage.decodeWebviewMessage("""{"type":"BadJWT","data":{}}""")

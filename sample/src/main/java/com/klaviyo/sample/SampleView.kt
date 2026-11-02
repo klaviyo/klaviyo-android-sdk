@@ -185,10 +185,16 @@ fun SampleView(
                 formsPreviewToken = viewModel.formsPreviewToken,
                 isFormsPreviewEnabled = viewModel.isFormsPreviewEnabled,
                 onFormsPreviewTokenChange = viewModel::updateFormsPreviewToken,
-                applyFormsPreviewToken = executeWithToast(
-                    viewModel::applyFormsPreviewToken,
-                    "Forms preview started"
-                ),
+                applyFormsPreviewToken = {
+                    viewModel.applyFormsPreviewToken()
+                    onShowToast(
+                        when {
+                            viewModel.formsPreviewToken.isBlank() -> "Forms preview ended"
+                            viewModel.isFormsPreviewTokenValid() -> "Forms preview started"
+                            else -> "Malformed forms preview token"
+                        }
+                    )
+                },
                 onFormsPreviewEnabledChange = viewModel::updateFormsPreviewEnabled,
                 hasLocationPermission = viewModel.hasLocationPermission,
                 hasBackgroundLocationPermission = viewModel.hasBackgroundLocationPermission,

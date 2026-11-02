@@ -633,16 +633,47 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         assertTrue(handshake.contains(HandshakeSpec("jwtMutation", 1)))
     }
 
+    private fun registerPreviewTokenStore(): FormsPreviewTokenStore =
+        FormsPreviewTokenStore().apply { setToken(VALID_PREVIEW_TOKEN) }
+            .also { Registry.register<FormsPreviewTokenStore>(it) }
+
     @Test
     fun `formsPreviewEnded clears the stored preview token`() {
-        val store = FormsPreviewTokenStore().apply { setToken(VALID_PREVIEW_TOKEN) }
-        Registry.register<FormsPreviewTokenStore>(store)
+        val store = registerPreviewTokenStore()
 
         postMessage("""{"type":"formsPreviewEnded","data":{"reason":"expired"}}""")
 
         assertNull(store.token)
         verify { spyLog.warning(match { it.contains("expired") }, null) }
         verify(exactly = 0) { mockWebViewClient.destroyWebView() }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `formsPreviewEnded with a matching token clears the stored preview token`() {
+        val store = registerPreviewTokenStore()
+
+        postMessage(
+            """{"type":"formsPreviewEnded","data":{"reason":"expired","token":"$VALID_PREVIEW_TOKEN"}}"""
+        )
+
+        assertNull(store.token)
+        verify { spyLog.warning(match { it.contains("expired") }, null) }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `formsPreviewEnded with a mismatched token keeps the stored preview token`() {
+        val store = registerPreviewTokenStore()
+        val olderToken = VALID_PREVIEW_TOKEN.dropLast(1) + "a"
+
+        postMessage(
+            """{"type":"formsPreviewEnded","data":{"reason":"expired","token":"$olderToken"}}"""
+        )
+
+        assertEquals(VALID_PREVIEW_TOKEN, store.token)
+        verify { spyLog.debug(any(), null) }
+        verify(exactly = 0) { spyLog.warning(any(), null) }
         verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
     }
 

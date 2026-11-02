@@ -1108,18 +1108,18 @@ changing nothing, for every other link. It works with custom schemes and App Lin
 registered, they restart in preview mode; if not, the preview starts when you call
 `registerForInAppForms`.
 
-```kotlin
-override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    if (savedInstanceState == null) onNewIntent(intent)
-}
+Call `handleFormsPreviewLink` wherever you already route deep links — see
+[Deep Linking](#deep-linking) — before your own routing:
 
+```kotlin
 override fun onNewIntent(intent: Intent?) {
     super.onNewIntent(intent)
     if (Klaviyo.handleFormsPreviewLink(intent?.data)) return
     // Your own deep link handling
 }
 ```
+
+On a cold launch the link arrives via the intent in `onCreate`, so call it there too.
 
 From Java, call `KlaviyoForms.handleFormsPreviewLink(uri)`. You can also start a preview with a
 token directly using `Klaviyo.startFormsPreview(token)`, and end it with `Klaviyo.endFormsPreview()`.

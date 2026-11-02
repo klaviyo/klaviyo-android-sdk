@@ -109,9 +109,11 @@ internal sealed class NativeBridgeMessage {
      * asking the SDK to clear its stored preview token.
      *
      * @param reason Why the preview ended, for diagnostics
+     * @param token The preview token this webview loaded, if onsite sent one (onsite v2+)
      */
     data class FormsPreviewEnded(
-        val reason: String
+        val reason: String,
+        val token: String? = null
     ) : NativeBridgeMessage()
 
     companion object {
@@ -198,7 +200,8 @@ internal sealed class NativeBridgeMessage {
                 keyName<RefreshJwt>() -> RefreshJwt
 
                 keyName<FormsPreviewEnded>() -> FormsPreviewEnded(
-                    reason = jsonData.optString("reason").ifEmpty { "Unknown" }
+                    reason = jsonData.optString("reason").ifEmpty { "Unknown" },
+                    token = jsonData.getStringNullable("token")
                 )
 
                 else -> throw IllegalStateException("Unrecognized message type $type")
