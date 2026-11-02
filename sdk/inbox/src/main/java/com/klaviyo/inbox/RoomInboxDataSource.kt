@@ -2,6 +2,8 @@ package com.klaviyo.inbox
 
 import android.content.Context
 import androidx.room.Room
+import com.klaviyo.core.Registry
+import kotlinx.coroutines.withContext
 
 /**
  * [LocalInboxDataSource] backed by an app-private Room database, opened on first use
@@ -33,10 +35,11 @@ internal class RoomInboxDataSource(
     private val dao: InboxMessageDao get() = databaseDelegate.value.messageDao()
 
     /**
-     * Whether a read could find anything, without opening the database to find out
+     * Whether a read could find anything, without opening the database to find out. Checks the
+     * file system, so it runs on the background dispatcher.
      */
-    private val storeExists: Boolean
-        get() = databaseDelegate.isInitialized() || appContext.getDatabasePath(databaseName).exists()
+    private suspend fun storeExists(): Boolean = databaseDelegate.isInitialized() ||
+        withContext(Registry.dispatcher) { appContext.getDatabasePath(databaseName).exists() }
 
     override suspend fun insert(message: InboxMessageEntity, retentionLimit: Int): InboxInsertResult =
         if (dao.insertAndTrim(message, retentionLimit)) {
@@ -46,7 +49,7 @@ internal class RoomInboxDataSource(
         }
 
     override suspend fun countUnread(companyId: String): Int =
-        if (storeExists) dao.countUnread(companyId) else 0
+        if (storeExists()) dao.countUnread(companyId) else 0
 
     override suspend fun clearByCompanyId(companyId: String) {
         dao.deleteByCompanyId(companyId)

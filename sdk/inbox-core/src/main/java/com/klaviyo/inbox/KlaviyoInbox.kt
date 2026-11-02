@@ -43,11 +43,7 @@ object KlaviyoInbox {
             } catch (e: Exception) {
                 Registry.log.error("Mobile Inbox call failed", e)
                 InboxResult.Failure(
-                    InboxException(
-                        InboxException.Reason.STORAGE_FAILURE,
-                        "Mobile Inbox call failed",
-                        e
-                    )
+                    InboxException.StorageFailure("Mobile Inbox call failed", e)
                 )
             }
             Registry.threadHelper.runOnUiThread { callback(result) }

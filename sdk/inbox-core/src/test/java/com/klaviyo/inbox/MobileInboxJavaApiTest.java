@@ -1,6 +1,7 @@
 package com.klaviyo.inbox;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -22,13 +23,12 @@ public class MobileInboxJavaApiTest {
     public void resultsAreInspectableWithoutKotlin() {
         InboxResult<Integer> success = new InboxResult.Success<>(3);
         InboxResult<Integer> failure = new InboxResult.Failure(
-                new InboxException(InboxException.Reason.STORAGE_FAILURE, "failed", null)
+                new InboxException.StorageFailure("failed", null)
         );
 
         assertEquals(3, (int) ((InboxResult.Success<Integer>) success).getValue());
-        assertEquals(
-                InboxException.Reason.STORAGE_FAILURE,
-                ((InboxResult.Failure) failure).getException().getReason()
+        assertTrue(
+                ((InboxResult.Failure) failure).getException() instanceof InboxException.StorageFailure
         );
     }
 }

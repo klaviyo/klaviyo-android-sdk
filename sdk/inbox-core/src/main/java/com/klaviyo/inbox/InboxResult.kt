@@ -3,16 +3,16 @@ package com.klaviyo.inbox
 /**
  * Why an inbox call failed
  */
-class InboxException(
-    val reason: Reason,
+sealed class InboxException(
     message: String,
     cause: Throwable? = null
 ) : Exception(message, cause) {
 
-    enum class Reason {
-        /** The on-device store could not complete the call */
-        STORAGE_FAILURE
-    }
+    /** The on-device store could not complete the call */
+    class StorageFailure(
+        message: String,
+        cause: Throwable? = null
+    ) : InboxException(message, cause)
 }
 
 /**
@@ -24,7 +24,7 @@ sealed class InboxResult<out T> {
     }
 
     class Failure(val exception: InboxException) : InboxResult<Nothing>() {
-        override fun toString(): String = "Failure(${exception.reason})"
+        override fun toString(): String = "Failure(${exception::class.simpleName})"
     }
 }
 

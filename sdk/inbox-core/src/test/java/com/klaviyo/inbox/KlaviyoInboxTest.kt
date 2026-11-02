@@ -69,7 +69,7 @@ class KlaviyoInboxTest : BaseTest() {
 
     @Test
     fun `an inbox failure reaches the callback as a failure`() {
-        val failure = InboxException(InboxException.Reason.STORAGE_FAILURE, "store failed")
+        val failure = InboxException.StorageFailure("store failed")
         inbox.failure = failure
         var result: InboxResult<Int>? = null
 
@@ -87,7 +87,7 @@ class KlaviyoInboxTest : BaseTest() {
         KlaviyoInbox.fetchUnreadCount { result = it }
 
         val error = assertIs<InboxResult.Failure>(result).exception
-        assertEquals(InboxException.Reason.STORAGE_FAILURE, error.reason)
+        assertTrue(error is InboxException.StorageFailure)
         assertSame(failure, error.cause)
         verify { spyLog.error("Mobile Inbox call failed", failure) }
     }

@@ -56,11 +56,7 @@ internal class KlaviyoInboxRepository(
             throw e
         } catch (e: Exception) {
             Registry.log.error("Mobile Inbox failed to count unread messages", e)
-            throw InboxException(
-                InboxException.Reason.STORAGE_FAILURE,
-                "Failed to count unread messages",
-                e
-            )
+            throw InboxException.StorageFailure("Failed to count unread messages", e)
         }
     }
 

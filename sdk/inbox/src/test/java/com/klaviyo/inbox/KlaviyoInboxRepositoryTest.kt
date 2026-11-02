@@ -141,7 +141,7 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
             runBlocking { repository.fetchUnreadCount() }
         }
 
-        assertEquals(InboxException.Reason.STORAGE_FAILURE, error.reason)
+        assertTrue(error is InboxException.StorageFailure)
         assertTrue(error.cause is IllegalStateException)
         verify { spyLog.error(any(), any<IllegalStateException>()) }
     }

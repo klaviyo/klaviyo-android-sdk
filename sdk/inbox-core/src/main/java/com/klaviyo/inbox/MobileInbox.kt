@@ -11,7 +11,7 @@ import com.klaviyo.core.Registry
  */
 interface MobileInbox {
     /**
-     * Count the current profile's messages that are unread and not archived. Zero when nothing
+     * Count the current company's messages that are unread and not archived. Zero when nothing
      * has been captured yet.
      */
     suspend fun fetchUnreadCount(): Int
