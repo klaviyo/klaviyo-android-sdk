@@ -1121,8 +1121,9 @@ override fun onNewIntent(intent: Intent?) {
 
 On a cold launch the link arrives via the intent in `onCreate`, so call it there too.
 
-From Java, call `KlaviyoForms.handleFormsPreviewLink(uri)`. You can also start a preview with a
-token directly using `Klaviyo.startFormsPreview(token)`, and end it with `Klaviyo.endFormsPreview()`.
+You can also start a preview with a token directly using `Klaviyo.startFormsPreview(token)`, and end
+it with `Klaviyo.endFormsPreview()`. From Java, use `KlaviyoForms.handleFormsPreviewLink(uri)`,
+`KlaviyoForms.startFormsPreview(token)` and `KlaviyoForms.endFormsPreview()`.
 Preview tokens only read a saved draft and expire after 30 minutes. The SDK keeps them in memory
 only and never logs them.
 
