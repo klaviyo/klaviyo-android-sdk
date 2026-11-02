@@ -59,25 +59,23 @@ jobs:
           git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
           git push
 
-      # Send Slack notification on failure
+      - name: Checkout Slack action
+        if: failure()
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions
+          path: _slack
+
       - name: Send Slack notification on failure
         if: failure()
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: ./_slack/.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "🚨 Documentation Bot Workflow Failed"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "🚨 Documentation Bot Workflow Failed\n"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Ref:* `${{ github.ref_name }}`\n*Event:* ${{ github.event_name }}\n*Common Issue:* Check if GH_ACTION_ACCESS_TOKEN has expired"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          status: failure
+          title: Documentation Bot workflow failed
+          body: "Common issue: check whether GH_ACTION_ACCESS_TOKEN has expired."
+          fields: |
+            Repository: ${{ github.repository }}
+            Ref: ${{ github.ref_name }}
+            Event: ${{ github.event_name }}

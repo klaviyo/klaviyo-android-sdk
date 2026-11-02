@@ -33,28 +33,6 @@ jobs:
       - name: Unit Tests
         run: ./gradlew ${{ matrix.module }}:test --stacktrace --no-daemon
 
-      - name: Send Slack notification on master failure
-        if: failure() && github.ref == 'refs/heads/master'
-        uses: slackapi/slack-github-action@v2.1.1
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "🚨 Android CI Unit Tests Failed on Master"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "🚨 Unit Tests Failed on Master\n"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Module:* ${{ matrix.module }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
-
   # A job for running linters (ktlint + Android Lint)
   lint:
     name: Run Linters
@@ -78,24 +56,27 @@ jobs:
       - name: Android Lint
         run: ./gradlew lintRelease --no-daemon
 
-      - name: Send Slack notification on master failure
-        if: failure() && github.ref == 'refs/heads/master'
-        uses: slackapi/slack-github-action@v2.1.1
+  # Posts one Slack message when tests or lint fail on a master push
+  notify:
+    name: Notify Slack
+    needs: [ test, lint ]
+    if: failure() && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "🚨 Android CI Lint Failed on Master"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "🚨 Lint Failed on Master\n"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+          sparse-checkout: .github/actions
+
+      - name: Slack
+        uses: ./.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          status: failure
+          title: Android CI failed on master
+          body: |
+            ${{ needs.test.result == 'failure' && '• Unit tests failed' || '' }}
+            ${{ needs.lint.result == 'failure' && '• Lint failed' || '' }}
+          fields: |
+            Repository: ${{ github.repository }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}

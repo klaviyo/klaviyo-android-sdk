@@ -121,27 +121,27 @@ jobs:
           path: sample/build/test-results/
           retention-days: 7
 
+      - name: Checkout Slack action
+        if: failure() && github.event_name == 'push'
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+          path: _slack
+
       - name: Send Slack notification on push failure
         if: failure() && github.event_name == 'push'
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: ./_slack/.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "🚨 Instrumented Tests Failed on ${{ github.event.pull_request.head.ref || github.ref_name }}"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "🚨 Instrumented Tests Failed\n"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Branch:* `${{ github.event.pull_request.head.ref || github.ref_name }}`\n*API Level:* ${{ steps.api-setup.outputs.api_level }}\n*Architecture:* ${{ steps.api-setup.outputs.arch }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          status: failure
+          title: Instrumented tests failed on ${{ github.ref_name }}
+          fields: |
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            API level: ${{ steps.api-setup.outputs.api_level }}
+            Architecture: ${{ steps.api-setup.outputs.arch }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
 
       - name: Update PR labels on success
         if: success() && github.event_name == 'pull_request'
