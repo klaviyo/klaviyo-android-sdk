@@ -50,7 +50,8 @@ else
   method=chat.postMessage
 fi
 
-payload="$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/slack-payload.XXXXXX")"
+payload_dir="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/slack-payload.XXXXXX")"
+payload="$payload_dir/payload.json"
 
 if ! jq -n \
   --arg channel "$CHANNEL" \
