@@ -1,6 +1,6 @@
 # notify-slack
 
-Posts, updates or replies to a Slack message as the Merlin bot (shown as `MAGE CI`). It wraps [`slackapi/slack-github-action`](https://github.com/slackapi/slack-github-action) v2: a small bash and `jq` step builds the payload, then slackapi sends it. The inputs and outputs are the same as before the wrap. The action never fails the calling job: Slack errors become `::warning::` lines.
+Posts, updates or replies to a Slack message as the Merlin bot (shown as `MAGE CI`). It wraps [`slackapi/slack-github-action`](https://github.com/slackapi/slack-github-action) v4: a small bash and `jq` step builds the payload, then slackapi sends it. The inputs and outputs are the same as before the wrap. The action never fails the calling job: Slack errors become `::warning::` lines.
 
 Keep this directory byte-identical across the MAGE repos. See `.github/AGENTS.md`.
 
