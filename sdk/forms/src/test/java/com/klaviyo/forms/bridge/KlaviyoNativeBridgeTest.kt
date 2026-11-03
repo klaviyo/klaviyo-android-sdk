@@ -34,7 +34,6 @@ import io.mockk.slot
 import io.mockk.unmockkAll
 import io.mockk.unmockkConstructor
 import io.mockk.verify
-import org.json.JSONException
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -622,7 +621,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         verify(exactly = 1) { mockAuthTokenManager.refreshRejectedToken() }
         verify(exactly = 0) { mockJsBridge.jwtMutation(any()) }
-        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+        verify(exactly = 0) { spyLog.error(any(), any()) }
     }
 
     @Test
@@ -646,7 +645,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         assertNull(store.token)
         verify { spyLog.warning(match { it.contains("expired") }, null) }
         verify(exactly = 0) { mockWebViewClient.destroyWebView() }
-        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+        verify(exactly = 0) { spyLog.error(any(), any()) }
     }
 
     @Test
@@ -657,13 +656,9 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
             """{"type":"formsPreviewEnded","data":{"reason":"expired","token":"$VALID_PREVIEW_TOKEN"}}"""
         )
 
-        verify {
-            spyLog.debug(
-                match { it.contains("formsPreviewEnded") && it.contains("<redacted>") },
-                null
-            )
-        }
+        verify { spyLog.debug(match { it.contains("FormsPreviewEnded") }, null) }
         verify(exactly = 0) { spyLog.debug(match { it.contains(VALID_PREVIEW_TOKEN) }, any()) }
+        verify(exactly = 0) { spyLog.error(match { it.contains(VALID_PREVIEW_TOKEN) }, any()) }
     }
 
     @Test
@@ -676,7 +671,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         assertNull(store.token)
         verify { spyLog.warning(match { it.contains("expired") }, null) }
-        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+        verify(exactly = 0) { spyLog.error(any(), any()) }
     }
 
     @Test
@@ -691,14 +686,14 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         assertEquals(VALID_PREVIEW_TOKEN, store.token)
         verify { spyLog.debug(any(), null) }
         verify(exactly = 0) { spyLog.warning(any(), null) }
-        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+        verify(exactly = 0) { spyLog.error(any(), any()) }
     }
 
     @Test
     fun `formsPreviewEnded without a token store is a no-op`() {
         postMessage("""{"type":"formsPreviewEnded","data":{"reason":"ended"}}""")
 
-        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+        verify(exactly = 0) { spyLog.error(any(), any()) }
     }
 
     @Test
@@ -707,15 +702,15 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
-    fun `malformed message throws an error`() {
+    fun `malformed message logs an error without the message`() {
         postMessage("sawr a warewolf with a chinese menu inhis hands")
-        verify { spyLog.error(any(), any<JSONException>()) }
+        verify { spyLog.error("Failed to relay webview message", null) }
     }
 
     @Test
-    fun `unknown type throws an error`() {
+    fun `unknown type logs an error without the message`() {
         postMessage("""{"type":"unknown"}""")
-        verify { spyLog.error(any(), any<IllegalStateException>()) }
+        verify { spyLog.error("Failed to relay webview message", null) }
     }
 
     @Test
