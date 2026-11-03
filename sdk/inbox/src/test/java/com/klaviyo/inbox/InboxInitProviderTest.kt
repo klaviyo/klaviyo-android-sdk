@@ -25,6 +25,7 @@ internal class InboxInitProviderTest : BaseTest() {
     override fun cleanup() {
         Registry.unregister<PushNotificationDispatcher>()
         Registry.unregister<InboxRepository>()
+        Registry.unregister<MobileInboxProvider>()
         super.cleanup()
     }
 
@@ -44,6 +45,13 @@ internal class InboxInitProviderTest : BaseTest() {
         InboxInitProvider().onCreate()
 
         assertSame(existing, Registry.getOrNull<InboxRepository>())
+    }
+
+    @Test
+    fun `onCreate makes the public inbox available`() {
+        InboxInitProvider().onCreate()
+
+        assertTrue(Registry.getOrNull<MobileInboxProvider>() is KlaviyoMobileInboxProvider)
     }
 
     @Test

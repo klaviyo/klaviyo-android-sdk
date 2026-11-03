@@ -40,6 +40,8 @@ internal class InboxCaptureObserverTest : BaseTest() {
                 InboxCaptureResult.DUPLICATE
             }.also { results += it }
 
+        override suspend fun fetchUnreadCount(): Int = error("not used by capture")
+
         override suspend fun clearByCompanyId(companyId: String) = Unit
 
         override suspend fun clearAll() = Unit
