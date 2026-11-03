@@ -1,6 +1,5 @@
 package com.klaviyo.core.forms
 
-import java.net.URI
 import java.net.URLDecoder
 
 /**
@@ -22,11 +21,12 @@ object FormsPreview {
 
     /**
      * The raw [PREVIEW_TOKEN_KEY] query parameter value of [uri], or null if the URI has no such
-     * parameter or cannot be parsed. Works for custom schemes and http(s) links, with any host
+     * parameter. Works for any scheme, including custom schemes and http(s) links, with any host
      * and path. The value is not validated; see [isValidToken].
      */
     fun previewTokenParameter(uri: String?): String? {
-        val query = uri?.let { runCatching { URI(it).rawQuery }.getOrNull() } ?: return null
+        val query = uri?.substringBefore('#')?.substringAfter('?', "")?.takeIf { it.isNotEmpty() }
+            ?: return null
         return query.split('&')
             .map { it.split('=', limit = 2) }
             .firstOrNull { it[0] == PREVIEW_TOKEN_KEY }
