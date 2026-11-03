@@ -28,6 +28,14 @@ class FormsPreviewTest {
     }
 
     @Test
+    fun `reads the preview parameter from schemes java net URI rejects`() {
+        assertEquals(
+            token,
+            FormsPreview.previewTokenParameter("my_app://home?klaviyo-forms-preview=$token")
+        )
+    }
+
+    @Test
     fun `reads the preview parameter among other query parameters`() {
         assertEquals(
             token,
