@@ -9,8 +9,8 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 - One message per release or deploy, updated through `ts` (job output or dispatch input). Failure details go in a `thread_ts` reply.
 - Each workflow sets `SLACK_USERNAME` and `SLACK_ICON_EMOJI` in its top-level `env:` ("Android SDK", `:merlin-orb-android:`).
 - `continue-on-error: true` on Slack notify steps and Slack-action checkout steps.
-- Report a cancelled job only on timeout: the `Classify cancellation` step in `instrumented-tests.yml`.
-- `publish-release.yml` passes `slack_thread_ts` to `jitpack.yml`. Jobs on another ref sparse-checkout `.github/actions` into `_slack/`.
+- Report a cancelled job only on timeout: the `Classify cancellation` step in `instrumented-tests.yml` and `jitpack.yml`.
+- `publish-release.yml` passes `slack_thread_ts` to `jitpack.yml`, only when the workflow at the tag declares the input. Jobs on another ref sparse-checkout `.github/actions` into `_slack/`.
 - `notify-slack` stays byte-identical in all 7 repos: klaviyo-android-sdk, klaviyo-android-test-app, klaviyo-swift-sdk, klaviyo-ios-test-app, klaviyo-react-native-sdk, klaviyo-expo-plugin, klaviyo-flutter-sdk.
 
 ## Workflow conventions

@@ -298,12 +298,17 @@ jobs:
         id: dispatch
         if: ${{ !inputs.dry_run }}
         run: |
+          # True when the workflow file at $VERSION declares slack_thread_ts.
+          takes_thread_ts() {
+            gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$1?ref=$VERSION" \
+              -H "Accept: application/vnd.github.raw" | grep -q '^[[:space:]]*slack_thread_ts:'
+          }
           WORKFLOWS="jitpack.yml"
           if [ "$PRERELEASE" != "true" ]; then
             WORKFLOWS="$WORKFLOWS doc-bot.yml"
           fi
           for WORKFLOW in $WORKFLOWS; do
-            if [ "$WORKFLOW" == "jitpack.yml" ] && [ -n "$SLACK_TS" ]; then
+            if [ "$WORKFLOW" == "jitpack.yml" ] && [ -n "$SLACK_TS" ] && takes_thread_ts "$WORKFLOW"; then
               gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION" -f "slack_thread_ts=$SLACK_TS"
             else
               gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"

@@ -71,6 +71,7 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@v4
+        continue-on-error: true
         with:
           sparse-checkout: .github/actions
 
