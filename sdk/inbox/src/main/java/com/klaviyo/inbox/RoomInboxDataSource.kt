@@ -60,7 +60,7 @@ internal class RoomInboxDataSource(
         if (!storeExists()) return InboxRecordPage(emptyList(), hasMore = false)
 
         // One extra row tells whether another page follows
-        val rows = dao.pageNewestFirst(
+        val rows = dao().pageNewestFirst(
             companyId,
             query.after?.sortTime,
             query.after?.transmissionId,
