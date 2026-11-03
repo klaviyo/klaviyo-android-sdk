@@ -1,7 +1,6 @@
 package com.klaviyo.core.forms
 
 import com.klaviyo.core.Constants
-import java.net.URI
 import java.net.URLDecoder
 import org.json.JSONObject
 
@@ -37,18 +36,18 @@ object FormsPreview {
     }
 
     /**
-     * [uri] with every [PREVIEW_TOKEN_KEY] query parameter removed, keeping all other parts as
-     * they were. Returns [uri] unchanged when it has no such parameter or cannot be parsed.
+     * [uri] with every [PREVIEW_TOKEN_KEY] query parameter removed. The query is the part after
+     * the first `?` and before any `#`, as in [previewTokenParameter]; everything else is kept
+     * byte for byte. Returns [uri] unchanged when it has no such parameter.
      */
     fun withoutPreviewTokenParameter(uri: String): String {
-        val parsed = runCatching { URI(uri) }.getOrNull() ?: return uri
-        val query = parsed.rawQuery ?: return uri
-        val kept = query.split('&').filterNot { it.split('=', limit = 2)[0] == PREVIEW_TOKEN_KEY }
-        if (kept.size == query.split('&').size) return uri
-        val queryStart = uri.indexOf('?')
-        val fragment = parsed.rawFragment?.let { "#$it" }.orEmpty()
-        val base = uri.substring(0, queryStart)
-        return base + (if (kept.isEmpty()) "" else "?" + kept.joinToString("&")) + fragment
+        val fragmentStart = uri.indexOf('#').takeIf { it >= 0 } ?: uri.length
+        val queryStart = uri.indexOf('?').takeIf { it in 0 until fragmentStart } ?: return uri
+        val params = uri.substring(queryStart + 1, fragmentStart).split('&')
+        val kept = params.filterNot { it.substringBefore('=') == PREVIEW_TOKEN_KEY }
+        if (kept.size == params.size) return uri
+        val query = if (kept.isEmpty()) "" else "?" + kept.joinToString("&")
+        return uri.substring(0, queryStart) + query + uri.substring(fragmentStart)
     }
 
     /**

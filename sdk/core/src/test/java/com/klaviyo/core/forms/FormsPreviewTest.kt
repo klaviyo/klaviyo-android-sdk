@@ -95,6 +95,30 @@ class FormsPreviewTest {
     }
 
     @Test
+    fun `strips the preview parameter from links java net URI rejects`() {
+        assertEquals(
+            "https://example.com/p?a=x y&b=1|2&c={z}#f",
+            FormsPreview.withoutPreviewTokenParameter(
+                "https://example.com/p?a=x y&klaviyo-forms-preview=$token&b=1|2&c={z}#f"
+            )
+        )
+        assertEquals(
+            "my_app://home?a=x y",
+            FormsPreview.withoutPreviewTokenParameter(
+                "my_app://home?klaviyo-forms-preview=$token&a=x y"
+            )
+        )
+    }
+
+    @Test
+    fun `strip leaves the link alone when the key is only in the fragment or a value`() {
+        val fragmentOnly = "https://example.com/#klaviyo-forms-preview=$token"
+        val inValue = "https://example.com/?a=klaviyo-forms-preview=$token"
+        assertEquals(fragmentOnly, FormsPreview.withoutPreviewTokenParameter(fragmentOnly))
+        assertEquals(inValue, FormsPreview.withoutPreviewTokenParameter(inValue))
+    }
+
+    @Test
     fun `reads and strips the preview key in push key value pairs`() {
         val json = """{"klaviyo-forms-preview":"$token","other":"1"}"""
         assertEquals(token, FormsPreview.previewTokenFromKeyValuePairs(json))

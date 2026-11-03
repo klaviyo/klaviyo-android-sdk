@@ -10,9 +10,11 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Constants
+import com.klaviyo.core.Constants.BUTTON_LINK_PARAMETER
 import com.klaviyo.core.Constants.KEY_VALUE_PAIRS
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
+import com.klaviyo.core.Constants.URL_PARAMETER
 import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.forms.FormsPreview
@@ -58,14 +60,15 @@ internal object KlaviyoPushOpenHandler {
             return
         }
 
-        startFormsPreview(intent)
-
         // Track each push delivery at most once per process. The trampoline calls handlePush and
         // forwards the same intent to the host, so a manual handlePush call (or singleTask
         // re-entry) would otherwise double-track one tap. A delivery with no id is never deduped.
         val deliveryId = intent.pushDeliveryId
+        val isNewDelivery = deliveryId == null || handledPushDeliveries.markOnce(deliveryId)
 
-        if (deliveryId == null || handledPushDeliveries.markOnce(deliveryId)) {
+        startFormsPreview(intent, isNewDelivery)
+
+        if (isNewDelivery) {
             // Create and enqueue an $opened_push. safeApply(preInitQueue) buffers this for replay
             // if handlePush runs before initialize(), and guards against unexpected failures.
             safeApply(preInitQueue) {
@@ -116,26 +119,44 @@ internal object KlaviyoPushOpenHandler {
     }
 
     /**
-     * If the opened push carries an in-app forms preview token, hand it to the forms module and
-     * remove it from [intent], so it reaches neither `$opened_push` nor the host's deep link
-     * handling. Reads the key/value pairs first, then the deep link's query parameter. Runs before
-     * de-duplication, so a manual `handlePush` after the trampoline's call (which already removed
-     * the token) finds nothing, and does nothing when forms is not installed.
+     * If the opened push carries an in-app forms preview token, remove it from [intent]: from the
+     * key/value pairs, and from the deep link in the intent data and the payload url and button
+     * link extras. It then reaches neither `$opened_push` nor the host's deep link handling, on
+     * every intent copy of the delivery.
+     *
+     * The token is read from the key/value pairs first, then from the first of those links that
+     * carries it. It is handed to the forms module only when [isNewDelivery] is true, and only if
+     * it is well-formed; forms not being installed is not an error.
      */
-    private fun startFormsPreview(intent: Intent) = safeApply {
+    private fun startFormsPreview(intent: Intent, isNewDelivery: Boolean) = safeApply {
         val keyValuePairsExtra = PACKAGE_PREFIX + KEY_VALUE_PAIRS
-        val keyValuePairs = intent.getStringExtra(keyValuePairsExtra)
-        val token = FormsPreview.previewTokenFromKeyValuePairs(keyValuePairs)
-            ?: FormsPreview.previewTokenParameter(intent.data?.toString())
+        val linkExtras = listOf(
+            PACKAGE_PREFIX + BUTTON_LINK_PARAMETER,
+            PACKAGE_PREFIX + URL_PARAMETER
+        )
+        val links = listOfNotNull(intent.data?.toString()) +
+            linkExtras.mapNotNull { intent.getStringExtra(it) }
+
+        val token = FormsPreview.previewTokenFromKeyValuePairs(
+            intent.getStringExtra(keyValuePairsExtra)
+        ) ?: links.firstNotNullOfOrNull { FormsPreview.previewTokenParameter(it) }
             ?: return@safeApply
 
-        keyValuePairs?.let {
+        intent.getStringExtra(keyValuePairsExtra)?.let {
             intent.putExtra(keyValuePairsExtra, FormsPreview.keyValuePairsWithoutPreviewToken(it))
         }
         intent.data?.let { link ->
             val stripped = FormsPreview.withoutPreviewTokenParameter(link.toString())
             if (stripped != link.toString()) intent.data = stripped.toUri()
         }
+        linkExtras.forEach { extra ->
+            intent.getStringExtra(extra)?.let { link ->
+                val stripped = FormsPreview.withoutPreviewTokenParameter(link)
+                if (stripped != link) intent.putExtra(extra, stripped)
+            }
+        }
+
+        if (!isNewDelivery) return@safeApply
 
         if (!FormsPreview.isValidToken(token)) {
             Registry.log.warning("Ignoring opened push with a malformed forms preview token")
@@ -183,11 +204,8 @@ internal object KlaviyoPushOpenHandler {
                         try {
                             JSONObject(FormsPreview.keyValuePairsWithoutPreviewToken(rawValue)).toHashMap()
                         } catch (e: Exception) {
-                            Registry.log.warning(
-                                "Failed to parse $KEY_VALUE_PAIRS JSON: $rawValue",
-                                e
-                            )
-                            rawValue
+                            Registry.log.warning("Failed to parse $KEY_VALUE_PAIRS JSON")
+                            rawValue.takeUnless { it.contains(FormsPreview.PREVIEW_TOKEN_KEY) }
                         }
                     }
 
