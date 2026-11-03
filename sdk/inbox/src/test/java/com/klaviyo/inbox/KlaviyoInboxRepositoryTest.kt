@@ -129,7 +129,7 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
         assertEquals(InboxMessageSource.CAPTURED, page.messages.first().source)
         assertEquals(
             InboxRecordPosition(second.sortTime, "tm-2"),
-            InboxCursorCodec.decode(InboxQuery(cursor = page.nextCursor))
+            InboxCursorCodec.decode(InboxQuery(cursor = page.nextCursor), API_KEY)
         )
     }
 

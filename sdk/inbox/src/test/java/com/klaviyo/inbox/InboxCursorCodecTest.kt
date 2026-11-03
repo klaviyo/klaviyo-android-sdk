@@ -29,7 +29,7 @@ internal class InboxCursorCodecTest : BaseTest() {
 
     private fun assertInvalid(cursor: InboxCursor) {
         val error = assertThrows(InboxException::class.java) {
-            InboxCursorCodec.decode(InboxQuery(cursor = cursor))
+            InboxCursorCodec.decode(InboxQuery(cursor = cursor), API_KEY)
         }
         assertTrue(error is InboxException.InvalidCursor)
     }
@@ -39,7 +39,7 @@ internal class InboxCursorCodecTest : BaseTest() {
 
     @Test
     fun `a query without a cursor starts at the beginning`() {
-        assertNull(InboxCursorCodec.decode(InboxQuery()))
+        assertNull(InboxCursorCodec.decode(InboxQuery(), API_KEY))
     }
 
     @Test
@@ -48,7 +48,7 @@ internal class InboxCursorCodecTest : BaseTest() {
 
         assertEquals(
             InboxRecordPosition(5_000L, "tm-9"),
-            InboxCursorCodec.decode(InboxQuery(cursor = cursor))
+            InboxCursorCodec.decode(InboxQuery(cursor = cursor), API_KEY)
         )
     }
 
@@ -58,7 +58,7 @@ internal class InboxCursorCodecTest : BaseTest() {
 
         assertEquals(
             InboxRecordPosition(6_000L, "tm-9"),
-            InboxCursorCodec.decode(InboxQuery(cursor = InboxCursorCodec.encode(unsent)))
+            InboxCursorCodec.decode(InboxQuery(cursor = InboxCursorCodec.encode(unsent)), API_KEY)
         )
     }
 
@@ -68,7 +68,7 @@ internal class InboxCursorCodecTest : BaseTest() {
 
         assertEquals(
             InboxRecordPosition(5_000L, "tm-9"),
-            InboxCursorCodec.decode(InboxQuery(pageSize = 50, cursor = cursor))
+            InboxCursorCodec.decode(InboxQuery(pageSize = 50, cursor = cursor), API_KEY)
         )
     }
 
@@ -76,13 +76,20 @@ internal class InboxCursorCodecTest : BaseTest() {
     fun `malformed cursors are rejected`() {
         assertInvalid(InboxCursor("not a cursor"))
         assertInvalid(cursorOf("not json"))
-        assertInvalid(cursorOf("""{"v":1,"k":"local"}"""))
-        assertInvalid(cursorOf("""{"v":1,"k":"local","t":1,"i":""}"""))
+        assertInvalid(cursorOf("""{"v":1,"k":"local","c":"$API_KEY"}"""))
+        assertInvalid(cursorOf("""{"v":1,"k":"local","c":"$API_KEY","t":1,"i":""}"""))
     }
 
     @Test
     fun `a cursor from another version or source is rejected`() {
-        assertInvalid(cursorOf("""{"v":2,"k":"local","t":1,"i":"a"}"""))
-        assertInvalid(cursorOf("""{"v":1,"k":"server","t":1,"i":"a"}"""))
+        assertInvalid(cursorOf("""{"v":2,"k":"local","c":"$API_KEY","t":1,"i":"a"}"""))
+        assertInvalid(cursorOf("""{"v":1,"k":"server","c":"$API_KEY","t":1,"i":"a"}"""))
+    }
+
+    @Test
+    fun `a cursor from another company is rejected`() {
+        val cursor = InboxCursorCodec.encode(last.copy(companyId = "OtherCo"))
+
+        assertInvalid(cursor)
     }
 }

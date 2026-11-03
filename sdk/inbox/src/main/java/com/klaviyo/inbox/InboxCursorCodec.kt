@@ -6,9 +6,10 @@ import org.json.JSONObject
 /**
  * Encodes a page position as the opaque [InboxCursor] hosts pass back.
  *
- * The token is versioned JSON holding the sort time and ID of the last message on the page. The
- * kind says which source the position is in, so a server position can share the type when messages
- * are fetched from the server.
+ * The token is versioned JSON holding the sort time and ID of the last message on the page, and the
+ * company the page was read for. A cursor only continues a read for that company. The kind says
+ * which source the position is in, so a server position can share the type when messages are
+ * fetched from the server.
  */
 internal object InboxCursorCodec {
     private const val VERSION = 1
@@ -18,6 +19,7 @@ internal object InboxCursorCodec {
     private const val KIND_KEY = "k"
     private const val SORT_TIME_KEY = "t"
     private const val ID_KEY = "i"
+    private const val COMPANY_KEY = "c"
 
     private const val BASE64_FLAGS = Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
 
@@ -30,16 +32,18 @@ internal object InboxCursorCodec {
             .put(KIND_KEY, LOCAL_KIND)
             .put(SORT_TIME_KEY, last.sortTime)
             .put(ID_KEY, last.transmissionId)
+            .put(COMPANY_KEY, last.companyId)
             .toString()
         return InboxCursor(Base64.encodeToString(json.toByteArray(Charsets.UTF_8), BASE64_FLAGS))
     }
 
     /**
+     * @param companyId The company the page is being read for
      * @return The position the query's cursor points just past, or null when it has no cursor
-     * @throws InboxException.InvalidCursor when the cursor is
-     *  malformed or did not come from this inbox
+     * @throws InboxException.InvalidCursor when the cursor is malformed, or did not come from this
+     *  inbox or this company
      */
-    fun decode(query: InboxQuery): InboxRecordPosition? {
+    fun decode(query: InboxQuery, companyId: String): InboxRecordPosition? {
         val cursor = query.cursor ?: return null
 
         val json = try {
@@ -48,7 +52,9 @@ internal object InboxCursorCodec {
             throw invalid("The cursor could not be read", e)
         }
 
-        if (json.optInt(VERSION_KEY) != VERSION || json.optString(KIND_KEY) != LOCAL_KIND) {
+        if (json.optInt(VERSION_KEY) != VERSION || json.optString(KIND_KEY) != LOCAL_KIND ||
+            json.optString(COMPANY_KEY) != companyId
+        ) {
             throw invalid("The cursor is not from this inbox")
         }
 

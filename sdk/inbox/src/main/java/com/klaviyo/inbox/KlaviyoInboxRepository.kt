@@ -49,8 +49,8 @@ internal class KlaviyoInboxRepository(
     }
 
     override suspend fun fetchPage(query: InboxQuery): InboxPage {
-        val after = InboxCursorCodec.decode(query)
         val companyId = currentCompanyId() ?: return InboxPage(emptyList(), nextCursor = null)
+        val after = InboxCursorCodec.decode(query, companyId)
 
         val page = storeCall("fetch a page") {
             dataSource.fetchPage(companyId, InboxRecordQuery(query.pageSize, after))
