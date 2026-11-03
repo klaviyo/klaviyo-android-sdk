@@ -31,6 +31,8 @@ permissions:
 
 env:
   SLACK_ACTION_DIR: _slack
+  SLACK_USERNAME: Android SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-android:'
 
 concurrency:
   group: publish-release-${{ inputs.version }}
@@ -48,6 +50,7 @@ jobs:
       sha: ${{ steps.resolve.outputs.sha }}
       prerelease: ${{ steps.validate.outputs.prerelease }}
       release_url: ${{ steps.draft.outputs.release_url }}
+      slack_ts: ${{ steps.slack_pending.outputs.ts }}
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ inputs.version }}
@@ -105,6 +108,7 @@ jobs:
           echo "✅ strings.xml version matches $VERSION"
 
       - name: Skip CI check
+        id: skipci
         if: ${{ inputs.skip_ci_check }}
         run: echo "::warning::CI check skipped by request; not verifying pull_request CI for this commit"
 
@@ -157,6 +161,7 @@ jobs:
           echo "release_url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Write run summary
+        id: summary
         env:
           SHA: ${{ steps.resolve.outputs.sha }}
           URL: ${{ steps.draft.outputs.release_url }}
@@ -191,39 +196,73 @@ jobs:
           path: ${{ env.SLACK_ACTION_DIR }}
 
       - name: Notify Slack release awaiting approval
+        id: slack_pending
         if: ${{ !inputs.dry_run }}
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack-publish
+        uses: ./_slack/.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          package: Android SDK
-          platform: GitHub release
-          version_label: ${{ inputs.version }}
-          result: pending
-          title: "Android SDK ${{ inputs.version }} awaiting release approval${{ inputs.skip_ci_check && ' (CI check skipped)' || '' }}"
-          commit: ${{ steps.resolve.outputs.sha }}
-          release_url: ${{ steps.draft.outputs.release_url }}
-          run_label: Approve here
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          status: pending
+          title: Android SDK ${{ inputs.version }} awaiting approval${{ inputs.skip_ci_check && ' (CI check skipped)' || '' }}
+          body: Review the draft release notes, then approve the `release` environment on this run.
+          fields: |
+            Version: ${{ inputs.version }}
+            Commit: ${{ steps.resolve.outputs.sha }}
+            Requested by: ${{ github.actor }}
+          links: |
+            Draft release|${{ steps.draft.outputs.release_url }}
 
       - name: Find failed step
         id: failed
         if: failure()
         env:
           STEPS_JSON: ${{ toJSON(steps) }}
-        run: echo "step=$(jq -r '[to_entries[] | select(.value.conclusion == "failure")][0].key // "unknown step"' <<<"$STEPS_JSON")" >> "$GITHUB_OUTPUT"
+        run: |
+          step=$(jq -r '
+            {
+              validate: "Validate version format",
+              checkout: "Checkout repository",
+              resolve: "Resolve commit",
+              branch: "Check commit is on master or a release branch",
+              tag: "Check tag does not exist",
+              strings: "Check strings.xml version matches",
+              skipci: "Skip CI check",
+              ci: "Check CI is green on the merged PR",
+              draft: "Find or create draft release",
+              summary: "Write run summary",
+              dryrun: "Dry run",
+              publish: "Publish draft release",
+              dispatch: "Dispatch downstream workflows at the tag"
+            } as $names
+            | ([to_entries[] | select(.value.conclusion == "failure")][0].key) as $key
+            | if $key == null then "unknown step" else ($names[$key] // $key) end
+          ' <<<"$STEPS_JSON")
+          echo "step=$step" >> "$GITHUB_OUTPUT"
 
       - name: Notify Slack release failure
+        id: slack_failure
         if: failure()
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack-publish
+        uses: ./_slack/.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          package: Android SDK
-          platform: GitHub release
-          version_label: ${{ inputs.version }}
-          result: failure
-          title: "Android SDK ${{ inputs.version }} release failed at ${{ steps.failed.outputs.step }}"
-          commit: ${{ steps.resolve.outputs.sha }}
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ steps.slack_pending.outputs.ts }}
+          status: failure
+          title: Android SDK ${{ inputs.version }} release failed
+          fields: |
+            Version: ${{ inputs.version }}
+            Commit: ${{ steps.resolve.outputs.sha }}
+            Stage: Preflight and draft
+
+      - name: Reply with failure details
+        if: failure() && steps.slack_failure.outputs.ts != ''
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ steps.slack_failure.outputs.ts }}
+          status: failure
+          title: Failed at ${{ steps.failed.outputs.step }}
 
   publish:
     name: Publish Release
@@ -238,8 +277,10 @@ jobs:
       VERSION: ${{ inputs.version }}
       SHA: ${{ needs.prepare.outputs.sha }}
       PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+      SLACK_TS: ${{ needs.prepare.outputs.slack_ts }}
     steps:
       - name: Dry run
+        id: dryrun
         if: ${{ inputs.dry_run }}
         run: echo "### Dry run for $VERSION approved; nothing published" >> "$GITHUB_STEP_SUMMARY"
 
@@ -257,12 +298,21 @@ jobs:
         id: dispatch
         if: ${{ !inputs.dry_run }}
         run: |
+          # True when the workflow file at $VERSION declares slack_thread_ts.
+          takes_thread_ts() {
+            gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$1?ref=$VERSION" \
+              -H "Accept: application/vnd.github.raw" | grep -q '^[[:space:]]*slack_thread_ts:'
+          }
           WORKFLOWS="jitpack.yml"
           if [ "$PRERELEASE" != "true" ]; then
             WORKFLOWS="$WORKFLOWS doc-bot.yml"
           fi
           for WORKFLOW in $WORKFLOWS; do
-            gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"
+            if [ "$WORKFLOW" == "jitpack.yml" ] && [ -n "$SLACK_TS" ] && takes_thread_ts "$WORKFLOW"; then
+              gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION" -f "slack_thread_ts=$SLACK_TS"
+            else
+              gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"
+            fi
             echo "Dispatched $WORKFLOW at $VERSION"
           done
           {
@@ -282,42 +332,74 @@ jobs:
       - name: Notify Slack release published
         if: ${{ success() && !inputs.dry_run }}
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack-publish
+        uses: ./_slack/.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          package: Android SDK
-          platform: GitHub release
-          version_label: ${{ inputs.version }}
-          result: success
-          title: "Android SDK ${{ inputs.version }} released${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}"
-          commit: ${{ env.SHA }}
-          release_url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.version }}
-          details: JitPack build${{ env.PRERELEASE != 'true' && ' and docs' || '' }} dispatched at the tag. JitPack posts its own build result.
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ env.SLACK_TS }}
+          status: success
+          title: Android SDK ${{ inputs.version }} published${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}
+          body: JitPack build${{ env.PRERELEASE != 'true' && ' and docs' || '' }} dispatched at the tag. JitPack replies in this thread with its build result.
+          fields: |
+            Version: ${{ inputs.version }}
+            Commit: ${{ env.SHA }}
+          links: Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.version }}
 
       - name: Find failed step
         id: failed
         if: failure()
         env:
           STEPS_JSON: ${{ toJSON(steps) }}
-        run: echo "step=$(jq -r '[to_entries[] | select(.value.conclusion == "failure")][0].key // "unknown step"' <<<"$STEPS_JSON")" >> "$GITHUB_OUTPUT"
+        run: |
+          step=$(jq -r '
+            {
+              validate: "Validate version format",
+              checkout: "Checkout repository",
+              resolve: "Resolve commit",
+              branch: "Check commit is on master or a release branch",
+              tag: "Check tag does not exist",
+              strings: "Check strings.xml version matches",
+              skipci: "Skip CI check",
+              ci: "Check CI is green on the merged PR",
+              draft: "Find or create draft release",
+              summary: "Write run summary",
+              dryrun: "Dry run",
+              publish: "Publish draft release",
+              dispatch: "Dispatch downstream workflows at the tag"
+            } as $names
+            | ([to_entries[] | select(.value.conclusion == "failure")][0].key) as $key
+            | if $key == null then "unknown step" else ($names[$key] // $key) end
+          ' <<<"$STEPS_JSON")
+          echo "step=$step" >> "$GITHUB_OUTPUT"
 
       - name: Notify Slack release failure
+        id: slack_failure
         if: failure()
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack-publish
+        uses: ./_slack/.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          package: Android SDK
-          platform: GitHub release
-          version_label: ${{ inputs.version }}
-          result: failure
-          title: "Android SDK ${{ inputs.version }} release failed at ${{ steps.failed.outputs.step }}"
-          commit: ${{ env.SHA }}
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ env.SLACK_TS }}
+          status: failure
+          title: Android SDK ${{ inputs.version }} release failed
+          fields: |
+            Version: ${{ inputs.version }}
+            Commit: ${{ env.SHA }}
+            Stage: Publish
+
+      - name: Reply with failure details
+        if: failure() && steps.slack_failure.outputs.ts != ''
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ steps.slack_failure.outputs.ts }}
+          status: failure
+          title: Failed at ${{ steps.failed.outputs.step }}
 
   stopped:
     name: Report Stopped Release
     needs: [prepare, publish]
-    if: always() && (contains(needs.*.result, 'cancelled') || needs.publish.result == 'failure')
+    if: always() && !inputs.dry_run && (contains(needs.*.result, 'cancelled') || needs.publish.result == 'failure')
     runs-on: ubuntu-22.04
     permissions:
       actions: read
@@ -331,7 +413,7 @@ jobs:
           CANCELLED: ${{ contains(needs.*.result, 'cancelled') }}
         run: |
           if [ "$CANCELLED" == "true" ]; then
-            echo "reason=cancelled" >> "$GITHUB_OUTPUT"
+            echo "reason=cancelled or timed out" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           STATE=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
@@ -351,13 +433,13 @@ jobs:
       - name: Notify Slack release stopped
         if: steps.reason.outputs.reason != ''
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack-publish
+        uses: ./_slack/.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          package: Android SDK
-          platform: GitHub release
-          version_label: ${{ inputs.version }}
-          result: stopped
-          title: "Android SDK ${{ inputs.version }} release stopped: ${{ steps.reason.outputs.reason }}"
-          commit: ${{ needs.prepare.outputs.sha }}
-          details: Nothing more will publish from this run.
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ needs.prepare.outputs.slack_ts }}
+          status: stopped
+          title: Android SDK ${{ inputs.version }} release stopped, ${{ steps.reason.outputs.reason }}
+          body: Nothing more will publish from this run.
+          fields: |
+            Version: ${{ inputs.version }}
+            Commit: ${{ needs.prepare.outputs.sha }}
