@@ -650,6 +650,23 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
     }
 
     @Test
+    fun `logged bridge messages never include the preview token`() {
+        registerPreviewTokenStore()
+
+        postMessage(
+            """{"type":"formsPreviewEnded","data":{"reason":"expired","token":"$VALID_PREVIEW_TOKEN"}}"""
+        )
+
+        verify {
+            spyLog.debug(
+                match { it.contains("formsPreviewEnded") && it.contains("<redacted>") },
+                null
+            )
+        }
+        verify(exactly = 0) { spyLog.debug(match { it.contains(VALID_PREVIEW_TOKEN) }, any()) }
+    }
+
+    @Test
     fun `formsPreviewEnded with a matching token clears the stored preview token`() {
         val store = registerPreviewTokenStore()
 
