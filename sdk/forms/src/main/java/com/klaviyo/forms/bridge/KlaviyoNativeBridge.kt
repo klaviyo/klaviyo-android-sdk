@@ -71,7 +71,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
     @JavascriptInterface
     override fun postMessage(message: String) {
         try {
-            Registry.log.debug("JS interface postMessage $message")
+            Registry.log.debug("JS interface postMessage ${message.redactingPreviewToken()}")
             when (val bridgeMessage = NativeBridgeMessage.decodeWebviewMessage(message)) {
                 JsReady -> jsReady()
                 HandShook -> handShook()
@@ -85,7 +85,10 @@ internal class KlaviyoNativeBridge : NativeBridge {
                 is FormsPreviewEnded -> formsPreviewEnded(bridgeMessage)
             }
         } catch (e: Exception) {
-            Registry.log.error("Failed to relay webview message: $message", e)
+            Registry.log.error(
+                "Failed to relay webview message: ${message.redactingPreviewToken()}",
+                e
+            )
         }
     }
 
@@ -269,3 +272,11 @@ internal class KlaviyoNativeBridge : NativeBridge {
         }
     }
 }
+
+private val PREVIEW_TOKEN_FIELD = Regex("(\"token\"\\s*:\\s*)\"[^\"]*\"")
+
+/**
+ * This bridge message string with the value of any `"token"` field replaced by `"<redacted>"`.
+ */
+internal fun String.redactingPreviewToken(): String =
+    replace(PREVIEW_TOKEN_FIELD, "$1\"<redacted>\"")

@@ -274,14 +274,14 @@ class SampleViewModel : ViewModel() {
     @UiThread
     fun handleFormsPreviewLink(uri: Uri?): Boolean {
         if (!Klaviyo.handleFormsPreviewLink(uri)) return false
-        formsPreviewToken = uri?.getQueryParameter(FormsPreview.PREVIEW_TOKEN_KEY).orEmpty()
+        formsPreviewToken = FormsPreview.previewTokenParameter(uri?.toString()).orEmpty()
         isFormsPreviewEnabled = true
         return true
     }
 
     @UiThread
     fun isFormsPreviewTokenValid(): Boolean =
-        formsPreviewToken.trim().matches(Regex("^[A-Za-z0-9_-]{43}$"))
+        FormsPreview.isValidToken(formsPreviewToken.trim())
 
     @UiThread
     fun updateFormsPreviewEnabled(enabled: Boolean) {
