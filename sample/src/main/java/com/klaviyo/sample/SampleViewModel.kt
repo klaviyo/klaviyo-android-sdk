@@ -1,6 +1,7 @@
 package com.klaviyo.sample
 
 import android.content.Context
+import android.net.Uri
 import androidx.annotation.UiThread
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,7 +16,11 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.core.Registry
+import com.klaviyo.core.forms.FormsPreview
+import com.klaviyo.forms.endFormsPreview
+import com.klaviyo.forms.handleFormsPreviewLink
 import com.klaviyo.forms.registerForInAppForms
+import com.klaviyo.forms.startFormsPreview
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.location.KlaviyoGeofence
 import com.klaviyo.location.LocationManager
@@ -59,6 +64,13 @@ class SampleViewModel : ViewModel() {
         private set
 
     private val appliedJwt = AtomicReference("")
+
+    // Forms preview state: the pasted token is held in memory only
+    var formsPreviewToken by mutableStateOf("")
+        private set
+
+    var isFormsPreviewEnabled by mutableStateOf(false)
+        private set
 
     // Location permission state
     var hasLocationPermission by mutableStateOf(false)
@@ -239,6 +251,49 @@ class SampleViewModel : ViewModel() {
         isAuthTokenProviderRegistered = registered
     }
 
+    @UiThread
+    fun updateFormsPreviewToken(value: String) {
+        formsPreviewToken = value
+    }
+
+    /**
+     * Start a preview session with the pasted token, or end it when the field is blank.
+     */
+    @UiThread
+    fun applyFormsPreviewToken() {
+        val token = formsPreviewToken.trim()
+        if (token.isEmpty()) Klaviyo.endFormsPreview() else Klaviyo.startFormsPreview(token)
+    }
+
+    /**
+     * Start a preview from a deep link, such as the form editor's QR code, and reflect it in the
+     * Forms preview controls so the tester can see it's active and end it.
+     *
+     * @return True if the link started a preview
+     */
+    @UiThread
+    fun handleFormsPreviewLink(uri: Uri?): Boolean {
+        if (!Klaviyo.handleFormsPreviewLink(uri)) return false
+        formsPreviewToken = uri?.getQueryParameter(FormsPreview.PREVIEW_TOKEN_KEY).orEmpty()
+        isFormsPreviewEnabled = true
+        return true
+    }
+
+    @UiThread
+    fun isFormsPreviewTokenValid(): Boolean =
+        formsPreviewToken.trim().matches(Regex("^[A-Za-z0-9_-]{43}$"))
+
+    @UiThread
+    fun updateFormsPreviewEnabled(enabled: Boolean) {
+        if (enabled == isFormsPreviewEnabled) return
+        if (!enabled) {
+            // Return to published forms and drop the token from memory
+            Klaviyo.endFormsPreview()
+            formsPreviewToken = ""
+        }
+        isFormsPreviewEnabled = enabled
+    }
+
     // Push notification actions
     @UiThread
     fun updateNotificationPermission(hasPermission: Boolean) {
@@ -322,6 +377,8 @@ class SampleViewModel : ViewModel() {
     override fun onCleared() {
         if (isAuthTokenProviderRegistered) Klaviyo.unregisterAuthTokenProvider()
         appliedJwt.set("")
+        if (isFormsPreviewEnabled) Klaviyo.endFormsPreview()
+        formsPreviewToken = ""
         super.onCleared()
         // Clean up geofence sync subscription to prevent memory leak
         // Note: this is an advanced API used for demonstration, not necessary for a typical integration
