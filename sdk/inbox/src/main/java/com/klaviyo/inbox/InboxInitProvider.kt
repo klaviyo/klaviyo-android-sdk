@@ -10,7 +10,10 @@ import com.klaviyo.pushFcm.PushNotificationDispatcher
 internal class InboxInitProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         val appContext = context?.applicationContext ?: run {
-            Registry.log.error("No application context; Mobile Inbox capture is off")
+            Registry.log.error(
+                "No application context; Mobile Inbox capture is off",
+                IllegalStateException("InboxInitProvider has no application context")
+            )
             return true
         }
         Registry.registerOnce<InboxRepository> {

@@ -59,7 +59,7 @@ internal class InboxInitProviderTest : BaseTest() {
 
         assertFalse(Registry.isRegistered<InboxRepository>())
         verify(exactly = 0) { pushDispatcher.onKlaviyoNotification(any()) }
-        verify { spyLog.error(any(), null) }
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
     }
 
     @Test
