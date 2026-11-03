@@ -304,8 +304,7 @@ jobs:
           fi
           for WORKFLOW in $WORKFLOWS; do
             if [ "$WORKFLOW" == "jitpack.yml" ] && [ -n "$SLACK_TS" ]; then
-              gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION" -f "slack_thread_ts=$SLACK_TS" \
-                || gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"
+              gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION" -f "slack_thread_ts=$SLACK_TS"
             else
               gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"
             fi
