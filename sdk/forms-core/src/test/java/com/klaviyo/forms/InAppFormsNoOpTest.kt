@@ -20,4 +20,25 @@ internal class InAppFormsNoOpTest : BaseTest() {
             Klaviyo.unregisterFromInAppForms()
         }
     }
+
+    @Test
+    fun `startFormsPreview throws when provider not registered`() {
+        assertThrows(MissingKlaviyoModule::class.java) {
+            Klaviyo.startFormsPreview("token")
+        }
+    }
+
+    @Test
+    fun `endFormsPreview throws when provider not registered`() {
+        assertThrows(MissingKlaviyoModule::class.java) {
+            Klaviyo.endFormsPreview()
+        }
+    }
+
+    @Test
+    fun `handleFormsPreviewLink throws when provider not registered`() {
+        assertThrows(MissingKlaviyoModule::class.java) {
+            Klaviyo.handleFormsPreviewLink(null)
+        }
+    }
 }

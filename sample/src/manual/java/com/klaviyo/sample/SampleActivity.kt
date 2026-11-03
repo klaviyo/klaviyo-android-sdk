@@ -71,6 +71,14 @@ class SampleActivity : ComponentActivity() {
             return
         }
 
+        // SETUP NOTE: Start a draft in-app forms preview from the form editor's QR code or
+        // copied preview link with Klaviyo.handleFormsPreviewLink. It returns false, changing
+        // nothing, for every other link. The view model also shows the preview in its controls.
+        if (viewModel.handleFormsPreviewLink(intent?.data)) {
+            showToast("Forms preview started")
+            return
+        }
+
         // SETUP NOTE (Manual / Option B): Track an event when the user opens a notification.
         // If the notification is a deep link, the SDK will invoke your registered handler.
         // If not using a deep link handler, you should parse the URI from intent.data below.

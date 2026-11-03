@@ -33,6 +33,8 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.preview.FormsPreviewTokenStore
+import com.klaviyo.forms.preview.VALID_PREVIEW_TOKEN
 import io.mockk.CapturingSlot
 import io.mockk.clearAllMocks
 import io.mockk.every
@@ -74,6 +76,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-klaviyo-local-tracking="1"
                   data-klaviyo-profile='KLAVIYO_PROFILE'
                   data-klaviyo-jwt='KLAVIYO_JWT'
+                  data-klaviyo-forms-preview-token='KLAVIYO_FORMS_PREVIEW_TOKEN'
             >
                 <meta charset="UTF-8">
                 <meta name="viewport"
@@ -191,6 +194,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Registry.unregister<State>()
         Registry.unregister<JsBridgeObserverCollection>()
         Registry.unregister<AuthTokenManager>()
+        Registry.unregister<FormsPreviewTokenStore>()
         clearAllMocks()
         super.cleanup()
     }
@@ -232,6 +236,7 @@ class KlaviyoWebViewClientTest : BaseTest() {
                   data-klaviyo-local-tracking="1"
                   data-klaviyo-profile='${Profile().toBridgeJson()}'
                   data-klaviyo-jwt=''
+                  data-klaviyo-forms-preview-token=''
             >
                 <meta charset="UTF-8">
                 <meta name="viewport"
@@ -319,6 +324,45 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Regex("data-klaviyo-jwt='([^']*)'").find(html.captured)?.groupValues?.get(1)
     } else {
         null
+    }
+
+    /** Value of the data-klaviyo-forms-preview-token attribute in [html]. */
+    private fun renderedPreviewToken(html: CapturingSlot<String>): String? =
+        Regex("data-klaviyo-forms-preview-token='([^']*)'").find(html.captured)?.groupValues?.get(1)
+
+    @Test
+    fun `template seeds the stored preview token`() {
+        val store = FormsPreviewTokenStore().apply { setToken(VALID_PREVIEW_TOKEN) }
+        Registry.register<FormsPreviewTokenStore>(store)
+        val html = captureTemplate()
+
+        KlaviyoWebViewClient().initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(VALID_PREVIEW_TOKEN, renderedPreviewToken(html))
+    }
+
+    @Test
+    fun `template preview token is empty without a token store`() {
+        val html = captureTemplate()
+
+        KlaviyoWebViewClient().initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("", renderedPreviewToken(html))
+    }
+
+    @Test
+    fun `template preview token is HTML-escaped and invalid values never render`() {
+        val store = FormsPreviewTokenStore().apply { setToken("a'><script>alert(1)</script>") }
+        Registry.register<FormsPreviewTokenStore>(store)
+        val html = captureTemplate()
+
+        KlaviyoWebViewClient().initializeWebView()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("", renderedPreviewToken(html))
+        assertTrue(!html.captured.contains("<script>alert"))
     }
 
     @Test
