@@ -117,6 +117,12 @@ Disable the toggle to end the preview; forms restart with published forms. The
 token in memory only and passes it to `Klaviyo.startFormsPreview`, then calls
 `Klaviyo.endFormsPreview` to stop; the token is never persisted or logged.
 
+You can also skip the paste. Set the editor's deep link to the sample app's custom scheme, for
+example `klaviyotest://preview`, and scan the QR code (or open the copied preview link) on the
+device. Each flavor's `SampleActivity.onNewIntent` passes the link to
+`Klaviyo.handleFormsPreviewLink`, which reads the `klaviyo-forms-preview` parameter and starts the
+preview.
+
 ## Geofence Testing
 The sample app includes a map view for visualizing geofences that are currently being monitored.
 This is useful for testing and debugging your geofence configuration. Please note this uses an

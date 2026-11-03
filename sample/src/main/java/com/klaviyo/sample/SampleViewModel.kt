@@ -1,6 +1,7 @@
 package com.klaviyo.sample
 
 import android.content.Context
+import android.net.Uri
 import androidx.annotation.UiThread
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,7 +16,9 @@ import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Subscription
 import com.klaviyo.core.Registry
+import com.klaviyo.core.forms.FormsPreview
 import com.klaviyo.forms.endFormsPreview
+import com.klaviyo.forms.handleFormsPreviewLink
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.startFormsPreview
 import com.klaviyo.forms.unregisterFromInAppForms
@@ -260,6 +263,20 @@ class SampleViewModel : ViewModel() {
     fun applyFormsPreviewToken() {
         val token = formsPreviewToken.trim()
         if (token.isEmpty()) Klaviyo.endFormsPreview() else Klaviyo.startFormsPreview(token)
+    }
+
+    /**
+     * Start a preview from a deep link, such as the form editor's QR code, and reflect it in the
+     * Forms preview controls so the tester can see it's active and end it.
+     *
+     * @return True if the link started a preview
+     */
+    @UiThread
+    fun handleFormsPreviewLink(uri: Uri?): Boolean {
+        if (!Klaviyo.handleFormsPreviewLink(uri)) return false
+        formsPreviewToken = uri?.getQueryParameter(FormsPreview.PREVIEW_TOKEN_KEY).orEmpty()
+        isFormsPreviewEnabled = true
+        return true
     }
 
     @UiThread
