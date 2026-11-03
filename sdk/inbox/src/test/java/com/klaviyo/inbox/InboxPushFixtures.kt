@@ -14,6 +14,7 @@ import org.json.JSONObject
  */
 internal object InboxPushFixtures {
     const val TRANSMISSION_ID = "tm-123"
+    const val COMPANY_ID = "Abc123"
     const val FCM_MESSAGE_ID = "0:1791313200000%abc"
 
     /** `2026-10-06T19:00:00.123456+00:00` */
@@ -22,6 +23,7 @@ internal object InboxPushFixtures {
     fun tracking(vararg overrides: Pair<String, Any?>): String = JSONObject(
         mapOf(
             "tm" to TRANSMISSION_ID,
+            "c" to COMPANY_ID,
             "\$message" to "message-1",
             "timestamp" to "2026-10-06T19:00:00.123456+00:00",
             "Message Type" to "campaign",

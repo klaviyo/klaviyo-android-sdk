@@ -9,13 +9,17 @@ import com.klaviyo.pushFcm.PushNotificationDispatcher
 
 internal class InboxInitProvider : ContentProvider() {
     override fun onCreate(): Boolean {
+        val appContext = context?.applicationContext ?: run {
+            Registry.log.error("No application context; Mobile Inbox capture is off")
+            return true
+        }
         Registry.registerOnce<InboxRepository> {
-            KlaviyoInboxRepository(RoomInboxDataSource(Registry.config.applicationContext))
+            KlaviyoInboxRepository(RoomInboxDataSource(appContext))
         }
         Registry.getOrNull<PushNotificationDispatcher>()
-            ?.onKlaviyoNotification(InboxCaptureObserver)
+            ?.onKlaviyoNotification(InboxCaptureObserver(appContext))
             ?: Registry.log.warning(
-                "Push notification dispatcher unavailable; Mobile Inbox capture is off"
+                "Push notification dispatcher unavailable; Mobile Inbox cannot observe pushes"
             )
         return true
     }

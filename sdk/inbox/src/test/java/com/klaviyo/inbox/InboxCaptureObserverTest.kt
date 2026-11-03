@@ -1,12 +1,13 @@
 package com.klaviyo.inbox
 
+import android.content.Context
+import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
-import com.klaviyo.fixtures.mockDeviceProperties
-import com.klaviyo.fixtures.unmockDeviceProperties
+import com.klaviyo.inbox.InboxCaptureObserver.Companion.CAPTURE_TIMEOUT_MS
+import com.klaviyo.inbox.InboxPushFixtures.COMPANY_ID
 import com.klaviyo.inbox.InboxPushFixtures.TRANSMISSION_ID
 import com.klaviyo.inbox.InboxPushFixtures.canonicalPayload
 import com.klaviyo.inbox.InboxPushFixtures.remoteMessage
@@ -14,6 +15,8 @@ import com.klaviyo.inbox.InboxPushFixtures.tracking
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlin.system.measureTimeMillis
 import kotlinx.coroutines.CompletableDeferred
@@ -46,11 +49,16 @@ internal class InboxCaptureObserverTest : BaseTest() {
     }
 
     private val repository = FakeInboxRepository()
+    private val appContext = mockk<Context>()
+    private val notificationManager = mockk<NotificationManagerCompat>()
+    private val observer = InboxCaptureObserver(appContext)
 
     @Before
     override fun setup() {
         super.setup()
-        mockDeviceProperties()
+        mockkStatic(NotificationManagerCompat::class)
+        every { NotificationManagerCompat.from(appContext) } returns notificationManager
+        every { notificationManager.areNotificationsEnabled() } returns true
         InboxPushFixtures.mockUriParsing()
         Registry.register<InboxRepository>(repository)
         // Run the store write inline so the observer's wait returns as soon as it finishes
@@ -61,12 +69,12 @@ internal class InboxCaptureObserverTest : BaseTest() {
     override fun cleanup() {
         Registry.unregister<InboxRepository>()
         InboxPushFixtures.unmockUriParsing()
-        unmockDeviceProperties()
+        unmockkStatic(NotificationManagerCompat::class)
         super.cleanup()
     }
 
     private fun capture(message: RemoteMessage = remoteMessage()) =
-        InboxCaptureObserver.onNotification(message)
+        observer.onNotification(message)
 
     /**
      * A store whose write never finishes until [release] runs
@@ -93,10 +101,28 @@ internal class InboxCaptureObserverTest : BaseTest() {
     }
 
     @Test
-    fun `a push is captured under the configured company`() {
+    fun `a push is captured under the company in its payload`() {
         capture()
 
-        assertEquals(API_KEY, repository.records[TRANSMISSION_ID]?.companyId)
+        assertEquals(COMPANY_ID, repository.records[TRANSMISSION_ID]?.companyId)
+    }
+
+    @Test
+    fun `a push is captured before the SDK is initialized`() {
+        every { Registry.config } throws MissingConfig()
+
+        capture()
+
+        assertEquals(COMPANY_ID, repository.records[TRANSMISSION_ID]?.companyId)
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `a push without a company ID is skipped`() {
+        capture(remoteMessage(canonicalPayload().apply { put("_k", tracking("c" to null)) }))
+
+        assertTrue(repository.results.isEmpty())
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
     }
 
     @Test
@@ -121,21 +147,11 @@ internal class InboxCaptureObserverTest : BaseTest() {
 
     @Test
     fun `missing notification permission skips capture`() {
-        every { DeviceProperties.notificationPermissionGranted } returns false
+        every { notificationManager.areNotificationsEnabled() } returns false
 
         capture()
 
         assertTrue(repository.results.isEmpty())
-    }
-
-    @Test
-    fun `capture before the SDK is initialized is skipped without an error`() {
-        every { DeviceProperties.notificationPermissionGranted } throws MissingConfig()
-
-        capture()
-
-        assertTrue(repository.results.isEmpty())
-        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
     }
 
     @Test
@@ -203,8 +219,8 @@ internal class InboxCaptureObserverTest : BaseTest() {
         try {
             val elapsed = measureTimeMillis { capture() }
 
-            assertTrue(elapsed >= InboxCaptureObserver.CAPTURE_TIMEOUT_MS)
-            assertTrue(elapsed < InboxCaptureObserver.CAPTURE_TIMEOUT_MS * 3)
+            assertTrue(elapsed >= CAPTURE_TIMEOUT_MS)
+            assertTrue(elapsed < CAPTURE_TIMEOUT_MS * 3)
             verify { spyLog.warning(any(), null) }
         } finally {
             release()
