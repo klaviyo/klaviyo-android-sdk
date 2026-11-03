@@ -2,19 +2,29 @@ package com.klaviyo.inbox
 
 import android.content.Context
 import androidx.room.Room
+import com.klaviyo.core.Registry
+import kotlinx.coroutines.withContext
 
 /**
  * [LocalInboxDataSource] backed by an app-private Room database, opened on first use
  *
- * @param context Used to locate the database file. The application context is retained.
+ * Reads never create the database: until a push has been captured they behave as an empty store.
+ *
+ * @param contextProvider Supplies the context used to locate the database file. Called on first
+ *  use, so a context that doesn't exist yet doesn't fail construction.
  * @param databaseName The database file name inside the app's private database directory
  */
 internal class RoomInboxDataSource(
-    context: Context,
+    contextProvider: () -> Context,
     private val databaseName: String = InboxDatabase.FILE_NAME
 ) : LocalInboxDataSource {
 
-    private val appContext = context.applicationContext
+    constructor(
+        context: Context,
+        databaseName: String = InboxDatabase.FILE_NAME
+    ) : this({ context }, databaseName)
+
+    private val appContext by lazy { contextProvider().applicationContext }
 
     private val databaseDelegate = lazy {
         Room.databaseBuilder(appContext, InboxDatabase::class.java, databaseName)
@@ -22,21 +32,39 @@ internal class RoomInboxDataSource(
             .build()
     }
 
-    private val dao: InboxMessageDao get() = databaseDelegate.value.messageDao()
+    /**
+     * The first call builds the database, which loads the generated Room classes by reflection, so
+     * it runs on the background dispatcher. Later calls skip the hop.
+     */
+    private suspend fun dao(): InboxMessageDao = if (databaseDelegate.isInitialized()) {
+        databaseDelegate.value.messageDao()
+    } else {
+        withContext(Registry.dispatcher) { databaseDelegate.value.messageDao() }
+    }
+
+    /**
+     * Whether a read could find anything, without opening the database to find out. Checks the
+     * file system, so it runs on the background dispatcher.
+     */
+    private suspend fun storeExists(): Boolean = databaseDelegate.isInitialized() ||
+        withContext(Registry.dispatcher) { appContext.getDatabasePath(databaseName).exists() }
 
     override suspend fun insert(message: InboxMessageEntity, retentionLimit: Int): InboxInsertResult =
-        if (dao.insertAndTrim(message, retentionLimit)) {
+        if (dao().insertAndTrim(message, retentionLimit)) {
             InboxInsertResult.INSERTED
         } else {
             InboxInsertResult.DUPLICATE
         }
 
+    override suspend fun countUnread(companyId: String): Int =
+        if (storeExists()) dao().countUnread(companyId) else 0
+
     override suspend fun clearByCompanyId(companyId: String) {
-        dao.deleteByCompanyId(companyId)
+        dao().deleteByCompanyId(companyId)
     }
 
     override suspend fun clearAll() {
-        dao.deleteAll()
+        dao().deleteAll()
     }
 
     /**

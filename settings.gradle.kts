@@ -28,6 +28,7 @@ include(
     ":sdk:forms",
     ":sdk:location-core",
     ":sdk:location",
+    ":sdk:inbox-core",
     ":sdk:inbox"
 )
 
