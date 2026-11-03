@@ -1,13 +1,11 @@
 package com.klaviyo.inbox
 
-import android.content.Context
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.pushFcm.PushNotificationDispatcher
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.spyk
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertFalse
@@ -20,13 +18,7 @@ internal class InboxInitProviderTest : BaseTest() {
 
     private val pushDispatcher = mockk<PushNotificationDispatcher>(relaxed = true)
 
-    private val providerContext = mockk<Context>().apply {
-        every { applicationContext } returns this
-    }
-
-    private fun provider() = spyk(InboxInitProvider()).apply {
-        every { context } returns providerContext
-    }
+    private fun provider() = inboxInitProvider()
 
     @Before
     override fun setup() {
@@ -63,9 +55,7 @@ internal class InboxInitProviderTest : BaseTest() {
 
     @Test
     fun `onCreate leaves capture off and logs when there is no context`() {
-        val noContext = spyk(InboxInitProvider()).apply { every { context } returns null }
-
-        assertTrue(noContext.onCreate())
+        assertTrue(inboxInitProvider(context = null).onCreate())
 
         assertFalse(Registry.isRegistered<InboxRepository>())
         verify(exactly = 0) { pushDispatcher.onKlaviyoNotification(any()) }
@@ -84,7 +74,7 @@ internal class InboxInitProviderTest : BaseTest() {
 
     @Test
     fun `onCreate makes the public inbox available`() {
-        InboxInitProvider().onCreate()
+        provider().onCreate()
 
         assertTrue(Registry.getOrNull<MobileInboxProvider>() is KlaviyoMobileInboxProvider)
     }
