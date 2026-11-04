@@ -344,7 +344,7 @@ jobs:
           ts: ${{ env.SLACK_TS }}
           status: success
           title: Android SDK ${{ inputs.version }} published${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}
-          body: JitPack build${{ env.PRERELEASE != 'true' && ' and docs' || '' }} dispatched at the tag. JitPack${{ env.PRERELEASE != 'true' && ' and docs' || '' }} reply in this thread with the result.
+          body: JitPack build${{ env.PRERELEASE != 'true' && ' and docs' || '' }} dispatched at the tag. JitPack${{ env.PRERELEASE != 'true' && ' and docs' || '' }} ${{ env.PRERELEASE != 'true' && 'reply' || 'replies' }} in this thread with the result.
           fields: |
             Version: ${{ inputs.version }}
             Commit: ${{ env.SHA }}
