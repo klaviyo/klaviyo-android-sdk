@@ -11,6 +11,7 @@ import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Constants
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
+import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
@@ -324,5 +325,21 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
 
         verify(exactly = 0) { Klaviyo.registerForLifecycleCallbacks(any()) }
         verify(exactly = 0) { Klaviyo.initialize(any(), any()) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent still handles and dispatches the push when initialization fails`() {
+        val intent = klaviyoIntent()
+        every {
+            intent.getStringExtra(KlaviyoTrampolineActivity.BROWSER_URL_EXTRA)
+        } returns "https://example.com"
+        every { spyDataStore.fetch(StateKey.API_KEY.name) } throws MissingConfig()
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify(exactly = 0) { Klaviyo.initialize(any(), any()) }
+        verify { Klaviyo.handlePush(intent) }
+        verify { mockTrampolineContext.startActivity(mockBrowserIntent) }
+        verify { spyLog.error(any(), any<Throwable>()) }
     }
 }

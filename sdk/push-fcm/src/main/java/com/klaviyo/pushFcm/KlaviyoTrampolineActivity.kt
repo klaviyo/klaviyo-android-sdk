@@ -127,23 +127,28 @@ internal class KlaviyoTrampolineActivity : Activity() {
          * If [Klaviyo.initialize] has not run in this process, initialize with the API key
          * persisted by a previous session so the open is tracked rather than held in memory.
          * Does nothing when Klaviyo is already initialized or no API key has been persisted.
+         * Failures are logged and leave the open to the pre-initialization queue.
          */
         private fun initializeFromPersistedApiKey(context: Context) {
             if (Registry.isRegistered<State>()) return
 
-            val applicationContext = context.applicationContext
+            try {
+                val applicationContext = context.applicationContext
 
-            if (!Registry.isRegistered<Config>()) {
-                // Registers a partial config, giving access to the data store
-                Klaviyo.registerForLifecycleCallbacks(applicationContext)
+                if (!Registry.isRegistered<Config>()) {
+                    // Registers a partial config, giving access to the data store
+                    Klaviyo.registerForLifecycleCallbacks(applicationContext)
+                }
+
+                val apiKey = Registry.dataStore.fetch(StateKey.API_KEY.name)
+                    ?.takeIf { it.isNotBlank() }
+                    ?: return
+
+                Registry.log.info("Automatically initialized Klaviyo from push open")
+                Klaviyo.initialize(apiKey, applicationContext)
+            } catch (e: Exception) {
+                Registry.log.error("Failed to initialize Klaviyo from push open", e)
             }
-
-            val apiKey = Registry.dataStore.fetch(StateKey.API_KEY.name)
-                ?.takeIf { it.isNotBlank() }
-                ?: return
-
-            Registry.log.info("Automatically initialized Klaviyo from push open")
-            Klaviyo.initialize(apiKey, applicationContext)
         }
 
         private fun dispatchDestination(intent: Intent, context: Context) {
