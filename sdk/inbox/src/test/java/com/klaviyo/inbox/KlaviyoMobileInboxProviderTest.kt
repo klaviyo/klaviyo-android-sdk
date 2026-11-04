@@ -21,7 +21,7 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
     @Test
     fun `unread count is zero before the SDK is initialized`() = runBlocking {
         every { Registry.config } throws MissingConfig()
-        InboxInitProvider().onCreate()
+        inboxInitProvider().onCreate()
 
         assertEquals(0, KlaviyoMobileInboxProvider().mobileInbox.fetchUnreadCount())
     }

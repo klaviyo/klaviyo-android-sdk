@@ -1,11 +1,14 @@
 package com.klaviyo.inbox
 
+import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.pushFcm.PushNotificationDispatcher
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -14,6 +17,8 @@ import org.junit.Test
 internal class InboxInitProviderTest : BaseTest() {
 
     private val pushDispatcher = mockk<PushNotificationDispatcher>(relaxed = true)
+
+    private fun provider() = inboxInitProvider()
 
     @Before
     override fun setup() {
@@ -31,10 +36,30 @@ internal class InboxInitProviderTest : BaseTest() {
 
     @Test
     fun `onCreate registers the repository without opening the store`() {
-        InboxInitProvider().onCreate()
+        provider().onCreate()
 
         assertTrue(Registry.isRegistered<InboxRepository>())
         verify(exactly = 0) { mockConfig.applicationContext }
+    }
+
+    @Test
+    fun `onCreate does not read the SDK config, which is absent before initialize`() {
+        every { Registry.config } throws MissingConfig()
+
+        provider().onCreate()
+
+        assertTrue(Registry.isRegistered<InboxRepository>())
+        verify { pushDispatcher.onKlaviyoNotification(any<InboxCaptureObserver>()) }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `onCreate leaves capture off and logs when there is no context`() {
+        assertTrue(inboxInitProvider(context = null).onCreate())
+
+        assertFalse(Registry.isRegistered<InboxRepository>())
+        verify(exactly = 0) { pushDispatcher.onKlaviyoNotification(any()) }
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
     }
 
     @Test
@@ -42,30 +67,30 @@ internal class InboxInitProviderTest : BaseTest() {
         val existing = mockk<InboxRepository>()
         Registry.register<InboxRepository>(existing)
 
-        InboxInitProvider().onCreate()
+        provider().onCreate()
 
         assertSame(existing, Registry.getOrNull<InboxRepository>())
     }
 
     @Test
     fun `onCreate makes the public inbox available`() {
-        InboxInitProvider().onCreate()
+        provider().onCreate()
 
         assertTrue(Registry.getOrNull<MobileInboxProvider>() is KlaviyoMobileInboxProvider)
     }
 
     @Test
     fun `onCreate registers the capture observer with push`() {
-        InboxInitProvider().onCreate()
+        provider().onCreate()
 
-        verify { pushDispatcher.onKlaviyoNotification(InboxCaptureObserver) }
+        verify { pushDispatcher.onKlaviyoNotification(any<InboxCaptureObserver>()) }
     }
 
     @Test
     fun `onCreate warns when push is unavailable`() {
         Registry.unregister<PushNotificationDispatcher>()
 
-        assertTrue(InboxInitProvider().onCreate())
+        assertTrue(provider().onCreate())
         verify { spyLog.warning(any(), null) }
     }
 }
