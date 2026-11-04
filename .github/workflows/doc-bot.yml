@@ -20,6 +20,9 @@ jobs:
   dokka:
     name: Generate and Publish Documentation
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pages: read
     env:
       CI_COMMIT_MESSAGE: Generated docs for ${{ github.sha }}
       GH_TOKEN: ${{ secrets.GH_ACTION_ACCESS_TOKEN }}
@@ -78,6 +81,7 @@ jobs:
         if: steps.push.outputs.pushed == 'true'
         continue-on-error: true
         env:
+          GH_TOKEN: ${{ github.token }}
           PUSHED_SHA: ${{ steps.push.outputs.sha }}
         run: |
           result=timeout
@@ -92,6 +96,11 @@ jobs:
           done
           echo "Pages build result: $result"
           echo "result=$result" >> "$GITHUB_OUTPUT"
+
+      - name: Classify cancellation
+        id: stop
+        if: cancelled()
+        run: echo "cancelled=true" >> "$GITHUB_OUTPUT"
 
       - name: Checkout Slack action
         if: always()
@@ -124,7 +133,7 @@ jobs:
           title: Android SDK `${{ github.ref_name }}` docs unchanged, nothing to publish
 
       - name: Send Slack notification on Pages build problem
-        if: always() && steps.push.outputs.pushed == 'true' && steps.pages.outputs.result != 'built'
+        if: always() && steps.push.outputs.pushed == 'true' && steps.pages.outputs.result != 'built' && steps.stop.outputs.cancelled != 'true'
         continue-on-error: true
         uses: ./_slack/.github/actions/notify-slack
         with:
@@ -133,6 +142,18 @@ jobs:
           status: failure
           title: Android SDK `${{ github.ref_name }}` docs Pages build ${{ steps.pages.outputs.result == 'timeout' && 'did not finish in 10 minutes' || 'failed' }}
           body: Docs were pushed to the `documentation` branch, but GitHub Pages did not report a successful build.
+          links: Docs|https://klaviyo.github.io/klaviyo-android-sdk/
+
+      - name: Send Slack notification on cancellation
+        if: always() && steps.push.outputs.pushed == 'true' && steps.pages.outputs.result != 'built' && steps.stop.outputs.cancelled == 'true'
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: stopped
+          title: Android SDK `${{ github.ref_name }}` docs Pages build stopped, run cancelled
+          body: Docs were pushed to the `documentation` branch. The Pages build did not finish because this run was cancelled.
           links: Docs|https://klaviyo.github.io/klaviyo-android-sdk/
 
       - name: Send Slack notification on failure
