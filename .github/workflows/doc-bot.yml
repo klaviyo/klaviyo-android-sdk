@@ -81,7 +81,7 @@ jobs:
           PUSHED_SHA: ${{ steps.push.outputs.sha }}
         run: |
           result=timeout
-          for i in $(seq 1 20); do
+          for _ in $(seq 1 20); do
             BUILD=$(gh api "repos/$GITHUB_REPOSITORY/pages/builds/latest" 2>/dev/null || echo '{}')
             if [ "$(jq -r '.commit // ""' <<<"$BUILD")" == "$PUSHED_SHA" ]; then
               STATUS=$(jq -r '.status // ""' <<<"$BUILD")
