@@ -166,7 +166,7 @@ jobs:
           links: Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
 
       - name: Send Slack notification on success
-        if: success() && github.ref_type != 'tag'
+        if: success() && github.ref_type != 'tag' && github.event_name != 'push'
         continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:

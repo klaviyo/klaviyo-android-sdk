@@ -272,6 +272,8 @@ jobs:
     permissions:
       contents: write
       actions: write
+    outputs:
+      started: ${{ steps.started.outputs.started }}
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ inputs.version }}
@@ -279,6 +281,10 @@ jobs:
       PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
       SLACK_TS: ${{ needs.prepare.outputs.slack_ts }}
     steps:
+      - name: Mark job started
+        id: started
+        run: echo "started=true" >> "$GITHUB_OUTPUT"
+
       - name: Dry run
         id: dryrun
         if: ${{ inputs.dry_run }}
@@ -308,7 +314,7 @@ jobs:
             WORKFLOWS="$WORKFLOWS doc-bot.yml"
           fi
           for WORKFLOW in $WORKFLOWS; do
-            if [ "$WORKFLOW" == "jitpack.yml" ] && [ -n "$SLACK_TS" ] && takes_thread_ts "$WORKFLOW"; then
+            if [ -n "$SLACK_TS" ] && takes_thread_ts "$WORKFLOW"; then
               gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION" -f "slack_thread_ts=$SLACK_TS"
             else
               gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"
@@ -338,7 +344,7 @@ jobs:
           ts: ${{ env.SLACK_TS }}
           status: success
           title: Android SDK ${{ inputs.version }} published${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}
-          body: JitPack build${{ env.PRERELEASE != 'true' && ' and docs' || '' }} dispatched at the tag. JitPack replies in this thread with its build result.
+          body: JitPack build${{ env.PRERELEASE != 'true' && ' and docs' || '' }} dispatched at the tag. JitPack${{ env.PRERELEASE != 'true' && ' and docs' || '' }} reply in this thread with the result.
           fields: |
             Version: ${{ inputs.version }}
             Commit: ${{ env.SHA }}
@@ -411,15 +417,14 @@ jobs:
         id: reason
         env:
           CANCELLED: ${{ contains(needs.*.result, 'cancelled') }}
+          PUBLISH_STARTED: ${{ needs.publish.outputs.started }}
         run: |
           if [ "$CANCELLED" == "true" ]; then
             echo "reason=cancelled or timed out" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          STATE=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
-            --jq '[.[] | select(any(.environments[]; .name == "release"))][-1].state // ""')
-          if [ "$STATE" == "rejected" ]; then
-            echo "reason=release deploy rejected" >> "$GITHUB_OUTPUT"
+          if [ "$PUBLISH_STARTED" != "true" ]; then
+            echo "reason=release approval rejected or expired" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout Slack action
