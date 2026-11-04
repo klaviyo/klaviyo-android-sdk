@@ -10,8 +10,10 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 - Each workflow sets `SLACK_USERNAME` and `SLACK_ICON_EMOJI` in its top-level `env:` ("Android SDK", `:merlin-orb-android:`).
 - `continue-on-error: true` on Slack notify steps and Slack-action checkout steps.
 - Report a cancelled job only on timeout: the `Classify cancellation` step in `instrumented-tests.yml` and `jitpack.yml`.
-- `publish-release.yml` passes `slack_thread_ts` to `jitpack.yml`, only when the workflow at the tag declares the input. Jobs on another ref sparse-checkout `.github/actions` into `_slack/`.
+- `publish-release.yml` passes `slack_thread_ts` to `jitpack.yml` and `doc-bot.yml`, only when the workflow at the tag declares the input. `doc-bot.yml` polls the Pages build API (up to 10 minutes) with the job's `GITHUB_TOKEN` under `pages: read`, and replies with docs live, Pages build failed, or Pages build stopped when the run was cancelled.
+- `publish-release.yml`'s `stopped` job reports "approval rejected or expired" when the `publish` job never started. `jitpack.yml` posts no success message for push events. Jobs on another ref sparse-checkout `.github/actions` into `_slack/`.
 - `notify-slack` stays byte-identical in all 7 repos: klaviyo-android-sdk, klaviyo-android-test-app, klaviyo-swift-sdk, klaviyo-ios-test-app, klaviyo-react-native-sdk, klaviyo-expo-plugin, klaviyo-flutter-sdk.
+- Backtick branches, tags, versions, file paths, workflow names, env and secret names, and SHAs in titles, bodies and field values. Show 7-character SHAs, with a `Commit` link. The one exception is the JitPack version for a branch build, which is the full SHA users paste into Gradle, so it goes backticked in `body`.
 
 ## Workflow conventions
 

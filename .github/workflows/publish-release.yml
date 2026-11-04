@@ -48,6 +48,7 @@ jobs:
       pull-requests: read
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
+      short_sha: ${{ steps.resolve.outputs.short_sha }}
       prerelease: ${{ steps.validate.outputs.prerelease }}
       release_url: ${{ steps.draft.outputs.release_url }}
       slack_ts: ${{ steps.slack_pending.outputs.ts }}
@@ -78,7 +79,9 @@ jobs:
 
       - name: Resolve commit
         id: resolve
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Check commit is on master or a release branch
         id: branch
@@ -203,14 +206,15 @@ jobs:
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           status: pending
-          title: Android SDK ${{ inputs.version }} awaiting approval${{ inputs.skip_ci_check && ' (CI check skipped)' || '' }}
+          title: Android SDK `${{ inputs.version }}` awaiting approval${{ inputs.skip_ci_check && ' (CI check skipped)' || '' }}
           body: Review the draft release notes, then approve the `release` environment on this run.
           fields: |
-            Version: ${{ inputs.version }}
-            Commit: ${{ steps.resolve.outputs.sha }}
+            Version: `${{ inputs.version }}`
+            Commit: `${{ steps.resolve.outputs.short_sha }}`
             Requested by: ${{ github.actor }}
           links: |
             Draft release|${{ steps.draft.outputs.release_url }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ steps.resolve.outputs.sha }}
 
       - name: Find failed step
         id: failed
@@ -248,10 +252,10 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_pending.outputs.ts }}
           status: failure
-          title: Android SDK ${{ inputs.version }} release failed
+          title: Android SDK `${{ inputs.version }}` release failed
           fields: |
-            Version: ${{ inputs.version }}
-            Commit: ${{ steps.resolve.outputs.sha }}
+            Version: `${{ inputs.version }}`
+            Commit: `${{ steps.resolve.outputs.short_sha }}`
             Stage: Preflight and draft
 
       - name: Reply with failure details
@@ -272,13 +276,20 @@ jobs:
     permissions:
       contents: write
       actions: write
+    outputs:
+      started: ${{ steps.started.outputs.started }}
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ inputs.version }}
       SHA: ${{ needs.prepare.outputs.sha }}
+      SHORT_SHA: ${{ needs.prepare.outputs.short_sha }}
       PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
       SLACK_TS: ${{ needs.prepare.outputs.slack_ts }}
     steps:
+      - name: Mark job started
+        id: started
+        run: echo "started=true" >> "$GITHUB_OUTPUT"
+
       - name: Dry run
         id: dryrun
         if: ${{ inputs.dry_run }}
@@ -308,7 +319,7 @@ jobs:
             WORKFLOWS="$WORKFLOWS doc-bot.yml"
           fi
           for WORKFLOW in $WORKFLOWS; do
-            if [ "$WORKFLOW" == "jitpack.yml" ] && [ -n "$SLACK_TS" ] && takes_thread_ts "$WORKFLOW"; then
+            if [ -n "$SLACK_TS" ] && takes_thread_ts "$WORKFLOW"; then
               gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION" -f "slack_thread_ts=$SLACK_TS"
             else
               gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"
@@ -337,12 +348,14 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ env.SLACK_TS }}
           status: success
-          title: Android SDK ${{ inputs.version }} published${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}
-          body: JitPack build${{ env.PRERELEASE != 'true' && ' and docs' || '' }} dispatched at the tag. JitPack replies in this thread with its build result.
+          title: Android SDK `${{ inputs.version }}` published${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}
+          body: JitPack build${{ env.PRERELEASE != 'true' && ' and docs' || '' }} dispatched at the tag. JitPack${{ env.PRERELEASE != 'true' && ' and docs' || '' }} ${{ env.PRERELEASE != 'true' && 'reply' || 'replies' }} in this thread with the result.
           fields: |
-            Version: ${{ inputs.version }}
-            Commit: ${{ env.SHA }}
-          links: Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.version }}
+            Version: `${{ inputs.version }}`
+            Commit: `${{ env.SHORT_SHA }}`
+          links: |
+            Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.version }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ env.SHA }}
 
       - name: Find failed step
         id: failed
@@ -380,10 +393,10 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ env.SLACK_TS }}
           status: failure
-          title: Android SDK ${{ inputs.version }} release failed
+          title: Android SDK `${{ inputs.version }}` release failed
           fields: |
-            Version: ${{ inputs.version }}
-            Commit: ${{ env.SHA }}
+            Version: `${{ inputs.version }}`
+            Commit: `${{ env.SHORT_SHA }}`
             Stage: Publish
 
       - name: Reply with failure details
@@ -411,15 +424,14 @@ jobs:
         id: reason
         env:
           CANCELLED: ${{ contains(needs.*.result, 'cancelled') }}
+          PUBLISH_STARTED: ${{ needs.publish.outputs.started }}
         run: |
           if [ "$CANCELLED" == "true" ]; then
             echo "reason=cancelled or timed out" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          STATE=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
-            --jq '[.[] | select(any(.environments[]; .name == "release"))][-1].state // ""')
-          if [ "$STATE" == "rejected" ]; then
-            echo "reason=release deploy rejected" >> "$GITHUB_OUTPUT"
+          if [ "$PUBLISH_STARTED" != "true" ]; then
+            echo "reason=release approval rejected or expired" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout Slack action
@@ -438,8 +450,8 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ needs.prepare.outputs.slack_ts }}
           status: stopped
-          title: Android SDK ${{ inputs.version }} release stopped, ${{ steps.reason.outputs.reason }}
+          title: Android SDK `${{ inputs.version }}` release stopped, ${{ steps.reason.outputs.reason }}
           body: Nothing more will publish from this run.
           fields: |
-            Version: ${{ inputs.version }}
-            Commit: ${{ needs.prepare.outputs.sha }}
+            Version: `${{ inputs.version }}`
+            Commit: `${{ needs.prepare.outputs.short_sha }}`

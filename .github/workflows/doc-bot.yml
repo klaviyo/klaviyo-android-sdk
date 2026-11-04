@@ -5,6 +5,12 @@ on:
   release:
     types: [released]
   workflow_dispatch:
+    inputs:
+      slack_thread_ts:
+        description: Slack message ts to reply under (set by publish-release.yml)
+        required: false
+        type: string
+        default: ''
 
 env:
   SLACK_USERNAME: Android SDK
@@ -14,6 +20,9 @@ jobs:
   dokka:
     name: Generate and Publish Documentation
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pages: read
     env:
       CI_COMMIT_MESSAGE: Generated docs for ${{ github.sha }}
       GH_TOKEN: ${{ secrets.GH_ACTION_ACCESS_TOKEN }}
@@ -54,17 +63,47 @@ jobs:
           git add ./docs
 
       - name: Commit and push documentation
+        id: push
         run: |
           if [ $(git status -s -uno | wc -l) -eq 0 ]; then
             echo "No documentation to change"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
           git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Pages build
+        id: pages
+        if: steps.push.outputs.pushed == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUSHED_SHA: ${{ steps.push.outputs.sha }}
+        run: |
+          result=timeout
+          for _ in $(seq 1 20); do
+            STATUS=$(gh api "repos/$GITHUB_REPOSITORY/pages/builds?per_page=10" 2>/dev/null \
+              | jq -r --arg sha "$PUSHED_SHA" 'first(.[] | select(.commit == $sha) | .status) // ""' || true)
+            if [ "$STATUS" == "built" ] || [ "$STATUS" == "errored" ]; then
+              result=$STATUS
+              break
+            fi
+            sleep 30
+          done
+          echo "Pages build result: $result"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+
+      - name: Classify cancellation
+        id: stop
+        if: cancelled()
+        run: echo "cancelled=true" >> "$GITHUB_OUTPUT"
 
       - name: Checkout Slack action
-        if: failure()
+        if: always()
         continue-on-error: true
         uses: actions/checkout@v4
         with:
@@ -72,16 +111,62 @@ jobs:
           sparse-checkout: .github/actions
           path: _slack
 
+      - name: Send Slack notification on docs live
+        if: always() && steps.push.outputs.pushed == 'true' && steps.pages.outputs.result == 'built'
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: success
+          title: Android SDK `${{ github.ref_name }}` docs live on GitHub Pages
+          links: Docs|https://klaviyo.github.io/klaviyo-android-sdk/
+
+      - name: Send Slack notification on no docs changes
+        if: always() && steps.push.outputs.pushed == 'false' && inputs.slack_thread_ts != ''
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: info
+          title: Android SDK `${{ github.ref_name }}` docs unchanged, nothing to publish
+
+      - name: Send Slack notification on Pages build problem
+        if: always() && steps.push.outputs.pushed == 'true' && steps.pages.outputs.result != 'built' && steps.stop.outputs.cancelled != 'true'
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: failure
+          title: Android SDK `${{ github.ref_name }}` docs Pages build ${{ steps.pages.outputs.result == 'timeout' && 'did not finish in 10 minutes' || 'failed' }}
+          body: Docs were pushed to the `documentation` branch, but GitHub Pages did not report a successful build.
+          links: Docs|https://klaviyo.github.io/klaviyo-android-sdk/
+
+      - name: Send Slack notification on cancellation
+        if: always() && steps.push.outputs.pushed == 'true' && steps.pages.outputs.result != 'built' && steps.stop.outputs.cancelled == 'true'
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: stopped
+          title: Android SDK `${{ github.ref_name }}` docs Pages build stopped, run cancelled
+          body: Docs were pushed to the `documentation` branch. The Pages build did not finish because this run was cancelled.
+          links: Docs|https://klaviyo.github.io/klaviyo-android-sdk/
+
       - name: Send Slack notification on failure
         if: failure()
         continue-on-error: true
         uses: ./_slack/.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
           status: failure
-          title: Documentation Bot workflow failed
-          body: "Common issue: check whether GH_ACTION_ACCESS_TOKEN has expired."
+          title: '`Documentation Bot` workflow failed'
+          body: "Common issue: check whether `GH_ACTION_ACCESS_TOKEN` has expired."
           fields: |
             Repository: ${{ github.repository }}
-            Ref: ${{ github.ref_name }}
-            Event: ${{ github.event_name }}
+            Ref: `${{ github.ref_name }}`
+            Event: `${{ github.event_name }}`
