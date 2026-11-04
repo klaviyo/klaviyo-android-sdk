@@ -50,6 +50,10 @@ jobs:
       - name: Record job start
         run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
 
+      - name: Record commit
+        id: commit
+        run: echo "short_sha=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
 
       - name: Setup Android Build Environment
@@ -154,14 +158,15 @@ jobs:
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
-          title: Instrumented tests ${{ job.status == 'cancelled' && 'timed out' || 'failed' }} on ${{ github.ref_name }}
+          title: Instrumented tests ${{ job.status == 'cancelled' && 'timed out' || 'failed' }} on `${{ github.ref_name }}`
           fields: |
             Repository: ${{ github.repository }}
-            Branch: ${{ github.ref_name }}
-            API level: ${{ steps.api-setup.outputs.api_level }}
-            Architecture: ${{ steps.api-setup.outputs.arch }}
-            Commit: ${{ github.sha }}
+            Branch: `${{ github.ref_name }}`
+            API level: `${{ steps.api-setup.outputs.api_level }}`
+            Architecture: `${{ steps.api-setup.outputs.arch }}`
+            Commit: `${{ steps.commit.outputs.short_sha }}`
             Author: ${{ github.actor }}
+          links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
 
       - name: Update PR labels on success
         if: success() && github.event_name == 'pull_request'

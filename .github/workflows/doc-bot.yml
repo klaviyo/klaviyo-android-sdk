@@ -110,7 +110,7 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: success
-          title: Android SDK ${{ github.ref_name }} docs live on GitHub Pages
+          title: Android SDK `${{ github.ref_name }}` docs live on GitHub Pages
           links: Docs|https://klaviyo.github.io/klaviyo-android-sdk/
 
       - name: Send Slack notification on no docs changes
@@ -121,7 +121,7 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: info
-          title: Android SDK ${{ github.ref_name }} docs unchanged, nothing to publish
+          title: Android SDK `${{ github.ref_name }}` docs unchanged, nothing to publish
 
       - name: Send Slack notification on Pages build problem
         if: always() && steps.push.outputs.pushed == 'true' && steps.pages.outputs.result != 'built'
@@ -131,8 +131,8 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: failure
-          title: Android SDK ${{ github.ref_name }} docs Pages build ${{ steps.pages.outputs.result == 'timeout' && 'did not finish in 10 minutes' || 'failed' }}
-          body: Docs were pushed to the documentation branch, but GitHub Pages did not report a successful build.
+          title: Android SDK `${{ github.ref_name }}` docs Pages build ${{ steps.pages.outputs.result == 'timeout' && 'did not finish in 10 minutes' || 'failed' }}
+          body: Docs were pushed to the `documentation` branch, but GitHub Pages did not report a successful build.
           links: Docs|https://klaviyo.github.io/klaviyo-android-sdk/
 
       - name: Send Slack notification on failure
@@ -143,9 +143,9 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: failure
-          title: Documentation Bot workflow failed
-          body: "Common issue: check whether GH_ACTION_ACCESS_TOKEN has expired."
+          title: '`Documentation Bot` workflow failed'
+          body: "Common issue: check whether `GH_ACTION_ACCESS_TOKEN` has expired."
           fields: |
             Repository: ${{ github.repository }}
-            Ref: ${{ github.ref_name }}
-            Event: ${{ github.event_name }}
+            Ref: `${{ github.ref_name }}`
+            Event: `${{ github.event_name }}`
