@@ -31,7 +31,8 @@ class InboxProviderInstrumentedTest {
         context.deleteDatabase(databaseName)
         configure(COMPANY)
         Registry.register<InboxRepository>(KlaviyoInboxRepository(dataSource))
-        InboxInitProvider().onCreate()
+        // The system attaches a context to a provider before calling onCreate
+        InboxInitProvider().attachInfo(context, null)
     }
 
     @After

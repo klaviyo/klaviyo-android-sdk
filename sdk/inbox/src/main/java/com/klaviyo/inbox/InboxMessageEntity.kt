@@ -12,7 +12,7 @@ import androidx.room.PrimaryKey
  * rather than a second row, and a server copy of the message maps onto the same row.
  *
  * @property transmissionId The push's `tm`
- * @property companyId The public API key the push was captured under
+ * @property companyId The company that sent the push, from `_k.c`
  * @property receivedAt When this device captured the push, in epoch milliseconds
  * @property sentAt Server send time from `_k.timestamp`, in epoch milliseconds
  * @property badge The push's app-icon badge count, when the payload sets one

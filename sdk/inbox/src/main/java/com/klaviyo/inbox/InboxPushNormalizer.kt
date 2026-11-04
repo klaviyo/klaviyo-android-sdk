@@ -26,19 +26,20 @@ internal object InboxPushNormalizer {
     private const val BADGE_KEY = "notification_count"
 
     private const val TRANSMISSION_ID_KEY = "tm"
+    private const val COMPANY_ID_KEY = "c"
     private const val PUSH_TOKEN_KEY = "pt"
     private const val TIMESTAMP_KEY = "timestamp"
 
     /**
-     * @param companyId The public API key to store the message under
      * @return The entity, or null when the message isn't a Klaviyo notification or its tracking
-     *  data has no `tm` to use as the message ID
+     *  data has no `tm` to use as the message ID or no `c` to use as the company ID
      */
-    fun RemoteMessage.toInboxMessageEntity(companyId: String, receivedAt: Long): InboxMessageEntity? {
+    fun RemoteMessage.toInboxMessageEntity(receivedAt: Long): InboxMessageEntity? {
         if (!isKlaviyoNotification) return null
 
         val tracking = parseTracking(data[Constants.TRACKING_PARAMETER])
         val transmissionId = tracking?.optNonBlankString(TRANSMISSION_ID_KEY) ?: return null
+        val companyId = tracking.optNonBlankString(COMPANY_ID_KEY) ?: return null
 
         return InboxMessageEntity(
             transmissionId = transmissionId,

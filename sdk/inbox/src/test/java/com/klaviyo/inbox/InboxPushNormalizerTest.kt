@@ -2,6 +2,7 @@ package com.klaviyo.inbox
 
 import com.klaviyo.core.Constants
 import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.inbox.InboxPushFixtures.COMPANY_ID
 import com.klaviyo.inbox.InboxPushFixtures.FCM_MESSAGE_ID
 import com.klaviyo.inbox.InboxPushFixtures.SENT_AT_MILLIS
 import com.klaviyo.inbox.InboxPushFixtures.TRANSMISSION_ID
@@ -38,7 +39,7 @@ internal class InboxPushNormalizerTest : BaseTest() {
     private fun normalize(
         data: Map<String, String> = canonicalPayload(),
         messageId: String? = FCM_MESSAGE_ID
-    ) = remoteMessage(data, messageId).toInboxMessageEntity(API_KEY, receivedAt)
+    ) = remoteMessage(data, messageId).toInboxMessageEntity(receivedAt)
 
     private fun canonicalWith(vararg changes: Pair<String, String?>) = canonicalPayload().apply {
         changes.forEach { (key, value) -> if (value == null) remove(key) else put(key, value) }
@@ -48,7 +49,7 @@ internal class InboxPushNormalizerTest : BaseTest() {
     fun `canonical payload maps every field`() {
         val expected = InboxMessageEntity(
             transmissionId = TRANSMISSION_ID,
-            companyId = API_KEY,
+            companyId = COMPANY_ID,
             title = "Sale today",
             body = "Everything is 20% off",
             defaultDestination = InboxRecordDestination(
@@ -201,6 +202,21 @@ internal class InboxPushNormalizerTest : BaseTest() {
     fun `a push without a transmission ID is not captured`() {
         assertNull(normalize(canonicalWith("_k" to tracking("tm" to null))))
         assertNull(normalize(canonicalWith("_k" to tracking("tm" to ""))))
+    }
+
+    @Test
+    fun `the company is the one in the payload, not the configured key`() {
+        assertEquals(COMPANY_ID, normalize()?.companyId)
+        assertEquals(
+            "Other1",
+            normalize(canonicalWith("_k" to tracking("c" to "Other1")))?.companyId
+        )
+    }
+
+    @Test
+    fun `a push without a company ID is not captured`() {
+        assertNull(normalize(canonicalWith("_k" to tracking("c" to null))))
+        assertNull(normalize(canonicalWith("_k" to tracking("c" to ""))))
     }
 
     @Test
