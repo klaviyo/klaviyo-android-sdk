@@ -9,8 +9,11 @@ import androidx.core.net.toUri
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.Klaviyo.isKlaviyoNotificationIntent
 import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.analytics.model.StateKey
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Constants
 import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Config
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.core.utils.startActivityIfResolved
 
@@ -103,9 +106,10 @@ internal class KlaviyoTrampolineActivity : Activity() {
         }
 
         /**
-         * Run the trampoline behavior: track `$opened_push`, dismiss the notification,
-         * then dispatch to the destination. Extracted from [onCreate] so unit tests can
-         * exercise it without instantiating an Android [Activity].
+         * Run the trampoline behavior: initialize from the persisted API key if needed,
+         * track `$opened_push`, dismiss the notification, then dispatch to the destination.
+         * Extracted from [onCreate] so unit tests can exercise it without instantiating an
+         * Android [Activity].
          */
         internal fun handleTrampolineIntent(intent: Intent?, context: Context) {
             if (intent == null || !intent.isKlaviyoNotificationIntent) {
@@ -114,8 +118,32 @@ internal class KlaviyoTrampolineActivity : Activity() {
                 )
                 return
             }
+            initializeFromPersistedApiKey(context)
             Klaviyo.handlePush(intent)
             dispatchDestination(intent, context)
+        }
+
+        /**
+         * If [Klaviyo.initialize] has not run in this process, initialize with the API key
+         * persisted by a previous session so the open is tracked rather than held in memory.
+         * Does nothing when Klaviyo is already initialized or no API key has been persisted.
+         */
+        private fun initializeFromPersistedApiKey(context: Context) {
+            if (Registry.isRegistered<State>()) return
+
+            val applicationContext = context.applicationContext
+
+            if (!Registry.isRegistered<Config>()) {
+                // Registers a partial config, giving access to the data store
+                Klaviyo.registerForLifecycleCallbacks(applicationContext)
+            }
+
+            val apiKey = Registry.dataStore.fetch(StateKey.API_KEY.name)
+                ?.takeIf { it.isNotBlank() }
+                ?: return
+
+            Registry.log.info("Automatically initialized Klaviyo from push open")
+            Klaviyo.initialize(apiKey, applicationContext)
         }
 
         private fun dispatchDestination(intent: Intent, context: Context) {

@@ -6,9 +6,13 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.analytics.model.StateKey
+import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Constants
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
+import com.klaviyo.core.Registry
+import com.klaviyo.core.config.Config
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
@@ -17,6 +21,7 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -27,9 +32,11 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
     private val mockDeepLinkIntent = mockk<Intent>(relaxed = true)
     private val mockLaunchIntent = mockk<Intent>(relaxed = true)
     private val trampolineContextPackageManager = mockk<PackageManager>(relaxed = true)
+    private val mockAppContext = mockk<Context>(relaxed = true)
     private val mockTrampolineContext = mockk<Context>(relaxed = true).apply {
         every { packageManager } returns trampolineContextPackageManager
         every { startActivity(any()) } returns Unit
+        every { applicationContext } returns mockAppContext
     }
 
     @Before
@@ -43,6 +50,8 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         mockkStatic(Uri::class)
         every { Uri.parse(any()) } returns mockk(relaxed = true)
         every { Klaviyo.handlePush(any()) } returns Klaviyo
+        every { Klaviyo.initialize(any(), any()) } returns Klaviyo
+        every { Klaviyo.registerForLifecycleCallbacks(any()) } returns Klaviyo
         every { DeepLinking.makeExternalIntent(any()) } returns mockBrowserIntent
         every { DeepLinking.makeDeepLinkIntent(any(), any(), any()) } returns mockDeepLinkIntent
         every { DeepLinking.makeLaunchIntent(any(), any()) } returns mockLaunchIntent
@@ -55,6 +64,8 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        Registry.unregister<State>()
+        Registry.unregister<Config>()
         unmockkStatic(Uri::class)
         unmockkObject(DeepLinking)
         unmockkObject(Klaviyo)
@@ -240,5 +251,78 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         verify { Klaviyo.handlePush(intent) }
         verify { DeepLinking.makeExternalIntent(parsedUri) }
         verify { mockTrampolineContext.startActivity(mockBrowserIntent) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent initializes from the persisted API key before handling the push`() {
+        val intent = klaviyoIntent()
+        spyDataStore.store(StateKey.API_KEY.name, API_KEY)
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verifyOrder {
+            Klaviyo.registerForLifecycleCallbacks(mockAppContext)
+            Klaviyo.initialize(API_KEY, mockAppContext)
+            Klaviyo.handlePush(intent)
+        }
+    }
+
+    @Test
+    fun `handleTrampolineIntent without a persisted API key leaves the open queued`() {
+        val intent = klaviyoIntent()
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify(exactly = 0) { Klaviyo.initialize(any(), any()) }
+        verify { Klaviyo.handlePush(intent) }
+        verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent ignores a blank persisted API key`() {
+        val intent = klaviyoIntent()
+        spyDataStore.store(StateKey.API_KEY.name, " ")
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify(exactly = 0) { Klaviyo.initialize(any(), any()) }
+        verify { Klaviyo.handlePush(intent) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent does not reinitialize when Klaviyo is already initialized`() {
+        val intent = klaviyoIntent()
+        spyDataStore.store(StateKey.API_KEY.name, API_KEY)
+        Registry.register<State>(mockk<State>(relaxed = true))
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify(exactly = 0) { Klaviyo.registerForLifecycleCallbacks(any()) }
+        verify(exactly = 0) { Klaviyo.initialize(any(), any()) }
+        verify { Klaviyo.handlePush(intent) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent reuses an existing partial config`() {
+        val intent = klaviyoIntent()
+        spyDataStore.store(StateKey.API_KEY.name, API_KEY)
+        Registry.register<Config>(mockConfig)
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify(exactly = 0) { Klaviyo.registerForLifecycleCallbacks(any()) }
+        verify { Klaviyo.initialize(API_KEY, mockAppContext) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent does not initialize for a non-Klaviyo intent`() {
+        val intent = mockk<Intent>(relaxed = true)
+        every { intent.getStringExtra(any()) } returns null
+        spyDataStore.store(StateKey.API_KEY.name, API_KEY)
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify(exactly = 0) { Klaviyo.registerForLifecycleCallbacks(any()) }
+        verify(exactly = 0) { Klaviyo.initialize(any(), any()) }
     }
 }
