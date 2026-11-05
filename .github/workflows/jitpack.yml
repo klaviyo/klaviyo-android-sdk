@@ -58,6 +58,7 @@ jobs:
 
       - name: Announce JitPack build on Slack
         id: slack_start
+        timeout-minutes: 2
         if: github.ref_type == 'tag'
         continue-on-error: true
         uses: ./.github/actions/notify-slack
@@ -117,7 +118,8 @@ jobs:
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
-          ts: ${{ steps.slack_start.outputs.ts }}
+          ts: ${{ steps.slack_stage.outputs.ts || steps.slack_start.outputs.ts }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
           status: failure
           title: Android SDK `${{ github.event.release.tag_name }}` blocked, release version mismatch
           body: A GitHub release was published with a mismatched version, so JitPack was not seeded. Fix the release and tag so the tag name matches the version in `strings.xml`.
@@ -135,12 +137,15 @@ jobs:
         run: bash .github/scripts/jitpack-build.sh "$VERSION"
 
       - name: Update Slack after JitPack build
+        id: slack_stage
+        timeout-minutes: 2
         if: success() && github.ref_type == 'tag'
         continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_start.outputs.ts }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
           status: pending
           title: Android SDK `${{ github.ref_name }}` built on JitPack, finishing release steps
           fields: |
@@ -174,7 +179,8 @@ jobs:
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
-          ts: ${{ steps.slack_start.outputs.ts }}
+          ts: ${{ steps.slack_stage.outputs.ts || steps.slack_start.outputs.ts }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
           status: ${{ steps.test_app_dispatch.outcome == 'failure' && 'warning' || 'success' }}
           title: Android SDK `${{ github.ref_name }}` available on JitPack
           body: ${{ steps.test_app_dispatch.outcome == 'failure' && 'Test app SDK bump dispatch failed. Bump `klaviyo-android-test-app` by hand or re-run this job.' || '' }}
@@ -221,7 +227,8 @@ jobs:
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
-          ts: ${{ steps.slack_start.outputs.ts }}
+          ts: ${{ steps.slack_stage.outputs.ts || steps.slack_start.outputs.ts }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
           status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
           title: Android SDK `${{ github.ref_name }}` JitPack build ${{ job.status == 'cancelled' && 'timed out' || 'failed' }}
           body: ${{ job.status == 'cancelled' && 'Timed out' || 'Failed' }} at ${{ steps.failed.outputs.step }}.
