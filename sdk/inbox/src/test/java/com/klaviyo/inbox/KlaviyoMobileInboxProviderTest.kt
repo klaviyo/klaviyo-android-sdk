@@ -29,7 +29,7 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
     @Test
     fun `a page is empty before the SDK is initialized`() = runBlocking {
         every { Registry.config } throws MissingConfig()
-        InboxInitProvider().onCreate()
+        inboxInitProvider().onCreate()
 
         val page = KlaviyoMobileInboxProvider().mobileInbox.fetchPage()
 
