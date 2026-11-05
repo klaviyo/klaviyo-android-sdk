@@ -22,6 +22,14 @@ object KlaviyoInbox {
     private val scope by lazy { CoroutineScope(SupervisorJob() + Registry.dispatcher) }
 
     /**
+     * @see MobileInbox.fetchPage
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun fetchPage(query: InboxQuery = InboxQuery(), callback: InboxPageCallback) =
+        deliver(callback::onResult) { it.fetchPage(query) }
+
+    /**
      * @see MobileInbox.fetchUnreadCount
      */
     @JvmStatic

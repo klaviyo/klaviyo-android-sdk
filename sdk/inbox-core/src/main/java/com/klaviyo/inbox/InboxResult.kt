@@ -13,6 +13,12 @@ sealed class InboxException(
         message: String,
         cause: Throwable? = null
     ) : InboxException(message, cause)
+
+    /** The cursor is malformed, or did not come from a page of this inbox */
+    class InvalidCursor(
+        message: String,
+        cause: Throwable? = null
+    ) : InboxException(message, cause)
 }
 
 /**
@@ -26,6 +32,11 @@ sealed class InboxResult<out T> {
     class Failure(val exception: InboxException) : InboxResult<Nothing>() {
         override fun toString(): String = "Failure(${exception::class.simpleName})"
     }
+}
+
+/** Receives the result of [KlaviyoInbox.fetchPage] on the main thread */
+fun interface InboxPageCallback {
+    fun onResult(result: InboxResult<InboxPage>)
 }
 
 /** Receives the result of [KlaviyoInbox.fetchUnreadCount] on the main thread */

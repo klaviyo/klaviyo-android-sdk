@@ -8,7 +8,14 @@ import com.klaviyo.core.Registry
  */
 class FakeMobileInbox : MobileInbox {
     var unreadCount = 0
+    var page = InboxPage(emptyList(), nextCursor = null)
     var failure: Exception? = null
+    val queries = mutableListOf<InboxQuery>()
+
+    override suspend fun fetchPage(query: InboxQuery): InboxPage {
+        queries += query
+        return failure?.let { throw it } ?: page
+    }
 
     override suspend fun fetchUnreadCount(): Int = failure?.let { throw it } ?: unreadCount
 

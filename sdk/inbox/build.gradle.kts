@@ -21,6 +21,10 @@ android {
 
     // Exported Room schemas double as the migration test fixtures
     sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+
+    // Test fixtures that touch internal types, shared by the unit and instrumented tests
+    sourceSets.getByName("test").java.srcDir("src/sharedTest/java")
+    sourceSets.getByName("androidTest").java.srcDir("src/sharedTest/java")
 }
 
 ksp {

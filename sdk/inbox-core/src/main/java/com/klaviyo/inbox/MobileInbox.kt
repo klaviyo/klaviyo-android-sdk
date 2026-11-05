@@ -11,6 +11,15 @@ import com.klaviyo.core.Registry
  */
 interface MobileInbox {
     /**
+     * Fetch one page of the current company's messages from the on-device store, newest first.
+     * The page is empty when nothing has been captured yet.
+     *
+     * @throws InboxException.InvalidCursor when the query's cursor is malformed or did not come
+     *  from this inbox
+     */
+    suspend fun fetchPage(query: InboxQuery = InboxQuery()): InboxPage
+
+    /**
      * Count the current company's messages that are unread and not archived. Zero when nothing
      * has been captured yet.
      */
