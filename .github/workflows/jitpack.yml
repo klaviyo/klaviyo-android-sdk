@@ -114,6 +114,7 @@ jobs:
 
       - name: Notify Slack of release version mismatch
         if: failure() && github.event_name == 'release' && steps.version_check.outcome == 'failure'
+        timeout-minutes: 2
         continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:
@@ -175,6 +176,7 @@ jobs:
 
       - name: Notify Slack of release publish success
         if: success() && github.ref_type == 'tag'
+        timeout-minutes: 2
         continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:
@@ -223,6 +225,7 @@ jobs:
 
       - name: Notify Slack of release publish failure
         if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && github.ref_type == 'tag' && steps.checkout.outcome == 'success' && steps.version_check.outcome != 'failure'
+        timeout-minutes: 2
         continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:
@@ -243,6 +246,7 @@ jobs:
 
       - name: Send Slack notification on success
         if: success() && github.ref_type != 'tag' && github.event_name != 'push'
+        timeout-minutes: 2
         continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:
@@ -255,6 +259,7 @@ jobs:
 
       - name: Send Slack notification on failure
         if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && (github.ref_type != 'tag' || steps.checkout.outcome != 'success')
+        timeout-minutes: 2
         continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:
