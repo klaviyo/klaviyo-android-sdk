@@ -25,6 +25,14 @@ internal interface InboxRepository {
     suspend fun fetchUnreadCount(): Int
 
     /**
+     * Apply [change] to the current company's message. False before the SDK is initialized, or
+     * when the message isn't stored.
+     *
+     * @throws InboxException when the store fails
+     */
+    suspend fun updateMessageState(messageId: String, change: InboxStateChange): Boolean
+
+    /**
      * Remove every stored message captured under [companyId]
      */
     suspend fun clearByCompanyId(companyId: String)

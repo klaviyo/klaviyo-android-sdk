@@ -72,6 +72,13 @@ internal class RoomInboxDataSource(
     override suspend fun countUnread(companyId: String): Int =
         if (storeExists()) dao().countUnread(companyId) else 0
 
+    override suspend fun updateState(
+        companyId: String,
+        messageId: String,
+        change: InboxStateChange,
+        updatedAt: Long
+    ): Boolean = storeExists() && dao().updateState(companyId, messageId, change, updatedAt)
+
     override suspend fun clearByCompanyId(companyId: String) {
         dao().deleteByCompanyId(companyId)
     }
