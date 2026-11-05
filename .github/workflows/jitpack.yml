@@ -56,6 +56,25 @@ jobs:
         id: checkout
         uses: actions/checkout@v4
 
+      - name: Announce JitPack build on Slack
+        id: slack_start
+        if: github.ref_type == 'tag'
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: pending
+          title: Android SDK `${{ github.ref_name }}` building on JitPack
+          fields: |
+            Version: `${{ github.ref_name }}`
+            Commit: `${{ steps.commit.outputs.short_sha }}`
+            Trigger: `${{ github.event_name }}`
+            Author: ${{ github.actor }}
+          links: |
+            Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
       - name: Determine Version Info
         id: version
         env:
@@ -98,20 +117,40 @@ jobs:
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ steps.slack_start.outputs.ts }}
           status: failure
-          title: Release version mismatch detected
+          title: Android SDK `${{ github.event.release.tag_name }}` blocked, release version mismatch
           body: A GitHub release was published with a mismatched version, so JitPack was not seeded. Fix the release and tag so the tag name matches the version in `strings.xml`.
           fields: |
-            Repository: ${{ github.repository }}
             Release tag: `${{ github.event.release.tag_name }}`
             Strings.xml version: `${{ steps.version_check.outputs.strings_version }}`
+            Commit: `${{ steps.commit.outputs.short_sha }}`
 
       - name: Build Artifacts on JitPack
+        id: jitpack
         env:
           JITPACK_TOKEN: ${{ secrets.JITPACK_TOKEN }}
           FORCE_REBUILD: ${{ inputs.force_rebuild || false }}
           VERSION: ${{ steps.version.outputs.version }}
         run: bash .github/scripts/jitpack-build.sh "$VERSION"
+
+      - name: Update Slack after JitPack build
+        if: success() && github.ref_type == 'tag'
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ steps.slack_start.outputs.ts }}
+          status: pending
+          title: Android SDK `${{ github.ref_name }}` built on JitPack, finishing release steps
+          fields: |
+            Version: `${{ github.ref_name }}`
+            Commit: `${{ steps.commit.outputs.short_sha }}`
+            Trigger: `${{ github.event_name }}`
+            Author: ${{ github.actor }}
+          links: |
+            Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
 
       - name: Dispatch SDK bump to test app
         id: test_app_dispatch
@@ -135,7 +174,7 @@ jobs:
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
-          thread_ts: ${{ inputs.slack_thread_ts }}
+          ts: ${{ steps.slack_start.outputs.ts }}
           status: ${{ steps.test_app_dispatch.outcome == 'failure' && 'warning' || 'success' }}
           title: Android SDK `${{ github.ref_name }}` available on JitPack
           body: ${{ steps.test_app_dispatch.outcome == 'failure' && 'Test app SDK bump dispatch failed. Bump `klaviyo-android-test-app` by hand or re-run this job.' || '' }}
@@ -158,18 +197,38 @@ jobs:
             echo "timed_out=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Find failed step
+        id: failed
+        if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && github.ref_type == 'tag'
+        env:
+          STEPS_JSON: ${{ toJSON(steps) }}
+        run: |
+          step=$(jq -r '
+            {
+              checkout: "Checkout repository",
+              version: "Determine Version Info",
+              version_check: "Check release tag matches strings.xml version",
+              jitpack: "Build Artifacts on JitPack"
+            } as $names
+            | ([to_entries[] | select(.value.conclusion == "failure" or .value.conclusion == "cancelled")][0].key) as $key
+            | if $key == null then "unknown step" else ($names[$key] // $key) end
+          ' <<<"$STEPS_JSON")
+          echo "step=$step" >> "$GITHUB_OUTPUT"
+
       - name: Notify Slack of release publish failure
         if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && github.ref_type == 'tag' && steps.checkout.outcome == 'success' && steps.version_check.outcome != 'failure'
         continue-on-error: true
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
-          thread_ts: ${{ inputs.slack_thread_ts }}
+          ts: ${{ steps.slack_start.outputs.ts }}
           status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
           title: Android SDK `${{ github.ref_name }}` JitPack build ${{ job.status == 'cancelled' && 'timed out' || 'failed' }}
+          body: ${{ job.status == 'cancelled' && 'Timed out' || 'Failed' }} at ${{ steps.failed.outputs.step }}.
           fields: |
             Version: `${{ github.ref_name }}`
             Commit: `${{ steps.commit.outputs.short_sha }}`
+            Trigger: `${{ github.event_name }}`
             Author: ${{ github.actor }}
           links: |
             Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
