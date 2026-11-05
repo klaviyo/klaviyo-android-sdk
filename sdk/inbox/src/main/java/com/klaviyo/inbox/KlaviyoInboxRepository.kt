@@ -7,7 +7,7 @@ import kotlin.coroutines.cancellation.CancellationException
 /**
  * The SDK's [InboxRepository]. Storage failures are logged with their cause. A capture reports
  * [InboxCaptureResult.FAILED] and a clear returns normally, so a store problem never reaches the
- * push path. Host-facing reads report a store problem as [InboxException].
+ * push path. Host-facing calls report a store problem as [InboxException].
  */
 internal class KlaviyoInboxRepository(
     private val dataSource: LocalInboxDataSource,
@@ -69,8 +69,18 @@ internal class KlaviyoInboxRepository(
         return storeCall("count unread messages") { dataSource.countUnread(companyId) }
     }
 
+    override suspend fun updateMessageState(
+        messageId: String,
+        change: InboxStateChange
+    ): Boolean {
+        val companyId = currentCompanyId() ?: return false
+        return storeCall("update a message's state") {
+            dataSource.updateState(companyId, messageId, change, Registry.clock.currentTimeMillis())
+        }
+    }
+
     /**
-     * Runs a store read, logging a failure with its cause and reporting it as [InboxException].
+     * Runs a store call, logging a failure with its cause and reporting it as [InboxException].
      * Cancellation passes through.
      */
     private suspend fun <T> storeCall(action: String, call: suspend () -> T): T = try {

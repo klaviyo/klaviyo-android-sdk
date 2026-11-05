@@ -5,7 +5,7 @@ import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
 
 /**
- * Read access to the on-device inbox.
+ * Access to the on-device inbox.
  *
  * Every call is safe from the main thread. A store failure surfaces as [InboxException].
  */
@@ -24,6 +24,15 @@ interface MobileInbox {
      * has been captured yet.
      */
     suspend fun fetchUnreadCount(): Int
+
+    /**
+     * Apply [change] to a message on this device. Applying a change a message already reflects
+     * does nothing, so the call is idempotent.
+     *
+     * @return True when the current company has a message with [messageId], whether or not the
+     *  change altered it. False when it doesn't, for example because retention removed it.
+     */
+    suspend fun updateMessageState(messageId: String, change: InboxStateChange): Boolean
 }
 
 /**

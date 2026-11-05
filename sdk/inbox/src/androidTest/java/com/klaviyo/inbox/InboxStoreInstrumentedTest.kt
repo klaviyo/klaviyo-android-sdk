@@ -281,6 +281,114 @@ class InboxStoreInstrumentedTest {
         assertEquals(0, source.countUnread(COMPANY))
     }
 
+    private suspend fun RoomInboxDataSource.stored(id: String, companyId: String = COMPANY) =
+        fetchPage(companyId, InboxRecordQuery(LIMIT, null)).messages.first { it.transmissionId == id }
+
+    @Test
+    fun markingAMessageReadStampsAndFlagsItPending() = runBlocking {
+        val source = openSource()
+        source.seed(message("tm-1"))
+
+        assertTrue(source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 7_000L))
+
+        val stored = source.stored("tm-1")
+        assertTrue(stored.isRead)
+        assertFalse(stored.isArchived)
+        assertEquals(7_000L, stored.stateUpdatedAt)
+        assertTrue(stored.isStatePending)
+    }
+
+    @Test
+    fun aNewMessageHasNoStateChangeAndIsNotPending() = runBlocking {
+        val source = openSource()
+        source.seed(message("tm-1"))
+
+        val stored = source.stored("tm-1")
+        assertNull(stored.stateUpdatedAt)
+        assertFalse(stored.isStatePending)
+    }
+
+    @Test
+    fun readAndArchivedChangeIndependently() = runBlocking {
+        val source = openSource()
+        source.seed(message("tm-1"))
+
+        source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 1L)
+        source.updateState(COMPANY, "tm-1", InboxStateChange.ARCHIVE, 2L)
+        assertTrue(source.stored("tm-1").let { it.isRead && it.isArchived })
+
+        source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_UNREAD, 3L)
+        assertTrue(source.stored("tm-1").let { !it.isRead && it.isArchived })
+
+        source.updateState(COMPANY, "tm-1", InboxStateChange.UNARCHIVE, 4L)
+        assertTrue(source.stored("tm-1").let { !it.isRead && !it.isArchived })
+    }
+
+    @Test
+    fun repeatingAChangeKeepsTheFirstTimestampAndReportsTheMessageExists() = runBlocking {
+        val source = openSource()
+        source.seed(message("tm-1"))
+        source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 1_000L)
+
+        assertTrue(source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 2_000L))
+
+        assertEquals(1_000L, source.stored("tm-1").stateUpdatedAt)
+    }
+
+    @Test
+    fun aChangeThatMatchesTheStoredStateDoesNotFlagItPending() = runBlocking {
+        val source = openSource()
+        source.seed(message("tm-1"))
+
+        assertTrue(source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_UNREAD, 1_000L))
+
+        val stored = source.stored("tm-1")
+        assertNull(stored.stateUpdatedAt)
+        assertFalse(stored.isStatePending)
+    }
+
+    @Test
+    fun aMissingMessageIsReportedAndStoresNothing() = runBlocking {
+        val source = openSource()
+        source.seed(message("tm-1"))
+
+        assertFalse(source.updateState(COMPANY, "gone", InboxStateChange.MARK_READ, 1L))
+        assertFalse(source.stored("tm-1").isRead)
+    }
+
+    @Test
+    fun anotherCompanysMessageIsNotChanged() = runBlocking {
+        val source = openSource()
+        source.seed(message("theirs", companyId = "B"))
+
+        assertFalse(source.updateState("A", "theirs", InboxStateChange.MARK_READ, 1L))
+        assertFalse(source.stored("theirs", "B").isRead)
+    }
+
+    @Test
+    fun updatingStateDoesNotCreateTheDatabase() = runBlocking {
+        val source = RoomInboxDataSource(context, databaseName)
+
+        assertFalse(source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 1L))
+
+        assertFalse(context.getDatabasePath(databaseName).exists())
+    }
+
+    @Test
+    fun stateChangesAffectTheUnreadCountAndSurviveRestart() = runBlocking {
+        val first = RoomInboxDataSource(context, databaseName)
+        first.seed(message("a"), message("b"), message("c"))
+        first.updateState(COMPANY, "a", InboxStateChange.MARK_READ, 1L)
+        first.updateState(COMPANY, "b", InboxStateChange.ARCHIVE, 2L)
+        first.close()
+
+        val second = openSource()
+        assertEquals(1, second.countUnread(COMPANY))
+        assertTrue(second.stored("a").isRead)
+        assertTrue(second.stored("b").isArchived)
+        assertTrue(second.stored("b").isStatePending)
+    }
+
     @Test
     fun readsDoNotCreateTheDatabase() = runBlocking {
         val source = RoomInboxDataSource(context, databaseName)

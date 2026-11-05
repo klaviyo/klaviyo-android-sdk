@@ -18,6 +18,11 @@ import androidx.room.PrimaryKey
  * @property badge The push's app-icon badge count, when the payload sets one
  * @property attributionJson The full `_k` tracking object with the device push token removed
  * @property sortTime [sentAt], or [receivedAt] when the send time is unknown
+ * @property stateUpdatedAt When [isRead] or [isArchived] last changed on this device, in epoch
+ *  milliseconds. Null until the host changes one. Lets a later sync with the server keep the
+ *  newer of two conflicting changes.
+ * @property isStatePending True while a local state change has not been sent to the server. A
+ *  sync sends the pending rows and clears the flag once the server accepts them.
  */
 @Entity(
     tableName = InboxMessageEntity.TABLE_NAME,
@@ -40,7 +45,9 @@ internal data class InboxMessageEntity(
     val attributionJson: String?,
     val isRead: Boolean = false,
     val isArchived: Boolean = false,
-    val sortTime: Long = sentAt ?: receivedAt
+    val sortTime: Long = sentAt ?: receivedAt,
+    val stateUpdatedAt: Long? = null,
+    val isStatePending: Boolean = false
 ) {
     companion object {
         const val TABLE_NAME = "inbox_message"

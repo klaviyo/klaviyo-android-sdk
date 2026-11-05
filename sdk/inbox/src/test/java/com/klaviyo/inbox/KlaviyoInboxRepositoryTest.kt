@@ -10,7 +10,9 @@ import io.mockk.verify
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -115,6 +117,48 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
 
         coVerify { dataSource.clearByCompanyId(API_KEY) }
         coVerify { dataSource.clearAll() }
+    }
+
+    @Test
+    fun `a state change is applied to the current company's message with the current time`() =
+        runBlocking {
+            coEvery { dataSource.updateState(any(), any(), any(), any()) } returns true
+
+            assertTrue(repository.updateMessageState("tm-1", InboxStateChange.MARK_READ))
+
+            coVerify {
+                dataSource.updateState(API_KEY, "tm-1", InboxStateChange.MARK_READ, TIME)
+            }
+        }
+
+    @Test
+    fun `a state change for a missing message reports false`() = runBlocking {
+        coEvery { dataSource.updateState(any(), any(), any(), any()) } returns false
+
+        assertFalse(repository.updateMessageState("gone", InboxStateChange.ARCHIVE))
+    }
+
+    @Test
+    fun `a state change before the SDK is initialized reports false without touching the store`() =
+        runBlocking {
+            every { mockConfig.apiKey } throws MissingAPIKey()
+
+            assertFalse(repository.updateMessageState("tm-1", InboxStateChange.MARK_READ))
+            coVerify(exactly = 0) { dataSource.updateState(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `a failed state change is logged and reported as a storage failure`() {
+        val cause = IllegalStateException("disk full")
+        coEvery { dataSource.updateState(any(), any(), any(), any()) } throws cause
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.updateMessageState("tm-1", InboxStateChange.MARK_READ) }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertSame(cause, error.cause)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
     }
 
     @Test

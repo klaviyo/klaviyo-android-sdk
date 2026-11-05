@@ -95,6 +95,65 @@ internal abstract class InboxMessageDao {
     )
     abstract suspend fun countUnread(companyId: String): Int
 
+    @Query(
+        """
+        UPDATE ${InboxMessageEntity.TABLE_NAME}
+        SET isRead = :isRead, stateUpdatedAt = :updatedAt, isStatePending = 1
+        WHERE companyId = :companyId AND transmissionId = :transmissionId AND isRead != :isRead
+        """
+    )
+    protected abstract suspend fun setRead(
+        companyId: String,
+        transmissionId: String,
+        isRead: Boolean,
+        updatedAt: Long
+    ): Int
+
+    @Query(
+        """
+        UPDATE ${InboxMessageEntity.TABLE_NAME}
+        SET isArchived = :isArchived, stateUpdatedAt = :updatedAt, isStatePending = 1
+        WHERE companyId = :companyId AND transmissionId = :transmissionId
+            AND isArchived != :isArchived
+        """
+    )
+    protected abstract suspend fun setArchived(
+        companyId: String,
+        transmissionId: String,
+        isArchived: Boolean,
+        updatedAt: Long
+    ): Int
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM ${InboxMessageEntity.TABLE_NAME}
+        WHERE companyId = :companyId AND transmissionId = :transmissionId
+        """
+    )
+    protected abstract suspend fun count(companyId: String, transmissionId: String): Int
+
+    /**
+     * Applies [change] to the company's message, marking it as pending sync only when the change
+     * alters it, so a repeat of the same change leaves the row and its timestamp alone.
+     *
+     * @return True when the company has the message, whether or not the change altered it
+     */
+    @Transaction
+    open suspend fun updateState(
+        companyId: String,
+        transmissionId: String,
+        change: InboxStateChange,
+        updatedAt: Long
+    ): Boolean {
+        val altered = when (change) {
+            InboxStateChange.MARK_READ -> setRead(companyId, transmissionId, true, updatedAt)
+            InboxStateChange.MARK_UNREAD -> setRead(companyId, transmissionId, false, updatedAt)
+            InboxStateChange.ARCHIVE -> setArchived(companyId, transmissionId, true, updatedAt)
+            InboxStateChange.UNARCHIVE -> setArchived(companyId, transmissionId, false, updatedAt)
+        }
+        return altered > 0 || count(companyId, transmissionId) > 0
+    }
+
     @Query("DELETE FROM ${InboxMessageEntity.TABLE_NAME} WHERE companyId = :companyId")
     abstract suspend fun deleteByCompanyId(companyId: String): Int
 

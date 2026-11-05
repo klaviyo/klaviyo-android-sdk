@@ -43,3 +43,11 @@ fun interface InboxPageCallback {
 fun interface InboxCountCallback {
     fun onResult(result: InboxResult<Int>)
 }
+
+/**
+ * Receives the result of [KlaviyoInbox.updateMessageState] on the main thread. The value is true
+ * when the message exists.
+ */
+fun interface InboxUpdateCallback {
+    fun onResult(result: InboxResult<Boolean>)
+}

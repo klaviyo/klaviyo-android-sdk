@@ -36,6 +36,16 @@ object KlaviyoInbox {
     fun fetchUnreadCount(callback: InboxCountCallback) =
         deliver(callback::onResult) { it.fetchUnreadCount() }
 
+    /**
+     * @see MobileInbox.updateMessageState
+     */
+    @JvmStatic
+    fun updateMessageState(
+        messageId: String,
+        change: InboxStateChange,
+        callback: InboxUpdateCallback
+    ) = deliver(callback::onResult) { it.updateMessageState(messageId, change) }
+
     private fun <T> deliver(
         callback: (InboxResult<T>) -> Unit,
         call: suspend (MobileInbox) -> T
