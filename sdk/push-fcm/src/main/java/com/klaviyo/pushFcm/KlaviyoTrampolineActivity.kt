@@ -20,7 +20,7 @@ import com.klaviyo.core.utils.startActivityIfResolved
  * forwarding the user to the actual destination.
  *
  * Dispatch is driven by intent contents, not by any flag:
- * - `open_url` payloads embed a browser URL as [BROWSER_URL_EXTRA] and route to the browser.
+ * - `open_url` payloads embed a browser URL as [Constants.BROWSER_URL_EXTRA] and route to the browser.
  * - body / `deep_link` / `open_app` taps (when automatic push tracking is enabled at
  *   notification-build time) carry the deep link as the intent `data` and route into the host app.
  *
@@ -62,15 +62,6 @@ internal class KlaviyoTrampolineActivity : Activity() {
 
     companion object {
         /**
-         * Intent extra carrying an `open_url` URL to be dispatched to its external handler after
-         * `Klaviyo.handlePush` runs. Uses the `_klaviyo.` prefix (matching
-         * [com.klaviyo.core.Constants.NOTIFICATION_TAG_EXTRA]) so this internal routing
-         * extra is skipped by the `com.klaviyo.*` extras sweep in
-         * `Event.appendKlaviyoExtras`.
-         */
-        internal const val BROWSER_URL_EXTRA = "_klaviyo.browser_url"
-
-        /**
          * Build a trampoline intent that dispatches [url] to its external handler
          * via [DeepLinking.makeExternalIntent].
          *
@@ -80,7 +71,7 @@ internal class KlaviyoTrampolineActivity : Activity() {
          */
         internal fun forBrowserUrl(context: Context, url: String): Intent = Intent().apply {
             setClassName(context.packageName, KlaviyoTrampolineActivity::class.java.name)
-            putExtra(BROWSER_URL_EXTRA, url)
+            putExtra(Constants.BROWSER_URL_EXTRA, url)
         }
 
         /**
@@ -119,7 +110,7 @@ internal class KlaviyoTrampolineActivity : Activity() {
         }
 
         private fun dispatchDestination(intent: Intent, context: Context) {
-            intent.getStringExtra(BROWSER_URL_EXTRA)?.let { url ->
+            intent.getStringExtra(Constants.BROWSER_URL_EXTRA)?.let { url ->
                 Registry.log.verbose("Trampoline dispatching external intent")
                 DeepLinking.makeExternalIntent(url.toUri()).startActivityIfResolved(context)
                 return

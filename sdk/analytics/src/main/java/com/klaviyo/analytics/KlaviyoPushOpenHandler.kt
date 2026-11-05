@@ -15,6 +15,7 @@ import com.klaviyo.core.Constants.KEY_VALUE_PAIRS
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Constants.URL_PARAMETER
+import com.klaviyo.core.Constants.WEB_URL_PARAMETER
 import com.klaviyo.core.Operation
 import com.klaviyo.core.Registry
 import com.klaviyo.core.forms.FormsPreview
@@ -22,6 +23,7 @@ import com.klaviyo.core.forms.FormsPreviewTokenSink
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.utils.BoundedIdSet
 import com.klaviyo.core.utils.JSONUtil.toHashMap
+import java.io.Serializable
 import java.util.Queue
 import org.json.JSONObject
 
@@ -119,21 +121,31 @@ internal object KlaviyoPushOpenHandler {
     }
 
     /**
-     * If the opened push carries an in-app forms preview token, remove it from [intent]: from the
-     * key/value pairs, and from the deep link in the intent data and the payload url and button
-     * link extras. It then reaches neither `$opened_push` nor the host's deep link handling, on
-     * every intent copy of the delivery.
+     * Handles an in-app forms preview token on an opened push, on every intent copy of the delivery.
      *
-     * The token is read from the key/value pairs first, then from the first of those links that
-     * carries it. It is handed to the forms module only when [isNewDelivery] is true, and only if
-     * it is well-formed; forms not being installed is not an error.
+     * A `key_value_pairs` extra that is not a JSON object is removed from [intent]. Otherwise the
+     * token is read from the key/value pairs first, then from the first of these links that carries
+     * it: the intent data, then the payload `Button Link`, `url` and `web_url` extras, then the
+     * trampoline's browser URL extra. The token is removed from the key/value pairs and from every
+     * one of those links, so it reaches neither `$opened_push`, nor the host's deep link handling,
+     * nor the URL the trampoline opens in the browser.
+     *
+     * The token is handed to the forms module only when [isNewDelivery] is true, and only if it is
+     * well-formed; forms not being installed is not an error.
      */
     private fun startFormsPreview(intent: Intent, isNewDelivery: Boolean) = safeApply {
         val keyValuePairsExtra = PACKAGE_PREFIX + KEY_VALUE_PAIRS
         val linkExtras = listOf(
             PACKAGE_PREFIX + BUTTON_LINK_PARAMETER,
-            PACKAGE_PREFIX + URL_PARAMETER
+            PACKAGE_PREFIX + URL_PARAMETER,
+            PACKAGE_PREFIX + WEB_URL_PARAMETER,
+            Constants.BROWSER_URL_EXTRA
         )
+
+        intent.getStringExtra(keyValuePairsExtra)?.let {
+            if (runCatching { JSONObject(it) }.isFailure) intent.removeExtra(keyValuePairsExtra)
+        }
+
         val links = listOfNotNull(intent.data?.toString()) +
             linkExtras.mapNotNull { intent.getStringExtra(it) }
 
@@ -200,20 +212,23 @@ internal object KlaviyoPushOpenHandler {
                 val eventKey = EventKey.CUSTOM(key.replace(PACKAGE_PREFIX, ""))
                 val rawValue = intent.extras?.getString(key, "") ?: ""
                 val parsedValue = when (eventKey.name) {
-                    KEY_VALUE_PAIRS -> {
-                        try {
-                            JSONObject(FormsPreview.keyValuePairsWithoutPreviewToken(rawValue)).toHashMap()
-                        } catch (e: Exception) {
-                            Registry.log.warning("Failed to parse $KEY_VALUE_PAIRS JSON")
-                            rawValue.takeUnless { it.contains(FormsPreview.PREVIEW_TOKEN_KEY) }
-                        }
-                    }
-
+                    KEY_VALUE_PAIRS -> parseKeyValuePairs(rawValue) ?: return@forEach
                     else -> rawValue
                 }
 
                 this[eventKey] = parsedValue
             }
         }
+    }
+
+    /**
+     * Decodes a push's key/value pairs JSON into a map, or null (logging a warning that carries no
+     * part of the value) when it is not a JSON object.
+     */
+    private fun parseKeyValuePairs(raw: String): HashMap<String, Serializable?>? = try {
+        JSONObject(FormsPreview.keyValuePairsWithoutPreviewToken(raw)).toHashMap()
+    } catch (e: Exception) {
+        Registry.log.warning("Failed to parse $KEY_VALUE_PAIRS JSON")
+        null
     }
 }

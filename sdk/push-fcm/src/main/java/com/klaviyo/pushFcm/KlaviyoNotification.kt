@@ -76,7 +76,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val NOTIFICATION_TAG = "notification_tag"
         internal const val KEY_VALUE_PAIRS_KEY = Constants.KEY_VALUE_PAIRS
         internal const val ACTION_BUTTONS_KEY = "action_buttons"
-        internal const val WEB_URL_KEY = "web_url"
+        internal const val WEB_URL_KEY = Constants.WEB_URL_PARAMETER
         private const val DOWNLOAD_TIMEOUT_MS = 5_000
         private const val ACTION_REQUEST_CODE_OFFSET = 1
 
