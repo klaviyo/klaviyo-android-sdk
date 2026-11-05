@@ -191,6 +191,14 @@ When adding or modifying public APIs, verify they are callable from Java in a cl
 
 Add Java interop tests for new public APIs (see existing `*JavaApiTest.java` tests) to confirm the Java API surface.
 
+## UI test IDs
+
+Applies to the `sample` app:
+
+- Every new interactive or asserted-on control gets a snake_case `Modifier.testTag`, defined as a constant in [`sample/src/main/java/com/klaviyo/sample/TestTags.kt`](sample/src/main/java/com/klaviyo/sample/TestTags.kt) (never an inline string).
+- Before adding a tag, check the existing names and reuse the shared name for a control that also exists in the other SDK example apps.
+- When you rename or remove a control, update its tag and every test or automation that references it.
+
 ## Logging Guidelines
 
 Logging should use `Registry.log` with these severity levels:
