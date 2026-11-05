@@ -59,10 +59,9 @@ class InboxStoreInstrumentedTest {
         companyId: String = COMPANY,
         sentAt: Long? = null,
         receivedAt: Long = 1_000L
-    ) = InboxMessageEntity(
+    ) = inboxMessageEntity(
         transmissionId = transmissionId,
         companyId = companyId,
-        title = "Title $transmissionId",
         body = "Body $transmissionId",
         defaultDestination = InboxRecordDestination("deep_link", "myapp://sale"),
         mediaUrl = "https://cdn.example.com/$transmissionId.png",

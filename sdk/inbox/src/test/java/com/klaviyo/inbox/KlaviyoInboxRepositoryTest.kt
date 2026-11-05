@@ -19,21 +19,11 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
 
     private val dataSource = mockk<LocalInboxDataSource>(relaxed = true)
     private val repository = KlaviyoInboxRepository(dataSource, retentionLimit = RETENTION_LIMIT)
-    private val message = InboxMessageEntity(
+    private val message = inboxMessageEntity(
         transmissionId = "tm-1",
         companyId = API_KEY,
         title = "Sale today",
-        body = null,
-        defaultDestination = InboxRecordDestination("open_app", null),
-        mediaUrl = null,
-        mediaType = null,
-        customData = emptyMap(),
-        actions = emptyList(),
-        sentAt = null,
-        collapseId = null,
-        badge = null,
-        receivedAt = TIME,
-        attributionJson = null
+        receivedAt = TIME
     )
 
     @Test

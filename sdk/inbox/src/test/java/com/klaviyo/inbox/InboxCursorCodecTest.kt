@@ -10,21 +10,11 @@ import org.junit.Test
 
 internal class InboxCursorCodecTest : BaseTest() {
 
-    private val last = InboxMessageEntity(
+    private val last = inboxMessageEntity(
         transmissionId = "tm-9",
         companyId = API_KEY,
-        title = null,
-        body = null,
-        defaultDestination = InboxRecordDestination("open_app", null),
-        mediaUrl = null,
-        mediaType = null,
-        customData = emptyMap(),
-        actions = emptyList(),
         sentAt = 5_000L,
-        collapseId = null,
-        badge = null,
-        receivedAt = 6_000L,
-        attributionJson = null
+        receivedAt = 6_000L
     )
 
     private fun assertInvalid(cursor: InboxCursor) {

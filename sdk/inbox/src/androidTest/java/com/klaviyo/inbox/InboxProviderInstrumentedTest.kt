@@ -49,23 +49,8 @@ class InboxProviderInstrumentedTest {
         Registry.configBuilder.apiKey(apiKey).applicationContext(context).build()
     )
 
-    private fun message(id: String, companyId: String, isRead: Boolean = false) = InboxMessageEntity(
-        transmissionId = id,
-        companyId = companyId,
-        title = "Title $id",
-        body = null,
-        defaultDestination = InboxRecordDestination("open_app", null),
-        mediaUrl = null,
-        mediaType = null,
-        customData = emptyMap(),
-        actions = emptyList(),
-        sentAt = null,
-        collapseId = null,
-        badge = null,
-        receivedAt = 1_000L,
-        attributionJson = null,
-        isRead = isRead
-    )
+    private fun message(id: String, companyId: String, isRead: Boolean = false) =
+        inboxMessageEntity(id, companyId, isRead = isRead)
 
     private fun seed() = runBlocking {
         dataSource.insert(message("a1", COMPANY), LIMIT)
