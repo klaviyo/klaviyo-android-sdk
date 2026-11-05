@@ -11,6 +11,15 @@ val klaviyoGroupId: String by project
 android {
     namespace = "$klaviyoGroupId.analytics"
 
+    testOptions {
+        unitTests.all {
+            // The analytics suite accumulates MockK/kotlin-reflect metadata faster than the
+            // default 512MB test-worker heap can reclaim it, which drives the worker into a
+            // full-GC death spiral before the suite finishes. Give it headroom.
+            it.maxHeapSize = "2g"
+        }
+    }
+
     publishing {
         singleVariant(publishBuildVariant) {
             withSourcesJar()
