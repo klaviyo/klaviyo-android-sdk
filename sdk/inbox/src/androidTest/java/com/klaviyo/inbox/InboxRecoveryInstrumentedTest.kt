@@ -40,22 +40,7 @@ class InboxRecoveryInstrumentedTest {
 
     private fun dataSource() = RoomInboxDataSource(context, databaseName).also { openSources += it }
 
-    private fun message(id: String) = InboxMessageEntity(
-        transmissionId = id,
-        companyId = COMPANY,
-        title = "Title $id",
-        body = "Body $id",
-        defaultDestination = InboxRecordDestination("open_app", null),
-        mediaUrl = null,
-        mediaType = null,
-        customData = emptyMap(),
-        actions = emptyList(),
-        sentAt = null,
-        collapseId = null,
-        badge = null,
-        receivedAt = 1_000L,
-        attributionJson = null
-    )
+    private fun message(id: String) = inboxMessageEntity(id, COMPANY, body = "Body $id")
 
     /**
      * Stores [count] messages, then closes the database so its file can be damaged
