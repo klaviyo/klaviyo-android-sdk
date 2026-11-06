@@ -1,0 +1,210 @@
+name: Release Branch
+
+# Creates a rel/X.Y.Z branch containing the version bump commit.
+# Run by hand, from the CLI, from another workflow, or on a weekday schedule.
+on:
+  push:
+    branches: [ecm/rel-branch-workflow]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the latest stable version to increment
+        type: choice
+        options: [patch, minor, major]
+        default: minor
+      steps:
+        description: How many increments past the latest stable release
+        type: number
+        default: 1
+      version:
+        description: Explicit X.Y.Z, overrides bump and steps
+        type: string
+        required: false
+      base:
+        description: Branch, tag or sha to cut from
+        type: string
+        required: false
+        default: master
+  workflow_call:
+    inputs:
+      bump:
+        description: Which part of the latest stable version to increment
+        type: string
+        default: minor
+      steps:
+        description: How many increments past the latest stable release
+        type: number
+        default: 1
+      version:
+        description: Explicit X.Y.Z, overrides bump and steps
+        type: string
+        required: false
+      base:
+        description: Branch, tag or sha to cut from
+        type: string
+        required: false
+        default: master
+    outputs:
+      version:
+        description: The release version
+        value: ${{ jobs.rel_branch.outputs.version }}
+      branch:
+        description: The release branch name
+        value: ${{ jobs.rel_branch.outputs.branch }}
+      created:
+        description: "true when this run created the branch, false when it already existed"
+        value: ${{ jobs.rel_branch.outputs.created }}
+  schedule:
+    - cron: '0 13 * * 1-5'
+
+permissions:
+  contents: write
+
+env:
+  SLACK_ACTION_DIR: _slack
+  SLACK_USERNAME: Android SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-android:'
+  GIT_AUTHOR_NAME: github-actions[bot]
+  GIT_AUTHOR_EMAIL: 41898333+github-actions[bot]@users.noreply.github.com
+  GIT_COMMITTER_NAME: github-actions[bot]
+  GIT_COMMITTER_EMAIL: 41898333+github-actions[bot]@users.noreply.github.com
+
+concurrency:
+  group: rel-branch
+  cancel-in-progress: false
+
+jobs:
+  rel_branch:
+    name: Create release branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      branch: ${{ steps.resolve.outputs.branch }}
+      created: ${{ steps.push.outputs.created }}
+    steps:
+      - name: Check out base
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base || 'master' }}
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: resolve
+        env:
+          BUMP: ${{ inputs.bump || 'minor' }}
+          STEPS: ${{ inputs.steps || 1 }}
+          EXPLICIT_VERSION: ${{ inputs.version }}
+          BASE: ${{ inputs.base || 'master' }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$EXPLICIT_VERSION" ]; then
+            if ! [[ "$EXPLICIT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::version must look like X.Y.Z, got '$EXPLICIT_VERSION'"
+              exit 1
+            fi
+            version=$EXPLICIT_VERSION
+          else
+            if ! [[ "$STEPS" =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::steps must be a positive integer, got '$STEPS'"
+              exit 1
+            fi
+            latest=$(git tag --list | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+            if [ -z "$latest" ]; then
+              echo "::error::No stable X.Y.Z tag found"
+              exit 1
+            fi
+            IFS=. read -r major minor patch <<< "$latest"
+            case "$BUMP" in
+              major) major=$((major + STEPS)); minor=0; patch=0 ;;
+              minor) minor=$((minor + STEPS)); patch=0 ;;
+              patch) patch=$((patch + STEPS)) ;;
+              *) echo "::error::bump must be patch, minor or major, got '$BUMP'"; exit 1 ;;
+            esac
+            version="$major.$minor.$patch"
+            echo "Latest stable release is $latest"
+          fi
+
+          echo "Target version $version from $BASE"
+          {
+            echo "version=$version"
+            echo "branch=rel/$version"
+            echo "short_sha=$(git rev-parse --short HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create branch
+        id: push
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+          BRANCH: ${{ steps.resolve.outputs.branch }}
+        run: |
+          set -euo pipefail
+
+          if git ls-remote --exit-code --heads origin "refs/heads/$BRANCH" > /dev/null; then
+            echo "$BRANCH already exists on origin, nothing to do"
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          ./bump-version.sh "$VERSION"
+
+          if git diff --quiet; then
+            echo "::error::bump-version.sh changed nothing"
+            exit 1
+          fi
+
+          git diff --stat
+          git commit -a -m "rel: bump version to $VERSION"
+
+          if git push --force-with-lease="refs/heads/$BRANCH:" origin "HEAD:refs/heads/$BRANCH"; then
+            echo "Created $BRANCH"
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --heads origin "refs/heads/$BRANCH" > /dev/null; then
+            echo "$BRANCH was created by another run, nothing to do"
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Push of $BRANCH was rejected"
+            exit 1
+          fi
+
+      - name: Check out Slack action
+        if: always()
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions
+          path: ${{ env.SLACK_ACTION_DIR }}
+
+      - name: Notify Slack of new release branch
+        if: success() && steps.push.outputs.created == 'true'
+        timeout-minutes: 2
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          status: success
+          title: Android SDK release branch `${{ steps.resolve.outputs.branch }}` created from `${{ inputs.base || 'master' }}`
+          fields: |
+            Version: `${{ steps.resolve.outputs.version }}`
+            Base: `${{ inputs.base || 'master' }}`
+            Trigger: `${{ github.event_name }}`
+            Author: ${{ github.actor }}
+          links: |
+            Branch|${{ github.server_url }}/${{ github.repository }}/tree/${{ steps.resolve.outputs.branch }}
+
+      - name: Notify Slack of failure
+        if: failure()
+        timeout-minutes: 2
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          status: failure
+          title: Android SDK release branch `${{ steps.resolve.outputs.branch || 'rel/?' }}` could not be created
+          fields: |
+            Base: `${{ inputs.base || 'master' }}`
+            Trigger: `${{ github.event_name }}`
+            Author: ${{ github.actor }}
