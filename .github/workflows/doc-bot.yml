@@ -5,6 +5,12 @@ on:
   release:
     types: [released]
   workflow_dispatch:
+    inputs:
+      slack_thread_ts:
+        description: Slack message ts to reply under (set by publish-release.yml)
+        required: false
+        type: string
+        default: ''
 
 env:
   SLACK_USERNAME: Android SDK
@@ -14,18 +20,29 @@ jobs:
   dokka:
     name: Generate and Publish Documentation
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pages: read
     env:
       CI_COMMIT_MESSAGE: Generated docs for ${{ github.sha }}
       GH_TOKEN: ${{ secrets.GH_ACTION_ACCESS_TOKEN }}
 
     steps:
+      - name: Record commit
+        id: commit
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: echo "short_sha=${COMMIT_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
       - name: Set up JDK 17
+        id: jdk
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: 17
 
       - name: Checkout code
+        id: checkout
         uses: actions/checkout@v4
         with:
           ref: documentation
@@ -33,12 +50,44 @@ jobs:
           token: ${{ secrets.GH_ACTION_ACCESS_TOKEN }}
 
       - name: Git config
+        id: gitconfig
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git fetch origin master
 
+      - name: Checkout Slack action
+        if: ${{ !cancelled() }}
+        timeout-minutes: 2
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions
+          path: _slack
+          persist-credentials: false
+
+      - name: Announce docs publish on Slack
+        id: slack_start
+        timeout-minutes: 2
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: pending
+          title: Android SDK `${{ github.ref_name }}` docs deploying
+          fields: |
+            Version: `${{ github.ref_name }}`
+            Commit: `${{ steps.commit.outputs.short_sha }}`
+            Trigger: `${{ github.event_name }}`
+            Author: ${{ github.actor }}
+          links: |
+            Docs|https://klaviyo.github.io/klaviyo-android-sdk/
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
       - name: Merge latest from master
+        id: merge
         run: |
           git merge origin/master --commit --no-edit --strategy-option theirs
 
@@ -49,39 +98,147 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{secrets.GOOGLE_SERVICES_JSON}}
 
       - name: Generate Dokka documentation
+        id: dokka
         run: |
           ./gradlew dokkaHtmlMultiModule
           git add ./docs
 
       - name: Commit and push documentation
+        id: push
         run: |
           if [ $(git status -s -uno | wc -l) -eq 0 ]; then
             echo "No documentation to change"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
           git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout Slack action
-        if: failure()
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          sparse-checkout: .github/actions
-          path: _slack
-
-      - name: Send Slack notification on failure
-        if: failure()
+      - name: Update Slack while waiting for Pages
+        id: slack_stage
+        timeout-minutes: 2
+        if: steps.push.outputs.pushed == 'true'
         continue-on-error: true
         uses: ./_slack/.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
-          status: failure
-          title: Documentation Bot workflow failed
-          body: "Common issue: check whether GH_ACTION_ACCESS_TOKEN has expired."
+          ts: ${{ steps.slack_start.outputs.ts }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: pending
+          title: Android SDK `${{ github.ref_name }}` docs pushed, waiting for GitHub Pages
           fields: |
-            Repository: ${{ github.repository }}
-            Ref: ${{ github.ref_name }}
-            Event: ${{ github.event_name }}
+            Version: `${{ github.ref_name }}`
+            Commit: `${{ steps.commit.outputs.short_sha }}`
+            Trigger: `${{ github.event_name }}`
+            Author: ${{ github.actor }}
+          links: Docs|https://klaviyo.github.io/klaviyo-android-sdk/
+
+      - name: Wait for Pages build
+        id: pages
+        if: steps.push.outputs.pushed == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUSHED_SHA: ${{ steps.push.outputs.sha }}
+        run: |
+          result=timeout
+          for _ in $(seq 1 20); do
+            STATUS=$(gh api "repos/$GITHUB_REPOSITORY/pages/builds?per_page=10" 2>/dev/null \
+              | jq -r --arg sha "$PUSHED_SHA" 'first(.[] | select(.commit == $sha) | .status) // ""' || true)
+            if [ "$STATUS" == "built" ] || [ "$STATUS" == "errored" ]; then
+              result=$STATUS
+              break
+            fi
+            sleep 30
+          done
+          echo "Pages build result: $result"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+
+      - name: Classify cancellation
+        id: stop
+        if: cancelled()
+        run: echo "cancelled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Find failed step
+        id: failed
+        if: failure()
+        env:
+          STEPS_JSON: ${{ toJSON(steps) }}
+        run: |
+          step=$(jq -r '
+            {
+              jdk: "Set up JDK 17",
+              checkout: "Checkout code",
+              gitconfig: "Git config",
+              merge: "Merge latest from master",
+              dokka: "Generate Dokka documentation",
+              push: "Commit and push documentation"
+            } as $names
+            | ([to_entries[] | select(.value.conclusion == "failure")][0].key) as $key
+            | if $key == null then "unknown step" else ($names[$key] // $key) end
+          ' <<<"$STEPS_JSON")
+          echo "step=$step" >> "$GITHUB_OUTPUT"
+
+      - name: Classify docs result
+        id: result
+        if: always()
+        env:
+          CANCELLED: ${{ steps.stop.outputs.cancelled }}
+          JOB_STATUS: ${{ job.status }}
+          PUSHED: ${{ steps.push.outputs.pushed }}
+          PAGES: ${{ steps.pages.outputs.result }}
+          FAILED_STEP: ${{ steps.failed.outputs.step }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          body=""
+          if [ "$CANCELLED" == "true" ]; then
+            status=stopped
+            title="Android SDK \`$VERSION\` docs stopped, run cancelled"
+            if [ "$PUSHED" == "true" ]; then
+              body="Docs were pushed to the \`documentation\` branch. The Pages build did not finish because this run was cancelled."
+            fi
+          elif [ "$JOB_STATUS" == "failure" ]; then
+            status=failure
+            title="Android SDK \`$VERSION\` docs failed"
+            body="Failed at $FAILED_STEP. Common issue: check whether \`GH_ACTION_ACCESS_TOKEN\` has expired."
+          elif [ "$PUSHED" == "true" ] && [ "$PAGES" == "built" ]; then
+            status=success
+            title="Android SDK \`$VERSION\` docs live on GitHub Pages"
+          elif [ "$PUSHED" == "true" ]; then
+            status=failure
+            if [ "$PAGES" == "timeout" ]; then
+              title="Android SDK \`$VERSION\` docs Pages build did not finish in 10 minutes"
+            else
+              title="Android SDK \`$VERSION\` docs Pages build failed"
+            fi
+            body="Docs were pushed to the \`documentation\` branch, but GitHub Pages did not report a successful build."
+          else
+            status=info
+            title="Android SDK \`$VERSION\` docs unchanged, nothing to publish"
+          fi
+          {
+            echo "status=$status"
+            echo "title=$title"
+            echo "body=$body"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Report docs result on Slack
+        if: always()
+        continue-on-error: true
+        uses: ./_slack/.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ steps.slack_stage.outputs.ts || steps.slack_start.outputs.ts }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: ${{ steps.result.outputs.status }}
+          title: ${{ steps.result.outputs.title }}
+          body: ${{ steps.result.outputs.body }}
+          fields: |
+            Version: `${{ github.ref_name }}`
+            Commit: `${{ steps.commit.outputs.short_sha }}`
+            Trigger: `${{ github.event_name }}`
+            Author: ${{ github.actor }}
+          links: Docs|https://klaviyo.github.io/klaviyo-android-sdk/

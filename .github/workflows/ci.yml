@@ -70,6 +70,10 @@ jobs:
       contents: read
       actions: read
     steps:
+      - name: Record commit
+        id: commit
+        run: echo "short_sha=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
         continue-on-error: true
         with:
@@ -91,7 +95,7 @@ jobs:
           fi
           {
             echo "body<<EOF_BODY"
-            printf '%s\n' "$lines" | sed -e '/^$/d' -e 's/^/• /'
+            printf '%s\n' "$lines" | sed -e '/^$/d' -e 's/^/• `/' -e 's/$/`/'
             echo "EOF_BODY"
           } >> "$GITHUB_OUTPUT"
 
@@ -101,9 +105,10 @@ jobs:
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           status: failure
-          title: Android CI failed on master
+          title: Android CI failed on `master`
           body: ${{ steps.summary.outputs.body }}
           fields: |
             Repository: ${{ github.repository }}
-            Commit: ${{ github.sha }}
+            Commit: `${{ steps.commit.outputs.short_sha }}`
             Author: ${{ github.actor }}
+          links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
