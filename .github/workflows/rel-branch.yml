@@ -68,7 +68,7 @@ jobs:
         id: resolve
         env:
           BUMP: ${{ inputs.bump || 'minor' }}
-          STEPS: ${{ github.event_name == 'schedule' && 1 || inputs.steps }}
+          STEPS: ${{ github.event_name != 'workflow_dispatch' && 1 || inputs.steps }}
           EXPLICIT_VERSION: ${{ inputs.version }}
           BASE: ${{ inputs.base || 'master' }}
         run: |
@@ -208,7 +208,7 @@ jobs:
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           status: failure
-          title: Android SDK release branch `${{ steps.resolve.outputs.branch || 'rel/?' }}` could not be created
+          title: ${{ steps.resolve.outputs.branch && format('Android SDK release branch `{0}` could not be created', steps.resolve.outputs.branch) || 'Android SDK release branch could not be created' }}
           fields: |
             Base: `${{ inputs.base || 'master' }}`
             Trigger: `${{ github.event_name }}`
