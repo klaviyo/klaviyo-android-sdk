@@ -148,7 +148,8 @@ jobs:
             exit 0
           fi
 
-          ./bump-version.sh "$VERSION"
+          git show "$GITHUB_SHA:bump-version.sh" > "$RUNNER_TEMP/bump-version.sh" # POC-TEMP
+          bash "$RUNNER_TEMP/bump-version.sh" "$VERSION" # POC-TEMP
 
           if git diff --quiet; then
             echo "::error::bump-version.sh changed nothing"
