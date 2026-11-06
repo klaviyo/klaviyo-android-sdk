@@ -17,6 +17,7 @@ import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
+import com.klaviyo.core.forms.FormsPreviewTokenSink
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
@@ -31,9 +32,12 @@ import io.mockk.unmockkAll
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import java.util.Queue
+import org.json.JSONArray
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -483,26 +487,18 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     }
 
     @Test
-    fun `handlePush falls back to raw string when key_value_pairs JSON is invalid`() {
+    fun `handlePush omits key_value_pairs from the event when the JSON is invalid`() {
         val eventSlot = captureOpenedPushEvent()
-        val invalidJson = """{"invalid": "json"""
         val extrasWithInvalidKeyValuePairs = mapOf(
             "com.klaviyo._k" to requireNotNull(stubIntentExtras["com.klaviyo._k"]),
-            "com.klaviyo.key_value_pairs" to invalidJson
+            "com.klaviyo.key_value_pairs" to """{"invalid": "json"""
         )
 
         Klaviyo.handlePush(mockIntent(extrasWithInvalidKeyValuePairs))
 
         assertTrue(eventSlot.isCaptured)
-        val capturedEvent = eventSlot.captured
-        val keyValuePairs = capturedEvent[EventKey.CUSTOM("key_value_pairs")]
-
-        // Verify that the value falls back to the raw string
-        assertTrue(keyValuePairs is String)
-        assertEquals(invalidJson, keyValuePairs)
-
-        // Verify warning was logged
-        verify { spyLog.warning(any(), any()) }
+        assertFalse(eventSlot.captured.toMap().containsKey("key_value_pairs"))
+        verify { spyLog.warning("Failed to parse key_value_pairs JSON", null) }
     }
 
     @Test
@@ -630,5 +626,438 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
 
         assertEquals(null, Klaviyo.getKlaviyoDeepLink(null))
         assertEquals(null, Klaviyo.getKlaviyoDeepLink(mockIntent(mapOf("other" to "x"), testUri)))
+    }
+
+    private val previewToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
+
+    private fun previewPushExtras(keyValuePairs: String) = mapOf(
+        "com.klaviyo._k" to "{}",
+        "com.klaviyo.key_value_pairs" to keyValuePairs
+    )
+
+    private fun registerPreviewSink(): FormsPreviewTokenSink =
+        mockk<FormsPreviewTokenSink>(relaxed = true).also {
+            Registry.register<FormsPreviewTokenSink>(
+                it
+            )
+        }
+
+    @Test
+    fun `opened push with a preview token in key_value_pairs starts the preview and strips it from tracking`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val intent = mockIntent(
+            previewPushExtras("""{"klaviyo-forms-preview":"$previewToken","other":"1"}""")
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        verify {
+            intent.putExtra(
+                "com.klaviyo.key_value_pairs",
+                match<String> { !it.contains(previewToken) }
+            )
+        }
+        val keyValuePairs = eventSlot.captured[EventKey.CUSTOM("key_value_pairs")] as Map<*, *>
+        assertEquals(mapOf("other" to "1"), keyValuePairs)
+        assertTrue(eventSlot.captured.toMap().values.none { it.toString().contains(previewToken) })
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push falls back to the deep link preview parameter and strips it from the link`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val link = "klaviyotest://home?klaviyo-forms-preview=$previewToken&x=1"
+        val linkUri = mockk<Uri>().also { every { it.toString() } returns link }
+        val stripped = mockk<Uri>()
+        every { Uri.parse("klaviyotest://home?x=1") } returns stripped
+        val (intent) = recordingIntent(
+            mapOf("com.klaviyo._k" to "{}", "com.klaviyo.url" to link),
+            linkUri
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        verify { intent.data = stripped }
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    /**
+     * An intent whose extras are backed by a mutable map, so `putExtra` is visible to the event
+     * built from the same intent.
+     */
+    private fun recordingIntent(extras: Map<String, String>, uri: Uri? = null): Pair<Intent, Map<String, String>> {
+        val store = extras.toMutableMap()
+        val intent = mockIntent(store, uri)
+        every { intent.putExtra(any<String>(), any<String>()) } answers {
+            store[firstArg()] = secondArg()
+            intent
+        }
+        every { intent.removeExtra(any()) } answers {
+            store.remove(firstArg<String>())
+            Unit
+        }
+        return intent to store
+    }
+
+    private fun assertNoToken(event: Event) =
+        assertTrue(event.toMap().values.none { it.toString().contains(previewToken) })
+
+    @Test
+    fun `opened push with the token only in the payload url extra starts the preview and strips it`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.url" to "klaviyotest://home?klaviyo-forms-preview=$previewToken&x=1"
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        assertEquals("klaviyotest://home?x=1", extras["com.klaviyo.url"])
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push strips the token from a button link extra`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.url" to "klaviyotest://body",
+                "com.klaviyo.Button Link" to "klaviyotest://order?klaviyo-forms-preview=$previewToken"
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        assertEquals("klaviyotest://order", extras["com.klaviyo.Button Link"])
+        assertEquals("klaviyotest://body", extras["com.klaviyo.url"])
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push strips the token from a link with a raw space or pipe in another parameter`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.url" to "klaviyotest://home?a=x y&b=1|2&klaviyo-forms-preview=$previewToken"
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        assertEquals("klaviyotest://home?a=x y&b=1|2", extras["com.klaviyo.url"])
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push with invalid key_value_pairs JSON containing the token leaks it nowhere`() {
+        registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val invalidJson = """{"klaviyo-forms-preview":"$previewToken""""
+
+        Klaviyo.handlePush(mockIntent(previewPushExtras(invalidJson)))
+
+        verify { spyLog.warning(any(), any()) }
+        verify(exactly = 0) { spyLog.warning(match { it.contains(previewToken) }, any()) }
+        verify(exactly = 0) { spyLog.debug(match { it.contains(previewToken) }, any()) }
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push removes a malformed key_value_pairs extra from the intent and the event`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            previewPushExtras("""{"klaviyo-forms-preview":"$previewToken"""")
+        )
+
+        Klaviyo.handlePush(intent)
+
+        assertFalse(extras.containsKey("com.klaviyo.key_value_pairs"))
+        assertFalse(eventSlot.captured.toMap().containsKey("key_value_pairs"))
+        verify(exactly = 0) { sink.startPreview(any()) }
+        verifyOpenedPushEventEnqueued()
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push never tracks malformed key_value_pairs that escape the preview key`() {
+        registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val escapedKeyJson = """{"klaviyo\u002dforms-preview":"$previewToken""""
+
+        Klaviyo.handlePush(mockIntent(previewPushExtras(escapedKeyJson)))
+
+        assertFalse(eventSlot.captured.toMap().containsKey("key_value_pairs"))
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push leaves valid key_value_pairs without the preview key unchanged`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val keyValuePairs = """{ "other" : "1" }"""
+        val (intent, extras) = recordingIntent(previewPushExtras(keyValuePairs))
+
+        Klaviyo.handlePush(intent)
+
+        assertEquals(keyValuePairs, extras["com.klaviyo.key_value_pairs"])
+        assertEquals(
+            mapOf("other" to "1"),
+            eventSlot.captured[EventKey.CUSTOM("key_value_pairs")]
+        )
+        verify(exactly = 0) { sink.startPreview(any()) }
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push with the token in a web_url strips it from the event and the browser extra`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.web_url" to "https://example.com/p?klaviyo-forms-preview=$previewToken&x=1",
+                Constants.BROWSER_URL_EXTRA to "https://example.com/p?klaviyo-forms-preview=$previewToken&x=1"
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        assertEquals("https://example.com/p?x=1", extras["com.klaviyo.web_url"])
+        assertEquals("https://example.com/p?x=1", extras[Constants.BROWSER_URL_EXTRA])
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push with the token only in the browser extra starts the preview and strips it`() {
+        val sink = registerPreviewSink()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                Constants.BROWSER_URL_EXTRA to "https://example.com/p?klaviyo-forms-preview=$previewToken"
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        assertEquals("https://example.com/p", extras[Constants.BROWSER_URL_EXTRA])
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push strips the token from an open_url button's browser extra and link`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val buttonUrl = "https://example.com/offer?klaviyo-forms-preview=$previewToken"
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.Button Link" to buttonUrl,
+                Constants.BROWSER_URL_EXTRA to buttonUrl
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        assertEquals("https://example.com/offer", extras["com.klaviyo.Button Link"])
+        assertEquals("https://example.com/offer", extras[Constants.BROWSER_URL_EXTRA])
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `two intent copies of one delivery start the preview once and are both stripped`() {
+        val sink = registerPreviewSink()
+        val extras = mapOf(
+            "com.klaviyo._k" to """{"tm":"preview-copies-delivery"}""",
+            "com.klaviyo.url" to "klaviyotest://home?klaviyo-forms-preview=$previewToken"
+        )
+        val (first, firstExtras) = recordingIntent(extras)
+        val (second, secondExtras) = recordingIntent(extras)
+
+        Klaviyo.handlePush(first)
+        Klaviyo.handlePush(second)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        verifyOpenedPushEventEnqueued()
+        assertEquals("klaviyotest://home", firstExtras["com.klaviyo.url"])
+        assertEquals("klaviyotest://home", secondExtras["com.klaviyo.url"])
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push with a malformed preview token strips it without starting a preview`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+
+        Klaviyo.handlePush(
+            mockIntent(previewPushExtras("""{"klaviyo-forms-preview":"short-token"}"""))
+        )
+
+        verify(exactly = 0) { sink.startPreview(any()) }
+        verify { spyLog.warning(not(match { it.contains("short-token") }), null) }
+        assertEquals(
+            emptyMap<String, Any>(),
+            eventSlot.captured[EventKey.CUSTOM("key_value_pairs")]
+        )
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push with a preview token is still tracked when forms is not installed`() {
+        Registry.unregister<FormsPreviewTokenSink>()
+        val eventSlot = captureOpenedPushEvent()
+
+        Klaviyo.handlePush(
+            mockIntent(previewPushExtras("""{"klaviyo-forms-preview":"$previewToken"}"""))
+        )
+
+        verifyOpenedPushEventEnqueued()
+        assertTrue(eventSlot.captured.toMap().values.none { it.toString().contains(previewToken) })
+    }
+
+    @Test
+    fun `opened push strips the token from action button urls in the tracked action_buttons`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.key_value_pairs" to """{"klaviyo-forms-preview":"$previewToken"}""",
+                "com.klaviyo.action_buttons" to
+                    """[{"id":"a","label":"Shop","action":"deep_link",""" +
+                    """"url":"klaviyotest://shop?klaviyo-forms-preview=$previewToken&x=1"}]"""
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        val buttons = JSONArray(extras["com.klaviyo.action_buttons"])
+        assertEquals("klaviyotest://shop?x=1", buttons.getJSONObject(0).getString("url"))
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `body tap strips a token found only on an untapped action button url`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.url" to "klaviyotest://body",
+                "com.klaviyo.action_buttons" to
+                    """[{"id":"a","label":"Shop","action":"deep_link",""" +
+                    """"url":"klaviyotest://shop?klaviyo-forms-preview=$previewToken"}]"""
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 0) { sink.startPreview(any()) }
+        val buttons = JSONArray(extras["com.klaviyo.action_buttons"])
+        assertEquals("klaviyotest://shop", buttons.getJSONObject(0).getString("url"))
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push removes a malformed action_buttons extra from the intent and the event`() {
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.action_buttons" to
+                    """[{"url":"klaviyotest://shop?klaviyo-forms-preview=$previewToken"""
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        assertFalse(extras.containsKey("com.klaviyo.action_buttons"))
+        assertNull(eventSlot.captured[EventKey.CUSTOM("action_buttons")])
+        assertNoToken(eventSlot.captured)
+    }
+
+    @Test
+    fun `opened push with a non-string key_value_pairs token falls back to the link token`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.key_value_pairs" to """{"klaviyo-forms-preview":123,"other":"1"}""",
+                "com.klaviyo.url" to "klaviyotest://home?klaviyo-forms-preview=$previewToken"
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        assertEquals("klaviyotest://home", extras["com.klaviyo.url"])
+        assertEquals(mapOf("other" to "1"), eventSlot.captured[EventKey.CUSTOM("key_value_pairs")])
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `action button tap on a preview push starts the preview and dismisses the notification`() {
+        val sink = registerPreviewSink()
+        val notificationManager = mockk<NotificationManagerCompat>(relaxed = true)
+        mockkStatic(NotificationManagerCompat::class)
+        every { NotificationManagerCompat.from(any()) } returns notificationManager
+        val tag = "preview-button-tag"
+        val (intent) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to """{"tm":"preview-button-tap"}""",
+                "com.klaviyo.Button Link" to "klaviyotest://order?klaviyo-forms-preview=$previewToken",
+                Constants.NOTIFICATION_TAG_EXTRA to tag
+            )
+        )
+
+        try {
+            Klaviyo.handlePush(intent)
+
+            verify(exactly = 1) { sink.startPreview(previewToken) }
+            verify(exactly = 1) { notificationManager.cancel(tag, Constants.NOTIFICATION_ID) }
+        } finally {
+            unmockkStatic(NotificationManagerCompat::class)
+            Registry.unregister<FormsPreviewTokenSink>()
+        }
+    }
+
+    @Test
+    fun `opened push without a preview token does not touch forms`() {
+        val sink = registerPreviewSink()
+
+        Klaviyo.handlePush(mockIntent(previewPushExtras("""{"other":"1"}""")))
+
+        verify(exactly = 0) { sink.startPreview(any()) }
+        Registry.unregister<FormsPreviewTokenSink>()
     }
 }
