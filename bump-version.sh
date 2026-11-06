@@ -13,7 +13,7 @@ STRINGS_XML_PATH="sdk/core/src/main/res/values/strings.xml"
 VERSIONS_PROPERTIES_PATH="versions.properties"
 
 # Extract current build from versions.properties and increment
-currentVersion=$(xmllint --xpath "string(//string[@name='klaviyo_sdk_version_override'])" "$STRINGS_XML_PATH")
+currentVersion=$(sed -n 's|.*<string name="klaviyo_sdk_version_override">\([^<]*\)</string>.*|\1|p' "$STRINGS_XML_PATH")
 currentBuild=$(grep '^version.klaviyo.versionCode=' "$VERSIONS_PROPERTIES_PATH" | cut -d'=' -f2)
 nextBuild=$((currentBuild + 1))
 
