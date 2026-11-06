@@ -333,8 +333,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Dispatch next release branch
-        if: ${{ !inputs.dry_run && env.PRERELEASE != 'true' }}
+        if: ${{ !inputs.dry_run && !contains(env.VERSION, '-') }}
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh workflow run rel-branch.yml --repo "$GITHUB_REPOSITORY" --ref master -f "base=$VERSION"
           echo "Dispatched rel-branch.yml from $VERSION"
