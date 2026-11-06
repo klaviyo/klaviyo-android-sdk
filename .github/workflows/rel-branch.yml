@@ -3,7 +3,7 @@ name: Release Branch
 # Creates a rel/X.Y.Z branch from base (default master) containing the version bump commit.
 # Does nothing if that branch already exists.
 #
-# Run by hand, from the CLI (gh workflow run rel-branch.yml -f bump=minor), or from another workflow.
+# Run by hand or from the CLI (gh workflow run rel-branch.yml -f bump=minor).
 #
 # The weekday schedule (13:00 UTC, Mon-Fri) runs with the defaults: bump=minor, steps=1, base=master.
 # That keeps a branch for the next minor release open: e.g. with 4.6.0 released it creates rel/4.7.0,
@@ -29,35 +29,6 @@ on:
         type: string
         required: false
         default: master
-  workflow_call:
-    inputs:
-      bump:
-        description: Which part of the latest stable version to increment
-        type: string
-        default: minor
-      steps:
-        description: How many increments past the latest stable release
-        type: number
-        default: 1
-      version:
-        description: Explicit X.Y.Z, overrides bump and steps
-        type: string
-        required: false
-      base:
-        description: Branch, tag or sha to cut from
-        type: string
-        required: false
-        default: master
-    outputs:
-      version:
-        description: The release version
-        value: ${{ jobs.rel_branch.outputs.version }}
-      branch:
-        description: The release branch name
-        value: ${{ jobs.rel_branch.outputs.branch }}
-      created:
-        description: "true when this run created the branch, false when it already existed"
-        value: ${{ jobs.rel_branch.outputs.created }}
   schedule:
     - cron: '0 13 * * 1-5'
 
@@ -82,10 +53,6 @@ jobs:
     name: Create release branch
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    outputs:
-      version: ${{ steps.resolve.outputs.version }}
-      branch: ${{ steps.resolve.outputs.branch }}
-      created: ${{ steps.push.outputs.created }}
     steps:
       - name: Check out base
         id: checkout
