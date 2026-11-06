@@ -2,6 +2,7 @@ package com.klaviyo.analytics.networking.requests
 
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
+import com.klaviyo.analytics.model.EventKey
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.core.DeviceProperties
 import com.klaviyo.core.Registry
@@ -23,10 +24,16 @@ internal class EventApiRequest(
         const val PATH = "client/events"
         const val METRIC = "metric"
         const val NAME = "name"
-        const val VALUE = "value"
-        const val VALUE_CURRENCY = "value_currency"
+        const val ATTR_VALUE = "value"
+        const val ATTR_VALUE_CURRENCY = "value_currency"
         const val TIME = "time"
         const val UNIQUE_ID = "unique_id"
+
+        val RESERVED_PROPERTY_KEYS = setOf(
+            EventKey.VALUE.name,
+            EventKey.VALUE_CURRENCY.name,
+            EventKey.EVENT_ID.name
+        )
     }
 
     override var type: String = "Create Event"
@@ -49,9 +56,8 @@ internal class EventApiRequest(
         }
 
     constructor(event: Event, profile: Profile) : this() {
-        // Note: it'd be cleaner if we popped $value and and $event_id, so that they aren't included
-        // in the properties map too, but that would be a breaking change on the SDK side. The APIs
-        // may be updated to filter out reserved keys in the future, it already does for $event_id.
+        // Reserved keys are sent as top-level attributes, so leave them out of properties
+        val properties = event.toMap() - RESERVED_PROPERTY_KEYS
         body = jsonMapOf(
             DATA to mapOf(
                 TYPE to EVENT,
@@ -64,10 +70,10 @@ internal class EventApiRequest(
                         )
                     ),
                     UNIQUE_ID to event.uniqueId.let { if (it.isNullOrEmpty()) uuid else it },
-                    VALUE to event.value,
-                    VALUE_CURRENCY to event.valueCurrency,
+                    ATTR_VALUE to event.value,
+                    ATTR_VALUE_CURRENCY to event.valueCurrency,
                     TIME to Registry.clock.isoTime(queuedTime),
-                    PROPERTIES to event.toMap(),
+                    PROPERTIES to properties,
                     allowEmptyMaps = true
                 )
             )
